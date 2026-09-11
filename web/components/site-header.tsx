@@ -1,5 +1,6 @@
 "use client";
-import { BarChart3, Layers3, LogOut, Wrench } from "lucide-react";
+import Image from "next/image";
+import { BarChart3, Layers3, LogOut } from "lucide-react";
 export default function SiteHeader({
   active,
   email,
@@ -19,9 +20,7 @@ export default function SiteHeader({
     <>
       <header className="topbar">
         <a className="brand" href="/">
-          <span className="brand-icon">
-            <Wrench size={24} />
-          </span>
+          <Image className="rj-logo" src="/logo-rj.png" alt="RJ Compressores" width={444} height={312} unoptimized />
           <span>
             Histórico<span className="brand-small">EQUIPAMENTOS & PEÇAS</span>
           </span>

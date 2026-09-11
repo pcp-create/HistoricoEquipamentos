@@ -1940,3 +1940,22 @@ footer > span {
   font-size: 10px;
   margin-top: 5px;
 }
+
+/* Original RJ logo on the navy brand background. */
+.rj-logo {
+  display: block;
+  width: 88px;
+  height: auto;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.login-story .rj-logo {
+  width: 132px;
+}
+@media (max-width: 760px) {
+  .topbar .rj-logo { width: 66px; }
+  .topbar .brand { gap: 9px; font-size: 18px; }
+  .topbar .brand-small { font-size: 7px; letter-spacing: 1px; }
+  .login-story .rj-logo { width: 96px; }
+  .login-story .brand { font-size: 20px; }
+}

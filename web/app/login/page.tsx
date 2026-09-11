@@ -1,8 +1,8 @@
 "use client";
+import Image from "next/image";
 import { useState, type FormEvent } from "react";
 import {
   ArrowRight,
-  Wrench,
   ShieldCheck,
   LoaderCircle,
   Layers3,
@@ -38,9 +38,7 @@ export default function Login() {
     <main className="login">
       <section className="login-story">
         <div className="brand">
-          <span className="brand-icon">
-            <Wrench size={25} />
-          </span>
+          <Image className="rj-logo" src="/logo-rj.png" alt="RJ Compressores" width={444} height={312} unoptimized />
           <span>
             Histórico<span className="brand-small">EQUIPAMENTOS & PEÇAS</span>
           </span>
