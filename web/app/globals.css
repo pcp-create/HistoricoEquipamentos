@@ -2343,10 +2343,10 @@ footer > span {
   margin: 0;
   width: 140px;
 }
-.catalog-balance.available.positive .catalog-number {
+.catalog-balance.available.positive b {
   color: #21804a;
 }
-.catalog-balance.available.zero .catalog-number {
+.catalog-balance.available.zero b {
   color: #b43e35;
 }
 
@@ -2407,4 +2407,8 @@ footer > span {
 .catalog-company > a {
   display: block;
   margin-top: 4px;
+}
+
+.catalog-balance.stock-warning b {
+  color: #a77708;
 }

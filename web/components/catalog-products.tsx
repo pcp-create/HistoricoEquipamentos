@@ -11,11 +11,13 @@ function Balance({
   total,
   unit,
   available = false,
+  warning = false,
 }: {
   label: string;
   total: { value: number | null; complete: boolean };
   unit: string;
   available?: boolean;
+  warning?: boolean;
 }) {
   const state = !total.complete
     ? "unknown"
@@ -24,7 +26,8 @@ function Balance({
       : "zero";
   return (
     <span
-      className={`catalog-balance ${state}${available ? " available" : ""}`}
+      className={`catalog-balance ${state}${available ? " available" : ""}${warning ? " stock-warning" : ""}`}
+      title={warning ? "Estoque total maior que o disponível." : undefined}
     >
       <span>
         {label}
@@ -91,7 +94,18 @@ export default function CatalogProducts({
                   unit={p.unit}
                   available
                 />
-                <Balance label="Estoque total" total={p.stock} unit={p.unit} />
+                <Balance
+                  label="Estoque total"
+                  total={p.stock}
+                  unit={p.unit}
+                  warning={
+                    p.stock.complete &&
+                    p.available.complete &&
+                    p.stock.value !== null &&
+                    p.available.value !== null &&
+                    p.stock.value > p.available.value
+                  }
+                />
               </span>
               {!p.compatible && (
                 <small>

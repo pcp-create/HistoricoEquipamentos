@@ -166,7 +166,7 @@ test("catalog groups company balances in the closed card and lists genuine produ
       current: {
         unit: "UN",
         stock,
-        available: stock,
+        available: String(Math.max(0, Number(stock) - 1)),
         stock_at: now,
         available_at: now,
         price_at: now,
@@ -212,7 +212,7 @@ test("catalog groups company balances in the closed card and lists genuine produ
   await expect(genuine.locator("summary")).toContainText("ID 99 · 3 empresas");
   await expect(
     genuine.locator("summary .catalog-balance").first(),
-  ).toContainText("12 UN");
+  ).toContainText("9 UN");
   await expect(genuine.locator(".catalog-genuine")).toHaveText(
     "Referência fabricante (Genuína)",
   );
@@ -223,6 +223,24 @@ test("catalog groups company balances in the closed card and lists genuine produ
     (await cards.last().locator(".catalog-balance.zero").first().boundingBox())!
       .height,
   ).toBeLessThan(100);
+  await expect(genuine.locator(".catalog-balance.available b")).toHaveCSS(
+    "color",
+    "rgb(33, 128, 74)",
+  );
+  await expect(genuine.locator(".catalog-balance.stock-warning b")).toHaveText(
+    "12 UN",
+  );
+  await expect(genuine.locator(".catalog-balance.stock-warning b")).toHaveCSS(
+    "color",
+    "rgb(167, 119, 8)",
+  );
+  await expect(cards.last().locator(".catalog-balance.available b")).toHaveCSS(
+    "color",
+    "rgb(180, 62, 53)",
+  );
+  await expect(
+    cards.last().locator(".catalog-balance.stock-warning"),
+  ).toHaveCount(0);
   await genuine.locator("summary").click();
   await expect(
     genuine.getByRole("heading", { name: "Empresa 27404", exact: true }),
