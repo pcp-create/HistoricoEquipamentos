@@ -10,10 +10,12 @@ function Balance({
   label,
   total,
   unit,
+  available = false,
 }: {
   label: string;
   total: { value: number | null; complete: boolean };
   unit: string;
+  available?: boolean;
 }) {
   const state = !total.complete
     ? "unknown"
@@ -21,15 +23,22 @@ function Balance({
       ? "positive"
       : "zero";
   return (
-    <span className={`catalog-balance ${state}`}>
+    <span
+      className={`catalog-balance ${state}${available ? " available" : ""}`}
+    >
       <span>
         {label}
         {!total.complete && total.value !== null ? " conhecido" : ""}
       </span>
       <b>
-        {total.value === null
-          ? "A consultar"
-          : `${quantity(total.value)} ${unit}`}
+        {total.value === null ? (
+          "A consultar"
+        ) : (
+          <>
+            <span className="catalog-number">{quantity(total.value)}</span>{" "}
+            {unit}
+          </>
+        )}
       </b>
       {!total.complete && <em>Saldo incompleto</em>}
     </span>
@@ -57,23 +66,32 @@ export default function CatalogProducts({
         );
         return (
           <details className="manual-product" key={p.id}>
-            <summary>
-              <strong>{p.name || `Produto ${p.id}`}</strong>
-              <small>
-                ID {p.id} · {p.companies.length}{" "}
-                {p.companies.length === 1 ? "empresa" : "empresas"}
-              </small>
-              {p.fields.includes("referenciaFabricante") && (
-                <small className="catalog-genuine">
-                  Referência fabricante (Genuína)
+            <summary className="catalog-product-summary">
+              <span className="catalog-product-label">
+                <strong className="catalog-product-name">
+                  {p.name || `Produto ${p.id}`}
+                </strong>
+                <small>
+                  ID {p.id} · {p.companies.length}{" "}
+                  {p.companies.length === 1 ? "empresa" : "empresas"}
                 </small>
-              )}
-              {p.fields.includes("codigoSimilaridade") && (
-                <small>Código de similaridade</small>
-              )}
+                {p.fields.includes("referenciaFabricante") && (
+                  <small className="catalog-genuine">
+                    Referência fabricante (Genuína)
+                  </small>
+                )}
+                {p.fields.includes("codigoSimilaridade") && (
+                  <small>Código de similaridade</small>
+                )}
+              </span>
               <span className="catalog-stock-summary">
+                <Balance
+                  label="Disponível"
+                  total={p.available}
+                  unit={p.unit}
+                  available
+                />
                 <Balance label="Estoque total" total={p.stock} unit={p.unit} />
-                <Balance label="Disponível" total={p.available} unit={p.unit} />
               </span>
               {!p.compatible && (
                 <small>

@@ -2313,46 +2313,74 @@ footer > span {
   font-size: 11px;
 }
 
-.catalog-stock-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
+.catalog-product-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  align-items: start;
+  gap: 6px 12px;
+  list-style: none;
 }
-.catalog-balance {
-  display: flex;
-  flex: 1;
-  min-width: 105px;
-  flex-direction: column;
+.catalog-product-summary::-webkit-details-marker {
+  display: none;
+}
+.catalog-product-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.catalog-product-name::before {
+  content: "▸ ";
+  color: #7c8c9b;
+}
+.manual-product[open] .catalog-product-name::before {
+  content: "▾ ";
+}
+.catalog-product-summary > small {
+  grid-column: 1 / -1;
+}
+.catalog-stock-summary {
+  display: grid;
   gap: 3px;
-  padding: 9px 10px;
-  border-radius: 7px;
+  margin: 0;
+  width: 140px;
+}
+.catalog-balance.available.positive .catalog-number {
+  color: #21804a;
+}
+.catalog-balance.available.zero .catalog-number {
+  color: #b43e35;
+}
+
+.catalog-balance {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 6px;
+  padding: 4px 6px;
+  border: 1px solid #e4eaf0;
+  border-radius: 4px;
   font-size: 11px;
-  background: #eef2f6;
-  color: #486278;
+  line-height: 1.4;
+  background: #f7f9fb;
+  color: #64748b;
 }
 .catalog-balance b {
-  font-size: 16px;
-}
-.catalog-balance.positive {
-  background: #e2f3e9;
-  color: #17633c;
-}
-.catalog-balance.zero {
-  background: #fbe9e8;
-  color: #a62a22;
-}
-.catalog-balance.unknown {
-  background: #fff3dc;
-  color: #805b18;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
 }
 .catalog-balance em {
+  grid-column: 1 / -1;
   font-style: normal;
   font-size: 10px;
 }
+.manual-product summary > small,
+.catalog-product-label > small {
+  margin-top: 4px;
+  font-size: 11px;
+}
 .manual-product summary .catalog-genuine {
-  color: #185d91;
-  font-weight: 600;
+  color: #53697b;
+  font-weight: 500;
 }
 .manual-product summary .catalog-stale {
   color: #885f1a;
