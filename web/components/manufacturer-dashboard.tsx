@@ -2,20 +2,9 @@
 import { useEffect, useState } from "react";
 import { BookOpen, Search } from "lucide-react";
 import SiteHeader from "./site-header";
-import ProductPhotos from "./product-photos";
-import { PriceValues, StockValues } from "./product-values";
-import type { ProductCurrent } from "@/lib/product-values";
+import CatalogProducts from "./catalog-products";
+import type { CatalogProduct } from "@/lib/manufacturer/products";
 import type { Variant, SerialMatch } from "@/lib/manufacturer/rules";
-type Product = {
-  company_id: number;
-  product_id: string;
-  name: string;
-  reference: string;
-  similarity: string;
-  fields: string[];
-  match_total: number;
-  current?: ProductCurrent;
-};
 type Entry = {
   id: string;
   variant_id: string;
@@ -28,7 +17,7 @@ type Entry = {
   interval_original: string;
   issues: string[];
   match: SerialMatch;
-  products: Product[];
+  products: CatalogProduct[];
 };
 type Result = {
   email: string;
@@ -363,61 +352,10 @@ export default function ManufacturerDashboard() {
                                         importado.
                                       </span>
                                     ) : (
-                                      e.products.map((p) => (
-                                        <details
-                                          className="manual-product"
-                                          key={`${p.company_id}:${p.product_id}`}
-                                        >
-                                          <summary>
-                                            <strong>
-                                              {p.name ||
-                                                `Produto ${p.product_id}`}
-                                            </strong>
-                                            <small>
-                                              Empresa {p.company_id} · ID{" "}
-                                              {p.product_id}
-                                            </small>
-                                            <small>
-                                              {p.fields
-                                                .map((f) =>
-                                                  f === "codigoSimilaridade"
-                                                    ? "Código de similaridade"
-                                                    : "Referência do fabricante",
-                                                )
-                                                .join(" + ")}
-                                            </small>
-                                          </summary>
-                                          <p>
-                                            Referência: {p.reference || "—"}
-                                            <br />
-                                            Similaridade: {p.similarity || "—"}
-                                          </p>
-                                          <ProductPhotos
-                                            company={p.company_id}
-                                            id={p.product_id}
-                                            name={p.name}
-                                          />
-                                          <StockValues current={p.current} />
-                                          <PriceValues current={p.current} />
-                                          <a
-                                            href={historyLink(
-                                              p.company_id,
-                                              serial,
-                                              p.product_id,
-                                            )}
-                                          >
-                                            Consultar histórico deste produto
-                                            {serial ? " nesta série" : ""}
-                                          </a>
-                                        </details>
-                                      ))
-                                    )}
-                                    {e.products[0]?.match_total > 8 && (
-                                      <small>
-                                        Exibindo 8 de{" "}
-                                        {e.products[0].match_total} vínculos.
-                                        Filtre por empresa.
-                                      </small>
+                                      <CatalogProducts
+                                        products={e.products}
+                                        serial={serial}
+                                      />
                                     )}
                                   </td>
                                 </tr>

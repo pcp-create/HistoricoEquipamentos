@@ -104,13 +104,25 @@ export async function manufacturerCatalog(f: ManualFilters) {
   const codes = [...new Set(rows.map((r) => r.code).filter(Boolean))];
   const products = (
     await db.query(
-      `WITH grouped AS (
- SELECT x.code,c.company_id,c.product_id::text,c.name,c.unit,c.payload->>'referenciaFabricante' AS reference,c.payload->>'codigoSimilaridade' AS similarity,array_agg(DISTINCT x.field ORDER BY x.field) AS fields
- FROM manufacturer_product_codes x JOIN m8_product_catalog c USING(company_id,product_id)
+      `WITH matched AS (
+ SELECT x.code,x.company_id,x.product_id,array_agg(DISTINCT x.field ORDER BY x.field) AS fields
+ FROM manufacturer_product_codes x
  WHERE x.code=ANY($1::text[]) AND ($2::bigint IS NULL OR x.company_id=$2) AND x.company_id IN (1,2,27404)
- GROUP BY x.code,c.company_id,c.product_id,c.name,c.unit,c.payload
- ), ranked AS (SELECT *,count(*) OVER(PARTITION BY code)::int AS match_total,row_number() OVER(PARTITION BY code ORDER BY company_id,product_id) AS rank FROM grouped)
- SELECT * FROM ranked WHERE rank<=8 ORDER BY code,rank`,
+ GROUP BY x.code,x.company_id,x.product_id
+ ), identities AS (
+ SELECT code,product_id,bool_or('referenciaFabricante'=ANY(fields)) AS genuine
+ FROM matched GROUP BY code,product_id
+ ), ranked AS (
+ SELECT *,count(*) OVER(PARTITION BY code)::int AS match_total,
+ row_number() OVER(PARTITION BY code ORDER BY genuine DESC,product_id) AS rank FROM identities
+ )
+ SELECT r.code,c.company_id,c.product_id::text,c.name,c.unit,
+ c.payload->>'referenciaFabricante' AS reference,c.payload->>'codigoSimilaridade' AS similarity,
+ COALESCE(m.fields,ARRAY[]::text[]) AS fields,r.match_total
+ FROM ranked r JOIN m8_product_catalog c ON c.product_id=r.product_id
+ LEFT JOIN matched m ON m.code=r.code AND m.company_id=c.company_id AND m.product_id=c.product_id
+ WHERE r.rank<=8 AND c.company_id IN (1,2,27404) AND ($2::bigint IS NULL OR c.company_id=$2)
+ ORDER BY r.code,r.rank,c.company_id`,
       [codes, f.company || null],
     )
   ).rows;

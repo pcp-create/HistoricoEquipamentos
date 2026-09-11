@@ -182,6 +182,43 @@ test("catalog SQL indexes exact multi-code references, refreshes on M8 updates a
     assert.deepEqual(catalog.rows[0].products[0].fields, [
       "referenciaFabricante",
     ]);
+    // Limit distinct products after prioritizing genuine references, then expand all company balances.
+    await db.exec(`INSERT INTO m8_product_catalog(company_id,product_id,name,unit,collected_at,payload)
+      SELECT company,product,'Peça teste','UN',now(),jsonb_build_object(CASE WHEN product=99 THEN 'referenciaFabricante' ELSE 'codigoSimilaridade' END,'0367010055')
+      FROM unnest(ARRAY[1,2,27404]) company CROSS JOIN unnest(ARRAY[20,21,22,23,24,25,26,27,28,29,99]) product;
+      UPDATE m8_product_catalog SET payload='{}' WHERE company_id=27404 AND product_id=99;`);
+    const grouped = await manufacturerCatalog(
+      manualFilters(new URLSearchParams("q=0367010055")),
+    );
+    const matches = grouped.rows[0].products;
+    assert.equal(
+      new Set(matches.map((p: { product_id: string }) => p.product_id)).size,
+      8,
+    );
+    assert.equal(matches[0].product_id, "10");
+    assert.equal(matches[2].product_id, "99");
+    assert.equal(
+      matches.filter((p: { product_id: string }) => p.product_id === "99")
+        .length,
+      3,
+    );
+    assert.equal(
+      matches.find(
+        (p: { product_id: string; company_id: number }) =>
+          p.product_id === "99" && Number(p.company_id) === 27404,
+      ).fields.length,
+      0,
+    );
+    assert.equal(matches[0].match_total, 12);
+    const companyOnly = await manufacturerCatalog(
+      manualFilters(new URLSearchParams("q=0367010055&company=2")),
+    );
+    assert(
+      companyOnly.rows[0].products.every(
+        (p: { company_id: number }) => Number(p.company_id) === 2,
+      ),
+    );
+    assert.equal(companyOnly.rows[0].products[0].product_id, "99");
     await db.exec(`INSERT INTO m8_ordens_servico(company_id,id_m8,numero_serie,status,payload) VALUES (1,1,'BRP-060001','Processado','{}'),(2,2,'BRP060001','Processado','{}'),(1,3,'XBRP060001','Processado','{}'),(1,4,'BRP060001','Processado','{}');
  INSERT INTO integracao_m8_os_sync(company_id,ordem_servico_id,inventory_seen_at,finalized,pending,last_detail_at) SELECT company_id,id_m8,now(),true,false,now() FROM m8_ordens_servico;
  UPDATE integracao_m8_os_sync SET pending=true,finalized=false WHERE ordem_servico_id=4;

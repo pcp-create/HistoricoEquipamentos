@@ -2312,3 +2312,71 @@ footer > span {
   margin-top: 16px;
   font-size: 11px;
 }
+
+.catalog-stock-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.catalog-balance {
+  display: flex;
+  flex: 1;
+  min-width: 105px;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 10px;
+  border-radius: 7px;
+  font-size: 11px;
+  background: #eef2f6;
+  color: #486278;
+}
+.catalog-balance b {
+  font-size: 16px;
+}
+.catalog-balance.positive {
+  background: #e2f3e9;
+  color: #17633c;
+}
+.catalog-balance.zero {
+  background: #fbe9e8;
+  color: #a62a22;
+}
+.catalog-balance.unknown {
+  background: #fff3dc;
+  color: #805b18;
+}
+.catalog-balance em {
+  font-style: normal;
+  font-size: 10px;
+}
+.manual-product summary .catalog-genuine {
+  color: #185d91;
+  font-weight: 600;
+}
+.manual-product summary .catalog-stale {
+  color: #885f1a;
+}
+.catalog-company {
+  border-top: 1px solid #d5e2eb;
+  padding-top: 12px;
+  margin-top: 14px;
+}
+.catalog-company h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.catalog-reference,
+.catalog-similarity {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.catalog-stock-scope {
+  font-size: 11px;
+  color: #526b80;
+}
+
+.catalog-company > a {
+  display: block;
+  margin-top: 4px;
+}
