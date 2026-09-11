@@ -110,6 +110,7 @@ test("history UI: search, filters, views, detail, pagination, export, empty/erro
     route.fulfill({
       json: {
         order: {
+          company_id: 1,
           id_m8: 14681,
           cliente_nome: "Indústria Horizonte Ltda",
           equipamento: "Compressor de ar",
@@ -132,6 +133,15 @@ test("history UI: search, filters, views, detail, pagination, export, empty/erro
         ],
         equipment: [{ numero_serie: "SN123456", horimetro: "1500" }],
         detail_at: "2026-09-11T02:42:00Z",
+      },
+    }),
+  );
+  await page.route("**/api/products/1/5/images", (route) =>
+    route.fulfill({
+      json: {
+        images: [],
+        unsupported: 0,
+        collectedAt: new Date().toISOString(),
       },
     }),
   );
@@ -175,6 +185,20 @@ test("history UI: search, filters, views, detail, pagination, export, empty/erro
   await expect(
     page.getByRole("dialog").getByText("Excluído da OS"),
   ).toBeVisible();
+  await page.locator(".material-detail > summary").click();
+  await page
+    .locator(".detail-dialog")
+    .getByRole("button", { name: "Ver fotos" })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Fotos de Filtro de óleo" }),
+  ).toBeVisible();
+  await expect(page.getByText("Produto sem foto cadastrada.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".detail-dialog")).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "Fotos de Filtro de óleo" }),
+  ).not.toBeVisible();
   await page.getByText("Todos os campos da OS").click();
   await expect(page.getByText("Vedação revisada")).toBeVisible();
   await page.keyboard.press("Escape");

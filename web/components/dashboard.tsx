@@ -2,6 +2,7 @@
 import { PriceValues, StockValues, SoldValues } from "./product-values";
 import type { ProductCurrent } from "@/lib/product-values";
 import SiteHeader from "./site-header";
+import ProductPhotos from "./product-photos";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowDown,
@@ -714,6 +715,11 @@ export default function Dashboard() {
                                 Ref. fabricante:{" "}
                                 {row.reference || "Não informada"}
                               </small>
+                              <ProductPhotos
+                                company={row.company_id}
+                                id={row.product_id}
+                                name={row.material}
+                              />
                             </td>
                             <td className="numeric">
                               {row.quantity == null
@@ -987,6 +993,11 @@ export default function Dashboard() {
                         <ChevronDown size={15} />
                       </span>
                     </summary>
+                    <ProductPhotos
+                      company={detail.order.company_id}
+                      id={p.produto_id}
+                      name={p.produto_nome}
+                    />
                     <div className="product-detail-current">
                       <div>
                         <h4>Preços atuais</h4>

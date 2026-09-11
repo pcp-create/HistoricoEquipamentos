@@ -105,3 +105,13 @@ As consultas por material, detalhes da OS e análise exibem preços atuais do ca
 ## Catálogo do fabricante
 
 A rota `/fabricante` pesquisa peças da planilha e relaciona os códigos às referências e aos códigos de similaridade do M8. Informando empresa e série completa, exibe também os materiais das OS associadas. A importação, atualização de revisões e os critérios de correspondência estão em [Catálogo do fabricante](../docs/catalogo-fabricante.md).
+
+## Fotos dos produtos M8
+
+O botão **Ver fotos** aparece na consulta por material, no detalhe dos materiais da OS e nos produtos M8 relacionados ao catálogo do fabricante. As fotos são carregadas somente ao abrir a galeria, com navegação e fechamento por Escape. A identificação informa produto e empresa: a foto é do cadastro M8, não uma imagem proveniente da planilha.
+
+Configure também no servidor web/Vercel as variáveis `M8_API_URL`, `M8_TENANT`, `M8_USERNAME`, `M8_PASSWORD` e `M8_DOMAIN`, com os mesmos valores usados pelo integrador. Elas não usam prefixo `NEXT_PUBLIC`. As credenciais locais já foram copiadas para o arquivo privado `web/.env.local`. Alterações nas variáveis da Vercel exigem novo deploy. As empresas 1, 2 e 27404 são autenticadas separadamente; `M8_COMPANY` não determina a empresa da foto, que vem do produto selecionado.
+
+A rota autenticada `/api/products/{company}/{id}/images` consulta `GET /v1/estoque/produto/{produtoId}/imagem`. O retorno real confirmado é uma lista `data` com `formato` e `imagem` em Base64. O backend valida os bytes, disponibiliza cada imagem por uma URL interna autenticada e não envia tokens M8 ao navegador. URLs externas e SVG não são aceitos. JPEG, PNG, GIF e WebP são exibidos, com limite de 3 MB por imagem e 16 MB para a resposta M8; itens incompatíveis são sinalizados.
+
+O cache é temporário, em memória de cada instância do servidor web: até 10 minutos para fotos e 2 minutos para resultados vazios, com limite total de 32 MB/32 produtos. Requisições simultâneas do mesmo produto e empresa compartilham a consulta. Instâncias novas ou diferentes podem consultar novamente o M8. As respostas ao navegador usam `private, no-store`, inclusive os bytes das fotos. Não há armazenamento no Supabase, migration, timer novo ou atualização do integrador para instalar no servidor Linux.

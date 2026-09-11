@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { BookOpen, Search } from "lucide-react";
 import SiteHeader from "./site-header";
+import ProductPhotos from "./product-photos";
 import { PriceValues, StockValues } from "./product-values";
 import type { ProductCurrent } from "@/lib/product-values";
 import type { Variant, SerialMatch } from "@/lib/manufacturer/rules";
@@ -391,6 +392,11 @@ export default function ManufacturerDashboard() {
                                             <br />
                                             Similaridade: {p.similarity || "—"}
                                           </p>
+                                          <ProductPhotos
+                                            company={p.company_id}
+                                            id={p.product_id}
+                                            name={p.name}
+                                          />
                                           <StockValues current={p.current} />
                                           <PriceValues current={p.current} />
                                           <a
