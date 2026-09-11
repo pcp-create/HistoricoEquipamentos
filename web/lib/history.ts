@@ -1,3 +1,4 @@
+import { currentProducts } from "./product-current";
 import "server-only";
 import { database } from "./db";
 import { escapeLike, fold, type Filters } from "./filters";
@@ -106,7 +107,18 @@ export async function history(filters: Filters, exporting = false) {
     LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
     [...values, size, (page - 1) * size],
   );
-  return { rows: rows.rows, total, page, size, view: filters.view };
+  const current =
+    filters.view === "materials" ? await currentProducts(rows.rows) : new Map();
+  return {
+    rows: rows.rows.map((row) => ({
+      ...row,
+      current: current.get(`${row.company_id}:${row.product_id}`),
+    })),
+    total,
+    page,
+    size,
+    view: filters.view,
+  };
 }
 
 export async function overview() {
@@ -132,5 +144,17 @@ export async function orderDetail(company: string, id: string) {
     FROM public.m8_ordens_servico o WHERE o.company_id=$1 AND o.id_m8=$2`,
     [company, id],
   );
-  return result.rows[0] || null;
+  const detail = result.rows[0];
+  if (!detail) return null;
+  const current = await currentProducts(
+    detail.materials.map((p: { produto_id: string }) => ({
+      company_id: Number(company),
+      product_id: p.produto_id,
+    })),
+  );
+  detail.materials = detail.materials.map((p: { produto_id: string }) => ({
+    ...p,
+    current: current.get(`${company}:${p.produto_id}`),
+  }));
+  return detail;
 }

@@ -28,6 +28,17 @@ const sampleRows = Array.from({ length: 8 }, (_, i) => ({
   unit: "UN",
   item_id: String(i),
   is_excluded: i === 1,
+  current: {
+    unit: "UN",
+    sale_price: "1000",
+    minimum_price: "800",
+    stock: "12",
+    available: "9",
+    stock_value: "1200",
+    price_at: new Date().toISOString(),
+    stock_at: new Date().toISOString(),
+    available_at: new Date().toISOString(),
+  },
 }));
 test("authentication is enforced on page, search, export and detail API", async ({
   page,
@@ -134,6 +145,21 @@ test("history UI: search, filters, views, detail, pagination, export, empty/erro
   });
   await page.getByRole("button", { name: "Por material", exact: true }).click();
   await expect(page.locator("table .excluded-description")).toHaveCount(1);
+  await expect(
+    page.getByRole("columnheader", { name: "Preços atuais", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator("table")
+      .getByText(/Abaixo do mínimo atual/)
+      .first(),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator("table")
+      .getByText(/Disponível:/)
+      .first(),
+  ).toBeVisible();
   await expect(page.locator("table .excluded-description")).toHaveCSS(
     "color",
     "rgb(180, 35, 24)",

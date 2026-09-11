@@ -1,3 +1,4 @@
+import { currentProducts } from "./product-current";
 import "server-only";
 import { database } from "./db";
 import {
@@ -65,6 +66,15 @@ export async function materialAnalysis(
       filters.page,
       Math.max(1, Math.ceil(planned.length / filters.size)),
     );
+    const current = await currentProducts(
+      exporting
+        ? planned
+        : planned.slice((page - 1) * filters.size, page * filters.size),
+    );
+    const enriched = planned.map((row) => ({
+      ...row,
+      current: current.get(`${row.company_id}:${row.product_id}`),
+    }));
     return {
       filters,
       coverage: c.rows,
@@ -75,8 +85,8 @@ export async function materialAnalysis(
       page,
       size: filters.size,
       rows: exporting
-        ? planned
-        : planned.slice((page - 1) * filters.size, page * filters.size),
+        ? enriched
+        : enriched.slice((page - 1) * filters.size, page * filters.size),
       summary: {
         materials: planned.length,
         estimable: planned.filter((r) => r.minimum !== null).length,

@@ -1,4 +1,5 @@
 "use client";
+import { PriceValues, StockValues } from "./product-values";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowDownToLine,
@@ -501,6 +502,8 @@ export default function MaterialDashboard() {
                   <th className="numeric">OS distintas</th>
                   <th className="numeric">Média / 30 dias</th>
                   <th>Última aplicação</th>
+                  <th>Preços atuais</th>
+                  <th>Estoque atual da empresa</th>
                   <th className="numeric">
                     Mínimo sugerido<small>Ponto de pedido</small>
                   </th>
@@ -516,7 +519,7 @@ export default function MaterialDashboard() {
                 {loading
                   ? Array.from({ length: 5 }, (_, i) => (
                       <tr className="skeleton-row" key={i}>
-                        {Array.from({ length: 10 }, (_, j) => (
+                        {Array.from({ length: 12 }, (_, j) => (
                           <td key={j}>
                             <span className="skeleton" />
                           </td>
@@ -552,6 +555,12 @@ export default function MaterialDashboard() {
                         </td>
                         <td className="numeric">{n(r.monthly)}</td>
                         <td className="nowrap">{date(r.last_used)}</td>
+                        <td>
+                          <PriceValues current={r.current} />
+                        </td>
+                        <td>
+                          <StockValues current={r.current} />
+                        </td>
                         {r.reason ? (
                           <td colSpan={2} className="planning-blocked">
                             <span>
@@ -651,8 +660,10 @@ export default function MaterialDashboard() {
               de período e aplicação em 3 dias distintos.
             </p>
             <p>
-              Os resultados orientam a revisão do cadastro. Não consideram saldo
-              atual, pedidos de compra, consumo fora das OS, lotes de compra ou
+              Os saldos exibidos são atuais e somam os estabelecimentos da
+              empresa. As sugestões de mínimo e máximo são níveis alvo; não são
+              uma quantidade de compra. Os cálculos não consideram saldo atual,
+              pedidos de compra, consumo fora das OS, lotes de compra ou
               sazonalidade e não geram pedidos automaticamente. Produtos sem
               aplicação no período não entram no ranking.
             </p>

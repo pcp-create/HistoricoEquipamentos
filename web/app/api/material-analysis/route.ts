@@ -45,6 +45,15 @@ export async function GET(request: Request) {
         "Revisão (dias)",
         "OS processadas na empresa",
         "OS completas na empresa",
+        "Estoque atual da empresa",
+        "Disponível atual da empresa",
+        "Unidade do estoque",
+        "Valor estimado a custo médio",
+        "Preço de venda atual",
+        "Preço mínimo atual",
+        "Preços verificados em",
+        "Estoque coletado em",
+        "Disponível coletado em",
       ];
       const lines = data.rows.map((r) => {
         const c = data.coverage.find((c) => c.company_id === r.company_id);
@@ -70,6 +79,15 @@ export async function GET(request: Request) {
           filters.review,
           c?.eligible,
           c?.complete,
+          r.current?.stock,
+          r.current?.available,
+          r.current?.unit,
+          r.current?.stock_value,
+          r.current?.sale_price,
+          r.current?.minimum_price,
+          r.current?.price_at,
+          r.current?.stock_at,
+          r.current?.available_at,
         ]
           .map(csvCell)
           .join(";");
@@ -91,7 +109,10 @@ export async function GET(request: Request) {
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
-    const code = error instanceof Unauthorized ? undefined : logDataError("material-analysis", error);
+    const code =
+      error instanceof Unauthorized
+        ? undefined
+        : logDataError("material-analysis", error);
     return NextResponse.json(
       {
         code,

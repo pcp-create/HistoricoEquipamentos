@@ -9,9 +9,14 @@ export class M8Client {
     this.auth = new M8Auth(config, company, transport, Date.now, pause);
   }
   async get(path: string, params: Record<string, string | number | boolean>): Promise<unknown> {
+    return this.getMany(path, params);
+  }
+  async getMany(path: string, params: Record<string, string | number | boolean | readonly (string | number)[]>): Promise<unknown> {
     if (!path.startsWith('/v1/') || path.includes('..')) throw new SafeError('Endpoint M8 inválido');
     const url = new URL(this.config.baseUrl + path);
-    for (const [key, value] of Object.entries(params)) url.searchParams.set(key, String(value));
+    for (const [key, value] of Object.entries(params)) {
+      for (const item of Array.isArray(value) ? value : [value]) url.searchParams.append(key, String(item));
+    }
     for (let replay = 0; replay < 2; replay++) {
       const token = await this.auth.getToken();
       const response = await requestWithRetry(url.toString(), { headers: { Authorization: `Bearer ${token}` } }, this.config, this.transport, this.pause);

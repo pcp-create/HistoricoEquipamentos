@@ -1,3 +1,4 @@
+import type { ProductCurrent } from "./product-values";
 import { fold, parseFilters } from "./filters";
 
 export interface AnalysisFilters {
@@ -35,6 +36,7 @@ export interface Coverage {
   undated: number;
 }
 export interface PlannedMaterial extends Consumption {
+  current?: ProductCurrent;
   daily: number;
   monthly: number;
   frequency_monthly: number;

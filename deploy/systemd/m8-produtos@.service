@@ -1,0 +1,22 @@
+[Unit]
+Description=Sincronizacao M8 produtos (%i)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=m8-integrador
+Group=m8-integrador
+WorkingDirectory=/opt/m8-integrador
+ExecStart=/usr/bin/node /opt/m8-integrador/dist/scripts/syncProducts.js %i
+TimeoutStartSec=infinity
+TimeoutStopSec=90
+KillSignal=SIGTERM
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=m8-produtos-%i

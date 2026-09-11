@@ -1,4 +1,6 @@
 "use client";
+import { PriceValues, StockValues, SoldValues } from "./product-values";
+import type { ProductCurrent } from "@/lib/product-values";
 import SiteHeader from "./site-header";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
@@ -27,6 +29,7 @@ import {
 } from "lucide-react";
 
 type Row = {
+  current?: ProductCurrent;
   company_id: number;
   id: string;
   number: string;
@@ -618,6 +621,9 @@ export default function Dashboard() {
                     <>
                       <th>Material aplicado</th>
                       <th className="numeric">Qtd.</th>
+                      <th>Venda na OS / unidade</th>
+                      <th>Preços atuais</th>
+                      <th>Estoque atual da empresa</th>
                     </>
                   ) : (
                     <th className="numeric">Materiais</th>
@@ -634,7 +640,7 @@ export default function Dashboard() {
                   ? Array.from({ length: 6 }, (_, i) => (
                       <tr key={i} className="skeleton-row">
                         {Array.from(
-                          { length: view === "materials" ? 10 : 9 },
+                          { length: view === "materials" ? 13 : 9 },
                           (_, j) => (
                             <td key={j}>
                               <span className="skeleton" />
@@ -716,6 +722,21 @@ export default function Dashboard() {
                               <small className="cell-secondary">
                                 {row.unit}
                               </small>
+                            </td>
+                            <td>
+                              <SoldValues
+                                amount={row.amount}
+                                quantity={row.quantity}
+                                unit={row.unit}
+                                current={row.current}
+                                excluded={row.is_excluded}
+                              />
+                            </td>
+                            <td>
+                              <PriceValues current={row.current} />
+                            </td>
+                            <td>
+                              <StockValues current={row.current} />
                             </td>
                           </>
                         ) : (
@@ -842,6 +863,8 @@ export default function Dashboard() {
             {overview && overview.imported < overview.orders
               ? "A base está sendo preenchida. Algumas OS ainda aguardam a importação dos materiais."
               : "Os dados refletem a última coleta do integrador."}{" "}
+            Preços e saldos são atuais, somados por empresa entre
+            estabelecimentos; não representam o saldo ou preço na data da OS.
             Materiais excluídos da OS aparecem em vermelho e não entram na
             análise de consumo.
           </span>
@@ -947,6 +970,20 @@ export default function Dashboard() {
                         <ChevronDown size={15} />
                       </span>
                     </summary>
+                    <div className="product-detail-current">
+                      <div>
+                        <h4>Preços atuais</h4>
+                        <PriceValues
+                          current={p.current as ProductCurrent | undefined}
+                        />
+                      </div>
+                      <div>
+                        <h4>Estoque atual da empresa</h4>
+                        <StockValues
+                          current={p.current as ProductCurrent | undefined}
+                        />
+                      </div>
+                    </div>
                     <FieldList fields={p} />
                   </details>
                 ))
@@ -1013,16 +1050,20 @@ function Stat({
 function FieldList({ fields }: { fields: Record<string, unknown> }) {
   return (
     <dl className="field-list">
-      {Object.entries(fields).map(([key, value]) => (
-        <div key={key}>
-          <dt>{key.replaceAll("_", " ")}</dt>
-          <dd>
-            {/^(data_|emissao|sincronizado_em|created_at|updated_at)/.test(key)
-              ? date(value, true)
-              : shown(value)}
-          </dd>
-        </div>
-      ))}
+      {Object.entries(fields)
+        .filter(([key]) => key !== "current")
+        .map(([key, value]) => (
+          <div key={key}>
+            <dt>{key.replaceAll("_", " ")}</dt>
+            <dd>
+              {/^(data_|emissao|sincronizado_em|created_at|updated_at)/.test(
+                key,
+              )
+                ? date(value, true)
+                : shown(value)}
+            </dd>
+          </div>
+        ))}
     </dl>
   );
 }

@@ -1,0 +1,10 @@
+[Unit]
+Description=Atualizacao M8 produtos catalog
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=15min
+Unit=m8-produtos@catalog.service
+
+[Install]
+WantedBy=timers.target

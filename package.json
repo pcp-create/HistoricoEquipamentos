@@ -23,7 +23,9 @@
     "sync:cycle": "tsx src/scripts/syncCycle.ts",
     "sync:status": "tsx src/scripts/syncStatus.ts",
     "web:dev": "npm --prefix web run dev",
-    "web:build": "npm --prefix web run build"
+    "web:build": "npm --prefix web run build",
+    "sync:products": "tsx src/scripts/syncProducts.ts",
+    "sync:products:status": "tsx src/scripts/productStatus.ts"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

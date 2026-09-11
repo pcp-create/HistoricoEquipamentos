@@ -1,3 +1,4 @@
+import { priceComparison } from "@/lib/product-values";
 import { logDataError } from "@/lib/data-error";
 import { NextResponse } from "next/server";
 import { requireUser, Unauthorized } from "@/lib/auth";
@@ -27,6 +28,30 @@ export async function GET(request: Request) {
     const exporting = params.get("export") === "csv";
     const result = await history(filters, exporting);
     if (exporting) {
+      result.rows = result.rows.map((row) => {
+        const comparison = priceComparison(
+          row.amount,
+          row.quantity,
+          row.unit,
+          row.current,
+          row.is_excluded,
+        );
+        return {
+          ...row,
+          sale_price: row.current?.sale_price,
+          minimum_price: row.current?.minimum_price,
+          stock: row.current?.stock,
+          available: row.current?.available,
+          stock_value: row.current?.stock_value,
+          stock_unit: row.current?.unit,
+          price_at: row.current?.price_at,
+          stock_at: row.current?.stock_at,
+          available_at: row.current?.available_at,
+          effective_unit: comparison.effective,
+          minimum_difference: comparison.difference,
+          minimum_percent: comparison.percent,
+        };
+      });
       const columns = {
         company_id: "Empresa",
         id: "ID OS",
@@ -47,6 +72,18 @@ export async function GET(request: Request) {
               product_id: "Código do produto",
               quantity: "Quantidade",
               unit: "Unidade",
+              effective_unit: "Total do item dividido pela quantidade",
+              sale_price: "Preço de venda atual",
+              minimum_price: "Preço mínimo atual",
+              minimum_difference: "Diferença do mínimo atual (R$)",
+              minimum_percent: "Diferença do mínimo atual (%)",
+              stock: "Estoque atual da empresa",
+              available: "Estoque disponível atual da empresa",
+              stock_unit: "Unidade do estoque",
+              stock_value: "Valor estimado a custo médio",
+              price_at: "Preços verificados em",
+              stock_at: "Estoque coletado em",
+              available_at: "Disponível coletado em",
             }
           : {
               materials: "Itens de material",

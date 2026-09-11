@@ -237,3 +237,7 @@ Na consulta real de 2026-09-11 foram encontrados **12.650 IDs distintos**, maior
 Essa listagem permite substituir a sondagem de números por uma fila de IDs realmente existentes. Regra para a próxima rotina automática: comparar o inventário com o banco; buscar detalhes de IDs ausentes e OS cuja última versão completa persistida ainda não seja `Processado`; ao receber a versão final, gravar OS+filhos em transação antes de retirá-la da revisão frequente. Uma OS nova já processada também precisa de importação completa. As OS canceladas continuam revisáveis, pois somente `Processado` foi confirmado como imutável pelo usuário.
 
 O comando de inventário já está disponível; a fila automática e seu agendamento ainda não foram implementados. A varredura por faixa iniciada anteriormente mantém o limite 14681 até a substituição controlada por esse fluxo. Novos IDs acima desse limite não devem ser considerados cobertos por aquela carga.
+
+## Extensão de produtos, preços e estoque
+
+Migrations 006/007 adicionam cadastro, histórico observado de preços, snapshots por estabelecimento, filas e índice de consulta. Comandos `sync:products -- catalog|available|detail` e `sync:products:status`. Instalação dos novos serviços, intervalos e limitações: [guia de atualização do servidor](docs/atualizacao-produtos.md).

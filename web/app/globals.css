@@ -1959,3 +1959,8 @@ footer > span {
   .login-story .rj-logo { width: 96px; }
   .login-story .brand { font-size: 20px; }
 }
+
+.product-values { min-width: 190px; display: grid; gap: 5px; white-space: normal; font-size: 12px; }
+.product-values small { line-height: 1.4; }
+.product-detail-current { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 20px; padding: 18px; background: #f3f7fb; }
+.product-detail-current h4 { margin: 0 0 12px; }
