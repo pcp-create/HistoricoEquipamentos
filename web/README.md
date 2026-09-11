@@ -91,3 +91,9 @@ O mínimo segue a lógica de consumo durante o prazo de reposição mais reserva
 As consultas de cobertura e consumo usam uma mesma transação de leitura com snapshot consistente, enquanto o integrador continua trabalhando. Não foi necessária uma nova migration. As premissas e filtros ficam na URL; não são gravados como política oficial por produto.
 
 Materiais excluídos da OS permanecem na consulta histórica, com descrição em vermelho e indicação “Excluído da OS”, inclusive nos detalhes. O CSV informa a situação do material. A contagem de materiais por OS inclui os excluídos e informa quantos são; o indicador geral de itens ativos continua considerando apenas os ativos. Os excluídos não entram no consumo nem nas sugestões de estoque mínimo e máximo.
+
+### Diagnóstico de consulta na Vercel
+
+O login usa Supabase Auth; consultar dados exige também `DATABASE_URL` no ambiente do deployment. Depois de alterar variáveis, faça um novo deploy. Use o mesmo valor funcional de `web/.env.local`, sem copiar aspas externas ou o prefixo `DATABASE_URL=`. O site verifica TLS usando `certs/supabase-ca.crt`; não adicione parâmetros `ssl*` à URL.
+
+As APIs registram apenas códigos seguros nos logs de execução e na resposta JSON (`code`), sem credenciais nem SQL. `DATABASE_URL_MISSING`: variável ausente; `DATABASE_URL_SSL_PARAMETERS`: parâmetros TLS na URL; `28P01`: autenticação do banco; `ENOENT`: arquivo de certificado ausente; `ENETUNREACH`/`ETIMEDOUT`/`DATABASE_TIMEOUT`: conectividade ou tempo limite; `42P01`/`42703`: tabela/coluna ausente, confira banco e migrations. Consulte o código em Logs na Vercel após reproduzir o erro. Códigos genéricos exigem investigação adicional; não indicam uma causa confirmada.

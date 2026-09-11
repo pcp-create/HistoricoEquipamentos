@@ -1,3 +1,4 @@
+import { logDataError } from "@/lib/data-error";
 import { NextResponse } from "next/server";
 import { requireUser, Unauthorized } from "@/lib/auth";
 import { orderDetail } from "@/lib/history";
@@ -18,8 +19,10 @@ export async function GET(
       },
     );
   } catch (error) {
+    const code = error instanceof Unauthorized ? undefined : logDataError("order-detail", error);
     return NextResponse.json(
       {
+        code,
         error:
           error instanceof Unauthorized
             ? "Sessão expirada."

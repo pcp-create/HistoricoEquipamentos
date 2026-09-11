@@ -1,3 +1,4 @@
+import { logDataError } from "@/lib/data-error";
 import { NextResponse } from "next/server";
 import { requireUser, Unauthorized } from "@/lib/auth";
 import { parseAnalysis } from "@/lib/material-planning";
@@ -90,8 +91,10 @@ export async function GET(request: Request) {
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
+    const code = error instanceof Unauthorized ? undefined : logDataError("material-analysis", error);
     return NextResponse.json(
       {
+        code,
         error:
           error instanceof Unauthorized
             ? "Sua sessão expirou. Entre novamente."

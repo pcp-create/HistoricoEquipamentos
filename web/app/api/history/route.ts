@@ -1,3 +1,4 @@
+import { logDataError } from "@/lib/data-error";
 import { NextResponse } from "next/server";
 import { requireUser, Unauthorized } from "@/lib/auth";
 import { history, overview } from "@/lib/history";
@@ -90,9 +91,10 @@ export async function GET(request: Request) {
         },
         { status: 422 },
       );
-    console.error("Falha na consulta do histórico");
+    const code = logDataError("history", error);
     return NextResponse.json(
       {
+        code,
         error:
           "Não foi possível consultar o histórico. Tente novamente ou refine a pesquisa.",
       },
