@@ -1,4 +1,6 @@
+import type { CatalogProduct } from "../manufacturer/products";
 export type QuoteItem = {
+  products?: CatalogProduct[];
   key: string;
   kind: "material" | "service";
   code: string;
@@ -12,6 +14,7 @@ export type QuoteItem = {
   minimumPrice: string;
   lastPrice: string;
   referenceAt: string;
+  generalSale?: QuoteSale;
 };
 export type Quote = {
   id?: string;
@@ -27,6 +30,7 @@ export type Quote = {
   interval: string;
   variant: string;
   notes: string;
+  responsible?: string;
   items: QuoteItem[];
 };
 export const blankQuote = (): Quote => ({
@@ -40,6 +44,7 @@ export const blankQuote = (): Quote => ({
   interval: "",
   variant: "",
   notes: "",
+  responsible: "",
   items: [],
 });
 export function lineAmount(item: QuoteItem): number | null {
@@ -100,7 +105,7 @@ export function parseQuote(body: unknown): Quote {
       key: text(i.key, 200, true),
       kind: i.kind as QuoteItem["kind"],
       code: text(i.code, 100),
-      name: text(i.name, 500, true),
+      name: text(i.name, 500),
       unit: text(i.unit, 60),
       quantity: text(i.quantity, 30),
       price: text(i.price, 30),
@@ -110,11 +115,45 @@ export function parseQuote(body: unknown): Quote {
       minimumPrice: text(i.minimumPrice, 40),
       lastPrice: text(i.lastPrice, 40),
       referenceAt: text(i.referenceAt, 80),
+      ...(i.generalSale == null
+        ? {}
+        : {
+            generalSale: (() => {
+              if (
+                typeof i.generalSale !== "object" ||
+                Array.isArray(i.generalSale)
+              )
+                throw new QuoteValidation("Venda de referência inválida.");
+              const sale = i.generalSale as Record<string, unknown>;
+              return {
+                company: text(sale.company, 5),
+                order: text(sale.order, 30),
+                ...(sale.orderNumber == null
+                  ? {}
+                  : { orderNumber: text(sale.orderNumber, 30) }),
+                date: text(sale.date, 80),
+                quantity: text(sale.quantity, 40),
+                unitPrice: text(sale.unitPrice, 40),
+                total: text(sale.total, 40),
+                customer: text(sale.customer || "", 500),
+              };
+            })(),
+          }),
     };
   });
   if (new Set(items.map((i) => i.key)).size !== items.length)
     throw new QuoteValidation("Há itens duplicados.");
-  if (quoteTotals(items).invalid)
+  if (
+    items.some(
+      (i) =>
+        i.selected &&
+        lineAmount({
+          ...i,
+          quantity: i.quantity || "1",
+          price: i.price || "0",
+        }) === null,
+    )
+  )
     throw new QuoteValidation(
       "Informe quantidade positiva e preço válido em todos os itens selecionados (até 3 casas na quantidade e 2 no preço).",
     );
@@ -141,15 +180,46 @@ export function parseQuote(body: unknown): Quote {
     version: b.version as number | undefined,
     company,
     clientId,
-    client: text(b.client, 500, true),
-    equipment: text(b.equipment, 500, true),
+    client: text(b.client, 500),
+    equipment: text(b.equipment, 500),
     equipmentId: b.equipmentId == null ? "" : text(b.equipmentId, 18),
     model: text(b.model, 80),
     serial: text(b.serial, 60),
-    serviceType: text(b.serviceType, 200, true),
+    serviceType: text(b.serviceType, 200),
     interval: text(b.interval, 160),
     variant: text(b.variant, 64),
     notes: text(b.notes, 5000),
+    responsible: b.responsible == null ? "" : text(b.responsible, 200),
     items,
   };
 }
+
+export type ManufacturerRecommendation = {
+  id: string;
+  name: string;
+  code: string;
+  variant: string;
+  interval: string;
+  observation: string;
+  issues: string[];
+  products: CatalogProduct[];
+  itemKeys: string[];
+};
+
+export type QuoteSale = {
+  customer?: string;
+  linkedByObservation?: boolean;
+  company: string;
+  order: string;
+  orderNumber?: string;
+  date: string;
+  quantity: string;
+  unitPrice: string;
+  total: string;
+};
+export type QuoteSalesHistory = {
+  count: number;
+  minimum: string;
+  maximum: string;
+  rows: QuoteSale[];
+};

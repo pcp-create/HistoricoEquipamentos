@@ -2887,3 +2887,413 @@ footer > span {
   display: block;
   padding: 8px 12px;
 }
+
+.quotes-page .quote-manufacturer-toggle,
+.quotes-page .quote-recommendation-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+.quote-manufacturer-toggle input,
+.quote-recommendation-options input {
+  width: auto;
+}
+.quote-manufacturer-list {
+  margin-top: 18px;
+}
+.quote-recommendation {
+  border: 1px solid #d8e3ef;
+  border-radius: 10px;
+  padding: 16px;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.quote-recommendation > p {
+  margin: 8px 0;
+}
+.quote-recommendation > small {
+  display: block;
+  color: #647b96;
+  margin-bottom: 12px;
+}
+
+.quotes-page .quote-manufacturer-toggle,
+.quotes-page .quote-recommendation-options label {
+  flex-direction: row;
+  justify-content: flex-start;
+}
+.quote-manufacturer-toggle input,
+.quote-recommendation-options input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .quote-recommendation .catalog-product-summary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+
+/* Quote revision: compact product choices with edits alongside each alternative. */
+.quote-material-search {
+  display: grid;
+  gap: 6px;
+  max-width: 520px;
+  margin: 16px 0;
+}
+.quote-material-search input {
+  border: 1px solid #cbd8e3;
+  border-radius: 6px;
+  padding: 10px;
+  width: 100%;
+}
+.quote-revision-group {
+  margin-top: 20px;
+  border: 1px solid #dce5ee;
+  border-radius: 10px;
+  padding: 14px;
+}
+.quote-revision-group > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+.quote-revision-group h3 {
+  margin: 0 0 5px;
+  font-size: 14px;
+  color: #294f72;
+}
+.quote-revision-group small {
+  color: #6d8092;
+}
+.quote-revision-version {
+  display: block;
+  margin: 5px 0 10px;
+}
+.quote-application {
+  font-size: 12px;
+  color: #647b96;
+  margin-bottom: 10px;
+}
+.quote-choice {
+  margin: 8px 0;
+  padding: 12px;
+  border: 1px solid #e0e8f0;
+  border-radius: 8px;
+  background: #fff;
+  min-width: 0;
+}
+.quote-choice.is-selected {
+  border-color: #8eafd0;
+  background: #f8fbff;
+}
+.quote-choice-line {
+  display: grid;
+  grid-template-columns:
+    18px minmax(150px, 1.4fr) minmax(180px, 1fr)
+    65px 96px 88px;
+  gap: 12px;
+  align-items: start;
+}
+.quotes-page input.quote-choice-check {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 3px 0 0;
+}
+.quote-choice-product,
+.quote-choice-reference,
+.quote-choice-total {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.quote-choice-product > strong {
+  font-size: 13px;
+}
+.quote-choice small {
+  font-size: 11px;
+  color: #6d8092;
+}
+.quote-choice-reference > strong,
+.quote-choice-total > strong {
+  font-size: 13px;
+  color: #355472;
+}
+.quote-choice-line label {
+  display: grid;
+  gap: 6px;
+}
+.quote-choice input:not([type="checkbox"]) {
+  min-width: 0;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #cbd8e3;
+  border-radius: 5px;
+  background: white;
+  color: #294f72;
+}
+.quote-choice-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 8px 0 0 30px;
+}
+.quote-choice-actions button {
+  border: 0;
+  background: #edf4fa;
+  color: #355c82;
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 4px 7px;
+  cursor: pointer;
+}
+.quote-choice-actions label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.quote-choice-actions label input {
+  max-width: 85px;
+}
+.quote-choice-details {
+  margin: 8px 0 0 30px;
+  font-size: 12px;
+}
+.quote-choice-details > summary {
+  color: #42698f;
+  cursor: pointer;
+  width: fit-content;
+}
+.quote-choice-details h4 {
+  margin: 14px 0 8px;
+  font-size: 12px;
+}
+.quote-sales-table {
+  overflow-x: auto;
+}
+.quote-sales-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.quote-sales-table th,
+.quote-sales-table td {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid #e3ebf3;
+  white-space: nowrap;
+}
+.quote-choice-stock .stock-positive {
+  color: #21804a;
+}
+.quote-choice-stock .stock-zero {
+  color: #bc4545;
+}
+.quote-choice-stock .stock-alert {
+  color: #a77918;
+}
+.quote-extras {
+  margin-top: 22px;
+  border-top: 1px solid #dce5ee;
+  padding-top: 16px;
+}
+.quote-extras > summary {
+  cursor: pointer;
+  color: #355472;
+  font-weight: 600;
+}
+.quote-extras > summary span {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 12px;
+  color: #6d8092;
+}
+@media (max-width: 1200px) {
+  .quote-choice-line {
+    grid-template-columns: 18px minmax(0, 1fr) minmax(0, 1fr) 90px;
+  }
+  .quote-choice-reference {
+    grid-column: 3 / 5;
+  }
+  .quote-choice-quantity {
+    grid-column: 2;
+  }
+}
+@media (max-width: 600px) {
+  .quote-revision-group {
+    padding: 10px;
+  }
+  .quote-revision-group > header {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .quote-choice-line {
+    grid-template-columns: 18px minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+  .quote-choice-product {
+    grid-column: 2 / 4;
+  }
+  .quote-choice-reference {
+    grid-column: 2 / 4;
+  }
+  .quote-choice-quantity {
+    grid-column: 2;
+  }
+  .quote-choice-total {
+    grid-column: 2 / 4;
+    display: flex;
+    justify-content: space-between;
+  }
+  .quote-choice-actions,
+  .quote-choice-details {
+    margin-left: 0;
+  }
+  .quote-choice-details .catalog-product-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .quote-extras > summary span {
+    display: block;
+    margin: 6px 0 0;
+  }
+}
+
+.quote-sale-origin {
+  display: block;
+  margin-top: 3px;
+}
+
+.quote-catalog-dialog {
+  width: min(820px, calc(100vw - 32px));
+  max-height: 88vh;
+  border: 1px solid #d8e3ef;
+  border-radius: 12px;
+  padding: 22px;
+  color: #355472;
+  box-shadow: 0 20px 80px #18365640;
+}
+.quote-catalog-dialog::backdrop {
+  background: #17314966;
+}
+.quote-catalog-dialog > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+}
+.quote-catalog-dialog h2 {
+  font-size: 20px;
+  margin: 0;
+}
+.quote-catalog-dialog p {
+  font-size: 13px;
+}
+.quote-catalog-dialog > label {
+  display: grid;
+  gap: 7px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.quote-catalog-dialog input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #cbd8e3;
+  border-radius: 6px;
+}
+.quote-catalog-dialog small {
+  display: block;
+  color: #6d8092;
+  font-size: 12px;
+}
+.quote-catalog-options {
+  margin-top: 16px;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+.quote-catalog-options article {
+  padding: 12px 2px;
+  border-bottom: 1px solid #e1e9f1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+.quote-catalog-options article div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.quote-catalog-options strong {
+  font-size: 14px;
+}
+.quote-catalog-dialog footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  font-size: 13px;
+}
+@media (max-width: 600px) {
+  .quote-catalog-dialog {
+    padding: 14px;
+  }
+  .quote-catalog-options article {
+    align-items: start;
+  }
+}
+
+.quote-catalog-dialog .secondary-button {
+  border: 1px solid #cbd8e3;
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: #f6f9fc;
+  color: #355472;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.quote-catalog-dialog .secondary-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Quote origin and price alerts remain distinct from stock status. */
+.quote-choice .quote-below-minimum {
+  color: #bc3030;
+}
+.quote-choice .quote-origin-genuine {
+  color: #2563eb;
+}
+.quote-choice .quote-origin-similar {
+  color: #b85c0b;
+}
+.quotes-page input.quote-choice-check {
+  accent-color: #2563eb;
+}
+
+a.quote-order-link {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+a.quote-order-link:hover {
+  color: #1e40af;
+  text-decoration-thickness: 2px;
+}
+a.quote-order-link:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+  border-radius: 2px;
+}

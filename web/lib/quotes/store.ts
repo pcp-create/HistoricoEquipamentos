@@ -13,8 +13,8 @@ export async function listQuotes(search = "") {
     "%";
   return (
     await database().query(
-      `SELECT id,number::text,version,client_name,equipment,service_type,total_cents::text,updated_at,updated_by
-    FROM web_quotes WHERE concat_ws(' ',number,client_name,equipment,service_type) ILIKE $1 ORDER BY updated_at DESC LIMIT 100`,
+      `SELECT id,number::text,version,client_name,equipment,service_type,total_cents::text,updated_at,updated_by,document->>'responsible' AS responsible,COALESCE((document->>'pendingAmounts')::boolean,false) AS pending_amounts
+    FROM web_quotes WHERE concat_ws(' ',number,client_name,equipment,service_type,document->>'responsible') ILIKE $1 ORDER BY updated_at DESC LIMIT 100`,
       [pattern],
     )
   ).rows;
@@ -44,7 +44,8 @@ export async function getQuote(id: string) {
 export async function saveQuote(input: unknown, email: string) {
   const quote = parseQuote(input),
     id = quote.id || randomUUID(),
-    total = quoteTotals(quote.items).total;
+    totals = quoteTotals(quote.items),
+    total = totals.total;
   const client = await database().connect();
   try {
     // Keep the shared pool read-only by default; only this transaction writes the internal draft table.
@@ -55,7 +56,7 @@ export async function saveQuote(input: unknown, email: string) {
       quote.client,
       quote.equipment,
       quote.serviceType,
-      JSON.stringify(quote),
+      JSON.stringify({ ...quote, pendingAmounts: totals.invalid > 0 }),
       total,
       email,
     ];

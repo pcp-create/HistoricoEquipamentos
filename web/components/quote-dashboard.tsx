@@ -1,13 +1,18 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
-import { ClipboardList, Plus, Save, Search, Trash2 } from "lucide-react";
+import { ClipboardList, Plus, Save } from "lucide-react";
 import SiteHeader from "./site-header";
+import { compareQuoteItems } from "@/lib/quotes/presentation";
+import QuoteItemRow from "./quote-item-row";
+import QuoteCatalogPicker from "./quote-catalog-picker";
+import { fold } from "@/lib/filters";
 import {
   blankQuote,
-  lineAmount,
   quoteTotals,
   type Quote,
   type QuoteItem,
+  type ManufacturerRecommendation,
+  type QuoteSalesHistory,
 } from "@/lib/quotes/types";
 type Draft = Quote & { number?: string };
 type Summary = {
@@ -16,6 +21,8 @@ type Summary = {
   client_name: string;
   equipment: string;
   total_cents: string;
+  responsible?: string;
+  pending_amounts?: boolean;
   updated_at: string;
   updated_by: string;
 };
@@ -29,6 +36,8 @@ type Equipment = {
   serial: string;
 };
 type Suggestions = {
+  histories?: Record<string, QuoteSalesHistory>;
+  recommendations?: ManufacturerRecommendation[];
   items: QuoteItem[];
   warnings: string[];
   variants: { id: string; name: string; header: string[]; issues: string[] }[];
@@ -47,10 +56,6 @@ const money = (v: number | null) =>
         style: "currency",
         currency: "BRL",
       }).format(v / 100);
-const reference = (v: string) =>
-  v !== "" && Number.isFinite(Number(v))
-    ? money(Math.round(Number(v) * 100))
-    : "—";
 async function api(url: string, options?: RequestInit) {
   const r = await fetch(url, options);
   if (r.status === 401) {
@@ -258,12 +263,12 @@ export default function QuoteDashboard() {
   const [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [dirty, setDirty] = useState(false);
-  const [serviceSearch, setServiceSearch] = useState(""),
-    [serviceBusy, setServiceBusy] = useState(false),
-    [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState("");
+  const [extraFilter, setExtraFilter] = useState("");
+  const [pickerKind, setPickerKind] = useState<QuoteItem["kind"] | null>(null);
   const [kind, setKind] = useState("all");
+  const [extrasOpen, setExtrasOpen] = useState(false);
   const suggestionRequest = useRef<AbortController | null>(null);
-  const serviceRequest = useRef<AbortController | null>(null);
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
 
@@ -304,7 +309,6 @@ export default function QuoteDashboard() {
     return () => {
       window.removeEventListener("beforeunload", handler);
       suggestionRequest.current?.abort();
-      serviceRequest.current?.abort();
     };
   }, []);
   function change(patch: Partial<Draft>) {
@@ -313,11 +317,12 @@ export default function QuoteDashboard() {
     setMessage("");
   }
   function invalidateSuggestions() {
+    setExtrasOpen(false);
     suggestionRequest.current?.abort();
-    serviceRequest.current?.abort();
     setBusy(false);
-    setServiceBusy(false);
     setSuggestions(emptySuggestions());
+    setExtraFilter("");
+    setPickerKind(null);
   }
   function context(patch: Partial<Draft>) {
     if (
@@ -328,6 +333,7 @@ export default function QuoteDashboard() {
     )
       return null;
     invalidateSuggestions();
+    setExtrasOpen(false);
     const next = {
       ...quote,
       equipmentId:
@@ -349,6 +355,7 @@ export default function QuoteDashboard() {
     const controller = new AbortController();
     suggestionRequest.current = controller;
     setBusy(true);
+    setSuggestions((s) => ({ ...s, recommendations: [] }));
     setError("");
     const params = new URLSearchParams({
       action: "suggestions",
@@ -370,49 +377,6 @@ export default function QuoteDashboard() {
       if (!controller.signal.aborted) setBusy(false);
     }
   }
-  async function searchServices() {
-    serviceRequest.current?.abort();
-    const controller = new AbortController();
-    serviceRequest.current = controller;
-    setError("");
-    setServiceBusy(true);
-    try {
-      const result = await api(
-        "/api/quotes?" +
-          new URLSearchParams({
-            lookup: "services",
-            company: quote.company,
-            q: serviceSearch,
-          }),
-        { signal: controller.signal },
-      );
-      setSuggestions((s) => {
-        const map = new Map(s.items.map((i) => [i.key, i]));
-        for (const i of result.items) if (!map.has(i.key)) map.set(i.key, i);
-        return {
-          ...s,
-          items: [...map.values()],
-          warnings: result.truncated
-            ? [
-                ...s.warnings,
-                "Há mais serviços. Refine a pesquisa para localizar outros itens.",
-              ]
-            : s.warnings,
-        };
-      });
-      setKind("service");
-      setFilter("");
-      setMessage(
-        result.items.length
-          ? "Serviços adicionados à lista de sugestões."
-          : "Nenhum serviço encontrado para essa pesquisa.",
-      );
-    } catch (e) {
-      if (!controller.signal.aborted) setError((e as Error).message);
-    } finally {
-      if (!controller.signal.aborted) setServiceBusy(false);
-    }
-  }
   function updateItem(item: QuoteItem, patch: Partial<QuoteItem>) {
     setQuote((q) => ({
       ...q,
@@ -423,25 +387,13 @@ export default function QuoteDashboard() {
     setDirty(true);
     setMessage("");
   }
-  function addManual(kind: QuoteItem["kind"]) {
-    const i: QuoteItem = {
-      key: "manual:" + crypto.randomUUID(),
-      kind,
-      code: "",
-      name: kind === "material" ? "Novo material" : "Novo serviço",
-      unit: "",
-      quantity: "1",
-      price: "",
-      selected: true,
-      source: "Inclusão manual",
-      referencePrice: "",
-      minimumPrice: "",
-      lastPrice: "",
-      referenceAt: "",
-    };
-    change({ items: [...quote.items, i] });
-    setKind(kind);
+  function addFromCatalog(item: QuoteItem) {
+    if (quote.items.some((i) => i.key === item.key)) return;
+    updateItem(item, { selected: true });
+    setExtrasOpen(true);
+    setKind("all");
     setFilter("");
+    setExtraFilter("");
   }
   async function save() {
     setSaving(true);
@@ -454,7 +406,13 @@ export default function QuoteDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(snapshot),
       });
-      setQuote(saved);
+      setQuote({
+        ...saved,
+        items: saved.items.map((item: QuoteItem) => ({
+          ...item,
+          products: snapshot.items.find((i) => i.key === item.key)?.products,
+        })),
+      });
       setDirty(false);
       setMessage("Rascunho salvo.");
       await refreshList();
@@ -505,18 +463,53 @@ export default function QuoteDashboard() {
   }
   const all = new Map(suggestions.items.map((i) => [i.key, i]));
   quote.items.forEach((i) => all.set(i.key, i));
+  const showManufacturer = !!quote.interval;
+  const recommendations = suggestions.recommendations || [];
+  const recommendationKeys = new Set(
+    recommendations.flatMap((r) => r.itemKeys),
+  );
+  const recommendedRows = recommendations.filter((r) =>
+    [
+      r.name,
+      r.code,
+      r.variant,
+      ...r.products.map(
+        (p) =>
+          `${p.name} ${p.product_id} ${p.reference || ""} ${p.similarity || ""}`,
+      ),
+    ]
+      .join(" ")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .includes(fold(filter)),
+  );
   const rows = [...all.values()].filter(
     (i) =>
+      (!showManufacturer || !recommendationKeys.has(i.key)) &&
       (kind === "all" || i.kind === kind) &&
-      [i.name, i.code, i.source]
-        .join(" ")
-        .toLocaleLowerCase("pt-BR")
-        .includes(filter.toLocaleLowerCase("pt-BR")),
+      fold([i.name, i.code].join(" ")).includes(fold(extraFilter).trim()),
+  );
+  rows.sort((a, b) =>
+    compareQuoteItems(
+      a,
+      b,
+      suggestions.histories,
+      recommendations.flatMap((r) => r.products),
+    ),
   );
   const totals = quoteTotals(quote.items);
   return (
     <>
       <SiteHeader active="quotes" email={email} />
+      {pickerKind && (
+        <QuoteCatalogPicker
+          kind={pickerKind}
+          existing={new Set(quote.items.map((i) => i.key))}
+          onAdd={addFromCatalog}
+          onClose={() => setPickerKind(null)}
+        />
+      )}
       <main className="manual-page quotes-page">
         <div className="manual-title">
           <ClipboardList size={30} />
@@ -559,9 +552,14 @@ export default function QuoteDashboard() {
                 disabled={saving}
               >
                 <strong>ORÇ-{d.number.padStart(5, "0")}</strong>
-                <span>{d.client_name}</span>
-                <small>{d.equipment}</small>
-                <span>{money(Number(d.total_cents))}</span>
+                <span>{d.client_name || "Cliente a definir"}</span>
+                <small>{d.equipment || "Equipamento a definir"}</small>
+                {d.responsible && <small>Responsável: {d.responsible}</small>}
+                <span>
+                  {d.pending_amounts
+                    ? "Valores pendentes"
+                    : money(Number(d.total_cents))}
+                </span>
               </button>
             ))}
           </aside>
@@ -594,6 +592,15 @@ export default function QuoteDashboard() {
                   </small>
                 </div>
                 <div className="manual-filters quote-fields">
+                  <label className="manual-global">
+                    Responsável pelo orçamento
+                    <input
+                      maxLength={200}
+                      value={quote.responsible || ""}
+                      onChange={(e) => change({ responsible: e.target.value })}
+                      placeholder="Nome do responsável"
+                    />
+                  </label>
                   <QuoteLookup<Client>
                     key={
                       "client-" +
@@ -603,7 +610,7 @@ export default function QuoteDashboard() {
                       "-" +
                       quote.client
                     }
-                    label="Cliente *"
+                    label="Cliente"
                     value={quote.client}
                     url="/api/quotes?lookup=clients"
                     placeholder="Selecione ou digite nome, documento ou código"
@@ -643,7 +650,7 @@ export default function QuoteDashboard() {
                       "-" +
                       quote.serial
                     }
-                    label="Equipamento *"
+                    label="Equipamento"
                     value={quote.equipment}
                     url={
                       "/api/quotes?lookup=equipment&clientId=" +
@@ -699,7 +706,7 @@ export default function QuoteDashboard() {
                     />
                   </label>
                   <label className="manual-global">
-                    Tipo de manutenção *
+                    Tipo de manutenção
                     <input
                       maxLength={200}
                       list="maintenance-types"
@@ -731,6 +738,15 @@ export default function QuoteDashboard() {
                     botão.
                   </small>
                 </div>
+                {!quote.model &&
+                  !quote.serial &&
+                  suggestions.variants.length > 0 && (
+                    <p className="muted">
+                      Modelo e série não informados. Escolha uma versão do
+                      fabricante na lista completa abaixo. Essa seleção orienta
+                      as peças, mas não identifica o histórico de uma máquina.
+                    </p>
+                  )}
                 <div className="manual-filters quote-fields">
                   <label className="manual-global">
                     Versão do fabricante
@@ -745,7 +761,11 @@ export default function QuoteDashboard() {
                         });
                       }}
                     >
-                      <option value="">Todas as versões candidatas</option>
+                      <option value="">
+                        {!quote.model && !quote.serial
+                          ? "Selecione a versão do fabricante…"
+                          : "Todas as versões candidatas"}
+                      </option>
                       {suggestions.variants.map((v) => (
                         <option key={v.id} value={v.id}>
                           {v.name}
@@ -758,6 +778,7 @@ export default function QuoteDashboard() {
                     <select
                       value={quote.interval}
                       onChange={(e) => {
+                        setExtrasOpen(false);
                         change({ interval: e.target.value });
                         loadSuggestions({ ...quote, interval: e.target.value });
                       }}
@@ -805,238 +826,208 @@ export default function QuoteDashboard() {
                   ))}
               </section>
               <section className="manual-card quote-items">
-                <h2>Materiais e serviços</h2>
-                <p className="muted">
-                  Marque os itens que deseja incluir. As quantidades começam em
-                  1; confira a necessidade da revisão.
-                </p>
-                <div className="quote-toolbar">
-                  <label>
-                    Buscar serviço na base
-                    <input
-                      value={serviceSearch}
-                      onChange={(e) => setServiceSearch(e.target.value)}
-                      placeholder="Descrição ou código"
-                    />
-                  </label>
-                  <button
-                    className="secondary-button"
-                    onClick={searchServices}
-                    disabled={serviceSearch.trim().length < 2 || serviceBusy}
-                  >
-                    <Search size={16} />
-                    {serviceBusy ? "Buscando…" : "Buscar serviços"}
-                  </button>
-                  <button
-                    className="secondary-button"
-                    onClick={() => addManual("material")}
-                  >
-                    <Plus size={16} /> Material manual
-                  </button>
-                  <button
-                    className="secondary-button"
-                    onClick={() => addManual("service")}
-                  >
-                    <Plus size={16} /> Serviço manual
-                  </button>
-                </div>
-                <div className="quote-toolbar">
-                  <label>
-                    Filtrar sugestões
-                    <input
-                      value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
-                      placeholder="Descrição, código ou origem"
-                    />
-                  </label>
-                  <label>
-                    Tipo de item
-                    <select
-                      value={kind}
-                      onChange={(e) => setKind(e.target.value)}
-                    >
-                      <option value="all">Todos</option>
-                      <option value="material">Materiais</option>
-                      <option value="service">Serviços</option>
-                    </select>
-                  </label>
-                  <span>
-                    {rows.length} itens na lista ·{" "}
+                <div className="quote-section-title">
+                  <div>
+                    <h2>
+                      {showManufacturer
+                        ? "Peças para esta revisão"
+                        : "Materiais e serviços"}
+                    </h2>
+                    <p className="muted">
+                      {showManufacturer
+                        ? "Recomendações do fabricante, incluindo os intervalos menores que se repetem. Escolha a opção genuína ou similar."
+                        : "Selecione os itens e ajuste quantidade e preço na mesma linha."}
+                    </p>
+                  </div>
+                  <span className="count-pill">
                     {quote.items.filter((i) => i.selected).length} selecionados
                   </span>
                 </div>
-                {!rows.length && (
-                  <p className="quote-empty">
-                    Busque sugestões pelo equipamento, pesquise um serviço ou
-                    inclua um item manual.
-                  </p>
+                {showManufacturer && (
+                  <label className="quote-material-search">
+                    Filtrar recomendações
+                    <input
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
+                      placeholder="Descrição, código interno ou referência"
+                    />
+                  </label>
                 )}
-                <div className="quote-item-list">
-                  {rows.map((i) => {
-                    const amount = lineAmount(i),
-                      below =
-                        i.selected &&
-                        i.minimumPrice !== "" &&
-                        i.price !== "" &&
-                        Number(i.price) < Number(i.minimumPrice);
-                    return (
-                      <article
-                        className={
-                          "quote-item " +
-                          (i.selected ? "quote-item-selected" : "")
-                        }
-                        key={i.key}
+                {showManufacturer && (
+                  <div className="quote-revision-list" aria-busy={busy}>
+                    {busy ? (
+                      <p role="status">Atualizando as peças desta revisão…</p>
+                    ) : (
+                      <>
+                        {!recommendedRows.length && (
+                          <p>
+                            Nenhuma recomendação encontrada. Confira modelo,
+                            série e versão, ou consulte os demais itens abaixo.
+                          </p>
+                        )}
+                        {recommendedRows.map((r) => (
+                          <article className="quote-revision-group" key={r.id}>
+                            <header>
+                              <div>
+                                <h3>{r.name}</h3>
+                                <small>
+                                  Referência fabricante (Genuína):{" "}
+                                  <b>{r.code || "Não informada"}</b>
+                                </small>
+                              </div>
+                              <small>{r.interval}</small>
+                            </header>
+                            <small className="quote-revision-version">
+                              {r.variant}
+                            </small>
+                            {(r.observation || r.issues.length > 0) && (
+                              <details className="quote-application">
+                                <summary>Condições de aplicação</summary>
+                                <p>{r.observation}</p>
+                                {r.issues.map((issue, n) => (
+                                  <p key={n}>{issue}</p>
+                                ))}
+                              </details>
+                            )}
+                            {!r.products.length && (
+                              <p className="muted">
+                                Sem correspondência no M8. Informe unidade e
+                                preço para incluir.
+                              </p>
+                            )}
+                            {[...r.itemKeys]
+                              .sort((a, b) =>
+                                all.has(a) && all.has(b)
+                                  ? compareQuoteItems(
+                                      all.get(a)!,
+                                      all.get(b)!,
+                                      suggestions.histories,
+                                      r.products,
+                                    )
+                                  : 0,
+                              )
+                              .map((key) => {
+                                const i = all.get(key);
+                                return (
+                                  i && (
+                                    <QuoteItemRow
+                                      key={key}
+                                      item={i}
+                                      reference={suggestions.items.find(
+                                        (item) => item.key === key,
+                                      )}
+                                      history={suggestions.histories?.[key]}
+                                      products={r.products.filter(
+                                        (product) =>
+                                          product.product_id === i.code,
+                                      )}
+                                      serial={quote.serial}
+                                      onChange={(patch) => updateItem(i, patch)}
+                                    />
+                                  )
+                                );
+                              })}
+                          </article>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
+                <details
+                  className="quote-extras"
+                  open={!showManufacturer || extrasOpen}
+                  onToggle={(e) => {
+                    if (showManufacturer) setExtrasOpen(e.currentTarget.open);
+                  }}
+                >
+                  <summary>
+                    {showManufacturer
+                      ? "Outros materiais e serviços"
+                      : "Itens disponíveis"}
+                    <span>
+                      {rows.length} na lista ·{" "}
+                      {
+                        quote.items.filter(
+                          (i) =>
+                            i.selected &&
+                            (!showManufacturer ||
+                              !recommendationKeys.has(i.key)),
+                        ).length
+                      }{" "}
+                      selecionados
+                    </span>
+                  </summary>
+                  <p className="muted">
+                    Histórico do cliente/equipamento e itens adicionados do
+                    cadastro geral. Os selecionados continuam no total mesmo com
+                    esta lista recolhida.
+                  </p>
+                  <div className="quote-toolbar">
+                    <label>
+                      Filtrar materiais e serviços
+                      <input
+                        value={extraFilter}
+                        onChange={(e) => setExtraFilter(e.target.value)}
+                        placeholder="Digite descrição ou código"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setPickerKind("material")}
+                    >
+                      <Plus size={16} /> Adicionar material
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setPickerKind("service")}
+                    >
+                      <Plus size={16} /> Adicionar serviço
+                    </button>
+                    <label>
+                      Tipo de item
+                      <select
+                        value={kind}
+                        onChange={(e) => setKind(e.target.value)}
                       >
-                        <label className="quote-item-check">
-                          <input
-                            type="checkbox"
-                            checked={i.selected}
-                            onChange={(e) =>
-                              updateItem(i, { selected: e.target.checked })
-                            }
-                            aria-label={"Incluir " + i.name}
-                          />
-                          <span>
-                            {i.kind === "material" ? "Material" : "Serviço"}
-                          </span>
-                        </label>
-                        <div className="quote-item-main">
-                          {i.key.startsWith("manual:") ? (
-                            <label>
-                              Descrição
-                              <input
-                                value={i.name}
-                                maxLength={500}
-                                onChange={(e) =>
-                                  updateItem(i, { name: e.target.value })
-                                }
-                              />
-                            </label>
-                          ) : (
-                            <strong>{i.name}</strong>
-                          )}
-                          <small>
-                            Código: {i.code || "Não informado"}
-                            {i.unit ? " · " + i.unit : ""}
-                          </small>
-                          <details>
-                            <summary>Origem e referências</summary>
-                            <p>{i.source}</p>
-                            <p>
-                              Venda atual: {reference(i.referencePrice)} ·
-                              Mínimo atual: {reference(i.minimumPrice)} · Último
-                              valor unitário: {reference(i.lastPrice)}
-                            </p>
-                            {i.referenceAt && (
-                              <small>
-                                Referência coletada/registrada em{" "}
-                                {new Date(i.referenceAt).toLocaleDateString(
-                                  "pt-BR",
-                                  { timeZone: "America/Sao_Paulo" },
-                                )}
-                              </small>
-                            )}
-                          </details>
-                          <div className="quote-price-references">
-                            {i.referencePrice !== "" && (
-                              <button
-                                onClick={() =>
-                                  updateItem(i, {
-                                    price: Number(i.referencePrice).toFixed(2),
-                                  })
-                                }
-                              >
-                                Usar venda: {reference(i.referencePrice)}
-                              </button>
-                            )}
-                            {i.lastPrice !== "" && (
-                              <button
-                                onClick={() =>
-                                  updateItem(i, {
-                                    price: Number(i.lastPrice).toFixed(2),
-                                  })
-                                }
-                              >
-                                Usar último: {reference(i.lastPrice)}
-                              </button>
-                            )}
-                          </div>
-                          {below && (
-                            <small className="quote-warning">
-                              Valor abaixo do mínimo atual de referência:{" "}
-                              {reference(i.minimumPrice)}.
-                            </small>
-                          )}
-                        </div>
-                        <div className="quote-item-numbers">
-                          <label>
-                            Quantidade
-                            <input
-                              type="number"
-                              min="0.001"
-                              max="1000000"
-                              step="0.001"
-                              value={i.quantity}
-                              onChange={(e) =>
-                                updateItem(i, { quantity: e.target.value })
-                              }
-                            />
-                          </label>
-                          {(i.key.startsWith("manual:") ||
-                            !suggestions.items.find((x) => x.key === i.key)
-                              ?.unit) && (
-                            <label>
-                              Unidade
-                              <input
-                                maxLength={60}
-                                value={i.unit}
-                                placeholder="Ex.: UN, H"
-                                onChange={(e) =>
-                                  updateItem(i, { unit: e.target.value })
-                                }
-                              />
-                            </label>
-                          )}
-                          <label>
-                            Valor unitário (R$)
-                            <input
-                              type="number"
-                              min="0"
-                              max="10000000"
-                              step="0.01"
-                              value={i.price}
-                              onChange={(e) =>
-                                updateItem(i, { price: e.target.value })
-                              }
-                              placeholder="Informar"
-                            />
-                          </label>
-                          <strong>Total: {money(amount)}</strong>
-                          {i.selected && amount === null && (
-                            <small className="quote-warning">
-                              Preencha quantidade e preço.
-                            </small>
-                          )}
-                          {i.key.startsWith("manual:") && (
-                            <button
-                              className="icon-button"
-                              aria-label={"Remover " + i.name}
-                              onClick={() =>
+                        <option value="all">Todos</option>
+                        <option value="material">Materiais</option>
+                        <option value="service">Serviços</option>
+                      </select>
+                    </label>
+                  </div>
+                  {!rows.length && (
+                    <p className="quote-empty">
+                      Nenhum item corresponde ao filtro. Use Adicionar material
+                      ou Adicionar serviço para consultar a base geral.
+                    </p>
+                  )}
+                  <div className="quote-item-list">
+                    {rows.map((i) => (
+                      <QuoteItemRow
+                        key={i.key}
+                        item={i}
+                        reference={suggestions.items.find(
+                          (item) => item.key === i.key,
+                        )}
+                        history={suggestions.histories?.[i.key]}
+                        serial={quote.serial}
+                        onChange={(patch) => updateItem(i, patch)}
+                        onRemove={
+                          i.key.startsWith("manual:")
+                            ? () =>
                                 change({
                                   items: quote.items.filter(
                                     (x) => x.key !== i.key,
                                   ),
                                 })
-                              }
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </div>
+                </details>
               </section>
               <section className="manual-card quote-bottom">
                 <label>
@@ -1072,15 +1063,15 @@ export default function QuoteDashboard() {
                   )}
                   <button
                     className="primary-button"
-                    disabled={saving || totals.invalid > 0}
+                    disabled={saving}
                     onClick={save}
                   >
                     <Save size={17} />
                     {saving ? "Salvando…" : "Salvar rascunho"}
                   </button>
                   <small>
-                    Os preços ficam gravados no rascunho. Não há envio ao M8 nem
-                    reserva de estoque.
+                    Você pode salvar com campos e valores pendentes e continuar
+                    depois. Não há envio ao M8 nem reserva de estoque.
                   </small>
                 </div>
               </section>

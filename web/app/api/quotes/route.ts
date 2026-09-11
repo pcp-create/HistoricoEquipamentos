@@ -1,3 +1,4 @@
+import { quoteProducts } from "@/lib/quotes/products";
 import { NextResponse } from "next/server";
 import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
 import { logDataError } from "@/lib/data-error";
@@ -42,7 +43,9 @@ export async function GET(request: Request) {
     if (p.has("id")) {
       const quote = await getQuote(p.get("id")!);
       return json(
-        quote || { error: "Orçamento não encontrado." },
+        (quote
+          ? { ...quote, items: await quoteProducts(quote.items) }
+          : null) || { error: "Orçamento não encontrado." },
         quote ? 200 : 404,
       );
     }

@@ -39,6 +39,7 @@ test("linked equipment enriches blank OS, searches and cross-company quotes whil
     INSERT INTO m8_ordens_servico(company_id,id_m8,cliente_id,status,payload) VALUES(1,1,7,'Processado','{}'),(2,1,7,'Processado','{}'),(27404,1,7,'Processado','{}');
     INSERT INTO integracao_m8_os_sync(company_id,ordem_servico_id,inventory_seen_at,finalized,pending,last_detail_at) SELECT company_id,id_m8,now(),true,false,now() FROM m8_ordens_servico;
     INSERT INTO m8_os_produtos(company_id,ordem_servico_id,id_m8,produto_id,produto_nome,quantidade,unidade_nome,valor_total,payload) VALUES(1,1,1,5,'Filtro',1,'UN',10,'{}'),(2,1,1,6,'Correia',1,'UN',20,'{}'),(27404,1,1,7,'Não confirmado',1,'UN',30,'{}');
+    UPDATE m8_ordens_servico SET observacao='Revisão do compressor série BRP123456' WHERE company_id=1;
     INSERT INTO m8_order_equipment_links(company_id,order_id,equipment_id,method,evidence) VALUES(1,1,10,'observation','{"value":"BRP123456"}'),(2,1,10,'explicit','{}'),(27404,1,10,'review','{}');`);
     globals.historyPool = db;
     const result = await history(
@@ -66,6 +67,30 @@ test("linked equipment enriches blank OS, searches and cross-company quotes whil
       "17",
     );
     assert(!suggested.items.some((i) => i.name === "Não confirmado"));
+    assert.equal(
+      suggested.histories["p:1:5:UN"].rows[0].linkedByObservation,
+      true,
+    );
+    assert.equal(Number(suggested.histories["p:1:5:UN"].rows[0].unitPrice), 10);
+    const bySerial = await quoteSuggestions(
+      new URLSearchParams("clientId=7&serial=BRP123456"),
+    );
+    assert.equal(
+      bySerial.histories["p:1:5:UN"].rows[0].linkedByObservation,
+      true,
+    );
+    const otherClient = await quoteSuggestions(
+      new URLSearchParams("clientId=999&equipmentId=10"),
+    );
+    assert.deepEqual(otherClient.histories, {});
+    await db.exec(
+      "UPDATE m8_order_equipment_links SET stale=true WHERE company_id=1",
+    );
+    const stale = await quoteSuggestions(
+      new URLSearchParams("clientId=7&equipmentId=10"),
+    );
+    assert.equal(stale.histories["p:1:5:UN"], undefined);
+
     const lookup = await quoteLookup(
       new URLSearchParams("lookup=equipment&clientId=7"),
     );

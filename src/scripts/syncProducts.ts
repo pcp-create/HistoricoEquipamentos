@@ -2,6 +2,7 @@ import { m8Config, integer } from '../config/env.js';
 import { connectDatabase } from '../database/postgres.js';
 import { M8Client } from '../m8/client.js';
 import { syncProducts, type ProductMode } from '../sync/productStock.js';
+import { syncServices } from '../sync/serviceCatalog.js';
 import { log, safeError, SafeError } from '../utils/logger.js';
 let stopped = false;
 process.on('SIGTERM', () => {
@@ -26,13 +27,15 @@ async function main() {
     let db;
     try {
       db = await connectDatabase();
+      const client = new M8Client(config, company);
       const result = await syncProducts(
-        new M8Client(config, company),
+        client,
         db,
         mode,
         { maxProducts, shouldStop: () => stopped },
       );
       if (result.failures) process.exitCode = 1;
+      if (mode === 'catalog' && !stopped) await syncServices(client, db);
     } catch (error) {
       log('PRODUTOS', safeError(error), { company, mode });
       process.exitCode = 1;

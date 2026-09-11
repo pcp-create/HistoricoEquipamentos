@@ -1,11 +1,18 @@
 import "server-only";
+import { quoteProducts } from "./products";
+import { quoteCatalog } from "./catalog";
 import { createHash } from "node:crypto";
 import { database } from "../db";
 import { manufacturerCatalog, manualFilters } from "../manufacturer/catalog";
 import { intervalInfo, matchesInterval } from "../manufacturer/intervals";
 import { normalizeSerial } from "../manufacturer/rules";
 import { sameUnit } from "../product-values";
-import type { QuoteItem } from "./types";
+import { currentProducts } from "../product-current";
+import type {
+  ManufacturerRecommendation,
+  QuoteItem,
+  QuoteSalesHistory,
+} from "./types";
 import { QuoteValidation } from "./types";
 
 const numeric = (v: unknown) =>
@@ -39,7 +46,12 @@ function item(
     referenceAt: "",
   };
 }
-export async function quoteLookup(p: URLSearchParams) {
+export async function quoteLookup(p: URLSearchParams): Promise<{
+  rows?: Record<string, any>[];
+  items?: QuoteItem[];
+  truncated: boolean;
+  page?: number;
+}> {
   const c = "1",
     q = (p.get("q") || "").trim().slice(0, 120),
     db = database();
@@ -80,26 +92,8 @@ export async function quoteLookup(p: URLSearchParams) {
     ).rows;
     return { rows: rows.slice(0, 300), truncated: rows.length > 300 };
   }
-  if (p.get("lookup") === "services") {
-    if (q.length < 2) return { items: [], truncated: false };
-    const rows = (
-      await db.query(
-        `SELECT DISTINCT ON (COALESCE(s.servico_id::text,s.servico_nome)) s.*,COALESCE(o.emissao,o.data_abertura) AS used_at
-     FROM m8_os_servicos s JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.ordem_servico_id
-     WHERE s.company_id IN(1,2,27404) AND o.status='Processado' AND concat_ws(' ',s.servico_nome,s.servico_id) ILIKE $1
-     ORDER BY COALESCE(s.servico_id::text,s.servico_nome),COALESCE(o.emissao,o.data_abertura) DESC NULLS LAST,s.id_m8 DESC LIMIT 101`,
-        [pattern],
-      )
-    ).rows;
-    return {
-      items: rows
-        .slice(0, 100)
-        .map((r) =>
-          serviceItem(r, c, "Base de serviços · última OS processada"),
-        ),
-      truncated: rows.length > 100,
-    };
-  }
+  if (["materials", "services"].includes(p.get("lookup") || ""))
+    return quoteCatalog(p);
   throw new QuoteValidation("Consulta inválida.");
 }
 function serviceItem(
@@ -131,6 +125,8 @@ export async function quoteSuggestions(p: URLSearchParams) {
     equipmentId = p.get("equipmentId") || "";
   if (equipmentId && !/^\d{1,18}$/.test(equipmentId))
     throw new QuoteValidation("Equipamento inválido.");
+  const recommendations: ManufacturerRecommendation[] = [];
+  const histories: Record<string, QuoteSalesHistory> = {};
   const items = new Map<string, QuoteItem>(),
     warnings: string[] = [];
   const add = (value: QuoteItem) => {
@@ -144,12 +140,73 @@ export async function quoteSuggestions(p: URLSearchParams) {
   };
   const db = database();
   if (/^\d{1,20}$/.test(clientId) && (serial.length >= 4 || equipmentId)) {
-    const orders = `SELECT o.company_id,o.id_m8,COALESCE(o.emissao,o.data_abertura) AS used_at FROM m8_ordens_servico o
+    const orders = `SELECT o.company_id,o.id_m8,COALESCE(o.numero_sequencia,o.id_m8) AS order_number,COALESCE(o.emissao,o.data_abertura) AS used_at,
+      EXISTS(SELECT 1 FROM m8_equipment_linked link WHERE link.company_id=o.company_id AND link.order_id=o.id_m8
+        AND link.method='observation' AND (($3<>'' AND link.equipment_id::text=$3) OR ($3='' AND $2<>'' AND link.serial=$2))) AS observation_link
+      FROM m8_ordens_servico o
     JOIN integracao_m8_os_sync sync ON sync.company_id=o.company_id AND sync.ordem_servico_id=o.id_m8
     WHERE o.company_id IN(1,2,27404) AND o.cliente_id=$1 AND o.status='Processado' AND sync.finalized IS TRUE AND sync.pending IS FALSE
     AND (($3='' AND $2<>'' AND (regexp_replace(upper(COALESCE(o.numero_serie,'')),'[^A-Z0-9]','','g')=$2
      OR regexp_replace(upper(COALESCE(o.serie,'')),'[^A-Z0-9]','','g')=$2
      OR EXISTS(SELECT 1 FROM m8_equipamentos e WHERE e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8 AND regexp_replace(upper(COALESCE(e.numero_serie,'')),'[^A-Z0-9]','','g')=$2))) OR EXISTS(SELECT 1 FROM m8_equipment_linked l WHERE l.company_id=o.company_id AND l.order_id=o.id_m8 AND (($3<>'' AND l.equipment_id::text=$3) OR ($3='' AND $2<>'' AND l.serial=$2))))`;
+    // One row per product/unit and OS, even when the same product appears on several lines.
+    // Windows retain the full price range while limiting the payload to five recent sales.
+    const sales = (
+      await db.query(
+        `WITH os AS (${orders}), lines AS (
+      SELECT 'material' AS kind,COALESCE(p.produto_id::text,p.produto_nome) AS identity,
+        upper(trim(COALESCE(p.unidade_nome,''))) AS unit,p.company_id,p.ordem_servico_id,os.used_at,os.observation_link,os.order_number,
+        p.quantidade AS quantity,p.valor_total AS total
+      FROM os JOIN m8_os_produtos p ON p.company_id=os.company_id AND p.ordem_servico_id=os.id_m8
+      WHERE p.esta_excluido IS NOT TRUE AND p.quantidade>0
+      UNION ALL
+      SELECT 'service',COALESCE(s.servico_id::text,s.servico_nome),'',s.company_id,s.ordem_servico_id,os.used_at,os.observation_link,os.order_number,
+        s.quantidade,COALESCE(s.valor_total,s.valor_unitario*s.quantidade)
+      FROM os JOIN m8_os_servicos s ON s.company_id=os.company_id AND s.ordem_servico_id=os.id_m8
+      WHERE s.quantidade>0
+    ), sale AS (
+      SELECT kind,identity,unit,company_id,ordem_servico_id,used_at,order_number,bool_or(observation_link) AS observation_link,sum(quantity) AS quantity,
+        CASE WHEN count(total)=count(*) THEN sum(total) END AS total
+      FROM lines GROUP BY kind,identity,unit,company_id,ordem_servico_id,used_at,order_number
+    ), ranked AS (
+      SELECT *,total/quantity AS unit_price,
+        min(CASE WHEN total>=0 THEN total/quantity END) OVER w AS minimum,
+        max(CASE WHEN total>=0 THEN total/quantity END) OVER w AS maximum,
+        count(*) OVER w AS sale_count,
+        row_number() OVER (PARTITION BY kind,identity,unit ORDER BY used_at DESC NULLS LAST,ordem_servico_id DESC,company_id) AS rank
+      FROM sale WINDOW w AS (PARTITION BY kind,identity,unit)
+    ) SELECT * FROM ranked WHERE rank<=5 ORDER BY kind,identity,unit,rank`,
+        [clientId, serial, equipmentId],
+      )
+    ).rows;
+    for (const r of sales) {
+      const key = item(
+        r.kind,
+        r.kind === "material"
+          ? `p:${c}:${r.identity}:${r.unit}`
+          : `s:${c}:${r.identity}`,
+        "",
+        "",
+        "",
+        "",
+      ).key;
+      const history = (histories[key] ||= {
+        count: Number(r.sale_count),
+        minimum: numeric(r.minimum),
+        maximum: numeric(r.maximum),
+        rows: [],
+      });
+      history.rows.push({
+        linkedByObservation: r.observation_link === true,
+        company: String(r.company_id),
+        order: String(r.ordem_servico_id),
+        orderNumber: String(r.order_number),
+        date: date(r.used_at),
+        quantity: String(r.quantity),
+        unitPrice: numeric(r.unit_price),
+        total: numeric(r.total),
+      });
+    }
     const materials = (
       await db.query(
         `WITH os AS (${orders})
@@ -209,7 +266,7 @@ export async function quoteSuggestions(p: URLSearchParams) {
     );
   let variants: any[] = [],
     intervals: any[] = [];
-  if ((p.get("model") || "").trim()) {
+  {
     const manualParams = new URLSearchParams(p);
     manualParams.set("company", "1");
     if (serial.length < 4) manualParams.set("serial", "");
@@ -220,10 +277,17 @@ export async function quoteSuggestions(p: URLSearchParams) {
       true,
     );
     variants = metadata.variants;
-    intervals = metadata.intervals;
+    const manualSelection = !filters.model && !filters.serial;
+    intervals = manualSelection && !filters.variant ? [] : metadata.intervals;
     const selected = filters.variant
       ? variants.filter((v) => v.id === filters.variant)
-      : variants;
+      : manualSelection
+        ? []
+        : variants;
+    if (manualSelection && !filters.variant)
+      warnings.push(
+        "Selecione manualmente uma versão do fabricante para listar as peças e os intervalos da revisão.",
+      );
     if (selected.length > 1)
       warnings.push(
         "Há várias versões do fabricante. Escolha a versão correta antes de selecionar peças.",
@@ -242,29 +306,59 @@ export async function quoteSuggestions(p: URLSearchParams) {
     const codes = [...new Set(entries.map((e) => e.code).filter(Boolean))];
     const products = (
       await db.query(
-        `SELECT x.code,c.product_id::text,c.name,c.unit,c.payload->>'bloqueado' AS blocked,
-     bool_or(x.field='referenciaFabricante') AS genuine,max(p.sale_price) AS sale_price,max(p.minimum_price) AS minimum_price,max(p.price_at) AS price_at
-     FROM manufacturer_product_codes x JOIN m8_product_catalog c ON c.company_id=x.company_id AND c.product_id=x.product_id
-     LEFT JOIN m8_product_current p ON p.company_id=c.company_id AND p.product_id=c.product_id
-     WHERE x.company_id=$1 AND x.code=ANY($2::text[])
-     GROUP BY x.code,c.product_id,c.name,c.unit,c.payload ORDER BY bool_or(x.field='referenciaFabricante') DESC,c.product_id`,
-        [c, codes],
+        `WITH matches AS (
+          SELECT code,product_id,array_agg(DISTINCT field) AS fields
+          FROM manufacturer_product_codes WHERE company_id IN (1,2,27404) AND code=ANY($1::text[])
+          GROUP BY code,product_id
+        )
+        SELECT x.code,c.company_id,c.product_id::text,c.name,c.unit,
+          c.payload->>'bloqueado' AS blocked,c.payload->>'referenciaFabricante' AS reference,
+          c.payload->>'codigoSimilaridade' AS similarity,x.fields,
+          ('referenciaFabricante'=ANY(x.fields)) AS genuine,
+          p.sale_price,p.minimum_price,p.price_at,p.unit AS price_unit
+        FROM matches x JOIN m8_product_catalog c ON c.product_id=x.product_id AND c.company_id IN (1,2,27404)
+        LEFT JOIN m8_product_current p ON p.company_id=1 AND p.product_id=c.product_id
+        ORDER BY ('referenciaFabricante'=ANY(x.fields)) DESC,c.product_id,c.company_id`,
+        [codes],
       )
     ).rows;
+    const balances = await currentProducts(products);
     for (const e of entries) {
       const source = `Fabricante · ${e.variant_name} · linha ${e.row_number} · Ref. ${e.code_original || "não informada"} · ${intervalInfo(e).label}${e.observation ? " · " + e.observation : ""}`;
-      const matches = products.filter((r) => r.code === e.code);
-      if (!matches.length)
-        add(
-          item(
-            "material",
-            "m:" + e.id,
-            e.code_original,
-            e.description || "Peça sem descrição",
-            "",
-            source + " · Sem vínculo M8; confirme unidade e preço.",
-          ),
+      const companyProducts = products.filter((r) => r.code === e.code);
+      const matches = companyProducts.filter(
+        (r, index) =>
+          companyProducts.findIndex((p) => p.product_id === r.product_id) ===
+          index,
+      );
+      const recommendation: ManufacturerRecommendation = {
+        id: e.id,
+        name: e.description || "Peça sem descrição",
+        code: e.code_original,
+        variant: e.variant_name,
+        interval: intervalInfo(e).label,
+        observation: e.observation,
+        issues: e.issues,
+        itemKeys: [],
+        products: companyProducts.map((r) => ({
+          ...r,
+          match_total: matches.length,
+          current: balances.get(`${r.company_id}:${r.product_id}`),
+        })),
+      };
+      recommendations.push(recommendation);
+      if (!matches.length) {
+        const unmatched = item(
+          "material",
+          "m:" + e.id,
+          e.code_original,
+          e.description || "Peça sem descrição",
+          "",
+          source + " · Sem vínculo M8; confirme unidade e preço.",
         );
+        add(unmatched);
+        recommendation.itemKeys.push(unmatched.key);
+      }
       for (const r of matches) {
         const v = item(
           "material",
@@ -279,20 +373,35 @@ export async function quoteSuggestions(p: URLSearchParams) {
               : " · Código de similaridade") +
             (r.blocked === "Sim" ? " · Bloqueado no M8" : ""),
         );
-        v.referencePrice = numeric(r.sale_price);
-        v.minimumPrice = numeric(r.minimum_price);
+        if (sameUnit(r.unit, r.price_unit)) {
+          v.referencePrice = numeric(r.sale_price);
+          v.minimumPrice = numeric(r.minimum_price);
+        }
         v.referenceAt = date(r.price_at);
         add(v);
+        recommendation.itemKeys.push(v.key);
       }
     }
-    if (!entries.length)
+    if (!entries.length && (!manualSelection || filters.variant))
       warnings.push(
         "Nenhuma peça do fabricante encontrada para os filtros informados.",
       );
     warnings.push(
       "Vínculos por similaridade são alternativas: confira a aplicação e não selecione simultaneamente peças equivalentes sem necessidade.",
     );
-  } else
-    warnings.push("Informe o modelo para consultar as peças do fabricante.");
-  return { items: [...items.values()], variants, intervals, warnings };
+  }
+  for (const value of items.values()) {
+    if (histories[value.key]) {
+      const last = histories[value.key].rows[0]?.unitPrice || "";
+      value.lastPrice = last === "" ? "" : String(Number(last));
+    }
+  }
+  return {
+    histories,
+    items: await quoteProducts([...items.values()]),
+    variants,
+    intervals,
+    warnings,
+    recommendations,
+  };
 }

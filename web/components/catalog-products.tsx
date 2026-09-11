@@ -79,8 +79,10 @@ function Balance({
 export default function CatalogProducts({
   products,
   serial,
+  matchContext = true,
 }: {
   products: CatalogProduct[];
+  matchContext?: boolean;
   serial: string;
 }) {
   const groups = groupedProducts(products);
@@ -177,7 +179,7 @@ export default function CatalogProducts({
                     Códigos de similaridade: {c.similarity || "—"}
                   </span>
                 </p>
-                {!c.fields.length && (
+                {matchContext && !c.fields.length && (
                   <small>
                     Saldo do mesmo ID de produto; este cadastro não contém o
                     código pesquisado.
