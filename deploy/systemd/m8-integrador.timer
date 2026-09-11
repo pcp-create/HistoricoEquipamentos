@@ -1,0 +1,10 @@
+[Unit]
+Description=Executar sincronizacao M8 uma hora apos o ciclo anterior
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=1h
+Unit=m8-integrador.service
+
+[Install]
+WantedBy=timers.target

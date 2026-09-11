@@ -1,0 +1,74 @@
+# Consulta de histórico
+
+Aplicação Next.js em `web/`, independente do runner Node.js na raiz. Consulta somente o Supabase e não faz chamadas de negócio à API M8. A interface segue a referência visual azul/branca, com uma tabela alternável entre ordens e materiais.
+
+Prévias visuais com dados fictícios usados somente nos testes: [desktop](../docs/preview/historico-desktop.png), [celular](../docs/preview/historico-mobile.png) e [login](../docs/preview/login.png).
+
+## Funcionalidades
+
+- Login individual por e-mail/senha do Supabase Auth. Somente contas confirmadas e incluídas em `WEB_ALLOWED_EMAILS` entram; não há cadastro público no site.
+- Pesquisa global após 500 ms sem digitação ou ao pressionar Enter/Pesquisar. Ignora caixa e acentos; todas as palavras precisam aparecer, podendo estar em campos diferentes da mesma OS. Até 200 caracteres e 12 palavras.
+- Todas as colunas relacionais de OS, produtos ativos e equipamentos entram na pesquisa, incluindo campos não exibidos na tabela. O JSON bruto de auditoria `payload` não é indexado. Os campos estão acessíveis nos detalhes. O filtro de período usa emissão, com abertura como alternativa, no fuso de Brasília.
+- Na visão por OS, um material correspondente retorna a ordem inteira; na visão por material, a pesquisa do produto corresponde ao próprio item, enquanto campos da OS/equipamento se aplicam aos seus materiais.
+- Filtros por empresa, cliente/CPF/CNPJ, equipamento, modelo, série, material/referência, status e período. Paginação de 25/50/100 registros; filtros preservados na URL.
+- Detalhes da OS, materiais e equipamentos, incluindo indicação explícita de detalhes ainda não importados.
+- CSV da consulta completa, até 20 mil registros por exportação. Acima disso, pede refinamento. Campos escapados, proteção contra fórmulas e BOM UTF-8 para Excel.
+- Layout responsivo, tabela com rolagem horizontal em telas pequenas, diálogo acessível com Escape, estados de erro/vazio/carregamento e atalho Ctrl/Cmd+K.
+
+## Rodar localmente
+
+```bash
+cd web
+npm ci
+cp .env.example .env.local
+# Preencher o arquivo privado.
+npm run db:search
+npm run dev
+```
+
+Nesta sessão `.env.local` já foi preparado com a conexão existente e o e-mail autorizado informado pelo usuário. Não sobrescrevê-lo com o exemplo. O certificado público CA está em `certs/supabase-ca.crt`, incluído no pacote servidor. `DATABASE_SSL_CA_FILE` não é necessário no site: ele usa esse caminho fixo para permitir empacotamento seguro na Vercel.
+
+`npm run db:search` aplica as migrations próprias do site, com checksum e transação. As duas migrations foram aplicadas ao Supabase em 11/09/2026. Elas criam uma projeção de pesquisa com índice trigram e triggers nas tabelas de OS, produtos e equipamentos. O runner já instalado alimenta o índice automaticamente, sem precisar de uma nova versão. As tabelas internas têm RLS e não são liberadas a `anon`/`authenticated`. As migrations não modificam os arquivos 001–005 do integrador.
+
+A API usa conexões limitadas a três por instância, TLS verificado, consultas parametrizadas, timeout de 25 segundos por SQL e modo de transação padrão somente leitura. A migration usa uma conexão própria de escrita. Sessões ficam em cookies HttpOnly e Secure em produção; a identidade e a lista de acesso são verificadas em todas as rotas de dados, inclusive exportação e detalhes.
+
+A prévia local também funciona em `http://127.0.0.1:3000` e `http://localhost:3000`, inclusive com `npm start`. Somente nesses endereços de loopback o cookie pode usar HTTP; nos endereços remotos o acesso e o cookie exigem HTTPS. Essa regra vale tanto para o login quanto para a renovação da sessão.
+
+## Primeiro acesso
+
+O e-mail autorizado inicial é `guih.waltrick@gmail.com`. Autorizar na configuração não cria uma conta de autenticação.
+
+O usuário confirmou a criação da conta e o acesso ao site local. O provedor de e-mail está ativo. A publicação na Vercel ainda precisa ser configurada.
+
+1. No projeto Supabase, abrir **Authentication → Users** e criar uma conta por e-mail/senha em **Add user**. Usar uma conta confirmada; definir a senha diretamente no painel, sem enviá-la ao chat.
+2. Se o e-mail já tiver conta nesse projeto, usar a conta existente. O site não oferece fluxo de convite ou redefinição de senha nesta versão; o administrador faz a gestão no Supabase.
+3. Manter o provedor de e-mail/senha ativo. A lista `WEB_ALLOWED_EMAILS`, separada por vírgulas, controla quem pode consultar o histórico, mesmo que o Supabase permita outros cadastros.
+4. Os usuários autorizados têm acesso de consulta às três empresas. Não há divisão de permissões por empresa nesta primeira versão.
+
+Referência: [gerenciamento de usuários no Supabase](https://supabase.com/docs/guides/auth/managing-user-data).
+
+## Publicar na Vercel
+
+O projeto Vercel existente pode servir esta aplicação. O runner permanece no servidor Linux.
+
+1. Disponibilizar os arquivos no repositório conectado ao projeto Vercel.
+2. Configurar **Root Directory** como `web`, framework **Next.js**, instalação `npm ci` e build `npm run build`. Usar Node.js 22 ou superior. Não apontar o build para a raiz do integrador.
+3. Adicionar as variáveis servidor `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `WEB_ALLOWED_EMAILS`. A URL de banco deve usar as mesmas credenciais validadas e não incluir opções `ssl` na query string; o certificado do pacote configura o TLS.
+4. Configurar `WEB_ALLOWED_EMAILS=guih.waltrick@gmail.com` inicialmente, inclusive no ambiente de preview que será testado. Nunca usar prefixo `NEXT_PUBLIC` na conexão de banco. O site não precisa das credenciais M8.
+5. Gerar um deployment e verificar login, busca, detalhes e exportação com a conta real.
+
+Não foi feito deployment nesta sessão: não há credenciais de publicação Vercel disponíveis. A conta e o acesso local já foram confirmados pelo usuário. Referência: [configuração do build e Root Directory na Vercel](https://vercel.com/docs/builds/configure-a-build).
+
+## Verificação
+
+```bash
+npm run typecheck
+npm test
+npx playwright install --with-deps chromium
+npx playwright test
+npm run build
+```
+
+Os testes de banco executam as migrations em PostgreSQL embarcado e validam pesquisa entre colunas, acentos, parâmetros, isolamento por empresa, datas de Brasília, produtos excluídos e atualização automática do índice. Os testes de navegador verificam acesso sem sessão, navegação, filtros, detalhes, exportação e celular. Dados fictícios ficam somente nas interceptações do teste de navegador; a aplicação não tem modo de demonstração nem bypass de autenticação.
+
+Medições reais após o índice: `filtro` retornou 1.455 OS em aproximadamente 1,6 s; `filtro oleo`, 1.007 OS em 0,24 s. São amostras da base ainda em importação, não garantia de latência. Os totais mudam conforme o runner avança. A consulta do painel não inicia uma nova coleta da M8.
