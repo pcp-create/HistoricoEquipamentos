@@ -2484,3 +2484,345 @@ footer > span {
 .order-amounts .amount-difference {
   color: #986713;
 }
+
+/* Internal quotation workspace */
+.quote-workspace {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+.quote-list {
+  padding: 18px;
+}
+.quote-list h2 {
+  margin: 22px 0 5px;
+  font-size: 16px;
+}
+.quote-list > small {
+  color: #74869a;
+}
+.quote-draft {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #dce5ee;
+  background: #fff;
+  border-radius: 8px;
+  color: #355472;
+  cursor: pointer;
+}
+.quote-draft span,
+.quote-draft small {
+  overflow-wrap: anywhere;
+}
+.quote-draft-active {
+  background: #edf5fc;
+  border-color: #79a7d0;
+}
+.quote-editor {
+  min-width: 0;
+}
+.quote-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: 20px;
+}
+.quote-section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.quote-section-title h2 {
+  margin: 0;
+}
+.quote-section-title > small {
+  color: #74869a;
+}
+.quote-fields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.quote-client-results {
+  grid-column: 1 / -1;
+  display: grid;
+  max-height: 230px;
+  overflow: auto;
+  border: 1px solid #cbd8e3;
+  border-radius: 8px;
+}
+.quote-client-results button {
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid #e4ebf2;
+  background: #f7faff;
+  padding: 12px;
+  color: #294f72;
+  cursor: pointer;
+}
+.quote-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.quote-toolbar > small,
+.quote-toolbar > span {
+  color: #6d8092;
+  font-size: 12px;
+}
+.quotes-page label {
+  font-size: 12px;
+  color: #355472;
+}
+.quote-toolbar label,
+.quote-item label,
+.quote-bottom > label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.quote-toolbar input,
+.quote-toolbar select,
+.quote-item input:not([type="checkbox"]),
+.quote-bottom textarea {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid #cbd8e3;
+  border-radius: 6px;
+  padding: 9px;
+  background: white;
+  color: #213d56;
+  font: inherit;
+}
+.quote-guidance {
+  margin-top: 14px;
+  font-size: 12px;
+  color: #64788d;
+  line-height: 1.6;
+}
+.quote-guidance summary {
+  cursor: pointer;
+  color: #355b7d;
+}
+.quote-empty {
+  text-align: center;
+  color: #75869a;
+  padding: 36px 12px;
+}
+.quote-item-list {
+  display: grid;
+  gap: 10px;
+}
+.quote-item {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 145px;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #dce5ee;
+  border-radius: 9px;
+  align-items: start;
+}
+.quote-item-selected {
+  background: #f8fbff;
+  border-color: #9dbbda;
+}
+.quote-item .quote-item-check {
+  align-items: flex-start;
+  gap: 9px;
+}
+.quote-item-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: #2b6194;
+}
+.quote-item-main {
+  min-width: 0;
+  color: #294866;
+}
+.quote-item-main > strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.quote-item-main > small {
+  display: block;
+  margin: 7px 0;
+  font-size: 11px;
+}
+.quote-item-main details {
+  font-size: 11px;
+  line-height: 1.6;
+  color: #6a7e92;
+  overflow-wrap: anywhere;
+}
+.quote-item-main summary {
+  cursor: pointer;
+}
+.quote-price-references {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.quote-price-references button {
+  padding: 5px 8px;
+  color: #35628a;
+  background: #edf4fa;
+  border: 0;
+  border-radius: 5px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.quote-item-numbers {
+  display: grid;
+  gap: 10px;
+  color: #355b7d;
+  font-size: 12px;
+}
+.quote-item-numbers > strong {
+  text-align: right;
+}
+.quote-bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.quote-total {
+  display: grid;
+  gap: 14px;
+  color: #355472;
+}
+.quote-total > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+}
+.quote-total > div:nth-child(3) {
+  font-size: 15px;
+  padding-top: 12px;
+  border-top: 1px solid #dce5ee;
+}
+.quote-total > div strong {
+  white-space: nowrap;
+}
+.quote-total > small {
+  font-size: 11px;
+  color: #75869a;
+  line-height: 1.5;
+}
+.quote-warning {
+  color: #9b6716;
+  font-size: 11px;
+}
+.quote-message {
+  padding: 12px;
+  background: #eaf7f1;
+  border-radius: 8px;
+  color: #297657;
+}
+@media (max-width: 1100px) {
+  .quote-workspace {
+    grid-template-columns: 1fr;
+  }
+  .quote-list {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    overflow-x: auto;
+  }
+  .quote-list h2,
+  .quote-list > small {
+    display: none;
+  }
+  .quote-draft {
+    min-width: 200px;
+    width: 200px;
+    margin-top: 0;
+  }
+  .quote-list > button:first-child {
+    flex-shrink: 0;
+  }
+}
+@media (max-width: 650px) {
+  .quote-fields {
+    grid-template-columns: 1fr;
+  }
+  .quote-fields .manual-global {
+    grid-column: auto;
+  }
+  .quote-item {
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+  .quote-item-check span {
+    display: none;
+  }
+  .quote-item-numbers {
+    grid-column: 2;
+    grid-template-columns: 1fr 1fr;
+  }
+  .quote-item-numbers strong {
+    grid-column: 1 / -1;
+  }
+  .quote-bottom {
+    grid-template-columns: 1fr;
+  }
+  .quote-toolbar > label {
+    width: 100%;
+  }
+}
+.quotes-page .primary-button,
+.quotes-page .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 7px;
+  padding: 11px 15px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.quotes-page .primary-button {
+  color: white;
+  background: #295b89;
+  border: 1px solid #295b89;
+}
+.quotes-page .secondary-button {
+  color: #355b7d;
+  background: white;
+  border: 1px solid #ccdbe7;
+}
+.quotes-page button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.quote-draft-search {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+  min-width: 170px;
+}
+.quote-draft-search input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cbd8e3;
+  border-radius: 6px;
+  padding: 8px;
+  font: inherit;
+}

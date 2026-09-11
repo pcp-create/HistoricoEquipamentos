@@ -1,11 +1,17 @@
 "use client";
 import Image from "next/image";
-import { BookOpen, BarChart3, Layers3, LogOut } from "lucide-react";
+import {
+  BookOpen,
+  BarChart3,
+  Layers3,
+  LogOut,
+  ClipboardList,
+} from "lucide-react";
 export default function SiteHeader({
   active,
   email,
 }: {
-  active: "history" | "analysis" | "manufacturer";
+  active: "history" | "analysis" | "manufacturer" | "quotes";
   email?: string;
 }) {
   async function logout() {
@@ -74,6 +80,13 @@ export default function SiteHeader({
           aria-current={active === "manufacturer" ? "page" : undefined}
         >
           <BookOpen size={17} /> Catálogo do fabricante
+        </a>
+        <a
+          href="/orcamentos"
+          className={active === "quotes" ? "nav-active" : "nav-link"}
+          aria-current={active === "quotes" ? "page" : undefined}
+        >
+          <ClipboardList size={17} /> Orçamentos
         </a>
       </nav>
     </>

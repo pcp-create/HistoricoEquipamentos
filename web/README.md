@@ -121,3 +121,7 @@ O cache é temporário, em memória de cada instância do servidor web: até 10 
 Cada material mostra, abaixo da quantidade, o valor total registrado no item da OS. A seção **Serviços aplicados** consulta os serviços já importados para a mesma empresa e OS e mostra descrição, código, quantidade, valor unitário e total, com os demais campos ao expandir.
 
 O resumo soma os totais dos materiais não excluídos e dos serviços, em centavos, e compara com o total informado pelo ERP. Não recalcula o item usando o preço atual do cadastro e não deduz descontos novamente. Se houver diferença, ela aparece como valor a conferir, sem atribuir uma causa. Coleta pendente ou valor ausente impede a conferência. Esta mudança não exige migration nem atualização do integrador.
+
+## Orçamentos internos
+
+A rota `/orcamentos` cria rascunhos compartilhados, com sugestões do histórico/fabricante, seleção de serviços, quantidades e preços manuais. Veja [uso, critérios e instalação](../docs/orcamentos.md). Requer a migration web `005_quotes.sql` via `npm run db:search`; não exige atualização do integrador Linux.
