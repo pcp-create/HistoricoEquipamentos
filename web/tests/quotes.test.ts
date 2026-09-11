@@ -367,3 +367,24 @@ test("quotation ordering prioritizes genuine, similar and newest sales without i
     ["new", "old", "sim", "unknown"],
   );
 });
+
+test("draft rejects duplicate ERP products across lists, companies and units", () => {
+  const first = { ...material, key: "p:1:5:UN", code: "5", selected: true };
+  const second = { ...first, key: "p:2:5:CX", unit: "CX" };
+  assert.throws(
+    () => parseQuote({ ...blankQuote(), items: [first, second] }),
+    /mais de uma vez/,
+  );
+  assert.doesNotThrow(() =>
+    parseQuote({
+      ...blankQuote(),
+      items: [first, { ...second, selected: false }],
+    }),
+  );
+  assert.doesNotThrow(() =>
+    parseQuote({
+      ...blankQuote(),
+      items: [first, { ...second, kind: "service" }],
+    }),
+  );
+});

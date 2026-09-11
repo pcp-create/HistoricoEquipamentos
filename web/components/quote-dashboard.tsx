@@ -8,6 +8,7 @@ import QuoteCatalogPicker from "./quote-catalog-picker";
 import { fold } from "@/lib/filters";
 import {
   blankQuote,
+  quoteItemIdentity,
   quoteTotals,
   type Quote,
   type QuoteItem,
@@ -377,7 +378,19 @@ export default function QuoteDashboard() {
       if (!controller.signal.aborted) setBusy(false);
     }
   }
+  function isDuplicate(item: QuoteItem) {
+    return quote.items.some(
+      (i) =>
+        i.selected &&
+        i.key !== item.key &&
+        quoteItemIdentity(i) === quoteItemIdentity(item),
+    );
+  }
   function updateItem(item: QuoteItem, patch: Partial<QuoteItem>) {
+    if (patch.selected && isDuplicate(item)) {
+      setMessage("Este item já está selecionado em outra linha.");
+      return;
+    }
     setQuote((q) => ({
       ...q,
       items: q.items.some((i) => i.key === item.key)
@@ -388,7 +401,14 @@ export default function QuoteDashboard() {
     setMessage("");
   }
   function addFromCatalog(item: QuoteItem) {
-    if (quote.items.some((i) => i.key === item.key)) return;
+    if (
+      [...quote.items, ...suggestions.items].some(
+        (i) => quoteItemIdentity(i) === quoteItemIdentity(item),
+      )
+    ) {
+      setMessage("Este item já está na lista. Utilize a linha existente.");
+      return;
+    }
     updateItem(item, { selected: true });
     setExtrasOpen(true);
     setKind("all");
@@ -505,7 +525,7 @@ export default function QuoteDashboard() {
       {pickerKind && (
         <QuoteCatalogPicker
           kind={pickerKind}
-          existing={new Set(quote.items.map((i) => i.key))}
+          existing={new Set([...all.values()].map(quoteItemIdentity))}
           onAdd={addFromCatalog}
           onClose={() => setPickerKind(null)}
         />
@@ -913,6 +933,7 @@ export default function QuoteDashboard() {
                                     <QuoteItemRow
                                       key={key}
                                       item={i}
+                                      duplicate={isDuplicate(i)}
                                       reference={suggestions.items.find(
                                         (item) => item.key === key,
                                       )}
@@ -963,7 +984,7 @@ export default function QuoteDashboard() {
                     esta lista recolhida.
                   </p>
                   <div className="quote-toolbar">
-                    <label>
+                    <label className="quote-extra-filter">
                       Filtrar materiais e serviços
                       <input
                         value={extraFilter}
@@ -1008,6 +1029,7 @@ export default function QuoteDashboard() {
                       <QuoteItemRow
                         key={i.key}
                         item={i}
+                        duplicate={isDuplicate(i)}
                         reference={suggestions.items.find(
                           (item) => item.key === i.key,
                         )}

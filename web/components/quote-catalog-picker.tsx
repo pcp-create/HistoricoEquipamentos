@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import QuoteOrderLink from "./quote-order-link";
-import type { QuoteItem } from "@/lib/quotes/types";
+import { quoteItemIdentity, type QuoteItem } from "@/lib/quotes/types";
 const money = (v: string) =>
   v === ""
     ? "—"
@@ -106,7 +106,8 @@ export default function QuoteCatalogPicker({
       </label>
       <small>
         A pesquisa atualiza enquanto você digita. A última venda abaixo é geral,
-        não apenas deste cliente.
+        não apenas deste cliente. Itens já presentes na lista ficam bloqueados
+        para nova inclusão.
       </small>
       {error && (
         <p role="alert" className="error">
@@ -149,10 +150,12 @@ export default function QuoteCatalogPicker({
               <button
                 type="button"
                 className="secondary-button"
-                disabled={existing.has(item.key)}
+                disabled={existing.has(quoteItemIdentity(item))}
                 onClick={() => onAdd(item)}
               >
-                {existing.has(item.key) ? "Já incluído" : "Adicionar"}
+                {existing.has(quoteItemIdentity(item))
+                  ? "Já incluído"
+                  : "Adicionar"}
               </button>
             </article>
           ))

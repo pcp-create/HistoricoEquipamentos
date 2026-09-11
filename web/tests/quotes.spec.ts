@@ -691,6 +691,14 @@ test("other materials use refreshed balances even when draft has an empty produc
             { ...item, source: "Histórico", products },
             {
               ...item,
+              key: "p:2:5:CX",
+              code: "5",
+              unit: "CX",
+              name: "Mesmo produto em outra lista",
+              selected: false,
+            },
+            {
+              ...item,
               key: "p:1:77:UN",
               code: "77",
               name: "Material sem saldo coletado",
@@ -735,6 +743,15 @@ test("other materials use refreshed balances even when draft has an empty produc
   await expect(row.locator(".quote-choice-stock")).toContainText("12 UN");
   await expect(row.getByRole("checkbox")).toBeChecked();
   await expect(row.getByLabel("Valor unitário (R$)")).toHaveValue("85");
+  const duplicate = page
+    .locator(".quote-choice")
+    .filter({ hasText: "Mesmo produto em outra lista" });
+  await expect(duplicate.getByRole("checkbox")).toBeDisabled();
+  await expect(duplicate).toContainText("Já selecionado em outra linha.");
+  await row.getByRole("checkbox").uncheck();
+  await expect(duplicate.getByRole("checkbox")).toBeEnabled();
+  await duplicate.getByRole("checkbox").check();
+  await expect(row.getByRole("checkbox")).toBeDisabled();
   await expect(
     page
       .locator(".quote-choice")

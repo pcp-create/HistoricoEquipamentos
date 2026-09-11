@@ -143,6 +143,13 @@ export function parseQuote(body: unknown): Quote {
   });
   if (new Set(items.map((i) => i.key)).size !== items.length)
     throw new QuoteValidation("Há itens duplicados.");
+  const selectedIdentities = items
+    .filter((i) => i.selected)
+    .map(quoteItemIdentity);
+  if (new Set(selectedIdentities).size !== selectedIdentities.length)
+    throw new QuoteValidation(
+      "O mesmo material ou serviço não pode ser selecionado mais de uma vez.",
+    );
   if (
     items.some(
       (i) =>
@@ -223,3 +230,11 @@ export type QuoteSalesHistory = {
   maximum: string;
   rows: QuoteSale[];
 };
+
+/** ERP IDs are shared across companies; units and list origins do not create new items. */
+export function quoteItemIdentity(item: QuoteItem): string {
+  const code = item.code.trim();
+  return code
+    ? `${item.kind}:${item.key.startsWith("m:") ? "manufacturer:" : ""}${code}`
+    : item.key;
+}

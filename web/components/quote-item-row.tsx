@@ -39,7 +39,9 @@ export default function QuoteItemRow({
   serial,
   onChange,
   onRemove,
+  duplicate = false,
 }: {
+  duplicate?: boolean;
   item: QuoteItem;
   reference?: QuoteItem;
   history?: QuoteSalesHistory;
@@ -62,6 +64,14 @@ export default function QuoteItemRow({
       : undefined;
   const last = history?.rows[0];
   const stock = groupedProducts(products)[0];
+  const manufacturerReferences =
+    [
+      ...new Set(
+        (stock?.companies || [])
+          .map((p) => p.reference?.trim())
+          .filter(Boolean),
+      ),
+    ].join(" · ") || (item.key.startsWith("m:") ? item.code : "");
   const amount = lineAmount(item);
   const below =
     item.selected &&
@@ -76,6 +86,12 @@ export default function QuoteItemRow({
           className="quote-choice-check"
           type="checkbox"
           checked={item.selected}
+          disabled={duplicate && !item.selected}
+          title={
+            duplicate
+              ? "Este item já está selecionado em outra linha."
+              : undefined
+          }
           aria-label={`Incluir ${item.name}`}
           onChange={(e) => onChange({ selected: e.target.checked })}
         />
@@ -104,6 +120,11 @@ export default function QuoteItemRow({
             {origin === "unknown" &&
               ` · ${item.kind === "service" ? "Serviço" : "Material"}`}
           </small>
+          {item.kind === "material" && (
+            <small className="quote-choice-manufacturer">
+              Ref. fabricante: {manufacturerReferences || "Não informada"}
+            </small>
+          )}
           {item.kind === "material" && (
             <small className="quote-choice-stock">
               Estoque:{" "}
@@ -199,6 +220,11 @@ export default function QuoteItemRow({
         </div>
       </div>
       <div className="quote-choice-actions">
+        {duplicate && !item.selected && (
+          <small className="quote-warning">
+            Já selecionado em outra linha.
+          </small>
+        )}
         {last?.unitPrice !== undefined && last.unitPrice !== "" && (
           <button
             type="button"
