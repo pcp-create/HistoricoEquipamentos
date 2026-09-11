@@ -25,7 +25,9 @@
     "web:dev": "npm --prefix web run dev",
     "web:build": "npm --prefix web run build",
     "sync:products": "tsx src/scripts/syncProducts.ts",
-    "sync:products:status": "tsx src/scripts/productStatus.ts"
+    "sync:products:status": "tsx src/scripts/productStatus.ts",
+    "sync:equipment": "tsx src/scripts/syncEquipment.ts",
+    "sync:equipment:status": "tsx src/scripts/equipmentStatus.ts"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

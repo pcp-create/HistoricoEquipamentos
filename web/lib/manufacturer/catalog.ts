@@ -1,4 +1,5 @@
 import "server-only";
+import { linkedSerial } from "../equipment";
 import { database } from "../db";
 import { intervalOptions, matchesInterval } from "./intervals";
 import { currentProducts } from "../product-current";
@@ -170,11 +171,11 @@ export async function manufacturerCatalog(
 export async function equipmentConsumption(company: string, serial: string) {
   const normalized = normalizeSerial(serial);
   // Exact normalized serial and company. EXISTS avoids duplicating an OS with multiple equipment rows.
-  const where = `o.company_id=$1 AND (regexp_replace(upper(COALESCE(o.numero_serie,'')),'[^A-Z0-9]','','g')=$2 OR regexp_replace(upper(COALESCE(o.serie,'')),'[^A-Z0-9]','','g')=$2 OR EXISTS(SELECT 1 FROM m8_equipamentos e WHERE e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8 AND regexp_replace(upper(COALESCE(e.numero_serie,'')),'[^A-Z0-9]','','g')=$2))`;
+  const where = `o.company_id=$1 AND (regexp_replace(upper(COALESCE(o.numero_serie,'')),'[^A-Z0-9]','','g')=$2 OR regexp_replace(upper(COALESCE(o.serie,'')),'[^A-Z0-9]','','g')=$2 OR EXISTS(SELECT 1 FROM m8_equipamentos e WHERE e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8 AND regexp_replace(upper(COALESCE(e.numero_serie,'')),'[^A-Z0-9]','','g')=$2) OR ${linkedSerial("$2")})`;
   const db = database();
   const coverage = (
     await db.query(
-      `SELECT count(*)::int AS orders,count(*) FILTER(WHERE s.last_detail_at IS NOT NULL)::int AS imported,count(DISTINCT o.cliente_id)::int AS clients FROM m8_ordens_servico o LEFT JOIN integracao_m8_os_sync s ON s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8 WHERE ${where}`,
+      `SELECT count(*)::int AS orders,count(*) FILTER(WHERE s.last_detail_at IS NOT NULL)::int AS imported,count(DISTINCT o.cliente_id)::int AS clients,count(*) FILTER(WHERE EXISTS(SELECT 1 FROM m8_equipment_linked l WHERE l.company_id=o.company_id AND l.order_id=o.id_m8 AND l.method='observation'))::int AS inferred FROM m8_ordens_servico o LEFT JOIN integracao_m8_os_sync s ON s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8 WHERE ${where}`,
       [company, normalized],
     )
   ).rows[0];

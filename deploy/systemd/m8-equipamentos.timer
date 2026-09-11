@@ -1,0 +1,11 @@
+[Unit]
+Description=Atualiza cadastro e vinculos de equipamentos a cada 15 minutos
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=15min
+Persistent=true
+Unit=m8-equipamentos.service
+
+[Install]
+WantedBy=timers.target

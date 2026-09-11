@@ -8,12 +8,6 @@ import { sameUnit } from "../product-values";
 import type { QuoteItem } from "./types";
 import { QuoteValidation } from "./types";
 
-const company = (p: URLSearchParams) => {
-  const value = p.get("company") || "";
-  if (!["1", "2", "27404"].includes(value))
-    throw new QuoteValidation("Escolha uma empresa.");
-  return value;
-};
 const numeric = (v: unknown) =>
   v == null || !Number.isFinite(Number(v)) || Number(v) < 0 ? "" : String(v);
 const date = (v: unknown) =>
@@ -46,7 +40,7 @@ function item(
   };
 }
 export async function quoteLookup(p: URLSearchParams) {
-  const c = company(p),
+  const c = "1",
     q = (p.get("q") || "").trim().slice(0, 120),
     db = database();
   const pattern = "%" + q.replace(/[\\%_]/g, "\\$&") + "%";
@@ -54,11 +48,12 @@ export async function quoteLookup(p: URLSearchParams) {
     if (q.length < 2) return { rows: [], truncated: false };
     const rows = (
       await db.query(
-        `SELECT cliente_id::text AS id,max(cliente_nome) AS name,max(cliente_cpf_cnpj) AS document
-    FROM m8_ordens_servico WHERE company_id=$1 AND cliente_id IS NOT NULL
-    AND concat_ws(' ',cliente_nome,cliente_razao_social,cliente_cpf_cnpj,cliente_id) ILIKE $2
-    GROUP BY cliente_id ORDER BY max(cliente_nome) LIMIT 31`,
-        [c, pattern],
+        `WITH clients AS (
+ SELECT person_id AS id,name,document,company_id,0 AS priority FROM m8_customer_directory WHERE company_id IN(1,2,27404)
+ UNION ALL SELECT cliente_id,cliente_nome,cliente_cpf_cnpj,company_id,1 FROM m8_ordens_servico WHERE company_id IN(1,2,27404) AND cliente_id IS NOT NULL
+ ), distinct_clients AS (SELECT DISTINCT ON(id) id,name,document FROM clients ORDER BY id,priority,company_id)
+ SELECT id::text,name,document FROM distinct_clients WHERE concat_ws(' ',name,document,id) ILIKE $1 ORDER BY name LIMIT 31`,
+        [pattern],
       )
     ).rows;
     return { rows: rows.slice(0, 30), truncated: rows.length > 30 };
@@ -68,14 +63,19 @@ export async function quoteLookup(p: URLSearchParams) {
     if (!/^\d{1,20}$/.test(id)) return { rows: [], truncated: false };
     const rows = (
       await db.query(
-        `WITH equipment AS (
-     SELECT COALESCE(NULLIF(e.equipamento_modelo,''),o.modelo_equipamento,'') AS model,
-       COALESCE(NULLIF(e.numero_serie,''),NULLIF(o.numero_serie,''),o.serie,'') AS serial,
-       COALESCE(NULLIF(o.equipamento,''),NULLIF(e.equipamento_modelo,''),o.modelo_equipamento,'Equipamento') AS name
-     FROM m8_ordens_servico o LEFT JOIN m8_equipamentos e ON e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8
-     WHERE o.company_id=$1 AND o.cliente_id=$2
-   ) SELECT DISTINCT model,serial,name FROM equipment ORDER BY name,model,serial LIMIT 301`,
-        [c, id],
+        `WITH registry AS (
+ SELECT DISTINCT e.equipment_id::text,e.name,COALESCE(e.model,'') AS model,COALESCE(e.serial,'') AS serial,e.serial_source,'Cadastro do cliente' AS source
+ FROM m8_equipment_catalog e JOIN m8_person_equipment p ON p.equipment_id=e.equipment_id AND p.present
+ WHERE e.present AND p.person_id=$1 AND p.company_id IN(1,2,27404)
+ ), historical AS (
+ SELECT ''::text AS equipment_id,COALESCE(NULLIF(o.equipamento,''),NULLIF(e.equipamento_modelo,''),o.modelo_equipamento,'Equipamento') AS name,
+ COALESCE(NULLIF(e.equipamento_modelo,''),o.modelo_equipamento,'') AS model,
+ COALESCE(NULLIF(e.numero_serie,''),NULLIF(o.numero_serie,''),o.serie,'') AS serial,NULL::text AS serial_source,'Histórico da OS' AS source
+ FROM m8_ordens_servico o LEFT JOIN m8_equipamentos e ON e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8
+ WHERE o.company_id IN(1,2,27404) AND o.cliente_id=$1
+ ) SELECT * FROM registry UNION SELECT DISTINCT * FROM historical h WHERE NOT EXISTS(SELECT 1 FROM registry r WHERE r.serial<>'' AND r.serial=regexp_replace(upper(h.serial),'[^A-Z0-9]','','g'))
+ ORDER BY source,name,model,serial LIMIT 301`,
+        [id],
       )
     ).rows;
     return { rows: rows.slice(0, 300), truncated: rows.length > 300 };
@@ -86,9 +86,9 @@ export async function quoteLookup(p: URLSearchParams) {
       await db.query(
         `SELECT DISTINCT ON (COALESCE(s.servico_id::text,s.servico_nome)) s.*,COALESCE(o.emissao,o.data_abertura) AS used_at
      FROM m8_os_servicos s JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.ordem_servico_id
-     WHERE s.company_id=$1 AND o.status='Processado' AND concat_ws(' ',s.servico_nome,s.servico_id) ILIKE $2
+     WHERE s.company_id IN(1,2,27404) AND o.status='Processado' AND concat_ws(' ',s.servico_nome,s.servico_id) ILIKE $1
      ORDER BY COALESCE(s.servico_id::text,s.servico_nome),COALESCE(o.emissao,o.data_abertura) DESC NULLS LAST,s.id_m8 DESC LIMIT 101`,
-        [c, pattern],
+        [pattern],
       )
     ).rows;
     return {
@@ -121,13 +121,16 @@ function serviceItem(
       : r.valor_unitario,
   );
   result.referenceAt = date(r.used_at);
-  result.source += ` · OS ${r.ordem_servico_id} · última quantidade: ${r.quantidade ?? "não informada"}`;
+  result.source += ` · Empresa ${r.company_id} · OS ${r.ordem_servico_id} · última quantidade: ${r.quantidade ?? "não informada"}`;
   return result;
 }
 export async function quoteSuggestions(p: URLSearchParams) {
-  const c = company(p),
+  const c = "1",
     clientId = p.get("clientId") || "",
-    serial = normalizeSerial(p.get("serial") || "");
+    serial = normalizeSerial(p.get("serial") || ""),
+    equipmentId = p.get("equipmentId") || "";
+  if (equipmentId && !/^\d{1,18}$/.test(equipmentId))
+    throw new QuoteValidation("Equipamento inválido.");
   const items = new Map<string, QuoteItem>(),
     warnings: string[] = [];
   const add = (value: QuoteItem) => {
@@ -140,23 +143,23 @@ export async function quoteSuggestions(p: URLSearchParams) {
     } else items.set(value.key, value);
   };
   const db = database();
-  if (/^\d{1,20}$/.test(clientId) && serial.length >= 4) {
-    const orders = `SELECT o.id_m8,COALESCE(o.emissao,o.data_abertura) AS used_at FROM m8_ordens_servico o
+  if (/^\d{1,20}$/.test(clientId) && (serial.length >= 4 || equipmentId)) {
+    const orders = `SELECT o.company_id,o.id_m8,COALESCE(o.emissao,o.data_abertura) AS used_at FROM m8_ordens_servico o
     JOIN integracao_m8_os_sync sync ON sync.company_id=o.company_id AND sync.ordem_servico_id=o.id_m8
-    WHERE o.company_id=$1 AND o.cliente_id=$2 AND o.status='Processado' AND sync.finalized IS TRUE AND sync.pending IS FALSE
-    AND (regexp_replace(upper(COALESCE(o.numero_serie,'')),'[^A-Z0-9]','','g')=$3
-     OR regexp_replace(upper(COALESCE(o.serie,'')),'[^A-Z0-9]','','g')=$3
-     OR EXISTS(SELECT 1 FROM m8_equipamentos e WHERE e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8 AND regexp_replace(upper(COALESCE(e.numero_serie,'')),'[^A-Z0-9]','','g')=$3))`;
+    WHERE o.company_id IN(1,2,27404) AND o.cliente_id=$1 AND o.status='Processado' AND sync.finalized IS TRUE AND sync.pending IS FALSE
+    AND (($3='' AND $2<>'' AND (regexp_replace(upper(COALESCE(o.numero_serie,'')),'[^A-Z0-9]','','g')=$2
+     OR regexp_replace(upper(COALESCE(o.serie,'')),'[^A-Z0-9]','','g')=$2
+     OR EXISTS(SELECT 1 FROM m8_equipamentos e WHERE e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8 AND regexp_replace(upper(COALESCE(e.numero_serie,'')),'[^A-Z0-9]','','g')=$2))) OR EXISTS(SELECT 1 FROM m8_equipment_linked l WHERE l.company_id=o.company_id AND l.order_id=o.id_m8 AND (($3<>'' AND l.equipment_id::text=$3) OR ($3='' AND $2<>'' AND l.serial=$2))))`;
     const materials = (
       await db.query(
         `WITH os AS (${orders})
     SELECT DISTINCT ON (COALESCE(p.produto_id::text,p.produto_nome),p.unidade_nome) p.*,os.used_at,
       c.sale_price,c.minimum_price,c.unit AS current_unit,c.price_at
-    FROM os JOIN m8_os_produtos p ON p.ordem_servico_id=os.id_m8 AND p.company_id=$1
-    LEFT JOIN m8_product_current c ON c.company_id=p.company_id AND c.product_id=p.produto_id
+    FROM os JOIN m8_os_produtos p ON p.ordem_servico_id=os.id_m8 AND p.company_id=os.company_id
+    LEFT JOIN m8_product_current c ON c.company_id=1 AND c.product_id=p.produto_id
     WHERE p.esta_excluido IS NOT TRUE AND p.quantidade>0
     ORDER BY COALESCE(p.produto_id::text,p.produto_nome),p.unidade_nome,os.used_at DESC NULLS LAST,p.id_m8 DESC LIMIT 1001`,
-        [c, clientId, serial],
+        [clientId, serial, equipmentId],
       )
     ).rows;
     for (const r of materials.slice(0, 1000)) {
@@ -167,7 +170,7 @@ export async function quoteSuggestions(p: URLSearchParams) {
         String(r.produto_id || ""),
         r.produto_nome || "Material sem descrição",
         unit,
-        `Histórico · OS ${r.ordem_servico_id} · última quantidade: ${r.quantidade} · Ref.: ${r.referencia_fabricante || "—"}`,
+        `Histórico · Empresa ${r.company_id} · OS ${r.ordem_servico_id} · última quantidade: ${r.quantidade} · Ref.: ${r.referencia_fabricante || "—"} · Preços de cadastro: empresa 1`,
       );
       v.lastPrice = numeric(
         r.valor_total == null
@@ -185,9 +188,9 @@ export async function quoteSuggestions(p: URLSearchParams) {
       await db.query(
         `WITH os AS (${orders})
     SELECT DISTINCT ON (COALESCE(s.servico_id::text,s.servico_nome)) s.*,os.used_at FROM os
-    JOIN m8_os_servicos s ON s.ordem_servico_id=os.id_m8 AND s.company_id=$1
+    JOIN m8_os_servicos s ON s.ordem_servico_id=os.id_m8 AND s.company_id=os.company_id
     ORDER BY COALESCE(s.servico_id::text,s.servico_nome),os.used_at DESC NULLS LAST,s.id_m8 DESC LIMIT 1001`,
-        [c, clientId, serial],
+        [clientId, serial, equipmentId],
       )
     ).rows;
     services
@@ -198,16 +201,17 @@ export async function quoteSuggestions(p: URLSearchParams) {
         "Histórico muito extenso: exibindo até 1.000 materiais e 1.000 serviços distintos.",
       );
     warnings.push(
-      "Histórico restrito ao cliente e à série, em OS processadas com coleta concluída. Quantidades anteriores são referência, não consumo previsto. Se a OS contém várias máquinas, seus itens podem pertencer a outro equipamento da mesma OS.",
+      "Histórico das empresas 1, 2 e 27404, restrito ao cliente e ao equipamento ou à série, em OS processadas com coleta concluída. Quantidades anteriores são referência, não consumo previsto. Se a OS contém várias máquinas, seus itens podem pertencer a outro equipamento da mesma OS.",
     );
   } else
     warnings.push(
-      "Para sugerir pelo histórico, selecione um cliente da base e informe uma série com pelo menos quatro caracteres.",
+      "Para sugerir pelo histórico, selecione um cliente e um equipamento cadastrado, ou informe uma série com pelo menos quatro caracteres.",
     );
   let variants: any[] = [],
     intervals: any[] = [];
   if ((p.get("model") || "").trim()) {
     const manualParams = new URLSearchParams(p);
+    manualParams.set("company", "1");
     if (serial.length < 4) manualParams.set("serial", "");
     const filters = manualFilters(manualParams);
     // A short/unavailable serial does not establish manufacturer applicability.
@@ -269,6 +273,7 @@ export async function quoteSuggestions(p: URLSearchParams) {
           r.name || e.description,
           r.unit || "",
           source +
+            " · Preço de referência: empresa 1" +
             (r.genuine
               ? " · Referência fabricante (Genuína)"
               : " · Código de similaridade") +

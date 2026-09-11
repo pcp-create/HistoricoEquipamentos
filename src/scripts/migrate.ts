@@ -10,7 +10,7 @@ async function main() {
       name text PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now())`);
     await db.query('ALTER TABLE public.integracao_m8_migrations ENABLE ROW LEVEL SECURITY');
     await db.query('REVOKE ALL ON public.integracao_m8_migrations FROM PUBLIC');
-    for (const name of ['001_m8_history.sql', '002_m8_observed_types.sql', '003_m8_id_scan.sql', '004_m8_approval_mixed.sql', '005_m8_collection_cycle.sql', '006_m8_product_stock.sql', '007_m8_product_lookup.sql']) {
+    for (const name of ['001_m8_history.sql', '002_m8_observed_types.sql', '003_m8_id_scan.sql', '004_m8_approval_mixed.sql', '005_m8_collection_cycle.sql', '006_m8_product_stock.sql', '007_m8_product_lookup.sql', '008_m8_equipment_registry.sql', '009_m8_equipment_link_safety.sql']) {
       const sql = await readFile(new URL(`../../supabase/migrations/${name}`, import.meta.url), 'utf8');
       const checksum = createHash('sha256').update(sql).digest('hex');
       await transaction(db, async () => {

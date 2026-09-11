@@ -137,7 +137,9 @@ test("draft persistence, concurrent edits and equipment suggestions isolate comp
         "company=1&clientId=1&serial=SN1234&model=GA15&interval=h:8000",
       ),
     );
-    assert.equal(result.items.length, 4);
+    assert.equal(result.items.length, 6);
+    assert(result.items.some((i) => i.name === "Empresa alheia"));
+    assert(!result.items.some((i) => i.name === "Cliente alheio"));
     const filter = result.items.find((i) => i.code === "5")!;
     assert.match(filter.source, /Histórico/);
     assert.match(filter.source, /Genuína/);

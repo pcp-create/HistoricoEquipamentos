@@ -1,3 +1,4 @@
+import { linkedOrder, linkedSerial } from "./equipment";
 import { currentProducts } from "./product-current";
 import "server-only";
 import { database } from "./db";
@@ -43,26 +44,32 @@ export function buildWhere(filters: Filters) {
     );
   if (filters.equipment)
     clauses.push(
-      like(
-        "concat_ws(' ',o.equipamento,o.produto_equipamento_id)",
-        filters.equipment,
-      ),
+      "(" +
+        like(
+          "concat_ws(' ',o.equipamento,o.produto_equipamento_id)",
+          filters.equipment,
+        ) +
+        " OR EXISTS(SELECT 1 FROM public.m8_equipment_linked l WHERE " +
+        linkedOrder +
+        " AND " +
+        like("l.name", filters.equipment) +
+        "))",
     );
   if (filters.model)
     clauses.push(
-      `(${like("o.modelo_equipamento", filters.model)} OR EXISTS (SELECT 1 FROM public.m8_equipamentos e WHERE ${equipmentLink} AND ${like("e.equipamento_modelo", filters.model)}))`,
+      `(${like("o.modelo_equipamento", filters.model)} OR EXISTS (SELECT 1 FROM public.m8_equipamentos e WHERE ${equipmentLink} AND ${like("e.equipamento_modelo", filters.model)}) OR EXISTS(SELECT 1 FROM public.m8_equipment_linked l WHERE ${linkedOrder} AND ${like("l.model", filters.model)}))`,
     );
   if (filters.exactSerial) {
     const serial = bind(filters.exactSerial);
     const exact = (column: string) =>
       `regexp_replace(upper(COALESCE(${column},'')),'[^A-Z0-9]','','g')=${serial}`;
     clauses.push(
-      `(${exact("o.numero_serie")} OR ${exact("o.serie")} OR EXISTS (SELECT 1 FROM public.m8_equipamentos e WHERE ${equipmentLink} AND ${exact("e.numero_serie")}))`,
+      `(${exact("o.numero_serie")} OR ${exact("o.serie")} OR EXISTS (SELECT 1 FROM public.m8_equipamentos e WHERE ${equipmentLink} AND ${exact("e.numero_serie")}) OR ${linkedSerial(serial)})`,
     );
   }
   if (filters.serial)
     clauses.push(
-      `(${like("concat_ws(' ',o.numero_serie,o.serie)", filters.serial)} OR EXISTS (SELECT 1 FROM public.m8_equipamentos e WHERE ${equipmentLink} AND ${like("e.numero_serie", filters.serial)}))`,
+      `(${like("concat_ws(' ',o.numero_serie,o.serie)", filters.serial)} OR EXISTS (SELECT 1 FROM public.m8_equipamentos e WHERE ${equipmentLink} AND ${like("e.numero_serie", filters.serial)}) OR EXISTS(SELECT 1 FROM public.m8_equipment_linked l WHERE ${linkedOrder} AND ${like("l.serial", filters.serial)}))`,
     );
   if (filters.product) {
     const match = like(
@@ -85,8 +92,8 @@ export function buildWhere(filters: Filters) {
   }
   for (const term of filters.q.split(/\s+/).filter(Boolean)) {
     const match = bind(`%${escapeLike(fold(term))}%`);
-    clauses.push(`EXISTS (SELECT 1 FROM public.web_history_search search WHERE search.company_id=o.company_id AND search.ordem_servico_id=o.id_m8 AND search.document LIKE ${match}
-      ${filters.view === "materials" ? "AND (search.kind IN ('order','equipment') OR (search.kind='product' AND search.id_m8=p.id_m8))" : ""})`);
+    clauses.push(`(EXISTS (SELECT 1 FROM public.web_history_search search WHERE search.company_id=o.company_id AND search.ordem_servico_id=o.id_m8 AND search.document LIKE ${match}
+      ${filters.view === "materials" ? "AND (search.kind IN ('order','equipment') OR (search.kind='product' AND search.id_m8=p.id_m8))" : ""}) OR EXISTS(SELECT 1 FROM public.m8_equipment_linked l WHERE ${linkedOrder} AND ${normalized("concat_ws(' ',l.name,l.model,l.serial)")} LIKE ${match}))`);
   }
   return { sql: clauses.join(" AND "), values };
 }
@@ -108,13 +115,14 @@ export async function history(filters: Filters, exporting = false) {
   const rows = await db.query(
     `SELECT o.company_id, o.id_m8::text AS id, COALESCE(o.numero_sequencia,o.id_m8)::text AS number,
     ${dateColumn} AS date, o.cliente_nome AS client, o.cliente_cpf_cnpj AS document,
-    o.equipamento AS equipment, COALESCE(NULLIF(o.modelo_equipamento,''),eq.models) AS model,
-    COALESCE(NULLIF(o.numero_serie,''),NULLIF(o.serie,''),eq.serials) AS serial,
+    COALESCE(NULLIF(o.equipamento,''),registered.names) AS equipment, COALESCE(NULLIF(o.modelo_equipamento,''),eq.models,registered.models) AS model,
+    COALESCE(NULLIF(o.numero_serie,''),NULLIF(o.serie,''),eq.serials,registered.serials) AS serial, registered.methods AS equipment_origin,
     o.status, o.situacao_nome AS situation, s.last_detail_at AS detail_at,
     ${filters.view === "materials" ? `p.id_m8::text AS item_id, p.produto_nome AS material, p.referencia_fabricante AS reference, p.produto_id::text AS product_id, p.quantidade AS quantity, p.unidade_nome AS unit, p.valor_total AS amount, COALESCE(p.esta_excluido,false) AS is_excluded, CASE WHEN p.esta_excluido IS TRUE THEN 'Excluído da OS' ELSE 'Ativo' END AS item_status` : `o.total_geral AS amount, (SELECT count(*)::int FROM public.m8_os_produtos p WHERE ${productLink}) AS materials, (SELECT count(*)::int FROM public.m8_os_produtos p WHERE ${productLink} AND p.esta_excluido IS TRUE) AS excluded_materials`}
     ${from}
     LEFT JOIN public.integracao_m8_os_sync s ON s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8
     LEFT JOIN LATERAL (SELECT string_agg(DISTINCT NULLIF(e.numero_serie,''),', ') AS serials, string_agg(DISTINCT NULLIF(e.equipamento_modelo,''),', ') AS models FROM public.m8_equipamentos e WHERE ${equipmentLink}) eq ON true
+    LEFT JOIN LATERAL(SELECT string_agg(DISTINCT l.name,', ') AS names,string_agg(DISTINCT l.model,', ') AS models,string_agg(DISTINCT l.serial,', ') AS serials,string_agg(DISTINCT l.method,', ') AS methods FROM public.m8_equipment_linked l WHERE ${linkedOrder}) registered ON true
     WHERE ${sql} ORDER BY ${dateColumn} DESC NULLS LAST, o.company_id, o.id_m8 DESC ${filters.view === "materials" ? ", p.id_m8" : ""}
     LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
     [...values, size, (page - 1) * size],
@@ -153,6 +161,7 @@ export async function orderDetail(company: string, id: string) {
     (SELECT COALESCE(jsonb_agg(to_jsonb(p)-'payload' ORDER BY p.id_m8),'[]'::jsonb) FROM public.m8_os_produtos p WHERE ${productLink}) AS materials,
     (SELECT COALESCE(jsonb_agg(to_jsonb(s)-'payload' ORDER BY s.id_m8),'[]'::jsonb) FROM public.m8_os_servicos s WHERE s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8) AS services,
     (SELECT COALESCE(jsonb_agg(to_jsonb(e)-'payload' ORDER BY e.id_m8),'[]'::jsonb) FROM public.m8_equipamentos e WHERE ${equipmentLink}) AS equipment,
+    (SELECT COALESCE(jsonb_agg(jsonb_build_object('equipment_id',l.equipment_id::text,'name',c.name,'model',c.model,'serial',c.serial,'serial_source',c.serial_source,'method',l.method,'evidence',l.evidence,'collected_at',c.collected_at) ORDER BY l.equipment_id),'[]'::jsonb) FROM public.m8_order_equipment_links l JOIN public.m8_equipment_catalog c ON c.equipment_id=l.equipment_id WHERE ${linkedOrder} AND NOT l.stale AND c.present) AS equipment_links,
     (SELECT last_detail_at FROM public.integracao_m8_os_sync WHERE company_id=o.company_id AND ordem_servico_id=o.id_m8) AS detail_at
     FROM public.m8_ordens_servico o WHERE o.company_id=$1 AND o.id_m8=$2`,
     [company, id],

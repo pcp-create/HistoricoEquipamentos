@@ -20,7 +20,14 @@ type Summary = {
   updated_by: string;
 };
 type Client = { id: string; name: string; document: string };
-type Equipment = { name: string; model: string; serial: string };
+type Equipment = {
+  equipment_id?: string;
+  source?: string;
+  serial_source?: string;
+  name: string;
+  model: string;
+  serial: string;
+};
 type Suggestions = {
   items: QuoteItem[];
   warnings: string[];
@@ -194,7 +201,17 @@ export default function QuoteDashboard() {
     )
       return null;
     invalidateSuggestions();
-    const next = { ...quote, ...patch, items: [], variant: "", interval: "" };
+    const next = {
+      ...quote,
+      equipmentId:
+        Object.keys(patch).length === 1 && "model" in patch
+          ? quote.equipmentId
+          : "",
+      ...patch,
+      items: [],
+      variant: "",
+      interval: "",
+    };
     setQuote(next);
     setDirty(true);
     setMessage("");
@@ -210,6 +227,7 @@ export default function QuoteDashboard() {
       action: "suggestions",
       company: target.company,
       clientId: target.clientId,
+      equipmentId: target.equipmentId || "",
       model: target.model,
       serial: target.serial,
       variant: target.variant,
@@ -451,30 +469,6 @@ export default function QuoteDashboard() {
                   </small>
                 </div>
                 <div className="manual-filters quote-fields">
-                  <label>
-                    Empresa
-                    <select
-                      value={quote.company}
-                      onChange={(e) => {
-                        if (
-                          context({
-                            company: e.target.value,
-                            clientId: "",
-                            client: "",
-                            equipment: "",
-                            model: "",
-                            serial: "",
-                          })
-                        ) {
-                          setClientSearch("");
-                        }
-                      }}
-                    >
-                      <option value="1">Empresa 1</option>
-                      <option value="2">Empresa 2</option>
-                      <option value="27404">Empresa 27404</option>
-                    </select>
-                  </label>
                   <label className="manual-global">
                     Buscar cliente na base
                     <input
@@ -537,6 +531,7 @@ export default function QuoteDashboard() {
                         if (eq) {
                           const next = context({
                             equipment: eq.name,
+                            equipmentId: eq.equipment_id || "",
                             model: eq.model,
                             serial: eq.serial,
                           });
@@ -612,8 +607,9 @@ export default function QuoteDashboard() {
                       : "Buscar histórico e fabricante"}
                   </button>
                   <small>
-                    A seleção do equipamento já inicia a busca. Para dados
-                    manuais, use este botão.
+                    O histórico reúne as empresas 1, 2 e 27404. A seleção do
+                    equipamento já inicia a busca. Para dados manuais, use este
+                    botão.
                   </small>
                 </div>
                 <div className="manual-filters quote-fields">

@@ -245,3 +245,7 @@ Migrations 006/007 adicionam cadastro, histórico observado de preços, snapshot
 ### Catálogo do fabricante
 
 A interface inclui pesquisa da planilha por modelo, série, descrição e código, vínculos por referência/código de similaridade do M8 e consulta contextual das OS. Veja [importação e critérios do catálogo](docs/catalogo-fabricante.md).
+
+## Equipamentos e vínculos com clientes
+
+Cadastro compartilhado coletado na empresa 1, vínculos pessoa–equipamento, rastreabilidade das observações e histórico consolidado nos orçamentos: [configuração e atualização do servidor](docs/atualizacao-equipamentos.md).

@@ -20,6 +20,7 @@ export type Quote = {
   clientId: string;
   client: string;
   equipment: string;
+  equipmentId?: string;
   model: string;
   serial: string;
   serviceType: string;
@@ -127,6 +128,11 @@ export function parseQuote(body: unknown): Quote {
     throw new QuoteValidation("Identificador inválido.");
   if (b.id && (!Number.isInteger(b.version) || Number(b.version) < 1))
     throw new QuoteValidation("Versão inválida.");
+  if (
+    b.equipmentId &&
+    (typeof b.equipmentId !== "string" || !/^\d{1,18}$/.test(b.equipmentId))
+  )
+    throw new QuoteValidation("Equipamento inválido.");
   const clientId = text(b.clientId, 30);
   if (clientId && !/^\d+$/.test(clientId))
     throw new QuoteValidation("Cliente inválido.");
@@ -137,6 +143,7 @@ export function parseQuote(body: unknown): Quote {
     clientId,
     client: text(b.client, 500, true),
     equipment: text(b.equipment, 500, true),
+    equipmentId: b.equipmentId == null ? "" : text(b.equipmentId, 18),
     model: text(b.model, 80),
     serial: text(b.serial, 60),
     serviceType: text(b.serviceType, 200, true),

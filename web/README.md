@@ -125,3 +125,7 @@ O resumo soma os totais dos materiais não excluídos e dos serviços, em centav
 ## Orçamentos internos
 
 A rota `/orcamentos` cria rascunhos compartilhados, com sugestões do histórico/fabricante, seleção de serviços, quantidades e preços manuais. Veja [uso, critérios e instalação](../docs/orcamentos.md). Requer a migration web `005_quotes.sql` via `npm run db:search`; não exige atualização do integrador Linux.
+
+## Cadastro de equipamentos e rastreabilidade
+
+A migration do integrador `008_m8_equipment_registry.sql` / `009_m8_equipment_link_safety.sql` e a coleta de equipamentos alimentam os vínculos usados pelo histórico, catálogo e orçamento. A identificação extraída das observações permanece separada dos campos originais. O orçamento consulta as três empresas sem seletor. Veja [regras e instalação](../docs/atualizacao-equipamentos.md).

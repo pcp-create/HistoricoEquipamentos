@@ -141,6 +141,21 @@ test("history UI: search, filters, views, detail, pagination, export, empty/erro
             valor_total: 1290.5,
           },
         ],
+        equipment_links: [
+          {
+            equipment_id: "10",
+            name: "Compressor cadastrado GA75",
+            model: "GA75",
+            serial: "SN123456",
+            serial_source: "nome",
+            method: "observation",
+            evidence: {
+              field: "observacao",
+              value: "SN123456",
+              reason: "Série completa e cliente correspondente",
+            },
+          },
+        ],
         equipment: [{ numero_serie: "SN123456", horimetro: "1500" }],
         detail_at: "2026-09-11T02:42:00Z",
       },
@@ -201,6 +216,14 @@ test("history UI: search, filters, views, detail, pagination, export, empty/erro
   ).toBeVisible();
   await page.getByRole("button", { name: "Ver detalhes da OS 14681" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(
+    page.getByText("Série nas observações · associação automática", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Compressor cadastrado GA75", { exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("dialog").getByText("Excluído da OS"),
   ).toBeVisible();

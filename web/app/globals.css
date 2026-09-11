@@ -2826,3 +2826,27 @@ footer > span {
   padding: 8px;
   font: inherit;
 }
+.equipment-origin {
+  color: #386e91;
+  font-size: 10px;
+  display: block;
+  margin-top: 5px;
+}
+.registered-equipment-card {
+  border: 1px solid #dce5ee;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+.registered-equipment-card strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.registered-equipment-card p {
+  font-size: 11px;
+  line-height: 1.6;
+}
+.registered-equipment-card a {
+  color: #35628a;
+}

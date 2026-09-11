@@ -36,6 +36,7 @@ type Result = {
     orders: number;
     imported: number;
     clients: number;
+    inferred?: number;
     truncated: boolean;
     rows: {
       product_id: string | null;
@@ -495,6 +496,13 @@ export default function ManufacturerDashboard() {
                           equipamentos: estes totais não comprovam consumo
                           exclusivo desta máquina.
                         </p>
+                        {!!data.consumption.inferred && (
+                          <p className="muted">
+                            {data.consumption.inferred} OS incluem vínculos
+                            automáticos por série nas observações. A origem pode
+                            ser conferida no detalhe da OS.
+                          </p>
+                        )}
                         {data.consumption.clients > 1 && (
                           <p className="excluded-label">
                             Esta série aparece em mais de um cliente. Confira as

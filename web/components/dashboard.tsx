@@ -39,6 +39,7 @@ type Row = {
   client: string | null;
   document: string | null;
   equipment: string | null;
+  equipment_origin?: string | null;
   model: string | null;
   serial: string | null;
   status: string | null;
@@ -70,6 +71,15 @@ type Detail = {
   materials: Record<string, unknown>[];
   services?: Record<string, unknown>[];
   equipment: Record<string, unknown>[];
+  equipment_links?: {
+    equipment_id: string;
+    name: string;
+    model: string | null;
+    serial: string | null;
+    serial_source: string | null;
+    method: string;
+    evidence: { field: string; value: string; reason: string };
+  }[];
   detail_at: string | null;
 };
 const initial = {
@@ -694,6 +704,13 @@ export default function Dashboard() {
                           >
                             {row.equipment || "Não informado"}
                           </span>
+                          {row.equipment_origin && (
+                            <small className="equipment-origin">
+                              {row.equipment_origin.includes("observation")
+                                ? "Série nas observações"
+                                : "Cadastro de equipamentos"}
+                            </small>
+                          )}
                           <small
                             className="cell-secondary"
                             title={row.model || ""}
@@ -970,6 +987,66 @@ export default function Dashboard() {
                   Os detalhes desta OS ainda estão sendo importados. A lista de
                   materiais e serviços pode estar incompleta.
                 </div>
+              )}
+              {!!detail.equipment_links?.length && (
+                <section className="registered-equipment">
+                  <h4>
+                    <Wrench size={17} /> Equipamentos identificados
+                  </h4>
+                  {detail.equipment_links.map((eq) => (
+                    <div
+                      className="registered-equipment-card"
+                      key={eq.equipment_id}
+                    >
+                      <strong>{eq.name}</strong>
+                      <p>
+                        Modelo: {eq.model || "Conferir no cadastro"} · Série:{" "}
+                        {eq.serial || "Não identificada"}
+                      </p>
+                      <span
+                        className={
+                          eq.method === "review"
+                            ? "quote-warning"
+                            : "equipment-origin"
+                        }
+                      >
+                        {
+                          (
+                            {
+                              explicit: "Vínculo explícito no ERP",
+                              serial: "Série estruturada + cadastro do cliente",
+                              observation:
+                                "Série nas observações · associação automática",
+                              review:
+                                "Possível vínculo · precisa de conferência",
+                            } as Record<string, string>
+                          )[eq.method]
+                        }
+                      </span>
+                      <p className="muted">
+                        {eq.evidence.reason} · Origem: {eq.evidence.field} ·
+                        Valor: {eq.evidence.value}
+                        {eq.serial_source === "nome"
+                          ? " · Série extraída do nome do cadastro"
+                          : ""}
+                      </p>
+                      {eq.method !== "review" && (
+                        <a
+                          href={
+                            "/fabricante?" +
+                            new URLSearchParams({
+                              company: String(detail.order.company_id || ""),
+                              model: eq.model || "",
+                              serial: eq.serial || "",
+                            })
+                          }
+                        >
+                          Consultar histórico e peças do fabricante
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </section>
               )}
               <h4>
                 <Package size={17} />

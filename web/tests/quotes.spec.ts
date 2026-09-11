@@ -134,6 +134,9 @@ test("quote selects equipment, combines suggestions, edits prices, saves and reo
     });
   });
   await page.goto("/orcamentos");
+  await expect(
+    page.getByRole("combobox", { name: "Empresa", exact: true }),
+  ).toHaveCount(0);
   await page.getByLabel("Buscar cliente na base").fill("Teste");
   await page.getByRole("button", { name: "Cliente Teste · 123" }).click();
   await expect(page.getByLabel("Cliente *", { exact: true })).toHaveValue(

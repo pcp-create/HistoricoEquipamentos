@@ -30,6 +30,7 @@ test("global search uses values, respects each material and updates with the int
       "003_m8_id_scan.sql",
       "004_m8_approval_mixed.sql",
       "005_m8_collection_cycle.sql",
+      "008_m8_equipment_registry.sql",
     ])
       await db.exec(
         readFileSync(

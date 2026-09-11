@@ -1,3 +1,4 @@
+import { rebuildEquipmentLinks } from '../equipment/linker.js';
 import type { M8Client } from '../m8/client.js';
 import { SUMMARY_ENDPOINT } from '../m8/inventory.js';
 import { summaryHeaders, fetchHeader, fetchCollection, collectionNames, type Children } from '../m8/collections.js';
@@ -52,6 +53,7 @@ export async function collectionCycle(client: Pick<M8Client,'company'|'get'|'tim
         if (consecutiveFailures >= 3) break;
       }
     }
+    await rebuildEquipmentLinks(integration.db, company);
     const pending = await repo.pendingCount();
     const status = failures ? 'ERRO' : pending > 0 || options.maxOrders !== undefined ? 'LIMITADO' : 'CONCLUIDO';
     // This workflow uses per-OS completion, not the old date-based checkpoint.
