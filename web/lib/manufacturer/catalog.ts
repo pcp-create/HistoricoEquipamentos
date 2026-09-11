@@ -116,7 +116,7 @@ export async function manufacturerCatalog(f: ManualFilters) {
  SELECT *,count(*) OVER(PARTITION BY code)::int AS match_total,
  row_number() OVER(PARTITION BY code ORDER BY genuine DESC,product_id) AS rank FROM identities
  )
- SELECT r.code,c.company_id,c.product_id::text,c.name,c.unit,
+ SELECT r.code,c.company_id,c.product_id::text,c.name,c.unit,c.payload->>'bloqueado' AS blocked,
  c.payload->>'referenciaFabricante' AS reference,c.payload->>'codigoSimilaridade' AS similarity,
  COALESCE(m.fields,ARRAY[]::text[]) AS fields,r.match_total
  FROM ranked r JOIN m8_product_catalog c ON c.product_id=r.product_id

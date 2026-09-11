@@ -7,12 +7,13 @@ export type CatalogProduct = {
   reference: string | null;
   similarity: string | null;
   fields: string[];
+  blocked?: string | null;
   match_total: number;
   current?: ProductCurrent;
 };
 function total(
   rows: CatalogProduct[],
-  field: "stock" | "available",
+  field: "stock" | "available" | "stock_value",
   compatible: boolean,
 ) {
   const values = rows.map((r) => {
@@ -26,6 +27,14 @@ function total(
     value: compatible && known.length ? known.reduce((a, b) => a + b, 0) : null,
     complete: compatible && known.length === rows.length,
   };
+}
+export function oldestCollection(
+  rows: CatalogProduct[],
+  field: "stock_at" | "available_at",
+) {
+  const dates = rows.map((r) => r.current?.[field]);
+  if (dates.some((d) => !d || !Number.isFinite(Date.parse(d)))) return null;
+  return new Date(Math.min(...dates.map((d) => Date.parse(d!)))).toISOString();
 }
 export function groupedProducts(products: CatalogProduct[]) {
   const groups = new Map<string, Map<string, CatalogProduct>>();
@@ -57,6 +66,12 @@ export function groupedProducts(products: CatalogProduct[]) {
         genuine: fields.includes("referenciaFabricante"),
         unit: compatible ? units[0] : "",
         compatible,
+        blockedCompanies: companies
+          .filter((c) => c.blocked === "Sim")
+          .map((c) => c.company_id),
+        stockAt: oldestCollection(companies, "stock_at"),
+        availableAt: oldestCollection(companies, "available_at"),
+        stockValue: total(companies, "stock_value", compatible),
         stock: total(companies, "stock", compatible),
         available: total(companies, "available", compatible),
       };

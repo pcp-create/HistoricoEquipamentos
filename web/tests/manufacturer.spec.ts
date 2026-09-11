@@ -163,9 +163,11 @@ test("catalog groups company balances in the closed card and lists genuine produ
       similarity: "ABC123456",
       fields,
       match_total: 2,
+      blocked: company === 2 ? "Sim" : "Nao",
       current: {
         unit: "UN",
         stock,
+        stock_value: String(Number(stock) * 10),
         available: String(Math.max(0, Number(stock) - 1)),
         stock_at: now,
         available_at: now,
@@ -212,7 +214,7 @@ test("catalog groups company balances in the closed card and lists genuine produ
   await expect(genuine.locator("summary")).toContainText("ID 99 · 3 empresas");
   await expect(
     genuine.locator("summary .catalog-balance").first(),
-  ).toContainText("9 UN");
+  ).toContainText("12 UN");
   await expect(genuine.locator(".catalog-genuine")).toHaveText(
     "Referência fabricante (Genuína)",
   );
@@ -241,7 +243,28 @@ test("catalog groups company balances in the closed card and lists genuine produ
   await expect(
     cards.last().locator(".catalog-balance.stock-warning"),
   ).toHaveCount(0);
+  await expect(
+    genuine.locator("summary .catalog-balance").first(),
+  ).toContainText("Estoque:");
+  await expect(
+    genuine.locator("summary .catalog-balance").nth(1),
+  ).toContainText("Disponível:");
+  await expect(genuine.locator("summary .catalog-balance").first()).toHaveCSS(
+    "border-top-width",
+    "0px",
+  );
+  await expect(genuine.locator("summary .catalog-collected")).toHaveCount(2);
+  await expect(genuine.locator("summary .catalog-cost")).toContainText(
+    /120,00/,
+  );
+  await expect(genuine.locator("summary .catalog-blocked")).toContainText(
+    "Empresas 2",
+  );
+  await expect(cards.last().locator("summary .catalog-blocked")).toHaveCount(0);
   await genuine.locator("summary").click();
+  await expect(genuine.locator(".catalog-company").nth(1)).toContainText(
+    "Produto bloqueado no M8. Motivo não disponibilizado pela API.",
+  );
   await expect(
     genuine.getByRole("heading", { name: "Empresa 27404", exact: true }),
   ).toBeVisible();

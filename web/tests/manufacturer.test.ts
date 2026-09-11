@@ -147,7 +147,7 @@ test("catalog SQL indexes exact multi-code references, refreshes on M8 updates a
       2,
     );
     await db.exec(
-      `UPDATE m8_product_catalog SET payload='{"referenciaFabricante":"0367 0100 55"}' WHERE company_id=1`,
+      `UPDATE m8_product_catalog SET payload='{"referenciaFabricante":"0367 0100 55","bloqueado":"Sim"}' WHERE company_id=1`,
     );
     assert.equal(
       (
@@ -178,6 +178,7 @@ test("catalog SQL indexes exact multi-code references, refreshes on M8 updates a
       manualFilters(new URLSearchParams("company=1&q=0367010055")),
     );
     assert.equal(catalog.total, 1);
+    assert.equal(catalog.rows[0].products[0].blocked, "Sim");
     assert.equal(catalog.rows[0].products.length, 1);
     assert.deepEqual(catalog.rows[0].products[0].fields, [
       "referenciaFabricante",

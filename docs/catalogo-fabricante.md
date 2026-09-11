@@ -57,3 +57,13 @@ npm run build --prefix web
 ```
 
 Há testes de importação com zeros formatados, campos ausentes, fórmulas e erros; limites de série; correspondência por códigos múltiplos; atualização do índice por trigger; isolamento de empresa/série; exclusão de itens cancelados e coletas pendentes; autenticação e interface em desktop e celular.
+
+## Apresentação de saldos e bloqueio do produto
+
+O resumo mostra Estoque, sua data de coleta, Disponível, sua data de coleta e valor estimado a custo médio, sem caixas ou bordas internas. Para várias empresas, cada data é a mais antiga entre as coletas somadas; se faltar uma data, aparece “Coleta incompleta”. O valor estimado só aparece quando todos os valores necessários são conhecidos e as unidades compatíveis. As cores de disponibilidade e o alerta de estoque maior que disponível foram mantidos.
+
+Na documentação M8 consultada, `ProdutoListResponseDto` retorna `bloqueado` (`BoleanoEnum`: `Sim`/`Nao`). O catálogo sinaliza **Bloqueado no M8** quando esse campo é `Sim`; se o bloqueio variar por empresa, identifica as empresas no resumo e nos detalhes. Os saldos continuam visíveis, pois bloqueio cadastral não implica saldo zero. A informação vem do payload já atualizado pelo integrador, sem nova migration ou instalação no Linux.
+
+Não há campo específico documentado de ativo/inativo no estoque nem motivo de inativação/bloqueio nesse retorno ou no retorno de saldos por estabelecimento. `ativoEcommerce` controla apresentação no portal e não é usado como status de estoque. Por isso, o sistema não presume inatividade e não inventa um motivo; em produtos bloqueados, informa que o motivo não é disponibilizado pela API.
+
+Fonte: [contrato OpenAPI M8](https://api.integra.m8sistemas.com.br/swagger/v1/swagger.json), endpoints `/v1/estoque/produto` e `/v1/estoque/produto/{produtoId}/estoque`.

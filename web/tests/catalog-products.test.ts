@@ -81,3 +81,30 @@ test("unknown/non-finite balances remain incomplete and incompatible units are n
     true,
   );
 });
+
+test("collection dates and cost are consolidated conservatively; blocking is explicit and scoped by company", () => {
+  const a = product(1),
+    b = product(2),
+    c = product(27404);
+  a.current!.stock_value = "10";
+  b.current!.stock_value = "20";
+  c.current!.stock_value = "30";
+  a.current!.stock_at = "2026-09-10T18:00:00Z";
+  b.blocked = "Sim";
+  c.blocked = "Nao";
+  const group = groupedProducts([a, b, c])[0];
+  assert.equal(group.stockAt, "2026-09-10T18:00:00.000Z");
+  assert.deepEqual(group.stockValue, { value: 60, complete: true });
+  assert.deepEqual(group.blockedCompanies, [2]);
+  assert.deepEqual(
+    groupedProducts([product(1, "20", "0")])[0].blockedCompanies,
+    [],
+  );
+  c.current!.stock_at = null;
+  c.current!.stock_value = null;
+  const incomplete = groupedProducts([a, b, c])[0];
+  assert.equal(incomplete.stockAt, null);
+  assert.equal(incomplete.stockValue.complete, false);
+  b.current!.available_at = "invalid";
+  assert.equal(groupedProducts([a, b])[0].availableAt, null);
+});

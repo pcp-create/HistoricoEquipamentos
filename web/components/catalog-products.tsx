@@ -6,18 +6,46 @@ import { StockValues, PriceValues } from "./product-values";
 import ProductPhotos from "./product-photos";
 const quantity = (n: number) =>
   new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 }).format(n);
+const money = (n: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    n,
+  );
+function Collection({ at, minutes }: { at: string | null; minutes: number }) {
+  if (!at)
+    return <small className="catalog-collected">Coleta incompleta</small>;
+  const stale = Date.now() - Date.parse(at) > minutes * 60000;
+  return (
+    <small
+      className={`catalog-collected${stale ? " stale" : ""}`}
+      title="Data mais antiga entre as empresas somadas"
+    >
+      {stale ? "Desatualizado" : "Coletado"} ·{" "}
+      {new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(at))}
+    </small>
+  );
+}
 function Balance({
   label,
   total,
   unit,
   available = false,
   warning = false,
+  at,
+  minutes,
 }: {
   label: string;
   total: { value: number | null; complete: boolean };
   unit: string;
   available?: boolean;
   warning?: boolean;
+  at: string | null;
+  minutes: number;
 }) {
   const state = !total.complete
     ? "unknown"
@@ -31,8 +59,8 @@ function Balance({
     >
       <span>
         {label}
-        {!total.complete && total.value !== null ? " conhecido" : ""}
-      </span>
+        {!total.complete && total.value !== null ? " conhecido" : ""}:
+      </span>{" "}
       <b>
         {total.value === null ? (
           "A consultar"
@@ -44,6 +72,7 @@ function Balance({
         )}
       </b>
       {!total.complete && <em>Saldo incompleto</em>}
+      <Collection at={at} minutes={minutes} />
     </span>
   );
 }
@@ -58,15 +87,6 @@ export default function CatalogProducts({
   return (
     <>
       {groups.map((p) => {
-        const stale = p.companies.some(
-          (c) =>
-            !c.current?.stock_at ||
-            !c.current?.available_at ||
-            !Number.isFinite(Date.parse(c.current.stock_at)) ||
-            !Number.isFinite(Date.parse(c.current.available_at)) ||
-            Date.now() - Date.parse(c.current.stock_at) > 120 * 60000 ||
-            Date.now() - Date.parse(c.current.available_at) > 15 * 60000,
-        );
         return (
           <details className="manual-product" key={p.id}>
             <summary className="catalog-product-summary">
@@ -78,6 +98,13 @@ export default function CatalogProducts({
                   ID {p.id} · {p.companies.length}{" "}
                   {p.companies.length === 1 ? "empresa" : "empresas"}
                 </small>
+                {p.blockedCompanies.length > 0 && (
+                  <small className="catalog-blocked">
+                    {p.blockedCompanies.length === p.companies.length
+                      ? "Bloqueado no M8"
+                      : `Bloqueado no M8 · Empresas ${p.blockedCompanies.join(", ")}`}
+                  </small>
+                )}
                 {p.fields.includes("referenciaFabricante") && (
                   <small className="catalog-genuine">
                     Referência fabricante (Genuína)
@@ -89,15 +116,11 @@ export default function CatalogProducts({
               </span>
               <span className="catalog-stock-summary">
                 <Balance
-                  label="Disponível"
-                  total={p.available}
-                  unit={p.unit}
-                  available
-                />
-                <Balance
-                  label="Estoque total"
+                  label="Estoque"
                   total={p.stock}
                   unit={p.unit}
+                  at={p.stockAt}
+                  minutes={120}
                   warning={
                     p.stock.complete &&
                     p.available.complete &&
@@ -106,16 +129,25 @@ export default function CatalogProducts({
                     p.stock.value > p.available.value
                   }
                 />
+                <Balance
+                  label="Disponível"
+                  total={p.available}
+                  unit={p.unit}
+                  available
+                  at={p.availableAt}
+                  minutes={15}
+                />
+                <small className="catalog-cost">
+                  Valor estimado a custo médio:{" "}
+                  {p.stockValue.complete && p.stockValue.value !== null
+                    ? money(p.stockValue.value)
+                    : "—"}
+                </small>
               </span>
               {!p.compatible && (
                 <small>
                   Unidades diferentes ou não informadas; consulte os saldos por
                   empresa.
-                </small>
-              )}
-              {stale && (
-                <small className="catalog-stale">
-                  Há saldos sem coleta recente. Confira as datas nos detalhes.
                 </small>
               )}
             </summary>
@@ -131,6 +163,12 @@ export default function CatalogProducts({
               <section className="catalog-company" key={String(c.company_id)}>
                 <h4>Empresa {c.company_id}</h4>
                 {c.name !== p.name && <p>{c.name}</p>}
+                {c.blocked === "Sim" && (
+                  <p className="catalog-blocked">
+                    Produto bloqueado no M8. Motivo não disponibilizado pela
+                    API.
+                  </p>
+                )}
                 <p>
                   <span className="catalog-reference">
                     Referência fabricante (Genuína): {c.reference || "—"}
