@@ -67,3 +67,13 @@ Na documentação M8 consultada, `ProdutoListResponseDto` retorna `bloqueado` (`
 Não há campo específico documentado de ativo/inativo no estoque nem motivo de inativação/bloqueio nesse retorno ou no retorno de saldos por estabelecimento. `ativoEcommerce` controla apresentação no portal e não é usado como status de estoque. Por isso, o sistema não presume inatividade e não inventa um motivo; em produtos bloqueados, informa que o motivo não é disponibilizado pela API.
 
 Fonte: [contrato OpenAPI M8](https://api.integra.m8sistemas.com.br/swagger/v1/swagger.json), endpoints `/v1/estoque/produto` e `/v1/estoque/produto/{produtoId}/estoque`.
+
+## Filtro de intervalo informado
+
+Escolha o modelo e, quando necessário, série/versão. A lista de intervalos se atualiza para esse conjunto de versões. Selecione o intervalo e clique em Pesquisar. O filtro permanece na URL e na paginação; mudar modelo, série ou versão limpa a seleção.
+
+As revisões incluem periodicidades que se repetem: 8.000 h inclui 2.000, 4.000 e 8.000 h, mas não 6.000 h. A revisão de 24.000 h inclui 6.000 e 8.000 h, mas não 16.000 h. Os números entre parênteses contam os itens das versões selecionadas, antes dos filtros de texto e de revisão cadastral.
+
+Intervalos condicionais como 6.000/8.000 entram quando alguma periodicidade coincide, uma vez por linha da planilha, mantendo o aviso “Conferir condições”. Isso não confirma a aplicação de ambas as condições ao equipamento. Itens sem intervalo e anotações podem ser selecionados separadamente. Números acima de 100.000 horas são tratados conservadoramente como dados a conferir (possível código de peça na coluna), preservando o original.
+
+O resultado lista as peças registradas no comparativo; itens sem periodicidade e condições da versão ainda precisam ser conferidos. Não substitui o plano completo de manutenção do fabricante. Não exige migration nem atualização do integrador.

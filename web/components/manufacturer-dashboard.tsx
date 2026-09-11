@@ -3,6 +3,10 @@ import { useEffect, useState } from "react";
 import { BookOpen, Search } from "lucide-react";
 import SiteHeader from "./site-header";
 import CatalogProducts from "./catalog-products";
+import {
+  intervalInfo,
+  type IntervalOption,
+} from "@/lib/manufacturer/intervals";
 import type { CatalogProduct } from "@/lib/manufacturer/products";
 import type { Variant, SerialMatch } from "@/lib/manufacturer/rules";
 type Entry = {
@@ -15,6 +19,7 @@ type Entry = {
   code_original: string;
   observation: string;
   interval_original: string;
+  interval_hours?: string | number | null;
   issues: string[];
   match: SerialMatch;
   products: CatalogProduct[];
@@ -24,6 +29,7 @@ type Result = {
   revision: { filename: string; imported_at: string } | null;
   variants: (Variant & { match: SerialMatch })[];
   rows: Entry[];
+  intervals?: IntervalOption[];
   total: number;
   page: number;
   consumption: null | {
@@ -68,7 +74,48 @@ export default function ManufacturerDashboard() {
     company: "",
     variant: "",
     review: false,
+    interval: "",
   });
+  const [intervals, setIntervals] = useState<IntervalOption[]>([]);
+  const [intervalsLoading, setIntervalsLoading] = useState(false);
+  const [intervalsError, setIntervalsError] = useState("");
+  useEffect(() => {
+    if (query === null) return;
+    const controller = new AbortController();
+    setIntervalsLoading(true);
+    setIntervalsError("");
+    const timer = setTimeout(() => {
+      const p = new URLSearchParams({
+        options: "intervals",
+        model: form.model,
+        serial: form.serial,
+        variant: form.variant,
+      });
+      fetch("/api/manufacturer?" + p, { signal: controller.signal })
+        .then(async (r) => {
+          if (r.status === 401) {
+            window.location.assign("/login");
+            return;
+          }
+          if (!r.ok)
+            throw new Error(
+              "Não foi possível listar os intervalos. Confira modelo e série.",
+            );
+          const body = await r.json();
+          setIntervals(body.intervals || []);
+        })
+        .catch((e) => {
+          if (e.name !== "AbortError") setIntervalsError(e.message);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setIntervalsLoading(false);
+        });
+    }, 350);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query === null, form.model, form.serial, form.variant, refresh]);
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     setForm({
@@ -78,6 +125,7 @@ export default function ManufacturerDashboard() {
       company: p.get("company") || "",
       variant: p.get("variant") || "",
       review: p.get("review") === "1",
+      interval: p.get("interval") || "",
     });
     setQuery(p.toString());
   }, []);
@@ -118,6 +166,7 @@ export default function ManufacturerDashboard() {
         company: "",
         variant: "",
         review: false,
+        interval: "",
       });
     window.history.replaceState(null, "", "/fabricante?" + p);
     setQuery(p.toString());
@@ -161,7 +210,12 @@ export default function ManufacturerDashboard() {
               value={form.model}
               placeholder="Ex.: GA 15"
               onChange={(e) =>
-                setForm({ ...form, model: e.target.value, variant: "" })
+                setForm({
+                  ...form,
+                  model: e.target.value,
+                  variant: "",
+                  interval: "",
+                })
               }
             />
           </label>
@@ -171,7 +225,12 @@ export default function ManufacturerDashboard() {
               value={form.serial}
               placeholder="Série completa para consultar OS"
               onChange={(e) =>
-                setForm({ ...form, serial: e.target.value, variant: "" })
+                setForm({
+                  ...form,
+                  serial: e.target.value,
+                  variant: "",
+                  interval: "",
+                })
               }
             />
           </label>
@@ -191,7 +250,9 @@ export default function ManufacturerDashboard() {
             Versão / aba da planilha
             <select
               value={form.variant}
-              onChange={(e) => setForm({ ...form, variant: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, variant: e.target.value, interval: "" })
+              }
             >
               <option value="">Todas as versões candidatas</option>
               {variants.map((v) => (
@@ -200,6 +261,32 @@ export default function ManufacturerDashboard() {
                 </option>
               ))}
             </select>
+          </label>
+          <label>
+            Intervalo informado
+            <select
+              value={form.interval}
+              disabled={intervalsLoading || !!intervalsError}
+              onChange={(e) => setForm({ ...form, interval: e.target.value })}
+            >
+              <option value="">
+                {intervalsLoading
+                  ? "Carregando intervalos…"
+                  : "Todos os intervalos"}
+              </option>
+              {form.interval &&
+                !intervals.some((i) => i.value === form.interval) && (
+                  <option value={form.interval}>
+                    Intervalo selecionado (fora deste modelo)
+                  </option>
+                )}
+              {intervals.map((i) => (
+                <option key={i.value} value={i.value}>
+                  {i.label} ({i.count})
+                </option>
+              ))}
+            </select>
+            {intervalsError && <small role="alert">{intervalsError}</small>}
           </label>
           <label className="manual-check">
             <input
@@ -226,6 +313,15 @@ export default function ManufacturerDashboard() {
           fornecida pela equipe e não recebe atualizações automáticas do
           fabricante.
         </p>
+        {applied.get("interval") && (
+          <p className="manual-note">
+            {applied.get("interval")?.startsWith("h:")
+              ? "Inclui os intervalos menores que se repetem nesta revisão. "
+              : "Exibindo os itens com a indicação selecionada. "}
+            Confira as condições da versão e os itens sem intervalo informado;
+            esta seleção não substitui o plano completo de manutenção.
+          </p>
+        )}
         {error && (
           <div role="alert" className="error">
             {error}
@@ -318,7 +414,7 @@ export default function ManufacturerDashboard() {
                                     {e.interval_original && (
                                       <p>
                                         Intervalo informado:{" "}
-                                        {e.interval_original} h
+                                        {intervalInfo(e).label}
                                       </p>
                                     )}
                                     {e.issues.map((i) => (

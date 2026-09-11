@@ -132,7 +132,9 @@ test("catalog presents source, similarity links, equipment context and mobile la
   await page.getByLabel("Pesquisa global").fill("vazio");
   await page.getByRole("button", { name: "Pesquisar", exact: true }).click();
   await expect(page.getByText(/Nenhuma peça encontrada/)).toBeVisible();
-  expect(requests.at(-1)).toContain("q=vazio");
+  expect(
+    requests.filter((url) => !url.includes("options=intervals")).at(-1),
+  ).toContain("q=vazio");
   await page.getByLabel("Pesquisa global").fill("falha");
   await page.getByRole("button", { name: "Pesquisar", exact: true }).click();
   await expect(
@@ -284,4 +286,66 @@ test("catalog groups company balances in the closed card and lists genuine produ
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+});
+
+test("interval dropdown follows the model and preserves the revision in search", async ({
+  page,
+  context,
+}) => {
+  await context.addCookies([
+    { name: "m8-access", value: "test-only", domain: "localhost", path: "/" },
+  ]);
+  const searches: URL[] = [];
+  await page.route("**/api/manufacturer?*", async (route) => {
+    const url = new URL(route.request().url());
+    if (!url.searchParams.has("options")) searches.push(url);
+    await route.fulfill({
+      json: {
+        email: "teste@example.com",
+        revision: { filename: "Manual.xls", imported_at: "2026-09-11" },
+        variants: [],
+        rows: [],
+        total: 0,
+        page: 1,
+        consumption: null,
+        intervals:
+          url.searchParams.get("model") === "GA15"
+            ? [
+                {
+                  value: "h:8000",
+                  label: "8.000 h",
+                  hours: 8000,
+                  kind: "hours",
+                  count: 3,
+                },
+              ]
+            : [
+                {
+                  value: "h:4000",
+                  label: "4.000 h",
+                  hours: 4000,
+                  kind: "hours",
+                  count: 1,
+                },
+              ],
+      },
+    });
+  });
+  await page.goto("/fabricante?model=GA15");
+  const select = page.getByLabel("Intervalo informado");
+  await expect(select).toBeEnabled();
+  await expect(select.locator("option[value='h:8000']")).toHaveCount(1);
+  await select.selectOption("h:8000");
+  await page.getByRole("button", { name: "Pesquisar", exact: true }).click();
+  await expect(page).toHaveURL(/interval=h%3A8000/);
+  await expect(page.getByText(/Inclui os intervalos menores/)).toBeVisible();
+  await expect
+    .poll(() =>
+      searches.some((u) => u.searchParams.get("interval") === "h:8000"),
+    )
+    .toBe(true);
+  await page.getByLabel("Modelo", { exact: true }).fill("GA22");
+  await expect(select).toHaveValue("");
+  await expect(select.locator("option[value='h:4000']")).toHaveCount(1);
+  await expect(select.locator("option[value='h:8000']")).toHaveCount(0);
 });

@@ -174,6 +174,23 @@ test("catalog SQL indexes exact multi-code references, refreshes on M8 updates a
       [JSON.stringify(d.entries)],
     );
     globals.historyPool = db;
+    const revisionItems = await manufacturerCatalog(
+      manualFilters(new URLSearchParams("model=GA15&interval=h:8000")),
+    );
+    assert.equal(revisionItems.total, 2);
+    assert.deepEqual(
+      revisionItems.rows.map((e) => e.interval_original).sort(),
+      ["4000", "6000 / 8000"],
+    );
+    const intervalMetadata = await manufacturerCatalog(
+      manualFilters(new URLSearchParams("model=GA15")),
+      true,
+    );
+    assert.equal(
+      intervalMetadata.intervals.find((i) => i.value === "h:8000")?.count,
+      2,
+    );
+    assert.equal(intervalMetadata.rows.length, 0);
     const catalog = await manufacturerCatalog(
       manualFilters(new URLSearchParams("company=1&q=0367010055")),
     );

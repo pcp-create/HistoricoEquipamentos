@@ -18,7 +18,14 @@ export async function GET(request: Request) {
       );
     }
     return NextResponse.json(
-      { ...(await manufacturerCatalog(filters)), filters, email: user.email },
+      {
+        ...(await manufacturerCatalog(
+          filters,
+          new URL(request.url).searchParams.get("options") === "intervals",
+        )),
+        filters,
+        email: user.email,
+      },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {

@@ -1,5 +1,6 @@
 import "server-only";
 import { database } from "../db";
+import { intervalOptions, matchesInterval } from "./intervals";
 import { currentProducts } from "../product-current";
 import {
   fold,
@@ -30,10 +31,14 @@ export function manualFilters(params: URLSearchParams) {
     model: text("model", 80),
     variant: text("variant", 64),
     review: text("review") === "1",
+    interval: text("interval", 160),
   };
 }
 export type ManualFilters = ReturnType<typeof manualFilters>;
-export async function manufacturerCatalog(f: ManualFilters) {
+export async function manufacturerCatalog(
+  f: ManualFilters,
+  optionsOnly = false,
+) {
   const db = database();
   const revision = (
     await db.query(
@@ -44,6 +49,7 @@ export async function manufacturerCatalog(f: ManualFilters) {
     return {
       revision: null,
       variants: [],
+      intervals: [],
       rows: [],
       total: 0,
       page: 1,
@@ -73,6 +79,17 @@ export async function manufacturerCatalog(f: ManualFilters) {
       [selected.map((v) => v.id)],
     )
   ).rows;
+  const intervals = intervalOptions(entries);
+  if (optionsOnly)
+    return {
+      revision,
+      variants,
+      intervals,
+      rows: [],
+      total: 0,
+      page: 1,
+      consumption: null,
+    };
   const terms = fold(f.q).split(/\s+/).filter(Boolean);
   const filtered = entries.filter((e) => {
     const v = selected.find((v) => v.id === e.variant_id)!;
@@ -90,6 +107,7 @@ export async function manufacturerCatalog(f: ManualFilters) {
       ].join(" "),
     );
     return (
+      matchesInterval(e, f.interval) &&
       (!f.review || e.issues.length) &&
       terms.every(
         (term) =>
@@ -138,6 +156,7 @@ export async function manufacturerCatalog(f: ManualFilters) {
   return {
     revision,
     variants,
+    intervals,
     rows: rows.map((r) => ({
       ...r,
       match: selected.find((v) => v.id === r.variant_id)!.match,
