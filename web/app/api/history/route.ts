@@ -41,12 +41,16 @@ export async function GET(request: Request) {
         ...(filters.view === "materials"
           ? {
               material: "Material",
+              item_status: "Situação do material",
               reference: "Referência do fabricante",
               product_id: "Código do produto",
               quantity: "Quantidade",
               unit: "Unidade",
             }
-          : { materials: "Itens de material" }),
+          : {
+              materials: "Itens de material",
+              excluded_materials: "Itens excluídos",
+            }),
         amount: "Valor total",
         detail_at: "Detalhes atualizados em",
       };

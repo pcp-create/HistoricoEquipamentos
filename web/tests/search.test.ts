@@ -42,11 +42,17 @@ test("global search uses values, respects each material and updates with the int
  INSERT INTO m8_os_produtos(company_id,ordem_servico_id,id_m8,produto_nome,referencia_fabricante,quantidade,esta_excluido,payload) VALUES
  (1,1,7,'Filtro de óleo','ABC-123',2,false,'{}'),(1,1,8,'Correia','ZZ-42',1,false,'{}'),(2,1,7,'Peça excluída','EXCLUIDO',1,true,'{}');
  INSERT INTO m8_equipamentos(company_id,ordem_servico_id,id_m8,numero_serie,problema,payload) VALUES (1,1,1,'SN001','ruído','{}'),(1,1,2,'SN002','vibração','{}');`);
+    await db.exec(
+      readFileSync(
+        new URL("../sql/003_include_excluded_materials.sql", import.meta.url),
+        "utf8",
+      ),
+    );
     async function results(query: string) {
       const f = parseFilters(new URLSearchParams(query));
       const { sql, values } = buildWhere(f);
       const r = await db.query(
-        `SELECT o.company_id,o.id_m8 ${f.view === "materials" ? ",p.id_m8 AS item" : ""} FROM m8_ordens_servico o ${f.view === "materials" ? "JOIN m8_os_produtos p ON p.company_id=o.company_id AND p.ordem_servico_id=o.id_m8 AND p.esta_excluido IS NOT TRUE" : ""} WHERE ${sql}`,
+        `SELECT o.company_id,o.id_m8 ${f.view === "materials" ? ",p.id_m8 AS item" : ""} FROM m8_ordens_servico o ${f.view === "materials" ? "JOIN m8_os_produtos p ON p.company_id=o.company_id AND p.ordem_servico_id=o.id_m8 " : ""} WHERE ${sql}`,
         values,
       );
       return r.rows as { company_id: number; item?: number }[];
@@ -54,7 +60,7 @@ test("global search uses values, respects each material and updates with the int
     assert.equal((await results("q=aguia filtro SN002")).length, 1);
     assert.equal((await results("q=vedacao")).length, 1);
     assert.equal((await results("q=ruido")).length, 1);
-    assert.equal((await results("q=EXCLUIDO")).length, 0);
+    assert.equal((await results("q=EXCLUIDO")).length, 1);
     assert.equal(
       (await results("q=cliente_nome")).length,
       0,
@@ -83,7 +89,7 @@ test("global search uses values, respects each material and updates with the int
     );
     assert.equal(
       (await results("view=materials&productId=700&company=2")).length,
-      0,
+      1,
     );
     assert.throws(() =>
       parseFilters(new URLSearchParams("productId=700 OR 1=1")),
@@ -115,7 +121,7 @@ test("global search uses values, respects each material and updates with the int
     await db.exec(
       "UPDATE m8_os_produtos SET esta_excluido=true WHERE company_id=1 AND id_m8=7",
     );
-    assert.equal((await results("q=elemento")).length, 0);
+    assert.equal((await results("q=elemento")).length, 1);
     await db.exec(
       "INSERT INTO m8_ordens_servico(company_id,id_m8,payload) VALUES(1,2,'{}'); INSERT INTO m8_os_produtos(company_id,ordem_servico_id,id_m8,produto_nome,payload) VALUES(1,2,8,'Outro item','{}')",
     );

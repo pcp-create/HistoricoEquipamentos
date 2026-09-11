@@ -27,6 +27,7 @@ const sampleRows = Array.from({ length: 8 }, (_, i) => ({
   quantity: "2",
   unit: "UN",
   item_id: String(i),
+  is_excluded: i === 1,
 }));
 test("authentication is enforced on page, search, export and detail API", async ({
   page,
@@ -114,6 +115,7 @@ test("history UI: search, filters, views, detail, pagination, export, empty/erro
             produto_id: 5,
             quantidade: 2,
             unidade_nome: "UN",
+            esta_excluido: true,
             observacao: "Aplicado na revisão",
           },
         ],
@@ -131,11 +133,22 @@ test("history UI: search, filters, views, detail, pagination, export, empty/erro
     fullPage: true,
   });
   await page.getByRole("button", { name: "Por material", exact: true }).click();
+  await expect(page.locator("table .excluded-description")).toHaveCount(1);
+  await expect(page.locator("table .excluded-description")).toHaveCSS(
+    "color",
+    "rgb(180, 35, 24)",
+  );
+  await expect(page.locator("table").getByText("Excluído da OS")).toHaveCount(
+    1,
+  );
   await expect(
     page.getByRole("columnheader", { name: "Material aplicado" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Ver detalhes da OS 14681" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByText("Excluído da OS"),
+  ).toBeVisible();
   await page.getByText("Todos os campos da OS").click();
   await expect(page.getByText("Vedação revisada")).toBeVisible();
   await page.keyboard.press("Escape");

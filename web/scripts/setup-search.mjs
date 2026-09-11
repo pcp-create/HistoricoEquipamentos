@@ -35,7 +35,11 @@ try {
   await db.query(
     "DO $$ BEGIN IF EXISTS (SELECT FROM pg_roles WHERE rolname='anon') THEN REVOKE ALL ON public.web_history_migrations FROM anon,authenticated; END IF; END $$",
   );
-  for (const name of ["001_search.sql", "002_search_index.sql"]) {
+  for (const name of [
+    "001_search.sql",
+    "002_search_index.sql",
+    "003_include_excluded_materials.sql",
+  ]) {
     const sql = readFileSync(
       new URL("../sql/" + name, import.meta.url),
       "utf8",

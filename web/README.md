@@ -8,7 +8,7 @@ Prévias visuais com dados fictícios usados somente nos testes: [desktop](../do
 
 - Login individual por e-mail/senha do Supabase Auth. Somente contas confirmadas e incluídas em `WEB_ALLOWED_EMAILS` entram; não há cadastro público no site.
 - Pesquisa global após 500 ms sem digitação ou ao pressionar Enter/Pesquisar. Ignora caixa e acentos; todas as palavras precisam aparecer, podendo estar em campos diferentes da mesma OS. Até 200 caracteres e 12 palavras.
-- Todas as colunas relacionais de OS, produtos ativos e equipamentos entram na pesquisa, incluindo campos não exibidos na tabela. O JSON bruto de auditoria `payload` não é indexado. Os campos estão acessíveis nos detalhes. O filtro de período usa emissão, com abertura como alternativa, no fuso de Brasília.
+- Todas as colunas relacionais de OS, produtos ativos e excluídos e equipamentos entram na pesquisa, incluindo campos não exibidos na tabela. O JSON bruto de auditoria `payload` não é indexado. Os campos estão acessíveis nos detalhes. O filtro de período usa emissão, com abertura como alternativa, no fuso de Brasília.
 - Na visão por OS, um material correspondente retorna a ordem inteira; na visão por material, a pesquisa do produto corresponde ao próprio item, enquanto campos da OS/equipamento se aplicam aos seus materiais.
 - Filtros por empresa, cliente/CPF/CNPJ, equipamento, modelo, série, material/referência, status e período. Paginação de 25/50/100 registros; filtros preservados na URL.
 - Detalhes da OS, materiais e equipamentos, incluindo indicação explícita de detalhes ainda não importados.
@@ -28,7 +28,7 @@ npm run dev
 
 Nesta sessão `.env.local` já foi preparado com a conexão existente e o e-mail autorizado informado pelo usuário. Não sobrescrevê-lo com o exemplo. O certificado público CA está em `certs/supabase-ca.crt`, incluído no pacote servidor. `DATABASE_SSL_CA_FILE` não é necessário no site: ele usa esse caminho fixo para permitir empacotamento seguro na Vercel.
 
-`npm run db:search` aplica as migrations próprias do site, com checksum e transação. As duas migrations foram aplicadas ao Supabase em 11/09/2026. Elas criam uma projeção de pesquisa com índice trigram e triggers nas tabelas de OS, produtos e equipamentos. O runner já instalado alimenta o índice automaticamente, sem precisar de uma nova versão. As tabelas internas têm RLS e não são liberadas a `anon`/`authenticated`. As migrations não modificam os arquivos 001–005 do integrador.
+`npm run db:search` aplica as migrations próprias do site, com checksum e transação. As três migrations foram aplicadas ao Supabase em 11/09/2026. A terceira inclui os materiais excluídos no índice histórico. Elas criam uma projeção de pesquisa com índice trigram e triggers nas tabelas de OS, produtos e equipamentos. O runner já instalado alimenta o índice automaticamente, sem precisar de uma nova versão. As tabelas internas têm RLS e não são liberadas a `anon`/`authenticated`. As migrations não modificam os arquivos 001–005 do integrador.
 
 A API usa conexões limitadas a três por instância, TLS verificado, consultas parametrizadas, timeout de 25 segundos por SQL e modo de transação padrão somente leitura. A migration usa uma conexão própria de escrita. Sessões ficam em cookies HttpOnly e Secure em produção; a identidade e a lista de acesso são verificadas em todas as rotas de dados, inclusive exportação e detalhes.
 
@@ -89,3 +89,5 @@ A aba `/analise-materiais` consulta materiais de OS `Processado`, com `finalized
 O mínimo segue a lógica de consumo durante o prazo de reposição mais reserva descrita pela [SAP](https://learning.sap.com/courses/consumption-based-planning-and-forecasting-in-sap-cloud-erp/understanding-the-net-requirements-calculation-for-reorder-point-planning). A escolha do máximo é uma política explícita desta simulação: acrescentar demanda do ciclo de revisão. O conceito de repor até um nível máximo é descrito pela [Oracle](https://docs.oracle.com/cd/A60725_05/html/comnls/us/inv/mnmxplan.htm). A simulação não equivale a uma previsão estatística validada nem calcula saldo disponível.
 
 As consultas de cobertura e consumo usam uma mesma transação de leitura com snapshot consistente, enquanto o integrador continua trabalhando. Não foi necessária uma nova migration. As premissas e filtros ficam na URL; não são gravados como política oficial por produto.
+
+Materiais excluídos da OS permanecem na consulta histórica, com descrição em vermelho e indicação “Excluído da OS”, inclusive nos detalhes. O CSV informa a situação do material. A contagem de materiais por OS inclui os excluídos e informa quantos são; o indicador geral de itens ativos continua considerando apenas os ativos. Os excluídos não entram no consumo nem nas sugestões de estoque mínimo e máximo.

@@ -6,8 +6,7 @@ const normalized = (sql: string) =>
   `translate(lower(COALESCE(${sql},'')), 'áàâãäåéèêëíìîïóòôõöúùûüçñ', 'aaaaaaeeeeiiiiooooouuuucn')`;
 const equipmentLink =
   "e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8";
-const productLink =
-  "p.company_id=o.company_id AND p.ordem_servico_id=o.id_m8 AND p.esta_excluido IS NOT TRUE";
+const productLink = "p.company_id=o.company_id AND p.ordem_servico_id=o.id_m8";
 const dateColumn = "COALESCE(o.emissao,o.data_abertura)";
 
 export function buildWhere(filters: Filters) {
@@ -99,7 +98,7 @@ export async function history(filters: Filters, exporting = false) {
     o.equipamento AS equipment, COALESCE(NULLIF(o.modelo_equipamento,''),eq.models) AS model,
     COALESCE(NULLIF(o.numero_serie,''),NULLIF(o.serie,''),eq.serials) AS serial,
     o.status, o.situacao_nome AS situation, s.last_detail_at AS detail_at,
-    ${filters.view === "materials" ? `p.id_m8::text AS item_id, p.produto_nome AS material, p.referencia_fabricante AS reference, p.produto_id::text AS product_id, p.quantidade AS quantity, p.unidade_nome AS unit, p.valor_total AS amount` : `o.total_geral AS amount, (SELECT count(*)::int FROM public.m8_os_produtos p WHERE ${productLink}) AS materials`}
+    ${filters.view === "materials" ? `p.id_m8::text AS item_id, p.produto_nome AS material, p.referencia_fabricante AS reference, p.produto_id::text AS product_id, p.quantidade AS quantity, p.unidade_nome AS unit, p.valor_total AS amount, COALESCE(p.esta_excluido,false) AS is_excluded, CASE WHEN p.esta_excluido IS TRUE THEN 'Excluído da OS' ELSE 'Ativo' END AS item_status` : `o.total_geral AS amount, (SELECT count(*)::int FROM public.m8_os_produtos p WHERE ${productLink}) AS materials, (SELECT count(*)::int FROM public.m8_os_produtos p WHERE ${productLink} AND p.esta_excluido IS TRUE) AS excluded_materials`}
     ${from}
     LEFT JOIN public.integracao_m8_os_sync s ON s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8
     LEFT JOIN LATERAL (SELECT string_agg(DISTINCT NULLIF(e.numero_serie,''),', ') AS serials, string_agg(DISTINCT NULLIF(e.equipamento_modelo,''),', ') AS models FROM public.m8_equipamentos e WHERE ${equipmentLink}) eq ON true

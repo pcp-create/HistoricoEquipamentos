@@ -40,6 +40,8 @@ type Row = {
   situation: string | null;
   detail_at: string | null;
   materials?: number;
+  excluded_materials?: number;
+  is_excluded?: boolean;
   amount: string | null;
   material?: string;
   reference?: string;
@@ -686,9 +688,17 @@ export default function Dashboard() {
                         {view === "materials" ? (
                           <>
                             <td className="material-cell">
-                              <span className="cell-title" title={row.material}>
+                              <span
+                                className={`cell-title${row.is_excluded ? " excluded-description" : ""}`}
+                                title={row.material}
+                              >
                                 {row.material || "—"}
                               </span>
+                              {row.is_excluded && (
+                                <small className="excluded-label">
+                                  Excluído da OS
+                                </small>
+                              )}
                               <small className="cell-secondary">
                                 Código: {row.product_id || "Não informado"}
                               </small>
@@ -722,6 +732,11 @@ export default function Dashboard() {
                               >
                                 A importar
                               </span>
+                            )}
+                            {!!row.excluded_materials && (
+                              <small className="excluded-label">
+                                {row.excluded_materials} excluído(s)
+                              </small>
                             )}
                           </td>
                         )}
@@ -827,7 +842,8 @@ export default function Dashboard() {
             {overview && overview.imported < overview.orders
               ? "A base está sendo preenchida. Algumas OS ainda aguardam a importação dos materiais."
               : "Os dados refletem a última coleta do integrador."}{" "}
-            Produtos excluídos não aparecem nesta consulta.
+            Materiais excluídos da OS aparecem em vermelho e não entram na
+            análise de consumo.
           </span>
         </div>
         <footer>
@@ -907,7 +923,20 @@ export default function Dashboard() {
                   <details className="material-detail" key={i}>
                     <summary>
                       <div>
-                        <strong>{shown(p.produto_nome)}</strong>
+                        <strong
+                          className={
+                            p.esta_excluido === true
+                              ? "excluded-description"
+                              : undefined
+                          }
+                        >
+                          {shown(p.produto_nome)}
+                        </strong>
+                        {p.esta_excluido === true && (
+                          <small className="excluded-label">
+                            Excluído da OS
+                          </small>
+                        )}
                         <small>Código: {shown(p.produto_id)}</small>
                         <small>
                           Ref. fabricante: {shown(p.referencia_fabricante)}
@@ -924,7 +953,7 @@ export default function Dashboard() {
               ) : (
                 <p className="muted">
                   {detail.detail_at
-                    ? "Nenhum material ativo registrado."
+                    ? "Nenhum material registrado."
                     : "Aguardando coleta dos materiais."}
                 </p>
               )}
