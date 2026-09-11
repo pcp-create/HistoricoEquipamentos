@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ClipboardList, Plus, Save, Search, Trash2 } from "lucide-react";
 import SiteHeader from "./site-header";
 import {
@@ -62,16 +62,196 @@ async function api(url: string, options?: RequestInit) {
     throw new Error(body.error || "Não foi possível concluir a operação.");
   return body;
 }
+type LookupOption = { key: string; name: string; detail: string };
+function QuoteLookup<T>({
+  label,
+  value,
+  url,
+  option,
+  onSelect,
+  onManual,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  url: string;
+  option: (row: T, index: number) => LookupOption;
+  onSelect: (row: T) => void;
+  onManual: (name: string) => void;
+  placeholder: string;
+}) {
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [rows, setRows] = useState<T[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [more, setMore] = useState(false);
+  const [active, setActive] = useState(-1);
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    setRows([]);
+    setMore(false);
+    setError("");
+    setLoading(true);
+    setActive(-1);
+    const timer = setTimeout(() => {
+      api(url + "&q=" + encodeURIComponent(query), {
+        signal: controller.signal,
+      })
+        .then((result) => {
+          if (!controller.signal.aborted) {
+            setRows(result.rows);
+            setMore(result.truncated);
+          }
+        })
+        .catch((e) => {
+          if (!controller.signal.aborted) setError(e.message);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLoading(false);
+        });
+    }, 250);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [open, query, url]);
+  const manual = query.trim();
+  const count = rows.length + (manual ? 1 : 0);
+  function select(index: number) {
+    if (index < rows.length) onSelect(rows[index]);
+    else if (manual) onManual(manual);
+    setOpen(false);
+  }
+  function show() {
+    if (!open) {
+      setQuery("");
+      setRows([]);
+      setLoading(true);
+      setActive(-1);
+      setOpen(true);
+    }
+  }
+  return (
+    <div
+      className="manual-global quote-lookup"
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+          setOpen(false);
+      }}
+    >
+      <label htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-controls={id + "-list"}
+        aria-activedescendant={
+          open && active >= 0 ? id + "-" + active : undefined
+        }
+        autoComplete="off"
+        maxLength={500}
+        value={open ? query : value}
+        placeholder={open ? placeholder : value || placeholder}
+        onFocus={show}
+        onClick={show}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setRows([]);
+          setActive(-1);
+          setLoading(true);
+          setOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            setOpen(false);
+          }
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            if (!open) show();
+            else if (count) {
+              const next =
+                e.key === "ArrowDown"
+                  ? (active + 1) % count
+                  : active <= 0
+                    ? count - 1
+                    : active - 1;
+              setActive(next);
+              document
+                .getElementById(id + "-" + next)
+                ?.scrollIntoView({ block: "nearest" });
+            }
+          }
+          if (e.key === "Enter" && open) {
+            e.preventDefault();
+            if (active >= 0) select(active);
+          }
+        }}
+      />
+      {open && (
+        <div className="quote-lookup-menu">
+          <div
+            id={id + "-list"}
+            role="listbox"
+            aria-label={label}
+            aria-busy={loading}
+          >
+            {rows.map((row, index) => {
+              const item = option(row, index);
+              return (
+                <button
+                  type="button"
+                  role="option"
+                  id={id + "-" + index}
+                  key={item.key}
+                  aria-selected={active === index}
+                  tabIndex={-1}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => select(index)}
+                >
+                  <strong>{item.name}</strong>
+                  <small>{item.detail}</small>
+                </button>
+              );
+            })}
+            {manual && (
+              <button
+                type="button"
+                role="option"
+                id={id + "-" + rows.length}
+                aria-selected={active === rows.length}
+                tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => select(rows.length)}
+              >
+                Usar “{manual}” como nome manual
+              </button>
+            )}
+          </div>
+          <small role="status">
+            {loading
+              ? "Buscando…"
+              : error ||
+                (more
+                  ? "Digite mais detalhes para encontrar outros resultados."
+                  : !rows.length
+                    ? "Nenhum cadastro encontrado."
+                    : `${rows.length} resultado(s)`)}
+          </small>
+        </div>
+      )}
+    </div>
+  );
+}
 export default function QuoteDashboard() {
   const [draftSearch, setDraftSearch] = useState("");
   const [quote, setQuote] = useState<Draft>(blankQuote),
     [drafts, setDrafts] = useState<Summary[]>([]),
     [email, setEmail] = useState("");
-  const [clients, setClients] = useState<Client[]>([]),
-    [clientSearch, setClientSearch] = useState(""),
-    [clientMore, setClientMore] = useState(false);
-  const [equipment, setEquipment] = useState<Equipment[]>([]),
-    [equipmentMore, setEquipmentMore] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestions>(emptySuggestions),
     [busy, setBusy] = useState(false),
     [saving, setSaving] = useState(false);
@@ -127,59 +307,6 @@ export default function QuoteDashboard() {
       serviceRequest.current?.abort();
     };
   }, []);
-  useEffect(() => {
-    const controller = new AbortController();
-    if (clientSearch.trim().length < 2) {
-      setClients([]);
-      setClientMore(false);
-      return;
-    }
-    const timer = setTimeout(() => {
-      api(
-        "/api/quotes?" +
-          new URLSearchParams({
-            lookup: "clients",
-            company: quote.company,
-            q: clientSearch,
-          }),
-        { signal: controller.signal },
-      )
-        .then((r) => {
-          setClients(r.rows);
-          setClientMore(r.truncated);
-        })
-        .catch((e) => {
-          if (e.name !== "AbortError") setError(e.message);
-        });
-    }, 300);
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [clientSearch, quote.company]);
-  useEffect(() => {
-    const controller = new AbortController();
-    setEquipment([]);
-    setEquipmentMore(false);
-    if (!quote.clientId) return;
-    api(
-      "/api/quotes?" +
-        new URLSearchParams({
-          lookup: "equipment",
-          company: quote.company,
-          clientId: quote.clientId,
-        }),
-      { signal: controller.signal },
-    )
-      .then((r) => {
-        setEquipment(r.rows);
-        setEquipmentMore(r.truncated);
-      })
-      .catch((e) => {
-        if (e.name !== "AbortError") setError(e.message);
-      });
-    return () => controller.abort();
-  }, [quote.company, quote.clientId]);
   function change(patch: Partial<Draft>) {
     setQuote((q) => ({ ...q, ...patch }));
     setDirty(true);
@@ -353,7 +480,6 @@ export default function QuoteDashboard() {
       setQuote(saved);
       setDirty(false);
       loadSuggestions(saved);
-      setClientSearch("");
       setMessage("");
       setFilter("");
     } catch (e) {
@@ -373,7 +499,6 @@ export default function QuoteDashboard() {
     invalidateSuggestions();
     setQuote(blankQuote());
     setDirty(false);
-    setClientSearch("");
     setError("");
     setMessage("");
     setFilter("");
@@ -469,99 +594,93 @@ export default function QuoteDashboard() {
                   </small>
                 </div>
                 <div className="manual-filters quote-fields">
-                  <label className="manual-global">
-                    Buscar cliente na base
-                    <input
-                      value={clientSearch}
-                      onChange={(e) => setClientSearch(e.target.value)}
-                      placeholder="Nome, documento ou código (mín. 2 caracteres)"
-                    />
-                  </label>
-                  {clients.length > 0 && (
-                    <div className="quote-client-results">
-                      {clients.map((c) => (
-                        <button
-                          key={c.id}
-                          onClick={() => {
-                            if (
-                              context({
-                                clientId: c.id,
-                                client: c.name,
-                                equipment: "",
-                                model: "",
-                                serial: "",
-                              })
-                            )
-                              setClientSearch("");
-                          }}
-                        >
-                          {c.name} · {c.document || c.id}
-                        </button>
-                      ))}
-                      {clientMore && (
-                        <small>
-                          Refine a pesquisa para encontrar mais clientes.
-                        </small>
-                      )}
-                    </div>
-                  )}
-                  <label className="manual-global">
-                    Cliente *
-                    <input
-                      value={quote.client}
-                      maxLength={500}
-                      onChange={(e) =>
-                        context({
-                          client: e.target.value,
-                          clientId: "",
-                          equipment: "",
-                          model: "",
-                          serial: "",
-                        })
-                      }
-                      placeholder="Selecione acima ou cadastre o nome manualmente"
-                    />
-                  </label>
-                  <label>
-                    Equipamento do cliente
-                    <select
-                      value=""
-                      onChange={(e) => {
-                        const eq = equipment[Number(e.target.value)];
-                        if (eq) {
-                          const next = context({
-                            equipment: eq.name,
-                            equipmentId: eq.equipment_id || "",
-                            model: eq.model,
-                            serial: eq.serial,
-                          });
-                          if (next) loadSuggestions(next);
-                        }
-                      }}
-                    >
-                      <option value="">Selecionar equipamento…</option>
-                      {equipment.map((eq, i) => (
-                        <option value={i} key={i}>
-                          {eq.name} · {eq.model || "Sem modelo"} ·{" "}
-                          {eq.serial || "Sem série"}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {equipmentMore && (
-                    <p>
-                      Exibindo 300 equipamentos; você também pode informar
-                      modelo e série manualmente.
-                    </p>
-                  )}
-                  <label className="manual-global">
-                    Equipamento *
-                    <input
-                      maxLength={500}
-                      value={quote.equipment}
-                      onChange={(e) => context({ equipment: e.target.value })}
-                    />
-                  </label>
+                  <QuoteLookup<Client>
+                    key={
+                      "client-" +
+                      (quote.id || "new") +
+                      "-" +
+                      quote.clientId +
+                      "-" +
+                      quote.client
+                    }
+                    label="Cliente *"
+                    value={quote.client}
+                    url="/api/quotes?lookup=clients"
+                    placeholder="Selecione ou digite nome, documento ou código"
+                    option={(c) => ({
+                      key: c.id,
+                      name: c.name,
+                      detail: c.document || c.id,
+                    })}
+                    onSelect={(c) => {
+                      if (c.id === quote.clientId) return;
+                      context({
+                        clientId: c.id,
+                        client: c.name,
+                        equipment: "",
+                        model: "",
+                        serial: "",
+                      });
+                    }}
+                    onManual={(client) =>
+                      context({
+                        client,
+                        clientId: "",
+                        equipment: "",
+                        model: "",
+                        serial: "",
+                      })
+                    }
+                  />
+                  <QuoteLookup<Equipment>
+                    key={
+                      "equipment-" +
+                      (quote.id || "new") +
+                      "-" +
+                      quote.clientId +
+                      "-" +
+                      quote.equipment +
+                      "-" +
+                      quote.serial
+                    }
+                    label="Equipamento *"
+                    value={quote.equipment}
+                    url={
+                      "/api/quotes?lookup=equipment&clientId=" +
+                      encodeURIComponent(quote.clientId)
+                    }
+                    placeholder="Selecione ou digite equipamento, modelo ou série"
+                    option={(eq, i) => ({
+                      key: String(i),
+                      name: eq.name,
+                      detail: [
+                        eq.model || "Sem modelo",
+                        eq.serial || "Sem série",
+                        eq.source,
+                      ]
+                        .filter(Boolean)
+                        .join(" · "),
+                    })}
+                    onSelect={(eq) => {
+                      if (
+                        eq.name === quote.equipment &&
+                        eq.serial === quote.serial &&
+                        eq.model === quote.model &&
+                        (eq.equipment_id || "") === (quote.equipmentId || "")
+                      )
+                        return;
+                      const next = context({
+                        equipment: eq.name,
+                        equipmentId: eq.equipment_id || "",
+                        model: eq.model,
+                        serial: eq.serial,
+                      });
+                      if (next) loadSuggestions(next);
+                    }}
+                    onManual={(equipment) =>
+                      context({ equipment, model: "", serial: "" })
+                    }
+                  />
                   <label>
                     Modelo
                     <input

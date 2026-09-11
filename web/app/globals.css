@@ -2553,23 +2553,6 @@ footer > span {
 .quote-fields {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
-.quote-client-results {
-  grid-column: 1 / -1;
-  display: grid;
-  max-height: 230px;
-  overflow: auto;
-  border: 1px solid #cbd8e3;
-  border-radius: 8px;
-}
-.quote-client-results button {
-  text-align: left;
-  border: 0;
-  border-bottom: 1px solid #e4ebf2;
-  background: #f7faff;
-  padding: 12px;
-  color: #294f72;
-  cursor: pointer;
-}
 .quote-toolbar {
   display: flex;
   align-items: flex-end;
@@ -2849,4 +2832,58 @@ footer > span {
 }
 .registered-equipment-card a {
   color: #35628a;
+}
+
+.quote-lookup {
+  position: relative;
+  min-width: 0;
+}
+.quote-lookup > label {
+  display: block;
+  margin-bottom: 6px;
+}
+.quote-lookup > input {
+  width: 100%;
+}
+.quote-lookup-menu {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: #fff;
+  border: 1px solid #d8e3ef;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #203c6020;
+  overflow: hidden;
+}
+.quote-lookup-menu [role="listbox"] {
+  max-height: 280px;
+  overflow-y: auto;
+}
+.quote-lookup-menu button {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 10px 12px;
+  color: inherit;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.quote-lookup-menu button:hover,
+.quote-lookup-menu button[aria-selected="true"] {
+  background: #edf4fb;
+}
+.quote-lookup-menu small {
+  color: #647b96;
+  font-weight: 400;
+}
+.quote-lookup-menu > small {
+  display: block;
+  padding: 8px 12px;
 }

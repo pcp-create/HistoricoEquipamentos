@@ -201,7 +201,7 @@ export default function ManufacturerDashboard() {
             Pesquisa global
             <input
               value={form.q}
-              placeholder="Descrição, código, modelo ou condição de aplicação"
+              placeholder="Descrição, código, modelo, série ou condição de aplicação"
               onChange={(e) => setForm({ ...form, q: e.target.value })}
             />
           </label>
@@ -224,7 +224,7 @@ export default function ManufacturerDashboard() {
             Número de série
             <input
               value={form.serial}
-              placeholder="Série completa para consultar OS"
+              placeholder="Série completa: busca nas faixas do fabricante"
               onChange={(e) =>
                 setForm({
                   ...form,

@@ -106,6 +106,9 @@ As consultas por material, detalhes da OS e análise exibem preços atuais do ca
 
 A rota `/fabricante` pesquisa peças da planilha e relaciona os códigos às referências e aos códigos de similaridade do M8. Informando empresa e série completa, exibe também os materiais das OS associadas. A importação, atualização de revisões e os critérios de correspondência estão em [Catálogo do fabricante](../docs/catalogo-fabricante.md).
 
+A pesquisa global também reconhece séries dentro dos intervalos da planilha: `BRP063000` encontra a faixa `BRP060001 a BRP065117`, e `BRP063000 Correia` restringe os resultados pela descrição. O campo **Número de série** usa a mesma comparação de prefixo, quantidade de dígitos e limites inclusivos. São aceitos prefixos separados por espaço, faixas “de série… até série…” e limites “a partir da série…”. Referências ambíguas continuam sujeitas à conferência; o modelo informado também limita as versões candidatas. Esta melhoria não exige reimportar a planilha nem atualizar o integrador.
+
+
 ## Fotos dos produtos M8
 
 O botão **Ver fotos** aparece na consulta por material, no detalhe dos materiais da OS e nos produtos M8 relacionados ao catálogo do fabricante. As fotos são carregadas somente ao abrir a galeria, com navegação e fechamento por Escape. A identificação informa produto e empresa: a foto é do cadastro M8, não uma imagem proveniente da planilha.

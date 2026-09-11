@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import { parseManual } from "../lib/manufacturer/importer";
 import {
   serialMatch,
+  catalogSearchTerms,
   normalizeCode,
   modelKeys,
   variantMatch,
@@ -40,6 +41,40 @@ test("serial rules preserve prefix, range boundaries and ambiguous expressions",
   };
   assert.equal(variantMatch(v, "GA15", ""), "no");
   assert.equal(variantMatch(v, "GA15+", "BRP000001"), "review");
+});
+test("serial ranges accept manufacturer labels, open bounds and preserve precision", () => {
+  for (const expression of [
+    "De Série BRP060001 até série BRP065117",
+    "BRP060001 - BRP065117",
+    "BRP 060001 até 065117",
+  ]) {
+    for (const serial of ["BRP060001", "brp-063000", "BRP065117"])
+      assert.equal(serialMatch(expression, serial), "match");
+    for (const serial of ["BRP060000", "BRP065118", "BQD063000", "BRP63000"])
+      assert.equal(serialMatch(expression, serial), "no");
+  }
+  assert.equal(
+    serialMatch("A partir da série BQD100000", "BQD100000"),
+    "match",
+  );
+  assert.equal(serialMatch("A partir da série BQD100000", "BQD099999"), "no");
+  assert.equal(serialMatch("Até a série BQD100000", "BQD100000"), "match");
+  assert.equal(serialMatch("Após série BQD100000", "BQD100000"), "no");
+  assert.equal(
+    serialMatch("De BRP065117 até BRP060001", "BRP063000"),
+    "review",
+  );
+  assert.equal(
+    serialMatch("De BRP060001 até BQD065117", "BRP063000"),
+    "review",
+  );
+  assert.equal(
+    serialMatch(
+      "ABC9007199254740992 a ABC9007199254740992",
+      "ABC9007199254740993",
+    ),
+    "no",
+  );
 });
 function workbook() {
   const b = XLSX.utils.book_new();
@@ -174,6 +209,58 @@ test("catalog SQL indexes exact multi-code references, refreshes on M8 updates a
       [JSON.stringify(d.entries)],
     );
     globals.historyPool = db;
+    for (const q of [
+      "BRP060001",
+      "BRP063000",
+      "BRP065117",
+      "brp-063000",
+      "BRP 063000",
+    ]) {
+      const result = await manufacturerCatalog(
+        manualFilters(new URLSearchParams({ q, model: "GA15" })),
+      );
+      assert.equal(result.total, 6, q);
+      assert(result.rows.every((row) => row.match === "match"));
+    }
+    assert.deepEqual(catalogSearchTerms("Correia BRP 063000", d.variants), [
+      "CORREIA",
+      "BRP063000",
+    ]);
+    for (const q of ["BRP060000", "BRP065118", "BQD063000"]) {
+      assert.equal(
+        (await manufacturerCatalog(manualFilters(new URLSearchParams({ q }))))
+          .total,
+        0,
+        q,
+      );
+    }
+    const mixed = await manufacturerCatalog(
+      manualFilters(new URLSearchParams({ q: "BRP063000 Correia" })),
+    );
+    assert.equal(mixed.total, 1);
+    const bySerial = await manufacturerCatalog(
+      manualFilters(
+        new URLSearchParams({ serial: "BRP063000", model: "GA15" }),
+      ),
+    );
+    assert.equal(bySerial.total, 6);
+    assert.equal(
+      (
+        await manufacturerCatalog(
+          manualFilters(new URLSearchParams({ serial: "BRP065118" })),
+        )
+      ).total,
+      0,
+    );
+    assert.equal(
+      (
+        await manufacturerCatalog(
+          manualFilters(new URLSearchParams({ q: "BRP063000", model: "GX7" })),
+        )
+      ).total,
+      0,
+    );
+
     const revisionItems = await manufacturerCatalog(
       manualFilters(new URLSearchParams("model=GA15&interval=h:8000")),
     );

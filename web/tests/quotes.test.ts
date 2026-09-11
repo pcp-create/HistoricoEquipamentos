@@ -168,6 +168,15 @@ test("draft persistence, concurrent edits and equipment suggestions isolate comp
       new URLSearchParams("lookup=equipment&company=1&clientId=1"),
     );
     assert.equal(eq.rows?.length, 2);
+    const initialClients = await quoteLookup(
+      new URLSearchParams("lookup=clients"),
+    );
+    assert(initialClients.rows?.length);
+    const noEquipment = await quoteLookup(
+      new URLSearchParams("lookup=equipment&clientId=1&q=SEM-CORRESPONDENCIA"),
+    );
+    assert.equal(noEquipment.rows?.length, 0);
+
     await db.exec("SET ROLE anon");
     await assert.rejects(() => db.query("SELECT * FROM web_quotes"));
     await db.exec("RESET ROLE");

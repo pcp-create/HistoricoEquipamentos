@@ -22,17 +22,25 @@ export type SerialMatch = "match" | "no" | "review";
 export function serialMatch(expression: string, serial: string): SerialMatch {
   const input = normalizeSerial(serial);
   if (!input || !expression.trim()) return "review";
-  const raw = fold(expression).trim();
+  const raw = fold(expression)
+    .replace(
+      /\b(?:NUMERO\s+DE\s+SERIE|N[°º.]?\s*(?:DE\s+)?SERIE|SERIE)\s*:?\s*/g,
+      "",
+    )
+    .replace(/\b(ATE|APOS)\s+A\s+/g, "$1 ")
+    .replace(/^\s*DE\s+/, "")
+    .replace(/[–—]/g, "-")
+    .trim();
   const part = (s: string) => {
     const m = normalizeSerial(s).match(/^([A-Z]*)(\d+)$/);
     return m
-      ? { prefix: m[1], number: Number(m[2]), width: m[2].length }
+      ? { prefix: m[1], number: BigInt(m[2]), width: m[2].length }
       : null;
   };
   const point = part(input);
   if (!point) return "review";
   const range = raw.match(
-    /^([A-Z]*\s*\d[\d. ]*)\s+(?:A|ATE)\s+([A-Z]*\s*\d[\d. ]*)$/,
+    /^([A-Z]*\s*\d[\d. ]*)\s+(?:ATE|A|-)\s*([A-Z]*\s*\d[\d. ]*)$/,
   );
   if (range) {
     const a = part(range[1]),
@@ -45,6 +53,20 @@ export function serialMatch(expression: string, serial: string): SerialMatch {
       point.width === a.width &&
       point.number >= a.number &&
       point.number <= b.number
+      ? "match"
+      : "no";
+  }
+  const lower = raw.match(
+    /^(A PARTIR (?:DE|DA|DO)|DESDE|APOS|POSTERIOR A)\s+([A-Z]*\s*\d[\d. ]*)$/,
+  );
+  if (lower) {
+    const a = part(lower[2]);
+    return a &&
+      point.prefix === a.prefix &&
+      point.width === a.width &&
+      (/^(APOS|POSTERIOR)/.test(lower[1])
+        ? point.number > a.number
+        : point.number >= a.number)
       ? "match"
       : "no";
   }
@@ -114,4 +136,29 @@ export function variantMatch(
 }
 export function validCode(value: string) {
   return /^[A-Z0-9]{6,24}$/.test(value) && /\d/.test(value);
+}
+
+// Join separated prefixes only when they occur in the manufacturer's serial references.
+// This avoids interpreting ordinary words in a mixed search as serial prefixes.
+export function catalogSearchTerms(
+  query: string,
+  variants: Variant[],
+): string[] {
+  const prefixes = new Set(
+    variants.flatMap((v) =>
+      [...v.rules.map((r) => r.serial), ...v.header].flatMap((expression) =>
+        [...fold(expression).matchAll(/\b([A-Z]{2,6})\s*\d{4,}/g)].map(
+          (m) => m[1],
+        ),
+      ),
+    ),
+  );
+  const terms = fold(query).split(/\s+/).filter(Boolean);
+  const result: string[] = [];
+  for (let i = 0; i < terms.length; i++) {
+    if (prefixes.has(terms[i]) && /^\d[\d.]*$/.test(terms[i + 1] || "")) {
+      result.push(terms[i] + terms[++i]);
+    } else result.push(terms[i]);
+  }
+  return result;
 }

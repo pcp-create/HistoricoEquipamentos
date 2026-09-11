@@ -137,15 +137,28 @@ test("quote selects equipment, combines suggestions, edits prices, saves and reo
   await expect(
     page.getByRole("combobox", { name: "Empresa", exact: true }),
   ).toHaveCount(0);
-  await page.getByLabel("Buscar cliente na base").fill("Teste");
-  await page.getByRole("button", { name: "Cliente Teste · 123" }).click();
-  await expect(page.getByLabel("Cliente *", { exact: true })).toHaveValue(
-    "Cliente Teste",
-  );
+  const client = page.getByRole("combobox", { name: "Cliente *", exact: true });
+  await client.click();
   await expect(
-    page.getByLabel("Equipamento do cliente").locator("option"),
-  ).toHaveCount(2);
-  await page.getByLabel("Equipamento do cliente").selectOption("0");
+    page.getByRole("option", { name: "Cliente Teste 123" }),
+  ).toBeVisible();
+  await client.fill("Teste");
+  await page.getByRole("option", { name: "Cliente Teste 123" }).click();
+  await expect(client).toHaveValue("Cliente Teste");
+  const equipment = page.getByRole("combobox", {
+    name: "Equipamento *",
+    exact: true,
+  });
+  await equipment.click();
+  await expect(page.getByRole("option", { name: /Compressor/ })).toBeVisible();
+  await equipment.fill("SN1234");
+  await expect(page.getByRole("option", { name: /Compressor/ })).toBeVisible();
+  await equipment.press("ArrowDown");
+  await equipment.press("Enter");
+  await expect(equipment).toHaveValue("Compressor");
+  await expect(page.getByLabel("Número de série", { exact: true })).toHaveValue(
+    "SN1234",
+  );
   await page.getByLabel("Tipo de manutenção *").fill("Preventiva");
   const material = page
     .locator(".quote-item")
@@ -186,6 +199,20 @@ test("quote selects equipment, combines suggestions, edits prices, saves and reo
   await expect(page.getByLabel("Cliente *", { exact: true })).toHaveValue(
     "Cliente Teste",
   );
+  await expect(page.getByLabel("Total do orçamento")).toContainText("380,00");
+  await client.click();
+  await client.fill("Outro cliente");
+  await client.press("Escape");
+  await expect(client).toHaveValue("Cliente Teste");
+  await expect(page.getByLabel("Total do orçamento")).toContainText("380,00");
+  await client.click();
+  await client.fill("Cliente manual");
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page
+    .getByRole("option", { name: "Usar “Cliente manual” como nome manual" })
+    .click();
+  await expect(client).toHaveValue("Cliente Teste");
+  await expect(equipment).toHaveValue("Compressor");
   await expect(page.getByLabel("Total do orçamento")).toContainText("380,00");
   await page.screenshot({
     path: "test-results/quotes-desktop.png",

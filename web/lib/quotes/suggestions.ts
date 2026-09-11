@@ -45,7 +45,6 @@ export async function quoteLookup(p: URLSearchParams) {
     db = database();
   const pattern = "%" + q.replace(/[\\%_]/g, "\\$&") + "%";
   if (p.get("lookup") === "clients") {
-    if (q.length < 2) return { rows: [], truncated: false };
     const rows = (
       await db.query(
         `WITH clients AS (
@@ -73,9 +72,10 @@ export async function quoteLookup(p: URLSearchParams) {
  COALESCE(NULLIF(e.numero_serie,''),NULLIF(o.numero_serie,''),o.serie,'') AS serial,NULL::text AS serial_source,'Histórico da OS' AS source
  FROM m8_ordens_servico o LEFT JOIN m8_equipamentos e ON e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8
  WHERE o.company_id IN(1,2,27404) AND o.cliente_id=$1
- ) SELECT * FROM registry UNION SELECT DISTINCT * FROM historical h WHERE NOT EXISTS(SELECT 1 FROM registry r WHERE r.serial<>'' AND r.serial=regexp_replace(upper(h.serial),'[^A-Z0-9]','','g'))
+ ), combined AS (SELECT * FROM registry UNION SELECT DISTINCT * FROM historical h WHERE NOT EXISTS(SELECT 1 FROM registry r WHERE r.serial<>'' AND r.serial=regexp_replace(upper(h.serial),'[^A-Z0-9]','','g')))
+ SELECT * FROM combined WHERE concat_ws(' ',name,model,serial,equipment_id) ILIKE $2
  ORDER BY source,name,model,serial LIMIT 301`,
-        [id],
+        [id, pattern],
       )
     ).rows;
     return { rows: rows.slice(0, 300), truncated: rows.length > 300 };

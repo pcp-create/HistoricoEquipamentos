@@ -5,6 +5,7 @@ import { intervalOptions, matchesInterval } from "./intervals";
 import { currentProducts } from "../product-current";
 import {
   fold,
+  catalogSearchTerms,
   normalizeCode,
   normalizeSerial,
   variantMatch,
@@ -63,10 +64,30 @@ export async function manufacturerCatalog(
       [revision.id],
     )
   ).rows;
-  const candidates = all.map((v) => ({
-    ...v,
-    match: variantMatch(v, f.model, f.serial),
-  }));
+  const terms = catalogSearchTerms(f.q, all);
+  const seriesTerms = terms.filter((term) =>
+    /^[A-Z]*\d{4,}$/.test(normalizeSerial(term)),
+  );
+  const matchingSeries = new Map(
+    all.map((v) => [
+      v.id,
+      new Set(
+        seriesTerms.filter(
+          (term) => variantMatch(v, f.model, term) === "match",
+        ),
+      ),
+    ]),
+  );
+  const candidates = all.map((v) => {
+    const match = variantMatch(v, f.model, f.serial);
+    return {
+      ...v,
+      match:
+        match === "review" && !f.serial && matchingSeries.get(v.id)!.size
+          ? ("match" as const)
+          : match,
+    };
+  });
   const variants = candidates.filter(
     (v) => v.match !== "no" || v.id === f.variant,
   );
@@ -91,7 +112,6 @@ export async function manufacturerCatalog(
       page: 1,
       consumption: null,
     };
-  const terms = fold(f.q).split(/\s+/).filter(Boolean);
   const filtered = entries.filter((e) => {
     const v = selected.find((v) => v.id === e.variant_id)!;
     const document = fold(
@@ -105,6 +125,7 @@ export async function manufacturerCatalog(
         e.variant_name,
         ...v.header,
         ...v.models,
+        ...v.rules.map((r) => `${r.model} ${r.serial}`),
       ].join(" "),
     );
     return (
@@ -113,6 +134,7 @@ export async function manufacturerCatalog(
       terms.every(
         (term) =>
           document.includes(term) ||
+          matchingSeries.get(v.id)!.has(term) ||
           (normalizeCode(term).length > 0 &&
             normalizeCode(e.code_original).includes(normalizeCode(term))),
       )
