@@ -1,11 +1,11 @@
 "use client";
 import Image from "next/image";
-import { BarChart3, Layers3, LogOut } from "lucide-react";
+import { BookOpen, BarChart3, Layers3, LogOut } from "lucide-react";
 export default function SiteHeader({
   active,
   email,
 }: {
-  active: "history" | "analysis";
+  active: "history" | "analysis" | "manufacturer";
   email?: string;
 }) {
   async function logout() {
@@ -20,7 +20,14 @@ export default function SiteHeader({
     <>
       <header className="topbar">
         <a className="brand" href="/">
-          <Image className="rj-logo" src="/logo-rj.png" alt="RJ Compressores" width={444} height={312} unoptimized />
+          <Image
+            className="rj-logo"
+            src="/logo-rj.png"
+            alt="RJ Compressores"
+            width={444}
+            height={312}
+            unoptimized
+          />
           <span>
             Histórico<span className="brand-small">EQUIPAMENTOS & PEÇAS</span>
           </span>
@@ -60,6 +67,13 @@ export default function SiteHeader({
         >
           <BarChart3 size={17} />
           Análise de materiais
+        </a>
+        <a
+          href="/fabricante"
+          className={active === "manufacturer" ? "nav-active" : "nav-link"}
+          aria-current={active === "manufacturer" ? "page" : undefined}
+        >
+          <BookOpen size={17} /> Catálogo do fabricante
         </a>
       </nav>
     </>

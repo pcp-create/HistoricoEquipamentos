@@ -10,7 +10,8 @@
     "test": "node --conditions=react-server --import tsx --test tests/*.test.ts",
     "db:search": "node --env-file=.env.local scripts/setup-search.mjs",
     "test:browser": "playwright test",
-    "format": "prettier --write app components lib tests scripts *.ts *.json"
+    "format": "prettier --write app components lib tests scripts *.ts *.json",
+    "manual:import": "node --env-file=.env.local --import tsx scripts/import-manufacturer.mts"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.3.0",
@@ -31,7 +32,8 @@
     "@types/react-dom": "19.3.0",
     "prettier": "^3.9.6",
     "tsx": "^4.23.13",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "engines": {
     "node": ">=22"

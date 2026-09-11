@@ -101,3 +101,7 @@ As APIs registram apenas códigos seguros nos logs de execução e na resposta J
 ### Produtos e estoque atual
 
 As consultas por material, detalhes da OS e análise exibem preços atuais do cadastro, quantidade em estoque, disponível e valor estimado a custo médio, com horários de coleta separados. CSV inclui os mesmos valores e horários. O valor vendido por unidade usa o total do item dividido pela quantidade e compara com o mínimo atual somente para unidades compatíveis e itens não excluídos. A referência não é o preço histórico na data da OS. Estoque é agregado por empresa entre seus estabelecimentos. As sugestões de mínimo/máximo continuam níveis alvo e não geram compras. Configuração e operação: [atualização de produtos](../docs/atualizacao-produtos.md).
+
+## Catálogo do fabricante
+
+A rota `/fabricante` pesquisa peças da planilha e relaciona os códigos às referências e aos códigos de similaridade do M8. Informando empresa e série completa, exibe também os materiais das OS associadas. A importação, atualização de revisões e os critérios de correspondência estão em [Catálogo do fabricante](../docs/catalogo-fabricante.md).

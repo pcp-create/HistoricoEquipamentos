@@ -48,6 +48,14 @@ export function buildWhere(filters: Filters) {
     clauses.push(
       `(${like("o.modelo_equipamento", filters.model)} OR EXISTS (SELECT 1 FROM public.m8_equipamentos e WHERE ${equipmentLink} AND ${like("e.equipamento_modelo", filters.model)}))`,
     );
+  if (filters.exactSerial) {
+    const serial = bind(filters.exactSerial);
+    const exact = (column: string) =>
+      `regexp_replace(upper(COALESCE(${column},'')),'[^A-Z0-9]','','g')=${serial}`;
+    clauses.push(
+      `(${exact("o.numero_serie")} OR ${exact("o.serie")} OR EXISTS (SELECT 1 FROM public.m8_equipamentos e WHERE ${equipmentLink} AND ${exact("e.numero_serie")}))`,
+    );
+  }
   if (filters.serial)
     clauses.push(
       `(${like("concat_ws(' ',o.numero_serie,o.serie)", filters.serial)} OR EXISTS (SELECT 1 FROM public.m8_equipamentos e WHERE ${equipmentLink} AND ${like("e.numero_serie", filters.serial)}))`,

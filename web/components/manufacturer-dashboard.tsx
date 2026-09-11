@@ -1,0 +1,527 @@
+"use client";
+import { useEffect, useState } from "react";
+import { BookOpen, Search } from "lucide-react";
+import SiteHeader from "./site-header";
+import { PriceValues, StockValues } from "./product-values";
+import type { ProductCurrent } from "@/lib/product-values";
+import type { Variant, SerialMatch } from "@/lib/manufacturer/rules";
+type Product = {
+  company_id: number;
+  product_id: string;
+  name: string;
+  reference: string;
+  similarity: string;
+  fields: string[];
+  match_total: number;
+  current?: ProductCurrent;
+};
+type Entry = {
+  id: string;
+  variant_id: string;
+  variant_name: string;
+  row_number: number;
+  section: string;
+  description: string;
+  code_original: string;
+  observation: string;
+  interval_original: string;
+  issues: string[];
+  match: SerialMatch;
+  products: Product[];
+};
+type Result = {
+  email: string;
+  revision: { filename: string; imported_at: string } | null;
+  variants: (Variant & { match: SerialMatch })[];
+  rows: Entry[];
+  total: number;
+  page: number;
+  consumption: null | {
+    orders: number;
+    imported: number;
+    clients: number;
+    truncated: boolean;
+    rows: {
+      product_id: string | null;
+      name: string;
+      unit: string;
+      quantity: string;
+      orders: number;
+      last_used: string | null;
+    }[];
+  };
+};
+const date = (v: string | null) =>
+  v
+    ? new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+      }).format(new Date(v))
+    : "—";
+const historyLink = (company: string | number, serial = "", productId = "") =>
+  "/?" +
+  new URLSearchParams({
+    company: String(company),
+    exactSerial: serial,
+    productId,
+    view: productId ? "materials" : "orders",
+  });
+export default function ManufacturerDashboard() {
+  const [data, setData] = useState<Result | null>(null),
+    [error, setError] = useState(""),
+    [loading, setLoading] = useState(true),
+    [query, setQuery] = useState<string | null>(null),
+    [refresh, setRefresh] = useState(0);
+  const [form, setForm] = useState({
+    q: "",
+    model: "",
+    serial: "",
+    company: "",
+    variant: "",
+    review: false,
+  });
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    setForm({
+      q: p.get("q") || "",
+      model: p.get("model") || "",
+      serial: p.get("serial") || "",
+      company: p.get("company") || "",
+      variant: p.get("variant") || "",
+      review: p.get("review") === "1",
+    });
+    setQuery(p.toString());
+  }, []);
+  useEffect(() => {
+    if (query === null) return;
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+    fetch("/api/manufacturer?" + query, { signal: controller.signal })
+      .then(async (r) => {
+        if (r.status === 401) {
+          window.location.assign("/login");
+          return;
+        }
+        const body = await r.json();
+        if (!r.ok) throw new Error(body.error || "Não foi possível consultar.");
+        setData(body);
+      })
+      .catch((e) => {
+        if (e.name !== "AbortError") setError(e.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [query, refresh]);
+  function search(page = 1, clear = false) {
+    const p = new URLSearchParams();
+    if (!clear)
+      for (const [k, v] of Object.entries(form))
+        if (v) p.set(k, k === "review" ? "1" : String(v));
+    p.set("page", String(page));
+    if (clear)
+      setForm({
+        q: "",
+        model: "",
+        serial: "",
+        company: "",
+        variant: "",
+        review: false,
+      });
+    window.history.replaceState(null, "", "/fabricante?" + p);
+    setQuery(p.toString());
+    setRefresh((n) => n + 1);
+  }
+  const applied = new URLSearchParams(query || ""),
+    company = applied.get("company") || "",
+    serial = applied.get("serial") || "";
+  const variants = data?.variants || [];
+  return (
+    <>
+      <SiteHeader active="manufacturer" email={data?.email} />
+      <main className="manual-page">
+        <div className="manual-title">
+          <BookOpen size={30} />
+          <div>
+            <h1>Catálogo do fabricante</h1>
+            <p>
+              Peças originais, referências e histórico das ordens de serviço.
+            </p>
+          </div>
+        </div>
+        <form
+          className="manual-card manual-filters"
+          onSubmit={(e) => {
+            e.preventDefault();
+            search();
+          }}
+        >
+          <label className="manual-global">
+            Pesquisa global
+            <input
+              value={form.q}
+              placeholder="Descrição, código, modelo ou condição de aplicação"
+              onChange={(e) => setForm({ ...form, q: e.target.value })}
+            />
+          </label>
+          <label>
+            Modelo
+            <input
+              value={form.model}
+              placeholder="Ex.: GA 15"
+              onChange={(e) =>
+                setForm({ ...form, model: e.target.value, variant: "" })
+              }
+            />
+          </label>
+          <label>
+            Número de série
+            <input
+              value={form.serial}
+              placeholder="Série completa para consultar OS"
+              onChange={(e) =>
+                setForm({ ...form, serial: e.target.value, variant: "" })
+              }
+            />
+          </label>
+          <label>
+            Empresa
+            <select
+              value={form.company}
+              onChange={(e) => setForm({ ...form, company: e.target.value })}
+            >
+              <option value="">Todas</option>
+              {["1", "2", "27404"].map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+          <label className="manual-global">
+            Versão / aba da planilha
+            <select
+              value={form.variant}
+              onChange={(e) => setForm({ ...form, variant: e.target.value })}
+            >
+              <option value="">Todas as versões candidatas</option>
+              {variants.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="manual-check">
+            <input
+              type="checkbox"
+              checked={form.review}
+              onChange={(e) => setForm({ ...form, review: e.target.checked })}
+            />
+            Somente itens com dados a conferir
+          </label>
+          <div className="manual-actions">
+            <button type="submit" disabled={loading}>
+              <Search size={16} />
+              Pesquisar
+            </button>
+            <button type="button" onClick={() => search(1, true)}>
+              Limpar filtros
+            </button>
+          </div>
+        </form>
+        <p className="manual-note">
+          A correspondência de código identifica um vínculo cadastral, não
+          confirma equivalência técnica. Confira geração, série, pressão, tensão
+          e observações antes de aplicar a peça. A planilha é uma referência
+          fornecida pela equipe e não recebe atualizações automáticas do
+          fabricante.
+        </p>
+        {error && (
+          <div role="alert" className="error">
+            {error}
+          </div>
+        )}
+        {loading ? (
+          <p role="status">Consultando catálogo…</p>
+        ) : (
+          !error &&
+          data && (
+            <>
+              {!data.revision ? (
+                <div className="manual-card">
+                  Nenhuma planilha importada. Execute a importação do catálogo
+                  para iniciar a consulta.
+                </div>
+              ) : (
+                <>
+                  <p className="muted">
+                    Fonte: {data.revision.filename} · Importada em{" "}
+                    {date(data.revision.imported_at)} · {data.total} itens
+                    encontrados
+                  </p>
+                  <div
+                    className={
+                      data.consumption
+                        ? "manual-layout"
+                        : "manual-layout single"
+                    }
+                  >
+                    <section className="manual-card">
+                      <h2>Peças e produtos correspondentes</h2>
+                      {variants.length > 1 && (
+                        <p className="manual-note">
+                          Há {variants.length} versões candidatas. Escolha a aba
+                          após conferir as condições de aplicação; a série pode
+                          exigir interpretação manual.
+                        </p>
+                      )}
+                      <details className="manual-versions">
+                        <summary>
+                          Conferir modelos, séries e condições das versões (
+                          {variants.length})
+                        </summary>
+                        {variants.map((v) => (
+                          <div key={v.id}>
+                            <h3>{v.name}</h3>
+                            <p>{v.header.join(" · ")}</p>
+                            <p>
+                              {v.rules
+                                .map(
+                                  (r) =>
+                                    `${r.model}: ${r.serial} (SELEÇÃO!${r.cell})`,
+                                )
+                                .join(" · ")}
+                            </p>
+                            {v.issues.map((i) => (
+                              <p key={i} className="excluded-label">
+                                {i}
+                              </p>
+                            ))}
+                          </div>
+                        ))}
+                      </details>
+                      {!data.rows.length ? (
+                        <p>
+                          Nenhuma peça encontrada. Revise os filtros ou consulte
+                          outra versão.
+                        </p>
+                      ) : (
+                        <div className="manual-table-scroll">
+                          <table className="manual-table">
+                            <thead>
+                              <tr>
+                                <th>Peça do fabricante</th>
+                                <th>Aplicação / origem</th>
+                                <th>Produtos M8</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {data.rows.map((e) => (
+                                <tr key={e.id}>
+                                  <td>
+                                    <strong>{e.description}</strong>
+                                    <code>
+                                      {e.code_original ||
+                                        "Código não informado"}
+                                    </code>
+                                    <small>{e.section}</small>
+                                    {e.interval_original && (
+                                      <p>
+                                        Intervalo informado:{" "}
+                                        {e.interval_original} h
+                                      </p>
+                                    )}
+                                    {e.issues.map((i) => (
+                                      <small key={i} className="excluded-label">
+                                        {i}
+                                      </small>
+                                    ))}
+                                  </td>
+                                  <td>
+                                    <strong>{e.variant_name}</strong>
+                                    <small>
+                                      Aba {e.variant_name} · linha{" "}
+                                      {e.row_number}
+                                    </small>
+                                    <p>
+                                      {e.observation ||
+                                        "Sem observação adicional na linha."}
+                                    </p>
+                                    <small>
+                                      {e.match === "match"
+                                        ? "Série localizada na regra da versão; confira as demais condições."
+                                        : e.match === "no"
+                                          ? "Versão selecionada diverge do filtro; confira a aplicação."
+                                          : "Aplicação por série a conferir."}
+                                    </small>
+                                  </td>
+                                  <td>
+                                    {!e.products.length ? (
+                                      <span className="muted">
+                                        Nenhum código correspondente no cadastro
+                                        importado.
+                                      </span>
+                                    ) : (
+                                      e.products.map((p) => (
+                                        <details
+                                          className="manual-product"
+                                          key={`${p.company_id}:${p.product_id}`}
+                                        >
+                                          <summary>
+                                            <strong>
+                                              {p.name ||
+                                                `Produto ${p.product_id}`}
+                                            </strong>
+                                            <small>
+                                              Empresa {p.company_id} · ID{" "}
+                                              {p.product_id}
+                                            </small>
+                                            <small>
+                                              {p.fields
+                                                .map((f) =>
+                                                  f === "codigoSimilaridade"
+                                                    ? "Código de similaridade"
+                                                    : "Referência do fabricante",
+                                                )
+                                                .join(" + ")}
+                                            </small>
+                                          </summary>
+                                          <p>
+                                            Referência: {p.reference || "—"}
+                                            <br />
+                                            Similaridade: {p.similarity || "—"}
+                                          </p>
+                                          <StockValues current={p.current} />
+                                          <PriceValues current={p.current} />
+                                          <a
+                                            href={historyLink(
+                                              p.company_id,
+                                              serial,
+                                              p.product_id,
+                                            )}
+                                          >
+                                            Consultar histórico deste produto
+                                            {serial ? " nesta série" : ""}
+                                          </a>
+                                        </details>
+                                      ))
+                                    )}
+                                    {e.products[0]?.match_total > 8 && (
+                                      <small>
+                                        Exibindo 8 de{" "}
+                                        {e.products[0].match_total} vínculos.
+                                        Filtre por empresa.
+                                      </small>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      <div className="manual-pagination">
+                        <button
+                          disabled={data.page <= 1}
+                          onClick={() => search(data.page - 1)}
+                        >
+                          Anterior
+                        </button>
+                        <span>
+                          Página {data.page} de{" "}
+                          {Math.max(1, Math.ceil(data.total / 50))}
+                        </span>
+                        <button
+                          disabled={data.page * 50 >= data.total}
+                          onClick={() => search(data.page + 1)}
+                        >
+                          Próxima
+                        </button>
+                      </div>
+                    </section>
+                    {data.consumption && (
+                      <aside className="manual-card manual-consumption">
+                        <h2>Materiais das OS da série</h2>
+                        <p>
+                          <strong>{serial}</strong> · Empresa {company}
+                        </p>
+                        <p>
+                          {data.consumption.orders} OS associadas ·{" "}
+                          {data.consumption.imported} com detalhes importados.
+                        </p>
+                        <p className="manual-note">
+                          Quantidades de OS processadas e com coleta concluída,
+                          sem itens excluídos. Uma OS pode atender vários
+                          equipamentos: estes totais não comprovam consumo
+                          exclusivo desta máquina.
+                        </p>
+                        {data.consumption.clients > 1 && (
+                          <p className="excluded-label">
+                            Esta série aparece em mais de um cliente. Confira as
+                            OS antes de interpretar os totais.
+                          </p>
+                        )}
+                        <a href={historyLink(company, serial)}>
+                          Consultar OS desta série
+                        </a>
+                        {!data.consumption.rows.length ? (
+                          <p>
+                            Nenhum consumo elegível encontrado na base
+                            importada.
+                          </p>
+                        ) : (
+                          <ul>
+                            {data.consumption.rows.map((r, i) => (
+                              <li key={i}>
+                                <strong>
+                                  {r.name ||
+                                    r.product_id ||
+                                    "Material sem identificação"}
+                                </strong>
+                                <p>
+                                  {Number(r.quantity).toLocaleString("pt-BR")}{" "}
+                                  {r.unit || "unidade não informada"} ·{" "}
+                                  {r.orders} OS
+                                </p>
+                                <small>
+                                  Última aplicação: {date(r.last_used)}
+                                </small>
+                                {r.product_id && (
+                                  <a
+                                    href={historyLink(
+                                      company,
+                                      serial,
+                                      r.product_id,
+                                    )}
+                                  >
+                                    Ver aplicações
+                                  </a>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {data.consumption.truncated && (
+                          <p>
+                            Mostrando os 100 materiais com aplicação mais
+                            recente.
+                          </p>
+                        )}
+                      </aside>
+                    )}
+                  </div>
+                  {!data.consumption && (
+                    <p className="manual-note">
+                      Selecione uma empresa e informe a série completa para ver
+                      as OS associadas ao lado do catálogo.
+                    </p>
+                  )}
+                </>
+              )}
+            </>
+          )
+        )}
+      </main>
+    </>
+  );
+}

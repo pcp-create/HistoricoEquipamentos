@@ -7,6 +7,7 @@ export interface Filters {
   equipment: string;
   model: string;
   serial: string;
+  exactSerial?: string;
   product: string;
   productId?: string;
   from: string;
@@ -52,6 +53,11 @@ export function parseFilters(params: URLSearchParams): Filters {
     equipment: text("equipment"),
     model: text("model"),
     serial: text("serial"),
+    exactSerial: text("exactSerial")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, ""),
     product: text("product"),
     productId,
     from,

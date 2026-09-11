@@ -241,3 +241,7 @@ O comando de inventário já está disponível; a fila automática e seu agendam
 ## Extensão de produtos, preços e estoque
 
 Migrations 006/007 adicionam cadastro, histórico observado de preços, snapshots por estabelecimento, filas e índice de consulta. Comandos `sync:products -- catalog|available|detail` e `sync:products:status`. Instalação dos novos serviços, intervalos e limitações: [guia de atualização do servidor](docs/atualizacao-produtos.md).
+
+### Catálogo do fabricante
+
+A interface inclui pesquisa da planilha por modelo, série, descrição e código, vínculos por referência/código de similaridade do M8 e consulta contextual das OS. Veja [importação e critérios do catálogo](docs/catalogo-fabricante.md).

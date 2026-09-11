@@ -77,6 +77,7 @@ const initial = {
   equipment: "",
   model: "",
   serial: "",
+  exactSerial: "",
   product: "",
   productId: "",
   from: "",
@@ -585,6 +586,7 @@ export default function Dashboard() {
                           equipment: "Equipamento",
                           model: "Modelo",
                           serial: "Série",
+                          exactSerial: "Série exata",
                           product: "Material",
                           productId: "Código exato",
                           from: "De",
@@ -929,6 +931,21 @@ export default function Dashboard() {
                 {shown(detail.order.equipamento)} ·{" "}
                 {shown(detail.order.modelo_equipamento)}
               </p>
+              <a
+                className="manual-history-link"
+                href={
+                  "/fabricante?" +
+                  new URLSearchParams({
+                    company: String(detail.order.company_id || ""),
+                    model: String(detail.order.modelo_equipamento || ""),
+                    serial: String(
+                      detail.order.numero_serie || detail.order.serie || "",
+                    ),
+                  })
+                }
+              >
+                Consultar peças do fabricante e histórico da série
+              </a>
               {!detail.detail_at && (
                 <div className="notice">
                   <Clock3 size={16} />
@@ -1007,6 +1024,19 @@ export default function Dashboard() {
                     Equipamento {i + 1} · {shown(eq.numero_serie)}
                     <ChevronDown size={17} />
                   </summary>
+                  <a
+                    className="manual-history-link"
+                    href={
+                      "/fabricante?" +
+                      new URLSearchParams({
+                        company: String(detail.order.company_id || ""),
+                        model: String(eq.equipamento_modelo || ""),
+                        serial: String(eq.numero_serie || ""),
+                      })
+                    }
+                  >
+                    Consultar peças do fabricante deste equipamento
+                  </a>
                   <FieldList fields={eq} />
                 </details>
               ))}

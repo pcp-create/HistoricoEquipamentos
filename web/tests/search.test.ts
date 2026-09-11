@@ -57,6 +57,9 @@ test("global search uses values, respects each material and updates with the int
       );
       return r.rows as { company_id: number; item?: number }[];
     }
+    assert.equal((await results("exactSerial=SN-002&company=1")).length, 1);
+    assert.equal((await results("exactSerial=SN00&company=1")).length, 0);
+    assert.equal((await results("exactSerial=SN002&company=2")).length, 0);
     assert.equal((await results("q=aguia filtro SN002")).length, 1);
     assert.equal((await results("q=vedacao")).length, 1);
     assert.equal((await results("q=ruido")).length, 1);

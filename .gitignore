@@ -14,3 +14,6 @@ web/test-results/
 web/playwright-report/
 *.tsbuildinfo
 !web/certs/supabase-ca.crt
+
+# Original manufacturer workbook stays private; imported through the CLI.
+/Comparativo 2017 GA-GX Rev.11.xls
