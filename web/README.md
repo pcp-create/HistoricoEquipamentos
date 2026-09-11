@@ -115,3 +115,9 @@ Configure também no servidor web/Vercel as variáveis `M8_API_URL`, `M8_TENANT`
 A rota autenticada `/api/products/{company}/{id}/images` consulta `GET /v1/estoque/produto/{produtoId}/imagem`. O retorno real confirmado é uma lista `data` com `formato` e `imagem` em Base64. O backend valida os bytes, disponibiliza cada imagem por uma URL interna autenticada e não envia tokens M8 ao navegador. URLs externas e SVG não são aceitos. JPEG, PNG, GIF e WebP são exibidos, com limite de 3 MB por imagem e 16 MB para a resposta M8; itens incompatíveis são sinalizados.
 
 O cache é temporário, em memória de cada instância do servidor web: até 10 minutos para fotos e 2 minutos para resultados vazios, com limite total de 32 MB/32 produtos. Requisições simultâneas do mesmo produto e empresa compartilham a consulta. Instâncias novas ou diferentes podem consultar novamente o M8. As respostas ao navegador usam `private, no-store`, inclusive os bytes das fotos. Não há armazenamento no Supabase, migration, timer novo ou atualização do integrador para instalar no servidor Linux.
+
+## Valores e serviços no detalhe da OS
+
+Cada material mostra, abaixo da quantidade, o valor total registrado no item da OS. A seção **Serviços aplicados** consulta os serviços já importados para a mesma empresa e OS e mostra descrição, código, quantidade, valor unitário e total, com os demais campos ao expandir.
+
+O resumo soma os totais dos materiais não excluídos e dos serviços, em centavos, e compara com o total informado pelo ERP. Não recalcula o item usando o preço atual do cadastro e não deduz descontos novamente. Se houver diferença, ela aparece como valor a conferir, sem atribuir uma causa. Coleta pendente ou valor ausente impede a conferência. Esta mudança não exige migration nem atualização do integrador.

@@ -2435,3 +2435,52 @@ footer > span {
   color: #a83a32;
   font-size: 11px;
 }
+
+.item-amount {
+  flex-shrink: 0;
+  text-align: right;
+  color: #56779d;
+}
+.item-amount > span {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.item-amount > strong {
+  display: block;
+  margin-top: 8px;
+  color: #36577b;
+}
+.order-amounts {
+  margin-top: 24px;
+  padding: 16px;
+  background: #f5f8fc;
+  border-radius: 8px;
+}
+.order-amounts h4 {
+  margin-top: 0;
+}
+.order-amounts dl {
+  margin: 0;
+  font-size: 12px;
+}
+.order-amounts dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+}
+.order-amounts dd {
+  margin: 0;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.order-amounts p {
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 0;
+}
+.order-amounts .amount-difference {
+  color: #986713;
+}

@@ -126,9 +126,19 @@ test("history UI: search, filters, views, detail, pagination, export, empty/erro
             referencia_fabricante: "1622365200",
             produto_id: 5,
             quantidade: 2,
+            valor_total: 400,
             unidade_nome: "UN",
             esta_excluido: true,
             observacao: "Aplicado na revisão",
+          },
+        ],
+        services: [
+          {
+            servico_id: 10,
+            servico_nome: "Manutenção preventiva",
+            quantidade: 2,
+            valor_unitario: 645.25,
+            valor_total: 1290.5,
           },
         ],
         equipment: [{ numero_serie: "SN123456", horimetro: "1500" }],
@@ -194,7 +204,33 @@ test("history UI: search, filters, views, detail, pagination, export, empty/erro
   await expect(
     page.getByRole("dialog").getByText("Excluído da OS"),
   ).toBeVisible();
-  await page.locator(".material-detail > summary").click();
+  await expect(page.getByLabel("Valor total do material")).toContainText(
+    "400,00",
+  );
+  await expect(page.getByLabel("Valor total do serviço")).toContainText(
+    "1.290,50",
+  );
+  await expect(
+    page.getByText("A soma dos itens confere com o total da OS."),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator(".service-detail summary")
+      .getByText("Manutenção preventiva", { exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: "test-results/order-services-desktop.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByLabel("Valor total do serviço")).toBeVisible();
+  await expect
+    .poll(() =>
+      page
+        .locator(".drawer")
+        .evaluate((el) => el.scrollWidth <= el.clientWidth),
+    )
+    .toBe(true);
+  await page.screenshot({ path: "test-results/order-services-mobile.png" });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.locator(".material-detail:not(.service-detail) > summary").click();
   await page
     .locator(".detail-dialog")
     .getByRole("button", { name: "Ver fotos" })

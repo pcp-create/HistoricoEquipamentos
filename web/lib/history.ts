@@ -151,6 +151,7 @@ export async function orderDetail(company: string, id: string) {
   const result = await database().query(
     `SELECT to_jsonb(o)-'payload' AS "order",
     (SELECT COALESCE(jsonb_agg(to_jsonb(p)-'payload' ORDER BY p.id_m8),'[]'::jsonb) FROM public.m8_os_produtos p WHERE ${productLink}) AS materials,
+    (SELECT COALESCE(jsonb_agg(to_jsonb(s)-'payload' ORDER BY s.id_m8),'[]'::jsonb) FROM public.m8_os_servicos s WHERE s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8) AS services,
     (SELECT COALESCE(jsonb_agg(to_jsonb(e)-'payload' ORDER BY e.id_m8),'[]'::jsonb) FROM public.m8_equipamentos e WHERE ${equipmentLink}) AS equipment,
     (SELECT last_detail_at FROM public.integracao_m8_os_sync WHERE company_id=o.company_id AND ordem_servico_id=o.id_m8) AS detail_at
     FROM public.m8_ordens_servico o WHERE o.company_id=$1 AND o.id_m8=$2`,

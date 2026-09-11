@@ -1,6 +1,7 @@
 "use client";
 import { PriceValues, StockValues, SoldValues } from "./product-values";
 import type { ProductCurrent } from "@/lib/product-values";
+import { orderTotals } from "@/lib/order-totals";
 import SiteHeader from "./site-header";
 import ProductPhotos from "./product-photos";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -67,6 +68,7 @@ type Overview = {
 type Detail = {
   order: Record<string, unknown>;
   materials: Record<string, unknown>[];
+  services?: Record<string, unknown>[];
   equipment: Record<string, unknown>[];
   detail_at: string | null;
 };
@@ -966,7 +968,7 @@ export default function Dashboard() {
                 <div className="notice">
                   <Clock3 size={16} />
                   Os detalhes desta OS ainda estão sendo importados. A lista de
-                  materiais pode estar incompleta.
+                  materiais e serviços pode estar incompleta.
                 </div>
               )}
               <h4>
@@ -998,10 +1000,15 @@ export default function Dashboard() {
                           Ref. fabricante: {shown(p.referencia_fabricante)}
                         </small>
                       </div>
-                      <span>
-                        {shown(p.quantidade)} {shown(p.unidade_nome)}
-                        <ChevronDown size={15} />
-                      </span>
+                      <div className="item-amount">
+                        <span>
+                          {shown(p.quantidade)} {shown(p.unidade_nome)}{" "}
+                          <ChevronDown size={15} />
+                        </span>
+                        <strong aria-label="Valor total do material">
+                          {money(p.valor_total)}
+                        </strong>
+                      </div>
                     </summary>
                     <ProductPhotos
                       company={detail.order.company_id}
@@ -1032,6 +1039,45 @@ export default function Dashboard() {
                     : "Aguardando coleta dos materiais."}
                 </p>
               )}
+              <h4>
+                <Wrench size={17} />
+                Serviços aplicados{" "}
+                <span className="count-pill">
+                  {(detail.services || []).length}
+                </span>
+              </h4>
+              {(detail.services || []).length ? (
+                detail.services!.map((service, i) => (
+                  <details className="material-detail service-detail" key={i}>
+                    <summary>
+                      <div>
+                        <strong>{shown(service.servico_nome)}</strong>
+                        <small>Código: {shown(service.servico_id)}</small>
+                        <small>
+                          Valor unitário: {money(service.valor_unitario)}
+                        </small>
+                      </div>
+                      <div className="item-amount">
+                        <span>
+                          Qtd.: {shown(service.quantidade)}{" "}
+                          <ChevronDown size={15} />
+                        </span>
+                        <strong aria-label="Valor total do serviço">
+                          {money(service.valor_total)}
+                        </strong>
+                      </div>
+                    </summary>
+                    <FieldList fields={service} />
+                  </details>
+                ))
+              ) : (
+                <p className="muted">
+                  {detail.detail_at
+                    ? "Nenhum serviço registrado."
+                    : "Aguardando coleta dos serviços."}
+                </p>
+              )}
+              <OrderAmounts detail={detail} />
               <details className="all-fields">
                 <summary>
                   Todos os campos da OS
@@ -1116,5 +1162,61 @@ function FieldList({ fields }: { fields: Record<string, unknown> }) {
           </div>
         ))}
     </dl>
+  );
+}
+
+function OrderAmounts({ detail }: { detail: Detail }) {
+  const totals = orderTotals(
+    detail.materials,
+    detail.services || [],
+    detail.order.total_geral,
+    !!detail.detail_at && Array.isArray(detail.services),
+  );
+  return (
+    <section className="order-amounts" aria-label="Resumo dos valores da OS">
+      <h4>Resumo dos valores</h4>
+      <dl>
+        <div>
+          <dt>Materiais aplicados</dt>
+          <dd>{money(totals.materials)}</dd>
+        </div>
+        <div>
+          <dt>Serviços aplicados</dt>
+          <dd>{money(totals.services)}</dd>
+        </div>
+        <div>
+          <dt>Soma dos materiais e serviços</dt>
+          <dd>{money(totals.combined)}</dd>
+        </div>
+        <div>
+          <dt>Total da OS no ERP</dt>
+          <dd>{money(detail.order.total_geral)}</dd>
+        </div>
+        {totals.difference !== null && totals.difference !== 0 && (
+          <div className="amount-difference">
+            <dt>Diferença a conferir (ERP − itens)</dt>
+            <dd>{money(totals.difference)}</dd>
+          </div>
+        )}
+      </dl>
+      {totals.combined === null ? (
+        <p>
+          Valores incompletos ou coleta pendente; não é possível conferir a
+          soma.
+        </p>
+      ) : totals.difference === 0 ? (
+        <p>A soma dos itens confere com o total da OS.</p>
+      ) : totals.difference !== null ? (
+        <p>
+          O total informado pelo ERP difere dos itens importados. Confira os
+          valores e eventuais ajustes na OS.
+        </p>
+      ) : null}
+      {detail.materials.some((p) => p.esta_excluido === true) && (
+        <p>
+          Materiais excluídos permanecem no histórico, mas não entram na soma.
+        </p>
+      )}
+    </section>
   );
 }
