@@ -1177,19 +1177,15 @@ function OrderAmounts({ detail }: { detail: Detail }) {
       <h4>Resumo dos valores</h4>
       <dl>
         <div>
-          <dt>Materiais aplicados</dt>
+          <dt>Materiais Aplicados</dt>
           <dd>{money(totals.materials)}</dd>
         </div>
         <div>
-          <dt>Serviços aplicados</dt>
+          <dt>Serviços Aplicados</dt>
           <dd>{money(totals.services)}</dd>
         </div>
         <div>
-          <dt>Soma dos materiais e serviços</dt>
-          <dd>{money(totals.combined)}</dd>
-        </div>
-        <div>
-          <dt>Total da OS no ERP</dt>
+          <dt>Valor Total da OS</dt>
           <dd>{money(detail.order.total_geral)}</dd>
         </div>
         {totals.difference !== null && totals.difference !== 0 && (
@@ -1204,9 +1200,7 @@ function OrderAmounts({ detail }: { detail: Detail }) {
           Valores incompletos ou coleta pendente; não é possível conferir a
           soma.
         </p>
-      ) : totals.difference === 0 ? (
-        <p>A soma dos itens confere com o total da OS.</p>
-      ) : totals.difference !== null ? (
+      ) : totals.difference !== null && totals.difference !== 0 ? (
         <p>
           O total informado pelo ERP difere dos itens importados. Confira os
           valores e eventuais ajustes na OS.

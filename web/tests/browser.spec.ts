@@ -211,7 +211,7 @@ test("history UI: search, filters, views, detail, pagination, export, empty/erro
     "1.290,50",
   );
   await expect(
-    page.getByText("A soma dos itens confere com o total da OS."),
+    page.getByText("Valor Total da OS", { exact: true }),
   ).toBeVisible();
   await expect(
     page
