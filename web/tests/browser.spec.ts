@@ -153,6 +153,15 @@ test("history UI: search, filters, views, detail, pagination, export, empty/erro
     path: "test-results/history-desktop.png",
     fullPage: true,
   });
+  await page
+    .getByRole("textbox", { name: "N° da OS", exact: true })
+    .fill("OS-0014681");
+  await page.getByRole("button", { name: "Pesquisar", exact: true }).click();
+  await expect(page).toHaveURL(/orderNumber=OS-0014681/);
+  await page.getByRole("button", { name: "N° da OS: OS-0014681" }).click();
+  await expect(
+    page.getByRole("textbox", { name: "N° da OS", exact: true }),
+  ).toHaveValue("");
   await page.getByRole("button", { name: "Por material", exact: true }).click();
   await expect(page.locator("table .excluded-description")).toHaveCount(1);
   await expect(

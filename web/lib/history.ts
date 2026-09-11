@@ -21,6 +21,10 @@ export function buildWhere(filters: Filters) {
     `${normalized(column)} LIKE ${bind(`%${escapeLike(fold(input))}%`)}`;
   if (filters.company)
     clauses.push(`o.company_id=${bind(Number(filters.company))}`);
+  if (filters.orderNumber)
+    clauses.push(
+      `COALESCE(o.numero_sequencia,o.id_m8)=${bind(filters.orderNumber)}`,
+    );
   if (filters.status) clauses.push(`o.status=${bind(filters.status)}`);
   if (filters.from)
     clauses.push(

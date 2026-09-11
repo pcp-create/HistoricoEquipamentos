@@ -10,6 +10,7 @@ export interface Filters {
   exactSerial?: string;
   product: string;
   productId?: string;
+  orderNumber?: string;
   from: string;
   to: string;
   page: number;
@@ -30,6 +31,19 @@ export function parseFilters(params: URLSearchParams): Filters {
       throw new Error("Período inválido");
     return value;
   };
+  const rawOrderNumber = (params.get("orderNumber") || "")
+    .trim()
+    .replace(/^OS[\s-]*/i, "");
+  if (
+    params.get("orderNumber")?.trim() &&
+    (!/^\d{1,19}$/.test(rawOrderNumber) ||
+      BigInt(rawOrderNumber) < 1n ||
+      BigInt(rawOrderNumber) > 9223372036854775807n)
+  )
+    throw new Error(
+      "N° da OS inválido. Informe o número completo da ordem de serviço.",
+    );
+  const orderNumber = rawOrderNumber ? BigInt(rawOrderNumber).toString() : "";
   const company = text("company");
   const productId = text("productId", 30);
   if (productId && !/^[1-9]\d{0,17}$/.test(productId))
@@ -48,6 +62,7 @@ export function parseFilters(params: URLSearchParams): Filters {
   return {
     q: text("q", 200),
     company,
+    orderNumber,
     status: text("status"),
     client: text("client"),
     equipment: text("equipment"),

@@ -73,6 +73,7 @@ type Detail = {
 const initial = {
   q: "",
   company: "",
+  orderNumber: "",
   status: "",
   client: "",
   equipment: "",
@@ -368,6 +369,14 @@ export default function Dashboard() {
               <div className="filter-content">
                 <div className="filter-grid">
                   <label>
+                    N° da OS
+                    <input
+                      placeholder="Ex.: 14681"
+                      value={draft.orderNumber}
+                      onChange={(e) => field("orderNumber", e.target.value)}
+                    />
+                  </label>
+                  <label>
                     Empresa
                     <select
                       value={draft.company}
@@ -582,6 +591,7 @@ export default function Dashboard() {
                         {
                           q: "Busca",
                           company: "Empresa",
+                          orderNumber: "N° da OS",
                           status: "Status",
                           client: "Cliente",
                           equipment: "Equipamento",

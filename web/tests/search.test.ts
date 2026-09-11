@@ -9,6 +9,10 @@ test("filters reject invalid dates, company, page and too many terms", () => {
   for (const query of [
     "from=2026-02-30",
     "company=3",
+    "orderNumber=OS-",
+    "orderNumber=12abc",
+    "orderNumber=-1",
+    "orderNumber=9223372036854775808",
     "page=-2",
     "from=2026-03-02&to=2026-03-01",
     `q=${"a ".repeat(13)}`,
@@ -57,6 +61,17 @@ test("global search uses values, respects each material and updates with the int
       );
       return r.rows as { company_id: number; item?: number }[];
     }
+    await db.exec(
+      "UPDATE m8_ordens_servico SET numero_sequencia=1254 WHERE company_id=1 AND id_m8=1",
+    );
+    assert.equal((await results("orderNumber=OS-001254&company=1")).length, 1);
+    assert.equal((await results("orderNumber=125&company=1")).length, 0);
+    assert.equal((await results("orderNumber=1&company=1")).length, 0);
+    assert.equal((await results("orderNumber=1&company=2")).length, 1);
+    assert.equal(
+      (await results("orderNumber=1254&company=1&view=materials")).length,
+      2,
+    );
     assert.equal((await results("exactSerial=SN-002&company=1")).length, 1);
     assert.equal((await results("exactSerial=SN00&company=1")).length, 0);
     assert.equal((await results("exactSerial=SN002&company=2")).length, 0);
