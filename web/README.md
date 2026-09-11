@@ -72,3 +72,20 @@ npm run build
 Os testes de banco executam as migrations em PostgreSQL embarcado e validam pesquisa entre colunas, acentos, parâmetros, isolamento por empresa, datas de Brasília, produtos excluídos e atualização automática do índice. Os testes de navegador verificam acesso sem sessão, navegação, filtros, detalhes, exportação e celular. Dados fictícios ficam somente nas interceptações do teste de navegador; a aplicação não tem modo de demonstração nem bypass de autenticação.
 
 Medições reais após o índice: `filtro` retornou 1.455 OS em aproximadamente 1,6 s; `filtro oleo`, 1.007 OS em 0,24 s. São amostras da base ainda em importação, não garantia de latência. Os totais mudam conforme o runner avança. A consulta do painel não inicia uma nova coleta da M8.
+
+## Análise de materiais
+
+A aba `/analise-materiais` consulta materiais de OS `Processado`, com `finalized=true` e `pending=false`. Não modifica o estoque nem inicia pedidos de compra. O período inicial são os últimos 180 dias encerrados (até ontem, em Brasília); data da emissão ou abertura aproxima a data de aplicação.
+
+- Rankings por número de OS distintas e por quantidade aplicada. Quantidades só são comparadas após selecionar uma unidade conhecida. Empresas e unidades ficam em linhas separadas, mesmo para o mesmo código de produto. Nomes de unidade são normalizados por caixa/espaços; não há conversão entre unidades.
+- Consumo médio diário = quantidade positiva aplicada / todos os dias corridos do período. Dias sem aplicação estão incluídos no denominador. Média por 30 dias = média diária × 30.
+- Prazo de reposição inicial: **7 dias**, informado pelo usuário. Margem de segurança inicial: **7 dias**; ciclo de revisão inicial: **30 dias**. Estes dois últimos são premissas ajustáveis de simulação, não dados inferidos da M8 nem garantia de nível de serviço.
+- Mínimo (ponto de pedido) = média diária × (reposição + segurança). Máximo (nível alvo) = média diária × (reposição + segurança + revisão). Arredondamento para cima em unidades/peças inteiras e duas casas nas demais unidades.
+- A sugestão exige que todas as OS processadas da empresa no período tenham detalhes completos, período de pelo menos 30 dias, pelo menos 3 OS em 3 dias distintos e unidade conhecida. OS processadas sem data ou itens com código/quantidade inválidos bloqueiam a simulação da empresa e são sinalizados. O ranking parcial continua visível.
+- Itens excluídos, quantidades nulas/não positivas/não finitas e materiais sem código não entram no consumo. Quantidades negativas não são presumidas como devoluções de almoxarifado. Sem consumo no período, o produto não aparece; esta tela não é um catálogo de itens parados.
+- Frequência em OS é um indicador de recorrência, **não o giro real de estoque**. Não há saldo atual/médio, movimentos de entrada/saída, lotes de compra, sazonalidade ou compras em aberto nesta base. Esses dados serão necessários para calcular giro, cobertura atual e quanto comprar.
+- O CSV inclui período, parâmetros, cobertura e motivos de indisponibilidade, além dos valores calculados. O link de histórico usa o código exato do produto, empresa e período.
+
+O mínimo segue a lógica de consumo durante o prazo de reposição mais reserva descrita pela [SAP](https://learning.sap.com/courses/consumption-based-planning-and-forecasting-in-sap-cloud-erp/understanding-the-net-requirements-calculation-for-reorder-point-planning). A escolha do máximo é uma política explícita desta simulação: acrescentar demanda do ciclo de revisão. O conceito de repor até um nível máximo é descrito pela [Oracle](https://docs.oracle.com/cd/A60725_05/html/comnls/us/inv/mnmxplan.htm). A simulação não equivale a uma previsão estatística validada nem calcula saldo disponível.
+
+As consultas de cobertura e consumo usam uma mesma transação de leitura com snapshot consistente, enquanto o integrador continua trabalhando. Não foi necessária uma nova migration. As premissas e filtros ficam na URL; não são gravados como política oficial por produto.

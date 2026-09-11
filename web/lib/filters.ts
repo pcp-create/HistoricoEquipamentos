@@ -8,6 +8,7 @@ export interface Filters {
   model: string;
   serial: string;
   product: string;
+  productId?: string;
   from: string;
   to: string;
   page: number;
@@ -29,6 +30,9 @@ export function parseFilters(params: URLSearchParams): Filters {
     return value;
   };
   const company = text("company");
+  const productId = text("productId", 30);
+  if (productId && !/^[1-9]\d{0,17}$/.test(productId))
+    throw new Error("Código de produto inválido");
   if (text("q", 200).split(/\s+/).filter(Boolean).length > 12)
     throw new Error("Use até 12 palavras na pesquisa");
   if (company && !["1", "2", "27404"].includes(company))
@@ -49,6 +53,7 @@ export function parseFilters(params: URLSearchParams): Filters {
     model: text("model"),
     serial: text("serial"),
     product: text("product"),
+    productId,
     from,
     to,
     page,

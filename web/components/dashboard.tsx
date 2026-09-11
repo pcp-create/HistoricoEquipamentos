@@ -1,4 +1,5 @@
 "use client";
+import SiteHeader from "./site-header";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowDown,
@@ -14,9 +15,7 @@ import {
   Database,
   Eye,
   Filter,
-  Layers3,
   LoaderCircle,
-  LogOut,
   Package,
   RefreshCw,
   Search,
@@ -74,6 +73,7 @@ const initial = {
   model: "",
   serial: "",
   product: "",
+  productId: "",
   from: "",
   to: "",
 };
@@ -286,14 +286,6 @@ export default function Dashboard() {
       setExporting(false);
     }
   }
-  async function logout() {
-    await fetch("/api/session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "logout" }),
-    });
-    window.location.assign("/login");
-  }
   const filterCount = Object.values(filters).filter(Boolean).length;
   const totalPages = Math.max(1, Math.ceil((result?.total || 0) / size));
   const shownPage = result?.page || page;
@@ -304,46 +296,7 @@ export default function Dashboard() {
     .sort((a, b) => a - b);
   return (
     <>
-      <header className="topbar">
-        <a className="brand" href="/">
-          <span className="brand-icon">
-            <Wrench size={24} />
-          </span>
-          <span>
-            Histórico<span className="brand-small">EQUIPAMENTOS & PEÇAS</span>
-          </span>
-        </a>
-        <div className="header-divider" />
-        <span className="workspace-name">Central de manutenção</span>
-        <div className="header-right">
-          <span className="connection">
-            <span />
-            Base integrada M8
-          </span>
-          <span
-            className="user-avatar"
-            title={overview?.email || "Minha conta"}
-          >
-            {overview?.email?.slice(0, 2).toUpperCase() || "EQ"}
-          </span>
-          <button
-            className="icon-button logout"
-            aria-label="Sair da conta"
-            onClick={logout}
-          >
-            <LogOut size={18} />
-          </button>
-        </div>
-      </header>
-      <nav className="topnav" aria-label="Navegação principal">
-        <span className="nav-active">
-          <Layers3 size={17} />
-          Consulta de histórico
-        </span>
-        <span className="nav-caption">
-          Ordens de serviço e materiais aplicados
-        </span>
-      </nav>
+      <SiteHeader active="history" email={overview?.email} />
       <main className="main">
         <div className="page-heading">
           <div>
@@ -628,6 +581,7 @@ export default function Dashboard() {
                           model: "Modelo",
                           serial: "Série",
                           product: "Material",
+                          productId: "Código exato",
                           from: "De",
                           to: "Até",
                         } as Record<string, string>

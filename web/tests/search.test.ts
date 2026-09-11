@@ -71,6 +71,23 @@ test("global search uses values, respects each material and updates with the int
       "date filter uses Brasilia",
     );
     assert.equal((await results("q=filtro&company=2")).length, 0);
+    await db.exec(
+      "UPDATE m8_os_produtos SET produto_id=CASE WHEN id_m8=7 THEN 700 ELSE 7000 END",
+    );
+    assert.deepEqual(
+      (await results("view=materials&productId=700&company=1")).map(
+        (r) => r.item,
+      ),
+      [7],
+      "analysis drill-down uses exact IDs, not partial code matches",
+    );
+    assert.equal(
+      (await results("view=materials&productId=700&company=2")).length,
+      0,
+    );
+    assert.throws(() =>
+      parseFilters(new URLSearchParams("productId=700 OR 1=1")),
+    );
     assert.deepEqual(
       (await results("q=filtro&view=materials")).map((r) => r.item),
       [7],

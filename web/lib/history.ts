@@ -63,6 +63,14 @@ export function buildWhere(filters: Filters) {
         : `EXISTS (SELECT 1 FROM public.m8_os_produtos p WHERE ${productLink} AND ${match})`,
     );
   }
+  if (filters.productId) {
+    const match = `p.produto_id=${bind(filters.productId)}`;
+    clauses.push(
+      filters.view === "materials"
+        ? match
+        : `EXISTS (SELECT 1 FROM public.m8_os_produtos p WHERE ${productLink} AND ${match})`,
+    );
+  }
   for (const term of filters.q.split(/\s+/).filter(Boolean)) {
     const match = bind(`%${escapeLike(fold(term))}%`);
     clauses.push(`EXISTS (SELECT 1 FROM public.web_history_search search WHERE search.company_id=o.company_id AND search.ordem_servico_id=o.id_m8 AND search.document LIKE ${match}
