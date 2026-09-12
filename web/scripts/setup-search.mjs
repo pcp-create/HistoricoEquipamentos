@@ -41,6 +41,7 @@ try {
     "003_include_excluded_materials.sql",
     "004_manufacturer.sql",
     "005_quotes.sql",
+    "006_order_profit.sql",
   ]) {
     const sql = readFileSync(
       new URL("../sql/" + name, import.meta.url),

@@ -1,3 +1,4 @@
+import { approvedMaterialSql } from "./material-approval";
 import { currentProducts } from "./product-current";
 import "server-only";
 import { database } from "./db";
@@ -23,7 +24,7 @@ export function analysisQueries(filters: AnalysisFilters) {
     coverage: `SELECT o.company_id, count(*) FILTER(WHERE o.status='Processado' AND ${period})::int AS eligible,
  count(*) FILTER(WHERE ${ready} AND ${period})::int AS complete,
  count(*) FILTER(WHERE o.status='Processado' AND ${date} IS NULL)::int AS undated,
- COALESCE(sum((SELECT count(*) FROM public.m8_os_produtos p WHERE p.company_id=o.company_id AND p.ordem_servico_id=o.id_m8 AND p.esta_excluido IS NOT TRUE AND (p.quantidade IS NULL OR p.quantidade<=0 OR p.quantidade::text IN ('NaN','Infinity','-Infinity') OR p.produto_id IS NULL))) FILTER(WHERE ${ready} AND ${period}),0)::int AS ignored_items
+ COALESCE(sum((SELECT count(*) FROM public.m8_os_produtos p WHERE p.company_id=o.company_id AND p.ordem_servico_id=o.id_m8 AND p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")} AND (p.quantidade IS NULL OR p.quantidade<=0 OR p.quantidade::text IN ('NaN','Infinity','-Infinity') OR p.produto_id IS NULL))) FILTER(WHERE ${ready} AND ${period}),0)::int AS ignored_items
  FROM public.m8_ordens_servico o LEFT JOIN public.integracao_m8_os_sync s ON s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8 WHERE ${company} AND ((${period}) OR ${date} IS NULL) GROUP BY o.company_id ORDER BY o.company_id`,
     consumption: `SELECT p.company_id,p.produto_id::text AS product_id,
  COALESCE(NULLIF(upper(trim(p.unidade_nome)),''),'(sem unidade)') AS unit_key,
@@ -35,7 +36,7 @@ export function analysisQueries(filters: AnalysisFilters) {
  min((${date} AT TIME ZONE 'America/Sao_Paulo')::date)::text AS first_used,max((${date} AT TIME ZONE 'America/Sao_Paulo')::date)::text AS last_used
  FROM public.m8_os_produtos p JOIN public.m8_ordens_servico o ON o.company_id=p.company_id AND o.id_m8=p.ordem_servico_id
  JOIN public.integracao_m8_os_sync s ON s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8
- WHERE ${scope} AND ${ready} AND p.esta_excluido IS NOT TRUE AND p.quantidade>0 AND p.quantidade::text NOT IN ('NaN','Infinity','-Infinity') AND p.produto_id IS NOT NULL
+ WHERE ${scope} AND ${ready} AND p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")} AND p.quantidade>0 AND p.quantidade::text NOT IN ('NaN','Infinity','-Infinity') AND p.produto_id IS NOT NULL
  GROUP BY p.company_id,p.produto_id,NULLIF(upper(trim(p.unidade_nome)),''),COALESCE(NULLIF(upper(trim(p.unidade_nome)),''),'(sem unidade)') ORDER BY p.company_id,p.produto_id LIMIT 20001`,
   };
 }

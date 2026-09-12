@@ -1,6 +1,9 @@
 "use client";
+import { companyName } from "@/lib/company-names";
+import { isNotApproved } from "@/lib/material-approval";
 import { PriceValues, StockValues, SoldValues } from "./product-values";
 import type { ProductCurrent } from "@/lib/product-values";
+import OrderProfitPanel from "./order-profit-panel";
 import { orderTotals } from "@/lib/order-totals";
 import SiteHeader from "./site-header";
 import ProductPhotos from "./product-photos";
@@ -47,7 +50,9 @@ type Row = {
   detail_at: string | null;
   materials?: number;
   excluded_materials?: number;
+  rejected_materials?: number;
   is_excluded?: boolean;
+  approval?: string | boolean | null;
   amount: string | null;
   material?: string;
   reference?: string;
@@ -397,7 +402,7 @@ export default function Dashboard() {
                       <option value="">Todas as empresas</option>
                       {["1", "2", "27404"].map((c) => (
                         <option key={c} value={c}>
-                          Empresa {c}
+                          {companyName(c)}
                         </option>
                       ))}
                     </select>
@@ -617,7 +622,7 @@ export default function Dashboard() {
                         } as Record<string, string>
                       )[k]
                     }
-                    : {v}
+                    : {k === "company" ? companyName(v) : v}
                     <X size={12} />
                   </button>
                 ))}
@@ -686,7 +691,9 @@ export default function Dashboard() {
                           >
                             OS-{row.number.padStart(5, "0")}
                           </button>
-                          <small className="cell-secondary">ID {row.id}</small>
+                          <small className="cell-secondary">
+                            {row.situation || "Situação não informada"}
+                          </small>
                         </td>
                         <td className="nowrap">{date(row.date)}</td>
                         <td>
@@ -727,11 +734,17 @@ export default function Dashboard() {
                           <>
                             <td className="material-cell">
                               <span
-                                className={`cell-title${row.is_excluded ? " excluded-description" : ""}`}
+                                className={`cell-title${row.is_excluded ? " excluded-description" : isNotApproved(row.approval) ? " unapproved-description" : ""}`}
                                 title={row.material}
                               >
                                 {row.material || "—"}
                               </span>
+                              {isNotApproved(row.approval) &&
+                                !row.is_excluded && (
+                                  <small className="unapproved-description">
+                                    Reprovado na OS
+                                  </small>
+                                )}
                               {row.is_excluded && (
                                 <small className="excluded-label">
                                   Excluído da OS
@@ -766,7 +779,9 @@ export default function Dashboard() {
                                 quantity={row.quantity}
                                 unit={row.unit}
                                 current={row.current}
-                                excluded={row.is_excluded}
+                                excluded={
+                                  row.is_excluded || isNotApproved(row.approval)
+                                }
                               />
                             </td>
                             <td>
@@ -796,13 +811,20 @@ export default function Dashboard() {
                                 {row.excluded_materials} excluído(s)
                               </small>
                             )}
+                            {!!row.rejected_materials && (
+                              <small className="cell-secondary unapproved-description">
+                                {row.rejected_materials} reprovado(s)
+                              </small>
+                            )}
                           </td>
                         )}
                         <td>
                           <Badge status={row.status} />
                         </td>
                         <td>
-                          <span className="company-tag">{row.company_id}</span>
+                          <span className="company-tag">
+                            {companyName(row.company_id)}
+                          </span>
                         </td>
                         <td>
                           <button
@@ -931,7 +953,7 @@ export default function Dashboard() {
           <div className="drawer-header">
             <div>
               <span className="eyebrow">
-                ORDEM DE SERVIÇO · EMPRESA {selection?.company_id}
+                ORDEM DE SERVIÇO · {companyName(selection?.company_id)}
               </span>
               <h2>OS-{selection?.number.padStart(5, "0")}</h2>
             </div>
@@ -1062,7 +1084,9 @@ export default function Dashboard() {
                           className={
                             p.esta_excluido === true
                               ? "excluded-description"
-                              : undefined
+                              : isNotApproved(p.aprovado)
+                                ? "unapproved-description"
+                                : undefined
                           }
                         >
                           {shown(p.produto_nome)}
@@ -1070,6 +1094,11 @@ export default function Dashboard() {
                         {p.esta_excluido === true && (
                           <small className="excluded-label">
                             Excluído da OS
+                          </small>
+                        )}
+                        {isNotApproved(p.aprovado) && !p.esta_excluido && (
+                          <small className="unapproved-description">
+                            Reprovado na OS
                           </small>
                         )}
                         <small>Código: {shown(p.produto_id)}</small>
@@ -1154,7 +1183,10 @@ export default function Dashboard() {
                     : "Aguardando coleta dos serviços."}
                 </p>
               )}
-              <OrderAmounts detail={detail} />
+              <OrderAmounts
+                key={`${selection?.company_id}:${selection?.id}`}
+                detail={detail}
+              />
               <details className="all-fields">
                 <summary>
                   Todos os campos da OS
@@ -1272,6 +1304,13 @@ function OrderAmounts({ detail }: { detail: Detail }) {
           </div>
         )}
       </dl>
+      <OrderProfitPanel
+        company={String(detail.order.company_id)}
+        id={String(detail.order.id_m8)}
+        materials={detail.materials}
+        services={detail.services || []}
+        complete={!!detail.detail_at && Array.isArray(detail.services)}
+      />
       {totals.combined === null ? (
         <p>
           Valores incompletos ou coleta pendente; não é possível conferir a
@@ -1283,6 +1322,12 @@ function OrderAmounts({ detail }: { detail: Detail }) {
           valores e eventuais ajustes na OS.
         </p>
       ) : null}
+      {detail.materials.some((p) => isNotApproved(p.aprovado)) && (
+        <p>
+          Itens reprovados permanecem no histórico, mas não entram nos totais
+          nem no custo estimado.
+        </p>
+      )}
       {detail.materials.some((p) => p.esta_excluido === true) && (
         <p>
           Materiais excluídos permanecem no histórico, mas não entram na soma.

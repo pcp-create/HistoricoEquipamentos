@@ -106,6 +106,28 @@ test("history UI: search, filters, views, detail, pagination, export, empty/erro
       },
     });
   });
+  let calculation: any = null;
+  await page.route("**/api/orders/*/*/profit", async (route) => {
+    if (route.request().method() === "POST") {
+      const body = route.request().postDataJSON();
+      calculation = {
+        document: {
+          revenue: 1290.5,
+          materials: Number(body.materials),
+          hours: Number(body.hours),
+          hourlyRate: 40,
+          labor: Number(body.hours) * 40,
+          cost: 380,
+          profit: 910.5,
+          margin: 70.55,
+        },
+        version: 1,
+        calculated_at: "2026-09-12T12:00:00Z",
+        calculated_by: "test@example.com",
+      };
+    }
+    return route.fulfill({ json: { calculation } });
+  });
   await page.route("**/api/orders/*/*", (route) =>
     route.fulfill({
       json: {
@@ -241,6 +263,26 @@ test("history UI: search, filters, views, detail, pagination, export, empty/erro
       .locator(".service-detail summary")
       .getByText("Manutenção preventiva", { exact: true }),
   ).toBeVisible();
+  await expect(page.getByLabel("Custo total dos materiais (R$)")).toHaveCount(
+    0,
+  );
+  await page
+    .getByRole("button", { name: "Calcular lucro da OS", exact: true })
+    .click();
+  await page.getByLabel("Custo total dos materiais (R$)").fill("300");
+  await page.getByLabel("Horas de mão de obra").fill("2");
+  await expect(page.locator(".order-profit")).toContainText("40,00/hora");
+  await page.getByRole("button", { name: "Calcular e salvar" }).click();
+  await expect(page.locator(".order-profit")).toContainText("Já calculado");
+  await page.getByRole("button", { name: "Ocultar cálculo" }).click();
+  await expect(page.getByLabel("Custo total dos materiais (R$)")).toHaveCount(
+    0,
+  );
+  await page.getByRole("button", { name: "Ver lucro calculado" }).click();
+  await expect(
+    page.getByRole("button", { name: "Recalcular lucro da OS" }),
+  ).toBeVisible();
+  await expect(page.locator(".order-profit")).toContainText("80,00");
   await page.screenshot({ path: "test-results/order-services-desktop.png" });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByLabel("Valor total do serviço")).toBeVisible();

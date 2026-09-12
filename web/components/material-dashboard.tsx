@@ -1,4 +1,5 @@
 "use client";
+import { companyName } from "@/lib/company-names";
 import { PriceValues, StockValues } from "./product-values";
 import { useEffect, useState, type FormEvent } from "react";
 import {
@@ -20,6 +21,7 @@ import {
   ShieldCheck,
   TrendingUp,
 } from "lucide-react";
+import MaterialLookup from "./material-lookup";
 import SiteHeader from "./site-header";
 import {
   brazilToday,
@@ -224,6 +226,7 @@ export default function MaterialDashboard() {
             Atualizar análise
           </button>
         </div>
+        <MaterialLookup />
         <form className="filter-panel analysis-filters" onSubmit={apply}>
           <div className="analysis-filter-title">
             <span>
@@ -269,7 +272,7 @@ export default function MaterialDashboard() {
                 <option value="">Todas, separadas no ranking</option>
                 {["1", "2", "27404"].map((c) => (
                   <option key={c} value={c}>
-                    Empresa {c}
+                    {companyName(c)}
                   </option>
                 ))}
               </select>
@@ -541,7 +544,9 @@ export default function MaterialDashboard() {
                           </small>
                         </td>
                         <td>
-                          <span className="company-tag">{r.company_id}</span>
+                          <span className="company-tag">
+                            {companyName(r.company_id)}
+                          </span>
                         </td>
                         <td>{r.unit || "Não informada"}</td>
                         <td className="numeric">
@@ -748,7 +753,7 @@ function Ranking({
                   </strong>
                 </div>
                 <small>
-                  Cód. {r.product_id} · Empresa {r.company_id} ·{" "}
+                  Cód. {r.product_id} · {companyName(r.company_id)} ·{" "}
                   {r.unit || "Sem unidade"}
                 </small>
                 <div className="ranking-track">

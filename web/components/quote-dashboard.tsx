@@ -753,9 +753,9 @@ export default function QuoteDashboard() {
                       : "Buscar histórico e fabricante"}
                   </button>
                   <small>
-                    O histórico reúne as empresas 1, 2 e 27404. A seleção do
-                    equipamento já inicia a busca. Para dados manuais, use este
-                    botão.
+                    O histórico reúne RJ Industria, Serrana e Criciúma. A
+                    seleção do equipamento já inicia a busca. Para dados
+                    manuais, use este botão.
                   </small>
                 </div>
                 {!quote.model &&

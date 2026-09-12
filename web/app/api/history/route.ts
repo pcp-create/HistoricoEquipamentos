@@ -1,3 +1,4 @@
+import { companyName } from "@/lib/company-names";
 import { priceComparison } from "@/lib/product-values";
 import { logDataError } from "@/lib/data-error";
 import { NextResponse } from "next/server";
@@ -98,7 +99,11 @@ export async function GET(request: Request) {
           Object.keys(columns)
             .map((key) =>
               csvCell(
-                row[key] instanceof Date ? row[key].toISOString() : row[key],
+                key === "company_id"
+                  ? companyName(row[key])
+                  : row[key] instanceof Date
+                    ? row[key].toISOString()
+                    : row[key],
               ),
             )
             .join(";"),

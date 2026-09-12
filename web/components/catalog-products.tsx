@@ -1,3 +1,4 @@
+import { companyName } from "@/lib/company-names";
 import {
   groupedProducts,
   type CatalogProduct,
@@ -100,11 +101,21 @@ export default function CatalogProducts({
                   ID {p.id} · {p.companies.length}{" "}
                   {p.companies.length === 1 ? "empresa" : "empresas"}
                 </small>
+                <small>
+                  Ref. fabricante:{" "}
+                  {[
+                    ...new Set(
+                      p.companies
+                        .map((c) => c.reference?.trim())
+                        .filter(Boolean),
+                    ),
+                  ].join(" · ") || "Não informada"}
+                </small>
                 {p.blockedCompanies.length > 0 && (
                   <small className="catalog-blocked">
                     {p.blockedCompanies.length === p.companies.length
                       ? "Bloqueado no M8"
-                      : `Bloqueado no M8 · Empresas ${p.blockedCompanies.join(", ")}`}
+                      : `Bloqueado no M8 · Empresas ${p.blockedCompanies.map(companyName).join(", ")}`}
                   </small>
                 )}
                 {p.fields.includes("referenciaFabricante") && (
@@ -155,7 +166,7 @@ export default function CatalogProducts({
             </summary>
             <p className="catalog-stock-scope">
               Total dos cadastros nas empresas{" "}
-              {p.companies.map((c) => c.company_id).join(", ")}
+              {p.companies.map((c) => companyName(c.company_id)).join(", ")}
               {p.companies.length === 1
                 ? " (conforme filtro ou cadastro disponível)"
                 : ""}
@@ -163,7 +174,7 @@ export default function CatalogProducts({
             </p>
             {p.companies.map((c) => (
               <section className="catalog-company" key={String(c.company_id)}>
-                <h4>Empresa {c.company_id}</h4>
+                <h4>{companyName(c.company_id)}</h4>
                 {c.name !== p.name && <p>{c.name}</p>}
                 {c.blocked === "Sim" && (
                   <p className="catalog-blocked">

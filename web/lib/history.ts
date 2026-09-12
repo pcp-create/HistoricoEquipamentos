@@ -1,3 +1,4 @@
+import { approvedMaterialSql } from "./material-approval";
 import { linkedOrder, linkedSerial } from "./equipment";
 import { currentProducts } from "./product-current";
 import "server-only";
@@ -118,7 +119,7 @@ export async function history(filters: Filters, exporting = false) {
     COALESCE(NULLIF(o.equipamento,''),registered.names) AS equipment, COALESCE(NULLIF(o.modelo_equipamento,''),eq.models,registered.models) AS model,
     COALESCE(NULLIF(o.numero_serie,''),NULLIF(o.serie,''),eq.serials,registered.serials) AS serial, registered.methods AS equipment_origin,
     o.status, o.situacao_nome AS situation, s.last_detail_at AS detail_at,
-    ${filters.view === "materials" ? `p.id_m8::text AS item_id, p.produto_nome AS material, p.referencia_fabricante AS reference, p.produto_id::text AS product_id, p.quantidade AS quantity, p.unidade_nome AS unit, p.valor_total AS amount, COALESCE(p.esta_excluido,false) AS is_excluded, CASE WHEN p.esta_excluido IS TRUE THEN 'Excluído da OS' ELSE 'Ativo' END AS item_status` : `o.total_geral AS amount, (SELECT count(*)::int FROM public.m8_os_produtos p WHERE ${productLink}) AS materials, (SELECT count(*)::int FROM public.m8_os_produtos p WHERE ${productLink} AND p.esta_excluido IS TRUE) AS excluded_materials`}
+    ${filters.view === "materials" ? `p.id_m8::text AS item_id, p.produto_nome AS material, p.referencia_fabricante AS reference, p.produto_id::text AS product_id, p.quantidade AS quantity, p.unidade_nome AS unit, p.valor_total AS amount, COALESCE(p.esta_excluido,false) AS is_excluded, p.aprovado AS approval, CASE WHEN p.esta_excluido IS TRUE THEN 'Excluído da OS' WHEN NOT (${approvedMaterialSql("p")}) THEN 'Reprovado' ELSE 'Ativo'  END AS item_status` : `o.total_geral AS amount, (SELECT count(*)::int FROM public.m8_os_produtos p WHERE ${productLink}) AS materials, (SELECT count(*)::int FROM public.m8_os_produtos p WHERE ${productLink} AND p.esta_excluido IS TRUE) AS excluded_materials, (SELECT count(*)::int FROM public.m8_os_produtos p WHERE ${productLink} AND p.esta_excluido IS NOT TRUE AND NOT (${approvedMaterialSql("p")})) AS rejected_materials`}
     ${from}
     LEFT JOIN public.integracao_m8_os_sync s ON s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8
     LEFT JOIN LATERAL (SELECT string_agg(DISTINCT NULLIF(e.numero_serie,''),', ') AS serials, string_agg(DISTINCT NULLIF(e.equipamento_modelo,''),', ') AS models FROM public.m8_equipamentos e WHERE ${equipmentLink}) eq ON true
@@ -174,9 +175,49 @@ export async function orderDetail(company: string, id: string) {
       product_id: p.produto_id,
     })),
   );
+  const costs = (
+    await database().query(
+      `SELECT product_id::text,
+      CASE WHEN count(average_cost)=count(*) AND min(average_cost)>=0
+        THEN CASE WHEN min(average_cost)=max(average_cost) THEN min(average_cost)
+          WHEN count(stock)=count(*) AND min(stock)>=0 AND sum(stock)>0
+          THEN sum(average_cost*stock)/sum(stock) END END AS average_cost,
+      min(collected_at) AS collected_at
+     FROM m8_product_stock WHERE company_id=$1 AND product_id=ANY($2::bigint[]) GROUP BY product_id`,
+      [
+        company,
+        detail.materials
+          .map((p: { produto_id: string }) => p.produto_id)
+          .filter(Boolean),
+      ],
+    )
+  ).rows;
+  const costByProduct = new Map(costs.map((c) => [c.product_id, c]));
   detail.materials = detail.materials.map((p: { produto_id: string }) => ({
     ...p,
     current: current.get(`${company}:${p.produto_id}`),
+    current_average_cost:
+      costByProduct.get(String(p.produto_id))?.average_cost ?? null,
+    current_cost_at:
+      costByProduct.get(String(p.produto_id))?.collected_at ?? null,
+  }));
+  const serviceUnits = (
+    await database().query(
+      `SELECT DISTINCT ON(service_id) service_id::text,unit FROM m8_service_catalog
+      WHERE company_id IN ($1,1) AND service_id=ANY($2::bigint[])
+      ORDER BY service_id,(company_id=$1) DESC`,
+      [
+        company,
+        detail.services
+          .map((s: { servico_id: string }) => s.servico_id)
+          .filter(Boolean),
+      ],
+    )
+  ).rows;
+  const units = new Map(serviceUnits.map((s) => [s.service_id, s.unit]));
+  detail.services = detail.services.map((s: { servico_id: string }) => ({
+    ...s,
+    service_unit: units.get(String(s.servico_id)) ?? null,
   }));
   return detail;
 }

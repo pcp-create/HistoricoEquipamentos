@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { fold } from "@/lib/filters";
 import { BookOpen, Search } from "lucide-react";
 import SiteHeader from "./site-header";
 import CatalogProducts from "./catalog-products";
@@ -70,6 +71,7 @@ export default function ManufacturerDashboard() {
     [refresh, setRefresh] = useState(0);
   const [form, setForm] = useState({
     q: "",
+    list: "",
     model: "",
     serial: "",
     company: "",
@@ -119,11 +121,15 @@ export default function ManufacturerDashboard() {
   }, [query === null, form.model, form.serial, form.variant, refresh]);
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
+    p.delete("company");
+    const localFilter = p.get("list") || "";
+    p.delete("list");
     setForm({
       q: p.get("q") || "",
+      list: localFilter,
       model: p.get("model") || "",
       serial: p.get("serial") || "",
-      company: p.get("company") || "",
+      company: "",
       variant: p.get("variant") || "",
       review: p.get("review") === "1",
       interval: p.get("interval") || "",
@@ -157,11 +163,12 @@ export default function ManufacturerDashboard() {
     const p = new URLSearchParams();
     if (!clear)
       for (const [k, v] of Object.entries(form))
-        if (v) p.set(k, k === "review" ? "1" : String(v));
+        if (v && k !== "list") p.set(k, k === "review" ? "1" : String(v));
     p.set("page", String(page));
     if (clear)
       setForm({
         q: "",
+        list: "",
         model: "",
         serial: "",
         company: "",
@@ -177,6 +184,36 @@ export default function ManufacturerDashboard() {
     company = applied.get("company") || "",
     serial = applied.get("serial") || "";
   const variants = data?.variants || [];
+  const indexedRows = useMemo(
+    () =>
+      (data?.rows || []).map((entry) => ({
+        entry,
+        text: fold(
+          [
+            entry.description,
+            entry.code_original,
+            entry.section,
+            entry.observation,
+            entry.variant_name,
+            entry.interval_original,
+            ...entry.products.flatMap((p) => [
+              p.name,
+              p.product_id,
+              p.reference,
+              p.similarity,
+            ]),
+          ].join(" "),
+        ),
+      })),
+    [data],
+  );
+  const visibleRows = useMemo(() => {
+    const text = fold(form.list.trim());
+    return indexedRows
+      .filter((row) => row.text.includes(text))
+      .map((row) => row.entry);
+  }, [indexedRows, form.list]);
+
   return (
     <>
       <SiteHeader active="manufacturer" email={data?.email} />
@@ -194,6 +231,7 @@ export default function ManufacturerDashboard() {
           className="manual-card manual-filters"
           onSubmit={(e) => {
             e.preventDefault();
+            setForm((current) => ({ ...current, list: "" }));
             search();
           }}
         >
@@ -234,18 +272,6 @@ export default function ManufacturerDashboard() {
                 })
               }
             />
-          </label>
-          <label>
-            Empresa
-            <select
-              value={form.company}
-              onChange={(e) => setForm({ ...form, company: e.target.value })}
-            >
-              <option value="">Todas</option>
-              {["1", "2", "27404"].map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
           </label>
           <label className="manual-global">
             Versão / aba da planilha
@@ -355,6 +381,17 @@ export default function ManufacturerDashboard() {
                   >
                     <section className="manual-card">
                       <h2>Peças e produtos correspondentes</h2>
+                      <label className="manual-list-filter">
+                        Filtrar itens da lista
+                        <input
+                          value={form.list}
+                          maxLength={160}
+                          placeholder="Descrição, código ou referência"
+                          onChange={(e) =>
+                            setForm({ ...form, list: e.target.value })
+                          }
+                        />
+                      </label>
                       {variants.length > 1 && (
                         <p className="manual-note">
                           Há {variants.length} versões candidatas. Escolha a aba
@@ -387,10 +424,15 @@ export default function ManufacturerDashboard() {
                           </div>
                         ))}
                       </details>
-                      {!data.rows.length ? (
+                      <small>
+                        {visibleRows.length} de {data.rows.length} itens desta
+                        página · filtro local
+                      </small>
+                      {!visibleRows.length ? (
                         <p>
-                          Nenhuma peça encontrada. Revise os filtros ou consulte
-                          outra versão.
+                          {data.rows.length
+                            ? "Nenhuma peça corresponde ao filtro nesta página. Limpe o texto ou consulte outra página."
+                            : "Nenhuma peça encontrada. Revise os filtros ou consulte outra versão."}
                         </p>
                       ) : (
                         <div className="manual-table-scroll">
@@ -403,7 +445,7 @@ export default function ManufacturerDashboard() {
                               </tr>
                             </thead>
                             <tbody>
-                              {data.rows.map((e) => (
+                              {visibleRows.map((e) => (
                                 <tr key={e.id}>
                                   <td>
                                     <strong>{e.description}</strong>
@@ -484,7 +526,7 @@ export default function ManufacturerDashboard() {
                       <aside className="manual-card manual-consumption">
                         <h2>Materiais das OS da série</h2>
                         <p>
-                          <strong>{serial}</strong> · Empresa {company}
+                          <strong>{serial}</strong> · Todas as empresas
                         </p>
                         <p>
                           {data.consumption.orders} OS associadas ·{" "}
@@ -560,8 +602,8 @@ export default function ManufacturerDashboard() {
                   </div>
                   {!data.consumption && (
                     <p className="manual-note">
-                      Selecione uma empresa e informe a série completa para ver
-                      as OS associadas ao lado do catálogo.
+                      Informe a série completa para ver as OS associadas ao lado
+                      do catálogo.
                     </p>
                   )}
                 </>

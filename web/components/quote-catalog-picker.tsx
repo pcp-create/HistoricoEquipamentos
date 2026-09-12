@@ -1,4 +1,5 @@
 "use client";
+import { companyName } from "@/lib/company-names";
 import { useEffect, useRef, useState } from "react";
 import QuoteOrderLink from "./quote-order-link";
 import { quoteItemIdentity, type QuoteItem } from "@/lib/quotes/types";
@@ -136,8 +137,8 @@ export default function QuoteCatalogPicker({
                   {item.generalSale ? (
                     <>
                       {money(item.generalSale.unitPrice)} ·{" "}
-                      <QuoteOrderLink sale={item.generalSale} /> · Empresa{" "}
-                      {item.generalSale.company}
+                      <QuoteOrderLink sale={item.generalSale} /> ·{" "}
+                      {companyName(item.generalSale.company)}
                     </>
                   ) : (
                     "Sem venda registrada"

@@ -214,6 +214,28 @@ test("catalog groups company balances in the closed card and lists genuine produ
   const genuine = cards.first();
   await expect(genuine.locator("summary")).toContainText("Filtro genuíno");
   await expect(genuine.locator("summary")).toContainText("ID 99 · 3 empresas");
+  await expect(page.getByLabel("Empresa", { exact: true })).toHaveCount(0);
+  await expect(genuine.locator("summary")).toContainText(
+    "Ref. fabricante: 1234567890",
+  );
+  await expect(page.getByLabel("Filtrar itens da lista")).toBeVisible();
+  // Ignore the independent initial interval-options request.
+  const filterRequests: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.url().includes("/api/manufacturer?") &&
+      !request.url().includes("options=intervals")
+    )
+      filterRequests.push(request.url());
+  });
+  await page.getByLabel("Filtrar itens da lista").fill("SEM-CORRESPONDENCIA");
+  await expect(cards).toHaveCount(0);
+  await page.getByLabel("Filtrar itens da lista").fill("OLEO");
+  await expect(cards).toHaveCount(2);
+  await page.getByLabel("Filtrar itens da lista").fill("óleo");
+  await expect(cards).toHaveCount(2);
+  await page.waitForTimeout(400);
+  expect(filterRequests).toEqual([]);
   await expect(
     genuine.locator("summary .catalog-balance").first(),
   ).toContainText("12 UN");
@@ -260,7 +282,7 @@ test("catalog groups company balances in the closed card and lists genuine produ
     /120,00/,
   );
   await expect(genuine.locator("summary .catalog-blocked")).toContainText(
-    "Empresas 2",
+    "Empresas Serrana",
   );
   await expect(cards.last().locator("summary .catalog-blocked")).toHaveCount(0);
   await genuine.locator("summary").click();
@@ -268,7 +290,7 @@ test("catalog groups company balances in the closed card and lists genuine produ
     "Produto bloqueado no M8. Motivo não disponibilizado pela API.",
   );
   await expect(
-    genuine.getByRole("heading", { name: "Empresa 27404", exact: true }),
+    genuine.getByRole("heading", { name: "Criciúma", exact: true }),
   ).toBeVisible();
   await expect(
     genuine.locator(".catalog-company").nth(1).getByText("Estoque:"),

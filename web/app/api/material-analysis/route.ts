@@ -1,3 +1,4 @@
+import { companyName } from "@/lib/company-names";
 import { logDataError } from "@/lib/data-error";
 import { NextResponse } from "next/server";
 import { requireUser, Unauthorized } from "@/lib/auth";
@@ -58,7 +59,7 @@ export async function GET(request: Request) {
       const lines = data.rows.map((r) => {
         const c = data.coverage.find((c) => c.company_id === r.company_id);
         return [
-          r.company_id,
+          companyName(r.company_id),
           r.product_id,
           r.name,
           r.reference,

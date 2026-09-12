@@ -1,4 +1,5 @@
 "use client";
+import { companyName, companyNamesInText } from "@/lib/company-names";
 
 import {
   lineAmount,
@@ -162,7 +163,8 @@ export default function QuoteItemRow({
           )}
           {!!stock?.blockedCompanies.length && (
             <small className="quote-warning">
-              Bloqueado no M8 · empresa(s) {stock.blockedCompanies.join(", ")}
+              Bloqueado no M8 · empresa(s){" "}
+              {stock.blockedCompanies.map(companyName).join(", ")}
             </small>
           )}
         </div>
@@ -302,7 +304,8 @@ export default function QuoteItemRow({
                   {history.rows.map((sale) => (
                     <tr key={`${sale.company}:${sale.order}`}>
                       <td>
-                        <QuoteOrderLink sale={sale} /> · {sale.company}
+                        <QuoteOrderLink sale={sale} /> ·{" "}
+                        {companyName(sale.company)}
                         {sale.linkedByObservation && (
                           <small className="quote-sale-origin">
                             Série nas observações
@@ -338,7 +341,7 @@ export default function QuoteItemRow({
             />
           </>
         )}
-        <p className="muted">{ref.source}</p>
+        <p className="muted">{companyNamesInText(ref.source)}</p>
         {ref.referenceAt && (
           <small>Referência registrada em {day(ref.referenceAt)}.</small>
         )}

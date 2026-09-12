@@ -1,4 +1,5 @@
 "use client";
+import { companyName } from "@/lib/company-names";
 import { useEffect, useRef, useState } from "react";
 import { Camera, X, ChevronLeft, ChevronRight } from "lucide-react";
 type Gallery = {
@@ -92,7 +93,7 @@ export default function ProductPhotos({
             <div>
               <h2>{title}</h2>
               <p>
-                Fotos do produto no M8 · Empresa {String(company)} · Código{" "}
+                Fotos do produto no M8 · {companyName(company)} · Código{" "}
                 {String(id)}
               </p>
             </div>

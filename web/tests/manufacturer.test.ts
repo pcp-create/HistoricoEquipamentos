@@ -287,6 +287,18 @@ test("catalog SQL indexes exact multi-code references, refreshes on M8 updates a
     assert.deepEqual(catalog.rows[0].products[0].fields, [
       "referenciaFabricante",
     ]);
+    const internalCode = await manufacturerCatalog(
+      manualFilters(new URLSearchParams("q=10")),
+    );
+    assert(internalCode.rows.some((e) => e.code === "0367010055"));
+    const listFilter = await manufacturerCatalog(
+      manualFilters(new URLSearchParams("list=correia")),
+    );
+    assert(listFilter.rows.length > 0);
+    const missingList = await manufacturerCatalog(
+      manualFilters(new URLSearchParams("list=SEM-ITEM-XYZ")),
+    );
+    assert.equal(missingList.total, 0);
     // Limit distinct products after prioritizing genuine references, then expand all company balances.
     await db.exec(`INSERT INTO m8_product_catalog(company_id,product_id,name,unit,collected_at,payload)
       SELECT company,product,'Peça teste','UN',now(),jsonb_build_object(CASE WHEN product=99 THEN 'referenciaFabricante' ELSE 'codigoSimilaridade' END,'0367010055')
@@ -329,6 +341,8 @@ test("catalog SQL indexes exact multi-code references, refreshes on M8 updates a
  UPDATE integracao_m8_os_sync SET pending=true,finalized=false WHERE ordem_servico_id=4;
  INSERT INTO m8_os_produtos(company_id,ordem_servico_id,id_m8,produto_id,produto_nome,quantidade,unidade_nome,esta_excluido,payload) VALUES(1,1,1,10,'Correia',2,'UN',false,'{}'),(1,1,2,10,'Excluído',99,'UN',true,'{}'),(2,2,3,10,'Empresa 2',50,'UN',false,'{}'),(1,3,4,10,'Outra série',80,'UN',false,'{}'),(1,4,5,10,'Pendente',20,'UN',false,'{}');
  INSERT INTO m8_equipamentos(company_id,ordem_servico_id,id_m8,numero_serie,payload) VALUES(1,1,1,'BRP060001','{}'),(1,1,2,'BRP060001','{}');`);
+    const combined = await equipmentConsumption("", "BRP060001");
+    assert.equal(Number(combined.rows[0].quantity), 52);
     const consumption = await equipmentConsumption("1", "BRP060001");
     assert.equal(consumption.orders, 2);
     assert.equal(consumption.rows.length, 1);

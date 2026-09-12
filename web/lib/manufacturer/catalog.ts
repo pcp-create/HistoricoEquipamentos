@@ -1,3 +1,4 @@
+import { approvedMaterialSql } from "../material-approval";
 import "server-only";
 import { linkedSerial } from "../equipment";
 import { database } from "../db";
@@ -27,6 +28,7 @@ export function manualFilters(params: URLSearchParams) {
     throw new Error("Informe pelo menos quatro caracteres da série");
   return {
     q,
+    list: text("list", 160),
     company,
     page,
     serial,
@@ -112,6 +114,20 @@ export async function manufacturerCatalog(
       page: 1,
       consumption: null,
     };
+  const related =
+    f.q || f.list
+      ? (
+          await db.query(
+            `SELECT DISTINCT x.code,x.product_id::text,c.name,c.payload->>'referenciaFabricante' AS reference,c.payload->>'codigoSimilaridade' AS similarity
+     FROM manufacturer_product_codes x JOIN m8_product_catalog c USING(company_id,product_id)
+     WHERE x.company_id IN (1,2,27404) AND x.code=ANY($1::text[])`,
+            [[...new Set(entries.map((e) => e.code).filter(Boolean))]],
+          )
+        ).rows
+      : [];
+  const byCode = new Map<string, typeof related>();
+  for (const r of related)
+    byCode.set(r.code, [...(byCode.get(r.code) || []), r]);
   const filtered = entries.filter((e) => {
     const v = selected.find((v) => v.id === e.variant_id)!;
     const document = fold(
@@ -129,11 +145,22 @@ export async function manufacturerCatalog(
       ].join(" "),
     );
     return (
+      (!f.list ||
+        fold(
+          document +
+            " " +
+            (byCode.get(e.code) || [])
+              .map((p) =>
+                [p.product_id, p.name, p.reference, p.similarity].join(" "),
+              )
+              .join(" "),
+        ).includes(fold(f.list))) &&
       matchesInterval(e, f.interval) &&
       (!f.review || e.issues.length) &&
       terms.every(
         (term) =>
           document.includes(term) ||
+          (byCode.get(e.code) || []).some((p) => p.product_id === term) ||
           matchingSeries.get(v.id)!.has(term) ||
           (normalizeCode(term).length > 0 &&
             normalizeCode(e.code_original).includes(normalizeCode(term))),
@@ -172,10 +199,9 @@ export async function manufacturerCatalog(
     ...p,
     current: current.get(`${p.company_id}:${p.product_id}`),
   }));
-  const consumption =
-    f.company && f.serial
-      ? await equipmentConsumption(f.company, f.serial)
-      : null;
+  const consumption = f.serial
+    ? await equipmentConsumption(f.company, f.serial)
+    : null;
   return {
     revision,
     variants,
@@ -193,22 +219,22 @@ export async function manufacturerCatalog(
 export async function equipmentConsumption(company: string, serial: string) {
   const normalized = normalizeSerial(serial);
   // Exact normalized serial and company. EXISTS avoids duplicating an OS with multiple equipment rows.
-  const where = `o.company_id=$1 AND (regexp_replace(upper(COALESCE(o.numero_serie,'')),'[^A-Z0-9]','','g')=$2 OR regexp_replace(upper(COALESCE(o.serie,'')),'[^A-Z0-9]','','g')=$2 OR EXISTS(SELECT 1 FROM m8_equipamentos e WHERE e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8 AND regexp_replace(upper(COALESCE(e.numero_serie,'')),'[^A-Z0-9]','','g')=$2) OR ${linkedSerial("$2")})`;
+  const where = `($1::bigint IS NULL OR o.company_id=$1) AND o.company_id IN (1,2,27404) AND (regexp_replace(upper(COALESCE(o.numero_serie,'')),'[^A-Z0-9]','','g')=$2 OR regexp_replace(upper(COALESCE(o.serie,'')),'[^A-Z0-9]','','g')=$2 OR EXISTS(SELECT 1 FROM m8_equipamentos e WHERE e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8 AND regexp_replace(upper(COALESCE(e.numero_serie,'')),'[^A-Z0-9]','','g')=$2) OR ${linkedSerial("$2")})`;
   const db = database();
   const coverage = (
     await db.query(
       `SELECT count(*)::int AS orders,count(*) FILTER(WHERE s.last_detail_at IS NOT NULL)::int AS imported,count(DISTINCT o.cliente_id)::int AS clients,count(*) FILTER(WHERE EXISTS(SELECT 1 FROM m8_equipment_linked l WHERE l.company_id=o.company_id AND l.order_id=o.id_m8 AND l.method='observation'))::int AS inferred FROM m8_ordens_servico o LEFT JOIN integracao_m8_os_sync s ON s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8 WHERE ${where}`,
-      [company, normalized],
+      [company || null, normalized],
     )
   ).rows[0];
   const rows = (
     await db.query(
-      `SELECT p.produto_id::text AS product_id,p.unidade_nome AS unit,max(p.produto_nome) AS name,count(DISTINCT o.id_m8)::int AS orders,sum(p.quantidade)::text AS quantity,max(COALESCE(o.emissao,o.data_abertura)) AS last_used
+      `SELECT p.produto_id::text AS product_id,p.unidade_nome AS unit,max(p.produto_nome) AS name,count(DISTINCT (o.company_id,o.id_m8))::int AS orders,sum(p.quantidade)::text AS quantity,max(COALESCE(o.emissao,o.data_abertura)) AS last_used
  FROM m8_ordens_servico o JOIN m8_os_produtos p ON p.company_id=o.company_id AND p.ordem_servico_id=o.id_m8
  JOIN integracao_m8_os_sync s ON s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8
- WHERE ${where} AND o.status='Processado' AND s.finalized IS TRUE AND s.pending IS FALSE AND p.esta_excluido IS NOT TRUE AND p.quantidade>0 AND p.quantidade::text NOT IN ('NaN','Infinity','-Infinity')
+ WHERE ${where} AND o.status='Processado' AND s.finalized IS TRUE AND s.pending IS FALSE AND p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")} AND p.quantidade>0 AND p.quantidade::text NOT IN ('NaN','Infinity','-Infinity')
  GROUP BY p.produto_id,p.unidade_nome ORDER BY max(COALESCE(o.emissao,o.data_abertura)) DESC NULLS LAST,p.produto_id LIMIT 101`,
-      [company, normalized],
+      [company || null, normalized],
     )
   ).rows;
   return {

@@ -1,3 +1,4 @@
+import { approvedMaterialSql } from "../material-approval";
 import "server-only";
 import { quoteProducts } from "./products";
 import { createHash } from "node:crypto";
@@ -40,7 +41,7 @@ export async function quoteCatalog(p: URLSearchParams) {
   const ids = choices.map((r) => String(r.id));
   const source =
     kind === "material"
-      ? `SELECT p.produto_id AS id,p.company_id,p.ordem_servico_id,upper(trim(COALESCE(p.unidade_nome,''))) AS unit,p.quantidade AS quantity,p.valor_total AS total FROM m8_os_produtos p WHERE p.produto_id=ANY($1::bigint[]) AND p.esta_excluido IS NOT TRUE AND p.quantidade>0`
+      ? `SELECT p.produto_id AS id,p.company_id,p.ordem_servico_id,upper(trim(COALESCE(p.unidade_nome,''))) AS unit,p.quantidade AS quantity,p.valor_total AS total FROM m8_os_produtos p WHERE p.produto_id=ANY($1::bigint[]) AND p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")} AND p.quantidade>0`
       : `SELECT s.servico_id AS id,s.company_id,s.ordem_servico_id,'' AS unit,s.quantidade AS quantity,COALESCE(s.valor_total,s.valor_unitario*s.quantidade) AS total FROM m8_os_servicos s WHERE s.servico_id=ANY($1::bigint[]) AND s.quantidade>0`;
   const sales = ids.length
     ? (

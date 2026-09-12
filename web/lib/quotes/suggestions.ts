@@ -1,3 +1,4 @@
+import { approvedMaterialSql } from "../material-approval";
 import "server-only";
 import { quoteProducts } from "./products";
 import { quoteCatalog } from "./catalog";
@@ -158,7 +159,7 @@ export async function quoteSuggestions(p: URLSearchParams) {
         upper(trim(COALESCE(p.unidade_nome,''))) AS unit,p.company_id,p.ordem_servico_id,os.used_at,os.observation_link,os.order_number,
         p.quantidade AS quantity,p.valor_total AS total
       FROM os JOIN m8_os_produtos p ON p.company_id=os.company_id AND p.ordem_servico_id=os.id_m8
-      WHERE p.esta_excluido IS NOT TRUE AND p.quantidade>0
+      WHERE p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")} AND p.quantidade>0
       UNION ALL
       SELECT 'service',COALESCE(s.servico_id::text,s.servico_nome),'',s.company_id,s.ordem_servico_id,os.used_at,os.observation_link,os.order_number,
         s.quantidade,COALESCE(s.valor_total,s.valor_unitario*s.quantidade)
@@ -214,7 +215,7 @@ export async function quoteSuggestions(p: URLSearchParams) {
       c.sale_price,c.minimum_price,c.unit AS current_unit,c.price_at
     FROM os JOIN m8_os_produtos p ON p.ordem_servico_id=os.id_m8 AND p.company_id=os.company_id
     LEFT JOIN m8_product_current c ON c.company_id=1 AND c.product_id=p.produto_id
-    WHERE p.esta_excluido IS NOT TRUE AND p.quantidade>0
+    WHERE p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")} AND p.quantidade>0
     ORDER BY COALESCE(p.produto_id::text,p.produto_nome),p.unidade_nome,os.used_at DESC NULLS LAST,p.id_m8 DESC LIMIT 1001`,
         [clientId, serial, equipmentId],
       )

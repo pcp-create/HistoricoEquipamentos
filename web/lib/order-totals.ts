@@ -1,3 +1,4 @@
+import { isNotApproved } from "./material-approval";
 type Item = Record<string, unknown>;
 function cents(value: unknown): number | null {
   if (
@@ -20,7 +21,7 @@ export function orderTotals(
   const sum = (items: Item[]) => {
     let result = 0;
     for (const item of items) {
-      if (item.esta_excluido === true) continue;
+      if (item.esta_excluido === true || isNotApproved(item.aprovado)) continue;
       const value = cents(item.valor_total);
       if (value === null) return null;
       result += value;

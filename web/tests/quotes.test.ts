@@ -143,6 +143,9 @@ test("draft persistence, concurrent edits and equipment suggestions isolate comp
     await db.exec(`INSERT INTO m8_product_catalog(company_id,product_id,name,unit,payload,collected_at) VALUES(2,99,'ÓLEO sem venda','UN','{}',now());
       INSERT INTO m8_product_stock(company_id,product_id,establishment_id,stock,collected_at,payload) VALUES(1,99,1,10,now(),'{}'),(2,99,1,5,now(),'{}');
       INSERT INTO m8_product_available(company_id,product_id,establishment_id,available,collected_at) VALUES(1,99,1,7,now()),(2,99,1,2,now());`);
+    await db.exec(
+      `INSERT INTO m8_os_produtos(company_id,id_m8,ordem_servico_id,produto_id,produto_nome,unidade_nome,quantidade,valor_total,aprovado,payload) VALUES(1,999,1,5,'Não aprovado','UN',99,9999,'Nao','{}');`,
+    );
     for (const query of ["oleo", "OLEO", "ÓLEO", "óleo"]) {
       const catalog = await quoteLookup(
         new URLSearchParams({ lookup: "materials", q: query }),
