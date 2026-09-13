@@ -165,6 +165,8 @@ test("quote selects equipment, combines suggestions, edits prices, saves and reo
               code: "1234567890",
               variant: "GA15",
               interval: "4.000 h",
+              interval_original: "4000",
+              interval_hours: 4000,
               observation: "Conferir aplicação",
               issues: [],
               itemKeys: [item.key, "p:1:11:UN"],
@@ -197,6 +199,8 @@ test("quote selects equipment, combines suggestions, edits prices, saves and reo
               code: "9999999999",
               variant: "GA15",
               interval: "8.000 h",
+              interval_original: "8000",
+              interval_hours: 8000,
               observation: "",
               issues: [],
               products: [],
@@ -456,7 +460,15 @@ test("manual manufacturer selection works with blank model and serial", async ({
     page.getByLabel("Intervalo da revisão").locator("option"),
   ).toHaveCount(2);
   await page.getByLabel("Intervalo da revisão").selectOption("h:8000");
-  await expect.poll(() => queries.at(-1)?.get("interval")).toBe("h:8000");
+  await expect.poll(() => queries.at(-1)?.get("interval")).toBe("");
+  const requestCount = queries.length;
+  await page.getByLabel("Intervalo da revisão").selectOption("");
+  await page.waitForTimeout(400);
+  expect(queries.length).toBe(requestCount);
+  await page.getByRole("button", { name: "Minimizar peças da revisão" }).click();
+  await expect(page.locator("#quote-revision-content")).toBeHidden();
+  await page.getByRole("button", { name: "Expandir peças da revisão" }).click();
+  await expect(page.locator("#quote-revision-content")).toBeVisible();
   expect(queries.at(-1)?.get("variant")).toBe("gx");
   await expect(page.getByLabel("Modelo", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("Número de série", { exact: true })).toHaveValue(

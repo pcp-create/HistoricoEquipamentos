@@ -46,13 +46,14 @@ export async function manufacturerCatalog(
   const db = database();
   const revision = (
     await db.query(
-      "SELECT id,filename,imported_at,report FROM manufacturer_revisions WHERE active",
+      "SELECT id,filename,imported_at,report FROM manufacturer_revisions WHERE active OR report->>'managed'='true' ORDER BY active DESC LIMIT 1",
     )
   ).rows[0];
   if (!revision)
     return {
       revision: null,
       variants: [],
+      allVariants: [],
       intervals: [],
       rows: [],
       total: 0,
@@ -62,8 +63,7 @@ export async function manufacturerCatalog(
     };
   const all = (
     await db.query<Variant>(
-      "SELECT id,name,header,models,rules,issues FROM manufacturer_variants WHERE revision_id=$1 ORDER BY name",
-      [revision.id],
+      "SELECT id,name,header,models,rules,issues FROM manufacturer_variants WHERE revision_id IN (SELECT id FROM manufacturer_revisions WHERE active OR report->>'managed'='true') ORDER BY name",
     )
   ).rows;
   const terms = catalogSearchTerms(f.q, all);
@@ -108,6 +108,7 @@ export async function manufacturerCatalog(
     return {
       revision,
       variants,
+      allVariants: candidates,
       intervals,
       rows: [],
       total: 0,
@@ -205,6 +206,7 @@ export async function manufacturerCatalog(
   return {
     revision,
     variants,
+    allVariants: candidates,
     intervals,
     rows: rows.map((r) => ({
       ...r,

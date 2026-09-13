@@ -110,7 +110,25 @@ export default function QuoteItemRow({
             <strong>{item.name}</strong>
           )}
           <small>
-            Cód. {item.code || "manual"}
+            Cód.{" "}
+            {item.kind === "material" &&
+            !item.key.startsWith("m:") &&
+            /^[1-9]\d{0,17}$/.test(item.code) ? (
+              <a
+                className="quote-order-link"
+                href={
+                  "/analise-materiais?" +
+                  new URLSearchParams({ code: item.code })
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Consultar material na Análise de materiais em outra aba"
+              >
+                {item.code}
+              </a>
+            ) : (
+              item.code || "manual"
+            )}
             {item.unit && ` · ${item.unit}`}
             {origin !== "unknown" && (
               <span className={`quote-choice-origin quote-origin-${origin}`}>

@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 type Photo = { company: number; images: { key: string; url: string }[] };
 export default function MaterialPhoto({
   id,
@@ -13,6 +13,8 @@ export default function MaterialPhoto({
 }) {
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [index, setIndex] = useState(0);
+  const [expandedIndex, setExpandedIndex] = useState(0);
+  const dialog = useRef<HTMLDialogElement>(null);
   const [broken, setBroken] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -20,6 +22,7 @@ export default function MaterialPhoto({
   const companyKey = companies.join(",");
   useEffect(() => {
     const controller = new AbortController();
+    dialog.current?.close();
     setLoading(true);
     setError("");
     setPhoto(null);
@@ -79,6 +82,65 @@ export default function MaterialPhoto({
         </>
       ) : photo ? (
         <>
+          <dialog
+            ref={dialog}
+            className="material-photo-dialog"
+            aria-label={`Fotos de ${name}`}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) e.currentTarget.close();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                setExpandedIndex((i) => Math.max(0, i - 1));
+              }
+              if (e.key === "ArrowRight") {
+                e.preventDefault();
+                setExpandedIndex((i) =>
+                  Math.min(photo.images.length - 1, i + 1),
+                );
+              }
+            }}
+          >
+            <header>
+              <strong>{name}</strong>
+              <button
+                type="button"
+                className="photo-button"
+                aria-label="Fechar foto ampliada"
+                onClick={() => dialog.current?.close()}
+              >
+                <X size={22} />
+              </button>
+            </header>
+            <img
+              src={photo.images[expandedIndex]?.url}
+              alt={`${name} — foto ampliada ${expandedIndex + 1}`}
+            />
+            <footer>
+              <button
+                type="button"
+                className="photo-button"
+                aria-label="Foto anterior ampliada"
+                disabled={expandedIndex === 0}
+                onClick={() => setExpandedIndex((i) => i - 1)}
+              >
+                <ChevronLeft />
+              </button>
+              <span aria-live="polite">
+                {expandedIndex + 1} / {photo.images.length}
+              </span>
+              <button
+                type="button"
+                className="photo-button"
+                aria-label="Próxima foto ampliada"
+                disabled={expandedIndex === photo.images.length - 1}
+                onClick={() => setExpandedIndex((i) => i + 1)}
+              >
+                <ChevronRight />
+              </button>
+            </footer>
+          </dialog>
           {/* Images use the existing authenticated endpoint, without a shared optimizer cache. */}
           <div className="material-carousel-window">
             <div
@@ -94,13 +156,24 @@ export default function MaterialPhoto({
                   {broken.includes(image.key) ? (
                     <small>Não foi possível exibir esta foto.</small>
                   ) : (
-                    <img
-                      src={image.url}
-                      alt={`${name} — foto ${i + 1}`}
-                      onError={() =>
-                        setBroken((previous) => [...previous, image.key])
-                      }
-                    />
+                    <button
+                      type="button"
+                      className="material-photo-enlarge"
+                      tabIndex={i < index || i > index + 1 ? -1 : 0}
+                      aria-label={`Ampliar foto ${i + 1}`}
+                      onClick={() => {
+                        setExpandedIndex(i);
+                        dialog.current?.showModal();
+                      }}
+                    >
+                      <img
+                        src={image.url}
+                        alt={`${name} — foto ${i + 1}`}
+                        onError={() =>
+                          setBroken((previous) => [...previous, image.key])
+                        }
+                      />
+                    </button>
                   )}
                 </div>
               ))}

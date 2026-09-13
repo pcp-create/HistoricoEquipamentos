@@ -70,12 +70,11 @@ export function serialMatch(expression: string, serial: string): SerialMatch {
       ? "match"
       : "no";
   }
-  const open = raw.match(/^([A-Z]*\s*\d[\d. ]*?)\s*\.{3}$/);
+  const open = raw.match(/^([A-Z]*\s*\d[\d. ]*?)\s*(?:\.{3}|…)$/);
   if (open) {
     const a = part(open[1]);
     return a &&
       point.prefix === a.prefix &&
-      point.width === a.width &&
       point.number >= a.number
       ? "match"
       : "no";

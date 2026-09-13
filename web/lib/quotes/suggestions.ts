@@ -277,14 +277,18 @@ export async function quoteSuggestions(p: URLSearchParams) {
       { ...filters, serial: serial.length >= 4 ? filters.serial : "" },
       true,
     );
-    variants = metadata.variants;
+    variants = (metadata.allVariants || metadata.variants).map((v) => ({
+      ...v,
+      suggested:
+        v.match === "match" || (Boolean(filters.model) && v.match === "review"),
+    }));
     const manualSelection = !filters.model && !filters.serial;
     intervals = manualSelection && !filters.variant ? [] : metadata.intervals;
     const selected = filters.variant
       ? variants.filter((v) => v.id === filters.variant)
       : manualSelection
         ? []
-        : variants;
+        : metadata.variants;
     if (manualSelection && !filters.variant)
       warnings.push(
         "Selecione manualmente uma versão do fabricante para listar as peças e os intervalos da revisão.",
@@ -338,6 +342,8 @@ export async function quoteSuggestions(p: URLSearchParams) {
         code: e.code_original,
         variant: e.variant_name,
         interval: intervalInfo(e).label,
+        interval_original: e.interval_original,
+        interval_hours: e.interval_hours,
         observation: e.observation,
         issues: e.issues,
         itemKeys: [],

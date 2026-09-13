@@ -42,6 +42,15 @@ test("serial rules preserve prefix, range boundaries and ambiguous expressions",
   assert.equal(variantMatch(v, "GA15", ""), "no");
   assert.equal(variantMatch(v, "GA15+", "BRP000001"), "review");
 });
+test("ellipsis means an inclusive lower bound with the same serial prefix", () => {
+  for (const expression of ["BQD100000 ...", "BQD100000...", "BQD100000 …"]) {
+    for (const serial of ["BQD100000", "BQD100001", "BQD999999", "BQD1000000"])
+      assert.equal(serialMatch(expression, serial), "match");
+    for (const serial of ["BQD099999", "BQD99999", "BRP100001"])
+      assert.equal(serialMatch(expression, serial), "no");
+  }
+});
+
 test("serial ranges accept manufacturer labels, open bounds and preserve precision", () => {
   for (const expression of [
     "De Série BRP060001 até série BRP065117",

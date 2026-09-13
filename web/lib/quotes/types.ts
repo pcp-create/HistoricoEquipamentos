@@ -202,6 +202,8 @@ export function parseQuote(body: unknown): Quote {
 }
 
 export type ManufacturerRecommendation = {
+  interval_original?: string;
+  interval_hours?: string | number | null;
   id: string;
   name: string;
   code: string;

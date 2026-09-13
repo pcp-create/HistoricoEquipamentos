@@ -3465,3 +3465,21 @@ a.quote-order-link:focus-visible {
   .material-lookup-top .material-photo { justify-self: center; }
 }
 @media (prefers-reduced-motion: reduce) { .material-carousel-track { transition: none; } }
+
+.material-photo-enlarge { border: 0; background: transparent; padding: 0; width: 100%; height: 100%; cursor: zoom-in; }
+.material-photo-dialog { width: min(960px, 94vw); max-height: 94dvh; padding: 20px; border: 0; border-radius: 14px; color: #294b70; }
+.material-photo-dialog::backdrop { background: rgb(10 25 45 / 75%); }
+.material-photo-dialog header, .material-photo-dialog footer { display: flex; align-items: center; gap: 16px; justify-content: space-between; }
+.material-photo-dialog footer { justify-content: center; margin-top: 12px; }
+.material-photo-dialog > img { display: block; width: 100%; height: min(65dvh, 720px); object-fit: contain; margin: 16px auto; }
+
+.catalog-settings { max-width: 1600px; margin: 24px auto; padding: 0 24px; display: grid; gap: 20px; }
+.catalog-settings .manual-card { padding: 24px; min-width: 0; }
+.catalog-settings label { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; font-size: 13px; }
+.catalog-settings input, .catalog-settings select { padding: 10px 12px; border: 1px solid #cbd8e7; border-radius: 6px; font: inherit; min-width: 0; }
+.catalog-settings-fields { display: grid; grid-template-columns: repeat(auto-fit,minmax(230px,1fr)); gap: 0 20px; }
+.catalog-settings-table { overflow: auto; max-height: 480px; margin: 20px 0; }
+.catalog-settings-table table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.catalog-settings-table th, .catalog-settings-table td { padding: 12px; text-align: left; border-bottom: 1px solid #dbe4ed; min-width: 140px; }
+.catalog-settings-table th { background: #edf3f8; position: sticky; top: 0; }
+.catalog-settings-error { color: #b42318; white-space: pre-line; }

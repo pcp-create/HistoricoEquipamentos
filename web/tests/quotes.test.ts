@@ -189,6 +189,26 @@ test("draft persistence, concurrent edits and equipment suggestions isolate comp
     assert.equal(noIdentity.variants.length, 1);
     assert.equal(noIdentity.recommendations.length, 0);
     assert.equal(noIdentity.intervals.length, 0);
+    await db.query(`INSERT INTO manufacturer_variants(id,revision_id,name,header,models,rules,issues)
+      VALUES('other','revision','GX99','["GX99"]','["GX99"]','[]','[]')`);
+    const complete = await quoteSuggestions(new URLSearchParams());
+    assert.equal(complete.variants.length, 2);
+    assert(complete.variants.every((v) => !v.suggested));
+    const ranked = await quoteSuggestions(new URLSearchParams("model=GA15"));
+    assert.equal(ranked.variants.length, 2);
+    assert.equal(
+      ranked.variants.find((v) => v.id === "variant")?.suggested,
+      true,
+    );
+    assert.equal(
+      ranked.variants.find((v) => v.id === "other")?.suggested,
+      false,
+    );
+    const override = await quoteSuggestions(
+      new URLSearchParams("model=GA15&variant=other"),
+    );
+    assert.equal(override.variants.length, 2);
+    assert.equal(override.recommendations.length, 0);
     const chosenManually = await quoteSuggestions(
       new URLSearchParams("variant=variant&interval=h:8000"),
     );

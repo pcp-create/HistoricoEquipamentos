@@ -68,12 +68,11 @@ test("material lookup is protected and consults exact code independently of anal
       ),
     }),
   );
-  await page.goto("/analise-materiais");
+  await page.goto("/analise-materiais?code=5");
   const panel = page.getByRole("region", {
     name: "Consulta por código do material",
   });
-  await panel.getByLabel("Código do material").fill("5");
-  await panel.getByRole("button", { name: "Consultar material" }).click();
+  await expect(panel.getByLabel("Código do material")).toHaveValue("5");
   await expect(panel).toContainText("Filtro teste");
   await expect(panel).toContainText("30,00");
   await expect(panel).toContainText("40,00");
@@ -116,6 +115,16 @@ test("material lookup is protected and consults exact code independently of anal
   await expect(
     panel.locator('.material-carousel-slide[aria-hidden="false"]'),
   ).toHaveCount(2);
+  await panel.getByRole("button", { name: "Ampliar foto 2", exact: true }).click();
+  const popup = page.getByRole("dialog", { name: "Fotos de Filtro teste" });
+  await expect(popup).toBeVisible();
+  await expect(popup.getByRole("img")).toHaveAttribute("alt", "Filtro teste — foto ampliada 2");
+  await popup.getByRole("button", { name: "Próxima foto ampliada" }).click();
+  await expect(popup.getByRole("img")).toHaveAttribute("alt", "Filtro teste — foto ampliada 3");
+  await page.keyboard.press("ArrowLeft");
+  await expect(popup.getByRole("img")).toHaveAttribute("alt", "Filtro teste — foto ampliada 2");
+  await page.keyboard.press("Escape");
+  await expect(popup).not.toBeVisible();
   expect(photoRequests).toBeGreaterThan(0);
   await panel.getByLabel("Código do material").fill("999");
   await panel.getByRole("button", { name: "Consultar material" }).click();

@@ -6,12 +6,13 @@ import {
   Layers3,
   LogOut,
   ClipboardList,
+  Settings,
 } from "lucide-react";
 export default function SiteHeader({
   active,
   email,
 }: {
-  active: "history" | "analysis" | "manufacturer" | "quotes";
+  active: "history" | "analysis" | "manufacturer" | "quotes" | "settings";
   email?: string;
 }) {
   async function logout() {
@@ -87,6 +88,13 @@ export default function SiteHeader({
           aria-current={active === "quotes" ? "page" : undefined}
         >
           <ClipboardList size={17} /> Orçamentos
+        </a>
+        <a
+          href="/configuracoes"
+          className={active === "settings" ? "nav-active" : "nav-link"}
+          aria-current={active === "settings" ? "page" : undefined}
+        >
+          <Settings size={17} /> Configurações
         </a>
       </nav>
     </>

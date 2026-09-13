@@ -1,4 +1,5 @@
 "use client";
+import { matchesInterval } from "../lib/manufacturer/intervals";
 import { useEffect, useId, useRef, useState } from "react";
 import { ClipboardList, Plus, Save } from "lucide-react";
 import SiteHeader from "./site-header";
@@ -41,7 +42,13 @@ type Suggestions = {
   recommendations?: ManufacturerRecommendation[];
   items: QuoteItem[];
   warnings: string[];
-  variants: { id: string; name: string; header: string[]; issues: string[] }[];
+  variants: {
+    id: string;
+    name: string;
+    header: string[];
+    issues: string[];
+    suggested?: boolean;
+  }[];
   intervals: { value: string; label: string; count: number }[];
 };
 const emptySuggestions = (): Suggestions => ({
@@ -269,6 +276,8 @@ export default function QuoteDashboard() {
   const [pickerKind, setPickerKind] = useState<QuoteItem["kind"] | null>(null);
   const [kind, setKind] = useState("all");
   const [extrasOpen, setExtrasOpen] = useState(false);
+  const [revisionCollapsed, setRevisionCollapsed] = useState(false);
+  const [onlySalesHistory, setOnlySalesHistory] = useState(false);
   const suggestionRequest = useRef<AbortController | null>(null);
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
@@ -312,6 +321,12 @@ export default function QuoteDashboard() {
       suggestionRequest.current?.abort();
     };
   }, []);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadSuggestions();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [quote.clientId, quote.equipmentId, quote.model, quote.serial]);
   function change(patch: Partial<Draft>) {
     setQuote((q) => ({ ...q, ...patch }));
     setDirty(true);
@@ -321,7 +336,10 @@ export default function QuoteDashboard() {
     setExtrasOpen(false);
     suggestionRequest.current?.abort();
     setBusy(false);
-    setSuggestions(emptySuggestions());
+    setSuggestions((previous) => ({
+      ...emptySuggestions(),
+      variants: previous.variants.map((v) => ({ ...v, suggested: false })),
+    }));
     setExtraFilter("");
     setPickerKind(null);
   }
@@ -366,7 +384,7 @@ export default function QuoteDashboard() {
       model: target.model,
       serial: target.serial,
       variant: target.variant,
-      interval: target.interval,
+      interval: "",
     });
     try {
       setSuggestions(
@@ -483,26 +501,37 @@ export default function QuoteDashboard() {
   }
   const all = new Map(suggestions.items.map((i) => [i.key, i]));
   quote.items.forEach((i) => all.set(i.key, i));
-  const showManufacturer = !!quote.interval;
+  const showManufacturer = true;
   const recommendations = suggestions.recommendations || [];
   const recommendationKeys = new Set(
     recommendations.flatMap((r) => r.itemKeys),
   );
-  const recommendedRows = recommendations.filter((r) =>
-    [
-      r.name,
-      r.code,
-      r.variant,
-      ...r.products.map(
-        (p) =>
-          `${p.name} ${p.product_id} ${p.reference || ""} ${p.similarity || ""}`,
-      ),
-    ]
-      .join(" ")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .includes(fold(filter)),
+  const hasSalesHistory = (key: string) =>
+    (suggestions.histories?.[key]?.count ?? 0) > 0;
+  const recommendedRows = recommendations.filter(
+    (r) =>
+      (!onlySalesHistory || r.itemKeys.some(hasSalesHistory)) &&
+      matchesInterval(
+        {
+          interval_original: r.interval_original ?? r.interval,
+          interval_hours: r.interval_hours,
+        },
+        quote.interval,
+      ) &&
+      [
+        r.name,
+        r.code,
+        r.variant,
+        ...r.products.map(
+          (p) =>
+            `${p.name} ${p.product_id} ${p.reference || ""} ${p.similarity || ""}`,
+        ),
+      ]
+        .join(" ")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .includes(fold(filter)),
   );
   const rows = [...all.values()].filter(
     (i) =>
@@ -702,7 +731,7 @@ export default function QuoteDashboard() {
                         model: eq.model,
                         serial: eq.serial,
                       });
-                      if (next) loadSuggestions(next);
+                      // The context effect refreshes suggestions after selection.
                     }}
                     onManual={(equipment) =>
                       context({ equipment, model: "", serial: "" })
@@ -786,11 +815,25 @@ export default function QuoteDashboard() {
                           ? "Selecione a versão do fabricante…"
                           : "Todas as versões candidatas"}
                       </option>
-                      {suggestions.variants.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.name}
-                        </option>
-                      ))}
+                      {[true, false].map((suggested) => {
+                        const versions = suggestions.variants.filter(
+                          (v) => Boolean(v.suggested) === suggested,
+                        );
+                        return versions.length > 0 ? (
+                          <optgroup
+                            key={String(suggested)}
+                            label={
+                              suggested ? "Versões sugeridas" : "Demais versões"
+                            }
+                          >
+                            {versions.map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ) : null;
+                      })}
                     </select>
                   </label>
                   <label>
@@ -800,7 +843,7 @@ export default function QuoteDashboard() {
                       onChange={(e) => {
                         setExtrasOpen(false);
                         change({ interval: e.target.value });
-                        loadSuggestions({ ...quote, interval: e.target.value });
+                        setRevisionCollapsed(false);
                       }}
                     >
                       <option value="">Todos os intervalos</option>
@@ -834,7 +877,9 @@ export default function QuoteDashboard() {
                   </details>
                 )}
                 {suggestions.variants
-                  .filter((v) => !quote.variant || quote.variant === v.id)
+                  .filter((v) =>
+                    quote.variant ? quote.variant === v.id : v.suggested,
+                  )
                   .map((v) => (
                     <details className="quote-guidance" key={v.id}>
                       <summary>Condições: {v.name}</summary>
@@ -863,97 +908,130 @@ export default function QuoteDashboard() {
                     {quote.items.filter((i) => i.selected).length} selecionados
                   </span>
                 </div>
-                {showManufacturer && (
-                  <label className="quote-material-search">
-                    Filtrar recomendações
-                    <input
-                      value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
-                      placeholder="Descrição, código interno ou referência"
-                    />
-                  </label>
-                )}
-                {showManufacturer && (
-                  <div className="quote-revision-list" aria-busy={busy}>
-                    {busy ? (
-                      <p role="status">Atualizando as peças desta revisão…</p>
-                    ) : (
-                      <>
-                        {!recommendedRows.length && (
-                          <p>
-                            Nenhuma recomendação encontrada. Confira modelo,
-                            série e versão, ou consulte os demais itens abaixo.
-                          </p>
-                        )}
-                        {recommendedRows.map((r) => (
-                          <article className="quote-revision-group" key={r.id}>
-                            <header>
-                              <div>
-                                <h3>{r.name}</h3>
-                                <small>
-                                  Referência fabricante (Genuína):{" "}
-                                  <b>{r.code || "Não informada"}</b>
-                                </small>
-                              </div>
-                              <small>{r.interval}</small>
-                            </header>
-                            <small className="quote-revision-version">
-                              {r.variant}
-                            </small>
-                            {(r.observation || r.issues.length > 0) && (
-                              <details className="quote-application">
-                                <summary>Condições de aplicação</summary>
-                                <p>{r.observation}</p>
-                                {r.issues.map((issue, n) => (
-                                  <p key={n}>{issue}</p>
-                                ))}
-                              </details>
-                            )}
-                            {!r.products.length && (
-                              <p className="muted">
-                                Sem correspondência no M8. Informe unidade e
-                                preço para incluir.
-                              </p>
-                            )}
-                            {[...r.itemKeys]
-                              .sort((a, b) =>
-                                all.has(a) && all.has(b)
-                                  ? compareQuoteItems(
-                                      all.get(a)!,
-                                      all.get(b)!,
-                                      suggestions.histories,
-                                      r.products,
+                <button
+                  type="button"
+                  className="secondary-button"
+                  aria-expanded={!revisionCollapsed}
+                  aria-controls="quote-revision-content"
+                  onClick={() => setRevisionCollapsed((value) => !value)}
+                >
+                  {revisionCollapsed
+                    ? "Expandir peças da revisão"
+                    : "Minimizar peças da revisão"}
+                </button>
+                <div id="quote-revision-content" hidden={revisionCollapsed}>
+                  {showManufacturer && (
+                    <label className="quote-material-search">
+                      Filtrar recomendações
+                      <input
+                        value={filter}
+                        onChange={(e) => setFilter(e.target.value)}
+                        placeholder="Descrição, código interno ou referência"
+                      />
+                    </label>
+                  )}
+                  <button
+                    type="button"
+                    className={
+                      onlySalesHistory ? "primary-button" : "secondary-button"
+                    }
+                    aria-pressed={onlySalesHistory}
+                    onClick={() => setOnlySalesHistory((value) => !value)}
+                  >
+                    Itens com histórico de venda
+                  </button>
+                  {showManufacturer && (
+                    <div className="quote-revision-list" aria-busy={busy}>
+                      {busy ? (
+                        <p role="status">Atualizando as peças desta revisão…</p>
+                      ) : (
+                        <>
+                          {!recommendedRows.length && (
+                            <p>
+                              Nenhuma recomendação encontrada. Confira modelo,
+                              série e versão, ou consulte os demais itens
+                              abaixo.
+                            </p>
+                          )}
+                          {recommendedRows.map((r) => (
+                            <article
+                              className="quote-revision-group"
+                              key={r.id}
+                            >
+                              <header>
+                                <div>
+                                  <h3>{r.name}</h3>
+                                  <small>
+                                    Referência fabricante (Genuína):{" "}
+                                    <b>{r.code || "Não informada"}</b>
+                                  </small>
+                                </div>
+                                <small>{r.interval}</small>
+                              </header>
+                              <small className="quote-revision-version">
+                                {r.variant}
+                              </small>
+                              {(r.observation || r.issues.length > 0) && (
+                                <details className="quote-application">
+                                  <summary>Condições de aplicação</summary>
+                                  <p>{r.observation}</p>
+                                  {r.issues.map((issue, n) => (
+                                    <p key={n}>{issue}</p>
+                                  ))}
+                                </details>
+                              )}
+                              {!r.products.length && (
+                                <p className="muted">
+                                  Sem correspondência no M8. Informe unidade e
+                                  preço para incluir.
+                                </p>
+                              )}
+                              {[...r.itemKeys]
+                                .filter(
+                                  (key) =>
+                                    !onlySalesHistory || hasSalesHistory(key),
+                                )
+                                .sort((a, b) =>
+                                  all.has(a) && all.has(b)
+                                    ? compareQuoteItems(
+                                        all.get(a)!,
+                                        all.get(b)!,
+                                        suggestions.histories,
+                                        r.products,
+                                      )
+                                    : 0,
+                                )
+                                .map((key) => {
+                                  const i = all.get(key);
+                                  return (
+                                    i && (
+                                      <QuoteItemRow
+                                        key={key}
+                                        item={i}
+                                        duplicate={isDuplicate(i)}
+                                        reference={suggestions.items.find(
+                                          (item) => item.key === key,
+                                        )}
+                                        history={suggestions.histories?.[key]}
+                                        products={r.products.filter(
+                                          (product) =>
+                                            product.product_id === i.code,
+                                        )}
+                                        serial={quote.serial}
+                                        onChange={(patch) =>
+                                          updateItem(i, patch)
+                                        }
+                                      />
                                     )
-                                  : 0,
-                              )
-                              .map((key) => {
-                                const i = all.get(key);
-                                return (
-                                  i && (
-                                    <QuoteItemRow
-                                      key={key}
-                                      item={i}
-                                      duplicate={isDuplicate(i)}
-                                      reference={suggestions.items.find(
-                                        (item) => item.key === key,
-                                      )}
-                                      history={suggestions.histories?.[key]}
-                                      products={r.products.filter(
-                                        (product) =>
-                                          product.product_id === i.code,
-                                      )}
-                                      serial={quote.serial}
-                                      onChange={(patch) => updateItem(i, patch)}
-                                    />
-                                  )
-                                );
-                              })}
-                          </article>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                )}
+                                  );
+                                })}
+                            </article>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <details
                   className="quote-extras"
                   open={!showManufacturer || extrasOpen}

@@ -1,4 +1,5 @@
 "use client";
+import { useSearchParams } from "next/navigation";
 import { companyName } from "@/lib/company-names";
 import MaterialPhoto from "./material-photo";
 import QuoteOrderLink from "./quote-order-link";
@@ -38,11 +39,19 @@ const date = (v: string | null) =>
     ? new Date(v).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
     : "Sem coleta";
 export default function MaterialLookup() {
+  const searchParams = useSearchParams();
+  const linkedCode = searchParams.get("code") || "";
   const [code, setCode] = useState("");
   const [request, setRequest] = useState<{ code: string } | null>(null);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (/^[1-9]\d{0,17}$/.test(linkedCode)) {
+      setCode(linkedCode);
+      setRequest({ code: linkedCode });
+    }
+  }, [linkedCode]);
   useEffect(() => {
     if (!request) return;
     const controller = new AbortController();
