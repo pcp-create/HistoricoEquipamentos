@@ -1,8 +1,9 @@
 "use client";
+import { groupedProducts } from "@/lib/manufacturer/products";
 import VersionPicker from "./version-picker";
 import { matchesInterval } from "../lib/manufacturer/intervals";
 import { useEffect, useId, useRef, useState } from "react";
-import { ClipboardList, Plus, Save } from "lucide-react";
+import { ClipboardList, Plus, Save, Trash2 } from "lucide-react";
 import SiteHeader from "./site-header";
 import { compareQuoteItems } from "@/lib/quotes/presentation";
 import QuoteItemRow from "./quote-item-row";
@@ -12,6 +13,7 @@ import {
   blankQuote,
   quoteItemIdentity,
   quoteTotals,
+  lineAmount,
   type Quote,
   type QuoteItem,
   type ManufacturerRecommendation,
@@ -1104,6 +1106,159 @@ export default function QuoteDashboard() {
                     ))}
                   </div>
                 </details>
+              </section>
+              <section
+                className="manual-card quote-selected-summary"
+                aria-label="Resumo dos itens do orçamento"
+              >
+                <div className="quote-selected-heading">
+                  <h3>Itens deste orçamento</h3>
+                  <span className="count-pill">
+                    {quote.items.filter((i) => i.selected).length} selecionados
+                  </span>
+                </div>
+                {!quote.items.some((i) => i.selected) ? (
+                  <p className="muted">
+                    Selecione materiais ou serviços para montar o resumo do
+                    orçamento.
+                  </p>
+                ) : (
+                  (["material", "service"] as const).map((kind) => {
+                    const selected = quote.items.filter(
+                      (i) => i.selected && i.kind === kind,
+                    );
+                    if (!selected.length) return null;
+                    return (
+                      <div key={kind} className="quote-selected-group">
+                        <h4>
+                          {kind === "material" ? "Materiais" : "Serviços"}{" "}
+                          <span className="count-pill">{selected.length}</span>
+                        </h4>
+                        <div className="quote-selected-table">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Código</th>
+                                <th>Descrição</th>
+                                <th>Quantidade</th>
+                                <th>Unitário</th>
+                                <th>Total</th>
+                                <th>Ações</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selected.map((item) => {
+                                const reference = suggestions.items.find(
+                                  (r) => r.key === item.key,
+                                );
+                                const ref = item.source.startsWith("Base geral")
+                                  ? item
+                                  : reference || item;
+                                const products = reference?.products?.length
+                                  ? reference.products
+                                  : item.products || [];
+                                const stock = groupedProducts(products).find(
+                                  (p) => p.id === item.code,
+                                );
+                                const manufacturerReference =
+                                  [
+                                    ...new Set(
+                                      (stock?.companies || [])
+                                        .map((p) => p.reference?.trim())
+                                        .filter(Boolean),
+                                    ),
+                                  ].join(" · ") ||
+                                  (item.key.startsWith("m:") ? item.code : "");
+                                const balance = (
+                                  field: "stock" | "available",
+                                ) => {
+                                  const total = stock?.[field];
+                                  return total?.value == null
+                                    ? "A consultar"
+                                    : `${total.value.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${stock?.unit || ""}${total.complete ? "" : " (parcial)"}`;
+                                };
+                                const priceReference = (value: string) =>
+                                  value?.trim() &&
+                                  Number.isFinite(Number(value))
+                                    ? money(Number(value) * 100)
+                                    : "A consultar";
+                                return (
+                                  <tr key={item.key}>
+                                    <td>{item.code || "—"}</td>
+                                    <td>
+                                      {item.name || "Sem descrição"}
+                                      {item.kind === "material" && (
+                                        <small className="quote-summary-note">
+                                          Ref. fabricante:{" "}
+                                          {manufacturerReference ||
+                                            "Não informada"}
+                                        </small>
+                                      )}
+                                    </td>
+                                    <td>
+                                      {item.quantity
+                                        ? item.quantity.replace(".", ",")
+                                        : "Pendente"}{" "}
+                                      {item.unit}
+                                      {item.kind === "material" && (
+                                        <>
+                                          <small className="quote-summary-note">
+                                            Estoque: {balance("stock")}
+                                          </small>
+                                          <small className="quote-summary-note">
+                                            Disponível: {balance("available")}
+                                          </small>
+                                        </>
+                                      )}
+                                    </td>
+                                    <td>
+                                      {/^\d{1,8}(\.\d{1,2})?$/.test(item.price)
+                                        ? money(Number(item.price) * 100)
+                                        : "Pendente"}
+                                      <small className="quote-summary-note">
+                                        Venda:{" "}
+                                        {priceReference(ref.referencePrice)}
+                                      </small>
+                                      <small className="quote-summary-note">
+                                        Mínimo:{" "}
+                                        {priceReference(ref.minimumPrice)}
+                                      </small>
+                                    </td>
+                                    <td
+                                      className={
+                                        lineAmount(item) === null
+                                          ? "quote-warning"
+                                          : undefined
+                                      }
+                                    >
+                                      {lineAmount(item) === null
+                                        ? "Pendente"
+                                        : money(lineAmount(item))}
+                                    </td>
+                                    <td>
+                                      <button
+                                        type="button"
+                                        className="quote-summary-remove"
+                                        disabled={saving}
+                                        aria-label={`Remover ${item.name} do orçamento`}
+                                        title="Remover do orçamento"
+                                        onClick={() =>
+                                          updateItem(item, { selected: false })
+                                        }
+                                      >
+                                        <Trash2 size={15} aria-hidden="true" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </section>
               <section className="manual-card quote-bottom">
                 <label>

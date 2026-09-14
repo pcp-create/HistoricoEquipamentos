@@ -3641,3 +3641,36 @@ a.quote-order-link:focus-visible {
 .version-picker-option.is-active { background: #edf4fc; }
 .version-picker-option[aria-selected="true"] .version-picker-name { color: #205d9d; font-weight: 600; }
 .version-picker-group { padding: 10px; color: #516b88; font-size: 11px; font-weight: 600; }
+
+.quote-selected-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.quote-selected-heading h3 { margin: 0; }
+.quote-selected-group { margin-top: 18px; }
+.quote-selected-group h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 13px; color: #496582; }
+.quote-selected-table { overflow-x: auto; }
+.quote-selected-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.quote-selected-table th { background: #f3f7fb; font-size: 11px; font-weight: 500; color: #6c819a; }
+.quote-selected-table :is(th, td) { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e5edf5; }
+.quote-selected-table th:nth-child(n+3), .quote-selected-table td:nth-child(n+3) { text-align: right; white-space: nowrap; }
+.quote-selected-table td:nth-child(2) { min-width: 210px; width: 50%; }
+.quote-selected-table td:nth-child(-n+5) { font-weight: 600; }
+
+.quote-selected-table td { vertical-align: top; }
+.quote-selected-table .quote-summary-note {
+  display: block;
+  margin-top: 4px;
+  color: #7b8da3;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.quote-selected-table .quote-summary-remove {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 7px; border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: #7b8da3; font: inherit; font-size: 12px;
+  font-weight: 500; cursor: pointer;
+}
+.quote-selected-table .quote-summary-remove:hover:not(:disabled) { background: #f5eeee; color: #a3534e; }
+.quote-selected-table .quote-summary-remove:focus-visible { outline: 2px solid #b44339; outline-offset: 2px; }
+.quote-selected-table .quote-summary-remove:disabled { opacity: .5; cursor: not-allowed; }
+.quote-selected-table td:nth-child(5) { font-weight: 600; }
