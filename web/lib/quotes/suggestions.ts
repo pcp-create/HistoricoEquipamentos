@@ -1,3 +1,4 @@
+import { catalogProductCodesSql } from "../manufacturer/direct-products";
 import { approvedMaterialSql } from "../material-approval";
 import "server-only";
 import { quoteProducts } from "./products";
@@ -313,7 +314,7 @@ export async function quoteSuggestions(p: URLSearchParams) {
       await db.query(
         `WITH matches AS (
           SELECT code,product_id,array_agg(DISTINCT field) AS fields
-          FROM manufacturer_product_codes WHERE company_id IN (1,2,27404) AND code=ANY($1::text[])
+          FROM ${catalogProductCodesSql} AS indexed WHERE company_id IN (1,2,27404) AND code=ANY($1::text[])
           GROUP BY code,product_id
         )
         SELECT x.code,c.company_id,c.product_id::text,c.name,c.unit,
@@ -375,9 +376,11 @@ export async function quoteSuggestions(p: URLSearchParams) {
           r.unit || "",
           source +
             " · Preço de referência: empresa 1" +
-            (r.genuine
-              ? " · Referência fabricante (Genuína)"
-              : " · Código de similaridade") +
+            (r.fields.includes("codigoM8")
+              ? " · Código interno M8 indicado na lista"
+              : r.genuine
+                ? " · Referência fabricante (Genuína)"
+                : " · Código de similaridade") +
             (r.blocked === "Sim" ? " · Bloqueado no M8" : ""),
         );
         if (sameUnit(r.unit, r.price_unit)) {

@@ -1,4 +1,5 @@
 "use client";
+import VersionPicker from "./version-picker";
 import { matchesInterval } from "../lib/manufacturer/intervals";
 import { useEffect, useId, useRef, useState } from "react";
 import { ClipboardList, Plus, Save } from "lucide-react";
@@ -799,42 +800,21 @@ export default function QuoteDashboard() {
                 <div className="manual-filters quote-fields">
                   <label className="manual-global">
                     Versão do fabricante
-                    <select
+                    <VersionPicker
+                      label="Versão do fabricante"
                       value={quote.variant}
-                      onChange={(e) => {
-                        change({ variant: e.target.value, interval: "" });
-                        loadSuggestions({
-                          ...quote,
-                          variant: e.target.value,
-                          interval: "",
-                        });
-                      }}
-                    >
-                      <option value="">
-                        {!quote.model && !quote.serial
+                      versions={suggestions.variants}
+                      grouped
+                      placeholder={
+                        !quote.model && !quote.serial
                           ? "Selecione a versão do fabricante…"
-                          : "Todas as versões candidatas"}
-                      </option>
-                      {[true, false].map((suggested) => {
-                        const versions = suggestions.variants.filter(
-                          (v) => Boolean(v.suggested) === suggested,
-                        );
-                        return versions.length > 0 ? (
-                          <optgroup
-                            key={String(suggested)}
-                            label={
-                              suggested ? "Versões sugeridas" : "Demais versões"
-                            }
-                          >
-                            {versions.map((v) => (
-                              <option key={v.id} value={v.id}>
-                                {v.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                        ) : null;
-                      })}
-                    </select>
+                          : "Todas as versões candidatas"
+                      }
+                      onChange={(variant) => {
+                        change({ variant, interval: "" });
+                        loadSuggestions({ ...quote, variant, interval: "" });
+                      }}
+                    />
                   </label>
                   <label>
                     Intervalo da revisão
@@ -962,8 +942,13 @@ export default function QuoteDashboard() {
                                 <div>
                                   <h3>{r.name}</h3>
                                   <small>
-                                    Referência fabricante (Genuína):{" "}
-                                    <b>{r.code || "Não informada"}</b>
+                                    {r.code?.startsWith("M8:")
+                                      ? "Código interno M8:"
+                                      : "Referência fabricante (Genuína):"}{" "}
+                                    <b>
+                                      {r.code?.replace(/^M8:/, "") ||
+                                        "Não informada"}
+                                    </b>
                                   </small>
                                 </div>
                                 <small>{r.interval}</small>

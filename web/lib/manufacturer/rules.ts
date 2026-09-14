@@ -11,8 +11,9 @@ export function modelKeys(text: string): string[] {
   return [
     ...new Set(
       (
-        fold(text).match(/\b(?:GA|GX|G)\s*\d{1,3}C?\s*\+?(?:\s*VSD\s*\+?)?/g) ||
-        []
+        fold(text).match(
+          /\b(?:GA|GX|G|W)\s*\d{1,3}C?\s*\+?(?:\s*VSD\s*\+?)?/g,
+        ) || []
       ).map((v) => v.replace(/\s/g, "")),
     ),
   ];
@@ -73,9 +74,7 @@ export function serialMatch(expression: string, serial: string): SerialMatch {
   const open = raw.match(/^([A-Z]*\s*\d[\d. ]*?)\s*(?:\.{3}|…)$/);
   if (open) {
     const a = part(open[1]);
-    return a &&
-      point.prefix === a.prefix &&
-      point.number >= a.number
+    return a && point.prefix === a.prefix && point.number >= a.number
       ? "match"
       : "no";
   }
@@ -122,6 +121,8 @@ export function variantMatch(
     (!requested.length &&
       fold([v.name, ...v.header].join(" ")).includes(fold(model)));
   if (!hasModel) return "no";
+  if (v.header.includes("Aplicação somente por modelo"))
+    return model ? "match" : "review";
   if (!serial) return "review";
   const linked = v.rules.filter(
     (r) => !model || modelKeys(r.model).some((k) => requested.includes(k)),

@@ -30,3 +30,25 @@ Os novos dados são gravados nas tabelas existentes `manufacturer_revisions`, `m
 A revisão original ativa permanece intacta. Trocar a revisão original pelo importador CLI não remove os itens adicionais. O catálogo e as sugestões de orçamentos consultam ambos os conjuntos. Itens adicionais idênticos são ignorados ao reenviar; a importação é aditiva, não atualiza nem exclui itens anteriores. Qualquer conflito cancela o lote inteiro.
 
 As peças cadastradas se vinculam ao M8 pela referência genuína normalizada e pelos códigos de similaridade já indexados. Sem produto correspondente, a referência permanece visível no catálogo. O cadastro não cria produtos no ERP.
+
+## Editar itens existentes
+
+Selecione uma versão em **Estrutura atual** e clique em **Editar** na linha da peça. Altere grupo, descrição, referência/código, intervalo ou observações e clique em **Salvar alterações**. **Cancelar** descarta a edição. A versão e a origem permanecem associadas ao item.
+
+Para vínculo direto, use `M8:19273`, por exemplo. O código deve existir na base de produtos. Referências genuínas continuam usando a normalização habitual. É possível manter referência ou intervalo em branco quando não informados. Intervalos novos são informados em horas inteiras; textos antigos de condições podem ser preservados sem alteração.
+
+A edição mantém o ID do item e registra usuário, data e valores anteriores no relatório da revisão. Se outro usuário alterar o item durante a edição, o sistema impede a sobreposição e solicita atualizar a lista. As alterações valem para novas consultas; não modificam itens já salvos em rascunhos de orçamento.
+
+As seleções de versões no catálogo e nos orçamentos mostram um resumo das condições ao lado do nome. Textos extensos são abreviados, e a descrição completa continua no detalhamento da versão.
+
+### Informações adicionais no cadastro manual
+
+O formulário também permite informar **Código M8, Quantidade, Código da vista, Percentual venda (médio)** e **Condições de aplicação da versão**.
+
+- Informe referência genuína ou código M8. Quando ambos são preenchidos, o vínculo usa o código interno e a referência é preservada nas observações.
+- O código interno precisa existir no cadastro M8. A quantidade e o percentual aceitam decimais com vírgula ou ponto.
+- Quantidade, código da vista e percentual são preservados nas observações; não alteram automaticamente quantidades ou preços dos orçamentos.
+- Escolha **Somente modelo** para dispensar a série. Escolha **Não informado na fonte** quando não houver intervalo de manutenção.
+- As condições pertencem à versão e aparecem em seu detalhamento. Uma versão existente não aceita condições divergentes; use o mesmo conteúdo ou outra versão.
+
+Esses campos adicionais estão disponíveis no cadastro manual. O modelo XLSX genérico mantém as colunas anteriores; a planilha W800/W900 continua usando sua importação específica.

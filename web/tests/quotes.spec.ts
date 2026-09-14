@@ -453,9 +453,10 @@ test("manual manufacturer selection works with blank model and serial", async ({
   await page
     .getByRole("button", { name: "Buscar histórico e fabricante" })
     .click();
-  const versions = page.getByLabel("Versão do fabricante");
-  await expect(versions.locator("option")).toHaveCount(3);
-  await versions.selectOption("gx");
+  const versions = page.getByRole("combobox", { name: "Versão do fabricante" });
+  await versions.click();
+  await expect(page.getByRole("listbox").getByRole("option")).toHaveCount(3);
+  await page.getByRole("option", { name: "GX7", exact: true }).click();
   await expect(
     page.getByLabel("Intervalo da revisão").locator("option"),
   ).toHaveCount(2);

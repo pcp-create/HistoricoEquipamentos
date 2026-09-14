@@ -44,7 +44,26 @@ export async function saveCatalogRecords(input: unknown, email: string) {
   for (const r of validation.records) {
     const id =
       "managed:" + hash(fold([r.manufacturer, r.model, r.version].join("|")));
-    const header = [r.manufacturer, r.model, ...(r.serial ? [r.serial] : [])];
+    const header = [
+      r.manufacturer,
+      r.model,
+      ...(r.serial ? [r.serial] : []),
+      ...(r.modelOnly === "Sim" ? ["Aplicação somente por modelo"] : []),
+      ...(r.conditions ? [r.conditions] : []),
+    ];
+    const reference = r.internalCode ? `M8:${r.internalCode}` : r.reference;
+    const observation = [
+      r.quantity && `Quantidade na lista: ${r.quantity}.`,
+      r.drawingCode && `Código da vista: ${r.drawingCode}.`,
+      r.saleFactor &&
+        `Percentual venda (médio), valor original: ${r.saleFactor}.`,
+      r.internalCode &&
+        r.reference &&
+        `Referência fabricante informada: ${r.reference}.`,
+      r.observation,
+    ]
+      .filter(Boolean)
+      .join(" ");
     variants.set(id, {
       id,
       name: `${r.manufacturer} · ${r.model} · ${r.version}`,
@@ -59,9 +78,9 @@ export async function saveCatalogRecords(input: unknown, email: string) {
           id,
           fold(r.section),
           fold(r.description),
-          normalizeCode(r.reference),
+          normalizeCode(reference),
           Number(r.interval),
-          r.observation,
+          observation,
         ]),
       );
     entries.set(entryId, {
@@ -69,11 +88,11 @@ export async function saveCatalogRecords(input: unknown, email: string) {
       variant_id: id,
       section: r.section,
       description: r.description,
-      code_original: r.reference,
-      code: normalizeCode(r.reference),
-      observation: r.observation,
+      code_original: reference,
+      code: normalizeCode(reference),
+      observation,
       interval_original: r.interval,
-      interval_hours: Number(r.interval),
+      interval_hours: r.interval ? Number(r.interval) : null,
     });
   }
   const client = await database().connect();
@@ -84,6 +103,21 @@ export async function saveCatalogRecords(input: unknown, email: string) {
       `INSERT INTO manufacturer_revisions(id,filename,report) VALUES($1,'Cadastros adicionais do sistema',$2) ON CONFLICT DO NOTHING`,
       [revisionId, JSON.stringify({ managed: true })],
     );
+    const internalIds = [
+      ...new Set(validation.records.map((r) => r.internalCode).filter(Boolean)),
+    ];
+    if (internalIds.length) {
+      const found = (
+        await client.query(
+          "SELECT DISTINCT product_id::text AS id FROM m8_product_catalog WHERE product_id=ANY($1::bigint[]) AND company_id IN(1,2,27404)",
+          [internalIds],
+        )
+      ).rows.map((r) => r.id);
+      if (internalIds.some((id) => !found.includes(id)))
+        throw new CatalogInputError(
+          "Código M8 não encontrado na base de produtos.",
+        );
+    }
     const existing = (
       await client.query(
         "SELECT id,header FROM manufacturer_variants WHERE id=ANY($1::text[])",
@@ -127,6 +161,126 @@ export async function saveCatalogRecords(input: unknown, email: string) {
     await client.query("COMMIT");
     const inserted = result.rowCount || 0;
     return { inserted, skipped: validation.records.length - inserted };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+const editFields = [
+  "section",
+  "description",
+  "code_original",
+  "interval_original",
+  "observation",
+] as const;
+export async function updateCatalogItem(input: any, email: string) {
+  if (
+    !input ||
+    typeof input.id !== "string" ||
+    input.id.length > 200 ||
+    !input.previous
+  )
+    throw new CatalogInputError("Item inválido. Atualize a lista.");
+  const values: Record<string, string> = {};
+  for (const key of editFields) {
+    if (
+      typeof input[key] !== "string" ||
+      input[key].length > (key === "observation" ? 4000 : 500)
+    )
+      throw new CatalogInputError("Confira o tamanho dos campos.");
+    values[key] = input[key].trim();
+  }
+  if (!values.section || !values.description)
+    throw new CatalogInputError("Informe grupo e descrição.");
+  const client = await database().connect();
+  try {
+    await client.query("BEGIN READ WRITE");
+    await client.query("SELECT pg_advisory_xact_lock(81015,1)");
+    const old = (
+      await client.query(
+        `SELECT e.*,v.revision_id FROM manufacturer_entries e JOIN manufacturer_variants v ON v.id=e.variant_id JOIN manufacturer_revisions r ON r.id=v.revision_id WHERE e.id=$1 AND (r.active OR r.report->>'managed'='true') FOR UPDATE OF e`,
+        [input.id],
+      )
+    ).rows[0];
+    if (!old)
+      throw new CatalogInputError("Item não encontrado no catálogo atual.");
+    if (editFields.some((k) => input.previous[k] !== old[k]))
+      throw new CatalogInputError(
+        "Este item foi alterado por outro usuário. Atualize a lista antes de editar.",
+      );
+    let code = old.code,
+      hours = old.interval_hours;
+    if (values.code_original !== old.code_original) {
+      code = values.code_original ? normalizeCode(values.code_original) : null;
+      if (
+        code &&
+        !/^(?:M8:[1-9]\d{0,18}|(?=[A-Z0-9]*\d)[A-Z0-9]{6,24})$/.test(code)
+      )
+        throw new CatalogInputError(
+          "Use uma referência genuína de 6 a 24 caracteres ou M8: seguido do código interno.",
+        );
+      if (
+        code?.startsWith("M8:") &&
+        !(
+          await client.query(
+            "SELECT 1 FROM m8_product_catalog WHERE product_id=$1 AND company_id IN(1,2,27404) LIMIT 1",
+            [code.slice(3)],
+          )
+        ).rowCount
+      )
+        throw new CatalogInputError(
+          "Código interno não encontrado na base M8.",
+        );
+    }
+    if (values.interval_original !== old.interval_original) {
+      if (
+        values.interval_original &&
+        (!/^\d+$/.test(values.interval_original) ||
+          Number(values.interval_original) < 1 ||
+          Number(values.interval_original) > 100000)
+      )
+        throw new CatalogInputError(
+          "Informe o intervalo entre 1 e 100000 horas ou deixe em branco.",
+        );
+      hours = values.interval_original
+        ? Number(values.interval_original)
+        : null;
+    }
+    const saved = (
+      await client.query(
+        `UPDATE manufacturer_entries SET section=$2,description=$3,code_original=$4,code=$5,interval_original=$6,interval_hours=$7,observation=$8 WHERE id=$1 RETURNING *`,
+        [
+          input.id,
+          values.section,
+          values.description,
+          values.code_original,
+          code,
+          values.interval_original,
+          hours,
+          values.observation,
+        ],
+      )
+    ).rows[0];
+    await client.query(
+      `UPDATE manufacturer_revisions SET report=jsonb_set(report,'{itemEdits}',COALESCE(report->'itemEdits','[]'::jsonb) || $2::jsonb) WHERE id=$1`,
+      [
+        old.revision_id,
+        JSON.stringify([
+          {
+            item: input.id,
+            email,
+            at: new Date().toISOString(),
+            before: Object.fromEntries(editFields.map((k) => [k, old[k]])),
+            after: values,
+          },
+        ]),
+      ],
+    );
+    await client.query("COMMIT");
+    return { item: saved };
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;

@@ -1,4 +1,5 @@
 "use client";
+import VersionPicker from "./version-picker";
 import { useEffect, useMemo, useState } from "react";
 import { fold } from "@/lib/filters";
 import { BookOpen, Search } from "lucide-react";
@@ -275,19 +276,15 @@ export default function ManufacturerDashboard() {
           </label>
           <label className="manual-global">
             Versão / aba da planilha
-            <select
+            <VersionPicker
+              label="Versão / aba da planilha"
               value={form.variant}
-              onChange={(e) =>
-                setForm({ ...form, variant: e.target.value, interval: "" })
+              versions={variants}
+              placeholder="Todas as versões candidatas"
+              onChange={(variant) =>
+                setForm({ ...form, variant, interval: "" })
               }
-            >
-              <option value="">Todas as versões candidatas</option>
-              {variants.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                </option>
-              ))}
-            </select>
+            />
           </label>
           <label>
             Intervalo informado

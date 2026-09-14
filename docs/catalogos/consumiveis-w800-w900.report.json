@@ -1,0 +1,19 @@
+{
+  "source": "RELAÇÃO CONSUMÍVEIS - W800 E W900.xlsx",
+  "sha256": "42477033c10cebf76c24fd2db39e2a3efb24291789213db7610c8485ca6da8bf",
+  "managed": true,
+  "sourceType": "internal-model-consumables",
+  "items": 98,
+  "models": [
+    {
+      "model": "W800",
+      "items": 46
+    },
+    {
+      "model": "W900",
+      "items": 52
+    }
+  ],
+  "missingProducts": [],
+  "withoutCode": 1
+}

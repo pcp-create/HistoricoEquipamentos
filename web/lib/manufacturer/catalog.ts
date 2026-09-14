@@ -1,3 +1,4 @@
+import { catalogProductCodesSql } from "./direct-products";
 import { approvedMaterialSql } from "../material-approval";
 import "server-only";
 import { linkedSerial } from "../equipment";
@@ -75,7 +76,9 @@ export async function manufacturerCatalog(
       v.id,
       new Set(
         seriesTerms.filter(
-          (term) => variantMatch(v, f.model, term) === "match",
+          (term) =>
+            !v.header.includes("Aplicação somente por modelo") &&
+            variantMatch(v, f.model, term) === "match",
         ),
       ),
     ]),
@@ -120,7 +123,7 @@ export async function manufacturerCatalog(
       ? (
           await db.query(
             `SELECT DISTINCT x.code,x.product_id::text,c.name,c.payload->>'referenciaFabricante' AS reference,c.payload->>'codigoSimilaridade' AS similarity
-     FROM manufacturer_product_codes x JOIN m8_product_catalog c USING(company_id,product_id)
+     FROM ${catalogProductCodesSql} x JOIN m8_product_catalog c USING(company_id,product_id)
      WHERE x.company_id IN (1,2,27404) AND x.code=ANY($1::text[])`,
             [[...new Set(entries.map((e) => e.code).filter(Boolean))]],
           )
@@ -175,7 +178,7 @@ export async function manufacturerCatalog(
     await db.query(
       `WITH matched AS (
  SELECT x.code,x.company_id,x.product_id,array_agg(DISTINCT x.field ORDER BY x.field) AS fields
- FROM manufacturer_product_codes x
+ FROM ${catalogProductCodesSql} x
  WHERE x.code=ANY($1::text[]) AND ($2::bigint IS NULL OR x.company_id=$2) AND x.company_id IN (1,2,27404)
  GROUP BY x.code,x.company_id,x.product_id
  ), identities AS (

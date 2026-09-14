@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Pencil, Save, X, Plus } from "lucide-react";
 import SiteHeader from "./site-header";
 import {
   blankCatalogRecord,
   catalogFields,
+  additionalCatalogFields,
   type CatalogRecord,
 } from "@/lib/manufacturer/configuration";
 import { fold } from "@/lib/manufacturer/rules";
@@ -41,6 +43,8 @@ export default function CatalogConfiguration() {
   const [query, setQuery] = useState("");
   const [version, setVersion] = useState("");
   const [items, setItems] = useState<Entry[]>([]);
+  const [editing, setEditing] = useState<Entry | null>(null);
+  const [original, setOriginal] = useState<Entry | null>(null);
   const [form, setForm] = useState(blankCatalogRecord);
   const [preview, setPreview] = useState<{
     records: CatalogRecord[];
@@ -64,6 +68,8 @@ export default function CatalogConfiguration() {
   }, [refresh]);
   useEffect(() => {
     setItems([]);
+    setEditing(null);
+    setOriginal(null);
     if (!version) return;
     const controller = new AbortController();
     api(
@@ -96,6 +102,10 @@ export default function CatalogConfiguration() {
           description: "",
           reference: "",
           observation: "",
+          internalCode: "",
+          quantity: "",
+          drawingCode: "",
+          saleFactor: "",
         }));
       else setPreview(null);
     } catch (e) {
@@ -104,7 +114,48 @@ export default function CatalogConfiguration() {
       setBusy(false);
     }
   }
+  async function saveEdit() {
+    if (!editing || !original) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const result = await api("/api/catalog-configuration", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...editing, previous: original }),
+      });
+      setItems((rows) =>
+        rows.map((row) => (row.id === result.item.id ? result.item : row)),
+      );
+      setEditing(null);
+      setOriginal(null);
+      setMessage(
+        "Item atualizado no catálogo e nas próximas consultas de orçamento.",
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   const selected = versions.find((v) => v.id === version);
+  const versionParts = selected?.name.split(" · ") || [];
+  const structuredVersion =
+    selected?.id.startsWith("managed:") || selected?.id.startsWith("pistao:");
+  const manufacturer = structuredVersion
+    ? versionParts[0]
+    : "Não informado na origem";
+  const model = selected?.id.startsWith("managed:")
+    ? selected.header[1]
+    : selected?.models.join(" · ");
+  const versionName = structuredVersion
+    ? versionParts.slice(2).join(" · ")
+    : selected?.name;
+  const serialRange = selected?.header.includes("Aplicação somente por modelo")
+    ? "Sem restrição de série (por modelo)"
+    : selected?.rules.map((r) => `${r.model}: ${r.serial}`).join(" · ") ||
+      "Não informada";
   return (
     <>
       <SiteHeader active="settings" email={email} />
@@ -146,6 +197,7 @@ export default function CatalogConfiguration() {
             Versão cadastrada
             <select
               value={version}
+              disabled={busy}
               onChange={(e) => setVersion(e.target.value)}
             >
               <option value="">Selecione para visualizar os itens</option>
@@ -177,16 +229,85 @@ export default function CatalogConfiguration() {
               {selected.issues.map((issue, i) => (
                 <p key={i}>{issue}</p>
               ))}
-              <div className="catalog-settings-table">
+              {editing && (
+                <fieldset
+                  disabled={busy}
+                  className="manual-card catalog-item-editor"
+                >
+                  <legend>Editar item: {original?.description}</legend>
+                  {(
+                    [
+                      ["section", "Grupo"],
+                      ["description", "Descrição"],
+                      [
+                        "code_original",
+                        "Referência genuína ou código M8 (ex.: M8:19273)",
+                      ],
+                      [
+                        "interval_original",
+                        "Intervalo em horas (vazio quando não informado)",
+                      ],
+                      ["observation", "Observações / quantidades / condições"],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <label key={key}>
+                      {label}
+                      {key === "observation" ? (
+                        <textarea
+                          rows={4}
+                          value={editing[key]}
+                          onChange={(e) =>
+                            setEditing({ ...editing, [key]: e.target.value })
+                          }
+                        />
+                      ) : (
+                        <input
+                          value={editing[key]}
+                          onChange={(e) =>
+                            setEditing({ ...editing, [key]: e.target.value })
+                          }
+                        />
+                      )}
+                    </label>
+                  ))}
+                  <div className="catalog-editor-actions">
+                    <button
+                      type="button"
+                      className="catalog-save-button"
+                      onClick={saveEdit}
+                    >
+                      <Save size={16} aria-hidden="true" />
+                      {busy ? "Salvando…" : "Salvar alterações"}
+                    </button>
+                    <button
+                      type="button"
+                      className="catalog-cancel-button"
+                      onClick={() => {
+                        setEditing(null);
+                        setOriginal(null);
+                      }}
+                    >
+                      <X size={16} aria-hidden="true" />
+                      Cancelar
+                    </button>
+                  </div>
+                </fieldset>
+              )}
+              <div className="catalog-settings-table catalog-structure-table">
                 <table>
                   <thead>
                     <tr>
                       {[
+                        "Fabricante",
+                        "Modelo",
+                        "Versão",
+                        "Faixa de série",
                         "Grupo",
-                        "Descrição",
-                        "Referência genuína",
-                        "Intervalo informado",
+                        "Descrição da peça",
+                        "Referência genuína / código M8",
+                        "Intervalo em horas",
                         "Observações",
+                        "Ações",
                       ].map((h) => (
                         <th key={h}>{h}</th>
                       ))}
@@ -195,11 +316,32 @@ export default function CatalogConfiguration() {
                   <tbody>
                     {items.map((i) => (
                       <tr key={i.id}>
+                        <td>{manufacturer}</td>
+                        <td>{model || "Não informado"}</td>
+                        <td>{versionName}</td>
+                        <td>{serialRange}</td>
                         <td>{i.section}</td>
                         <td>{i.description}</td>
                         <td>{i.code_original}</td>
                         <td>{i.interval_original || "Não informado"}</td>
                         <td>{i.observation}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="catalog-edit-button"
+                            aria-label={`Editar ${i.description}`}
+                            disabled={busy}
+                            onClick={() => {
+                              setEditing({ ...i });
+                              setOriginal({ ...i });
+                              setError("");
+                              setMessage("");
+                            }}
+                          >
+                            <Pencil size={14} aria-hidden="true" />
+                            Editar
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -310,8 +452,8 @@ export default function CatalogConfiguration() {
           <h2>Adicionar item manualmente</h2>
           <p>
             Campos com * são obrigatórios. Use o mesmo fabricante, modelo e
-            versão para agrupar peças da mesma máquina. Séries diferentes
-            precisam de versões distintas.
+            versão e condições para agrupar peças da mesma máquina. Informe a
+            referência genuína ou o código M8.
           </p>
           <form
             onSubmit={(e) => {
@@ -319,41 +461,164 @@ export default function CatalogConfiguration() {
               save([form], true);
             }}
           >
-            <div className="catalog-settings-fields">
+            <div className="catalog-settings-fields catalog-manual-fields">
               {catalogFields.map(([key, label, required]) => (
-                <label key={key}>
+                <label
+                  key={key}
+                  className={
+                    key === "observation" ? "catalog-field-wide" : undefined
+                  }
+                >
                   {label}
-                  {required ? " *" : ""}
-                  <input
-                    required={required}
-                    maxLength={key === "observation" ? 2000 : 300}
-                    value={form[key]}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, [key]: e.target.value }))
-                    }
-                    type={key === "interval" ? "number" : "text"}
-                    min={key === "interval" ? 1 : undefined}
-                    max={key === "interval" ? 100000 : undefined}
-                    step={key === "interval" ? 1 : undefined}
-                    placeholder={
-                      key === "serial"
-                        ? "BQD100000 ... (opcional)"
-                        : key === "interval"
-                          ? "4000"
-                          : undefined
-                    }
-                  />
+                  {required &&
+                  !(key === "reference" && form.internalCode) &&
+                  !(key === "interval" && form.intervalUnknown === "Sim")
+                    ? " *"
+                    : ""}
+                  {key === "observation" ? (
+                    <textarea
+                      rows={3}
+                      maxLength={2000}
+                      value={form.observation}
+                      disabled={busy}
+                      placeholder="Orientações e observações sobre a peça"
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, observation: e.target.value }))
+                      }
+                    />
+                  ) : (
+                    <input
+                      required={
+                        required &&
+                        !(key === "reference" && form.internalCode) &&
+                        !(key === "interval" && form.intervalUnknown === "Sim")
+                          ? true
+                          : false
+                      }
+                      disabled={
+                        busy ||
+                        (key === "serial" && form.modelOnly === "Sim") ||
+                        (key === "interval" && form.intervalUnknown === "Sim")
+                      }
+                      maxLength={300}
+                      value={form[key]}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, [key]: e.target.value }))
+                      }
+                      type={key === "interval" ? "number" : "text"}
+                      min={key === "interval" ? 1 : undefined}
+                      max={key === "interval" ? 100000 : undefined}
+                      step={key === "interval" ? 1 : undefined}
+                      placeholder={
+                        key === "serial"
+                          ? "BQD100000 ... (opcional)"
+                          : key === "interval"
+                            ? "4000"
+                            : undefined
+                      }
+                    />
+                  )}
                 </label>
               ))}
             </div>
+            <fieldset className="catalog-manual-extra">
+              <legend>Aplicação e informações complementares</legend>
+              <div className="catalog-settings-fields catalog-manual-fields">
+                <label>
+                  Controle de aplicação
+                  <select
+                    value={form.modelOnly || ""}
+                    disabled={busy}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        modelOnly: e.target.value,
+                        serial: e.target.value === "Sim" ? "" : f.serial,
+                      }))
+                    }
+                  >
+                    <option value="">Modelo e condições de série</option>
+                    <option value="Sim">
+                      Somente modelo (sem restrição de série)
+                    </option>
+                  </select>
+                </label>
+                <label>
+                  Intervalo da manutenção
+                  <select
+                    value={form.intervalUnknown || ""}
+                    disabled={busy}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        intervalUnknown: e.target.value,
+                        interval: e.target.value === "Sim" ? "" : f.interval,
+                      }))
+                    }
+                  >
+                    <option value="">Informar em horas</option>
+                    <option value="Sim">Não informado na fonte</option>
+                  </select>
+                </label>
+                {additionalCatalogFields.map(([key, label]) => (
+                  <label
+                    key={key}
+                    className={
+                      key === "conditions" ? "catalog-field-wide" : undefined
+                    }
+                  >
+                    {label}
+                    {key === "conditions" ? (
+                      <textarea
+                        rows={3}
+                        value={form[key] || ""}
+                        maxLength={2000}
+                        disabled={busy}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, [key]: e.target.value }))
+                        }
+                      />
+                    ) : (
+                      <input
+                        value={form[key] || ""}
+                        maxLength={300}
+                        disabled={busy}
+                        inputMode={
+                          key === "internalCode"
+                            ? "numeric"
+                            : key === "quantity" || key === "saleFactor"
+                              ? "decimal"
+                              : "text"
+                        }
+                        placeholder={
+                          key === "internalCode" ? "Ex.: 19273" : undefined
+                        }
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, [key]: e.target.value }))
+                        }
+                      />
+                    )}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <p className="muted">
-              Intervalo em horas inteiras. Referência com 6 a 24 letras/dígitos,
-              contendo ao menos um número. Sem faixa de série, a aplicação
-              precisa ser conferida pelo usuário.
+              Informe uma referência genuína ou um código M8 existente.
+              Quantidade, código da vista e percentual serão preservados nas
+              observações do item. O percentual não altera os preços nem calcula
+              o orçamento automaticamente. As condições são compartilhadas pelos
+              itens da mesma versão.
             </p>
-            <button className="primary-button" disabled={busy}>
-              Adicionar item ao catálogo
-            </button>
+            <div className="catalog-editor-actions">
+              <button
+                type="submit"
+                className="catalog-save-button"
+                disabled={busy}
+              >
+                <Plus size={16} aria-hidden="true" />
+                {busy ? "Adicionando…" : "Adicionar item ao catálogo"}
+              </button>
+            </div>
           </form>
         </section>
         {busy && <p role="status">Processando…</p>}

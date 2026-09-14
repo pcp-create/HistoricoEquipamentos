@@ -123,6 +123,9 @@ export default function CatalogProducts({
                     Referência fabricante (Genuína)
                   </small>
                 )}
+                {p.fields.includes("codigoM8") && (
+                  <small>Código interno M8 indicado na lista</small>
+                )}
                 {p.fields.includes("codigoSimilaridade") && (
                   <small>Código de similaridade</small>
                 )}

@@ -51,9 +51,11 @@ export function groupedProducts(products: CatalogProduct[]) {
       const companies = [...byCompany.values()].sort(
         (a, b) => Number(a.company_id) - Number(b.company_id),
       );
-      const fields = ["referenciaFabricante", "codigoSimilaridade"].filter(
-        (f) => companies.some((p) => p.fields.includes(f)),
-      );
+      const fields = [
+        "referenciaFabricante",
+        "codigoSimilaridade",
+        "codigoM8",
+      ].filter((f) => companies.some((p) => p.fields.includes(f)));
       const units = companies.map((p) =>
         (p.current?.unit || p.unit || "").trim().toUpperCase(),
       );

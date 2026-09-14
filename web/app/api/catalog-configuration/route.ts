@@ -11,6 +11,7 @@ import {
   catalogConfiguration,
   catalogConfigurationItems,
   saveCatalogRecords,
+  updateCatalogItem,
 } from "@/lib/manufacturer/configuration-store";
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -192,6 +193,25 @@ export async function POST(request: Request) {
     if (checked.errors.length)
       return json({ error: checked.errors.slice(0, 20).join("\n") }, 400);
     return json(await saveCatalogRecords(checked.records, user.email));
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+export async function PATCH(request: Request) {
+  if (!sameOrigin(request)) return json({ error: "Origem inválida." }, 403);
+  try {
+    const user = await requireUser();
+    const bytes = await request.arrayBuffer();
+    if (bytes.byteLength > 32000)
+      return json({ error: "Dados excedem o limite." }, 413);
+    let body;
+    try {
+      body = JSON.parse(new TextDecoder().decode(bytes));
+    } catch {
+      return json({ error: "Dados inválidos." }, 400);
+    }
+    return json(await updateCatalogItem(body, user.email));
   } catch (e) {
     return failure(e);
   }

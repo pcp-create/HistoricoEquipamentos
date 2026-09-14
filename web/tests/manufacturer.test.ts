@@ -361,3 +361,19 @@ test("catalog SQL indexes exact multi-code references, refreshes on M8 updates a
     await db.close();
   }
 });
+
+test("model-only piston applicability ignores serial but distinguishes W800 and W900", () => {
+  const v = {
+    id: "w800",
+    name: "Padrão Wayne W800",
+    header: ["W800", "Aplicação somente por modelo"],
+    models: ["W800"],
+    rules: [],
+    issues: [],
+  };
+  assert.deepEqual(modelKeys("COMPRESSOR W 800"), ["W800"]);
+  assert.equal(variantMatch(v, "W800", ""), "match");
+  assert.equal(variantMatch(v, "W800", "123456"), "match");
+  assert.equal(variantMatch(v, "W900", ""), "no");
+  assert.equal(variantMatch(v, "", "123456"), "review");
+});
