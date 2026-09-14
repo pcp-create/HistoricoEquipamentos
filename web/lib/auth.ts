@@ -1,4 +1,5 @@
 import "server-only";
+import type { AuthUser } from "./user-display-name";
 import { cookies, headers } from "next/headers";
 
 export class Unauthorized extends Error {}
@@ -70,7 +71,7 @@ export async function requireUser() {
         user.email_confirmed_at &&
         allowedEmail(user.email)
       )
-        return user as { id: string; email: string };
+        return user as AuthUser;
       throw new Unauthorized();
     }
     if (response.status !== 401 && response.status !== 403)
@@ -90,7 +91,7 @@ export async function requireUser() {
         allowedEmail(data.user.email)
       ) {
         await setSession(data);
-        return data.user as { id: string; email: string };
+        return data.user as AuthUser;
       }
     }
   }

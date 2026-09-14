@@ -100,7 +100,9 @@ test("draft persistence, concurrent edits and equipment suggestions isolate comp
       query,
       connect: async () => ({ query, release: () => {} }),
     };
-    const saved = await saveQuote(draft(), "first@example.com");
+    const saved = await saveQuote({...draft(), responsible:"Nome enviado pelo navegador"}, "first@example.com", "Bruno Pereira");
+    assert.equal(saved.responsible, "Bruno Pereira");
+    assert.equal((await getQuote(saved.id)).responsible, "Bruno Pereira");
     assert.equal(saved.version, 1);
     assert.equal((await getQuote(saved.id)).items[0].price, "10.25");
     const updated = await saveQuote(

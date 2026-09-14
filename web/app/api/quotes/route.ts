@@ -1,3 +1,4 @@
+import { userDisplayName } from "@/lib/user-display-name";
 import { quoteProducts } from "@/lib/quotes/products";
 import { NextResponse } from "next/server";
 import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
     } catch {
       return json({ error: "Orçamento inválido." }, 400);
     }
-    return json(await saveQuote(body, user.email));
+    return json(await saveQuote(body, user.email, userDisplayName(user)));
   } catch (error) {
     return failure(error);
   }

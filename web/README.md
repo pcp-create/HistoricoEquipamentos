@@ -132,3 +132,9 @@ A rota `/orcamentos` cria rascunhos compartilhados, com sugestões do histórico
 ## Cadastro de equipamentos e rastreabilidade
 
 A migration do integrador `008_m8_equipment_registry.sql` / `009_m8_equipment_link_safety.sql` e a coleta de equipamentos alimentam os vínculos usados pelo histórico, catálogo e orçamento. A identificação extraída das observações permanece separada dos campos originais. O orçamento consulta as três empresas sem seletor. Veja [regras e instalação](../docs/atualizacao-equipamentos.md).
+
+### Nome de exibição dos usuários
+
+Preencha o Display name no Supabase Auth. O sistema utiliza os metadados `display_name`, `full_name` ou `name`, com e-mail como alternativa. Orçamentos recebem automaticamente o nome de quem salva. Novos cálculos de lucro e recálculos registram nome e e-mail; cálculos antigos sem nome mantêm o e-mail até serem recalculados.
+
+Para liberar uma nova conta, acrescente seu e-mail em `WEB_ALLOWED_EMAILS` no `web/.env.local` (reinicie o servidor local) e nas variáveis do projeto Vercel (faça novo deploy). Preserve os e-mails já autorizados, separados por vírgulas. Alterar `.env.example` não libera acesso.

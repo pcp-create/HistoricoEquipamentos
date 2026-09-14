@@ -1,3 +1,4 @@
+import { userDisplayName } from "@/lib/user-display-name";
 import { NextResponse } from "next/server";
 import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
 import { logDataError } from "@/lib/data-error";
@@ -50,7 +51,13 @@ export async function POST(request: Request, context: Context) {
       throw new ProfitInputError("Cálculo inválido.");
     }
     return json({
-      calculation: await saveOrderProfit(company, id, body, user.email),
+      calculation: await saveOrderProfit(
+        company,
+        id,
+        body,
+        user.email,
+        userDisplayName(user),
+      ),
     });
   } catch (error) {
     return failure(error);

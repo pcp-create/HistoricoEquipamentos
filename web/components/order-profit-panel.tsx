@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { estimatedMaterialCost, orderLaborHours } from "@/lib/order-profit";
 type Calculation = {
   document: {
+    calculated_by_name?: string;
     revenue: number;
     materials: number;
     hours: number;
@@ -94,7 +95,11 @@ export default function OrderProfitPanel({
           {new Date(saved.calculated_at).toLocaleString("pt-BR", {
             timeZone: "America/Sao_Paulo",
           })}{" "}
-          · {saved.calculated_by}
+          ·{" "}
+          {saved.document.calculated_by_name &&
+          saved.document.calculated_by_name !== saved.calculated_by
+            ? `${saved.document.calculated_by_name} · ${saved.calculated_by}`
+            : saved.calculated_by}
         </p>
       )}
       <button

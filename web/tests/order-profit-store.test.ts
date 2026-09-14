@@ -38,7 +38,10 @@ test("profit is persisted per company/OS, server-calculated and protected agains
         profit: 99999,
       },
       "test@example.com",
+      "Maick Coelho",
     );
+    assert.equal(first.document.calculated_by_name, "Maick Coelho");
+    assert.equal(first.calculated_by, "test@example.com");
     assert.equal(first.document.profit, 620);
     assert.equal(first.document.labor, 80);
     const saved = await getOrderProfit("1", "14611");

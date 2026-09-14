@@ -41,11 +41,16 @@ export async function getQuote(id: string) {
       }
     : null;
 }
-export async function saveQuote(input: unknown, email: string) {
+export async function saveQuote(
+  input: unknown,
+  email: string,
+  displayName?: string,
+) {
   const quote = parseQuote(input),
     id = quote.id || randomUUID(),
     totals = quoteTotals(quote.items),
     total = totals.total;
+  if (displayName !== undefined) quote.responsible = displayName;
   const client = await database().connect();
   try {
     // Keep the shared pool read-only by default; only this transaction writes the internal draft table.

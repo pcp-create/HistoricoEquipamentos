@@ -642,15 +642,6 @@ export default function QuoteDashboard() {
                   </small>
                 </div>
                 <div className="manual-filters quote-fields">
-                  <label className="manual-global">
-                    Responsável pelo orçamento
-                    <input
-                      maxLength={200}
-                      value={quote.responsible || ""}
-                      onChange={(e) => change({ responsible: e.target.value })}
-                      placeholder="Nome do responsável"
-                    />
-                  </label>
                   <QuoteLookup<Client>
                     key={
                       "client-" +

@@ -594,6 +594,7 @@ test("incomplete draft saves responsible and notes and reopens without required 
       saved = {
         ...route.request().postDataJSON(),
         id: "12345678-1234-1234-1234-123456789012",
+        responsible: "Gabriela",
         version: 1,
         number: "9",
       };
@@ -630,7 +631,7 @@ test("incomplete draft saves responsible and notes and reopens without required 
     });
   });
   await page.goto("/orcamentos");
-  await page.getByLabel("Responsável pelo orçamento").fill("Gabriela");
+  await expect(page.getByLabel("Responsável pelo orçamento")).toHaveCount(0);
   await page.getByLabel("Observações do orçamento").fill("Continuar amanhã");
   await page.getByRole("button", { name: "Salvar rascunho" }).click();
   await expect(
@@ -641,11 +642,9 @@ test("incomplete draft saves responsible and notes and reopens without required 
   expect(saved.serviceType).toBe("");
   expect(saved.responsible).toBe("Gabriela");
   await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page.getByLabel("Responsável pelo orçamento")).toHaveValue("");
+  await expect(page.getByLabel("Responsável pelo orçamento")).toHaveCount(0);
   await page.getByRole("button", { name: /ORÇ-00009/ }).click();
-  await expect(page.getByLabel("Responsável pelo orçamento")).toHaveValue(
-    "Gabriela",
-  );
+  await expect(page.getByLabel("Responsável pelo orçamento")).toHaveCount(0);
   await expect(page.getByLabel("Observações do orçamento")).toHaveValue(
     "Continuar amanhã",
   );

@@ -23,6 +23,7 @@ export async function saveOrderProfit(
   id: string,
   body: unknown,
   email: string,
+  displayName?: string,
 ) {
   validate(company, id);
   if (!body || typeof body !== "object")
@@ -64,6 +65,7 @@ export async function saveOrderProfit(
     if (!totals)
       throw new ProfitInputError("O valor de venda da OS não está disponível.");
     const document = {
+      calculated_by_name: displayName || email,
       ...totals,
       revenue: Number(order.total_geral),
       materials: Number(materials),
