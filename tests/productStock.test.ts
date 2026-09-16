@@ -268,3 +268,35 @@ test('detail batches limit concurrency and preserve failed products while commit
  assert.equal((await db.query<{stock:string}>('SELECT stock::text FROM m8_product_stock WHERE company_id=1 AND product_id=3')).rows[0]?.stock,'99');
  assert.equal((await db.query('SELECT * FROM m8_product_stock WHERE company_id=1 AND product_id IN (2,4)')).rows.length,2);
 });
+
+test('full catalog gets stock without OS history; failed priority products do not starve untried products', async () => {
+  await db.exec(`INSERT INTO m8_product_catalog(company_id,product_id,collected_at,payload)
+    VALUES(3,100,now(),'{}'),(3,200,now(),'{}');
+    INSERT INTO m8_os_produtos VALUES(3,200);`);
+  const seen: number[] = [];
+  const client = {company:3,timeZone:'America/Sao_Paulo',getMany:async()=>({data:[]}),get:async(path:string)=>{
+    const id = Number(path.split('/').at(-2)); seen.push(id);
+    if(id === 200) throw new Error('temporary failure');
+    return {data:[{produtoId:id,estabelecimentoId:10,estoque:0,estoqueDisponivel:0,valorCustoMedioAtual:2}]};
+  }};
+  await syncProducts(client,adapter,'detail',{maxProducts:1});
+  await syncProducts(client,adapter,'detail',{maxProducts:1});
+  assert.deepEqual(seen,[200,100]);
+  const stock = await db.query<{stock:string; available:string}>(`SELECT stock::text,available::text FROM m8_product_current WHERE company_id=3 AND product_id=100`);
+  assert.equal(stock.rows[0]?.stock,'0');
+  assert.equal(stock.rows[0]?.available,'0');
+});
+
+test('availability includes products without OS and preserves missing balances', async () => {
+  const requested: string[] = [];
+  await db.exec(`INSERT INTO m8_product_catalog(company_id,product_id,collected_at,payload) VALUES(4,23457,now(),'{}'),(4,23458,now(),'{}');`);
+  const client = {company:4,timeZone:'America/Sao_Paulo',get:async()=>({data:[]}),getMany:async(_path:string,query:Record<string,unknown>)=>{
+    requested.push(...(query.ProdutosIds as string[]));
+    return {data:[{produtoId:23457,estabelecimentoId:1,estoqueDisponivel:7}]};
+  }};
+  const result = await syncProducts(client,adapter,'available');
+  assert.deepEqual(requested,['23457','23458']);
+  assert.equal(result.processed,1); assert.equal(result.missing,1);
+  assert.equal((await db.query<{available:string}>(`SELECT available::text FROM m8_product_available WHERE company_id=4 AND product_id=23457`)).rows[0]?.available,'7');
+  assert.equal((await db.query(`SELECT * FROM m8_product_available WHERE company_id=4 AND product_id=23458`)).rows.length,0);
+});

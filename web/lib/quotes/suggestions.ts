@@ -81,7 +81,7 @@ export async function quoteLookup(p: URLSearchParams): Promise<{
  FROM m8_equipment_catalog e JOIN m8_person_equipment p ON p.equipment_id=e.equipment_id AND p.present
  WHERE e.present AND p.person_id=$1 AND p.company_id IN(1,2,27404)
  ), historical AS (
- SELECT ''::text AS equipment_id,COALESCE(NULLIF(o.equipamento,''),NULLIF(e.equipamento_modelo,''),o.modelo_equipamento,'Equipamento') AS name,
+ SELECT COALESCE(o.produto_equipamento_id::text,'') AS equipment_id,COALESCE(NULLIF(o.equipamento,''),NULLIF(e.equipamento_modelo,''),o.modelo_equipamento,'Equipamento') AS name,
  COALESCE(NULLIF(e.equipamento_modelo,''),o.modelo_equipamento,'') AS model,
  COALESCE(NULLIF(e.numero_serie,''),NULLIF(o.numero_serie,''),o.serie,'') AS serial,NULL::text AS serial_source,'Histórico da OS' AS source
  FROM m8_ordens_servico o LEFT JOIN m8_equipamentos e ON e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8
@@ -123,7 +123,10 @@ function serviceItem(
 export async function quoteSuggestions(p: URLSearchParams) {
   const c = "1",
     clientId = p.get("clientId") || "",
-    serial = normalizeSerial(p.get("serial") || ""),
+    serial =
+      normalizeSerial(p.get("serial") || "") === "NC"
+        ? ""
+        : normalizeSerial(p.get("serial") || ""),
     equipmentId = p.get("equipmentId") || "";
   if (equipmentId && !/^\d{1,18}$/.test(equipmentId))
     throw new QuoteValidation("Equipamento inválido.");
@@ -141,16 +144,25 @@ export async function quoteSuggestions(p: URLSearchParams) {
     } else items.set(value.key, value);
   };
   const db = database();
-  if (/^\d{1,20}$/.test(clientId) && (serial.length >= 4 || equipmentId)) {
+  if (/^\d{1,20}$/.test(clientId) && (serial || equipmentId)) {
+    const serialPattern = serial
+      ? `(^|[^A-Z0-9])${serial.split("").join("[[:space:]./-]*")}([^A-Z0-9]|$)`
+      : "a^";
     const orders = `SELECT o.company_id,o.id_m8,COALESCE(o.numero_sequencia,o.id_m8) AS order_number,COALESCE(o.emissao,o.data_abertura) AS used_at,
-      EXISTS(SELECT 1 FROM m8_equipment_linked link WHERE link.company_id=o.company_id AND link.order_id=o.id_m8
-        AND link.method='observation' AND (($3<>'' AND link.equipment_id::text=$3) OR ($3='' AND $2<>'' AND link.serial=$2))) AS observation_link
+      ($2<>'' AND upper(COALESCE(o.observacao,'')) ~ $4) AS observation_link
       FROM m8_ordens_servico o
     JOIN integracao_m8_os_sync sync ON sync.company_id=o.company_id AND sync.ordem_servico_id=o.id_m8
     WHERE o.company_id IN(1,2,27404) AND o.cliente_id=$1 AND o.status='Processado' AND sync.finalized IS TRUE AND sync.pending IS FALSE
-    AND (($3='' AND $2<>'' AND (regexp_replace(upper(COALESCE(o.numero_serie,'')),'[^A-Z0-9]','','g')=$2
-     OR regexp_replace(upper(COALESCE(o.serie,'')),'[^A-Z0-9]','','g')=$2
-     OR EXISTS(SELECT 1 FROM m8_equipamentos e WHERE e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8 AND regexp_replace(upper(COALESCE(e.numero_serie,'')),'[^A-Z0-9]','','g')=$2))) OR EXISTS(SELECT 1 FROM m8_equipment_linked l WHERE l.company_id=o.company_id AND l.order_id=o.id_m8 AND (($3<>'' AND l.equipment_id::text=$3) OR ($3='' AND $2<>'' AND l.serial=$2))))`;
+    AND (($2<>'' AND (
+      regexp_replace(upper(COALESCE(o.numero_serie,'')),'[^A-Z0-9]','','g')=$2
+      OR regexp_replace(upper(COALESCE(o.serie,'')),'[^A-Z0-9]','','g')=$2
+      OR upper(COALESCE(o.observacao,'')) ~ $4
+      OR EXISTS(SELECT 1 FROM m8_equipamentos e WHERE e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8 AND regexp_replace(upper(COALESCE(e.numero_serie,'')),'[^A-Z0-9]','','g')=$2)
+      OR EXISTS(SELECT 1 FROM m8_equipment_linked l WHERE l.company_id=o.company_id AND l.order_id=o.id_m8 AND l.serial=$2)
+    )) OR ($2='' AND $3<>'' AND (
+      o.produto_equipamento_id::text=$3
+      OR EXISTS(SELECT 1 FROM m8_equipment_linked l WHERE l.company_id=o.company_id AND l.order_id=o.id_m8 AND l.equipment_id::text=$3 AND l.method='explicit')
+    )))`;
     // One row per product/unit and OS, even when the same product appears on several lines.
     // Windows retain the full price range while limiting the payload to five recent sales.
     const sales = (
@@ -178,7 +190,7 @@ export async function quoteSuggestions(p: URLSearchParams) {
         row_number() OVER (PARTITION BY kind,identity,unit ORDER BY used_at DESC NULLS LAST,ordem_servico_id DESC,company_id) AS rank
       FROM sale WINDOW w AS (PARTITION BY kind,identity,unit)
     ) SELECT * FROM ranked WHERE rank<=5 ORDER BY kind,identity,unit,rank`,
-        [clientId, serial, equipmentId],
+        [clientId, serial, equipmentId, serialPattern],
       )
     ).rows;
     for (const r of sales) {
@@ -217,11 +229,11 @@ export async function quoteSuggestions(p: URLSearchParams) {
     FROM os JOIN m8_os_produtos p ON p.ordem_servico_id=os.id_m8 AND p.company_id=os.company_id
     LEFT JOIN m8_product_current c ON c.company_id=1 AND c.product_id=p.produto_id
     WHERE p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")} AND p.quantidade>0
-    ORDER BY COALESCE(p.produto_id::text,p.produto_nome),p.unidade_nome,os.used_at DESC NULLS LAST,p.id_m8 DESC LIMIT 1001`,
-        [clientId, serial, equipmentId],
+    ORDER BY COALESCE(p.produto_id::text,p.produto_nome),p.unidade_nome,os.used_at DESC NULLS LAST,p.id_m8 DESC`,
+        [clientId, serial, equipmentId, serialPattern],
       )
     ).rows;
-    for (const r of materials.slice(0, 1000)) {
+    for (const r of materials) {
       const unit = r.unidade_nome || "";
       const v = item(
         "material",
@@ -248,23 +260,17 @@ export async function quoteSuggestions(p: URLSearchParams) {
         `WITH os AS (${orders})
     SELECT DISTINCT ON (COALESCE(s.servico_id::text,s.servico_nome)) s.*,os.used_at FROM os
     JOIN m8_os_servicos s ON s.ordem_servico_id=os.id_m8 AND s.company_id=os.company_id
-    ORDER BY COALESCE(s.servico_id::text,s.servico_nome),os.used_at DESC NULLS LAST,s.id_m8 DESC LIMIT 1001`,
-        [clientId, serial, equipmentId],
+    ORDER BY COALESCE(s.servico_id::text,s.servico_nome),os.used_at DESC NULLS LAST,s.id_m8 DESC`,
+        [clientId, serial, equipmentId, serialPattern],
       )
     ).rows;
-    services
-      .slice(0, 1000)
-      .forEach((r) => add(serviceItem(r, c, "Histórico do equipamento")));
-    if (materials.length > 1000 || services.length > 1000)
-      warnings.push(
-        "Histórico muito extenso: exibindo até 1.000 materiais e 1.000 serviços distintos.",
-      );
+    services.forEach((r) => add(serviceItem(r, c, "Histórico do equipamento")));
     warnings.push(
       "Histórico das empresas 1, 2 e 27404, restrito ao cliente e ao equipamento ou à série, em OS processadas com coleta concluída. Quantidades anteriores são referência, não consumo previsto. Se a OS contém várias máquinas, seus itens podem pertencer a outro equipamento da mesma OS.",
     );
   } else
     warnings.push(
-      "Para sugerir pelo histórico, selecione um cliente e um equipamento cadastrado, ou informe uma série com pelo menos quatro caracteres.",
+      "Para sugerir pelo histórico, selecione um cliente e um equipamento cadastrado, ou informe uma série diferente de NC.",
     );
   let variants: any[] = [],
     intervals: any[] = [];

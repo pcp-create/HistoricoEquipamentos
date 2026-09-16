@@ -193,15 +193,36 @@ export async function manufacturerCatalog(
  COALESCE(m.fields,ARRAY[]::text[]) AS fields,r.match_total
  FROM ranked r JOIN m8_product_catalog c ON c.product_id=r.product_id
  LEFT JOIN matched m ON m.code=r.code AND m.company_id=c.company_id AND m.product_id=c.product_id
- WHERE r.rank<=8 AND c.company_id IN (1,2,27404) AND ($2::bigint IS NULL OR c.company_id=$2)
+ WHERE c.company_id IN (1,2,27404) AND ($2::bigint IS NULL OR c.company_id=$2)
  ORDER BY r.code,r.rank,c.company_id`,
       [codes, f.company || null],
     )
   ).rows;
+  const sales = (
+    await db.query(
+      `SELECT p.produto_id::text AS id,max(COALESCE(o.emissao,o.data_abertura)) AS last_sale_at
+    FROM m8_os_produtos p JOIN m8_ordens_servico o ON o.company_id=p.company_id AND o.id_m8=p.ordem_servico_id
+    JOIN integracao_m8_os_sync sync ON sync.company_id=o.company_id AND sync.ordem_servico_id=o.id_m8
+    WHERE p.produto_id=ANY($1::bigint[]) AND o.company_id IN(1,2,27404)
+    AND ($2::bigint IS NULL OR o.company_id=$2) AND o.status='Processado' AND sync.finalized AND NOT sync.pending
+    AND p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")} AND p.quantidade>0
+    GROUP BY p.produto_id`,
+      [[...new Set(products.map((p) => p.product_id))], f.company || null],
+    )
+  ).rows;
+  const lastSales = new Map(
+    sales.map((s) => [
+      s.id,
+      s.last_sale_at instanceof Date
+        ? s.last_sale_at.toISOString()
+        : s.last_sale_at,
+    ]),
+  );
   const current = await currentProducts(products);
   const enriched = products.map((p) => ({
     ...p,
     current: current.get(`${p.company_id}:${p.product_id}`),
+    last_sale_at: lastSales.get(p.product_id) || null,
   }));
   const consumption = f.serial
     ? await equipmentConsumption(f.company, f.serial)

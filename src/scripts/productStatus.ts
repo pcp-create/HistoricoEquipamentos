@@ -4,8 +4,10 @@ async function main() {
   const db = await connectDatabase();
   try {
     const { rows } =
-      await db.query(`SELECT c.company_id,count(*)::int AS catalog,
- count(*) FILTER(WHERE EXISTS(SELECT 1 FROM m8_os_produtos p WHERE p.company_id=c.company_id AND p.produto_id=c.product_id))::int AS monitored,
+      await db.query(`SELECT c.company_id,count(*)::int AS catalog,count(*)::int AS monitored,
+ count(*) FILTER(WHERE EXISTS(SELECT 1 FROM m8_os_produtos p WHERE p.company_id=c.company_id AND p.produto_id=c.product_id))::int AS with_os_history,
+ count(*) FILTER(WHERE v.stock_at IS NULL)::int AS stock_missing,
+ count(*) FILTER(WHERE v.available_at IS NULL)::int AS available_missing,
  count(*) FILTER(WHERE v.stock_at IS NOT NULL)::int AS stock_collected,
  count(*) FILTER(WHERE v.available_at IS NOT NULL)::int AS available_collected,
  count(*) FILTER(WHERE v.available_at>now()-interval '15 minutes')::int AS available_recent,

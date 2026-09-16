@@ -277,9 +277,15 @@ export async function syncProducts(
         [company, mode, end.toISOString(), end.toISOString()],
       );
     } else {
+      // Repair older catalogs without queue rows so every attempt advances fairly.
+      if (mode === 'detail') await db.query(
+        `INSERT INTO public.m8_product_stock_queue(company_id,product_id)
+         SELECT company_id,product_id FROM public.m8_product_catalog WHERE company_id=$1
+         ON CONFLICT DO NOTHING`, [company],
+      );
       const result = await db.query(
         `SELECT c.product_id::text FROM public.m8_product_catalog c LEFT JOIN public.m8_product_stock_queue q USING(company_id,product_id)
-        WHERE c.company_id=$1 AND EXISTS(SELECT 1 FROM public.m8_os_produtos p WHERE p.company_id=c.company_id AND p.produto_id=c.product_id) ${mode === 'detail' ? "AND (q.success_at IS NULL OR q.success_at < now()-interval '1 hour')" : ''} ORDER BY ${mode === 'detail' ? 'q.attempted_at NULLS FIRST,' : '(SELECT min(a.collected_at) FROM public.m8_product_available a WHERE a.company_id=c.company_id AND a.product_id=c.product_id) NULLS FIRST,'}
+        WHERE c.company_id=$1 ${mode === 'detail' ? "AND (q.success_at IS NULL OR q.success_at < now()-interval '1 hour')" : ''} ORDER BY ${mode === 'detail' ? 'q.attempted_at NULLS FIRST,' : '(SELECT min(a.collected_at) FROM public.m8_product_available a WHERE a.company_id=c.company_id AND a.product_id=c.product_id) NULLS FIRST,'}
         EXISTS(SELECT 1 FROM public.m8_os_produtos p WHERE p.company_id=c.company_id AND p.produto_id=c.product_id) DESC,c.product_id LIMIT $2`,
         [
           company,

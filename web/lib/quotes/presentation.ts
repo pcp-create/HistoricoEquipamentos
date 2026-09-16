@@ -1,4 +1,4 @@
-import type { CatalogProduct } from "../manufacturer/products";
+import { groupedProducts, type CatalogProduct } from "../manufacturer/products";
 import type { QuoteItem, QuoteSalesHistory } from "./types";
 
 export function quoteOrigin(item: QuoteItem, products: CatalogProduct[] = []) {
@@ -32,9 +32,14 @@ export function compareQuoteItems(
       ? Date.parse(date)
       : -Infinity;
   };
+  const stocked = (i: QuoteItem) =>
+    groupedProducts(
+      i.products || products.filter((p) => p.product_id === i.code),
+    ).some((g) => (g.stock.value ?? 0) > 0);
   return (
-    origin(a) - origin(b) ||
     (time(a) === time(b) ? 0 : time(a) > time(b) ? -1 : 1) ||
+    Number(stocked(b)) - Number(stocked(a)) ||
+    origin(a) - origin(b) ||
     a.name.localeCompare(b.name, "pt-BR") ||
     a.key.localeCompare(b.key)
   );

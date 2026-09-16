@@ -359,7 +359,8 @@ export default function QuoteDashboard() {
     const next = {
       ...quote,
       equipmentId:
-        Object.keys(patch).length === 1 && "model" in patch
+        Object.keys(patch).length === 1 &&
+        ("model" in patch || "serial" in patch)
           ? quote.equipmentId
           : "",
       ...patch,
@@ -538,7 +539,7 @@ export default function QuoteDashboard() {
   );
   const rows = [...all.values()].filter(
     (i) =>
-      (!showManufacturer || !recommendationKeys.has(i.key)) &&
+      (!recommendationKeys.has(i.key) || hasSalesHistory(i.key)) &&
       (kind === "all" || i.kind === kind) &&
       fold([i.name, i.code].join(" ")).includes(fold(extraFilter).trim()),
   );
@@ -779,6 +780,9 @@ export default function QuoteDashboard() {
                     O histórico reúne RJ Industria, Serrana e Criciúma. A
                     seleção do equipamento já inicia a busca. Para dados
                     manuais, use este botão.
+                    {quote.equipmentId
+                      ? " Com série preenchida, o histórico usa cliente e série; com série vazia ou NC, usa cliente e equipamento selecionado. Modelo orienta somente o fabricante."
+                      : " Sem equipamento identificado, o histórico exige cliente e uma série válida."}
                   </small>
                 </div>
                 {!quote.model &&

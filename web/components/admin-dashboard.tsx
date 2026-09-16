@@ -179,6 +179,10 @@ export default function AdminDashboard() {
                           <span
                             className={`admin-status ${u.online ? "" : "admin-offline"}`}
                           >
+                            <span
+                              className="admin-presence-light"
+                              aria-hidden="true"
+                            />
                             {u.online ? "Online" : "Offline"}
                           </span>
                         </td>

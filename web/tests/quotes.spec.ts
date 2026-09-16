@@ -466,7 +466,9 @@ test("manual manufacturer selection works with blank model and serial", async ({
   await page.getByLabel("Intervalo da revisão").selectOption("");
   await page.waitForTimeout(400);
   expect(queries.length).toBe(requestCount);
-  await page.getByRole("button", { name: "Minimizar peças da revisão" }).click();
+  await page
+    .getByRole("button", { name: "Minimizar peças da revisão" })
+    .click();
   await expect(page.locator("#quote-revision-content")).toBeHidden();
   await page.getByRole("button", { name: "Expandir peças da revisão" }).click();
   await expect(page.locator("#quote-revision-content")).toBeVisible();
@@ -776,4 +778,67 @@ test("other materials use refreshed balances even when draft has an empty produc
       .filter({ hasText: "Serviço teste" })
       .locator(".quote-choice-stock"),
   ).toHaveCount(0);
+});
+
+test("selected equipment identity survives clearing NC serial and editing model", async ({
+  page,
+  context,
+}) => {
+  await context.addCookies([
+    { name: "m8-access", value: "test", domain: "localhost", path: "/" },
+  ]);
+  const requests: URLSearchParams[] = [];
+  await page.route("**/api/activity", (r) =>
+    r.fulfill({ json: { admin: false } }),
+  );
+  await page.route("**/api/quotes**", (r) => {
+    const p = new URL(r.request().url()).searchParams;
+    if (p.get("lookup") === "clients")
+      return r.fulfill({
+        json: { rows: [{ id: "25005", name: "HYDROWHEEL", document: "123" }] },
+      });
+    if (p.get("lookup") === "equipment")
+      return r.fulfill({
+        json: {
+          rows: [
+            {
+              equipment_id: "16330",
+              name: "504 - W900",
+              model: "",
+              serial: "NC",
+              source: "Histórico da OS",
+            },
+          ],
+        },
+      });
+    if (p.get("action") === "suggestions") {
+      requests.push(p);
+      return r.fulfill({
+        json: {
+          items: [],
+          histories: {},
+          recommendations: [],
+          variants: [],
+          intervals: [],
+          warnings: [],
+        },
+      });
+    }
+    return r.fulfill({ json: { rows: [], email: "test@example.com" } });
+  });
+  await page.goto("/orcamentos");
+  await page.getByRole("combobox", { name: "Cliente", exact: true }).click();
+  await page.getByRole("option", { name: /HYDROWHEEL/ }).click();
+  await page
+    .getByRole("combobox", { name: "Equipamento", exact: true })
+    .click();
+  await page.getByRole("option", { name: /504 - W900/ }).click();
+  await expect.poll(() => requests.at(-1)?.get("equipmentId")).toBe("16330");
+  await page.getByLabel("Número de série", { exact: true }).fill("");
+  await expect.poll(() => requests.at(-1)?.get("serial")).toBe("");
+  expect(requests.at(-1)?.get("equipmentId")).toBe("16330");
+  await page.getByLabel("Modelo", { exact: true }).fill("W900");
+  await expect.poll(() => requests.at(-1)?.get("model")).toBe("W900");
+  expect(requests.at(-1)?.get("equipmentId")).toBe("16330");
+  expect(requests.at(-1)?.get("clientId")).toBe("25005");
 });

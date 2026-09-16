@@ -42,6 +42,7 @@ try {
     "004_manufacturer.sql",
     "005_quotes.sql",
     "006_order_profit.sql",
+    "007_equipment_preventive.sql",
     "008_administration.sql",
   ]) {
     const sql = readFileSync(

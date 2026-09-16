@@ -8,6 +8,7 @@ import {
   LogOut,
   ClipboardList,
   Settings,
+  Wrench,
   ShieldCheck,
 } from "lucide-react";
 export default function SiteHeader({
@@ -20,6 +21,7 @@ export default function SiteHeader({
     | "manufacturer"
     | "quotes"
     | "settings"
+    | "equipment"
     | "admin";
   email?: string;
 }) {
@@ -118,6 +120,13 @@ export default function SiteHeader({
           aria-current={active === "quotes" ? "page" : undefined}
         >
           <ClipboardList size={17} /> Orçamentos
+        </a>
+        <a
+          href="/equipamentos"
+          className={active === "equipment" ? "nav-active" : "nav-link"}
+          aria-current={active === "equipment" ? "page" : undefined}
+        >
+          <Wrench size={17} /> Equipamentos
         </a>
         <a
           href="/configuracoes"

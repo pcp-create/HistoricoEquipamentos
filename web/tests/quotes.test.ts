@@ -100,7 +100,11 @@ test("draft persistence, concurrent edits and equipment suggestions isolate comp
       query,
       connect: async () => ({ query, release: () => {} }),
     };
-    const saved = await saveQuote({...draft(), responsible:"Nome enviado pelo navegador"}, "first@example.com", "Bruno Pereira");
+    const saved = await saveQuote(
+      { ...draft(), responsible: "Nome enviado pelo navegador" },
+      "first@example.com",
+      "Bruno Pereira",
+    );
     assert.equal(saved.responsible, "Bruno Pereira");
     assert.equal((await getQuote(saved.id)).responsible, "Bruno Pereira");
     assert.equal(saved.version, 1);
@@ -364,13 +368,74 @@ test("draft persistence, concurrent edits and equipment suggestions isolate comp
     await db.exec("SET ROLE anon");
     await assert.rejects(() => db.query("SELECT * FROM web_quotes"));
     await db.exec("RESET ROLE");
+    // Direct ERP equipment references remain authoritative while derived links await reconciliation.
+    await db.exec(`INSERT INTO m8_equipment_catalog(company_id,equipment_id,name,payload,collected_at) VALUES(1,16330,'504 - W900','{}',now());
+      UPDATE m8_ordens_servico SET produto_equipamento_id=16330,numero_serie=NULL WHERE company_id=1 AND id_m8 IN(1,2);
+      INSERT INTO m8_order_equipment_links(company_id,order_id,equipment_id,method,evidence,stale) VALUES(1,1,16330,'explicit','{}',true);`);
+    const choices = await quoteLookup(
+      new URLSearchParams({ lookup: "equipment", clientId: "1" }),
+    );
+    const choice = choices.rows?.find((r) => r.equipment_id === "16330");
+    assert(
+      choice,
+      "historical equipment choice must preserve the ERP equipment ID without a serial",
+    );
+    const direct = await quoteSuggestions(
+      new URLSearchParams({ clientId: "1", equipmentId: choice.equipment_id }),
+    );
+    assert(direct.items.some((i) => i.code === "5"));
+    assert(!direct.items.some((i) => i.code === "8")); // Other client must remain excluded.
+    assert(!direct.items.some((i) => i.code === "6")); // Excluded line remains excluded.
+    const directHistory = Object.values(direct.histories).flatMap(
+      (h) => h.rows,
+    );
+    assert(directHistory.some((h) => h.order === "1" && h.company === "1"));
+    assert(!directHistory.some((h) => h.quantity === "99")); // Rejected material is not consumption.
+    await db.exec(
+      `UPDATE m8_ordens_servico SET observacao='Revisão da série BQD-12345.' WHERE company_id=1 AND id_m8=1`,
+    );
+    const observation = await quoteSuggestions(
+      new URLSearchParams({
+        clientId: "1",
+        equipmentId: "99999",
+        serial: "BQD12345",
+        model: "OUTRO MODELO",
+      }),
+    );
+    assert(
+      observation.items.some((i) => i.code === "5"),
+      "serial in observations takes priority over equipment ID and model",
+    );
+    const wrongSerial = await quoteSuggestions(
+      new URLSearchParams({
+        clientId: "1",
+        equipmentId: "16330",
+        serial: "BQD1234",
+      }),
+    );
+    assert.equal(
+      Object.keys(wrongSerial.histories).length,
+      0,
+      "partial serial cannot match or fall back to ID",
+    );
+    const noSerial = await quoteSuggestions(
+      new URLSearchParams({
+        clientId: "1",
+        equipmentId: "16330",
+        serial: "NC",
+      }),
+    );
+    assert(
+      noSerial.items.some((i) => i.code === "5"),
+      "NC falls back to installed equipment ID",
+    );
   } finally {
     globals.historyPool = previous;
     await db.close();
   }
 });
 
-test("quotation ordering prioritizes genuine, similar and newest sales without inventing matches", () => {
+test("quotation ordering prioritizes newest sales before origin", () => {
   const make = (key: string, source: string): QuoteItem => ({
     ...material,
     key,
@@ -389,7 +454,7 @@ test("quotation ordering prioritizes genuine, similar and newest sales without i
     [similar, oldGenuine, unknown, newGenuine]
       .sort((a, b) => compareQuoteItems(a, b, histories))
       .map((i) => i.key),
-    ["new", "old", "sim", "unknown"],
+    ["sim", "new", "old", "unknown"],
   );
 });
 

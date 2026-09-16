@@ -33,7 +33,7 @@ function product(
     },
   };
 }
-test("one card per product sums each company once and places genuine references first", () => {
+test("one card per product sums each company once and prioritizes positive stock over origin", () => {
   const rows = [
     product(1),
     product(2),
@@ -43,10 +43,10 @@ test("one card per product sums each company once and places genuine references 
   ];
   const groups = groupedProducts(rows);
   assert.equal(groups.length, 2);
-  assert.equal(groups[0].id, "99");
-  assert.equal(groups[0].stock.value, 0);
-  assert.equal(groups[1].companies.length, 3);
-  assert.deepEqual(groups[1].stock, { value: 6, complete: true });
+  assert.equal(groups[0].id, "10");
+  assert.equal(groups[1].stock.value, 0);
+  assert.equal(groups[0].companies.length, 3);
+  assert.deepEqual(groups[0].stock, { value: 6, complete: true });
   assert.deepEqual(
     groupedProducts([
       product(1, "10", "2", "UN", [
@@ -107,4 +107,12 @@ test("collection dates and cost are consolidated conservatively; blocking is exp
   assert.equal(incomplete.stockValue.complete, false);
   b.current!.available_at = "invalid";
   assert.equal(groupedProducts([a, b])[0].availableAt, null);
+});
+
+test("catalog sorting uses latest sale then positive stock then genuine", () => {
+  const recent = {...product(1,"1","0"),last_sale_at:"2026-09-01"};
+  const stocked = product(1,"2","2");
+  const genuine = product(1,"3","2","UN",["referenciaFabricante"]);
+  const noStock = product(1,"4","0","UN",["referenciaFabricante"]);
+  assert.deepEqual(groupedProducts([noStock,stocked,genuine,recent]).map(p=>p.id),["1","3","2","4"]);
 });

@@ -9,6 +9,7 @@ export type CatalogProduct = {
   fields: string[];
   blocked?: string | null;
   match_total: number;
+  last_sale_at?: string | null;
   current?: ProductCurrent;
 };
 function total(
@@ -62,6 +63,14 @@ export function groupedProducts(products: CatalogProduct[]) {
       const compatible = units.every((u) => !!u && u === units[0]);
       return {
         id,
+        lastSale: Math.max(
+          -Infinity,
+          ...companies.map((p) =>
+            p.last_sale_at && Number.isFinite(Date.parse(p.last_sale_at))
+              ? Date.parse(p.last_sale_at)
+              : -Infinity,
+          ),
+        ),
         name: companies[0].name,
         companies,
         fields,
@@ -80,6 +89,9 @@ export function groupedProducts(products: CatalogProduct[]) {
     })
     .sort(
       (a, b) =>
-        Number(b.genuine) - Number(a.genuine) || Number(a.id) - Number(b.id),
+        (a.lastSale === b.lastSale ? 0 : a.lastSale > b.lastSale ? -1 : 1) ||
+        Number((b.stock.value ?? 0) > 0) - Number((a.stock.value ?? 0) > 0) ||
+        Number(b.genuine) - Number(a.genuine) ||
+        Number(a.id) - Number(b.id),
     );
 }
