@@ -1,6 +1,8 @@
+import { recordActivity } from "@/lib/admin-store";
 import { NextResponse } from "next/server";
 import {
-  allowedEmail,
+  authorizedEmail,
+  requireUser,
   authRequest,
   clearSession,
   sameOrigin,
@@ -13,6 +15,11 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     if (body.action === "logout") {
+      try {
+        await recordActivity(await requireUser(), "logout");
+      } catch {
+        console.error("SESSION_LOGOUT_AUDIT_UNAVAILABLE");
+      }
       await clearSession();
       return NextResponse.json({ ok: true });
     }
@@ -45,13 +52,18 @@ export async function POST(request: Request) {
     if (
       !data.user?.email_confirmed_at ||
       data.user.is_anonymous ||
-      !allowedEmail(data.user.email)
+      !(await authorizedEmail(data.user.email))
     )
       return NextResponse.json(
         { error: "Acesso não autorizado. Consulte o administrador." },
         { status: 403 },
       );
     await setSession(data);
+    try {
+      await recordActivity(data.user, "login");
+    } catch {
+      console.error("SESSION_LOGIN_AUDIT_UNAVAILABLE");
+    }
     return NextResponse.json(
       { ok: true },
       { headers: { "Cache-Control": "no-store" } },

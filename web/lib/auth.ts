@@ -1,4 +1,5 @@
 import "server-only";
+import { accessRecord } from "./admin-store";
 import type { AuthUser } from "./user-display-name";
 import { cookies, headers } from "next/headers";
 
@@ -69,7 +70,7 @@ export async function requireUser() {
         user.id &&
         !user.is_anonymous &&
         user.email_confirmed_at &&
-        allowedEmail(user.email)
+        (await authorizedEmail(user.email))
       )
         return user as AuthUser;
       throw new Unauthorized();
@@ -88,7 +89,7 @@ export async function requireUser() {
         data.user?.id &&
         !data.user.is_anonymous &&
         data.user.email_confirmed_at &&
-        allowedEmail(data.user.email)
+        (await authorizedEmail(data.user.email))
       ) {
         await setSession(data);
         return data.user as AuthUser;
@@ -142,4 +143,17 @@ export function secureSessionCookie(requestHeaders: Pick<Headers, "get">) {
   } catch {
     return true;
   }
+}
+
+export async function authorizedEmail(email: unknown) {
+  if (typeof email !== "string") return false;
+  const record = await accessRecord(email);
+  return record ? record.enabled === true : allowedEmail(email);
+}
+export class Forbidden extends Error {}
+export async function requireAdmin() {
+  const user = await requireUser();
+  const access = await accessRecord(user.email);
+  if (!access?.enabled || access.role !== "admin") throw new Forbidden();
+  return user;
 }

@@ -6,7 +6,7 @@ Prévias visuais com dados fictícios usados somente nos testes: [desktop](../do
 
 ## Funcionalidades
 
-- Login individual por e-mail/senha do Supabase Auth. Somente contas confirmadas e incluídas em `WEB_ALLOWED_EMAILS` entram; não há cadastro público no site.
+- Login individual por e-mail/senha do Supabase Auth. Somente contas confirmadas e autorizadas na Administração (ou na lista inicial `WEB_ALLOWED_EMAILS`) entram; não há cadastro público no site.
 - Pesquisa global após 500 ms sem digitação ou ao pressionar Enter/Pesquisar. Ignora caixa e acentos; todas as palavras precisam aparecer, podendo estar em campos diferentes da mesma OS. Até 200 caracteres e 12 palavras.
 - Todas as colunas relacionais de OS, produtos ativos e excluídos e equipamentos entram na pesquisa, incluindo campos não exibidos na tabela. O JSON bruto de auditoria `payload` não é indexado. Os campos estão acessíveis nos detalhes. O filtro de período usa emissão, com abertura como alternativa, no fuso de Brasília.
 - Na visão por OS, um material correspondente retorna a ordem inteira; na visão por material, a pesquisa do produto corresponde ao próprio item, enquanto campos da OS/equipamento se aplicam aos seus materiais.
@@ -42,7 +42,7 @@ O usuário confirmou a criação da conta e o acesso ao site local. O provedor d
 
 1. No projeto Supabase, abrir **Authentication → Users** e criar uma conta por e-mail/senha em **Add user**. Usar uma conta confirmada; definir a senha diretamente no painel, sem enviá-la ao chat.
 2. Se o e-mail já tiver conta nesse projeto, usar a conta existente. O site não oferece fluxo de convite ou redefinição de senha nesta versão; o administrador faz a gestão no Supabase.
-3. Manter o provedor de e-mail/senha ativo. A lista `WEB_ALLOWED_EMAILS`, separada por vírgulas, controla quem pode consultar o histórico, mesmo que o Supabase permita outros cadastros.
+3. Manter o provedor de e-mail/senha ativo. A Administração controla quem pode acessar. `WEB_ALLOWED_EMAILS`, separada por vírgulas, permanece como autorização inicial para contas ainda sem registro de permissão. Um bloqueio na Administração prevalece sobre essa lista.
 4. Os usuários autorizados têm acesso de consulta às três empresas. Não há divisão de permissões por empresa nesta primeira versão.
 
 Referência: [gerenciamento de usuários no Supabase](https://supabase.com/docs/guides/auth/managing-user-data).
@@ -137,4 +137,4 @@ A migration do integrador `008_m8_equipment_registry.sql` / `009_m8_equipment_li
 
 Preencha o Display name no Supabase Auth. O sistema utiliza os metadados `display_name`, `full_name` ou `name`, com e-mail como alternativa. Orçamentos recebem automaticamente o nome de quem salva. Novos cálculos de lucro e recálculos registram nome e e-mail; cálculos antigos sem nome mantêm o e-mail até serem recalculados.
 
-Para liberar uma nova conta, acrescente seu e-mail em `WEB_ALLOWED_EMAILS` no `web/.env.local` (reinicie o servidor local) e nas variáveis do projeto Vercel (faça novo deploy). Preserve os e-mails já autorizados, separados por vírgulas. Alterar `.env.example` não libera acesso.
+Para liberar uma nova conta, crie e confirme o usuário no Supabase Auth e autorize seu e-mail na aba Administração. Nessa tela também é possível definir o perfil e bloquear acesso, sem novo deploy. Veja [Administração](../docs/administracao.md).

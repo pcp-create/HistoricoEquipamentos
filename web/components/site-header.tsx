@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
   BookOpen,
@@ -7,14 +8,43 @@ import {
   LogOut,
   ClipboardList,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 export default function SiteHeader({
   active,
   email,
 }: {
-  active: "history" | "analysis" | "manufacturer" | "quotes" | "settings";
+  active:
+    | "history"
+    | "analysis"
+    | "manufacturer"
+    | "quotes"
+    | "settings"
+    | "admin";
   email?: string;
 }) {
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => {
+    let stopped = false;
+    const pulse = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const r = await fetch("/api/activity", { method: "POST" });
+        if (!stopped) {
+          if (r.ok) setAdmin((await r.json()).admin === true);
+          else if (r.status === 401) setAdmin(false);
+        }
+      } catch {}
+    };
+    void pulse();
+    const timer = setInterval(pulse, 60000);
+    document.addEventListener("visibilitychange", pulse);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", pulse);
+    };
+  }, []);
   async function logout() {
     await fetch("/api/session", {
       method: "POST",
@@ -96,6 +126,15 @@ export default function SiteHeader({
         >
           <Settings size={17} /> Configurações
         </a>
+        {admin && (
+          <a
+            href="/administracao"
+            className={active === "admin" ? "nav-active" : "nav-link"}
+            aria-current={active === "admin" ? "page" : undefined}
+          >
+            <ShieldCheck size={17} /> Administração
+          </a>
+        )}
       </nav>
     </>
   );

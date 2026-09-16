@@ -1,0 +1,18 @@
+.admin-table { overflow-x: auto; }
+.admin-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.admin-table th { color: #72849a; background: #f3f7fb; font-weight: 500; font-size: 11px; }
+.admin-table :is(td,th) { padding: 12px; text-align: left; border-bottom: 1px solid #e1eaf3; vertical-align: top; min-width: 110px; }
+.admin-table td:first-child { min-width: 220px; }
+.admin-table small, .equipment-preview small { display: block; font-size: 11px; color: #72849a; margin-top: 5px; line-height: 1.5; }
+.admin-page button:where(:not(.catalog-save-button):not(.catalog-cancel-button):not(.catalog-edit-button)) { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 11px; border: 1px solid #d1dfec; border-radius: 7px; background: #f8fbfe; color: #375d85; font: inherit; font-size: 12px; cursor: pointer; }
+.admin-page button:disabled { opacity: .5; cursor: not-allowed; }
+.admin-page button:focus-visible { outline: 2px solid #7ca8d5; outline-offset: 2px; }
+.admin-form-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 0 18px; }
+.admin-page fieldset { border: 1px solid #dbe5f0; border-radius: 10px; padding: 16px; margin-top: 18px; min-width: 0; }
+.admin-page legend { font-size: 13px; color: #496582; padding: 0 8px; font-weight: 600; }
+.admin-table small.equipment-rental-tag {
+.admin-table small { display: block; font-size: 11px; color: #72849a; margin-top: 5px; }
+@media(max-width:600px) { .admin-form-grid { grid-template-columns: 1fr; } }
+
+.admin-status { display: inline-block; white-space: nowrap; font-size: 11px; border-radius: 5px; padding: 4px 7px; background: #eaf4ee; color: #307553; }
+.admin-offline { color: #6f7c8c; background: #eef1f5; }
