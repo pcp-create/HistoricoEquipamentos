@@ -3762,3 +3762,54 @@ a.quote-order-link:focus-visible {
 .equipment-rental-state.rental-unavailable { background: #fce9e6; color: #a33b32; }
 .equipment-page .equipment-rental-status-filters .rental-filter-unavailable { --status-bg: #fce9e6; --status-color: #a33b32; }
 .equipment-stock-note { font-size: 11px; font-weight: 500; color: #926300; overflow-wrap: anywhere; }
+
+.equipment-contract { flex-basis: 100%; display: grid; gap: 5px; padding: 5px 0 0 6px; font-size: 11px; color: #58708d; line-height: 1.6; }
+.equipment-contract b { font-weight: 600; }
+.equipment-contract-status { display: inline-block; border-radius: 5px; padding: 2px 6px; font-weight: 600; }
+.equipment-contract-status.contract-current { color: #237447; background: #e6f5eb; }
+.equipment-contract-status.contract-soon { color: #926300; background: #fff3d8; }
+.equipment-contract-status.contract-overdue { color: #a33b32; background: #fce9e6; }
+.equipment-contract-status.contract-incomplete { color: #6f7c8c; background: #eef1f5; }
+
+.equipment-page .equipment-contract-filters .contract-filter-current { --status-bg: #e6f5eb; --status-color: #237447; }
+.equipment-page .equipment-contract-filters .contract-filter-soon { --status-bg: #fff3d8; --status-color: #926300; }
+.equipment-page .equipment-contract-filters .contract-filter-overdue { --status-bg: #fce9e6; --status-color: #a33b32; }
+.equipment-page .equipment-contract-filters .contract-filter-incomplete { --status-bg: #eef1f5; --status-color: #6f7c8c; }
+
+.equipment-view-tabs { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid #e1eaf3; }
+.equipment-page .equipment-view-tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0; background: transparent; padding: 11px 16px; }
+.equipment-page .equipment-view-tabs button[aria-pressed="true"] { background: #edf4fc; border-bottom-color: #2863a8; color: #2863a8; font-weight: 600; }
+.equipment-identity { display: flex; align-items: center; gap: 12px; min-width: 240px; max-width: 400px; }
+.equipment-identity > div:last-child { min-width: 0; }
+.equipment-identity strong { font-size: 12px; font-weight: 600; }
+.equipment-photo-slot { width: 82px; min-width: 82px; min-height: 76px; }
+.equipment-page .equipment-photo { position: relative; width: 82px; min-width: 0; height: 86px; min-height: 0; padding: 0; margin: 0; }
+.equipment-photo .material-carousel-window { height: 68px; width: 100%; }
+.equipment-photo .material-carousel-slide { flex: 0 0 100%; height: 68px; padding: 0; }
+.equipment-page .equipment-photo .material-photo-enlarge { width: 100%; height: 68px; padding: 0; border: 0; background: transparent; }
+.equipment-photo .material-photo-enlarge img { width: 100%; height: 68px; object-fit: contain; }
+.equipment-page .equipment-photo :is(.material-photo-prev,.material-photo-next) { padding: 0; width: 18px; height: 18px; top: 25px; border: 0; background: #ffffffdd; }
+.equipment-photo .material-photo-count { font-size: 9px; bottom: 0; }
+.equipment-table .equipment-photo small { font-size: 9px; line-height: 1.3; }
+.equipment-situation-cell { width: 260px; }
+.equipment-situation-cell .equipment-rental-state { margin: 0; }
+.equipment-situation-cell .equipment-rental-customer { flex-basis: 100%; }
+.equipment-situation-cell .equipment-contract { padding-left: 0; }
+@media(max-width:600px) { .equipment-page .equipment-view-tabs button { padding: 10px; font-size: 11px; } }
+
+.equipment-contract-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 14px 0;
+}
+.equipment-contract-filter-row .equipment-contract-filter-group {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #dbe5f0);
+  border-radius: 10px;
+  align-content: flex-start;
+}
+.equipment-contract-filter-group > small {
+  font-weight: 600;
+}

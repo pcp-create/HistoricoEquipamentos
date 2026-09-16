@@ -1,3 +1,4 @@
+import { rentalContract } from "./contract";
 import "server-only";
 import { database } from "../db";
 import { approvedMaterialSql } from "../material-approval";
@@ -8,6 +9,7 @@ export type RentalStatus = {
   company: number | null;
   customer: string | null;
   stockNote?: string;
+  contract?: ReturnType<typeof rentalContract>;
 };
 export function resolveRentalStatus(
   orders: {
@@ -16,6 +18,8 @@ export function resolveRentalStatus(
     status: string;
     tipo_id: string | number;
     cliente_nome?: string | null;
+    contract_start?: string | null;
+    contract_end?: string | null;
   }[],
   totalStock: number | null = null,
 ): RentalStatus {
@@ -29,6 +33,14 @@ export function resolveRentalStatus(
       order: pending.id,
       company: pending.company_id,
       customer: pending.cliente_nome?.trim() || null,
+      ...(kind === 8 || kind === 45
+        ? {
+            contract: rentalContract(
+              pending.contract_start ?? null,
+              pending.contract_end ?? null,
+            ),
+          }
+        : {}),
     };
   }
   const latest = orders[0];
@@ -67,7 +79,9 @@ export async function rentalStatuses(ids: string[]) {
   if (!ids.length) return result;
   const rows = (
     await database().query(
-      `SELECT DISTINCT p.produto_id::text AS equipment_id,o.id_m8::text AS id,o.company_id,o.status,o.tipo_id,o.cliente_nome,COALESCE(o.emissao,o.data_abertura) AS order_date
+      `SELECT DISTINCT p.produto_id::text AS equipment_id,o.id_m8::text AS id,o.company_id,o.status,o.tipo_id,o.cliente_nome,
+ (o.data_abertura AT TIME ZONE 'America/Sao_Paulo')::date::text AS contract_start,
+ (o.data_entrega AT TIME ZONE 'America/Sao_Paulo')::date::text AS contract_end,COALESCE(o.emissao,o.data_abertura) AS order_date
  FROM m8_os_produtos p JOIN m8_ordens_servico o ON o.company_id=p.company_id AND o.id_m8=p.ordem_servico_id
  WHERE p.produto_id=ANY($1::bigint[]) AND o.company_id IN(1,2,27404)
  AND o.status IN('Pendente','Processado') AND p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")}

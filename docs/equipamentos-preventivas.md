@@ -90,3 +90,15 @@ A etiqueta ao lado de “Máquina própria de locação” usa as OS em que o ID
 - Demais casos: Disponível (verde). Quando o saldo total for maior que 1, exibe aviso para conferir e ajustar. Saldo desconhecido não é tratado como zero.
 
 Entre empenhos pendentes concorrentes, prevalece o mais recente. A ordenação considera emissão (ou abertura se ausente), com ID numérico como desempate. O tooltip mostra a OS e empresa determinantes. O estado reflete a base sincronizada, não uma consulta em tempo real ao M8.
+
+### Vigência de locação e empréstimo
+
+As máquinas Locadas ou Emprestadas mostram, na lista e no gerenciamento, o
+período da mesma OS que define sua situação: início = data de abertura; fim =
+data de entrega (`data_entrega`), sem usar a entrega prevista como alternativa. As datas usam o calendário de Brasília.
+
+Vigência é a diferença em dias corridos entre fim e início (sem somar um dia
+extra). A situação depende dos dias restantes: abaixo de zero é Vencido; de 0 a
+29 é Próximo do vencimento; 30 ou mais é Dentro do prazo. No dia final, exibe
+“Vence hoje”. Datas ausentes ou fim anterior ao início pedem conferência, sem
+inventar prazo. Este indicador contratual é independente do plano de preventiva.

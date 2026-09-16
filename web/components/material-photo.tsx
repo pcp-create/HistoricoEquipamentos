@@ -6,10 +6,12 @@ export default function MaterialPhoto({
   id,
   name,
   companies,
+  compact = false,
 }: {
   id: string;
   name: string;
   companies: number[];
+  compact?: boolean;
 }) {
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [index, setIndex] = useState(0);
@@ -19,6 +21,7 @@ export default function MaterialPhoto({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
+  const visibleCount = compact ? 1 : 2;
   const companyKey = companies.join(",");
   useEffect(() => {
     const controller = new AbortController();
@@ -66,7 +69,7 @@ export default function MaterialPhoto({
     return () => controller.abort();
   }, [id, companyKey, retry]);
   return (
-    <div className="material-photo">
+    <div className={`material-photo${compact ? " equipment-photo" : ""}`}>
       {loading ? (
         <small role="status">Carregando foto…</small>
       ) : error ? (
@@ -145,13 +148,15 @@ export default function MaterialPhoto({
           <div className="material-carousel-window">
             <div
               className="material-carousel-track"
-              style={{ transform: `translateX(-${index * 50}%)` }}
+              style={{
+                transform: `translateX(-${index * (100 / visibleCount)}%)`,
+              }}
             >
               {photo.images.map((image, i) => (
                 <div
                   className="material-carousel-slide"
                   key={image.key}
-                  aria-hidden={i < index || i > index + 1}
+                  aria-hidden={i < index || i >= index + visibleCount}
                 >
                   {broken.includes(image.key) ? (
                     <small>Não foi possível exibir esta foto.</small>
@@ -159,7 +164,7 @@ export default function MaterialPhoto({
                     <button
                       type="button"
                       className="material-photo-enlarge"
-                      tabIndex={i < index || i > index + 1 ? -1 : 0}
+                      tabIndex={i < index || i >= index + visibleCount ? -1 : 0}
                       aria-label={`Ampliar foto ${i + 1}`}
                       onClick={() => {
                         setExpandedIndex(i);
@@ -197,7 +202,9 @@ export default function MaterialPhoto({
                 type="button"
                 className="material-photo-next"
                 aria-label="Próxima foto"
-                disabled={index >= Math.max(0, photo.images.length - 2)}
+                disabled={
+                  index >= Math.max(0, photo.images.length - visibleCount)
+                }
                 onClick={() => {
                   setIndex((i) => i + 1);
                   setBroken([]);
@@ -206,8 +213,10 @@ export default function MaterialPhoto({
                 <ChevronRight size={18} />
               </button>
               <span className="material-photo-count" aria-live="polite">
-                {index + 1}–{Math.min(index + 2, photo.images.length)} /{" "}
-                {photo.images.length}
+                {index + 1}
+                {!compact &&
+                  `–${Math.min(index + visibleCount, photo.images.length)}`}{" "}
+                / {photo.images.length}
               </span>
             </>
           )}

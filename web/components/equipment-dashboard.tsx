@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, Pencil, Archive, Save, Wrench, ArrowLeft } from "lucide-react";
+import MaterialPhoto from "./material-photo";
 import SiteHeader from "./site-header";
 import {
   emptyOperating,
@@ -74,6 +75,30 @@ function Forecast({ value }: { value: any }) {
     </>
   );
 }
+function EquipmentPhoto({ id, name }: { id: string; name: string }) {
+  const container = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "100px" },
+    );
+    if (container.current) observer.observe(container.current);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div ref={container} className="equipment-photo-slot">
+      {visible && (
+        <MaterialPhoto id={id} name={name} companies={[1, 2, 27404]} compact />
+      )}
+    </div>
+  );
+}
 function RentalBadge({ status }: { status: any }) {
   if (!status) return null;
   return (
@@ -97,6 +122,34 @@ function RentalBadge({ status }: { status: any }) {
           title={`Cliente da OS ${status.order}`}
         >
           · {status.customer || "Cliente não informado na OS"}
+        </span>
+      )}
+      {status.contract && (
+        <span className="equipment-contract">
+          <span>
+            Início: <b>{date(status.contract.start)}</b> · Fim:{" "}
+            <b>{date(status.contract.end)}</b>
+            {status.contract.duration != null &&
+              ` · Vigência: ${status.contract.duration} dias`}
+          </span>
+          <span>
+            <span
+              className={`equipment-contract-status contract-${status.contract.key}`}
+            >
+              {status.contract.label}
+            </span>
+            {status.contract.remaining != null && (
+              <span>
+                {" "}
+                ·{" "}
+                {status.contract.remaining < 0
+                  ? `Vencido há ${Math.abs(status.contract.remaining)} dias`
+                  : status.contract.remaining === 0
+                    ? "Vence hoje"
+                    : `Faltam ${status.contract.remaining} dias`}
+              </span>
+            )}
+          </span>
         </span>
       )}
     </span>
@@ -127,8 +180,10 @@ export default function EquipmentDashboard() {
     [message, setMessage] = useState("");
   const [query, setQuery] = useState(""),
     [ownership, setOwnership] = useState(""),
-    [rentalOnly, setRentalOnly] = useState(false),
+    [equipmentTab, setEquipmentTab] = useState("all"),
     [rentalStatus, setRentalStatus] = useState(""),
+    [contractStatus, setContractStatus] = useState(""),
+    [contractType, setContractType] = useState("all"),
     [state, setState] = useState(""),
     [page, setPage] = useState(1),
     [refresh, setRefresh] = useState(0),
@@ -149,6 +204,7 @@ export default function EquipmentDashboard() {
       detail?.equipment?.usage,
     );
   } catch {}
+  const rentalOnly = equipmentTab !== "all";
   const rentalRows = (loaded?.rows || []).filter((e: any) => e.rental);
   const rentalOptions = [
     ["", "Todos"],
@@ -164,11 +220,41 @@ export default function EquipmentDashboard() {
     count: rentalRows.filter((e: any) => !key || e.rentalStatus?.key === key)
       .length,
   }));
-  const filteredRows = (loaded?.rows || []).filter(
-    (e: any) =>
-      !rentalOnly ||
-      (e.rental && (!rentalStatus || e.rentalStatus?.key === rentalStatus)),
+  const contractFilterVisible = equipmentTab === "status";
+  const contractRows = rentalRows.filter((e: any) =>
+    ["rented", "loaned"].includes(e.rentalStatus?.key),
   );
+  const contractTypeOptions = [
+    ["all", "Todos"],
+    ["rented", "Locados"],
+    ["loaned", "Emprestados"],
+  ].map(([key, label]) => ({
+    key, label,
+    count: contractRows.filter((e: any) => key === "all" || e.rentalStatus.key === key).length,
+  }));
+  const typedContractRows = contractRows.filter((e: any) =>
+    contractType === "all" || e.rentalStatus.key === contractType);
+  const contractOptions = [
+    ["all", "Todos"],
+    ["current", "Dentro do prazo"],
+    ["soon", "Próximo do vencimento"],
+    ["overdue", "Vencido"],
+    ["incomplete", "Conferir datas"],
+  ].map(([key, label]) => ({
+    key, label,
+    count: typedContractRows.filter((e: any) =>
+      key === "all" || (e.rentalStatus.contract?.key || "incomplete") === key).length,
+  }));
+  const filteredRows = (loaded?.rows || []).filter((e: any) => {
+    if (equipmentTab === "all") return true;
+    if (!e.rental) return false;
+    if (equipmentTab === "rental")
+      return !rentalStatus || e.rentalStatus?.key === rentalStatus;
+    return ["rented", "loaned"].includes(e.rentalStatus?.key) &&
+      (contractType === "all" || e.rentalStatus.key === contractType) &&
+      (!contractStatus || contractStatus === "all" ||
+        (e.rentalStatus.contract?.key || "incomplete") === contractStatus);
+  });
   const pages = Math.max(1, Math.ceil(filteredRows.length / 30));
   const currentPage = Math.min(page, pages);
   const result = loaded
@@ -321,19 +407,40 @@ export default function EquipmentDashboard() {
         {message && <p role="status">{message}</p>}
         {!selected ? (
           <section className="manual-card">
-            <button
-              type="button"
-              className="equipment-rental-filter"
-              aria-pressed={rentalOnly}
-              onClick={() => {
-                setRentalOnly((v) => !v);
-                setRentalStatus("");
-                setPage(1);
-              }}
+            <nav
+              className="equipment-view-tabs"
+              aria-label="Visão dos equipamentos"
             >
-              Máquinas de locação
-            </button>
-            {rentalOnly && (
+              {[
+                ["all", "Todos"],
+                ["rental", "Máquinas de Locação"],
+                ["status", "Locados e Emprestados"],
+              ].map(([key, label]) => (
+                <button
+                  type="button"
+                  key={key}
+                  aria-pressed={equipmentTab === key}
+                  onClick={() => {
+                    setEquipmentTab(key);
+                    setContractType("all");
+                    setRentalStatus("");
+                    setContractStatus("");
+                    setPage(1);
+                  }}
+                >
+                  {label} (
+                  {loaded
+                    ? key === "all"
+                      ? loaded.rows.length
+                      : key === "rental"
+                        ? rentalRows.length
+                        : contractRows.length
+                    : "—"}
+                  )
+                </button>
+              ))}
+            </nav>
+            {equipmentTab === "rental" && (
               <div
                 className="equipment-rental-status-filters"
                 role="group"
@@ -347,6 +454,7 @@ export default function EquipmentDashboard() {
                     aria-pressed={rentalStatus === key}
                     onClick={() => {
                       setRentalStatus(key);
+                      setContractStatus("");
                       setPage(1);
                     }}
                   >
@@ -354,6 +462,43 @@ export default function EquipmentDashboard() {
                   </button>
                 ))}
                 <small>Quantidades conforme os demais filtros da lista.</small>
+              </div>
+            )}
+            {contractFilterVisible && (
+              <div className="equipment-contract-filter-row">
+              <div className="equipment-rental-status-filters equipment-contract-filter-group"
+                role="group" aria-label="Tipo de contrato">
+                <small>Tipo</small>
+                {contractTypeOptions.map(({ key, label, count }) => (
+                  <button type="button" key={key}
+                    className={`rental-filter-${key}`}
+                    aria-pressed={contractType === key}
+                    onClick={() => { setContractType(key); setPage(1); }}>
+                    {label} <strong>{count}</strong>
+                  </button>
+                ))}
+              </div>
+              <div
+                className="equipment-rental-status-filters equipment-contract-filters equipment-contract-filter-group"
+                role="group"
+                aria-label="Situação do contrato de locação ou empréstimo"
+              >
+                <small>Prazo do contrato</small>
+                {contractOptions.map(({ key, label, count }) => (
+                  <button
+                    type="button"
+                    key={key}
+                    className={`contract-filter-${key}`}
+                    aria-pressed={contractStatus === key || (!contractStatus && key === "all")}
+                    onClick={() => {
+                      setContractStatus(key);
+                      setPage(1);
+                    }}
+                  >
+                    {label} <strong>{count}</strong>
+                  </button>
+                ))}
+              </div>
               </div>
             )}
             <div className="equipment-filters">
@@ -411,6 +556,7 @@ export default function EquipmentDashboard() {
                     <th>Cliente atribuído</th>
                     <th>Última OS vinculada</th>
                     <th>Preventiva prioritária</th>
+                    <th>Situação</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
@@ -418,28 +564,34 @@ export default function EquipmentDashboard() {
                   {result?.rows.map((e: any) => (
                     <tr key={e.id}>
                       <td>
-                        <strong>{e.name}</strong>
-                        <small>
-                          {e.brand || "Marca não informada"} ·{" "}
-                          {e.model || "Modelo não informado"} · Cód. {e.id}
-                          {e.rental && e.internal_code && (
-                            <span> · ID interno: {e.internal_code}</span>
+                        <div className="equipment-identity">
+                          {rentalOnly && (
+                            <EquipmentPhoto id={e.id} name={e.name} />
                           )}
-                        </small>
-                        <small
-                          className={
-                            e.rental ? "equipment-rental-tag" : undefined
-                          }
-                        >
-                          {e.rental
-                            ? "Máquina própria de locação"
-                            : e.ownership === "own"
-                              ? "Equipamento próprio"
-                              : e.ownership === "customer"
-                                ? "Equipamento de cliente"
-                                : "Classificação pendente"}
-                        </small>
-                        {e.rental && <RentalBadge status={e.rentalStatus} />}
+                          <div>
+                            <strong>{e.name}</strong>
+                            <small>
+                              {e.brand || "Marca não informada"} ·{" "}
+                              {e.model || "Modelo não informado"} · Cód. {e.id}
+                              {e.rental && e.internal_code && (
+                                <span> · ID interno: {e.internal_code}</span>
+                              )}
+                            </small>
+                            <small
+                              className={
+                                e.rental ? "equipment-rental-tag" : undefined
+                              }
+                            >
+                              {e.rental
+                                ? "Máquina própria de locação"
+                                : e.ownership === "own"
+                                  ? "Equipamento próprio"
+                                  : e.ownership === "customer"
+                                    ? "Equipamento de cliente"
+                                    : "Classificação pendente"}
+                            </small>
+                          </div>
+                        </div>
                       </td>
                       <td>{e.serial || "Não informada"}</td>
                       <td>
@@ -468,6 +620,13 @@ export default function EquipmentDashboard() {
                       </td>
                       <td>
                         <Forecast value={e.forecast} />
+                      </td>
+                      <td className="equipment-situation-cell">
+                        {e.rental ? (
+                          <RentalBadge status={e.rentalStatus} />
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td>
                         <button
