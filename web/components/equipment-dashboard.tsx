@@ -139,7 +139,7 @@ function RentalBadge({ status }: { status: any }) {
               {status.contract.label}
             </span>
             {status.contract.remaining != null && (
-              <span>
+              <span className={status.contract.remaining >= 0 && status.contract.remaining <= 5 ? "equipment-contract-urgent" : undefined}>
                 {" "}
                 ·{" "}
                 {status.contract.remaining < 0
@@ -255,6 +255,15 @@ export default function EquipmentDashboard() {
       (!contractStatus || contractStatus === "all" ||
         (e.rentalStatus.contract?.key || "incomplete") === contractStatus);
   });
+  if (rentalOnly) {
+    filteredRows.sort((a: any, b: any) => {
+      const aDays = a.rentalStatus?.contract?.remaining;
+      const bDays = b.rentalStatus?.contract?.remaining;
+      if (aDays == null) return bDays == null ? 0 : 1;
+      if (bDays == null) return -1;
+      return aDays - bDays;
+    });
+  }
   const pages = Math.max(1, Math.ceil(filteredRows.length / 30));
   const currentPage = Math.min(page, pages);
   const result = loaded

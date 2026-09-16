@@ -3813,3 +3813,8 @@ a.quote-order-link:focus-visible {
 .equipment-contract-filter-group > small {
   font-weight: 600;
 }
+
+.equipment-contract .equipment-contract-urgent {
+  color: #b42318;
+  font-weight: 600;
+}
