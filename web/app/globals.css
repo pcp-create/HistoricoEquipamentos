@@ -3818,3 +3818,35 @@ a.quote-order-link:focus-visible {
   color: #b42318;
   font-weight: 600;
 }
+
+.product-full-details { margin: 20px 0; }
+.product-full-details summary { cursor: pointer; padding: 10px 0; font-weight: 600; }
+.product-details-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.product-details-grid dt { color: var(--muted); font-size: 12px; }
+.product-details-grid dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+
+.material-lookup .product-consult-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 13px;
+  border: 1px solid #c8dcf1;
+  border-radius: 8px;
+  background: #f0f6fd;
+  color: #245f9e;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color .15s, border-color .15s;
+}
+.material-lookup .product-consult-button:hover {
+  background: #e2eefb;
+  border-color: #85b0dc;
+}
+.material-lookup .product-consult-button:focus-visible {
+  outline: 2px solid #2563a6;
+  outline-offset: 3px;
+}

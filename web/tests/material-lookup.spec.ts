@@ -13,10 +13,13 @@ test("material lookup is protected and consults exact code independently of anal
   );
   const codes: string[] = [];
   await page.route("**/api/products/lookup?*", (route) => {
-    const code = new URL(route.request().url()).searchParams.get("code")!;
+    const params = new URL(route.request().url()).searchParams;
+    if (params.has("q")) return route.fulfill({ json: { total: 1, products: [{ product_id: "999", name: "Produto pesquisado", reference: "REF999" }] } });
+    const code = params.get("code")!;
     codes.push(code);
     return route.fulfill({
       json: {
+        similar: code === "5" ? [{ product_id: "6", company_id: 1, name: "Filtro similar", reference: "ABC999", unit: "UN", stock: "12", available: "8", stock_at: null, available_at: null }] : [],
         rows:
           code === "5"
             ? [
@@ -30,6 +33,10 @@ test("material lookup is protected and consults exact code independently of anal
                   reference: "ABC123",
                   unit: "UN",
                   average_cost: "30",
+                  last_purchase_cost: "27.50",
+                  last_purchase_at: "2026-08-01T12:00:00Z",
+                  purchase_establishment: "Principal",
+                  details: { fabricanteNome: "Fabricante teste", codigoSimilaridade: "ABC999" },
                   minimum_price: "40",
                   sale_price: "50",
                   stock: "0",
@@ -70,11 +77,17 @@ test("material lookup is protected and consults exact code independently of anal
   );
   await page.goto("/analise-materiais?code=5");
   const panel = page.getByRole("region", {
-    name: "Consulta por código do material",
+    name: "Consulta de produtos",
   });
-  await expect(panel.getByLabel("Código do material")).toHaveValue("5");
+  await expect(panel.getByLabel("Pesquisar produto")).toHaveValue("5");
   await expect(panel).toContainText("Filtro teste");
   await expect(panel).toContainText("30,00");
+  await expect(panel).toContainText("27,50");
+  await expect(panel).toContainText("Filtro similar");
+  await expect(panel.getByRole("link", { name: "Cód. 6", exact: true })).toHaveAttribute("href", "/analise-materiais?code=6");
+  await panel.getByText("Informações completas do produto", { exact: true }).click();
+  await expect(panel.locator(".product-full-details details")).toHaveCount(0);
+  await expect(panel).toContainText("Fabricante teste");
   await expect(panel).toContainText("40,00");
   await expect(panel).toContainText("50,00");
   await expect(panel).toContainText("A consultar");
@@ -121,12 +134,15 @@ test("material lookup is protected and consults exact code independently of anal
   await expect(popup.getByRole("img")).toHaveAttribute("alt", "Filtro teste — foto ampliada 2");
   await popup.getByRole("button", { name: "Próxima foto ampliada" }).click();
   await expect(popup.getByRole("img")).toHaveAttribute("alt", "Filtro teste — foto ampliada 3");
+  await popup.getByRole("button", { name: "Foto anterior ampliada" }).focus();
   await page.keyboard.press("ArrowLeft");
   await expect(popup.getByRole("img")).toHaveAttribute("alt", "Filtro teste — foto ampliada 2");
   await page.keyboard.press("Escape");
   await expect(popup).not.toBeVisible();
   expect(photoRequests).toBeGreaterThan(0);
-  await panel.getByLabel("Código do material").fill("999");
+  await panel.getByLabel("Pesquisar produto").fill("oleo fabricante");
   await panel.getByRole("button", { name: "Consultar material" }).click();
+  await expect(panel).toContainText("Produto pesquisado");
+  await panel.getByRole("button", { name: "Consultar produto", exact: true }).click();
   await expect(panel).toContainText("Nenhum material encontrado");
 });
