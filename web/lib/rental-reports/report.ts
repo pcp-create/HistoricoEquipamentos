@@ -64,8 +64,8 @@ export const rentalTitle = (kind: Kind) =>
   kind === "overdue"
     ? "[ALERTA] Locações/Emprestimos vencidos ou com menos de 5 dias"
     : kind === "weekly"
-      ? "Contratos próximos do vencimento"
-      : "Relatório mensal de locações e empréstimos";
+      ? "[ALERTA] Locações/Emprestimos — Próximos do vencimento (semanal)"
+      : "[ALERTA] Locações/Emprestimos — Relatório mensal";
 export function contractPresentation(remaining: number | null) {
   return remaining == null
     ? {

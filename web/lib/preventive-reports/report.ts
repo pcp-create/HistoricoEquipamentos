@@ -145,9 +145,9 @@ const escape = (s: unknown) =>
 export function reportMessage(report: Report) {
   const title =
     report.kind === "weekly"
-      ? "Preventivas dos próximos 30 dias"
+      ? "[ALERTA] Preventivas — Próximos 30 dias (semanal)"
       : report.kind === "monthly"
-        ? "Relatório mensal de preventivas"
+        ? "[ALERTA] Preventivas — Relatório mensal"
         : `[ALERTA] Preventivas vencidas — ${displayDate(report.date)}`;
   const summary = `${report.equipmentCount} equipamentos · ${report.planCount} planos selecionados.`;
   const note =
