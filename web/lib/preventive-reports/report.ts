@@ -7,7 +7,7 @@ import {
   type Operating,
   type RentalUsage,
 } from "../equipment-management/planning";
-export type ReportKind = "weekly" | "overdue";
+export type ReportKind = "weekly" | "overdue" | "monthly";
 export type Source = {
   id: string;
   name: string;
@@ -59,13 +59,18 @@ export function buildReport(
   const selected = equipment.filter((e) =>
     kind === "overdue"
       ? e.status === "overdue"
-      : ["ok", "soon"].includes(e.status),
+      : kind === "weekly"
+        ? e.status === "soon"
+        : ["ok", "soon", "overdue"].includes(e.status),
   );
   const rows = selected.flatMap((e) =>
     e.plans
       .filter(
         (p) =>
-          kind === "weekly" || ["overdue", "due"].includes(p.forecast.status),
+          kind === "monthly" ||
+          (kind === "weekly"
+            ? p.forecast.status === "soon"
+            : ["overdue", "due"].includes(p.forecast.status)),
       )
       .map((p) => ({
         equipment: e.id,
@@ -140,8 +145,10 @@ const escape = (s: unknown) =>
 export function reportMessage(report: Report) {
   const title =
     report.kind === "weekly"
-      ? "Relatório semanal de preventivas"
-      : "Alerta de preventivas vencidas";
+      ? "Preventivas dos próximos 30 dias"
+      : report.kind === "monthly"
+        ? "Relatório mensal de preventivas"
+        : "Alerta de preventivas vencidas";
   const summary = `${report.equipmentCount} equipamentos · ${report.planCount} planos selecionados.`;
   const note =
     "Previsões por horímetro são estimativas. Vale o limite que ocorrer primeiro, por horas ou meses. Revisões maiores podem atender aos planos menores; conferir o escopo antes de programar serviços.";

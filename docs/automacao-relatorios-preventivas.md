@@ -4,18 +4,20 @@ API preparada para publicação; nenhum workflow remoto foi criado, publicado ou
 
 ## Arquivos para importar no n8n
 
-- `automations/n8n/preventivas-weekly.json`: segunda-feira às 07:00, equipamentos em dia e próximos 30 dias.
+- `automations/n8n/preventivas-weekly.json`: segunda-feira às 07:00, somente planos que vencem nos próximos 30 dias, sem itens em dia.
 - `automations/n8n/preventivas-overdue.json`: segunda a sexta às 07:00, vencidas/limite atingido. Sem envio automático quando não há vencidas (teste manual ainda gera relatório vazio).
 
-Ambos usam `America/Sao_Paulo`, estão despublicados e vêm com `testMode: true`. O teste envia somente para Guilherme. Após mudar `testMode` para `false`, os destinatários são Guilherme e Bruno, conforme solicitado. Feriados em dias úteis não são excluídos.
+Os três usam `America/Sao_Paulo`, estão despublicados e vêm com `testMode: true`. O teste envia somente para Guilherme. Após mudar `testMode` para `false`, os destinatários são Guilherme e Bruno, conforme solicitado. Feriados em dias úteis não são excluídos.
 
 Remetente: guilherme.waltrick@rjserranacompressores.com.br.
 Destinatários: guilherme.waltrick@rjserranacompressores.com.br e bruno.pereira@rjcompressores.com.br.
 WhatsApp de teste: 554797530760, instância informada BotDemandas.
 
+- `automations/n8n/preventivas-monthly.json`: dia 1º de cada mês às 07:00, visão geral incluindo em dia, próximos do vencimento e vencidos. Essa agenda mensal foi adotada como padrão e pode ser ajustada no nó Agenda Brasília.
+
 ## API e prévia no sistema
 
-Nova rota `GET /api/preventive-reports?kind=weekly|overdue&format=json|pdf|html`.
+Nova rota `GET /api/preventive-reports?kind=weekly|overdue|monthly&format=json|pdf|html`.
 - Administradores autenticados podem baixar PDFs acessando `/api/preventive-reports?kind=weekly&format=pdf` ou `/api/preventive-reports?kind=overdue&format=pdf`.
 - Automação usa `Authorization: Bearer <TOKEN>`; token exclusivo do relatório, mínimo 32 caracteres, comparação constante. Configure `PREVENTIVE_REPORT_TOKEN` no servidor do sistema, nunca com prefixo NEXT_PUBLIC.
 - Para gerar um token: `openssl rand -hex 32`. Guarde no ambiente do sistema e em credencial do n8n, não no workflow nem no Git.
@@ -47,7 +49,7 @@ Selecione a credencial Evolution no nó **Enviar WhatsApp** e habilite-o para te
 - Mesma função `predict` e mesma apuração de tempo parado (`rentalUsage`) usadas pelo sistema.
 - Uma máquina com plano vencido/limite atingido entra no alerta diário. Este mostra somente os planos vencidos dessa máquina.
 - Sem vencidas, dados incompletos ou inconsistentes impedem classificar a máquina como em dia.
-- Sem pendências, qualquer plano com vencimento até 30 dias coloca a máquina no semanal como próxima; demais máquinas completas entram como em dia.
+- Sem pendências, qualquer plano com vencimento até 30 dias coloca a máquina no semanal como próxima; demais máquinas completas entram como em dia somente no mensal. O semanal lista apenas os planos próximos do vencimento; o mensal também inclui equipamentos vencidos.
 - Sem plano também conta como cadastro incompleto, nunca como OK.
 - O resumo informa quantos equipamentos estão sem previsão completa. O PDF lista todos os planos selecionados, agrupando as informações por item; o e-mail limita a tabela a 30 linhas. Revisões menores não são ocultadas: o relatório informa que uma maior pode cobri-las.
 - Horímetro atual é identificado como estimativa. Data/OS e horímetro da última intervenção são dados cadastrados.

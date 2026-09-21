@@ -27,14 +27,14 @@ export async function GET(req: Request) {
       kind = p.get("kind"),
       format = p.get("format") || "json";
     if (
-      !["weekly", "overdue"].includes(kind || "") ||
+      !["weekly", "overdue", "monthly"].includes(kind || "") ||
       !["json", "pdf", "html"].includes(format)
     )
       return Response.json(
-        { error: "Use kind=weekly|overdue e format=json|pdf|html." },
+        { error: "Use kind=weekly|overdue|monthly e format=json|pdf|html." },
         { status: 400, headers },
       );
-    const report = await loadReport(kind as "weekly" | "overdue"),
+    const report = await loadReport(kind as "weekly" | "overdue" | "monthly"),
       message = reportMessage(report),
       filename = `preventivas-${kind}-${report.date}.pdf`;
     if (format === "html")

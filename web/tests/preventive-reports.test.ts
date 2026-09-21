@@ -45,7 +45,11 @@ test("reports group by equipment urgency, exclude incomplete from OK and include
   ];
   const weekly = buildReport(entries, "weekly", "2026-09-21"),
     daily = buildReport(entries, "overdue", "2026-09-21");
-  assert.equal(weekly.equipmentCount, 2);
+  assert.equal(weekly.equipmentCount, 1);
+  assert.ok(weekly.rows.every((r) => r.status === "soon"));
+  const monthly = buildReport(entries, "monthly", "2026-09-21");
+  assert.equal(monthly.equipmentCount, 3);
+  assert.ok(monthly.rows.some((r) => r.status === "scheduled"));
   assert.equal(daily.equipmentCount, 1);
   assert.equal(weekly.coverage.incomplete, 2);
   assert.equal(
@@ -73,7 +77,7 @@ test("rental idle hours use shared forecast; HTML is escaped and PDFs paginate",
   assert.equal(report.coverage.incomplete, 1);
   const populated = buildReport(
     Array.from({ length: 90 }, (_, i) => source(String(i), [plan])),
-    "weekly",
+    "monthly",
     "2026-09-21",
   );
   assert.ok(!reportMessage(populated).html.includes("<script>"));

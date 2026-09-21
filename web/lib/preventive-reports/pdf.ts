@@ -93,11 +93,13 @@ export async function reportPdf(report: Report) {
     text("GESTÃO INTEGRADA", 151, 32, 9, true, muted);
     text(
       report.kind === "weekly"
-        ? "Relatório de preventivas"
-        : "Preventivas vencidas",
+        ? "Preventivas: próximos 30 dias"
+        : report.kind === "monthly"
+          ? "Relatório mensal de preventivas"
+          : "Preventivas vencidas",
       151,
       48,
-      18,
+      16,
       true,
     );
     text(
