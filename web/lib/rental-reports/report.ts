@@ -62,7 +62,7 @@ export function buildRentalReport(
 export type RentalReport = ReturnType<typeof buildRentalReport>;
 export const rentalTitle = (kind: Kind) =>
   kind === "overdue"
-    ? "Contratos vencidos ou com menos de 5 dias"
+    ? "[ALERTA] Locações/Emprestimos vencidos ou com menos de 5 dias"
     : kind === "weekly"
       ? "Contratos próximos do vencimento"
       : "Relatório mensal de locações e empréstimos";
@@ -119,7 +119,10 @@ const esc = (s: unknown) =>
   );
 const plain = (s: string) => s.replace(/[\r\n*_~`]/g, " ").trim();
 export function rentalMessage(report: RentalReport) {
-  const title = rentalTitle(report.kind),
+  const title =
+      report.kind === "overdue"
+        ? `${rentalTitle(report.kind)} — ${displayDate(report.date)}`
+        : rentalTitle(report.kind),
     summary = `${report.equipmentCount} máquinas locadas ou emprestadas neste relatório.`;
   const coverage = `Base: ${report.coverage.active} contratos ativos; ${report.coverage.incomplete} com datas incompletas. Datas incompletas aparecem no mensal, sem classificação de prazo.`;
   const html = `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><body style="font-family:Arial,sans-serif;color:#233b53;max-width:1000px;margin:auto;padding:24px"><h1>Gestão Integrada</h1><h2>${title}</h2><p>Prezados,</p><p>Segue o acompanhamento dos contratos em ${displayDate(report.date)}, horário de Brasília.</p><p><strong>${summary}</strong></p><table cellpadding="10" border="1" cellspacing="0" style="border-collapse:collapse;border-color:#dbe3ed;font-size:13px;width:100%"><tr><th>Cliente / equipamento</th><th>Vínculo / OS</th><th>Período</th><th>Situação</th></tr>${
@@ -133,7 +136,10 @@ export function rentalMessage(report: RentalReport) {
     '<tr><td colspan="4">Nenhum contrato nesta situação.</td></tr>'
   }</table><p>Relação completa no PDF anexo. Este e-mail exibe até 30 itens.</p><p>${coverage}</p><p style="font-size:12px;color:#64748b">Início: abertura da OS. Fim: Data de Entrega da OS. Classificação conforme vínculo atual da máquina.</p><p>Atenciosamente,<br>Gestão Integrada · Gestão de equipamentos</p></body></html>`;
   return {
-    subject: `${title} — ${displayDate(report.date)}`,
+    subject:
+      report.kind === "overdue"
+        ? title
+        : `${title} — ${displayDate(report.date)}`,
     html,
     text: `${title}\n${summary}\n${coverage}\nRelação completa no PDF anexo.`,
     whatsapp: [

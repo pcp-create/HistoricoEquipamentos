@@ -96,7 +96,7 @@ export async function reportPdf(report: Report) {
         ? "Preventivas: próximos 30 dias"
         : report.kind === "monthly"
           ? "Relatório mensal de preventivas"
-          : "Preventivas vencidas",
+          : "[ALERTA] Preventivas vencidas",
       151,
       48,
       16,

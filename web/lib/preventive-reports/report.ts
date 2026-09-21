@@ -148,7 +148,7 @@ export function reportMessage(report: Report) {
       ? "Preventivas dos próximos 30 dias"
       : report.kind === "monthly"
         ? "Relatório mensal de preventivas"
-        : "Alerta de preventivas vencidas";
+        : `[ALERTA] Preventivas vencidas — ${displayDate(report.date)}`;
   const summary = `${report.equipmentCount} equipamentos · ${report.planCount} planos selecionados.`;
   const note =
     "Previsões por horímetro são estimativas. Vale o limite que ocorrer primeiro, por horas ou meses. Revisões maiores podem atender aos planos menores; conferir o escopo antes de programar serviços.";
@@ -162,7 +162,10 @@ export function reportMessage(report: Report) {
     .join("");
   const html = `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><body style="font-family:Arial,sans-serif;color:#233b53;max-width:980px;margin:auto;padding:24px"><h1 style="font-size:24px">Gestão Integrada</h1><h2>${title}</h2><p>Prezados,</p><p>Segue o acompanhamento das preventivas em ${displayDate(report.date)}, horário de Brasília.</p><p><strong>${summary}</strong></p><table cellpadding="10" cellspacing="0" border="1" style="border-collapse:collapse;border-color:#dbe3ed;font-size:13px;width:100%"><thead><tr><th>Cliente / equipamento</th><th>Plano</th><th>Situação / previsão</th><th>Última intervenção</th></tr></thead><tbody>${rows || '<tr><td colspan="4">Nenhum equipamento nesta situação.</td></tr>'}</tbody></table><p>O PDF anexo contém a relação completa${report.rows.length > 30 ? "; este e-mail exibe os primeiros 30 planos" : ""}.</p><p>${coverage}</p><p style="font-size:12px;color:#66788a">${note}</p><p>Atenciosamente,<br>Gestão Integrada · Planejamento de manutenção</p></body></html>`;
   return {
-    subject: `${title} — ${displayDate(report.date)}`,
+    subject:
+      report.kind === "overdue"
+        ? title
+        : `${title} — ${displayDate(report.date)}`,
     html,
     text: `${title}\n${displayDate(report.date)} — Brasília\n${summary}\n${coverage}\n${note}\nConsulte a relação completa no PDF anexo.`,
     whatsapp: [
