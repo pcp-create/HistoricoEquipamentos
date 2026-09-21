@@ -1,0 +1,218 @@
+{
+  "name": "Locações e empréstimos — Diário",
+  "nodes": [
+    {
+      "id": "9b6f9763-a932-426b-a9cb-79c6be8e2562",
+      "name": "Teste manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "eb3e828c-a1ab-412b-8387-7025f31a6059",
+      "name": "Agenda Brasília",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        220
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1-5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3c47952d-7889-4937-83b8-dda4604ff849",
+      "name": "Configuração",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        230,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{json: {\n  systemUrl: 'https://historicorj.vercel.app',\n  kind: 'overdue',\n  testMode: true,\n  from: 'guilherme.waltrick@rjserranacompressores.com.br',\n  testEmail: 'guilherme.waltrick@rjserranacompressores.com.br',\n  recipients: 'guilherme.waltrick@rjserranacompressores.com.br,bruno.pereira@rjcompressores.com.br',\n  evolutionUrl: 'http://EVOLUTION_INTERNO:8080',\n  instance: 'BotDemandas',\n  phone: '554797530760'\n}}];"
+      }
+    },
+    {
+      "id": "e4cf4bc5-6bbc-4741-b589-70598ca3cd71",
+      "name": "Gerar relatório",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        470,
+        0
+      ],
+      "parameters": {
+        "url": "={{ $json.systemUrl + '/api/rental-reports?kind=' + $json.kind }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 60000
+        }
+      }
+    },
+    {
+      "id": "223c4172-e1df-48f4-b67c-4ef0f12ce4df",
+      "name": "Preparar PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        710,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const report = $input.first().json;\nconst config = $('Configuração').first().json;\nif (!report.pdf?.base64 || !report.html) throw new Error('Relatório incompleto; envio interrompido.');\nif (!config.testMode && report.kind === 'overdue' && report.equipmentCount === 0) return [];\nreturn [{json: {...config, ...report, pdf: undefined}, binary: {report: {data: report.pdf.base64, mimeType: 'application/pdf', fileName: report.pdf.filename, fileExtension: 'pdf'}}}];"
+      }
+    },
+    {
+      "id": "f7f31d37-63ad-49f3-b0f9-df79b5d3e3a8",
+      "name": "Enviar e-mail",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        950,
+        0
+      ],
+      "parameters": {
+        "fromEmail": "={{ $json.from }}",
+        "toEmail": "={{ $json.testMode ? $json.testEmail : $json.recipients }}",
+        "subject": "={{ ($json.testMode ? '[TESTE] ' : '') + $json.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.text }}",
+        "html": "={{ $json.html }}",
+        "options": {
+          "attachments": "report",
+          "appendAttribution": false
+        }
+      }
+    },
+    {
+      "id": "8ebc3367-c5ea-4f7e-8ccd-5d402b238d3f",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1190,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Preparar PDF').first().json.evolutionUrl + '/message/sendText/' + encodeURIComponent($('Preparar PDF').first().json.instance) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {number: $('Preparar PDF').first().json.phone, text: $('Preparar PDF').first().json.whatsapp} }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "disabled": true
+    },
+    {
+      "id": "6dee60f5-97b7-4f5d-bff9-3f90f30f2aae",
+      "name": "Leia antes de ativar",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        220,
+        360
+      ],
+      "parameters": {
+        "content": "## Configuração obrigatória\nFluxo despublicado e em modo de teste.\n1. Publicar a API do sistema antes de executar.\n2. Ajustar URL em Configuração.\n3. Gerar relatório: credencial Header Auth (Authorization: Bearer TOKEN).\n4. Enviar e-mail: selecionar SMTP account.\n5. WhatsApp desativado: configurar endereço interno/HTTPS e credencial Header Auth (apikey).\n6. Testar manualmente, conferir PDF e destino.\n7. testMode=false para incluir Bruno; publicar só depois do teste.\nNão repetir execução completa após envio parcial: pode duplicar mensagens.\nRelatórios de contratos: diário vencidos/menos de 5 dias; semanal de 0 a 29 dias; mensal todos os locados e emprestados.",
+        "height": 420,
+        "width": 400
+      }
+    }
+  ],
+  "connections": {
+    "Teste manual": {
+      "main": [
+        [
+          {
+            "node": "Configuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agenda Brasília": {
+      "main": [
+        [
+          {
+            "node": "Configuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuração": {
+      "main": [
+        [
+          {
+            "node": "Gerar relatório",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar relatório": {
+      "main": [
+        [
+          {
+            "node": "Preparar PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar PDF": {
+      "main": [
+        [
+          {
+            "node": "Enviar e-mail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar e-mail": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "tags": []
+}
