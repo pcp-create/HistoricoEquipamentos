@@ -116,6 +116,13 @@ export const statusLabel: Record<string, string> = {
   scheduled: "Em dia",
   incomplete: "Dados incompletos",
 };
+export function statusColors(status: string) {
+  if (status === "overdue" || status === "due")
+    return { text: "#b42318", background: "#fff0ee" };
+  if (status === "soon") return { text: "#946200", background: "#fff6da" };
+  if (status === "scheduled") return { text: "#16704a", background: "#eaf7ef" };
+  return { text: "#526477", background: "#edf2f7" };
+}
 export const displayDate = (s: string | null) =>
   s ? s.split("-").reverse().join("/") : "Não informado";
 export const displayNumber = (n: number | null) =>
@@ -143,7 +150,7 @@ export function reportMessage(report: Report) {
     .slice(0, 30)
     .map(
       (r) =>
-        `<tr><td>${escape(r.clients)}<br><strong>${escape(r.name)}</strong><br>Cód. ${escape(r.equipment)} · Série ${escape(r.serial || "não informada")}</td><td>${escape(r.plan)}</td><td>${escape(statusLabel[r.status])}${r.incomplete ? " · previsão parcial" : ""}<br>${displayDate(r.due)}</td><td>${displayDate(r.lastDate)}<br>OS ${escape(r.lastOrder || "não informada")}</td></tr>`,
+        `<tr><td>${escape(r.clients)}<br><strong>${escape(r.name)}</strong><br>Cód. ${escape(r.equipment)} · Série ${escape(r.serial || "não informada")}</td><td>${escape(r.plan)}</td><td style="min-width:150px"><span style="display:inline-block;padding:5px 8px;border-radius:5px;background:${statusColors(r.status).background};color:${statusColors(r.status).text};font-weight:700">${escape(statusLabel[r.status])}</span><br><span style="display:inline-block;margin-top:7px;font-weight:600;color:${statusColors(r.status).text}">${displayDate(r.due)}</span>${r.incomplete ? '<br><small style="color:#64748b">Previsão parcial</small>' : ""}</td><td>${displayDate(r.lastDate)}<br>OS ${escape(r.lastOrder || "não informada")}</td></tr>`,
     )
     .join("");
   const html = `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><body style="font-family:Arial,sans-serif;color:#233b53;max-width:980px;margin:auto;padding:24px"><h1 style="font-size:24px">Gestão Integrada</h1><h2>${title}</h2><p>Prezados,</p><p>Segue o acompanhamento das preventivas em ${displayDate(report.date)}, horário de Brasília.</p><p><strong>${summary}</strong></p><table cellpadding="10" cellspacing="0" border="1" style="border-collapse:collapse;border-color:#dbe3ed;font-size:13px;width:100%"><thead><tr><th>Cliente / equipamento</th><th>Plano</th><th>Situação / previsão</th><th>Última intervenção</th></tr></thead><tbody>${rows || '<tr><td colspan="4">Nenhum equipamento nesta situação.</td></tr>'}</tbody></table><p>O PDF anexo contém a relação completa${report.rows.length > 30 ? "; este e-mail exibe os primeiros 30 planos" : ""}.</p><p>${coverage}</p><p style="font-size:12px;color:#66788a">${note}</p><p>Atenciosamente,<br>Gestão Integrada · Planejamento de manutenção</p></body></html>`;

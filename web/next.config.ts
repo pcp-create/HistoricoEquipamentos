@@ -10,7 +10,9 @@ const config: NextConfig = {
   ],
   turbopack: { root: path.resolve(__dirname) },
   serverExternalPackages: ["pg"],
-  outputFileTracingIncludes: { "/api/**": ["./certs/supabase-ca.crt"] },
+  outputFileTracingIncludes: {
+    "/api/**": ["./certs/supabase-ca.crt", "./public/logo-rj.png"],
+  },
   async headers() {
     return [
       {
