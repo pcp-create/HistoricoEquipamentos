@@ -122,7 +122,7 @@ export async function adminOverview() {
   const db = database();
   const users = (
     await db.query(`SELECT email,display_name,role,enabled,last_login_at,last_seen_at,last_logout_at,
- (enabled AND last_seen_at>now()-interval '2 minutes' AND (last_logout_at IS NULL OR last_seen_at>last_logout_at)) AS online FROM web_user_access ORDER BY role,email`)
+ (enabled AND last_seen_at>now()-interval '15 minutes' AND (last_logout_at IS NULL OR last_seen_at>last_logout_at)) AS online FROM web_user_access ORDER BY role,email`)
   ).rows;
   const events = (
     await db.query(

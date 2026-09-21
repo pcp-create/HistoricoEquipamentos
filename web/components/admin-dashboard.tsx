@@ -147,7 +147,7 @@ export default function AdminDashboard() {
                 </fieldset>
               </form>
               <p className="muted">
-                Online = tela visível com atividade nos últimos 2 minutos, não
+                Online = tela visível com atividade nos últimos 15 minutos, não
                 uma conexão contínua. Último acesso registra login; última
                 atividade registra a presença na tela. Datas em Brasília.
                 Registros anteriores à implantação podem não estar disponíveis.
