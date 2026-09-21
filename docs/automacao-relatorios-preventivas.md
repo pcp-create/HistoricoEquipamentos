@@ -42,7 +42,7 @@ O webhook `/webhook/evolution` recebe eventos; o envio usa a API do Evolution. O
 
 Em **Configuração**, substitua `http://EVOLUTION_INTERNO:8080` pelo endereço acessível ao contêiner n8n. Quando estiverem na mesma rede Docker, use o nome do serviço Evolution e sua porta interna. Para acesso externo, configure HTTPS antes de transmitir a chave; o Manager informado usa HTTP público. Não altere o webhook já utilizado pelas outras automações.
 
-Selecione a credencial Evolution no nó **Enviar WhatsApp** e habilite-o para testar. Não há chave embutida nos arquivos. Validar o envio ao próprio número da instância e o endpoint na instalação 2.3.7 antes de ativar a agenda. O WhatsApp leva resumo dos primeiros cinco planos e indica que a relação completa foi enviada por e-mail; o PDF vai no e-mail.
+Selecione a credencial Evolution no nó **Enviar WhatsApp** e habilite-o para testar. Não há chave embutida nos arquivos. Validar o envio ao próprio número da instância e o endpoint na instalação 2.3.7 antes de ativar a agenda. O WhatsApp leva resumo dos primeiros dez planos e indica que a relação completa foi enviada por e-mail; o PDF vai no e-mail.
 
 ## Regras do relatório
 

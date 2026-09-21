@@ -165,14 +165,60 @@ export function reportMessage(report: Report) {
     subject: `${title} — ${displayDate(report.date)}`,
     html,
     text: `${title}\n${displayDate(report.date)} — Brasília\n${summary}\n${coverage}\n${note}\nConsulte a relação completa no PDF anexo.`,
-    whatsapp: `*Gestão Integrada — Preventivas*\n${displayDate(report.date)}\n${title}\n${summary}\n${report.rows
-      .slice(0, 5)
-      .map(
-        (r) =>
-          `• ${r.name} (${r.serial || r.equipment}): ${r.plan} — ${statusLabel[r.status]}, previsão ${displayDate(r.due)}`,
-      )
-      .join(
-        "\n",
-      )}\nRelação completa enviada por e-mail. Previsões por horímetro são estimativas.`,
+    whatsapp: [
+      "*Gestão Integrada | Preventivas*",
+      `📅 ${displayDate(report.date)} · Brasília`,
+      `\n*${title}*`,
+      `📊 ${report.equipmentCount} equipamentos · ${report.planCount} planos`,
+      report.rows.length
+        ? `\n*${Math.min(10, report.rows.length)} itens · por data de vencimento*`
+        : "\nNenhum equipamento nesta situação.",
+      ...report.rows.slice(0, 10).map((r, i) => {
+        const plain = (value: string) =>
+          value
+            .replace(/[\r\n]+/g, " ")
+            .replace(/[*_~`]/g, "")
+            .trim();
+        const icon =
+          r.status === "overdue" || r.status === "due"
+            ? "🔴"
+            : r.status === "soon"
+              ? "🟡"
+              : r.status === "scheduled"
+                ? "🟢"
+                : "⚪";
+        const serial =
+          r.serial &&
+          !r.name.toLocaleLowerCase().includes(r.serial.toLocaleLowerCase())
+            ? ` · Série ${plain(r.serial)}`
+            : "";
+        const deadline =
+          r.days == null
+            ? ""
+            : r.days < 0
+              ? ` · ${Math.abs(r.days)} dias em atraso`
+              : r.days === 0
+                ? " · Hoje"
+                : ` · Faltam ${r.days} dias`;
+        return [
+          `\n*${i + 1}. ${plain(r.name)}*`,
+          `Cliente: ${plain(r.clients)}`,
+          `Cód. ${plain(r.equipment)}${serial}`,
+          `🔧 ${plain(r.plan)}`,
+          `${icon} *${statusLabel[r.status]}*`,
+          `Previsão: ${displayDate(r.due)}${deadline}`,
+          ...(r.incomplete || r.inconsistent
+            ? [
+                "⚠️ Conferir cadastro: previsão parcial ou leitura inconsistente.",
+              ]
+            : []),
+        ].join("\n");
+      }),
+      ...(report.rows.length > 10
+        ? [`\nMais ${report.rows.length - 10} planos no relatório completo.`]
+        : []),
+      "\n📎 Relação completa no PDF enviado por e-mail.",
+      "ℹ️ Previsões por horímetro são estimativas. Vale o primeiro limite: horas ou meses.",
+    ].join("\n"),
   };
 }
