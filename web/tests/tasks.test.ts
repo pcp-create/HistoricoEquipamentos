@@ -39,6 +39,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       "008_administration.sql",
       "009_employees.sql",
       "010_tasks.sql",
+      "011_task_kanban.sql",
     ])
       await db.exec(
         readFileSync(new URL("../sql/" + f, import.meta.url), "utf8"),
@@ -117,6 +118,65 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     await acknowledgeNotification(notices[0].id, notices[0].token);
     await acknowledgeNotification(notices[0].id, notices[0].token);
     assert.equal((await claimNotifications("https://app.example")).length, 0);
+    d = await taskDetail(id);
+    const legacy = await db.query<{ id: string }>(
+      "INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,'Responsável / prioridade atualizados','Atribuído a: person@example.com. Prioridade: Urgente.',false,'person@example.com','person@example.com') RETURNING id",
+      [id],
+    );
+    const legacyNote = (await taskDetail(id)).notes.find(
+      (n: any) => String(n.id) === String(legacy.rows[0].id),
+    );
+    assert.equal(
+      legacyNote.description,
+      "Atribuído a: Pessoa. Prioridade: Urgente.",
+    );
+    assert.equal(legacyNote.created_name, "Pessoa");
+    const storedNote = await db.query<{ description: string }>(
+      "SELECT description FROM web_task_notes WHERE id=$1",
+      [legacy.rows[0].id],
+    );
+    assert.match(storedNote.rows[0].description, /person@example.com/);
+    d = await updateTask(
+      {
+        id,
+        version: d.task.version,
+        action: "update",
+        assignedTo: "other@example.com",
+        priority: "high",
+        automaticPriority: false,
+      },
+      user,
+    );
+    assert.equal(d.task.assignee_name, "Outro");
+    assert.equal(d.task.modifier_name, "Pessoa");
+    assert.match(d.notes[0].description, /Atribuído a: Outro/);
+    const reassigned = await claimNotifications("https://app.example");
+    assert.equal(reassigned.length, 1);
+    assert.equal(reassigned[0].number, "5547888888888");
+    await acknowledgeNotification(reassigned[0].id, reassigned[0].token);
+    d = await updateTask(
+      {
+        id,
+        version: d.task.version,
+        action: "update",
+        assignedTo: "other@example.com",
+        priority: "normal",
+        automaticPriority: false,
+      },
+      user,
+    );
+    assert.equal((await claimNotifications("https://app.example")).length, 0);
+    d = await updateTask(
+      {
+        id,
+        version: d.task.version,
+        action: "update",
+        assignedTo: "other@example.com",
+        priority: "high",
+        automaticPriority: false,
+      },
+      user,
+    );
     await syncTasks(async () => [
       { ...source, state: "overdue", priority: "urgent" },
     ]);
@@ -147,8 +207,30 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       user,
     );
     assert.equal(d.notes[0].created_by, user.email);
-    d = await attachTask(id, new File(["evidência"], "evidencia.txt"), user);
+    d = await attachTask(
+      id,
+      new File(["%PDF-1.7 evidência"], "evidencia.PDF"),
+      user,
+    );
     assert.equal(d.attachments.length, 1);
+    for (const name of [
+      "programa.exe",
+      "foto.png",
+      "arquivo.pdf.exe",
+      "semextensao",
+      "documento.docm",
+    ]) {
+      await assert.rejects(
+        () =>
+          attachTask(
+            id,
+            new File(["conteúdo"], name, { type: "application/pdf" }),
+            user,
+          ),
+        /Envie PDF/,
+      );
+    }
+
     await assert.rejects(
       () =>
         attachTask(id, new File([new Uint8Array(3000001)], "grande.bin"), user),
@@ -209,6 +291,86 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       "UPDATE web_user_access SET enabled=false WHERE email='other@example.com'",
     );
     assert.equal((await claimNotifications("https://app.example")).length, 0);
+    let movable = await taskDetail(String(current.id));
+    const move = (assignment?: string) =>
+      updateTask(
+        {
+          id: String(current.id),
+          version: movable.task.version,
+          action: "move",
+          column: "in_progress",
+          assignment,
+        },
+        user,
+      );
+    await assert.rejects(() => move(), /Escolha manter/);
+    movable = await move("keep");
+    assert.equal(movable.task.assigned_to, "other@example.com");
+    movable = await move("self");
+    assert.equal(movable.task.assigned_to, user.email);
+    assert.equal(movable.notifications[0].recipient, user.email);
+    const noticeCount = movable.notifications.length;
+    movable = await move("self");
+    assert.equal(movable.notifications.length, noticeCount);
+    await db.query(
+      "UPDATE web_tasks SET assigned_to=NULL,status='not_started',kanban_column='pending' WHERE id=$1",
+      [current.id],
+    );
+    movable = await move();
+    assert.equal(movable.task.assigned_to, user.email);
+    assert.equal(movable.task.status, "in_progress");
+    assert.ok(movable.task.first_assigned_at);
+    assert.equal(movable.notifications.length, noticeCount + 1);
+
+    movable = await updateTask(
+      {
+        id: String(current.id),
+        version: movable.task.version,
+        action: "move",
+        column: "pending",
+      },
+      user,
+    );
+    assert.equal(movable.task.status, "not_started");
+    assert.equal(movable.task.kanban_column, "pending");
+    movable = await updateTask(
+      {
+        id: String(current.id),
+        version: movable.task.version,
+        action: "move",
+        column: "overdue",
+      },
+      user,
+    );
+    assert.equal(movable.task.kanban_column, "overdue");
+    movable = await updateTask(
+      {
+        id: String(current.id),
+        version: movable.task.version,
+        action: "move",
+        column: "completed",
+      },
+      user,
+    );
+    assert.equal(movable.task.status, "completed");
+    assert.equal((await syncTasks(async () => [source])).created, 0);
+    await assert.rejects(
+      () =>
+        updateTask(
+          {
+            id: String(current.id),
+            version: movable.task.version,
+            action: "move",
+            column: "pending",
+          },
+          user,
+        ),
+      /reabertas/,
+    );
+    await syncTasks(async () => [
+      { ...source, state: "current", alert: false, resolved: true },
+    ]);
+    assert.equal((await syncTasks(async () => [source])).created, 1);
     await syncTasks(async () => []);
     assert.equal(
       (await listTasks(new URLSearchParams(), user)).tasks.filter(

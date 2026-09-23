@@ -1,3 +1,6 @@
+import { planItemUnit } from "./plan-items";
+import { planClients } from "./plan-clients";
+import { planCatalog } from "./plan-catalog";
 import { rentalUsage } from "./rental-usage";
 import { approvedMaterialSql } from "../material-approval";
 import { rentalStatuses } from "./rental-status";
@@ -5,6 +8,8 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { database } from "../db";
 import {
+  cascadeIntervention,
+  preventiveMonths,
   emptyOperating,
   parseOperating,
   parsePlan,
@@ -220,13 +225,21 @@ export async function equipmentDetail(raw: string) {
   ).rows;
   const events = (
     await db.query(
-      `SELECT id::text,plan_id,kind,document,created_at,created_by,display_name FROM web_equipment_events WHERE equipment_id=$1 ORDER BY created_at DESC,id DESC LIMIT 50`,
+      `SELECT e.id::text,e.plan_id,e.kind,e.document,e.created_at,e.created_by,e.display_name, (SELECT q.document->>'deletedAt' FROM web_quotes q WHERE q.id::text=e.document->>'quoteId') AS quote_deleted_at FROM web_equipment_events e WHERE e.equipment_id=$1 ORDER BY e.created_at DESC,e.id DESC LIMIT 50`,
       [id],
     )
   ).rows;
   if (equipment.rental)
     settings.document = { ...settings.document, ownership: "own" };
-  return { equipment, clients, settings, plans, history, events };
+  return {
+    equipment,
+    clients,
+    quoteClients: await planClients(db, id),
+    settings,
+    plans,
+    history,
+    events,
+  };
 }
 export async function saveEquipment(input: any, user: AuthUser) {
   const equipment = idOf(input?.equipment);
@@ -309,7 +322,16 @@ export async function saveEquipment(input: any, user: AuthUser) {
       if (input.action !== "plan" && !before)
         throw new EquipmentInputError("Selecione um plano existente.");
       planId = before?.id || randomUUID();
-      if (input.action === "plan") after = parsePlan(input.document);
+      if (input.action === "plan") {
+        after = parsePlan(input.document);
+        const catalog = await planCatalog(c, after.items || []);
+        after.items = (after.items || []).map((i: any) => ({
+          ...i,
+          name: catalog.get(`${i.kind}:${i.code}`)!.name,
+          ...planItemUnit(i, catalog.get(`${i.kind}:${i.code}`)!.unit),
+        }));
+        after.months ??= preventiveMonths(after.hours);
+      }
       if (input.action === "maintenance") {
         const event = parseIntervention(input.document);
         if (before.document.lastDate && event.date < before.document.lastDate)
@@ -378,6 +400,38 @@ export async function saveEquipment(input: any, user: AuthUser) {
           "INSERT INTO web_equipment_plans(id,equipment_id,document,updated_by) VALUES($1,$2,$3,$4)",
           [planId, equipment, JSON.stringify(after), user.email],
         );
+    }
+    if (input.action === "maintenance") {
+      const smaller = (
+        await c.query(
+          "SELECT id,document FROM web_equipment_plans WHERE equipment_id=$1 AND NOT archived AND id<>$2 FOR UPDATE",
+          [equipment, planId],
+        )
+      ).rows;
+      for (const row of smaller) {
+        const cascaded = cascadeIntervention(row.document, after);
+        if (!cascaded) continue;
+        await c.query(
+          "UPDATE web_equipment_plans SET document=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1",
+          [row.id, JSON.stringify(cascaded), user.email],
+        );
+        await c.query(
+          "INSERT INTO web_equipment_events(equipment_id,plan_id,kind,document,created_by,display_name) VALUES($1,$2,'maintenance',$3,$4,$5)",
+          [
+            equipment,
+            row.id,
+            JSON.stringify({
+              before: row.document,
+              after: cascaded,
+              intervention,
+              sourcePlan: planId,
+              cascade: true,
+            }),
+            user.email,
+            userDisplayName(user),
+          ],
+        );
+      }
     }
     await c.query(
       "INSERT INTO web_equipment_events(equipment_id,plan_id,kind,document,created_by,display_name) VALUES($1,$2,$3,$4,$5,$6)",

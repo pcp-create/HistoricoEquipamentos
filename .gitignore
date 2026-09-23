@@ -17,3 +17,6 @@ web/playwright-report/
 
 # Original manufacturer workbook stays private; imported through the CLI.
 /Comparativo 2017 GA-GX Rev.11.xls
+
+# Python research cache
+__pycache__/

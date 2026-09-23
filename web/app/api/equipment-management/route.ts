@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   try {
     const user = await requireUser();
     const raw = await req.text();
-    if (raw.length > 20000)
+    if (raw.length > 150000)
       return json({ error: "Dados excedem o limite." }, 413);
     let input;
     try {

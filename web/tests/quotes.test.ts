@@ -11,6 +11,7 @@ import {
   type QuoteItem,
 } from "../lib/quotes/types";
 import {
+  deleteQuote,
   saveQuote,
   getQuote,
   QuoteConflict,
@@ -429,6 +430,36 @@ test("draft persistence, concurrent edits and equipment suggestions isolate comp
       noSerial.items.some((i) => i.code === "5"),
       "NC falls back to installed equipment ID",
     );
+    await assert.rejects(
+      deleteQuote({ id: saved.id, version: 1 }, "admin@example.com", "Admin"),
+      QuoteConflict,
+    );
+    assert.ok(await getQuote(saved.id));
+    await deleteQuote(
+      { id: saved.id, version: updated.version },
+      "admin@example.com",
+      "Admin",
+    );
+    assert.equal(await getQuote(saved.id), null);
+    assert.ok(!(await listQuotes()).some((q) => q.id === saved.id));
+    await assert.rejects(
+      saveQuote(updated, "second@example.com"),
+      QuoteConflict,
+    );
+    await assert.rejects(
+      deleteQuote(
+        { id: saved.id, version: updated.version },
+        "admin@example.com",
+        "Admin",
+      ),
+      QuoteConflict,
+    );
+    const deleted = (
+      await db.query("SELECT document FROM web_quotes WHERE id=$1", [saved.id])
+    ).rows[0] as any;
+    assert.equal(deleted.document.deletedBy, "admin@example.com");
+    assert.equal(deleted.document.items[0].price, "15");
+    assert.ok(await getQuote(unfinished.id));
   } finally {
     globals.historyPool = previous;
     await db.close();

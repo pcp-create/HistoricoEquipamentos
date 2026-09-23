@@ -1,3 +1,4 @@
+import { parsePlanItems, type PlanItem } from "./plan-items";
 export class EquipmentInputError extends Error {}
 export const brazilToday = () =>
   new Intl.DateTimeFormat("en-CA", {
@@ -40,6 +41,7 @@ export type Operating = {
   notes: string;
 };
 export type Plan = {
+  items?: PlanItem[];
   name: string;
   hours: number | null;
   months: number | null;
@@ -265,6 +267,13 @@ export function parsePlan(v: any): Plan {
   if (!v || typeof v !== "object")
     throw new EquipmentInputError("Plano inválido.");
   const r = {
+    items: (() => {
+      try {
+        return parsePlanItems(v.items);
+      } catch (e) {
+        throw new EquipmentInputError((e as Error).message);
+      }
+    })(),
     name: text(v.name, 160),
     hours: number(v.hours, 1000000, false, 0.001),
     months: number(v.months, 1200, true, 1),
@@ -305,3 +314,35 @@ export const emptyOperating: Operating = {
   meterDate: "",
   notes: "",
 };
+
+/** A completed larger revision includes every smaller hourly plan. */
+export function cascadeIntervention(plan: Plan, source: Plan): Plan | null {
+  if (
+    !plan.hours ||
+    !source.hours ||
+    plan.hours >= source.hours ||
+    !source.lastDate
+  )
+    return null;
+  if (plan.lastDate && plan.lastDate >= source.lastDate) return null;
+  if (
+    plan.lastMeter != null &&
+    source.lastMeter != null &&
+    plan.lastMeter > source.lastMeter
+  )
+    return null;
+  return {
+    ...plan,
+    lastDate: source.lastDate,
+    lastMeter: source.lastMeter,
+    lastOrder: source.lastOrder,
+  };
+}
+
+export function preventiveMonths(hours: number | null): number | null {
+  if (hours === 2000) return 6;
+  if (hours === 4000) return 12;
+  if (hours === 8000) return 24;
+  if (hours != null && hours >= 20000) return 60;
+  return null;
+}

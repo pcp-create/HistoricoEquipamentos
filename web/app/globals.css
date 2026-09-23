@@ -3889,3 +3889,14 @@ a.quote-order-link:focus-visible {
 .module-breadcrumb { align-items: center; gap: 3px; }
 .module-breadcrumb > svg { flex-shrink: 0; color: #90a4ba; }
 .module-breadcrumb > span { display: inline-flex; align-items: center; align-self: stretch; padding: 14px 16px; white-space: nowrap; font-size: 13px; }
+
+.preventive-plan-items { margin: 20px 0; padding-top: 16px; border-top: 1px solid #dbe5f0; }
+.preventive-plan-items h3 { margin: 0 0 8px; font-size: 15px; }
+.preventive-plan-items input[type="number"] { width: 110px; min-width: 90px; }
+.preventive-quote-dialog { width: min(620px, calc(100vw - 32px)); }
+.preventive-quote-dialog fieldset { border: 0; padding: 0; margin: 16px 0 0; min-width: 0; }
+.preventive-quote-dialog label { display: grid; gap: 7px; margin: 14px 0; font-size: 13px; }
+.preventive-quote-dialog select { width: 100%; min-width: 0; padding: 11px; border: 1px solid #cbd8e3; border-radius: 6px; color: inherit; background: white; font: inherit; }
+.preventive-plan-history { margin: 16px 0; padding: 16px; border: 1px solid #dbe5f0; border-radius: 8px; background: #fff; }
+.preventive-plan-history h4 { margin: 0 0 8px; font-size: 14px; }
+.preventive-plan-history label { display: grid; gap: 6px; margin-bottom: 12px; font-size: 13px; }

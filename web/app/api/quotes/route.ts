@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
 import { logDataError } from "@/lib/data-error";
 import {
+  deleteQuote,
   getQuote,
   listQuotes,
   saveQuote,
@@ -72,6 +73,25 @@ export async function POST(request: Request) {
       return json({ error: "Orçamento inválido." }, 400);
     }
     return json(await saveQuote(body, user.email, userDisplayName(user)));
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function DELETE(request: Request) {
+  if (!sameOrigin(request)) return json({ error: "Origem inválida." }, 403);
+  try {
+    const user = await requireUser();
+    const raw = await request.text();
+    if (raw.length > 1000)
+      return json({ error: "Dados excedem o limite." }, 413);
+    let body;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      return json({ error: "Dados inválidos." }, 400);
+    }
+    return json(await deleteQuote(body, user.email, userDisplayName(user)));
   } catch (error) {
     return failure(error);
   }

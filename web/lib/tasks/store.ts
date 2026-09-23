@@ -1,3 +1,8 @@
+import { taskColumn, taskColumns } from "./kanban";
+import {
+  allowedTaskAttachment,
+  taskAttachmentTypeMessage,
+} from "./attachment-types";
 import "server-only";
 import { database } from "../db";
 import { taskSources, type TaskSource } from "./sources";
@@ -57,6 +62,19 @@ export async function syncTasks(
     let created = 0,
       completed = 0;
     const active = new Set<string>();
+    const closed = (
+      await c.query(
+        "SELECT * FROM web_tasks WHERE status='completed' AND NOT source_resolved FOR UPDATE",
+      )
+    ).rows;
+    for (const t of closed) {
+      const source = byKey.get(t.source_key);
+      if (!source || source.resolved || source.cycle !== t.cycle) {
+        await c.query("UPDATE web_tasks SET source_resolved=true WHERE id=$1", [
+          t.id,
+        ]);
+      } else active.add(t.source_key);
+    }
     for (const t of open) {
       const source = byKey.get(t.source_key);
       if (!source || source.resolved || source.cycle !== t.cycle) {
@@ -66,7 +84,7 @@ export async function syncTasks(
             ? "Nova intervenção registrada no plano preventivo."
             : `Processo atualizado: ${statusLabel(t.source_status)} → ${statusLabel(source.state)}.`;
         await c.query(
-          "UPDATE web_tasks SET status='completed',completed_at=now(),updated_at=now(),updated_by='Sistema',version=version+1 WHERE id=$1",
+          "UPDATE web_tasks SET status='completed',source_resolved=true,completed_at=now(),updated_at=now(),updated_by='Sistema',version=version+1 WHERE id=$1",
           [t.id],
         );
         await note(c, t.id, "Tarefa concluída automaticamente", reason);
@@ -151,7 +169,7 @@ export async function listTasks(p: URLSearchParams, user: AuthUser) {
   if (equipment) idValue(equipment);
   const rows = (
     await database().query(
-      `SELECT t.*,u.display_name assignee_name,u.enabled assignee_enabled FROM web_tasks t LEFT JOIN web_user_access u ON u.email=t.assigned_to WHERE ($1::text IS NULL OR t.assigned_to=$1) AND ($2::bigint IS NULL OR t.equipment_id=$2) ORDER BY t.created_at DESC,t.id DESC`,
+      `SELECT t.*,u.display_name assignee_name,m.display_name modifier_name,u.enabled assignee_enabled FROM web_tasks t LEFT JOIN web_user_access u ON u.email=t.assigned_to LEFT JOIN web_user_access m ON m.email=t.updated_by WHERE ($1::text IS NULL OR t.assigned_to=$1) AND ($2::bigint IS NULL OR t.equipment_id=$2) ORDER BY t.created_at DESC,t.id DESC`,
       [p.get("mine") === "true" ? user.email.toLowerCase() : null, equipment],
     )
   ).rows;
@@ -175,7 +193,7 @@ export async function taskDetail(id: string) {
   const db = database();
   const task = (
     await db.query(
-      "SELECT t.*,u.display_name assignee_name FROM web_tasks t LEFT JOIN web_user_access u ON u.email=t.assigned_to WHERE t.id=$1",
+      "SELECT t.*,u.display_name assignee_name,m.display_name modifier_name FROM web_tasks t LEFT JOIN web_user_access u ON u.email=t.assigned_to LEFT JOIN web_user_access m ON m.email=t.updated_by WHERE t.id=$1",
       [id],
     )
   ).rows[0];
@@ -194,10 +212,37 @@ export async function taskDetail(id: string) {
   ).rows;
   const notifications = (
     await db.query(
-      "SELECT id,recipient,state,attempts,created_at,sent_at FROM web_task_notifications WHERE task_id=$1 ORDER BY id DESC",
+      "SELECT n.id,n.recipient,u.display_name recipient_name,n.state,n.attempts,n.created_at,n.sent_at FROM web_task_notifications n LEFT JOIN web_user_access u ON u.email=n.recipient WHERE n.task_id=$1 ORDER BY n.id DESC",
       [id],
     )
   ).rows;
+  // Resolve legacy assignment notes without rewriting the audit record or
+  // replacing emails in notes written freely by users.
+  const people = (
+    await db.query("SELECT email,display_name FROM web_user_access")
+  ).rows;
+  const names = new Map<string, string>(
+    people.map((p) => [
+      p.email.trim().toLowerCase(),
+      p.display_name?.trim() || "Funcionário sem nome cadastrado",
+    ]),
+  );
+  for (const item of [...notes, ...attachments]) {
+    const name = names.get(item.created_by?.trim().toLowerCase());
+    if (name) item.created_name = name;
+    else if (item.created_name?.includes("@"))
+      item.created_name = "Usuário sem nome cadastrado";
+  }
+  for (const n of notes) {
+    if (n.title !== "Responsável / prioridade atualizados") continue;
+    n.description = n.description.replace(
+      /^(Atribuído a: )([^\s@]+@[^\s@]+)(\. Prioridade: )/,
+      (_match: string, prefix: string, email: string, suffix: string) =>
+        prefix +
+        (names.get(email.toLowerCase()) || "Funcionário sem nome cadastrado") +
+        suffix,
+    );
+  }
   return { task, notes, attachments, notifications };
 }
 export async function updateTask(body: any, user: AuthUser) {
@@ -207,6 +252,8 @@ export async function updateTask(body: any, user: AuthUser) {
   const c = await database().connect();
   try {
     await c.query("BEGIN READ WRITE");
+    if (body.action === "move")
+      await c.query("SELECT pg_advisory_xact_lock(81021,1)");
     const t = (
       await c.query("SELECT * FROM web_tasks WHERE id=$1 FOR UPDATE", [id])
     ).rows[0];
@@ -228,6 +275,81 @@ export async function updateTask(body: any, user: AuthUser) {
           "Informe título (até 160 caracteres) e descrição (até 12.000).",
         );
       await note(c, id, body.title.trim(), body.description.trim(), user);
+    } else if (body.action === "move") {
+      if (t.status === "completed")
+        throw new TaskInputError("Tarefas concluídas não podem ser reabertas.");
+      if (
+        typeof body.column !== "string" ||
+        !Object.hasOwn(taskColumns, body.column)
+      )
+        throw new TaskInputError("Coluna inválida.");
+      if (body.column === "in_progress") {
+        const actorEmail = user.email.trim().toLowerCase();
+        if (
+          t.assigned_to &&
+          t.assigned_to !== actorEmail &&
+          !["keep", "self"].includes(body.assignment)
+        )
+          throw new TaskInputError(
+            "Escolha manter o responsável atual ou assumir a tarefa.",
+          );
+        if (
+          !t.assigned_to ||
+          (body.assignment === "self" && t.assigned_to !== actorEmail)
+        ) {
+          const actor = (
+            await c.query(
+              "SELECT enabled,phone,display_name FROM web_user_access WHERE email=$1 FOR SHARE",
+              [actorEmail],
+            )
+          ).rows[0];
+          if (!actor?.enabled)
+            throw new TaskInputError(
+              "Seu cadastro deve estar ativo para assumir a tarefa.",
+            );
+          if (!actor.phone)
+            throw new TaskInputError(
+              "Cadastre seu WhatsApp antes de assumir a tarefa.",
+            );
+          await c.query(
+            "UPDATE web_tasks SET assigned_to=$2,first_assigned_at=COALESCE(first_assigned_at,now()) WHERE id=$1",
+            [id, actorEmail],
+          );
+          await note(
+            c,
+            id,
+            "Responsável alterado",
+            `Atribuído a: ${actor.display_name || "Funcionário sem nome cadastrado"}. Atribuição ao iniciar pelo Kanban.`,
+            user,
+          );
+          await c.query(
+            "INSERT INTO web_task_notifications(task_id,task_version,recipient) VALUES($1,$2,$3)",
+            [id, t.version + 1, actorEmail],
+          );
+        }
+      }
+      const completed = body.column === "completed";
+      await c.query(
+        `UPDATE web_tasks SET status=$2,kanban_column=$3,completed_at=CASE WHEN $2='completed' THEN now() ELSE NULL END,source_resolved=false WHERE id=$1`,
+        [
+          id,
+          completed
+            ? "completed"
+            : body.column === "pending"
+              ? "not_started"
+              : body.column === "in_progress"
+                ? "in_progress"
+                : t.status,
+          completed ? null : body.column,
+        ],
+      );
+      await note(
+        c,
+        id,
+        "Status de execução alterado",
+        `${taskColumns[taskColumn(t)]} → ${taskColumns[body.column as keyof typeof taskColumns]}.${completed ? " Conclusão manual. O alerta de origem permanece independente; esta ocorrência não será reaberta." : ""}`,
+        user,
+      );
     } else if (body.action === "update") {
       if (t.status === "completed")
         throw new TaskInputError(
@@ -240,15 +362,17 @@ export async function updateTask(body: any, user: AuthUser) {
       )
         throw new TaskInputError("Confira responsável e prioridade.");
       const assigned = body.assignedTo.trim().toLowerCase() || null;
+      let assignedName = "Não atribuído";
       if (assigned) {
         const u = (
           await c.query(
-            "SELECT enabled,phone FROM web_user_access WHERE email=$1 FOR SHARE",
+            "SELECT enabled,phone,display_name FROM web_user_access WHERE email=$1 FOR SHARE",
             [assigned],
           )
         ).rows[0];
         if (!u?.enabled)
           throw new TaskInputError("Escolha um funcionário ativo.");
+        assignedName = u.display_name || "Funcionário sem nome cadastrado";
         if (assigned !== t.assigned_to && !u.phone)
           throw new TaskInputError(
             "Cadastre o WhatsApp do funcionário antes de atribuir a tarefa.",
@@ -256,14 +380,14 @@ export async function updateTask(body: any, user: AuthUser) {
       }
       const changed = assigned !== t.assigned_to;
       await c.query(
-        "UPDATE web_tasks SET assigned_to=$2,status=CASE WHEN $2::text IS NULL THEN 'not_started' ELSE 'in_progress' END,first_assigned_at=CASE WHEN $2::text IS NOT NULL THEN COALESCE(first_assigned_at,now()) ELSE first_assigned_at END,priority=$3,priority_manual=$4 WHERE id=$1",
+        "UPDATE web_tasks SET assigned_to=$2,kanban_column=CASE WHEN assigned_to IS DISTINCT FROM $2 THEN NULL ELSE kanban_column END,status=CASE WHEN assigned_to IS NOT DISTINCT FROM $2 THEN status WHEN $2::text IS NULL THEN 'not_started' ELSE 'in_progress' END,first_assigned_at=CASE WHEN $2::text IS NOT NULL THEN COALESCE(first_assigned_at,now()) ELSE first_assigned_at END,priority=$3,priority_manual=$4 WHERE id=$1",
         [id, assigned, body.priority, !body.automaticPriority],
       );
       await note(
         c,
         id,
         "Responsável / prioridade atualizados",
-        `Atribuído a: ${assigned || "Não atribuído"}. Prioridade: ${{ normal: "Normal", high: "Alta", urgent: "Urgente" }[body.priority as string]}.`,
+        `Atribuído a: ${assignedName}. Prioridade: ${{ normal: "Normal", high: "Alta", urgent: "Urgente" }[body.priority as string]}.`,
         user,
       );
       if (changed && assigned)
@@ -289,9 +413,12 @@ export async function attachTask(id: string, file: File, user: AuthUser) {
   idValue(id);
   if (file.size < 1 || file.size > 3000000)
     throw new TaskInputError("Envie um arquivo de até 3 MB.");
+  if (!allowedTaskAttachment(file.name))
+    throw new TaskInputError(taskAttachmentTypeMessage);
   const bytes = Buffer.from(await file.arrayBuffer());
-  const filename =
-    file.name.replace(/[\x00-\x1f\x7f/\\]/g, "_").slice(0, 180) || "anexo";
+  const filename = file.name.replace(/[\x00-\x1f\x7f/\\]/g, "_") || "anexo";
+  if (filename.length > 180)
+    throw new TaskInputError("O nome do arquivo deve ter até 180 caracteres.");
   const c = await database().connect();
   try {
     await c.query("BEGIN READ WRITE");

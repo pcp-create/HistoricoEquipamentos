@@ -34,6 +34,7 @@ export default function AdminDashboard() {
     [denied, setDenied] = useState(false);
   const [form, setForm] = useState(emptyEmployee);
   const [editing, setEditing] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [tab, setTab] = useState("users");
   const [password, setPassword] = useState("");
   async function load() {
@@ -159,169 +160,192 @@ export default function AdminDashboard() {
                   o funcionário e seu login. Funcionários bloqueados não recebem
                   alertas.
                 </p>
-                <form onSubmit={save} autoComplete="off">
-                  <fieldset disabled={busy}>
-                    <legend>
-                      {editing ? "Editar funcionário" : "Novo funcionário"}
-                    </legend>
-                    <div className="admin-form-grid">
-                      {(
-                        [
-                          ["display_name", "Nome completo"],
-                          ["department", "Setor"],
-                          ["job_title", "Cargo"],
-                          ["phone", "WhatsApp (país + DDD + número)"],
-                        ] as const
-                      ).map(([key, label]) => (
-                        <label key={key}>
-                          {label}
+                {!formOpen && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm(emptyEmployee);
+                      setEditing(false);
+                      setPassword("");
+                      setError("");
+                      setMessage("");
+                      setFormOpen(true);
+                    }}
+                  >
+                    Novo funcionário
+                  </button>
+                )}
+                {formOpen && (
+                  <>
+                    <form onSubmit={save} autoComplete="off">
+                      <fieldset disabled={busy}>
+                        <legend>
+                          {editing ? "Editar funcionário" : "Novo funcionário"}
+                        </legend>
+                        <div className="admin-form-grid">
+                          {(
+                            [
+                              ["display_name", "Nome completo"],
+                              ["department", "Setor"],
+                              ["job_title", "Cargo"],
+                              ["phone", "WhatsApp (país + DDD + número)"],
+                            ] as const
+                          ).map(([key, label]) => (
+                            <label key={key}>
+                              {label}
+                              <input
+                                required={key === "display_name"}
+                                maxLength={
+                                  key === "phone"
+                                    ? 40
+                                    : key === "display_name"
+                                      ? 160
+                                      : 120
+                                }
+                                value={form[key]}
+                                onChange={(e) =>
+                                  setForm({ ...form, [key]: e.target.value })
+                                }
+                              />
+                            </label>
+                          ))}
+                          <label>
+                            E-mail
+                            <input
+                              type="email"
+                              readOnly={editing}
+                              required
+                              maxLength={254}
+                              value={form.email}
+                              onChange={(e) =>
+                                setForm({ ...form, email: e.target.value })
+                              }
+                            />
+                          </label>
+                          <label>
+                            Perfil
+                            <select
+                              aria-label="Perfil"
+                              value={form.role}
+                              onChange={(e) =>
+                                setForm({ ...form, role: e.target.value })
+                              }
+                            >
+                              <option value="user">Usuário</option>
+                              <option value="admin">Administrador</option>
+                            </select>
+                          </label>
+                          <label>
+                            Acesso
+                            <select
+                              aria-label="Acesso"
+                              value={String(form.enabled)}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  enabled: e.target.value === "true",
+                                })
+                              }
+                            >
+                              <option value="true">Liberado</option>
+                              <option value="false">Bloqueado</option>
+                            </select>
+                          </label>
+                        </div>
+                        <fieldset>
+                          <legend>Recebimento de alertas</legend>
+                          {(
+                            [
+                              [
+                                "alert_preventive",
+                                "Recebe alerta de preventiva?",
+                              ],
+                              [
+                                "alert_rental",
+                                "Recebe alerta de locação/empréstimo?",
+                              ],
+                              ["alert_email", "Receber por e-mail"],
+                              ["alert_whatsapp", "Receber pelo WhatsApp"],
+                            ] as const
+                          ).map(([key, label]) => (
+                            <label key={key} className="admin-alert-option">
+                              <input
+                                type="checkbox"
+                                checked={form[key]}
+                                onChange={(e) =>
+                                  setForm({ ...form, [key]: e.target.checked })
+                                }
+                              />{" "}
+                              <span>{label}</span>
+                            </label>
+                          ))}
+                          <p className="muted">
+                            Valem os horários dos relatórios diários, semanais e
+                            mensais. WhatsApp usa o número pessoal informado;
+                            grupos continuam sendo destinos separados da
+                            automação.
+                          </p>
+                        </fieldset>
+                        <div className="catalog-editor-actions">
+                          <button className="catalog-save-button">
+                            Salvar funcionário
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormOpen(false);
+                              setForm(emptyEmployee);
+                              setEditing(false);
+                              setError("");
+                              setPassword("");
+                              setMessage("");
+                            }}
+                          >
+                            Fechar cadastro
+                          </button>
+                        </div>
+                      </fieldset>
+                    </form>
+                    {editing && (
+                      <fieldset disabled={busy}>
+                        <legend>Conta de acesso</legend>
+                        {!data.loginProvisioningConfigured && (
+                          <p role="note">
+                            Criação de novas contas pendente de configuração de
+                            SUPABASE_SERVICE_ROLE_KEY no servidor. Contas
+                            existentes continuam funcionando.
+                          </p>
+                        )}
+                        <p>
+                          Para quem ainda não possui login, salve o cadastro e
+                          crie a conta com uma senha inicial. Contas existentes
+                          continuam usando a senha atual.
+                        </p>
+                        <label>
+                          Senha inicial
                           <input
-                            required={key === "display_name"}
-                            maxLength={
-                              key === "phone"
-                                ? 40
-                                : key === "display_name"
-                                  ? 160
-                                  : 120
-                            }
-                            value={form[key]}
-                            onChange={(e) =>
-                              setForm({ ...form, [key]: e.target.value })
-                            }
+                            type="password"
+                            autoComplete="new-password"
+                            minLength={6}
+                            maxLength={128}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
                           />
                         </label>
-                      ))}
-                      <label>
-                        E-mail
-                        <input
-                          type="email"
-                          readOnly={editing}
-                          required
-                          maxLength={254}
-                          value={form.email}
-                          onChange={(e) =>
-                            setForm({ ...form, email: e.target.value })
+                        <button
+                          type="button"
+                          disabled={
+                            !data.loginProvisioningConfigured ||
+                            password.length < 6
                           }
-                        />
-                      </label>
-                      <label>
-                        Perfil
-                        <select
-                          aria-label="Perfil"
-                          value={form.role}
-                          onChange={(e) =>
-                            setForm({ ...form, role: e.target.value })
-                          }
+                          onClick={createLogin}
                         >
-                          <option value="user">Usuário</option>
-                          <option value="admin">Administrador</option>
-                        </select>
-                      </label>
-                      <label>
-                        Acesso
-                        <select
-                          aria-label="Acesso"
-                          value={String(form.enabled)}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              enabled: e.target.value === "true",
-                            })
-                          }
-                        >
-                          <option value="true">Liberado</option>
-                          <option value="false">Bloqueado</option>
-                        </select>
-                      </label>
-                    </div>
-                    <fieldset>
-                      <legend>Recebimento de alertas</legend>
-                      {(
-                        [
-                          ["alert_preventive", "Recebe alerta de preventiva?"],
-                          [
-                            "alert_rental",
-                            "Recebe alerta de locação/empréstimo?",
-                          ],
-                          ["alert_email", "Receber por e-mail"],
-                          ["alert_whatsapp", "Receber pelo WhatsApp"],
-                        ] as const
-                      ).map(([key, label]) => (
-                        <label key={key} className="admin-alert-option">
-                          <input
-                            type="checkbox"
-                            checked={form[key]}
-                            onChange={(e) =>
-                              setForm({ ...form, [key]: e.target.checked })
-                            }
-                          />{" "}
-                          <span>{label}</span>
-                        </label>
-                      ))}
-                      <p className="muted">
-                        Valem os horários dos relatórios diários, semanais e
-                        mensais. WhatsApp usa o número pessoal informado; grupos
-                        continuam sendo destinos separados da automação.
-                      </p>
-                    </fieldset>
-                    <div className="catalog-editor-actions">
-                      <button className="catalog-save-button">
-                        Salvar funcionário
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setForm(emptyEmployee);
-                          setEditing(false);
-                          setError("");
-                          setPassword("");
-                          setMessage("");
-                        }}
-                      >
-                        Novo funcionário
-                      </button>
-                    </div>
-                  </fieldset>
-                </form>
-                {editing && (
-                  <fieldset disabled={busy}>
-                    <legend>Conta de acesso</legend>
-                    {!data.loginProvisioningConfigured && (
-                      <p role="note">
-                        Criação de novas contas pendente de configuração de
-                        SUPABASE_SERVICE_ROLE_KEY no servidor. Contas existentes
-                        continuam funcionando.
-                      </p>
+                          Criar conta de acesso
+                        </button>
+                      </fieldset>
                     )}
-                    <p>
-                      Para quem ainda não possui login, salve o cadastro e crie
-                      a conta com uma senha inicial. Contas existentes continuam
-                      usando a senha atual.
-                    </p>
-                    <label>
-                      Senha inicial
-                      <input
-                        type="password"
-                        autoComplete="new-password"
-                        minLength={6}
-                        maxLength={128}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      disabled={
-                        !data.loginProvisioningConfigured ||
-                        password.length < 6
-                      }
-                      onClick={createLogin}
-                    >
-                      Criar conta de acesso
-                    </button>
-                  </fieldset>
+                  </>
                 )}
-
                 <div className="admin-table">
                   <table>
                     <thead>
@@ -374,6 +398,7 @@ export default function AdminDashboard() {
                                     ]),
                                   ),
                                 });
+                                setFormOpen(true);
                                 setEditing(true);
                                 setError("");
                                 setMessage("");

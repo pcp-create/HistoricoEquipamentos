@@ -1,4 +1,5 @@
 "use client";
+import { mergeQuoteItems } from "@/lib/quotes/merge-items";
 import { groupedProducts } from "@/lib/manufacturer/products";
 import VersionPicker from "./version-picker";
 import { matchesInterval } from "../lib/manufacturer/intervals";
@@ -70,7 +71,10 @@ const money = (v: number | null) =>
 async function api(url: string, options?: RequestInit) {
   const r = await fetch(url, options);
   if (r.status === 401) {
-    window.location.assign("/login");
+    window.location.assign(
+      "/login?next=" +
+        encodeURIComponent(window.location.pathname + window.location.search),
+    );
     throw new Error("Sessão expirada.");
   }
   const body = await r.json();
@@ -285,6 +289,11 @@ export default function QuoteDashboard() {
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
 
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("id");
+    if (id) void open(id);
+  }, []);
+
   async function refreshList() {
     const body = await api(
       "/api/quotes?" + new URLSearchParams({ q: draftSearch }),
@@ -464,6 +473,38 @@ export default function QuoteDashboard() {
       setSaving(false);
     }
   }
+  async function removeDraft() {
+    if (
+      !quote.id ||
+      saving ||
+      !window.confirm(
+        `Excluir o rascunho ORÇ-${String(quote.number || "").padStart(5, "0")}? Ele sairá da lista da equipe.${dirty ? " As alterações não salvas também serão descartadas." : ""}`,
+      )
+    )
+      return;
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      await api("/api/quotes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: quote.id, version: quote.version }),
+      });
+      setDrafts((rows) => rows.filter((d) => d.id !== quote.id));
+      invalidateSuggestions();
+      setQuote(blankQuote());
+      setDirty(false);
+      dirtyRef.current = false;
+      window.history.replaceState(null, "", window.location.pathname);
+      setMessage("Rascunho excluído.");
+      await refreshList();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
   async function open(id: string) {
     if (
       dirty &&
@@ -478,6 +519,7 @@ export default function QuoteDashboard() {
       const saved = await api("/api/quotes?id=" + encodeURIComponent(id));
       invalidateSuggestions();
       setQuote(saved);
+      setExtrasOpen(saved.items.some((i: QuoteItem) => i.selected));
       setDirty(false);
       loadSuggestions(saved);
       setMessage("");
@@ -503,15 +545,41 @@ export default function QuoteDashboard() {
     setMessage("");
     setFilter("");
   }
-  const all = new Map(suggestions.items.map((i) => [i.key, i]));
-  quote.items.forEach((i) => all.set(i.key, i));
+  const {
+    all,
+    aliases,
+    histories: mergedHistories,
+    references,
+  } = mergeQuoteItems(quote.items, suggestions.items, suggestions.histories);
+  function applyLastSales() {
+    let changed = 0;
+    const items = quote.items.map((i) => {
+      if (!i.selected) return i;
+      const last = mergedHistories[i.key]?.rows[0]?.unitPrice;
+      if (
+        last == null ||
+        !/^\d+(\.\d+)?$/.test(last) ||
+        Number(last) > 10000000
+      )
+        return i;
+      changed++;
+      return { ...i, price: Number(last).toFixed(2), lastPrice: last };
+    });
+    change({ items });
+    setMessage(
+      `${changed} itens atualizados com o valor da última venda do cliente/equipamento.`,
+    );
+  }
   const showManufacturer = true;
-  const recommendations = suggestions.recommendations || [];
+  const recommendations = (suggestions.recommendations || []).map((r) => ({
+    ...r,
+    itemKeys: [...new Set(r.itemKeys.map((k) => aliases.get(k) || k))],
+  }));
   const recommendationKeys = new Set(
     recommendations.flatMap((r) => r.itemKeys),
   );
   const hasSalesHistory = (key: string) =>
-    (suggestions.histories?.[key]?.count ?? 0) > 0;
+    (mergedHistories?.[key]?.count ?? 0) > 0;
   const recommendedRows = recommendations.filter(
     (r) =>
       (!onlySalesHistory || r.itemKeys.some(hasSalesHistory)) &&
@@ -537,9 +605,12 @@ export default function QuoteDashboard() {
         .toLowerCase()
         .includes(fold(filter)),
   );
+  const visibleRecommendationKeys = new Set(
+    recommendedRows.flatMap((r) => r.itemKeys),
+  );
   const rows = [...all.values()].filter(
     (i) =>
-      (!recommendationKeys.has(i.key) || hasSalesHistory(i.key)) &&
+      (!visibleRecommendationKeys.has(i.key) || revisionCollapsed) &&
       (kind === "all" || i.kind === kind) &&
       fold([i.name, i.code].join(" ")).includes(fold(extraFilter).trim()),
   );
@@ -547,7 +618,7 @@ export default function QuoteDashboard() {
     compareQuoteItems(
       a,
       b,
-      suggestions.histories,
+      mergedHistories,
       recommendations.flatMap((r) => r.products),
     ),
   );
@@ -636,6 +707,16 @@ export default function QuoteDashboard() {
                       : "Novo orçamento"}{" "}
                     <span className="count-pill">Rascunho interno</span>
                   </h2>
+                  {quote.id && (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={saving}
+                      onClick={removeDraft}
+                    >
+                      <Trash2 size={15} /> Excluir rascunho
+                    </button>
+                  )}
                   <small>
                     {dirty
                       ? "Alterações não salvas"
@@ -665,6 +746,15 @@ export default function QuoteDashboard() {
                     })}
                     onSelect={(c) => {
                       if (c.id === quote.clientId) return;
+                      if (
+                        !quote.clientId &&
+                        !quote.client &&
+                        quote.equipmentId &&
+                        quote.items.length
+                      ) {
+                        change({ clientId: c.id, client: c.name });
+                        return;
+                      }
                       context({
                         clientId: c.id,
                         client: c.name,
@@ -674,13 +764,18 @@ export default function QuoteDashboard() {
                       });
                     }}
                     onManual={(client) =>
-                      context({
-                        client,
-                        clientId: "",
-                        equipment: "",
-                        model: "",
-                        serial: "",
-                      })
+                      !quote.clientId &&
+                      !quote.client &&
+                      quote.equipmentId &&
+                      quote.items.length
+                        ? change({ client, clientId: "" })
+                        : context({
+                            client,
+                            clientId: "",
+                            equipment: "",
+                            model: "",
+                            serial: "",
+                          })
                     }
                   />
                   <QuoteLookup<Equipment>
@@ -978,7 +1073,7 @@ export default function QuoteDashboard() {
                                     ? compareQuoteItems(
                                         all.get(a)!,
                                         all.get(b)!,
-                                        suggestions.histories,
+                                        mergedHistories,
                                         r.products,
                                       )
                                     : 0,
@@ -991,10 +1086,13 @@ export default function QuoteDashboard() {
                                         key={key}
                                         item={i}
                                         duplicate={isDuplicate(i)}
-                                        reference={suggestions.items.find(
-                                          (item) => item.key === key,
-                                        )}
-                                        history={suggestions.histories?.[key]}
+                                        reference={
+                                          references.get(key) ||
+                                          suggestions.items.find(
+                                            (item) => item.key === key,
+                                          )
+                                        }
+                                        history={mergedHistories?.[key]}
                                         products={r.products.filter(
                                           (product) =>
                                             product.product_id === i.code,
@@ -1090,10 +1188,11 @@ export default function QuoteDashboard() {
                         key={i.key}
                         item={i}
                         duplicate={isDuplicate(i)}
-                        reference={suggestions.items.find(
-                          (item) => item.key === i.key,
-                        )}
-                        history={suggestions.histories?.[i.key]}
+                        reference={
+                          references.get(i.key) ||
+                          suggestions.items.find((item) => item.key === i.key)
+                        }
+                        history={mergedHistories?.[i.key]}
                         serial={quote.serial}
                         onChange={(patch) => updateItem(i, patch)}
                         onRemove={
@@ -1117,6 +1216,21 @@ export default function QuoteDashboard() {
               >
                 <div className="quote-selected-heading">
                   <h3>Itens deste orçamento</h3>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={
+                      busy ||
+                      saving ||
+                      !quote.items.some(
+                        (i) =>
+                          i.selected && mergedHistories[i.key]?.rows.length,
+                      )
+                    }
+                    onClick={applyLastSales}
+                  >
+                    Usar últimas vendas nos itens selecionados
+                  </button>
                   <span className="count-pill">
                     {quote.items.filter((i) => i.selected).length} selecionados
                   </span>

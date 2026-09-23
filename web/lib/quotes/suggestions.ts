@@ -1,3 +1,4 @@
+import type { PoolClient } from "pg";
 import { catalogProductCodesSql } from "../manufacturer/direct-products";
 import { approvedMaterialSql } from "../material-approval";
 import "server-only";
@@ -120,7 +121,10 @@ function serviceItem(
   result.source += ` · Empresa ${r.company_id} · OS ${r.ordem_servico_id} · última quantidade: ${r.quantidade ?? "não informada"}`;
   return result;
 }
-export async function quoteSuggestions(p: URLSearchParams) {
+export async function quoteHistory(
+  p: URLSearchParams,
+  db: Pick<PoolClient, "query"> = database(),
+) {
   const c = "1",
     clientId = p.get("clientId") || "",
     serial =
@@ -130,7 +134,6 @@ export async function quoteSuggestions(p: URLSearchParams) {
     equipmentId = p.get("equipmentId") || "";
   if (equipmentId && !/^\d{1,18}$/.test(equipmentId))
     throw new QuoteValidation("Equipamento inválido.");
-  const recommendations: ManufacturerRecommendation[] = [];
   const histories: Record<string, QuoteSalesHistory> = {};
   const items = new Map<string, QuoteItem>(),
     warnings: string[] = [];
@@ -143,7 +146,6 @@ export async function quoteSuggestions(p: URLSearchParams) {
       if (!old.minimumPrice) old.minimumPrice = value.minimumPrice;
     } else items.set(value.key, value);
   };
-  const db = database();
   if (/^\d{1,20}$/.test(clientId) && (serial || equipmentId)) {
     const serialPattern = serial
       ? `(^|[^A-Z0-9])${serial.split("").join("[[:space:]./-]*")}([^A-Z0-9]|$)`
@@ -272,6 +274,26 @@ export async function quoteSuggestions(p: URLSearchParams) {
     warnings.push(
       "Para sugerir pelo histórico, selecione um cliente e um equipamento cadastrado, ou informe uma série diferente de NC.",
     );
+  return { items, histories, warnings };
+}
+export async function quoteSuggestions(p: URLSearchParams) {
+  const c = "1",
+    serial =
+      normalizeSerial(p.get("serial") || "") === "NC"
+        ? ""
+        : normalizeSerial(p.get("serial") || "");
+  const { items, histories, warnings } = await quoteHistory(p);
+  const recommendations: ManufacturerRecommendation[] = [];
+  const db = database();
+  const add = (value: QuoteItem) => {
+    const old = items.get(value.key);
+    if (old) {
+      if (!old.source.includes(value.source))
+        old.source = (old.source + "; " + value.source).slice(0, 2000);
+      if (!old.referencePrice) old.referencePrice = value.referencePrice;
+      if (!old.minimumPrice) old.minimumPrice = value.minimumPrice;
+    } else items.set(value.key, value);
+  };
   let variants: any[] = [],
     intervals: any[] = [];
   {

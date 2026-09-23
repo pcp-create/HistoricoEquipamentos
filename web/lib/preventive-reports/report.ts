@@ -14,7 +14,7 @@ export type Source = {
   serial: string | null;
   clients: string;
   settings: Operating;
-  plans: Plan[];
+  plans: (Plan & { id?: string })[];
   usage?: RentalUsage;
 };
 export function buildReport(
@@ -79,6 +79,8 @@ export function buildReport(
         clients: e.clients,
         estimatedMeter: e.meter,
         plan: p.name,
+        planId: p.id,
+        items: p.items || [],
         hours: p.hours,
         months: p.months,
         lastDate: p.lastDate,
@@ -142,7 +144,17 @@ const escape = (s: unknown) =>
         c
       ]!,
   );
-export function reportMessage(report: Report) {
+export function planUrl(row: Report["rows"][number], baseUrl: string) {
+  if (!row.planId) return "";
+  const url = new URL("/equipamentos", baseUrl);
+  url.searchParams.set("equipment", row.equipment);
+  url.searchParams.set("plan", row.planId);
+  return url.toString();
+}
+export function reportMessage(
+  report: Report,
+  baseUrl = "https://historicorj.vercel.app",
+) {
   const title =
     report.kind === "weekly"
       ? "[ALERTA] Preventivas — Próximos 30 dias (semanal)"
@@ -157,7 +169,7 @@ export function reportMessage(report: Report) {
     .slice(0, 30)
     .map(
       (r) =>
-        `<tr><td>${escape(r.clients)}<br><strong>${escape(r.name)}</strong><br>Cód. ${escape(r.equipment)} · Série ${escape(r.serial || "não informada")}</td><td>${escape(r.plan)}</td><td style="min-width:150px"><span style="display:inline-block;padding:5px 8px;border-radius:5px;background:${statusColors(r.status).background};color:${statusColors(r.status).text};font-weight:700">${escape(statusLabel[r.status])}</span><br><span style="display:inline-block;margin-top:7px;font-weight:600;color:${statusColors(r.status).text}">${displayDate(r.due)}</span>${r.incomplete ? '<br><small style="color:#64748b">Previsão parcial</small>' : ""}</td><td>${displayDate(r.lastDate)}<br>OS ${escape(r.lastOrder || "não informada")}</td></tr>`,
+        `<tr><td>${escape(r.clients)}<br><strong>${escape(r.name)}</strong><br>Cód. ${escape(r.equipment)} · Série ${escape(r.serial || "não informada")}</td><td>${escape(r.plan)}<br><small>${r.items.length} materiais e serviços cadastrados</small>${planUrl(r, baseUrl) ? `<br><a href="${escape(planUrl(r, baseUrl))}">Abrir plano / preparar orçamento</a>` : ""}</td><td style="min-width:150px"><span style="display:inline-block;padding:5px 8px;border-radius:5px;background:${statusColors(r.status).background};color:${statusColors(r.status).text};font-weight:700">${escape(statusLabel[r.status])}</span><br><span style="display:inline-block;margin-top:7px;font-weight:600;color:${statusColors(r.status).text}">${displayDate(r.due)}</span>${r.incomplete ? '<br><small style="color:#64748b">Previsão parcial</small>' : ""}</td><td>${displayDate(r.lastDate)}<br>OS ${escape(r.lastOrder || "não informada")}</td></tr>`,
     )
     .join("");
   const html = `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><body style="font-family:Arial,sans-serif;color:#233b53;max-width:980px;margin:auto;padding:24px"><h1 style="font-size:24px">Gestão Integrada</h1><h2>${title}</h2><p>Prezados,</p><p>Segue o acompanhamento das preventivas em ${displayDate(report.date)}, horário de Brasília.</p><p><strong>${summary}</strong></p><table cellpadding="10" cellspacing="0" border="1" style="border-collapse:collapse;border-color:#dbe3ed;font-size:13px;width:100%"><thead><tr><th>Cliente / equipamento</th><th>Plano</th><th>Situação / previsão</th><th>Última intervenção</th></tr></thead><tbody>${rows || '<tr><td colspan="4">Nenhum equipamento nesta situação.</td></tr>'}</tbody></table><p>O PDF anexo contém a relação completa${report.rows.length > 30 ? "; este e-mail exibe os primeiros 30 planos" : ""}.</p><p>${coverage}</p><p style="font-size:12px;color:#66788a">${note}</p><p>Atenciosamente,<br>Gestão Integrada · Planejamento de manutenção</p></body></html>`;
@@ -208,6 +220,11 @@ export function reportMessage(report: Report) {
           `Cliente: ${plain(r.clients)}`,
           `Cód. ${plain(r.equipment)}${serial}`,
           `🔧 ${plain(r.plan)}`,
+          ...(planUrl(r, baseUrl)
+            ? [
+                `📋 ${r.items.length} itens · Plano e orçamento: ${planUrl(r, baseUrl)}`,
+              ]
+            : []),
           `${icon} *${statusLabel[r.status]}*`,
           `Previsão: ${displayDate(r.due)}${deadline}`,
           ...(r.incomplete || r.inconsistent

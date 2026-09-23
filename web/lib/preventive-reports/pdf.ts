@@ -1,14 +1,25 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { PDFDocument, StandardFonts, rgb, type PDFPage } from "pdf-lib";
+import {
+  PDFDocument,
+  PDFName,
+  PDFString,
+  StandardFonts,
+  rgb,
+  type PDFPage,
+} from "pdf-lib";
 import {
   type Report,
+  planUrl,
   displayDate,
   displayNumber,
   statusLabel,
   statusColors,
 } from "./report";
-export async function reportPdf(report: Report) {
+export async function reportPdf(
+  report: Report,
+  baseUrl = "https://historicorj.vercel.app",
+) {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica),
     bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -149,7 +160,7 @@ export async function reportPdf(report: Report) {
     const height =
       head +
       Math.max(24, plan.length * 14) +
-      143 +
+      175 +
       (r.incomplete || r.inconsistent ? 24 : 0);
     if (y + height > 773) newPage();
     rect(34, y, 527, height, "#ffffff");
@@ -242,6 +253,38 @@ export async function reportPdf(report: Report) {
         false,
         "#9a6700",
       );
+    const link = planUrl(r, baseUrl);
+    const linkTop = y + height - 24;
+    text(
+      `${r.items.length} materiais e serviços cadastrados`,
+      52,
+      linkTop,
+      9,
+      false,
+      muted,
+    );
+    if (link) {
+      text(
+        "Abrir plano / preparar orçamento",
+        340,
+        linkTop,
+        9,
+        true,
+        "#2563a6",
+      );
+      const annotation = pdf.context.register(
+        pdf.context.obj({
+          Type: "Annot",
+          Subtype: "Link",
+          Rect: [338, 841.89 - linkTop - 14, 545, 841.89 - linkTop + 3],
+          Border: [0, 0, 0],
+          A: { Type: "Action", S: "URI", URI: PDFString.of(link) },
+        }),
+      );
+      const annotations = page.node.Annots();
+      if (annotations) annotations.push(annotation);
+      else page.node.set(PDFName.of("Annots"), pdf.context.obj([annotation]));
+    }
     y += height + 16;
   }
   if (!report.rows.length) {

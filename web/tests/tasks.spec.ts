@@ -52,6 +52,18 @@ test("tasks list, personal view, calendar and right drawer keep notes and assign
           },
           ...notes,
         ];
+      if (b.action === "move")
+        task = {
+          ...task,
+          kanban_column: b.column,
+          status:
+            b.column === "completed"
+              ? "completed"
+              : b.column === "in_progress"
+                ? "in_progress"
+                : "not_started",
+          version: task.version + 1,
+        };
       if (b.action === "update")
         task = {
           ...task,
@@ -109,4 +121,24 @@ test("tasks list, personal view, calendar and right drawer keep notes and assign
   await expect(
     page.getByRole("button", { name: /TAR-42 · Compressor GA37/ }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Kanban", exact: true }).click();
+  await expect(
+    page.getByRole("navigation", { name: "Modo de visualização" }),
+  ).toBeVisible();
+  const card = page.locator(".task-kanban-card").filter({ hasText: "TAR-42" });
+  await card.dragTo(
+    page.getByRole("region", { name: "Atrasadas", exact: true }),
+  );
+  await expect(
+    page
+      .getByRole("region", { name: "Atrasadas", exact: true })
+      .locator(".task-kanban-card"),
+  ).toHaveCount(1);
+  await page.getByLabel("Mover TAR-42").selectOption("completed");
+  await expect(
+    page
+      .getByRole("region", { name: "Concluídas", exact: true })
+      .locator(".task-kanban-card"),
+  ).toHaveCount(1);
+  await expect(page.getByLabel("Mover TAR-42")).toHaveCount(0);
 });

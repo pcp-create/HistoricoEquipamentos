@@ -202,6 +202,18 @@ test("rental views show a compact photo carousel, popup and separate situation c
   await expect(page.getByRole("button", { name: "Gerenciar" })).toBeVisible();
   expect(photos).toBe(0);
   const initial = reads;
+  await page
+    .getByPlaceholder("Nome, modelo, série, cliente ou código")
+    .fill("inexistente");
+  await expect(page.getByText("Nenhum equipamento encontrado.")).toBeVisible();
+  await page
+    .getByPlaceholder("Nome, modelo, série, cliente ou código")
+    .fill("Compressor");
+  await expect(page.getByRole("button", { name: "Gerenciar" })).toBeVisible();
+  await page.getByRole("combobox", { name: "Preventivas", exact: true }).selectOption("none");
+  await page.getByRole("combobox", { name: "Preventivas", exact: true }).selectOption("");
+  expect(reads).toBe(initial);
+
   await page.getByRole("button", { name: /^Máquinas de Locação \(/ }).click();
   await expect(
     page.getByRole("button", { name: "Ampliar foto 1", exact: true }),

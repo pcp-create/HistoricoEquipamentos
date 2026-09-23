@@ -283,6 +283,7 @@ test("quote selects equipment, combines suggestions, edits prices, saves and reo
   await material.getByLabel("Quantidade").fill("2");
   await material.getByLabel("Valor unitário (R$)").fill("90");
   await expect(material.getByText(/abaixo do mínimo/)).toBeVisible();
+  await page.locator(".quote-extras > summary").click();
   await page
     .getByRole("button", { name: "Adicionar serviço", exact: true })
     .click();
@@ -536,9 +537,21 @@ test("material picker searches while typing, paginates and preserves a general s
         },
       });
     }
+    if (p.get("action") === "suggestions")
+      return route.fulfill({
+        json: {
+          items: [],
+          histories: {},
+          recommendations: [],
+          variants: [],
+          intervals: [],
+          warnings: [],
+        },
+      });
     return route.fulfill({ json: { rows: [], email: "test@example.com" } });
   });
   await page.goto("/orcamentos");
+  await page.locator(".quote-extras > summary").click();
   await page
     .getByRole("button", { name: "Adicionar material", exact: true })
     .click();
@@ -760,12 +773,11 @@ test("other materials use refreshed balances even when draft has an empty produc
   const duplicate = page
     .locator(".quote-choice")
     .filter({ hasText: "Mesmo produto em outra lista" });
-  await expect(duplicate.getByRole("checkbox")).toBeDisabled();
-  await expect(duplicate).toContainText("Já selecionado em outra linha.");
+  await expect(duplicate).toHaveCount(0);
   await row.getByRole("checkbox").uncheck();
-  await expect(duplicate.getByRole("checkbox")).toBeEnabled();
-  await duplicate.getByRole("checkbox").check();
-  await expect(row.getByRole("checkbox")).toBeDisabled();
+  await expect(row.getByRole("checkbox")).toBeEnabled();
+  await row.getByRole("checkbox").check();
+  await expect(row.getByRole("checkbox")).toBeChecked();
   await expect(
     page
       .locator(".quote-choice")
@@ -841,4 +853,94 @@ test("selected equipment identity survives clearing NC serial and editing model"
   await expect.poll(() => requests.at(-1)?.get("model")).toBe("W900");
   expect(requests.at(-1)?.get("equipmentId")).toBe("16330");
   expect(requests.at(-1)?.get("clientId")).toBe("25005");
+});
+
+test("saved draft can be deleted after confirmation without deleting on cancel", async ({
+  page,
+  context,
+  request,
+}) => {
+  expect(
+    (
+      await request.delete("/api/quotes", {
+        headers: { Origin: "https://other.test" },
+        data: {},
+      })
+    ).status(),
+  ).toBe(403);
+  expect(
+    (
+      await request.delete("/api/quotes", {
+        headers: { Origin: "http://localhost:3000" },
+        data: {},
+      })
+    ).status(),
+  ).toBe(401);
+  await context.addCookies([
+    { name: "m8-access", value: "test", domain: "localhost", path: "/" },
+  ]);
+  const saved = {
+    ...blankQuote(),
+    id: "12345678-1234-1234-1234-123456789012",
+    version: 2,
+    number: "15",
+    client: "Cliente teste",
+  };
+  let deleted = false,
+    deleteCalls = 0;
+  await page.route("**/api/quotes**", (route) => {
+    const p = new URL(route.request().url()).searchParams;
+    if (route.request().method() === "DELETE") {
+      expect(route.request().postDataJSON()).toEqual({
+        id: saved.id,
+        version: 2,
+      });
+      deleted = true;
+      deleteCalls++;
+      return route.fulfill({ json: { deleted: true } });
+    }
+    if (p.has("id")) return route.fulfill({ json: saved });
+    if (p.get("action") === "suggestions")
+      return route.fulfill({
+        json: {
+          items: [],
+          warnings: [],
+          intervals: [],
+          variants: [],
+          recommendations: [],
+        },
+      });
+    return route.fulfill({
+      json: {
+        rows: deleted
+          ? []
+          : [
+              {
+                id: saved.id,
+                number: "15",
+                client_name: saved.client,
+                total_cents: "0",
+              },
+            ],
+        email: "test@example.com",
+      },
+    });
+  });
+  await page.goto(`/orcamentos?id=${saved.id}`);
+  const button = page.getByRole("button", {
+    name: "Excluir rascunho",
+    exact: true,
+  });
+  await expect(button).toBeVisible();
+  page.once("dialog", (d) => d.dismiss());
+  await button.click();
+  expect(deleteCalls).toBe(0);
+  await expect(button).toBeVisible();
+  page.once("dialog", (d) => d.accept());
+  await button.click();
+  await expect(page.getByRole("status")).toContainText("Rascunho excluído.");
+  await expect(page.getByRole("button", { name: /ORÇ-00015/ })).toHaveCount(0);
+  await expect(button).toHaveCount(0);
+  expect(deleteCalls).toBe(1);
+  await expect(page).toHaveURL(/\/orcamentos$/);
 });

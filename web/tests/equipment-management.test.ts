@@ -1,3 +1,6 @@
+import { deleteQuote } from "../lib/quotes/store";
+import { createPlanQuote } from "../lib/equipment-management/plan-quote";
+import { randomUUID } from "node:crypto";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
@@ -31,6 +34,9 @@ test("equipment plans persist independently of M8, enforce scope/concurrency and
         new URL("../sql/007_equipment_preventive.sql", import.meta.url),
         "utf8",
       ),
+    );
+    await db.exec(
+      readFileSync(new URL("../sql/005_quotes.sql", import.meta.url), "utf8"),
     );
     const query = db.query.bind(db);
     global.historyPool = {
@@ -152,6 +158,35 @@ test("equipment plans persist independently of M8, enforce scope/concurrency and
         user,
       ),
     );
+    const larger = detail.plans.find((p: any) => p.document.hours === 8000);
+    await saveEquipment(
+      {
+        equipment: "100",
+        action: "maintenance",
+        id: larger.id,
+        version: larger.version,
+        document: {
+          date: "2026-03-01",
+          meter: 9000,
+          order: "",
+          notes: "Revisão maior",
+        },
+      },
+      user,
+    );
+    const cascaded = await equipmentDetail("100");
+    assert.ok(
+      cascaded.plans.every(
+        (p: any) =>
+          p.document.lastDate === "2026-03-01" && p.document.lastMeter === 9000,
+      ),
+    );
+    assert.ok(
+      cascaded.events.some(
+        (e: any) =>
+          e.document.cascade === true && e.document.sourcePlan === larger.id,
+      ),
+    );
     await db.exec(
       "UPDATE m8_equipment_catalog SET name='Novo nome' WHERE equipment_id=100",
     );
@@ -164,7 +199,7 @@ test("equipment plans persist independently of M8, enforce scope/concurrency and
         equipment: "100",
         action: "archive",
         id: plan.id,
-        version: updated.version,
+        version: cascaded.plans.find((p: any) => p.id === plan.id).version,
       },
       user,
     );
@@ -243,6 +278,138 @@ test("equipment plans persist independently of M8, enforce scope/concurrency and
         .rows[0].rentalStatus.key,
       "rented",
     );
+    await db.exec(`INSERT INTO m8_product_catalog(company_id,product_id,name,unit,sale_price,payload,collected_at) VALUES(1,900,'Filtro original','UN',25,'{}',now()),(1,902,'Material sem unidade',NULL,NULL,'{}',now());
+      INSERT INTO m8_service_catalog(company_id,service_id,name,unit,sale_price,payload,collected_at) VALUES(1,901,'Mão de obra','H',NULL,'{}',now());`);
+    await saveEquipment(
+      {
+        equipment: "100",
+        action: "plan",
+        version: null,
+        document: {
+          ...base,
+          name: "Plano com itens",
+          items: [
+            {
+              kind: "material",
+              code: "900",
+              name: "Nome desatualizado",
+              unit: "Pacote",
+              unitEditable: true,
+              quantity: "2.5",
+            },
+            {
+              kind: "service",
+              code: "901",
+              name: "Mão de obra",
+              unit: "Pacote",
+              quantity: "3",
+            },
+            {
+              kind: "material",
+              code: "902",
+              name: "Material sem unidade",
+              unit: "Kit",
+              quantity: "1",
+            },
+          ],
+        },
+      },
+      user,
+    );
+    const itemPlan = (await equipmentDetail("100")).plans.find(
+      (p: any) => p.document.name === "Plano com itens",
+    );
+    assert.equal(itemPlan.document.items[0].name, "Filtro original");
+    assert.equal(itemPlan.document.items[0].unit, "UN");
+    assert.equal(itemPlan.document.items[0].unitEditable, false);
+    assert.equal(itemPlan.document.items[1].unit, "Pacote");
+    assert.equal(itemPlan.document.items[1].unitEditable, true);
+    assert.equal(itemPlan.document.items[2].unit, "Kit");
+    assert.equal(itemPlan.document.items[2].unitEditable, true);
+    await db.exec(`INSERT INTO m8_ordens_servico(company_id,id_m8,cliente_id,cliente_nome,produto_equipamento_id,status,emissao,payload) VALUES
+      (1,600,10,'Cliente A',100,'Processado','2026-06-15','{}'),(1,601,10,'Cliente A',100,'Processado','2026-07-15','{}'),(1,602,11,'Outro cliente',100,'Processado','2026-08-15','{}');
+      INSERT INTO integracao_m8_os_sync(company_id,ordem_servico_id,inventory_seen_at,finalized,pending,last_detail_at) VALUES(1,600,now(),true,false,now()),(1,601,now(),true,false,now()),(1,602,now(),true,false,now());
+      INSERT INTO m8_os_produtos(company_id,id_m8,ordem_servico_id,produto_id,produto_nome,unidade_nome,quantidade,valor_total,aprovado,payload) VALUES
+      (1,600,600,900,'Filtro original','UN',2,80,'Sim','{}'),(1,601,601,900,'Filtro original','UN',2,9999,'Nao','{}'),(1,602,602,900,'Filtro original','UN',2,5000,'Sim','{}');
+      INSERT INTO m8_os_servicos(company_id,id_m8,ordem_servico_id,servico_id,servico_nome,quantidade,valor_total,payload) VALUES(1,600,600,901,'Mão de obra',1,750,'{}');`);
+    const request = {
+      equipment: "100",
+      planId: itemPlan.id,
+      version: itemPlan.version,
+      company: "1",
+      clientId: "10",
+      requestId: randomUUID(),
+    };
+    await assert.rejects(
+      createPlanQuote({ ...request, equipment: "200" }, user),
+      /Plano não encontrado/,
+    );
+    await assert.rejects(
+      createPlanQuote({ ...request, version: 99 }, user),
+      /plano foi alterado/,
+    );
+    await assert.rejects(
+      createPlanQuote({ ...request, clientId: "99" }, user),
+      /Selecione um cliente/,
+    );
+    const created = await createPlanQuote(request, user);
+    const retry = await createPlanQuote(request, user);
+    assert.equal(created.id, retry.id);
+    const drafts = (await db.query("SELECT * FROM web_quotes")).rows as any[];
+    assert.equal(drafts.length, 1);
+    assert.equal(drafts[0].document.client, "Cliente A");
+    assert.equal(drafts[0].document.equipmentId, "100");
+    assert.equal(drafts[0].document.items[0].quantity, "2.5");
+    assert.equal(drafts[0].document.items[0].price, "40.00");
+    assert.equal(drafts[0].document.items[0].referencePrice, "25.00");
+    assert.equal(drafts[0].document.items[0].lastPrice, "40.00");
+    assert.equal(drafts[0].document.items[1].price, "750.00");
+    assert.equal(drafts[0].document.items[0].unit, "UN");
+    assert.equal(drafts[0].document.items[1].unit, "Pacote");
+    assert.equal(drafts[0].document.items[2].unit, "Kit");
+    assert.equal(drafts[0].document.pendingAmounts, true);
+    assert.equal(Number(drafts[0].total_cents), 235000);
+    const afterQuote = await equipmentDetail("100");
+    const quoteEvents = afterQuote.events.filter(
+      (e: any) => e.document.action === "quote",
+    );
+    assert.equal(quoteEvents.length, 1);
+    assert.equal(quoteEvents[0].plan_id, itemPlan.id);
+    assert.equal(quoteEvents[0].document.quoteId, created.id);
+    assert.deepEqual(
+      afterQuote.plans.find((p: any) => p.id === itemPlan.id).document,
+      itemPlan.document,
+    );
+    // If audit persistence fails the draft must roll back as well.
+    await db.exec(`CREATE FUNCTION reject_quote_event() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      IF NEW.document->>'action'='quote' THEN RAISE EXCEPTION 'audit failed'; END IF; RETURN NEW; END $$;
+      CREATE TRIGGER reject_quote_event BEFORE INSERT ON web_equipment_events FOR EACH ROW EXECUTE FUNCTION reject_quote_event();`);
+    await assert.rejects(
+      createPlanQuote({ ...request, requestId: randomUUID() }, user),
+      /audit failed/,
+    );
+    assert.equal((await db.query("SELECT * FROM web_quotes")).rows.length, 1);
+    await db.exec("DROP TRIGGER reject_quote_event ON web_equipment_events");
+    await db.exec(
+      "UPDATE web_equipment_plans SET archived=true WHERE id='" +
+        itemPlan.id +
+        "'",
+    );
+    await assert.rejects(
+      createPlanQuote({ ...request, requestId: randomUUID() }, user),
+      /arquivado/,
+    );
+    await deleteQuote(
+      { id: created.id, version: created.version },
+      user.email,
+      "Equipe",
+    );
+    const deletedHistory = (await equipmentDetail("100")).events.find(
+      (e: any) => e.document.quoteId === created.id,
+    );
+    assert.ok(deletedHistory.quote_deleted_at);
+    assert.equal(deletedHistory.document.planName, "Plano com itens");
+    await assert.rejects(createPlanQuote(request, user), /já foi excluído/);
   } finally {
     global.historyPool = old;
     await db.close();

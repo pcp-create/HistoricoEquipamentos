@@ -110,12 +110,96 @@ test("current meter estimates elapsed usage and rejects missing or future readin
 });
 
 test("rental meter excludes idle gaps and merges overlapping commitments", async () => {
-  const {estimateCurrentMeter, emptyOperating} = await import("../lib/equipment-management/planning");
-  const op = {...emptyOperating,meter:1000,meterDate:"2026-09-01",hoursDay:24,daysYear:365};
-  const usage = {incomplete:false,intervals:[{start:"2026-09-01",end:"2026-09-03"},{start:"2026-09-10",end:null}]};
-  assert.equal(estimateCurrentMeter(op,"2026-09-12",usage),1096);
-  assert.equal(estimateCurrentMeter(op,"2026-09-09",usage),1048);
-  assert.equal(estimateCurrentMeter(op,"2026-09-12",{incomplete:false,intervals:[]}),1000);
-  assert.equal(estimateCurrentMeter(op,"2026-09-12",{...usage,incomplete:true}),null);
-  assert.equal(estimateCurrentMeter(op,"2026-09-12",{...usage,intervals:[...usage.intervals,{start:"2026-09-10",end:null}]}),1096);
+  const { estimateCurrentMeter, emptyOperating } =
+    await import("../lib/equipment-management/planning");
+  const op = {
+    ...emptyOperating,
+    meter: 1000,
+    meterDate: "2026-09-01",
+    hoursDay: 24,
+    daysYear: 365,
+  };
+  const usage = {
+    incomplete: false,
+    intervals: [
+      { start: "2026-09-01", end: "2026-09-03" },
+      { start: "2026-09-10", end: null },
+    ],
+  };
+  assert.equal(estimateCurrentMeter(op, "2026-09-12", usage), 1096);
+  assert.equal(estimateCurrentMeter(op, "2026-09-09", usage), 1048);
+  assert.equal(
+    estimateCurrentMeter(op, "2026-09-12", {
+      incomplete: false,
+      intervals: [],
+    }),
+    1000,
+  );
+  assert.equal(
+    estimateCurrentMeter(op, "2026-09-12", { ...usage, incomplete: true }),
+    null,
+  );
+  assert.equal(
+    estimateCurrentMeter(op, "2026-09-12", {
+      ...usage,
+      intervals: [...usage.intervals, { start: "2026-09-10", end: null }],
+    }),
+    1096,
+  );
+});
+
+test("larger revision resets lower intervals but preserves newer interventions", async () => {
+  const { cascadeIntervention, preventiveMonths } =
+    await import("../lib/equipment-management/planning");
+  const large = {
+    ...plan,
+    hours: 24000,
+    lastDate: "2026-09-20",
+    lastMeter: 25000,
+    lastOrder: "14153",
+  };
+  for (const hours of [2000, 4000, 8000, 16000]) {
+    const result = cascadeIntervention({ ...plan, hours }, large)!;
+    assert.equal(result.lastMeter, 25000);
+    assert.equal(result.lastDate, "2026-09-20");
+    assert.equal(result.lastOrder, "14153");
+    assert.equal(result.hours, hours);
+  }
+  assert.equal(
+    cascadeIntervention({ ...plan, lastDate: "2026-09-21" }, large),
+    null,
+  );
+  assert.equal(cascadeIntervention({ ...plan, hours: 32000 }, large), null);
+  assert.equal(cascadeIntervention({ ...plan, lastMeter: 26000 }, large), null);
+  for (const [hours, months] of [
+    [2000, 6],
+    [4000, 12],
+    [8000, 24],
+    [20000, 60],
+    [24000, 60],
+  ])
+    assert.equal(preventiveMonths(hours), months);
+});
+
+test("plan items accept materials and services, reject duplicates and invalid quantities", () => {
+  const item = {
+    kind: "material",
+    code: "10027",
+    name: "Filtro",
+    unit: "UN",
+    quantity: "1.5",
+  };
+  assert.equal(parsePlan({ ...plan, items: [item] }).items?.length, 1);
+  assert.deepEqual(parsePlan(plan).items, []);
+  assert.throws(() => parsePlan({ ...plan, items: [item, item] }), /já está/);
+  for (const quantity of ["0", "-1", "abc", "1.1234", "1000001"])
+    assert.throws(
+      () => parsePlan({ ...plan, items: [{ ...item, quantity }] }),
+      /quantidade/,
+    );
+  assert.equal(
+    parsePlan({ ...plan, items: [item, { ...item, kind: "service" }] }).items
+      ?.length,
+    2,
+  );
 });

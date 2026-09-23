@@ -62,6 +62,14 @@ test("admin interface shows integration dates and lets an administrator change a
   await page.getByRole("button", { name: "Integrações", exact: true }).click();
   await expect(page.getByText("16/09/2026, 09:00:00")).toBeVisible();
   await page.getByRole("button", { name: "Usuários", exact: true }).click();
+  await expect(page.getByLabel("Nome completo")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Novo funcionário", exact: true })
+    .click();
+  await expect(page.getByLabel("Nome completo")).toBeVisible();
+  await page.getByRole("button", { name: "Fechar cadastro" }).click();
+  await expect(page.getByLabel("Nome completo")).toHaveCount(0);
+  await page.getByRole("button", { name: "Editar funcionário" }).click();
   const checkbox = page.getByLabel("Receber por e-mail");
   const bounds = await checkbox.boundingBox();
   expect(bounds?.width).toBeLessThanOrEqual(20);

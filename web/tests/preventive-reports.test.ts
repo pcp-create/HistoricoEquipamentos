@@ -92,3 +92,42 @@ test("report token rejects missing, short or wrong credentials", () => {
   assert.equal(reportTokenMatches("Bearer " + secret, undefined), false);
   assert.equal(reportTokenMatches("Bearer " + secret, secret), true);
 });
+
+test("alerts retain plan items and link to the exact equipment and plan without creating drafts", async () => {
+  const report = buildReport(
+    [
+      {
+        ...source("100", [plan]),
+        plans: [
+          {
+            ...plan,
+            id: "12345678-1234-1234-1234-123456789abc",
+            items: [
+              {
+                kind: "material",
+                code: "10027",
+                name: "Filtro",
+                unit: "UN",
+                quantity: "2",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    "monthly",
+    "2026-09-21",
+  );
+  const message = reportMessage(report, "https://example.com");
+  assert.equal(report.rows[0].items[0].quantity, "2");
+  assert.ok(message.html.includes("equipment=100&amp;plan=12345678"));
+  assert.ok(
+    message.whatsapp.includes(
+      "https://example.com/equipamentos?equipment=100&plan=",
+    ),
+  );
+  const pdf = await PDFDocument.load(
+    await reportPdf(report, "https://example.com"),
+  );
+  assert.equal(pdf.getPages()[0].node.Annots()?.size(), 1);
+});

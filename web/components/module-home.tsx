@@ -13,14 +13,6 @@ import SiteHeader from "./site-header";
 
 const modules = [
   {
-    id: "tarefas",
-    title: "Tarefas",
-    icon: ClipboardList,
-    description: "Alertas, responsáveis e acompanhamento das tratativas.",
-    links: [["Últimas tarefas, minhas tarefas e calendário", "/tarefas"]],
-    next: "Notas, anexos e histórico de cada ocorrência.",
-  },
-  {
     id: "crm",
     title: "CRM",
     icon: Users,
@@ -62,6 +54,14 @@ const modules = [
     description: "Máquinas de clientes, frota própria e planos preventivos.",
     links: [["Gestão de equipamentos e contratos", "/equipamentos"]],
     next: "Inclui locação, empréstimos, situação da frota e preventivas.",
+  },
+  {
+    id: "tarefas",
+    title: "Tarefas",
+    icon: ClipboardList,
+    description: "Alertas, responsáveis e acompanhamento das tratativas.",
+    links: [["Últimas tarefas, minhas tarefas e calendário", "/tarefas"]],
+    next: "Notas, anexos e histórico de cada ocorrência.",
   },
 ];
 

@@ -36,7 +36,7 @@ export async function GET(req: Request) {
         { status: 400, headers },
       );
     const report = await loadReport(kind as "weekly" | "overdue" | "monthly"),
-      message = reportMessage(report),
+      message = reportMessage(report, new URL(req.url).origin),
       filename = `preventivas-${kind}-${report.date}.pdf`;
     if (format === "html")
       return new Response(message.html, {
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
             "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
         },
       });
-    const pdf = await reportPdf(report);
+    const pdf = await reportPdf(report, new URL(req.url).origin);
     if (format === "pdf")
       return new Response(Buffer.from(pdf), {
         headers: {

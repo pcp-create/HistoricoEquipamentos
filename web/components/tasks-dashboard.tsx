@@ -1,5 +1,11 @@
 "use client";
 import "./tasks.css";
+import { taskColumn, taskColumns, type TaskColumn } from "@/lib/tasks/kanban";
+import {
+  allowedTaskAttachment,
+  taskAttachmentAccept,
+  taskAttachmentTypeMessage,
+} from "@/lib/tasks/attachment-types";
 import {
   useEffect,
   useState,
@@ -156,6 +162,8 @@ export function TaskDrawer({
     setError("");
     try {
       if (file.size > 3000000) throw Error("Selecione um arquivo de até 3 MB.");
+      if (!allowedTaskAttachment(file.name))
+        throw Error(taskAttachmentTypeMessage);
       const form = new FormData();
       form.set("id", id);
       form.set("file", file);
@@ -233,11 +241,14 @@ export function TaskDrawer({
                   >
                     <option value="">Não atribuído</option>
                     {assigned && !users.some((u) => u.email === assigned) && (
-                      <option value={assigned}>{assigned} (inativo)</option>
+                      <option value={assigned}>
+                        {t.assignee_name || "Funcionário sem nome cadastrado"}{" "}
+                        (inativo)
+                      </option>
                     )}
                     {users.map((u) => (
                       <option key={u.email} value={u.email}>
-                        {u.display_name || u.email}
+                        {u.display_name || "Funcionário sem nome cadastrado"}
                         {u.phone ? "" : " · Sem WhatsApp cadastrado"}
                       </option>
                     ))}
@@ -279,7 +290,7 @@ export function TaskDrawer({
               <h3>Acompanhamento</h3>
               <dl>
                 <dt>Status</dt>
-                <dd>{statusNames[t.status]}</dd>
+                <dd>{taskColumns[taskColumn(t)]}</dd>
                 <dt>Espera pela primeira atribuição</dt>
                 <dd>
                   {waiting(t)}
@@ -291,7 +302,11 @@ export function TaskDrawer({
                 <dd>Sistema · {date(t.created_at)}</dd>
                 <dt>Última alteração</dt>
                 <dd>
-                  {t.updated_by} · {date(t.updated_at)}
+                  {t.modifier_name ||
+                    (t.updated_by === "Sistema"
+                      ? "Sistema"
+                      : "Usuário sem nome cadastrado")}{" "}
+                  · {date(t.updated_at)}
                 </dd>
                 {t.completed_at && (
                   <>
@@ -301,7 +316,8 @@ export function TaskDrawer({
                 )}
               </dl>
               <p>
-                A conclusão acompanha a regularização do processo de origem.
+                A conclusão automática acompanha a regularização do processo.
+                Também é possível concluir manualmente pelo Kanban.
               </p>
             </section>
             {data.notifications.length > 0 && (
@@ -309,7 +325,7 @@ export function TaskDrawer({
                 <h3>Avisos de atribuição</h3>
                 {data.notifications.map((n: any) => (
                   <p key={n.id}>
-                    {n.recipient}
+                    {n.recipient_name || "Funcionário sem nome cadastrado"}
                     <small>
                       {
                         {
@@ -330,16 +346,18 @@ export function TaskDrawer({
             <section className="task-card">
               <h3>Anexos ({data.attachments.length})</h3>
               <label>
-                Incluir arquivo (até 3 MB)
+                Incluir PDF ou Office (até 3 MB)
                 <input
                   disabled={busy}
                   type="file"
+                  accept={taskAttachmentAccept}
                   onChange={(e) => {
                     void upload(e.target.files?.[0]);
                     e.target.value = "";
                   }}
                 />
               </label>
+              <small>{taskAttachmentTypeMessage}</small>
               {data.attachments.map((a: any) => (
                 <p key={a.id}>
                   <a href={"/api/tasks/attachments/" + a.id}>{a.filename}</a>
@@ -404,6 +422,80 @@ export function TaskDrawer({
     </dialog>
   );
 }
+function TaskChart({ tasks }: { tasks: any[] }) {
+  const groups = new Map<
+    string,
+    { name: string; counts: Record<TaskColumn, number> }
+  >();
+  for (const task of tasks) {
+    const key = task.assigned_to?.trim().toLowerCase() || "unassigned";
+    if (!groups.has(key))
+      groups.set(key, {
+        name: task.assigned_to
+          ? task.assignee_name || "Funcionário sem nome cadastrado"
+          : "Não atribuído",
+        counts: { pending: 0, in_progress: 0, overdue: 0, completed: 0 },
+      });
+    groups.get(key)!.counts[taskColumn(task)]++;
+  }
+  const entries = [...groups.entries()].sort((a, b) =>
+    a[1].name.localeCompare(b[1].name, "pt-BR"),
+  );
+  const maximum = Math.max(
+    1,
+    ...entries.flatMap(([, group]) => Object.values(group.counts)),
+  );
+  return (
+    <section
+      className="task-card task-chart"
+      aria-label="Gráfico de tarefas por responsável"
+    >
+      <h2>Tarefas por responsável</h2>
+      <p>Quantidade por status, considerando os filtros selecionados.</p>
+      {!entries.length && <p>Nenhuma tarefa encontrada.</p>}
+      {entries.map(([key, group]) => (
+        <section
+          key={key}
+          className="task-chart-person"
+          aria-label={group.name}
+        >
+          <h3>
+            {group.name}{" "}
+            <small>
+              ·{" "}
+              {Object.values(group.counts).reduce(
+                (sum, count) => sum + count,
+                0,
+              )}{" "}
+              tarefas
+            </small>
+          </h3>
+          {(Object.entries(taskColumns) as [TaskColumn, string][]).map(
+            ([status, label]) => (
+              <div
+                key={status}
+                className="task-chart-row"
+                aria-label={`${label}: ${group.counts[status]}`}
+              >
+                <span>{label}</span>
+                <div className="task-chart-track" aria-hidden="true">
+                  <div
+                    className={`task-chart-bar task-chart-${status}`}
+                    style={{
+                      width: `${(group.counts[status] / maximum) * 100}%`,
+                    }}
+                  />
+                </div>
+                <strong>{group.counts[status]}</strong>
+              </div>
+            ),
+          )}
+        </section>
+      ))}
+    </section>
+  );
+}
+
 export default function TasksDashboard() {
   const params = useSearchParams(),
     [data, setData] = useState<any>(null),
@@ -411,7 +503,7 @@ export default function TasksDashboard() {
     [busy, setBusy] = useState(false),
     [mine, setMine] = useState(false),
     [view, setView] = useState("list"),
-    [status, setStatus] = useState("active"),
+    [status, setStatus] = useState("all"),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState<string | null>(params.get("task")),
     [month, setMonth] = useState(() =>
@@ -419,6 +511,7 @@ export default function TasksDashboard() {
         .toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" })
         .slice(0, 7),
     );
+  const [dragging, setDragging] = useState<string | null>(null);
   async function load() {
     const b = await api("/api/tasks");
     setData(b);
@@ -445,15 +538,54 @@ export default function TasksDashboard() {
   }, []);
   const rows = (data?.tasks || []).filter(
     (t: any) =>
-      (!mine || t.assigned_to === data.email.toLowerCase()) &&
+      (!mine ||
+        t.is_mine === true ||
+        (t.is_mine === undefined &&
+          t.assigned_to?.trim().toLowerCase() ===
+            data.email?.trim().toLowerCase())) &&
       (status === "all" || status === "active"
         ? status === "all" || t.status !== "completed"
-        : t.status === status) &&
+        : taskColumn(t) === status) &&
       (!query ||
-        `${t.id} ${t.title} ${t.equipment_name} ${t.customer} ${t.origin} ${t.assigned_to || ""}`
+        `${t.id} ${t.title} ${t.equipment_name} ${t.customer} ${t.origin} ${t.assignee_name || ""}`
           .toLocaleLowerCase("pt-BR")
           .includes(query.toLocaleLowerCase("pt-BR"))),
   );
+  async function moveTask(id: string, column: TaskColumn) {
+    const task = data?.tasks.find((t: any) => String(t.id) === id);
+    if (!task || busy || taskColumn(task) === column) return;
+    let assignment: "keep" | "self" = "self";
+    if (
+      column === "in_progress" &&
+      task.assigned_to &&
+      task.assigned_to.toLowerCase() !== data.email?.toLowerCase()
+    ) {
+      assignment = window.confirm(
+        `Esta tarefa está atribuída a ${task.assignee_name || "um funcionário"}. Deseja assumir a tarefa?\n\nOK: atribuir a mim.\nCancelar: manter o responsável atual.`,
+      )
+        ? "self"
+        : "keep";
+    }
+
+    setBusy(true);
+    setError("");
+    try {
+      await api("/api/tasks", {
+        action: "move",
+        id,
+        version: task.version,
+        column,
+        assignment,
+      });
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+      await load().catch(() => {});
+    } finally {
+      setBusy(false);
+      setDragging(null);
+    }
+  }
   function open(id: string) {
     setSelected(String(id));
     history.replaceState(null, "", "/tarefas?task=" + id);
@@ -484,26 +616,47 @@ export default function TasksDashboard() {
             {error}
           </p>
         )}
-        <nav className="task-toolbar">
-          <button aria-pressed={!mine} onClick={() => setMine(false)}>
-            Últimas tarefas · Todos
-          </button>
-          <button aria-pressed={mine} onClick={() => setMine(true)}>
-            Minhas tarefas
-          </button>
-          <button
-            aria-pressed={view === "list"}
-            onClick={() => setView("list")}
+        <div className="task-control-groups">
+          <nav className="task-toolbar" aria-label="Filtros de responsáveis">
+            <strong>Responsáveis</strong>
+            <button aria-pressed={!mine} onClick={() => setMine(false)}>
+              Últimas tarefas · Todos
+            </button>
+            <button aria-pressed={mine} onClick={() => setMine(true)}>
+              Minhas tarefas
+            </button>
+          </nav>
+          <nav
+            className="task-toolbar task-view-controls"
+            aria-label="Modo de visualização"
           >
-            Lista
-          </button>
-          <button
-            aria-pressed={view === "calendar"}
-            onClick={() => setView("calendar")}
-          >
-            Calendário
-          </button>
-        </nav>
+            <strong>Visualização</strong>
+            <button
+              aria-pressed={view === "list"}
+              onClick={() => setView("list")}
+            >
+              Lista
+            </button>
+            <button
+              aria-pressed={view === "calendar"}
+              onClick={() => setView("calendar")}
+            >
+              Calendário
+            </button>
+            <button
+              aria-pressed={view === "kanban"}
+              onClick={() => setView("kanban")}
+            >
+              Kanban
+            </button>
+            <button
+              aria-pressed={view === "chart"}
+              onClick={() => setView("chart")}
+            >
+              Gráfico
+            </button>
+          </nav>
+        </div>
         <div className="task-toolbar">
           <label>
             Pesquisar
@@ -518,7 +671,7 @@ export default function TasksDashboard() {
             <select value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="active">Em aberto</option>
               <option value="all">Todos</option>
-              {Object.entries(statusNames).map(([k, v]) => (
+              {Object.entries(taskColumns).map(([k, v]) => (
                 <option key={k} value={k}>
                   {v}
                 </option>
@@ -527,7 +680,96 @@ export default function TasksDashboard() {
           </label>
           <span>{rows.length} tarefas</span>
         </div>
-        {view === "list" ? (
+        {view === "chart" ? (
+          <TaskChart tasks={rows} />
+        ) : view === "kanban" ? (
+          <section className="task-kanban" aria-label="Quadro de tarefas">
+            {(Object.entries(taskColumns) as [TaskColumn, string][]).map(
+              ([key, label]) => {
+                const cards = rows.filter((t: any) => taskColumn(t) === key);
+                return (
+                  <section
+                    key={key}
+                    className={
+                      "task-kanban-column " + (dragging ? "drop-ready" : "")
+                    }
+                    aria-label={label}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const id = e.dataTransfer.getData("text/plain");
+                      void moveTask(id, key);
+                    }}
+                  >
+                    <h2>
+                      {label} <span>{cards.length}</span>
+                    </h2>
+                    {cards.map((t: any) => (
+                      <article
+                        key={t.id}
+                        className="task-kanban-card"
+                        draggable={!busy && t.status !== "completed"}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", String(t.id));
+                          e.dataTransfer.effectAllowed = "move";
+                          setDragging(String(t.id));
+                        }}
+                        onDragEnd={() => setDragging(null)}
+                      >
+                        <button
+                          className="task-link"
+                          onClick={() => open(t.id)}
+                        >
+                          TAR-{t.id} · {t.title}
+                        </button>
+                        <p>{t.equipment_name}</p>
+                        <small>{t.origin}</small>
+                        <small>
+                          {t.assignee_name ||
+                            (t.assigned_to
+                              ? "Funcionário sem nome cadastrado"
+                              : "Não atribuído")}
+                        </small>
+                        <small>Vencimento: {date(day(t.due_date))}</small>
+                        <span className={"task-priority " + t.priority}>
+                          {priorityNames[t.priority]}
+                        </span>
+                        {t.status !== "completed" && (
+                          <label>
+                            Mover tarefa
+                            <select
+                              aria-label={"Mover TAR-" + t.id}
+                              disabled={busy}
+                              value={key}
+                              onChange={(e) =>
+                                void moveTask(
+                                  String(t.id),
+                                  e.target.value as TaskColumn,
+                                )
+                              }
+                            >
+                              {Object.entries(taskColumns).map(([k, v]) => (
+                                <option key={k} value={k}>
+                                  {v}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                      </article>
+                    ))}
+                    {!cards.length && (
+                      <p className="task-kanban-empty">Nenhuma tarefa</p>
+                    )}
+                  </section>
+                );
+              },
+            )}
+          </section>
+        ) : view === "list" ? (
           <div className="task-table">
             <table>
               <thead>
@@ -554,7 +796,10 @@ export default function TasksDashboard() {
                     <td>{t.origin}</td>
                     <td>
                       <button className="task-link" onClick={() => open(t.id)}>
-                        {t.assignee_name || t.assigned_to || "Não atribuído"}
+                        {t.assignee_name ||
+                          (t.assigned_to
+                            ? "Funcionário sem nome cadastrado"
+                            : "Não atribuído")}
                       </button>
                     </td>
                     <td>
@@ -563,12 +808,15 @@ export default function TasksDashboard() {
                       </span>
                     </td>
                     <td>
-                      {statusNames[t.status]}
+                      {taskColumns[taskColumn(t)]}
                       <small>{waiting(t)}</small>
                     </td>
                     <td>{date(day(t.due_date))}</td>
                     <td>
-                      {t.updated_by}
+                      {t.modifier_name ||
+                        (t.updated_by === "Sistema"
+                          ? "Sistema"
+                          : "Usuário sem nome cadastrado")}
                       <small>{date(t.updated_at)}</small>
                     </td>
                   </tr>
@@ -607,7 +855,7 @@ export default function TasksDashboard() {
                       .map((t: any) => (
                         <button key={t.id} onClick={() => open(t.id)}>
                           TAR-{t.id} · {t.equipment_name}
-                          <small>{statusNames[t.status]}</small>
+                          <small>{taskColumns[taskColumn(t)]}</small>
                         </button>
                       ))}
                   </div>
@@ -718,7 +966,7 @@ export function EquipmentTaskLinks({
             open(t.id);
           }}
         >
-          TAR-{t.id} · {statusNames[t.status]}
+          TAR-{t.id} · {taskColumns[taskColumn(t)]}
         </a>
       ))}
     </div>

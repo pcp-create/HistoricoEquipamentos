@@ -1,9 +1,22 @@
 "use client";
+import { fold } from "@/lib/filters";
 import { useEffect, useRef, useState } from "react";
-import { Plus, Pencil, Archive, Save, Wrench, ArrowLeft } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Archive,
+  Save,
+  Wrench,
+  ArrowLeft,
+  Eye,
+} from "lucide-react";
+import PreventivePlanItems from "./preventive-plan-items";
+import PreventivePlanQuote from "./preventive-plan-quote";
+import { OrderDetails } from "./dashboard";
 import MaterialPhoto from "./material-photo";
-import {EquipmentTaskProvider,EquipmentTaskLinks} from "./tasks-dashboard";
+import { EquipmentTaskProvider, EquipmentTaskLinks } from "./tasks-dashboard";
 import SiteHeader from "./site-header";
+import { useSessionAccess } from "./session-access";
 import {
   emptyOperating,
   estimateCurrentMeter,
@@ -16,7 +29,10 @@ import { companyName } from "@/lib/company-names";
 const api = async (url: string, options?: RequestInit) => {
   const r = await fetch("/api/equipment-management" + url, options);
   if (r.status === 401) {
-    window.location.assign("/login");
+    window.location.assign(
+      "/login?next=" +
+        encodeURIComponent(window.location.pathname + window.location.search),
+    );
     throw Error("Sessão expirada.");
   }
   const b = await r.json();
@@ -140,7 +156,14 @@ function RentalBadge({ status }: { status: any }) {
               {status.contract.label}
             </span>
             {status.contract.remaining != null && (
-              <span className={status.contract.remaining >= 0 && status.contract.remaining <= 5 ? "equipment-contract-urgent" : undefined}>
+              <span
+                className={
+                  status.contract.remaining >= 0 &&
+                  status.contract.remaining <= 5
+                    ? "equipment-contract-urgent"
+                    : undefined
+                }
+              >
                 {" "}
                 ·{" "}
                 {status.contract.remaining < 0
@@ -176,7 +199,7 @@ function OrderLink({ id, company }: { id: string; company?: number }) {
   );
 }
 export default function EquipmentDashboard() {
-  useEffect(()=>{const params=new URLSearchParams(window.location.search);if(/^[1-9]\d{0,17}$/.test(params.get("equipment")||""))setSelected(params.get("equipment")!);},[]);
+  const { admin } = useSessionAccess();
   const [loaded, setResult] = useState<any>(null),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
@@ -190,6 +213,20 @@ export default function EquipmentDashboard() {
     [page, setPage] = useState(1),
     [refresh, setRefresh] = useState(0),
     [loading, setLoading] = useState(false);
+  const [orderSelection, setOrderSelection] = useState<{
+    company_id: number;
+    id: string;
+    number: string;
+  } | null>(null);
+  const [quotePlan, setQuotePlan] = useState<any>(null);
+  const initialPlan = useRef("");
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (/^[1-9]\d{0,17}$/.test(params.get("equipment") || "")) {
+      initialPlan.current = params.get("plan") || "";
+      setSelected(params.get("equipment")!);
+    }
+  }, []);
   const [selected, setSelected] = useState(""),
     [detail, setDetail] = useState<any>(null),
     [detailLoading, setDetailLoading] = useState(false),
@@ -207,7 +244,29 @@ export default function EquipmentDashboard() {
     );
   } catch {}
   const rentalOnly = equipmentTab !== "all";
-  const rentalRows = (loaded?.rows || []).filter((e: any) => e.rental);
+  const baseRows = (loaded?.rows || []).filter(
+    (e: any) =>
+      (!ownership || e.ownership === ownership) &&
+      (!state ||
+        (state === "none" ? !e.plans : e.forecast?.status === state)) &&
+      (!query.trim() ||
+        fold(
+          [
+            e.id,
+            e.rental ? e.internal_code : "",
+            e.name,
+            e.model,
+            e.serial,
+            e.brand,
+            e.rentalStatus?.customer,
+            e.rentalStatus?.label,
+            e.rentalStatus?.contract?.label,
+            e.rentalStatus?.stockNote,
+            ...(e.clients || []).map((c: any) => c.name || c.id),
+          ].join(" "),
+        ).includes(fold(query.trim()))),
+  );
+  const rentalRows = baseRows.filter((e: any) => e.rental);
   const rentalOptions = [
     ["", "Todos"],
     ["available", "Disponível"],
@@ -231,11 +290,15 @@ export default function EquipmentDashboard() {
     ["rented", "Locados"],
     ["loaned", "Emprestados"],
   ].map(([key, label]) => ({
-    key, label,
-    count: contractRows.filter((e: any) => key === "all" || e.rentalStatus.key === key).length,
+    key,
+    label,
+    count: contractRows.filter(
+      (e: any) => key === "all" || e.rentalStatus.key === key,
+    ).length,
   }));
-  const typedContractRows = contractRows.filter((e: any) =>
-    contractType === "all" || e.rentalStatus.key === contractType);
+  const typedContractRows = contractRows.filter(
+    (e: any) => contractType === "all" || e.rentalStatus.key === contractType,
+  );
   const contractOptions = [
     ["all", "Todos"],
     ["current", "Dentro do prazo"],
@@ -243,19 +306,25 @@ export default function EquipmentDashboard() {
     ["overdue", "Vencido"],
     ["incomplete", "Conferir datas"],
   ].map(([key, label]) => ({
-    key, label,
-    count: typedContractRows.filter((e: any) =>
-      key === "all" || (e.rentalStatus.contract?.key || "incomplete") === key).length,
+    key,
+    label,
+    count: typedContractRows.filter(
+      (e: any) =>
+        key === "all" || (e.rentalStatus.contract?.key || "incomplete") === key,
+    ).length,
   }));
-  const filteredRows = (loaded?.rows || []).filter((e: any) => {
+  const filteredRows = baseRows.filter((e: any) => {
     if (equipmentTab === "all") return true;
     if (!e.rental) return false;
     if (equipmentTab === "rental")
       return !rentalStatus || e.rentalStatus?.key === rentalStatus;
-    return ["rented", "loaned"].includes(e.rentalStatus?.key) &&
+    return (
+      ["rented", "loaned"].includes(e.rentalStatus?.key) &&
       (contractType === "all" || e.rentalStatus.key === contractType) &&
-      (!contractStatus || contractStatus === "all" ||
-        (e.rentalStatus.contract?.key || "incomplete") === contractStatus);
+      (!contractStatus ||
+        contractStatus === "all" ||
+        (e.rentalStatus.contract?.key || "incomplete") === contractStatus)
+    );
   });
   if (rentalOnly) {
     filteredRows.sort((a: any, b: any) => {
@@ -289,6 +358,14 @@ export default function EquipmentDashboard() {
   const applyDetail = (d: any) => {
     setDetail(d);
     setOperating({ ...emptyOperating, ...d.settings.document });
+    if (initialPlan.current) {
+      const p = d.plans.find((p: any) => p.id === initialPlan.current);
+      if (p) {
+        setPlan({ ...p.document });
+        setPlanEdit(p);
+      }
+      initialPlan.current = "";
+    }
   };
   useEffect(() => {
     const controller = new AbortController();
@@ -297,10 +374,7 @@ export default function EquipmentDashboard() {
       api(
         "?" +
           new URLSearchParams({
-            q: query,
-            ownership,
             all: "1",
-            state,
           }),
         { signal: controller.signal },
       )
@@ -316,7 +390,8 @@ export default function EquipmentDashboard() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, ownership, state, refresh]);
+  }, [refresh]);
+  useEffect(() => setPage(1), [query, ownership, state]);
   useEffect(() => {
     if (!selected) {
       setDetail(null);
@@ -392,6 +467,26 @@ export default function EquipmentDashboard() {
       <main className="equipment-page catalog-settings">
         <section className="manual-card">
           <h1>Equipamentos</h1>
+          {admin && (
+            <div className="catalog-editor-actions">
+              <a
+                className="button"
+                href="/api/preventive-reports?kind=weekly&format=pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Relatório semanal (PDF)
+              </a>
+              <a
+                className="button"
+                href="/api/preventive-reports?kind=overdue&format=pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Preventivas vencidas (PDF)
+              </a>
+            </div>
+          )}
           <p>
             Clientes, histórico de OS e planejamento de preventivas dos
             equipamentos cadastrados.
@@ -477,39 +572,51 @@ export default function EquipmentDashboard() {
             )}
             {contractFilterVisible && (
               <div className="equipment-contract-filter-row">
-              <div className="equipment-rental-status-filters equipment-contract-filter-group"
-                role="group" aria-label="Tipo de contrato">
-                <small>Tipo</small>
-                {contractTypeOptions.map(({ key, label, count }) => (
-                  <button type="button" key={key}
-                    className={`rental-filter-${key}`}
-                    aria-pressed={contractType === key}
-                    onClick={() => { setContractType(key); setPage(1); }}>
-                    {label} <strong>{count}</strong>
-                  </button>
-                ))}
-              </div>
-              <div
-                className="equipment-rental-status-filters equipment-contract-filters equipment-contract-filter-group"
-                role="group"
-                aria-label="Situação do contrato de locação ou empréstimo"
-              >
-                <small>Prazo do contrato</small>
-                {contractOptions.map(({ key, label, count }) => (
-                  <button
-                    type="button"
-                    key={key}
-                    className={`contract-filter-${key}`}
-                    aria-pressed={contractStatus === key || (!contractStatus && key === "all")}
-                    onClick={() => {
-                      setContractStatus(key);
-                      setPage(1);
-                    }}
-                  >
-                    {label} <strong>{count}</strong>
-                  </button>
-                ))}
-              </div>
+                <div
+                  className="equipment-rental-status-filters equipment-contract-filter-group"
+                  role="group"
+                  aria-label="Tipo de contrato"
+                >
+                  <small>Tipo</small>
+                  {contractTypeOptions.map(({ key, label, count }) => (
+                    <button
+                      type="button"
+                      key={key}
+                      className={`rental-filter-${key}`}
+                      aria-pressed={contractType === key}
+                      onClick={() => {
+                        setContractType(key);
+                        setPage(1);
+                      }}
+                    >
+                      {label} <strong>{count}</strong>
+                    </button>
+                  ))}
+                </div>
+                <div
+                  className="equipment-rental-status-filters equipment-contract-filters equipment-contract-filter-group"
+                  role="group"
+                  aria-label="Situação do contrato de locação ou empréstimo"
+                >
+                  <small>Prazo do contrato</small>
+                  {contractOptions.map(({ key, label, count }) => (
+                    <button
+                      type="button"
+                      key={key}
+                      className={`contract-filter-${key}`}
+                      aria-pressed={
+                        contractStatus === key ||
+                        (!contractStatus && key === "all")
+                      }
+                      onClick={() => {
+                        setContractStatus(key);
+                        setPage(1);
+                      }}
+                    >
+                      {label} <strong>{count}</strong>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             <div className="equipment-filters">
@@ -634,7 +741,10 @@ export default function EquipmentDashboard() {
                       </td>
                       <td className="equipment-situation-cell">
                         {e.rental ? (
-                          <><RentalBadge status={e.rentalStatus} /><EquipmentTaskLinks equipment={String(e.id)} /></>
+                          <>
+                            <RentalBadge status={e.rentalStatus} />
+                            <EquipmentTaskLinks equipment={String(e.id)} />
+                          </>
                         ) : (
                           "—"
                         )}
@@ -697,7 +807,10 @@ export default function EquipmentDashboard() {
                     </span>
                   )}
                   {detail.equipment.rental && (
-                    <><RentalBadge status={detail.equipment.rentalStatus} /><EquipmentTaskLinks equipment={String(selected)} /></>
+                    <>
+                      <RentalBadge status={detail.equipment.rentalStatus} />
+                      <EquipmentTaskLinks equipment={String(selected)} />
+                    </>
                   )}
                   <p>
                     {detail.equipment.brand || "Marca não informada"} · Modelo:{" "}
@@ -894,8 +1007,9 @@ export default function EquipmentDashboard() {
                   </div>
                   <p className="muted">
                     Com horas e meses preenchidos, vale o limite que chegar
-                    primeiro. Registre cada serviço separadamente; uma OS no
-                    histórico não reinicia automaticamente o plano.
+                    primeiro. Ao registrar uma manutenção, os planos com
+                    intervalos menores também são atualizados, preservando
+                    intervenções mais recentes.
                   </p>
                   <div className="equipment-table">
                     <table>
@@ -912,9 +1026,30 @@ export default function EquipmentDashboard() {
                       <tbody>
                         {detail.plans.map((p: any) => (
                           <tr key={p.id}>
-                            <td><EquipmentTaskLinks equipment={String(selected)} plan={p.id} />
+                            <td>
+                              <EquipmentTaskLinks
+                                equipment={String(selected)}
+                                plan={p.id}
+                              />
                               <strong>{p.document.name}</strong>
                               <small>{p.document.notes}</small>
+                              <small>
+                                {p.document.items?.length || 0} materiais e
+                                serviços cadastrados
+                              </small>
+                              {!!p.document.items?.length && (
+                                <details>
+                                  <summary>Ver itens do plano</summary>
+                                  <ul>
+                                    {p.document.items.map((i: any) => (
+                                      <li key={`${i.kind}:${i.code}`}>
+                                        {i.quantity} {i.unit} · {i.name} · Cód.{" "}
+                                        {i.code}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </details>
+                              )}
                             </td>
                             <td>
                               {p.document.hours
@@ -985,6 +1120,13 @@ export default function EquipmentDashboard() {
                                   }}
                                 >
                                   <Wrench size={15} />
+                                </button>
+                                <button
+                                  disabled={saving || !p.document.items?.length}
+                                  title="Gerar orçamento com os itens salvos do plano"
+                                  onClick={() => setQuotePlan(p)}
+                                >
+                                  Gerar orçamento
                                 </button>
                                 <button
                                   disabled={saving}
@@ -1106,6 +1248,13 @@ export default function EquipmentDashboard() {
                             />
                           </label>
                         </div>
+                        <PreventivePlanItems
+                          equipment={detail.equipment}
+                          clients={detail.quoteClients || detail.clients}
+                          items={plan.items || []}
+                          disabled={saving}
+                          onChange={(items) => setPlan({ ...plan, items })}
+                        />
                         <p className="muted">
                           Intervalos são contados desde a última intervenção
                           deste plano. Pode salvar sem a data ou leitura
@@ -1259,6 +1408,7 @@ export default function EquipmentDashboard() {
                           <th>Cliente</th>
                           <th>Tipo / situação</th>
                           <th>Origem do vínculo</th>
+                          <th>Ações</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1280,6 +1430,23 @@ export default function EquipmentDashboard() {
                                 : o.method === "serial"
                                   ? "Número de série"
                                   : "Equipamento atribuído na OS"}
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className="icon-button"
+                                title="Visualizar OS"
+                                aria-label={`Visualizar OS ${o.id}`}
+                                onClick={() =>
+                                  setOrderSelection({
+                                    company_id: Number(o.company_id),
+                                    id: String(o.id),
+                                    number: String(o.id),
+                                  })
+                                }
+                              >
+                                <Eye size={17} />
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -1310,17 +1477,44 @@ export default function EquipmentDashboard() {
                           {detail.events.map((e: any) => (
                             <tr key={e.id}>
                               <td>
-                                {{
-                                  settings: "Operação atualizada",
-                                  plan: "Plano salvo",
-                                  maintenance: "Manutenção realizada",
-                                  archive: "Plano arquivado",
-                                }[e.kind as string] || e.kind}
+                                {e.document.action === "quote"
+                                  ? "Orçamento criado"
+                                  : {
+                                      settings: "Operação atualizada",
+                                      plan: "Plano salvo",
+                                      maintenance: "Manutenção realizada",
+                                      archive: "Plano arquivado",
+                                    }[e.kind as string] || e.kind}
                                 <small>{date(e.created_at)}</small>
                               </td>
                               <td>
-                                {e.document.after?.name ||
+                                {e.document.planName ||
+                                  e.document.after?.name ||
                                   "Configuração do equipamento"}
+                                {e.document.quoteId && (
+                                  <small>
+                                    {e.quote_deleted_at ? (
+                                      <span>
+                                        ORÇ-
+                                        {String(
+                                          e.document.quoteNumber,
+                                        ).padStart(5, "0")}{" "}
+                                        · Rascunho excluído em{" "}
+                                        {date(e.quote_deleted_at)}
+                                      </span>
+                                    ) : (
+                                      <a
+                                        href={`/orcamentos?id=${encodeURIComponent(e.document.quoteId)}`}
+                                      >
+                                        Abrir ORÇ-
+                                        {String(
+                                          e.document.quoteNumber,
+                                        ).padStart(5, "0")}
+                                      </a>
+                                    )}{" "}
+                                    · {e.document.client || "Cliente a definir"}
+                                  </small>
+                                )}
                                 {e.document.intervention && (
                                   <>
                                     <small>
@@ -1352,6 +1546,20 @@ export default function EquipmentDashboard() {
           </>
         )}
       </main>
+      {quotePlan && detail && (
+        <PreventivePlanQuote
+          equipment={selected}
+          plan={quotePlan}
+          clients={detail.quoteClients || detail.clients}
+          onClose={() => setQuotePlan(null)}
+        />
+      )}
+      {orderSelection && (
+        <OrderDetails
+          selection={orderSelection}
+          onClose={() => setOrderSelection(null)}
+        />
+      )}
     </EquipmentTaskProvider>
   );
 }

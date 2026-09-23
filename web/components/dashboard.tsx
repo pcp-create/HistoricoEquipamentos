@@ -159,6 +159,18 @@ function searchParams(
   return p;
 }
 
+  async function api(url: string, signal?: AbortSignal) {
+    const response = await fetch(url, { signal, cache: "no-store" });
+    if (response.status === 401) {
+      window.location.assign("/login");
+      throw new Error("Sessão expirada.");
+    }
+    const data = await response.json();
+    if (!response.ok)
+      throw new Error(data.error || "Não foi possível carregar os dados.");
+    return data;
+  }
+
 export default function Dashboard() {
   const [draft, setDraft] = useState(initial),
     [filters, setFilters] = useState(initial),
@@ -173,11 +185,8 @@ export default function Dashboard() {
     [refresh, setRefresh] = useState(0),
     [expanded, setExpanded] = useState(true),
     [ready, setReady] = useState(false);
-  const [selection, setSelection] = useState<Row | null>(null),
-    [detail, setDetail] = useState<Detail | null>(null),
-    [detailError, setDetailError] = useState("");
-  const searchInput = useRef<HTMLInputElement>(null),
-    dialogRef = useRef<HTMLDialogElement>(null);
+  const [selection, setSelection] = useState<Row | null>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const input = { ...initial };
@@ -210,17 +219,6 @@ export default function Dashboard() {
     }, 500);
     return () => clearTimeout(timer);
   }, [ready, draft.q, filters.q]);
-  async function api(url: string, signal?: AbortSignal) {
-    const response = await fetch(url, { signal, cache: "no-store" });
-    if (response.status === 401) {
-      window.location.assign("/login");
-      throw new Error("Sessão expirada.");
-    }
-    const data = await response.json();
-    if (!response.ok)
-      throw new Error(data.error || "Não foi possível carregar os dados.");
-    return data;
-  }
   useEffect(() => {
     if (!ready) return;
     const controller = new AbortController();
@@ -235,7 +233,10 @@ export default function Dashboard() {
     setLoading(true);
     setError("");
     const params = searchParams(filters, view, page, size);
-    window.history.replaceState(null, "", `/?${params}`);
+    const navigationParams = new URLSearchParams(params);
+    const module = new URLSearchParams(window.location.search).get("module");
+    if (module) navigationParams.set("module", module);
+    window.history.replaceState(null, "", `/historico?${navigationParams}`);
     api(`/api/history?${params}`, controller.signal)
       .then((data) => {
         setResult(data);
@@ -249,26 +250,6 @@ export default function Dashboard() {
       });
     return () => controller.abort();
   }, [ready, filters, view, page, size, refresh]);
-  useEffect(() => {
-    if (!selection) return;
-    const controller = new AbortController();
-    setDetail(null);
-    setDetailError("");
-    dialogRef.current?.showModal();
-    api(
-      `/api/orders/${selection.company_id}/${selection.id}`,
-      controller.signal,
-    )
-      .then(setDetail)
-      .catch((e) => {
-        if (e.name !== "AbortError") setDetailError(e.message);
-      });
-    return () => controller.abort();
-  }, [selection]);
-  function closeDetail() {
-    dialogRef.current?.close();
-    setSelection(null);
-  }
   function submit(event: FormEvent) {
     event.preventDefault();
     setPage(1);
@@ -941,291 +922,12 @@ export default function Dashboard() {
           </span>
         </footer>
       </main>
-      <dialog
-        ref={dialogRef}
-        className="detail-dialog"
-        onCancel={closeDetail}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) closeDetail();
-        }}
-      >
-        <div className="drawer">
-          <div className="drawer-header">
-            <div>
-              <span className="eyebrow">
-                ORDEM DE SERVIÇO · {companyName(selection?.company_id)}
-              </span>
-              <h2>OS-{selection?.number.padStart(5, "0")}</h2>
-            </div>
-            <button
-              className="icon-button"
-              aria-label="Fechar detalhes"
-              onClick={closeDetail}
-            >
-              <X />
-            </button>
-          </div>
-          {detailError ? (
-            <div role="alert" className="error">
-              {detailError}
-            </div>
-          ) : !detail ? (
-            <div className="empty">
-              <LoaderCircle className="spin" />
-              Carregando detalhes...
-            </div>
-          ) : (
-            <div className="drawer-body">
-              <div className="detail-summary">
-                <Badge status={String(detail.order.status || "")} />
-                <span>
-                  {date(detail.order.emissao || detail.order.data_abertura)}
-                </span>
-                <strong>{money(detail.order.total_geral)}</strong>
-              </div>
-              <h3>{shown(detail.order.cliente_nome)}</h3>
-              <p className="muted">
-                {shown(detail.order.equipamento)} ·{" "}
-                {shown(detail.order.modelo_equipamento)}
-              </p>
-              <a
-                className="manual-history-link"
-                href={
-                  "/fabricante?" +
-                  new URLSearchParams({
-                    company: String(detail.order.company_id || ""),
-                    model: String(detail.order.modelo_equipamento || ""),
-                    serial: String(
-                      detail.order.numero_serie || detail.order.serie || "",
-                    ),
-                  })
-                }
-              >
-                Consultar peças do fabricante e histórico da série
-              </a>
-              {!detail.detail_at && (
-                <div className="notice">
-                  <Clock3 size={16} />
-                  Os detalhes desta OS ainda estão sendo importados. A lista de
-                  materiais e serviços pode estar incompleta.
-                </div>
-              )}
-              {!!detail.equipment_links?.length && (
-                <section className="registered-equipment">
-                  <h4>
-                    <Wrench size={17} /> Equipamentos identificados
-                  </h4>
-                  {detail.equipment_links.map((eq) => (
-                    <div
-                      className="registered-equipment-card"
-                      key={eq.equipment_id}
-                    >
-                      <strong>{eq.name}</strong>
-                      <p>
-                        Modelo: {eq.model || "Conferir no cadastro"} · Série:{" "}
-                        {eq.serial || "Não identificada"}
-                      </p>
-                      <span
-                        className={
-                          eq.method === "review"
-                            ? "quote-warning"
-                            : "equipment-origin"
-                        }
-                      >
-                        {
-                          (
-                            {
-                              explicit: "Vínculo explícito no ERP",
-                              serial: "Série estruturada + cadastro do cliente",
-                              observation:
-                                "Série nas observações · associação automática",
-                              review:
-                                "Possível vínculo · precisa de conferência",
-                            } as Record<string, string>
-                          )[eq.method]
-                        }
-                      </span>
-                      <p className="muted">
-                        {eq.evidence.reason} · Origem: {eq.evidence.field} ·
-                        Valor: {eq.evidence.value}
-                        {eq.serial_source === "nome"
-                          ? " · Série extraída do nome do cadastro"
-                          : ""}
-                      </p>
-                      {eq.method !== "review" && (
-                        <a
-                          href={
-                            "/fabricante?" +
-                            new URLSearchParams({
-                              company: String(detail.order.company_id || ""),
-                              model: eq.model || "",
-                              serial: eq.serial || "",
-                            })
-                          }
-                        >
-                          Consultar histórico e peças do fabricante
-                        </a>
-                      )}
-                    </div>
-                  ))}
-                </section>
-              )}
-              <h4>
-                <Package size={17} />
-                Materiais aplicados{" "}
-                <span className="count-pill">{detail.materials.length}</span>
-              </h4>
-              {detail.materials.length ? (
-                detail.materials.map((p, i) => (
-                  <details className="material-detail" key={i}>
-                    <summary>
-                      <div>
-                        <strong
-                          className={
-                            p.esta_excluido === true
-                              ? "excluded-description"
-                              : isNotApproved(p.aprovado)
-                                ? "unapproved-description"
-                                : undefined
-                          }
-                        >
-                          {shown(p.produto_nome)}
-                        </strong>
-                        {p.esta_excluido === true && (
-                          <small className="excluded-label">
-                            Excluído da OS
-                          </small>
-                        )}
-                        {isNotApproved(p.aprovado) && !p.esta_excluido && (
-                          <small className="unapproved-description">
-                            Reprovado na OS
-                          </small>
-                        )}
-                        <small>Código: {shown(p.produto_id)}</small>
-                        <small>
-                          Ref. fabricante: {shown(p.referencia_fabricante)}
-                        </small>
-                      </div>
-                      <div className="item-amount">
-                        <span>
-                          {shown(p.quantidade)} {shown(p.unidade_nome)}{" "}
-                          <ChevronDown size={15} />
-                        </span>
-                        <strong aria-label="Valor total do material">
-                          {money(p.valor_total)}
-                        </strong>
-                      </div>
-                    </summary>
-                    <ProductPhotos
-                      company={detail.order.company_id}
-                      id={p.produto_id}
-                      name={p.produto_nome}
-                    />
-                    <div className="product-detail-current">
-                      <div>
-                        <h4>Preços atuais</h4>
-                        <PriceValues
-                          current={p.current as ProductCurrent | undefined}
-                        />
-                      </div>
-                      <div>
-                        <h4>Estoque atual da empresa</h4>
-                        <StockValues
-                          current={p.current as ProductCurrent | undefined}
-                        />
-                      </div>
-                    </div>
-                    <FieldList fields={p} />
-                  </details>
-                ))
-              ) : (
-                <p className="muted">
-                  {detail.detail_at
-                    ? "Nenhum material registrado."
-                    : "Aguardando coleta dos materiais."}
-                </p>
-              )}
-              <h4>
-                <Wrench size={17} />
-                Serviços aplicados{" "}
-                <span className="count-pill">
-                  {(detail.services || []).length}
-                </span>
-              </h4>
-              {(detail.services || []).length ? (
-                detail.services!.map((service, i) => (
-                  <details className="material-detail service-detail" key={i}>
-                    <summary>
-                      <div>
-                        <strong>{shown(service.servico_nome)}</strong>
-                        <small>Código: {shown(service.servico_id)}</small>
-                        <small>
-                          Valor unitário: {money(service.valor_unitario)}
-                        </small>
-                      </div>
-                      <div className="item-amount">
-                        <span>
-                          Qtd.: {shown(service.quantidade)}{" "}
-                          <ChevronDown size={15} />
-                        </span>
-                        <strong aria-label="Valor total do serviço">
-                          {money(service.valor_total)}
-                        </strong>
-                      </div>
-                    </summary>
-                    <FieldList fields={service} />
-                  </details>
-                ))
-              ) : (
-                <p className="muted">
-                  {detail.detail_at
-                    ? "Nenhum serviço registrado."
-                    : "Aguardando coleta dos serviços."}
-                </p>
-              )}
-              <OrderAmounts
-                key={`${selection?.company_id}:${selection?.id}`}
-                detail={detail}
-              />
-              <details className="all-fields">
-                <summary>
-                  Todos os campos da OS
-                  <ChevronDown size={17} />
-                </summary>
-                <FieldList fields={detail.order} />
-              </details>
-              {detail.equipment.map((eq, i) => (
-                <details className="all-fields" key={i}>
-                  <summary>
-                    Equipamento {i + 1} · {shown(eq.numero_serie)}
-                    <ChevronDown size={17} />
-                  </summary>
-                  <a
-                    className="manual-history-link"
-                    href={
-                      "/fabricante?" +
-                      new URLSearchParams({
-                        company: String(detail.order.company_id || ""),
-                        model: String(eq.equipamento_modelo || ""),
-                        serial: String(eq.numero_serie || ""),
-                      })
-                    }
-                  >
-                    Consultar peças do fabricante deste equipamento
-                  </a>
-                  <FieldList fields={eq} />
-                </details>
-              ))}
-              <p className="drawer-updated">
-                <Check size={14} />
-                {detail.detail_at
-                  ? `Detalhes importados em ${date(detail.detail_at, true)}`
-                  : "Cabeçalho disponível; detalhes pendentes"}
-              </p>
-            </div>
-          )}
-        </div>
-      </dialog>
+      {selection && (
+        <OrderDetails
+          selection={selection}
+          onClose={() => setSelection(null)}
+        />
+      )}
     </>
   );
 }
@@ -1334,5 +1036,321 @@ function OrderAmounts({ detail }: { detail: Detail }) {
         </p>
       )}
     </section>
+  );
+}
+
+export function OrderDetails({
+  selection,
+  onClose,
+}: {
+  selection: { company_id: number; id: string; number: string };
+  onClose: () => void;
+}) {
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const [detailError, setDetailError] = useState("");
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (!selection) return;
+    const controller = new AbortController();
+    setDetail(null);
+    setDetailError("");
+    dialogRef.current?.showModal();
+    api(
+      `/api/orders/${selection.company_id}/${selection.id}`,
+      controller.signal,
+    )
+      .then(setDetail)
+      .catch((e) => {
+        if (e.name !== "AbortError") setDetailError(e.message);
+      });
+    return () => controller.abort();
+  }, [selection]);
+  function closeDetail() {
+    dialogRef.current?.close();
+    onClose();
+  }
+  return (
+    <dialog
+      ref={dialogRef}
+      className="detail-dialog"
+      onCancel={closeDetail}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) closeDetail();
+      }}
+    >
+      <div className="drawer">
+        <div className="drawer-header">
+          <div>
+            <span className="eyebrow">
+              ORDEM DE SERVIÇO · {companyName(selection?.company_id)}
+            </span>
+            <h2>OS-{selection?.number.padStart(5, "0")}</h2>
+          </div>
+          <button
+            className="icon-button"
+            aria-label="Fechar detalhes"
+            onClick={closeDetail}
+          >
+            <X />
+          </button>
+        </div>
+        {detailError ? (
+          <div role="alert" className="error">
+            {detailError}
+          </div>
+        ) : !detail ? (
+          <div className="empty">
+            <LoaderCircle className="spin" />
+            Carregando detalhes...
+          </div>
+        ) : (
+          <div className="drawer-body">
+            <div className="detail-summary">
+              <Badge status={String(detail.order.status || "")} />
+              <span>
+                {date(detail.order.emissao || detail.order.data_abertura)}
+              </span>
+              <strong>{money(detail.order.total_geral)}</strong>
+            </div>
+            <h3>{shown(detail.order.cliente_nome)}</h3>
+            <p className="muted">
+              {shown(detail.order.equipamento)} ·{" "}
+              {shown(detail.order.modelo_equipamento)}
+            </p>
+            <a
+              className="manual-history-link"
+              href={
+                "/fabricante?" +
+                new URLSearchParams({
+                  company: String(detail.order.company_id || ""),
+                  model: String(detail.order.modelo_equipamento || ""),
+                  serial: String(
+                    detail.order.numero_serie || detail.order.serie || "",
+                  ),
+                })
+              }
+            >
+              Consultar peças do fabricante e histórico da série
+            </a>
+            {!detail.detail_at && (
+              <div className="notice">
+                <Clock3 size={16} />
+                Os detalhes desta OS ainda estão sendo importados. A lista de
+                materiais e serviços pode estar incompleta.
+              </div>
+            )}
+            {!!detail.equipment_links?.length && (
+              <section className="registered-equipment">
+                <h4>
+                  <Wrench size={17} /> Equipamentos identificados
+                </h4>
+                {detail.equipment_links.map((eq) => (
+                  <div
+                    className="registered-equipment-card"
+                    key={eq.equipment_id}
+                  >
+                    <strong>{eq.name}</strong>
+                    <p>
+                      Modelo: {eq.model || "Conferir no cadastro"} · Série:{" "}
+                      {eq.serial || "Não identificada"}
+                    </p>
+                    <span
+                      className={
+                        eq.method === "review"
+                          ? "quote-warning"
+                          : "equipment-origin"
+                      }
+                    >
+                      {
+                        (
+                          {
+                            explicit: "Vínculo explícito no ERP",
+                            serial: "Série estruturada + cadastro do cliente",
+                            observation:
+                              "Série nas observações · associação automática",
+                            review: "Possível vínculo · precisa de conferência",
+                          } as Record<string, string>
+                        )[eq.method]
+                      }
+                    </span>
+                    <p className="muted">
+                      {eq.evidence.reason} · Origem: {eq.evidence.field} ·
+                      Valor: {eq.evidence.value}
+                      {eq.serial_source === "nome"
+                        ? " · Série extraída do nome do cadastro"
+                        : ""}
+                    </p>
+                    {eq.method !== "review" && (
+                      <a
+                        href={
+                          "/fabricante?" +
+                          new URLSearchParams({
+                            company: String(detail.order.company_id || ""),
+                            model: eq.model || "",
+                            serial: eq.serial || "",
+                          })
+                        }
+                      >
+                        Consultar histórico e peças do fabricante
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </section>
+            )}
+            <h4>
+              <Package size={17} />
+              Materiais aplicados{" "}
+              <span className="count-pill">{detail.materials.length}</span>
+            </h4>
+            {detail.materials.length ? (
+              detail.materials.map((p, i) => (
+                <details className="material-detail" key={i}>
+                  <summary>
+                    <div>
+                      <strong
+                        className={
+                          p.esta_excluido === true
+                            ? "excluded-description"
+                            : isNotApproved(p.aprovado)
+                              ? "unapproved-description"
+                              : undefined
+                        }
+                      >
+                        {shown(p.produto_nome)}
+                      </strong>
+                      {p.esta_excluido === true && (
+                        <small className="excluded-label">Excluído da OS</small>
+                      )}
+                      {isNotApproved(p.aprovado) && !p.esta_excluido && (
+                        <small className="unapproved-description">
+                          Reprovado na OS
+                        </small>
+                      )}
+                      <small>Código: {shown(p.produto_id)}</small>
+                      <small>
+                        Ref. fabricante: {shown(p.referencia_fabricante)}
+                      </small>
+                    </div>
+                    <div className="item-amount">
+                      <span>
+                        {shown(p.quantidade)} {shown(p.unidade_nome)}{" "}
+                        <ChevronDown size={15} />
+                      </span>
+                      <strong aria-label="Valor total do material">
+                        {money(p.valor_total)}
+                      </strong>
+                    </div>
+                  </summary>
+                  <ProductPhotos
+                    company={detail.order.company_id}
+                    id={p.produto_id}
+                    name={p.produto_nome}
+                  />
+                  <div className="product-detail-current">
+                    <div>
+                      <h4>Preços atuais</h4>
+                      <PriceValues
+                        current={p.current as ProductCurrent | undefined}
+                      />
+                    </div>
+                    <div>
+                      <h4>Estoque atual da empresa</h4>
+                      <StockValues
+                        current={p.current as ProductCurrent | undefined}
+                      />
+                    </div>
+                  </div>
+                  <FieldList fields={p} />
+                </details>
+              ))
+            ) : (
+              <p className="muted">
+                {detail.detail_at
+                  ? "Nenhum material registrado."
+                  : "Aguardando coleta dos materiais."}
+              </p>
+            )}
+            <h4>
+              <Wrench size={17} />
+              Serviços aplicados{" "}
+              <span className="count-pill">
+                {(detail.services || []).length}
+              </span>
+            </h4>
+            {(detail.services || []).length ? (
+              detail.services!.map((service, i) => (
+                <details className="material-detail service-detail" key={i}>
+                  <summary>
+                    <div>
+                      <strong>{shown(service.servico_nome)}</strong>
+                      <small>Código: {shown(service.servico_id)}</small>
+                      <small>
+                        Valor unitário: {money(service.valor_unitario)}
+                      </small>
+                    </div>
+                    <div className="item-amount">
+                      <span>
+                        Qtd.: {shown(service.quantidade)}{" "}
+                        <ChevronDown size={15} />
+                      </span>
+                      <strong aria-label="Valor total do serviço">
+                        {money(service.valor_total)}
+                      </strong>
+                    </div>
+                  </summary>
+                  <FieldList fields={service} />
+                </details>
+              ))
+            ) : (
+              <p className="muted">
+                {detail.detail_at
+                  ? "Nenhum serviço registrado."
+                  : "Aguardando coleta dos serviços."}
+              </p>
+            )}
+            <OrderAmounts
+              key={`${selection?.company_id}:${selection?.id}`}
+              detail={detail}
+            />
+            <details className="all-fields">
+              <summary>
+                Todos os campos da OS
+                <ChevronDown size={17} />
+              </summary>
+              <FieldList fields={detail.order} />
+            </details>
+            {detail.equipment.map((eq, i) => (
+              <details className="all-fields" key={i}>
+                <summary>
+                  Equipamento {i + 1} · {shown(eq.numero_serie)}
+                  <ChevronDown size={17} />
+                </summary>
+                <a
+                  className="manual-history-link"
+                  href={
+                    "/fabricante?" +
+                    new URLSearchParams({
+                      company: String(detail.order.company_id || ""),
+                      model: String(eq.equipamento_modelo || ""),
+                      serial: String(eq.numero_serie || ""),
+                    })
+                  }
+                >
+                  Consultar peças do fabricante deste equipamento
+                </a>
+                <FieldList fields={eq} />
+              </details>
+            ))}
+            <p className="drawer-updated">
+              <Check size={14} />
+              {detail.detail_at
+                ? `Detalhes importados em ${date(detail.detail_at, true)}`
+                : "Cabeçalho disponível; detalhes pendentes"}
+            </p>
+          </div>
+        )}
+      </div>
+    </dialog>
   );
 }

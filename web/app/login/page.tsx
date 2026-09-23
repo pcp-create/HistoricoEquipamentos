@@ -41,29 +41,29 @@ export default function Login() {
         <div className="brand">
           <Image className="rj-logo" src="/logo-rj.png" alt="RJ Compressores" width={444} height={312} unoptimized />
           <span>
-            Histórico<span className="brand-small">EQUIPAMENTOS & PEÇAS</span>
+            Gestão Integrada<span className="brand-small">RJ COMPRESSORES</span>
           </span>
         </div>
         <div>
           <span className="eyebrow">INFORMAÇÃO QUE CONECTA</span>
           <h1>
-            Cada equipamento
+            Sua empresa
             <br />
-            tem uma história.
+            em um só lugar.
             <br />
-            <em>Encontre a sua.</em>
+            <em>Conecte sua equipe.</em>
           </h1>
           <p>
-            Ordens de serviço, clientes e materiais aplicados.
+            CRM, assistência técnica, suprimentos e equipamentos.
             <br />
-            Todo o histórico da sua operação em um só lugar.
+            Informações e ferramentas para toda a operação.
           </p>
           <div className="login-feature">
             <Layers3 size={22} />
-            <span>Uma base integrada. Uma pesquisa completa.</span>
+            <span>Uma base integrada. Várias equipes conectadas.</span>
           </div>
         </div>
-        <small>Histórico de Equipamentos e Peças · Acesso da equipe</small>
+        <small>Gestão Integrada · Acesso da equipe</small>
       </section>
       <section className="login-form">
         <form onSubmit={submit}>
@@ -71,7 +71,7 @@ export default function Login() {
             <ShieldCheck />
           </span>
           <h2>Bem-vindo de volta</h2>
-          <p>Entre com sua conta para consultar o histórico.</p>
+          <p>Entre com sua conta para acessar a Gestão Integrada.</p>
           <label>
             E-mail
             <input
@@ -104,7 +104,7 @@ export default function Login() {
               <LoaderCircle className="spin" size={18} />
             ) : (
               <>
-                Entrar no histórico
+                Entrar no sistema
                 <ArrowRight size={18} />
               </>
             )}
