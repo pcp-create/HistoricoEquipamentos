@@ -1,4 +1,25 @@
 import { test, expect } from "@playwright/test";
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/quotes?*", (r) =>
+    r.fulfill({
+      json: {
+        items: [],
+        histories: {},
+        products: {},
+        recommendations: [],
+        warnings: [],
+      },
+    }),
+  );
+  await page.route("**/api/tasks", (r) =>
+    r.fulfill({
+      json:
+        r.request().method() === "POST"
+          ? { created: 0, completed: 0 }
+          : { tasks: [], users: [], email: "test@example.com" },
+    }),
+  );
+});
 import { emptyOperating, predict } from "../lib/equipment-management/planning";
 test("equipment module restricts access and creates a plan from manual operating data", async ({
   page,
@@ -102,7 +123,7 @@ test("equipment module restricts access and creates a plan from manual operating
   await page.getByLabel("Horímetro na última intervenção").fill("1000");
   await page.getByRole("button", { name: "Salvar plano" }).click();
   await expect(
-    page.getByRole("cell", { name: "Preventiva 4000", exact: true }),
+    page.getByText("Preventiva 4000", { exact: true }),
   ).toBeVisible();
   expect(writes[1].document.lastMeter).toBe("1000");
   await page
@@ -197,21 +218,33 @@ test("rental views show a compact photo carousel, popup and separate situation c
     page.getByAltText("Compressor teste — foto ampliada 1"),
   ).toBeVisible();
   await page.getByRole("button", { name: "Fechar foto ampliada" }).click();
-  await page
-    .getByRole("button", { name: /^Locados e Emprestados \(/ })
-    .click();
+  await page.getByRole("button", { name: /^Locados e Emprestados \(/ }).click();
   await expect(
     page.getByRole("group", {
       name: "Situação do contrato de locação ou empréstimo",
     }),
   ).toBeVisible();
-  const typeFilters = page.getByRole("group", { name: "Tipo de contrato", exact: true });
-  const deadlineFilters = page.getByRole("group", { name: "Situação do contrato de locação ou empréstimo", exact: true });
-  await typeFilters.getByRole("button", { name: "Emprestados 0", exact: true }).click();
+  const typeFilters = page.getByRole("group", {
+    name: "Tipo de contrato",
+    exact: true,
+  });
+  const deadlineFilters = page.getByRole("group", {
+    name: "Situação do contrato de locação ou empréstimo",
+    exact: true,
+  });
+  await typeFilters
+    .getByRole("button", { name: "Emprestados 0", exact: true })
+    .click();
   await expect(page.getByText("Nenhum equipamento encontrado.")).toBeVisible();
-  await expect(deadlineFilters.getByRole("button", { name: "Todos 0", exact: true })).toBeVisible();
-  await typeFilters.getByRole("button", { name: "Locados 1", exact: true }).click();
-  await expect(deadlineFilters.getByRole("button", { name: "Todos 1", exact: true })).toBeVisible();
+  await expect(
+    deadlineFilters.getByRole("button", { name: "Todos 0", exact: true }),
+  ).toBeVisible();
+  await typeFilters
+    .getByRole("button", { name: "Locados 1", exact: true })
+    .click();
+  await expect(
+    deadlineFilters.getByRole("button", { name: "Todos 1", exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Vencido 0", exact: true }).click();
   await expect(page.getByText("Nenhum equipamento encontrado.")).toBeVisible();
   expect(reads).toBe(initial);

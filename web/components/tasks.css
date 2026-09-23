@@ -1,0 +1,228 @@
+.tasks-page {
+  max-width: 1600px;
+  margin: 24px auto;
+  padding: 0 24px;
+  color: #263c55;
+}
+.task-heading,
+.task-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 18px 0;
+}
+.task-toolbar {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+.tasks-page button,
+.task-drawer button {
+  cursor: pointer;
+  border: 1px solid #d5e1ee;
+  border-radius: 7px;
+  padding: 8px 12px;
+  background: #f7faff;
+  color: #245c91;
+  font: inherit;
+}
+.tasks-page button:disabled,
+.task-drawer button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.tasks-page button[aria-pressed="true"] {
+  background: #e6f0ff;
+  border-color: #6d9bcc;
+}
+.tasks-page label,
+.task-drawer label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.tasks-page input,
+.tasks-page select,
+.task-drawer input,
+.task-drawer select,
+.task-drawer textarea {
+  padding: 9px;
+  border: 1px solid #c9daeb;
+  border-radius: 6px;
+  font: inherit;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.task-table {
+  overflow: auto;
+  background: white;
+  border: 1px solid #e1e9f2;
+  border-radius: 12px;
+}
+.task-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.task-table td,
+.task-table th {
+  padding: 14px;
+  text-align: left;
+  border-bottom: 1px solid #e5ecf5;
+}
+.task-table th {
+  background: #f3f7fb;
+  font-weight: 500;
+}
+.tasks-page small,
+.task-drawer small {
+  display: block;
+  color: #6a7e95;
+  margin-top: 5px;
+  font-size: 11px;
+}
+.task-link {
+  border: 0 !important;
+  background: transparent !important;
+  text-align: left;
+  padding: 0 !important;
+}
+.task-priority {
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: #eff3f8;
+}
+.task-priority.high {
+  color: #966000;
+  background: #fff6de;
+}
+.task-priority.urgent {
+  color: #b42318;
+  background: #ffefed;
+}
+.task-drawer {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(1100px, 96vw);
+  height: 100dvh;
+  max-height: 100dvh;
+  max-width: 100vw;
+  margin: 0;
+  padding: 24px;
+  box-sizing: border-box;
+  border: 0;
+  background: #f4f7fb;
+  color: #263c55;
+  overflow: auto;
+  box-shadow: -8px 0 40px #14253c30;
+}
+.task-drawer::backdrop {
+  background: #12213966;
+}
+.task-drawer header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+}
+.task-drawer h2 {
+  margin: 8px 0 20px;
+}
+.task-blocks {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 18px;
+}
+.task-card {
+  background: #fff;
+  border: 1px solid #dce6f0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 18px;
+}
+.task-card h3 {
+  margin-top: 0;
+}
+.task-card dt {
+  font-size: 12px;
+  color: #6a7e95;
+  margin-top: 16px;
+}
+.task-card dd {
+  margin: 5px 0;
+  overflow-wrap: anywhere;
+}
+.task-drawer fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.task-drawer .task-check {
+  flex-direction: row;
+  align-items: center;
+}
+.task-check input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+.task-note {
+  border-top: 1px solid #e0e8f1;
+  margin-top: 18px;
+  padding-top: 14px;
+  overflow-wrap: anywhere;
+}
+.task-note p {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.task-error {
+  color: #a02626;
+  background: #fff0ed;
+  padding: 12px;
+  margin: 12px;
+}
+.task-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+  overflow: auto;
+}
+.task-calendar > div {
+  min-height: 100px;
+  border: 1px solid #e1e9f1;
+  padding: 8px;
+}
+.task-calendar button {
+  display: block;
+  width: 100%;
+  font-size: 11px;
+  margin-top: 8px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.equipment-task-links a {
+  display: block;
+  font-size: 11px;
+  margin-top: 6px;
+}
+@media (max-width: 750px) {
+  .task-blocks {
+    grid-template-columns: 1fr;
+  }
+  .task-calendar {
+    grid-template-columns: repeat(7, minmax(100px, 1fr));
+  }
+  .tasks-page {
+    padding: 0 12px;
+  }
+  .task-heading {
+    align-items: flex-start;
+  }
+  .task-drawer {
+    padding: 16px;
+  }
+}

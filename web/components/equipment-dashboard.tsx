@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, Pencil, Archive, Save, Wrench, ArrowLeft } from "lucide-react";
 import MaterialPhoto from "./material-photo";
+import {EquipmentTaskProvider,EquipmentTaskLinks} from "./tasks-dashboard";
 import SiteHeader from "./site-header";
 import {
   emptyOperating,
@@ -175,6 +176,7 @@ function OrderLink({ id, company }: { id: string; company?: number }) {
   );
 }
 export default function EquipmentDashboard() {
+  useEffect(()=>{const params=new URLSearchParams(window.location.search);if(/^[1-9]\d{0,17}$/.test(params.get("equipment")||""))setSelected(params.get("equipment")!);},[]);
   const [loaded, setResult] = useState<any>(null),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
@@ -385,7 +387,7 @@ export default function EquipmentDashboard() {
     } catch {}
   }
   return (
-    <>
+    <EquipmentTaskProvider>
       <SiteHeader active="equipment" email={result?.email} />
       <main className="equipment-page catalog-settings">
         <section className="manual-card">
@@ -632,7 +634,7 @@ export default function EquipmentDashboard() {
                       </td>
                       <td className="equipment-situation-cell">
                         {e.rental ? (
-                          <RentalBadge status={e.rentalStatus} />
+                          <><RentalBadge status={e.rentalStatus} /><EquipmentTaskLinks equipment={String(e.id)} /></>
                         ) : (
                           "—"
                         )}
@@ -695,7 +697,7 @@ export default function EquipmentDashboard() {
                     </span>
                   )}
                   {detail.equipment.rental && (
-                    <RentalBadge status={detail.equipment.rentalStatus} />
+                    <><RentalBadge status={detail.equipment.rentalStatus} /><EquipmentTaskLinks equipment={String(selected)} /></>
                   )}
                   <p>
                     {detail.equipment.brand || "Marca não informada"} · Modelo:{" "}
@@ -910,7 +912,7 @@ export default function EquipmentDashboard() {
                       <tbody>
                         {detail.plans.map((p: any) => (
                           <tr key={p.id}>
-                            <td>
+                            <td><EquipmentTaskLinks equipment={String(selected)} plan={p.id} />
                               <strong>{p.document.name}</strong>
                               <small>{p.document.notes}</small>
                             </td>
@@ -1350,6 +1352,6 @@ export default function EquipmentDashboard() {
           </>
         )}
       </main>
-    </>
+    </EquipmentTaskProvider>
   );
 }

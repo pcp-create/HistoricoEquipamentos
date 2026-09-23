@@ -1,4 +1,5 @@
 "use client";
+import { planReturnPath } from "@/lib/plan-return-path";
 import Image from "next/image";
 import { useState, type FormEvent } from "react";
 import {
@@ -26,7 +27,7 @@ export default function Login() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
-      window.location.assign("/");
+      window.location.assign(planReturnPath(new URLSearchParams(window.location.search).get("next")));
     } catch (error) {
       setError(
         error instanceof Error ? error.message : "Não foi possível entrar.",

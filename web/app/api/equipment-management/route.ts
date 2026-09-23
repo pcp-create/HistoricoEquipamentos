@@ -1,3 +1,4 @@
+import { syncTasks } from "@/lib/tasks/store";
 import { NextResponse } from "next/server";
 import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
 import { logDataError } from "@/lib/data-error";
@@ -52,7 +53,13 @@ export async function POST(req: Request) {
     } catch {
       throw new EquipmentInputError("Dados inválidos.");
     }
-    return json(await saveEquipment(input, user));
+    const result = await saveEquipment(input, user);
+    try {
+      await syncTasks();
+    } catch {
+      console.error("TASK_SYNC_AFTER_EQUIPMENT_SAVE_FAILED");
+    }
+    return json(result);
   } catch (e) {
     return failure(e);
   }

@@ -12,3 +12,11 @@ export function userDisplayName(user: AuthUser): string {
   }
   return user.email;
 }
+
+export function userInitials(name: string): string {
+  const value = name.trim();
+  if (!value) return "?";
+  if (value.includes("@")) return value.slice(0, 2).toLocaleUpperCase("pt-BR");
+  const parts = value.split(/\s+/);
+  return (Array.from(parts[0])[0] + (parts.length > 1 ? Array.from(parts[parts.length - 1])[0] : "")).toLocaleUpperCase("pt-BR");
+}

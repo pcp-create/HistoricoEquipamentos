@@ -2,7 +2,7 @@
 import VersionPicker from "./version-picker";
 import { useEffect, useMemo, useState } from "react";
 import { fold } from "@/lib/filters";
-import { BookOpen, Search } from "lucide-react";
+import { BookOpen, Search, Settings } from "lucide-react";
 import SiteHeader from "./site-header";
 import CatalogProducts from "./catalog-products";
 import {
@@ -228,6 +228,7 @@ export default function ManufacturerDashboard() {
             </p>
           </div>
         </div>
+        <a className="catalog-settings-link" href="/configuracoes"><Settings size={16} aria-hidden="true" /> Configuração do catálogo</a>
         <form
           className="manual-card manual-filters"
           onSubmit={(e) => {
