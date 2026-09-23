@@ -31,7 +31,21 @@ test("employee opt-ins, blocked access, deduplication and registered name surviv
     const query = db.query.bind(db);
     g.historyPool = { query, connect: async () => ({ query, release() {} }) };
     const admin = { id: "a", email: "guih.waltrick@gmail.com" };
-    await setAccess(employee, admin);
+    await assert.rejects(
+      () =>
+        setAccess({ ...employee, email: admin.email, mode: "create" }, admin),
+      /Já existe/,
+    );
+    assert.equal(
+      (
+        await db.query<{ role: string }>(
+          "SELECT role FROM web_user_access WHERE email=$1",
+          [admin.email],
+        )
+      ).rows[0].role,
+      "admin",
+    );
+    await setAccess({ ...employee, mode: "create" }, admin);
     await setAccess(
       { ...employee, email: "other@example.com", alert_email: false },
       admin,
@@ -117,8 +131,10 @@ test("account provisioning never returns or records passwords and rejects unregi
     );
     assert.equal(calls, 0);
     await setAccess(employee, admin);
+    await assert.rejects(() => createEmployeeLogin({email: employee.email, password: "abc12"}, admin), /6 a 128/);
+    assert.equal(calls, 0);
     await createEmployeeLogin(
-      { email: employee.email, password: "initial-password" },
+      { email: employee.email, password: "abc123" },
       admin,
     );
     assert.equal(calls, 1);

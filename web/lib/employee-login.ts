@@ -6,11 +6,11 @@ export async function createEmployeeLogin(body: any, actor: AuthUser) {
   if (
     typeof body.email !== "string" ||
     typeof body.password !== "string" ||
-    body.password.length < 12 ||
+    body.password.length < 6 ||
     body.password.length > 128
   )
     throw new AdminInputError(
-      "Informe o e-mail cadastrado e uma senha inicial de 12 a 128 caracteres.",
+      "Informe o e-mail cadastrado e uma senha inicial de 6 a 128 caracteres.",
     );
   const url = process.env.SUPABASE_URL,
     key = process.env.SUPABASE_SERVICE_ROLE_KEY;

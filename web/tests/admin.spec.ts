@@ -47,8 +47,28 @@ test("admin interface shows integration dates and lets an administrator change a
     });
   });
   await page.goto("/administracao");
+  await expect(page.getByText("Online", { exact: true })).toBeHidden();
+  await page
+    .getByRole("button", { name: "Logs de acesso", exact: true })
+    .click();
   await expect(page.getByText("Online", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Funcionários e acessos" }),
+  ).toBeHidden();
+  await page.getByRole("button", { name: "Usuários", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Integração de ordens de serviço" }),
+  ).toBeHidden();
+  await page.getByRole("button", { name: "Integrações", exact: true }).click();
   await expect(page.getByText("16/09/2026, 09:00:00")).toBeVisible();
+  await page.getByRole("button", { name: "Usuários", exact: true }).click();
+  const checkbox = page.getByLabel("Receber por e-mail");
+  const bounds = await checkbox.boundingBox();
+  expect(bounds?.width).toBeLessThanOrEqual(20);
+  const label = await checkbox.locator("..").locator("span").boundingBox();
+  expect(
+    Math.abs(bounds!.y + bounds!.height / 2 - (label!.y + label!.height / 2)),
+  ).toBeLessThan(3);
   await page.getByRole("button", { name: "Editar funcionário" }).click();
   await page.getByLabel("Perfil", { exact: true }).selectOption("admin");
   await page
@@ -60,6 +80,7 @@ test("admin interface shows integration dates and lets an administrator change a
   await expect(page.getByRole("status")).toContainText("Funcionário salvo.");
   expect(writes[0]).toMatchObject({
     email: "user@example.com",
+    mode: "update",
     role: "admin",
     enabled: true,
     phone: "5547999999999",

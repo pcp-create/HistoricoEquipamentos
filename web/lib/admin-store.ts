@@ -88,6 +88,16 @@ export async function setAccess(body: any, actor: AuthUser) {
         [email],
       )
     ).rows[0];
+    if (body.mode === "create" && old)
+      throw new AdminInputError(
+        "Já existe um funcionário com este e-mail. Use Editar funcionário na lista para atualizar o cadastro e preservar seu perfil de acesso.",
+      );
+    if (body.mode === "update" && !old)
+      throw new AdminInputError(
+        "Funcionário não encontrado. Atualize a lista antes de editar.",
+      );
+    if (body.mode !== undefined && !["create", "update"].includes(body.mode))
+      throw new AdminInputError("Operação de cadastro inválida.");
     if (
       old?.role === "admin" &&
       old.enabled &&

@@ -112,3 +112,33 @@
 .admin-offline .admin-presence-light {
   background: #d64444;
 }
+
+.admin-page .admin-alert-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  cursor: pointer;
+}
+.admin-page .admin-alert-option input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  flex: 0 0 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: #2867ac;
+}
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0;
+}
+.admin-page .admin-tabs button[aria-pressed="true"] {
+  background: #eaf2ff;
+  color: #205da1;
+  border-color: #85aad7;
+  font-weight: 600;
+}
