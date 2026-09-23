@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import {
+  createTask,
   syncTasks,
   updateTask,
   taskDetail,
@@ -40,6 +41,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       "009_employees.sql",
       "010_tasks.sql",
       "011_task_kanban.sql",
+      "012_manual_tasks.sql",
     ])
       await db.exec(
         readFileSync(new URL("../sql/" + f, import.meta.url), "utf8"),
@@ -57,6 +59,30 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       email: "person@example.com",
       user_metadata: { full_name: "Pessoa" },
     };
+    const manual = await createTask(
+      {
+        title: "Contato manual",
+        description: "Retornar ao cliente",
+        priority: "high",
+        assignedTo: user.email,
+        dueDate: "2026-10-10",
+      },
+      user,
+    );
+    assert.equal(manual.task.creator_name, "Pessoa");
+    assert.equal(manual.notifications.length, 1);
+    await syncTasks(async () => []);
+    assert.equal(
+      (await taskDetail(String(manual.task.id))).task.status,
+      "not_started",
+    );
+    await db.query("DELETE FROM web_task_notifications WHERE task_id=$1", [
+      manual.task.id,
+    ]);
+    await db.query("DELETE FROM web_task_notes WHERE task_id=$1", [
+      manual.task.id,
+    ]);
+    await db.query("DELETE FROM web_tasks WHERE id=$1", [manual.task.id]);
     assert.equal((await syncTasks(async () => [source])).created, 1);
     assert.equal((await syncTasks(async () => [source])).created, 0);
     let t = (await listTasks(new URLSearchParams(), user)).tasks[0];

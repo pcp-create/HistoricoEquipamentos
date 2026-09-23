@@ -216,19 +216,27 @@ export function TaskDrawer({
                 <dd>{t.origin}</dd>
                 <dt>Equipamento / cliente</dt>
                 <dd>
-                  <a
-                    href={
-                      "/equipamentos?equipment=" +
-                      t.equipment_id +
-                      (t.plan_id ? "&plan=" + t.plan_id : "")
-                    }
-                  >
-                    {t.equipment_name}
-                  </a>
+                  {t.equipment_id ? (
+                    <a
+                      href={
+                        "/equipamentos?equipment=" +
+                        t.equipment_id +
+                        (t.plan_id ? "&plan=" + t.plan_id : "")
+                      }
+                    >
+                      {t.equipment_name}
+                    </a>
+                  ) : (
+                    "Sem equipamento vinculado"
+                  )}
                   <small>{t.customer}</small>
                 </dd>
                 <dt>Situação do processo</dt>
-                <dd>{sourceNames[t.source_status] || t.source_status}</dd>
+                <dd>
+                  {t.source_status === "manual"
+                    ? "Cadastro manual"
+                    : sourceNames[t.source_status] || t.source_status}
+                </dd>
                 <dt>Vencimento do processo</dt>
                 <dd>{date(day(t.due_date))}</dd>
               </dl>
@@ -299,7 +307,9 @@ export function TaskDrawer({
                     : ""}
                 </dd>
                 <dt>Criado por / em</dt>
-                <dd>Sistema · {date(t.created_at)}</dd>
+                <dd>
+                  {t.creator_name || "Sistema"} · {date(t.created_at)}
+                </dd>
                 <dt>Última alteração</dt>
                 <dd>
                   {t.modifier_name ||
@@ -360,7 +370,13 @@ export function TaskDrawer({
               <small>{taskAttachmentTypeMessage}</small>
               {data.attachments.map((a: any) => (
                 <p key={a.id}>
-                  <a href={"/api/tasks/attachments/" + a.id}>{a.filename}</a>
+                  <a
+                    href={"/api/tasks/attachments/" + a.id}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {a.filename}
+                  </a>
                   <small>
                     {a.created_name} · {date(a.created_at)} ·{" "}
                     {Math.ceil(a.size / 1024)} KB
@@ -503,6 +519,7 @@ export default function TasksDashboard() {
     [busy, setBusy] = useState(false),
     [mine, setMine] = useState(false),
     [view, setView] = useState("list"),
+    [creating, setCreating] = useState(false),
     [status, setStatus] = useState("all"),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState<string | null>(params.get("task")),
@@ -607,6 +624,9 @@ export default function TasksDashboard() {
             <p>Alertas, responsáveis e histórico das tratativas.</p>
             <small>Última verificação: {date(data?.syncedAt)}</small>
           </div>
+          <button disabled={busy} onClick={() => setCreating(true)}>
+            Nova tarefa
+          </button>
           <button disabled={busy} onClick={sync}>
             {busy ? "Verificando alertas…" : "Atualizar alertas"}
           </button>
@@ -615,6 +635,79 @@ export default function TasksDashboard() {
           <p role="alert" className="task-error">
             {error}
           </p>
+        )}
+        {creating && (
+          <form
+            className="task-card"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const fields = new FormData(event.currentTarget);
+              setBusy(true);
+              setError("");
+              try {
+                const result = await api("/api/tasks", {
+                  action: "create",
+                  ...Object.fromEntries(fields),
+                });
+                setCreating(false);
+                await load();
+                open(String(result.task.id));
+              } catch (e) {
+                setError((e as Error).message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <h2>Nova tarefa manual</h2>
+            <div className="task-toolbar">
+              <label>
+                Título
+                <input name="title" required maxLength={160} />
+              </label>
+              <label>
+                Atribuído a
+                <select name="assignedTo">
+                  <option value="">Não atribuído</option>
+                  {(data?.users || []).map((u: any) => (
+                    <option key={u.email} value={u.email}>
+                      {u.display_name || "Funcionário sem nome cadastrado"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Prioridade
+                <select name="priority" defaultValue="normal">
+                  {Object.entries(priorityNames).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Vencimento
+                <input type="date" name="dueDate" />
+              </label>
+            </div>
+            <label>
+              Descrição
+              <textarea name="description" maxLength={12000} rows={4} />
+            </label>
+            <div className="task-toolbar">
+              <button disabled={busy} type="submit">
+                Criar tarefa
+              </button>
+              <button
+                disabled={busy}
+                type="button"
+                onClick={() => setCreating(false)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
         )}
         <div className="task-control-groups">
           <nav className="task-toolbar" aria-label="Filtros de responsáveis">
@@ -738,26 +831,16 @@ export default function TasksDashboard() {
                           {priorityNames[t.priority]}
                         </span>
                         {t.status !== "completed" && (
-                          <label>
-                            Mover tarefa
-                            <select
-                              aria-label={"Mover TAR-" + t.id}
-                              disabled={busy}
-                              value={key}
-                              onChange={(e) =>
-                                void moveTask(
-                                  String(t.id),
-                                  e.target.value as TaskColumn,
-                                )
-                              }
-                            >
-                              {Object.entries(taskColumns).map(([k, v]) => (
-                                <option key={k} value={k}>
-                                  {v}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
+                          <button
+                            type="button"
+                            className="task-complete-button"
+                            disabled={busy}
+                            onClick={() =>
+                              void moveTask(String(t.id), "completed")
+                            }
+                          >
+                            Concluir tarefa
+                          </button>
                         )}
                       </article>
                     ))}

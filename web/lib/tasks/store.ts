@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { taskColumn, taskColumns } from "./kanban";
 import {
   allowedTaskAttachment,
@@ -68,6 +69,7 @@ export async function syncTasks(
       )
     ).rows;
     for (const t of closed) {
+      if (t.source_key.startsWith("manual:")) continue;
       const source = byKey.get(t.source_key);
       if (!source || source.resolved || source.cycle !== t.cycle) {
         await c.query("UPDATE web_tasks SET source_resolved=true WHERE id=$1", [
@@ -76,6 +78,7 @@ export async function syncTasks(
       } else active.add(t.source_key);
     }
     for (const t of open) {
+      if (t.source_key.startsWith("manual:")) continue;
       const source = byKey.get(t.source_key);
       if (!source || source.resolved || source.cycle !== t.cycle) {
         const reason = !source
@@ -227,6 +230,11 @@ export async function taskDetail(id: string) {
       p.display_name?.trim() || "Funcionário sem nome cadastrado",
     ]),
   );
+  task.creator_name =
+    task.created_by === "Sistema"
+      ? "Sistema"
+      : names.get(task.created_by?.toLowerCase()) ||
+        "Usuário sem nome cadastrado";
   for (const item of [...notes, ...attachments]) {
     const name = names.get(item.created_by?.trim().toLowerCase());
     if (name) item.created_name = name;
@@ -460,4 +468,83 @@ export async function attachTask(id: string, file: File, user: AuthUser) {
     c.release();
   }
   return taskDetail(id);
+}
+
+export async function createTask(body: any, user: AuthUser) {
+  if (
+    typeof body.title !== "string" ||
+    !body.title.trim() ||
+    body.title.length > 160 ||
+    typeof body.description !== "string" ||
+    body.description.length > 12000 ||
+    !["normal", "high", "urgent"].includes(body.priority) ||
+    typeof body.assignedTo !== "string" ||
+    typeof body.dueDate !== "string"
+  )
+    throw new TaskInputError(
+      "Confira título, descrição, responsável e prioridade.",
+    );
+  const due = body.dueDate || null;
+  if (
+    due &&
+    (!/^\d{4}-\d{2}-\d{2}$/.test(due) ||
+      !Number.isFinite(Date.parse(due)) ||
+      new Date(due).toISOString().slice(0, 10) !== due)
+  )
+    throw new TaskInputError("Data de vencimento inválida.");
+  const assigned = body.assignedTo.trim().toLowerCase() || null;
+  const c = await database().connect();
+  let id: string;
+  try {
+    await c.query("BEGIN READ WRITE");
+    if (assigned) {
+      const employee = (
+        await c.query(
+          "SELECT enabled,phone FROM web_user_access WHERE email=$1 FOR SHARE",
+          [assigned],
+        )
+      ).rows[0];
+      if (!employee?.enabled)
+        throw new TaskInputError("Escolha um funcionário ativo.");
+      if (!employee.phone)
+        throw new TaskInputError(
+          "Cadastre o WhatsApp do funcionário antes de atribuir a tarefa.",
+        );
+    }
+    id = String(
+      (
+        await c.query(
+          `INSERT INTO web_tasks(source_key,cycle,origin,title,equipment_name,source_status,priority,priority_manual,assigned_to,due_date,first_assigned_at,created_by,updated_by)
+      VALUES($1,'manual','Tarefa manual',$2,'','manual',$3,true,$4,$5,CASE WHEN $4::text IS NOT NULL THEN now() END,$6,$6) RETURNING id`,
+          [
+            "manual:" + randomUUID(),
+            body.title.trim(),
+            body.priority,
+            assigned,
+            due,
+            user.email,
+          ],
+        )
+      ).rows[0].id,
+    );
+    await note(
+      c,
+      id,
+      "Tarefa manual criada",
+      body.description.trim() || "Tarefa cadastrada manualmente.",
+      user,
+    );
+    if (assigned)
+      await c.query(
+        "INSERT INTO web_task_notifications(task_id,task_version,recipient) VALUES($1,1,$2)",
+        [id, assigned],
+      );
+    await c.query("COMMIT");
+  } catch (e) {
+    await c.query("ROLLBACK");
+    throw e;
+  } finally {
+    c.release();
+  }
+  return taskDetail(id!);
 }

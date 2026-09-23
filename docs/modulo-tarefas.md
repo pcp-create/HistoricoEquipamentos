@@ -43,3 +43,13 @@ Aplicar também `web/sql/011_task_kanban.sql`. Responsáveis (Todos/Minhas taref
 Colunas: Pendentes, Em andamento, Atrasadas e Concluídas. Sem movimentação manual, tarefas abertas com data de vencimento anterior ao dia atual em Brasília aparecem em Atrasadas. O arraste ou seletor do cartão grava a coluna de execução explicitamente, registra nota e atualiza o último modificador. É necessário atribuir responsável para mover para Em andamento. Troca de responsável recalcula o estado de execução; mudança apenas de prioridade preserva a coluna escolhida.
 
 A coluna de execução não modifica a data ou situação do contrato/plano. Conclusão pelo Kanban é manual e não significa regularização do alerta de origem. A tarefa concluída nunca é reaberta e não é duplicada pela sincronização enquanto o mesmo alerta continuar ativo. Após regularização observada e novo alerta, cria-se nova ocorrência. A opção Mover tarefa oferece a mesma ação para teclado e celular.
+
+### Tarefas manuais
+
+O botão **Nova tarefa** permite informar título, descrição, responsável ativo,
+prioridade e vencimento. Responsável e prazo são opcionais. A atribuição gera
+um aviso na mesma fila de WhatsApp das tarefas automáticas e exige telefone
+cadastrado. A origem aparece como **Tarefa manual**, com o nome do criador.
+Notas, anexos, Kanban, calendário e gráfico também estão disponíveis.
+A sincronização dos alertas não encerra tarefas manuais; a conclusão é feita
+pelo usuário, sem reabertura. Aplicar `web/sql/012_manual_tasks.sql` antes do deploy.

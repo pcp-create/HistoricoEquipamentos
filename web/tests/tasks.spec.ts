@@ -134,11 +134,15 @@ test("tasks list, personal view, calendar and right drawer keep notes and assign
       .getByRole("region", { name: "Atrasadas", exact: true })
       .locator(".task-kanban-card"),
   ).toHaveCount(1);
-  await page.getByLabel("Mover TAR-42").selectOption("completed");
+  await page
+    .getByRole("button", { name: "Concluir tarefa", exact: true })
+    .click();
   await expect(
     page
       .getByRole("region", { name: "Concluídas", exact: true })
       .locator(".task-kanban-card"),
   ).toHaveCount(1);
-  await expect(page.getByLabel("Mover TAR-42")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Concluir tarefa", exact: true }),
+  ).toHaveCount(0);
 });

@@ -1,5 +1,6 @@
 import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
 import {
+  createTask,
   listTasks,
   taskDetail,
   updateTask,
@@ -61,6 +62,8 @@ export async function POST(req: Request) {
       throw new TaskInputError("Dados inválidos.");
     }
     if (body?.action === "sync") return json(await syncTasks());
+    if (body?.action === "create")
+      return json(await createTask(body, user), 201);
     return json(await updateTask(body, user));
   } catch (e) {
     return failure(e);

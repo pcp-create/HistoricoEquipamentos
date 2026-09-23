@@ -304,7 +304,9 @@
   margin-top: 12px;
   font-size: 11px;
 }
-.task-kanban-card select {
+.task-kanban-card .task-complete-button {
+  display: block;
+  margin-top: 14px;
   width: 100%;
 }
 .task-kanban-empty {
