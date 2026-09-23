@@ -1,3 +1,4 @@
+import { alertRecipients } from "@/lib/employees";
 import { requireAdmin, Unauthorized, Forbidden } from "@/lib/auth";
 import { loadRentalReport as loadReport } from "@/lib/rental-reports/load";
 import { rentalMessage as reportMessage } from "@/lib/rental-reports/report";
@@ -57,6 +58,7 @@ export async function GET(req: Request) {
       });
     return Response.json(
       {
+        recipients: await alertRecipients("rental"),
         date: report.date,
         kind: report.kind,
         equipmentCount: report.equipmentCount,

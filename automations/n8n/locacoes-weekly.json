@@ -42,7 +42,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "return [{json: {\n  systemUrl: 'https://historicorj.vercel.app',\n  kind: 'weekly',\n  testMode: true,\n  from: 'guilherme.waltrick@rjserranacompressores.com.br',\n  testEmail: 'guilherme.waltrick@rjserranacompressores.com.br',\n  recipients: 'guilherme.waltrick@rjserranacompressores.com.br,bruno.pereira@rjcompressores.com.br',\n  evolutionUrl: 'http://EVOLUTION_INTERNO:8080',\n  instance: 'BotDemandas',\n  phone: '554797530760'\n}}];"
+        "jsCode": "return [{json: {\n  systemUrl: 'https://historicorj.vercel.app',\n  kind: 'weekly',\n  testMode: true,\n  from: 'guilherme.waltrick@rjserranacompressores.com.br',\n  testEmail: 'guilherme.waltrick@rjserranacompressores.com.br',\n  evolutionUrl: 'http://EVOLUTION_INTERNO:8080',\n  instance: 'BotDemandas',\n  phone: '554797530760'\n}}];"
       }
     },
     {
@@ -87,7 +87,7 @@
       ],
       "parameters": {
         "fromEmail": "={{ $json.from }}",
-        "toEmail": "={{ $json.testMode ? $json.testEmail : $json.recipients }}",
+        "toEmail": "={{ $json.destination }}",
         "subject": "={{ ($json.testMode ? '[TESTE] ' : '') + $json.subject }}",
         "emailFormat": "both",
         "text": "={{ $json.text }}",
@@ -109,12 +109,12 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Preparar PDF').first().json.evolutionUrl + '/message/sendText/' + encodeURIComponent($('Preparar PDF').first().json.instance) }}",
+        "url": "={{ $json.evolutionUrl + '/message/sendText/' + encodeURIComponent($json.instance) }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ {number: $('Preparar PDF').first().json.phone, text: $('Preparar PDF').first().json.whatsapp} }}",
+        "jsonBody": "={{ {number: $json.destination, text: $json.whatsapp} }}",
         "options": {
           "timeout": 30000
         }
@@ -131,10 +131,36 @@
         360
       ],
       "parameters": {
-        "content": "## Configuração obrigatória\nFluxo despublicado e em modo de teste.\n1. Publicar a API do sistema antes de executar.\n2. Ajustar URL em Configuração.\n3. Gerar relatório: credencial Header Auth (Authorization: Bearer TOKEN).\n4. Enviar e-mail: selecionar SMTP account.\n5. WhatsApp desativado: configurar endereço interno/HTTPS e credencial Header Auth (apikey).\n6. Testar manualmente, conferir PDF e destino.\n7. testMode=false para incluir Bruno; publicar só depois do teste.\nNão repetir execução completa após envio parcial: pode duplicar mensagens.\nRelatórios de contratos: diário vencidos/menos de 5 dias; semanal de 0 a 29 dias; mensal todos os locados e emprestados.",
+        "content": "## Cadastro central de destinatários\nAplicar SQL 009 e publicar API antes de importar. Cadastre funcionários e marque alertas e canais na Administração. Produção usa apenas destinatários da API. Teste usa testEmail e phone. Configure SMTP e credenciais de relatório/Evolution. WhatsApp vem desativado: habilite após testar. Preserve grupos em fluxo separado; não são funcionários. Desative o fluxo anterior para evitar duplicidade.",
         "height": 420,
         "width": 400
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst config = $('Configuração').first().json;\nconst report = item.json;\nif (config.testMode !== true && config.testMode !== false) throw new Error('testMode deve ser booleano.');\nconst destinations = config.testMode ? [config.testEmail] : report.recipients?.emails;\nif (!Array.isArray(destinations)) throw new Error('Destinatários não fornecidos pela API. Atualize o sistema.');\nreturn [...new Set(destinations.filter(v=>typeof v === 'string' && v.trim()).map(v=>v.trim()))].map(destination=>({json:{...report,destination},binary:item.binary}));"
+      },
+      "id": "Destinatários e-mail",
+      "name": "Destinatários e-mail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1050,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst config = $('Configuração').first().json;\nconst report = item.json;\nif (config.testMode !== true && config.testMode !== false) throw new Error('testMode deve ser booleano.');\nconst destinations = config.testMode ? [config.phone] : report.recipients?.whatsapp;\nif (!Array.isArray(destinations)) throw new Error('Destinatários não fornecidos pela API. Atualize o sistema.');\nreturn [...new Set(destinations.filter(v=>typeof v === 'string' && v.trim()).map(v=>v.trim()))].map(destination=>({json:{...report,destination},binary:item.binary}));"
+      },
+      "id": "Destinatários WhatsApp",
+      "name": "Destinatários WhatsApp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1050,
+        600
+      ]
     }
   ],
   "connections": {
@@ -186,6 +212,22 @@
       "main": [
         [
           {
+            "node": "Destinatários e-mail",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Destinatários WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Destinatários e-mail": {
+      "main": [
+        [
+          {
             "node": "Enviar e-mail",
             "type": "main",
             "index": 0
@@ -193,7 +235,7 @@
         ]
       ]
     },
-    "Enviar e-mail": {
+    "Destinatários WhatsApp": {
       "main": [
         [
           {

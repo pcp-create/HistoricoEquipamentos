@@ -1,3 +1,5 @@
+> Atualização: os modelos atuais usam destinatários do cadastro de funcionários nas execuções de produção. Consulte [Cadastro de funcionários e alertas](cadastro-funcionarios-alertas.md) para atualizar os seis workflows; a lista fixa `recipients` não é mais utilizada. Em teste permanecem `testEmail` e `phone`.
+
 # Relatórios automáticos de preventivas
 
 API preparada para publicação; nenhum workflow remoto foi criado, publicado ou ativado. Não houve envio real nesta etapa. A credencial SMTP já foi validada pelo usuário no n8n 2.30.5.

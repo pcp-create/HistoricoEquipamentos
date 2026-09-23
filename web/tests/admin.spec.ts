@@ -49,14 +49,22 @@ test("admin interface shows integration dates and lets an administrator change a
   await page.goto("/administracao");
   await expect(page.getByText("Online", { exact: true })).toBeVisible();
   await expect(page.getByText("16/09/2026, 09:00:00")).toBeVisible();
-  await page.getByRole("button", { name: "Editar acesso" }).click();
+  await page.getByRole("button", { name: "Editar funcionário" }).click();
   await page.getByLabel("Perfil", { exact: true }).selectOption("admin");
-  await page.getByRole("button", { name: "Salvar permissões" }).click();
-  await expect(page.getByRole("status")).toHaveText("Permissões salvas.");
-  expect(writes[0]).toEqual({
+  await page
+    .getByLabel("WhatsApp (país + DDD + número)", { exact: true })
+    .fill("5547999999999");
+  await page.getByLabel("Recebe alerta de preventiva?").check();
+  await page.getByLabel("Receber pelo WhatsApp").check();
+  await page.getByRole("button", { name: "Salvar funcionário" }).click();
+  await expect(page.getByRole("status")).toContainText("Funcionário salvo.");
+  expect(writes[0]).toMatchObject({
     email: "user@example.com",
     role: "admin",
     enabled: true,
+    phone: "5547999999999",
+    alert_preventive: true,
+    alert_whatsapp: true,
   });
 });
 test("forbidden admin response never shows management controls", async ({
@@ -82,6 +90,6 @@ test("forbidden admin response never shows management controls", async ({
       .filter({ hasText: "Acesso exclusivo de administradores." }),
   ).toHaveText("Acesso exclusivo de administradores.");
   await expect(
-    page.getByRole("button", { name: "Salvar permissões" }),
+    page.getByRole("button", { name: "Salvar funcionário" }),
   ).toHaveCount(0);
 });

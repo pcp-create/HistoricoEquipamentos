@@ -1,3 +1,4 @@
+import { userDisplayName } from "@/lib/user-display-name";
 import { NextResponse } from "next/server";
 import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
 import { recordActivity, accessRecord } from "@/lib/admin-store";
@@ -10,7 +11,10 @@ export async function POST(req: Request) {
     await recordActivity(user, "heartbeat");
     const access = await accessRecord(user.email);
     return NextResponse.json(
-      { admin: access?.role === "admin" },
+      {
+        admin: access?.role === "admin",
+        displayName: access?.display_name || userDisplayName(user),
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {

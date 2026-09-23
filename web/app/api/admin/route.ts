@@ -1,3 +1,4 @@
+import { createEmployeeLogin } from "@/lib/employee-login";
 import { NextResponse } from "next/server";
 import { requireAdmin, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import { adminOverview, setAccess, AdminInputError } from "@/lib/admin-store";
@@ -19,7 +20,13 @@ function failure(e: unknown) {
 export async function GET() {
   try {
     const user = await requireAdmin();
-    return json({ ...(await adminOverview()), email: user.email });
+    return json({
+      ...(await adminOverview()),
+      email: user.email,
+      loginProvisioningConfigured: Boolean(
+        process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_URL,
+      ),
+    });
   } catch (e) {
     return failure(e);
   }
@@ -37,7 +44,8 @@ export async function POST(req: Request) {
     } catch {
       return json({ error: "Dados inválidos." }, 400);
     }
-    await setAccess(body, user);
+    if (body.action === "create-login") await createEmployeeLogin(body, user);
+    else await setAccess(body, user);
     return json({ saved: true });
   } catch (e) {
     return failure(e);

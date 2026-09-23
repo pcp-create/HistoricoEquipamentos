@@ -1,3 +1,4 @@
+import { alertRecipients } from "@/lib/employees";
 import { requireAdmin, Unauthorized, Forbidden } from "@/lib/auth";
 import { loadReport } from "@/lib/preventive-reports/load";
 import { reportMessage } from "@/lib/preventive-reports/report";
@@ -57,6 +58,7 @@ export async function GET(req: Request) {
       });
     return Response.json(
       {
+        recipients: await alertRecipients("preventive"),
         date: report.date,
         kind: report.kind,
         equipmentCount: report.equipmentCount,

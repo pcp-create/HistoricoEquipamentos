@@ -1,11 +1,12 @@
 import "server-only";
+import { employeeFields } from "./employees";
 import { database } from "./db";
 import { userDisplayName, type AuthUser } from "./user-display-name";
 export async function accessRecord(email: string) {
   return (
     (
       await database().query(
-        "SELECT role,enabled FROM web_user_access WHERE email=$1",
+        "SELECT role,enabled,display_name FROM web_user_access WHERE email=$1",
         [email.toLowerCase()],
       )
     ).rows[0] || null
@@ -19,7 +20,7 @@ export async function recordActivity(
   try {
     await c.query("BEGIN READ WRITE");
     await c.query(
-      `INSERT INTO web_user_access(email,display_name,user_id,updated_by) VALUES($1,$2,$3,$1) ON CONFLICT(email) DO UPDATE SET display_name=$2,user_id=$3`,
+      `INSERT INTO web_user_access(email,display_name,user_id,updated_by) VALUES($1,$2,$3,$1) ON CONFLICT(email) DO UPDATE SET display_name=COALESCE(NULLIF(web_user_access.display_name,''),$2),user_id=$3`,
       [user.email.toLowerCase(), userDisplayName(user), user.id],
     );
     if (event === "login")
@@ -61,22 +62,31 @@ export async function setAccess(body: any, actor: AuthUser) {
     typeof body.enabled !== "boolean"
   )
     throw new AdminInputError("Informe e-mail, perfil e situação válidos.");
+  let employee;
+  if (body.display_name !== undefined) {
+    try {
+      employee = employeeFields(body);
+    } catch (e) {
+      throw new AdminInputError((e as Error).message);
+    }
+  }
   const c = await database().connect();
   try {
     await c.query("BEGIN READ WRITE");
     await c.query("SELECT pg_advisory_xact_lock(81020,1)");
     const permission = (
       await c.query(
-        "SELECT role,enabled FROM web_user_access WHERE email=$1 FOR UPDATE",
+        "SELECT role,enabled,display_name FROM web_user_access WHERE email=$1 FOR UPDATE",
         [actor.email.toLowerCase()],
       )
     ).rows[0];
     if (!permission?.enabled || permission.role !== "admin")
       throw new AdminInputError("Permissão de administrador necessária.");
     const old = (
-      await c.query("SELECT role,enabled FROM web_user_access WHERE email=$1", [
-        email,
-      ])
+      await c.query(
+        "SELECT role,enabled,display_name FROM web_user_access WHERE email=$1",
+        [email],
+      )
     ).rows[0];
     if (
       old?.role === "admin" &&
@@ -99,6 +109,21 @@ export async function setAccess(body: any, actor: AuthUser) {
       `INSERT INTO web_user_access(email,role,enabled,updated_by) VALUES($1,$2,$3,$4) ON CONFLICT(email) DO UPDATE SET role=$2,enabled=$3,updated_by=$4,updated_at=now()`,
       [email, body.role, body.enabled, actor.email],
     );
+    if (employee)
+      await c.query(
+        `UPDATE web_user_access SET display_name=$2,department=$3,job_title=$4,phone=$5,alert_preventive=$6,alert_rental=$7,alert_email=$8,alert_whatsapp=$9 WHERE email=$1`,
+        [
+          email,
+          employee.display_name,
+          employee.department,
+          employee.job_title,
+          employee.phone,
+          employee.alert_preventive,
+          employee.alert_rental,
+          employee.alert_email,
+          employee.alert_whatsapp,
+        ],
+      );
     await c.query(
       "INSERT INTO web_access_events(event,email,actor,details) VALUES('access_changed',$1,$2,$3)",
       [
@@ -106,7 +131,7 @@ export async function setAccess(body: any, actor: AuthUser) {
         actor.email,
         JSON.stringify({
           before: old || null,
-          after: { role: body.role, enabled: body.enabled },
+          after: { role: body.role, enabled: body.enabled, ...employee },
         }),
       ],
     );
@@ -121,7 +146,7 @@ export async function setAccess(body: any, actor: AuthUser) {
 export async function adminOverview() {
   const db = database();
   const users = (
-    await db.query(`SELECT email,display_name,role,enabled,last_login_at,last_seen_at,last_logout_at,
+    await db.query(`SELECT email,display_name,department,job_title,phone,alert_preventive,alert_rental,alert_email,alert_whatsapp,user_id,role,enabled,last_login_at,last_seen_at,last_logout_at,
  (enabled AND last_seen_at>now()-interval '15 minutes' AND (last_logout_at IS NULL OR last_seen_at>last_logout_at)) AS online FROM web_user_access ORDER BY role,email`)
   ).rows;
   const events = (
