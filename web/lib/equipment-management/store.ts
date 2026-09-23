@@ -74,6 +74,9 @@ export async function equipmentList(params: URLSearchParams) {
   const usage = await rentalUsage(
     rows.filter((e) => e.rental).map((e) => e.id),
   );
+  const rentalStates = await rentalStatuses(
+    rows.filter((e) => e.rental).map((e) => e.id),
+  );
   const all = rows
     .map((e) => {
       const forecasts = (byEquipment.get(e.id) || []).map((p) =>
@@ -92,6 +95,7 @@ export async function equipmentList(params: URLSearchParams) {
       return {
         ...e,
         ownership: e.rental ? "own" : e.settings.ownership || "unknown",
+        rentalStatus: rentalStates.get(e.id) || null,
         plans: forecasts.length,
         forecast: urgent || null,
       };
@@ -107,16 +111,16 @@ export async function equipmentList(params: URLSearchParams) {
               e.model,
               e.serial,
               e.brand,
+              e.rentalStatus?.customer,
+              e.rentalStatus?.label,
+              e.rentalStatus?.contract?.label,
+              e.rentalStatus?.stockNote,
               ...e.clients.map((c: any) => c.name || c.id),
             ].join(" "),
           ).includes(q)) &&
         (!ownership || e.ownership === ownership) &&
         (!rentalOnly || e.rental),
     );
-  const rentalStates = await rentalStatuses(
-    all.filter((e) => e.rental).map((e) => e.id),
-  );
-  for (const e of all) e.rentalStatus = rentalStates.get(e.id) || null;
   const counts = {
     equipment: all.length,
     overdue: all.filter((e) => ["overdue", "due"].includes(e.forecast?.status))

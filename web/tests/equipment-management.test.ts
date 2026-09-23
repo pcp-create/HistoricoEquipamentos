@@ -213,6 +213,36 @@ test("equipment plans persist independently of M8, enforce scope/concurrency and
     assert.equal(lastOrder.order_id, "502");
     assert.equal(lastOrder.company_id, 2);
     assert.equal(lastOrder.status, "Pendente");
+    await db.exec(
+      "UPDATE m8_ordens_servico SET tipo_id=45,cliente_nome='Hospital São Clara' WHERE company_id=2 AND id_m8=502",
+    );
+    const byCustomer = await equipmentList(
+      new URLSearchParams("q=hospital+sao+clara&rental=1&all=1"),
+    );
+    assert.equal(byCustomer.total, 1);
+    assert.equal(byCustomer.counts.equipment, 1);
+    assert.equal(byCustomer.rows[0].id, "100");
+    assert.equal(byCustomer.rows[0].rentalStatus.key, "loaned");
+    assert.equal(
+      (await equipmentList(new URLSearchParams("q=emprestado&rental=1"))).total,
+      1,
+    );
+    assert.equal(
+      (
+        await equipmentList(
+          new URLSearchParams("q=cliente+inexistente&rental=1"),
+        )
+      ).total,
+      0,
+    );
+    await db.exec(
+      "UPDATE m8_ordens_servico SET tipo_id=8 WHERE company_id=2 AND id_m8=502",
+    );
+    assert.equal(
+      (await equipmentList(new URLSearchParams("q=hospital+sao+clara&all=1")))
+        .rows[0].rentalStatus.key,
+      "rented",
+    );
   } finally {
     global.historyPool = old;
     await db.close();
