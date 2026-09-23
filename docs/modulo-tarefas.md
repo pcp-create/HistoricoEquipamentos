@@ -52,4 +52,4 @@ um aviso na mesma fila de WhatsApp das tarefas automáticas e exige telefone
 cadastrado. A origem aparece como **Tarefa manual**, com o nome do criador.
 Notas, anexos, Kanban, calendário e gráfico também estão disponíveis.
 A sincronização dos alertas não encerra tarefas manuais; a conclusão é feita
-pelo usuário, sem reabertura. Aplicar `web/sql/012_manual_tasks.sql` antes do deploy.
+pelo usuário. Tarefas manuais concluídas podem ser reabertas nos detalhes, mantendo responsável e prazo, com registro no histórico. Aplicar `web/sql/012_manual_tasks.sql` antes do deploy.

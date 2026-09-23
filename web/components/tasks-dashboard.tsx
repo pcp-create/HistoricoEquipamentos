@@ -1,5 +1,6 @@
 "use client";
 import "./tasks.css";
+import { Plus } from "lucide-react";
 import { taskColumn, taskColumns, type TaskColumn } from "@/lib/tasks/kanban";
 import {
   allowedTaskAttachment,
@@ -137,6 +138,7 @@ export function TaskDrawer({
           action,
           id,
           version: data.task.version,
+          ...(action === "move" ? { column: "completed" } : {}),
           assignedTo: assigned,
           priority,
           automaticPriority: automatic,
@@ -291,11 +293,34 @@ export function TaskDrawer({
                 </button>
               </fieldset>
               {t.status === "completed" && (
-                <p>Esta ocorrência foi concluída e não será reaberta.</p>
+                <p>
+                  {t.source_key?.startsWith("manual:")
+                    ? "Tarefa manual concluída. Você pode reabri-la em Acompanhamento."
+                    : "Esta ocorrência foi concluída e não será reaberta."}
+                </p>
               )}
             </section>
             <section className="task-card">
               <h3>Acompanhamento</h3>
+              {t.status === "completed" &&
+                t.source_key?.startsWith("manual:") && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void save("reopen")}
+                  >
+                    Reabrir tarefa
+                  </button>
+                )}
+              {t.status !== "completed" && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void save("move")}
+                >
+                  Concluir tarefa
+                </button>
+              )}
               <dl>
                 <dt>Status</dt>
                 <dd>{taskColumns[taskColumn(t)]}</dd>
@@ -624,9 +649,6 @@ export default function TasksDashboard() {
             <p>Alertas, responsáveis e histórico das tratativas.</p>
             <small>Última verificação: {date(data?.syncedAt)}</small>
           </div>
-          <button disabled={busy} onClick={() => setCreating(true)}>
-            Nova tarefa
-          </button>
           <button disabled={busy} onClick={sync}>
             {busy ? "Verificando alertas…" : "Atualizar alertas"}
           </button>
@@ -717,6 +739,14 @@ export default function TasksDashboard() {
             </button>
             <button aria-pressed={mine} onClick={() => setMine(true)}>
               Minhas tarefas
+            </button>
+            <button
+              type="button"
+              className="task-new-button"
+              disabled={busy}
+              onClick={() => setCreating(true)}
+            >
+              <Plus size={18} aria-hidden="true" /> Nova tarefa
             </button>
           </nav>
           <nav

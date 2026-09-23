@@ -134,9 +134,22 @@ test("tasks list, personal view, calendar and right drawer keep notes and assign
       .getByRole("region", { name: "Atrasadas", exact: true })
       .locator(".task-kanban-card"),
   ).toHaveCount(1);
+  await card.getByRole("button", { name: /TAR-42/ }).click();
   await page
+    .getByRole("dialog")
     .getByRole("button", { name: "Concluir tarefa", exact: true })
     .click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByText("Esta ocorrência foi concluída e não será reaberta."),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Concluir tarefa", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Fechar tarefa" }).click();
   await expect(
     page
       .getByRole("region", { name: "Concluídas", exact: true })

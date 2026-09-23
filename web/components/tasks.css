@@ -367,3 +367,19 @@
     gap: 6px;
   }
 }
+
+.tasks-page .task-new-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border-color: #295b89;
+  background: #295b89;
+  color: white;
+  font-weight: 700;
+}
+.tasks-page .task-new-button:hover:not(:disabled) {
+  background: #214a70;
+}

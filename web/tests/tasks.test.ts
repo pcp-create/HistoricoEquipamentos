@@ -76,6 +76,44 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       (await taskDetail(String(manual.task.id))).task.status,
       "not_started",
     );
+    const done = await updateTask(
+      {
+        action: "move",
+        id: String(manual.task.id),
+        version: manual.task.version,
+        column: "completed",
+      },
+      user,
+    );
+    const reopened = await updateTask(
+      {
+        action: "reopen",
+        id: String(manual.task.id),
+        version: done.task.version,
+      },
+      user,
+    );
+    assert.equal(reopened.task.status, "not_started");
+    assert.equal(reopened.task.completed_at, null);
+    assert.equal(reopened.task.assigned_to, user.email);
+    assert.ok(reopened.notes.some((n: any) => n.title === "Tarefa reaberta"));
+    await assert.rejects(
+      () =>
+        updateTask(
+          {
+            action: "reopen",
+            id: String(manual.task.id),
+            version: done.task.version,
+          },
+          user,
+        ),
+      /atualizada/,
+    );
+    await syncTasks(async () => []);
+    assert.equal(
+      (await taskDetail(String(manual.task.id))).task.status,
+      "not_started",
+    );
     await db.query("DELETE FROM web_task_notifications WHERE task_id=$1", [
       manual.task.id,
     ]);
@@ -89,6 +127,11 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     const id = String(t.id);
     assert.equal(t.status, "not_started");
     assert.equal(t.assigned_to, null);
+    await assert.rejects(
+      () => updateTask({ action: "reopen", id, version: t.version }, user),
+      /Somente tarefas manuais/,
+    );
+
     await assert.rejects(
       () =>
         updateTask(

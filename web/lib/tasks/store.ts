@@ -270,7 +270,23 @@ export async function updateTask(body: any, user: AuthUser) {
       throw new TaskConflict(
         "A tarefa foi atualizada. Recarregue antes de salvar.",
       );
-    if (body.action === "note") {
+    if (body.action === "reopen") {
+      if (!t.source_key.startsWith("manual:") || t.status !== "completed")
+        throw new TaskInputError(
+          "Somente tarefas manuais concluídas podem ser reabertas.",
+        );
+      await c.query(
+        "UPDATE web_tasks SET status='not_started',kanban_column=NULL,completed_at=NULL,source_resolved=false WHERE id=$1",
+        [id],
+      );
+      await note(
+        c,
+        id,
+        "Tarefa reaberta",
+        "Tarefa manual reaberta como pendente. Responsável e prazo mantidos.",
+        user,
+      );
+    } else if (body.action === "note") {
       if (
         typeof body.title !== "string" ||
         !body.title.trim() ||
@@ -355,7 +371,7 @@ export async function updateTask(body: any, user: AuthUser) {
         c,
         id,
         "Status de execução alterado",
-        `${taskColumns[taskColumn(t)]} → ${taskColumns[body.column as keyof typeof taskColumns]}.${completed ? " Conclusão manual. O alerta de origem permanece independente; esta ocorrência não será reaberta." : ""}`,
+        `${taskColumns[taskColumn(t)]} → ${taskColumns[body.column as keyof typeof taskColumns]}.${completed ? (t.source_key.startsWith("manual:") ? " Tarefa manual concluída." : " Conclusão manual. O alerta de origem permanece independente; esta ocorrência não será reaberta.") : ""}`,
         user,
       );
     } else if (body.action === "update") {
