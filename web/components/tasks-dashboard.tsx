@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch, hasFreshApiResponse } from "@/lib/client-api-cache";
 import "./tasks.css";
 import { Plus } from "lucide-react";
 import { taskColumn, taskColumns, type TaskColumn } from "@/lib/tasks/kanban";
@@ -17,6 +18,7 @@ import {
 } from "react";
 import { useSearchParams } from "next/navigation";
 import SiteHeader from "./site-header";
+import TaskSettings from "./task-settings";
 const statusNames: Record<string, string> = {
   not_started: "Não iniciado",
   in_progress: "Em andamento",
@@ -61,7 +63,7 @@ function waiting(t: any) {
     : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 }
 async function api(url: string, body?: unknown) {
-  const r = await fetch(
+  const r = await apiFetch(
     url,
     body
       ? {
@@ -80,6 +82,18 @@ async function api(url: string, body?: unknown) {
   const b = await r.json();
   if (!r.ok) throw Error(b.error || "Falha ao consultar tarefas.");
   return b;
+}
+let taskSnapshotRequest: Promise<any> | null = null;
+function taskSnapshot(force = false) {
+  if (taskSnapshotRequest) return taskSnapshotRequest;
+  taskSnapshotRequest = (async () => {
+    if (force || !hasFreshApiResponse("/api/tasks"))
+      await api("/api/tasks", { action: "sync" });
+    return api("/api/tasks");
+  })().finally(() => {
+    taskSnapshotRequest = null;
+  });
+  return taskSnapshotRequest;
 }
 export function TaskDrawer({
   id,
@@ -169,7 +183,7 @@ export function TaskDrawer({
       const form = new FormData();
       form.set("id", id);
       form.set("file", file);
-      const r = await fetch("/api/tasks", { method: "POST", body: form });
+      const r = await apiFetch("/api/tasks", { method: "POST", body: form });
       const b = await r.json();
       if (!r.ok) throw Error(b.error || "Falha ao anexar.");
       accept(b);
@@ -542,8 +556,11 @@ export default function TasksDashboard() {
     [data, setData] = useState<any>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [mine, setMine] = useState(false),
+    [mine, setMine] = useState(params.get("mine") === "1"),
+    [responsible, setResponsible] = useState("all"),
+    [originFilter, setOriginFilter] = useState("all"),
     [view, setView] = useState("list"),
+    [tab, setTab] = useState("tasks"),
     [creating, setCreating] = useState(false),
     [status, setStatus] = useState("all"),
     [query, setQuery] = useState(""),
@@ -558,12 +575,11 @@ export default function TasksDashboard() {
     const b = await api("/api/tasks");
     setData(b);
   }
-  async function sync() {
+  async function sync(force = true) {
     setBusy(true);
     setError("");
     try {
-      await api("/api/tasks", { action: "sync" });
-      await load();
+      setData(await taskSnapshot(force));
     } catch (e) {
       setError((e as Error).message);
       try {
@@ -574,10 +590,24 @@ export default function TasksDashboard() {
     }
   }
   useEffect(() => {
-    void sync();
-    const timer = setInterval(() => void sync(), 60000);
+    void sync(false);
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void sync(false);
+    }, 60000);
     return () => clearInterval(timer);
   }, []);
+  const responsibleOptions = new Map<string, string>();
+  for (const u of data?.users || [])
+    responsibleOptions.set(
+      u.email.toLowerCase(),
+      u.display_name || "Funcionário sem nome cadastrado",
+    );
+  for (const t of data?.tasks || [])
+    if (t.assigned_to && !responsibleOptions.has(t.assigned_to.toLowerCase()))
+      responsibleOptions.set(
+        t.assigned_to.toLowerCase(),
+        t.assignee_name || "Funcionário sem nome cadastrado",
+      );
   const rows = (data?.tasks || []).filter(
     (t: any) =>
       (!mine ||
@@ -585,6 +615,11 @@ export default function TasksDashboard() {
         (t.is_mine === undefined &&
           t.assigned_to?.trim().toLowerCase() ===
             data.email?.trim().toLowerCase())) &&
+      (originFilter === "all" || t.origin === originFilter) &&
+      (responsible === "all" ||
+        (responsible === "unassigned"
+          ? !t.assigned_to
+          : t.assigned_to?.toLowerCase() === responsible)) &&
       (status === "all" || status === "active"
         ? status === "all" || t.status !== "completed"
         : taskColumn(t) === status) &&
@@ -649,7 +684,7 @@ export default function TasksDashboard() {
             <p>Alertas, responsáveis e histórico das tratativas.</p>
             <small>Última verificação: {date(data?.syncedAt)}</small>
           </div>
-          <button disabled={busy} onClick={sync}>
+          <button disabled={busy} onClick={() => void sync()}>
             {busy ? "Verificando alertas…" : "Atualizar alertas"}
           </button>
         </header>
@@ -658,334 +693,429 @@ export default function TasksDashboard() {
             {error}
           </p>
         )}
-        {creating && (
-          <form
-            className="task-card"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const fields = new FormData(event.currentTarget);
-              setBusy(true);
-              setError("");
-              try {
-                const result = await api("/api/tasks", {
-                  action: "create",
-                  ...Object.fromEntries(fields),
-                });
-                setCreating(false);
-                await load();
-                open(String(result.task.id));
-              } catch (e) {
-                setError((e as Error).message);
-              } finally {
-                setBusy(false);
-              }
-            }}
+        <nav className="task-toolbar" aria-label="Seções de tarefas">
+          <button
+            aria-pressed={tab === "tasks"}
+            onClick={() => setTab("tasks")}
           >
-            <h2>Nova tarefa manual</h2>
-            <div className="task-toolbar">
-              <label>
-                Título
-                <input name="title" required maxLength={160} />
-              </label>
-              <label>
-                Atribuído a
-                <select name="assignedTo">
-                  <option value="">Não atribuído</option>
-                  {(data?.users || []).map((u: any) => (
-                    <option key={u.email} value={u.email}>
-                      {u.display_name || "Funcionário sem nome cadastrado"}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Prioridade
-                <select name="priority" defaultValue="normal">
-                  {Object.entries(priorityNames).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Vencimento
-                <input type="date" name="dueDate" />
-              </label>
-            </div>
-            <label>
-              Descrição
-              <textarea name="description" maxLength={12000} rows={4} />
-            </label>
-            <div className="task-toolbar">
-              <button disabled={busy} type="submit">
-                Criar tarefa
-              </button>
-              <button
-                disabled={busy}
-                type="button"
-                onClick={() => setCreating(false)}
+            Acompanhamento de tarefas
+          </button>
+          <button
+            aria-pressed={tab === "settings"}
+            onClick={() => setTab("settings")}
+          >
+            Configurações de Tarefas
+          </button>
+        </nav>
+        {tab === "settings" ? (
+          <TaskSettings />
+        ) : (
+          <>
+            {creating && (
+              <form
+                className="task-card"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  const fields = new FormData(event.currentTarget);
+                  setBusy(true);
+                  setError("");
+                  try {
+                    const result = await api("/api/tasks", {
+                      action: "create",
+                      ...Object.fromEntries(fields),
+                    });
+                    setCreating(false);
+                    await load();
+                    open(String(result.task.id));
+                  } catch (e) {
+                    setError((e as Error).message);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
               >
-                Cancelar
-              </button>
-            </div>
-          </form>
-        )}
-        <div className="task-control-groups">
-          <nav className="task-toolbar" aria-label="Filtros de responsáveis">
-            <strong>Responsáveis</strong>
-            <button aria-pressed={!mine} onClick={() => setMine(false)}>
-              Últimas tarefas · Todos
-            </button>
-            <button aria-pressed={mine} onClick={() => setMine(true)}>
-              Minhas tarefas
-            </button>
-            <button
-              type="button"
-              className="task-new-button"
-              disabled={busy}
-              onClick={() => setCreating(true)}
-            >
-              <Plus size={18} aria-hidden="true" /> Nova tarefa
-            </button>
-          </nav>
-          <nav
-            className="task-toolbar task-view-controls"
-            aria-label="Modo de visualização"
-          >
-            <strong>Visualização</strong>
-            <button
-              aria-pressed={view === "list"}
-              onClick={() => setView("list")}
-            >
-              Lista
-            </button>
-            <button
-              aria-pressed={view === "calendar"}
-              onClick={() => setView("calendar")}
-            >
-              Calendário
-            </button>
-            <button
-              aria-pressed={view === "kanban"}
-              onClick={() => setView("kanban")}
-            >
-              Kanban
-            </button>
-            <button
-              aria-pressed={view === "chart"}
-              onClick={() => setView("chart")}
-            >
-              Gráfico
-            </button>
-          </nav>
-        </div>
-        <div className="task-toolbar">
-          <label>
-            Pesquisar
-            <input
-              placeholder="Tarefa, cliente ou equipamento"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </label>
-          <label>
-            Status
-            <select value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="active">Em aberto</option>
-              <option value="all">Todos</option>
-              {Object.entries(taskColumns).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </label>
-          <span>{rows.length} tarefas</span>
-        </div>
-        {view === "chart" ? (
-          <TaskChart tasks={rows} />
-        ) : view === "kanban" ? (
-          <section className="task-kanban" aria-label="Quadro de tarefas">
-            {(Object.entries(taskColumns) as [TaskColumn, string][]).map(
-              ([key, label]) => {
-                const cards = rows.filter((t: any) => taskColumn(t) === key);
-                return (
-                  <section
-                    key={key}
-                    className={
-                      "task-kanban-column " + (dragging ? "drop-ready" : "")
-                    }
-                    aria-label={label}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const id = e.dataTransfer.getData("text/plain");
-                      void moveTask(id, key);
-                    }}
+                <h2>Nova tarefa manual</h2>
+                <div className="task-toolbar">
+                  <label>
+                    Título
+                    <input name="title" required maxLength={160} />
+                  </label>
+                  <label>
+                    Atribuído a
+                    <select name="assignedTo">
+                      <option value="">Não atribuído</option>
+                      {(data?.users || []).map((u: any) => (
+                        <option key={u.email} value={u.email}>
+                          {u.display_name || "Funcionário sem nome cadastrado"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Prioridade
+                    <select name="priority" defaultValue="normal">
+                      {Object.entries(priorityNames).map(([key, label]) => (
+                        <option key={key} value={key}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Vencimento
+                    <input type="date" name="dueDate" />
+                  </label>
+                </div>
+                <label>
+                  Descrição
+                  <textarea name="description" maxLength={12000} rows={4} />
+                </label>
+                <div className="task-toolbar">
+                  <button disabled={busy} type="submit">
+                    Criar tarefa
+                  </button>
+                  <button
+                    disabled={busy}
+                    type="button"
+                    onClick={() => setCreating(false)}
                   >
-                    <h2>
-                      {label} <span>{cards.length}</span>
-                    </h2>
-                    {cards.map((t: any) => (
-                      <article
-                        key={t.id}
-                        className="task-kanban-card"
-                        draggable={!busy && t.status !== "completed"}
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData("text/plain", String(t.id));
-                          e.dataTransfer.effectAllowed = "move";
-                          setDragging(String(t.id));
-                        }}
-                        onDragEnd={() => setDragging(null)}
-                      >
-                        <button
-                          className="task-link"
-                          onClick={() => open(t.id)}
-                        >
-                          TAR-{t.id} · {t.title}
-                        </button>
-                        <p>{t.equipment_name}</p>
-                        <small>{t.origin}</small>
-                        <small>
-                          {t.assignee_name ||
-                            (t.assigned_to
-                              ? "Funcionário sem nome cadastrado"
-                              : "Não atribuído")}
-                        </small>
-                        <small>Vencimento: {date(day(t.due_date))}</small>
-                        <span className={"task-priority " + t.priority}>
-                          {priorityNames[t.priority]}
-                        </span>
-                        {t.status !== "completed" && (
-                          <button
-                            type="button"
-                            className="task-complete-button"
-                            disabled={busy}
-                            onClick={() =>
-                              void moveTask(String(t.id), "completed")
-                            }
-                          >
-                            Concluir tarefa
-                          </button>
-                        )}
-                      </article>
-                    ))}
-                    {!cards.length && (
-                      <p className="task-kanban-empty">Nenhuma tarefa</p>
-                    )}
-                  </section>
-                );
-              },
+                    Cancelar
+                  </button>
+                </div>
+              </form>
             )}
-          </section>
-        ) : view === "list" ? (
-          <div className="task-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>Tarefa / equipamento</th>
-                  <th>Origem</th>
-                  <th>Atribuído a</th>
-                  <th>Prioridade</th>
-                  <th>Status / espera inicial</th>
-                  <th>Vencimento</th>
-                  <th>Último modificador</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((t: any) => (
-                  <tr key={t.id}>
-                    <td>
-                      <button className="task-link" onClick={() => open(t.id)}>
+            <div className="task-control-groups">
+              <nav
+                className="task-toolbar"
+                aria-label="Filtros de responsáveis"
+              >
+                <strong>Responsáveis</strong>
+                <button
+                  aria-pressed={!mine}
+                  onClick={() => {
+                    setMine(false);
+                    setResponsible("all");
+                  }}
+                >
+                  Últimas tarefas · Todos
+                </button>
+                <button
+                  aria-pressed={mine}
+                  onClick={() => {
+                    setMine(true);
+                    setResponsible("all");
+                  }}
+                >
+                  Minhas tarefas
+                </button>
+                <button
+                  type="button"
+                  className="task-new-button"
+                  disabled={busy}
+                  onClick={() => setCreating(true)}
+                >
+                  <Plus size={18} aria-hidden="true" /> Nova tarefa
+                </button>
+              </nav>
+              <nav
+                className="task-toolbar task-view-controls"
+                aria-label="Modo de visualização"
+              >
+                <strong>Visualização</strong>
+                <button
+                  aria-pressed={view === "list"}
+                  onClick={() => setView("list")}
+                >
+                  Lista
+                </button>
+                <button
+                  aria-pressed={view === "calendar"}
+                  onClick={() => setView("calendar")}
+                >
+                  Calendário
+                </button>
+                <button
+                  aria-pressed={view === "kanban"}
+                  onClick={() => setView("kanban")}
+                >
+                  Kanban
+                </button>
+                <button
+                  aria-pressed={view === "chart"}
+                  onClick={() => setView("chart")}
+                >
+                  Gráfico
+                </button>
+              </nav>
+            </div>
+            <div className="task-toolbar">
+              <label>
+                Pesquisar
+                <input
+                  placeholder="Tarefa, cliente ou equipamento"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </label>
+              <label>
+                Status
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="active">Em aberto</option>
+                  <option value="all">Todos</option>
+                  {Object.entries(taskColumns).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Responsável
+                <select
+                  value={
+                    mine ? data?.email?.toLowerCase() || "all" : responsible
+                  }
+                  onChange={(e) => {
+                    setMine(false);
+                    setResponsible(e.target.value);
+                  }}
+                >
+                  <option value="all">Todos os usuários</option>
+                  <option value="unassigned">Não atribuído</option>
+                  {[...responsibleOptions.entries()]
+                    .sort((a, b) => a[1].localeCompare(b[1], "pt-BR"))
+                    .map(([email, name]) => (
+                      <option key={email} value={email}>
+                        {name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label>
+                Origem da tarefa
+                <select
+                  value={originFilter}
+                  onChange={(e) => setOriginFilter(e.target.value)}
+                >
+                  <option value="all">Todas as origens</option>
+                  {[
+                    ...new Set<string>(
+                      (data?.tasks || [])
+                        .map((t: any) => t.origin)
+                        .filter(Boolean),
+                    ),
+                  ]
+                    .sort((a, b) => a.localeCompare(b, "pt-BR"))
+                    .map((origin) => (
+                      <option key={origin} value={origin}>
+                        {origin}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <span>{rows.length} tarefas</span>
+            </div>
+            {view === "chart" ? (
+              <TaskChart tasks={rows} />
+            ) : view === "kanban" ? (
+              <section className="task-kanban" aria-label="Quadro de tarefas">
+                {(Object.entries(taskColumns) as [TaskColumn, string][]).map(
+                  ([key, label]) => {
+                    const cards = rows.filter(
+                      (t: any) => taskColumn(t) === key,
+                    );
+                    return (
+                      <section
+                        key={key}
+                        className={
+                          "task-kanban-column " + (dragging ? "drop-ready" : "")
+                        }
+                        aria-label={label}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "move";
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const id = e.dataTransfer.getData("text/plain");
+                          void moveTask(id, key);
+                        }}
+                      >
+                        <h2>
+                          {label} <span>{cards.length}</span>
+                        </h2>
+                        {cards.map((t: any) => (
+                          <article
+                            key={t.id}
+                            className="task-kanban-card"
+                            draggable={!busy && t.status !== "completed"}
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData(
+                                "text/plain",
+                                String(t.id),
+                              );
+                              e.dataTransfer.effectAllowed = "move";
+                              setDragging(String(t.id));
+                            }}
+                            onDragEnd={() => setDragging(null)}
+                          >
+                            <button
+                              className="task-link"
+                              onClick={() => open(t.id)}
+                            >
+                              TAR-{t.id} · {t.title}
+                            </button>
+                            <p>{t.equipment_name}</p>
+                            <small>{t.origin}</small>
+                            <small>
+                              {t.assignee_name ||
+                                (t.assigned_to
+                                  ? "Funcionário sem nome cadastrado"
+                                  : "Não atribuído")}
+                            </small>
+                            <small>Vencimento: {date(day(t.due_date))}</small>
+                            <span className={"task-priority " + t.priority}>
+                              {priorityNames[t.priority]}
+                            </span>
+                            {t.status !== "completed" && (
+                              <button
+                                type="button"
+                                className="task-complete-button"
+                                disabled={busy}
+                                onClick={() =>
+                                  void moveTask(String(t.id), "completed")
+                                }
+                              >
+                                Concluir tarefa
+                              </button>
+                            )}
+                          </article>
+                        ))}
+                        {!cards.length && (
+                          <p className="task-kanban-empty">Nenhuma tarefa</p>
+                        )}
+                      </section>
+                    );
+                  },
+                )}
+              </section>
+            ) : view === "list" ? (
+              <div className="task-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tarefa / equipamento</th>
+                      <th>Origem</th>
+                      <th>Atribuído a</th>
+                      <th>Prioridade</th>
+                      <th>Status / espera inicial</th>
+                      <th>Vencimento</th>
+                      <th>Último modificador</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((t: any) => (
+                      <tr key={t.id}>
+                        <td>
+                          <button
+                            className="task-link"
+                            onClick={() => open(t.id)}
+                          >
+                            TAR-{t.id} · {t.title}
+                          </button>
+                          <small>{t.equipment_name}</small>
+                          <small>{t.customer}</small>
+                        </td>
+                        <td>{t.origin}</td>
+                        <td>
+                          <button
+                            className="task-link"
+                            onClick={() => open(t.id)}
+                          >
+                            {t.assignee_name ||
+                              (t.assigned_to
+                                ? "Funcionário sem nome cadastrado"
+                                : "Não atribuído")}
+                          </button>
+                        </td>
+                        <td>
+                          <span className={"task-priority " + t.priority}>
+                            {priorityNames[t.priority]}
+                          </span>
+                        </td>
+                        <td>
+                          {taskColumns[taskColumn(t)]}
+                          <small>{waiting(t)}</small>
+                        </td>
+                        <td>{date(day(t.due_date))}</td>
+                        <td>
+                          {t.modifier_name ||
+                            (t.updated_by === "Sistema"
+                              ? "Sistema"
+                              : "Usuário sem nome cadastrado")}
+                          <small>{date(t.updated_at)}</small>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!rows.length && <p>Nenhuma tarefa encontrada.</p>}
+              </div>
+            ) : (
+              <section className="task-card">
+                <label>
+                  Mês
+                  <input
+                    type="month"
+                    value={month}
+                    onChange={(e) => {
+                      if (e.target.value) setMonth(e.target.value);
+                    }}
+                  />
+                </label>
+                <p>Organizado pela data de vencimento do processo.</p>
+                <div className="task-calendar">
+                  {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(
+                    (d) => (
+                      <strong key={d}>{d}</strong>
+                    ),
+                  )}
+                  {Array.from({ length: offset }, (_, i) => (
+                    <div key={"blank" + i} />
+                  ))}
+                  {Array.from({ length: days }, (_, i) => {
+                    const key = month + "-" + String(i + 1).padStart(2, "0");
+                    return (
+                      <div key={key}>
+                        <b>{i + 1}</b>
+                        {rows
+                          .filter((t: any) => day(t.due_date) === key)
+                          .map((t: any) => (
+                            <button key={t.id} onClick={() => open(t.id)}>
+                              TAR-{t.id} · {t.equipment_name}
+                              <small>{taskColumns[taskColumn(t)]}</small>
+                            </button>
+                          ))}
+                      </div>
+                    );
+                  })}
+                </div>
+                <h3>Sem data definida</h3>
+                {rows
+                  .filter((t: any) => !t.due_date)
+                  .map((t: any) => (
+                    <p key={t.id}>
+                      <button onClick={() => open(t.id)}>
                         TAR-{t.id} · {t.title}
                       </button>
-                      <small>{t.equipment_name}</small>
-                      <small>{t.customer}</small>
-                    </td>
-                    <td>{t.origin}</td>
-                    <td>
-                      <button className="task-link" onClick={() => open(t.id)}>
-                        {t.assignee_name ||
-                          (t.assigned_to
-                            ? "Funcionário sem nome cadastrado"
-                            : "Não atribuído")}
-                      </button>
-                    </td>
-                    <td>
-                      <span className={"task-priority " + t.priority}>
-                        {priorityNames[t.priority]}
-                      </span>
-                    </td>
-                    <td>
-                      {taskColumns[taskColumn(t)]}
-                      <small>{waiting(t)}</small>
-                    </td>
-                    <td>{date(day(t.due_date))}</td>
-                    <td>
-                      {t.modifier_name ||
-                        (t.updated_by === "Sistema"
-                          ? "Sistema"
-                          : "Usuário sem nome cadastrado")}
-                      <small>{date(t.updated_at)}</small>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!rows.length && <p>Nenhuma tarefa encontrada.</p>}
-          </div>
-        ) : (
-          <section className="task-card">
-            <label>
-              Mês
-              <input
-                type="month"
-                value={month}
-                onChange={(e) => {
-                  if (e.target.value) setMonth(e.target.value);
-                }}
-              />
-            </label>
-            <p>Organizado pela data de vencimento do processo.</p>
-            <div className="task-calendar">
-              {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
-                <strong key={d}>{d}</strong>
-              ))}
-              {Array.from({ length: offset }, (_, i) => (
-                <div key={"blank" + i} />
-              ))}
-              {Array.from({ length: days }, (_, i) => {
-                const key = month + "-" + String(i + 1).padStart(2, "0");
-                return (
-                  <div key={key}>
-                    <b>{i + 1}</b>
-                    {rows
-                      .filter((t: any) => day(t.due_date) === key)
-                      .map((t: any) => (
-                        <button key={t.id} onClick={() => open(t.id)}>
-                          TAR-{t.id} · {t.equipment_name}
-                          <small>{taskColumns[taskColumn(t)]}</small>
-                        </button>
-                      ))}
-                  </div>
-                );
-              })}
-            </div>
-            <h3>Sem data definida</h3>
-            {rows
-              .filter((t: any) => !t.due_date)
-              .map((t: any) => (
-                <p key={t.id}>
-                  <button onClick={() => open(t.id)}>
-                    TAR-{t.id} · {t.title}
-                  </button>
-                </p>
-              ))}
-          </section>
+                    </p>
+                  ))}
+              </section>
+            )}
+          </>
         )}
       </main>
       {selected && (
@@ -1014,8 +1144,7 @@ export function EquipmentTaskProvider({ children }: { children: ReactNode }) {
     let alive = true;
     async function refresh() {
       try {
-        await api("/api/tasks", { action: "sync" });
-        const b = await api("/api/tasks");
+        const b = await taskSnapshot();
         if (alive) {
           setTasks(b.tasks);
           setError("");
@@ -1028,7 +1157,9 @@ export function EquipmentTaskProvider({ children }: { children: ReactNode }) {
       }
     }
     void refresh();
-    const timer = setInterval(refresh, 60000);
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
+    }, 60000);
     return () => {
       alive = false;
       clearInterval(timer);

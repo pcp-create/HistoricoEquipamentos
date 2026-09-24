@@ -1,3 +1,6 @@
+import { dailyTaskSummaries } from "@/lib/tasks/daily-summary";
+import { database } from "@/lib/db";
+import { brazilToday } from "@/lib/equipment-management/planning";
 import { reportTokenMatches } from "@/lib/preventive-reports/access";
 import { syncTasks, TaskInputError, TaskConflict } from "@/lib/tasks/store";
 import {
@@ -25,6 +28,29 @@ export async function POST(req: Request) {
     if (body.action === "ack") {
       await acknowledgeNotification(body.id, body.token);
       return Response.json({ ok: true }, { headers });
+    }
+    if (body.action === "daily-summary") {
+      await syncTasks();
+      const db = database();
+      const tasks = (
+        await db.query(
+          "SELECT assigned_to,status,kanban_column,due_date FROM web_tasks WHERE status<>'completed'",
+        )
+      ).rows;
+      const users = (
+        await db.query(
+          "SELECT email,display_name,phone,enabled FROM web_user_access",
+        )
+      ).rows;
+      return Response.json(
+        dailyTaskSummaries(
+          tasks,
+          users,
+          new URL(req.url).origin,
+          brazilToday(),
+        ),
+        { headers },
+      );
     }
     if (body.action !== "sync") throw new TaskInputError("Operação inválida.");
     const result = await syncTasks();

@@ -97,6 +97,16 @@ test("tasks list, personal view, calendar and right drawer keep notes and assign
   await expect(
     page.getByText("TAR-42 · Acompanhar locação", { exact: true }),
   ).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "Responsável", exact: true })
+    .selectOption("user@example.com");
+  await expect(page.getByText("Nenhuma tarefa encontrada.")).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "Responsável", exact: true })
+    .selectOption("unassigned");
+  await expect(
+    page.getByText("TAR-42 · Acompanhar locação", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Minhas tarefas" }).click();
   await expect(page.getByText("Nenhuma tarefa encontrada.")).toBeVisible();
   await page.getByRole("button", { name: "Últimas tarefas · Todos" }).click();
@@ -158,4 +168,54 @@ test("tasks list, personal view, calendar and right drawer keep notes and assign
   await expect(
     page.getByRole("button", { name: "Concluir tarefa", exact: true }),
   ).toHaveCount(0);
+});
+
+test("returning through modules reuses task data without another synchronization", async ({
+  page,
+  context,
+}) => {
+  await context.addCookies([
+    { name: "m8-access", value: "test", domain: "localhost", path: "/" },
+  ]);
+  // Simulate the verified identity emitted by the server layout, without real credentials.
+  await page.addInitScript(() => {
+    const original = document.querySelector.bind(document);
+    document.querySelector = ((selector: string) =>
+      selector === 'meta[name="app-cache-scope"]'
+        ? { content: "cache-test-user:user" }
+        : original(selector)) as typeof document.querySelector;
+  });
+  let reads = 0,
+    syncs = 0;
+  await page.route("**/api/activity", (r) =>
+    r.fulfill({ json: { admin: false } }),
+  );
+  await page.route("**/api/tasks", (r) => {
+    if (r.request().method() === "POST") {
+      syncs++;
+      return r.fulfill({ json: { created: 0, completed: 0 } });
+    }
+    reads++;
+    return r.fulfill({
+      json: { tasks: [], users: [], email: "test@example.com", syncedAt: null },
+    });
+  });
+  await page.goto("/tarefas");
+  await expect(page.getByText("Nenhuma tarefa encontrada.")).toBeVisible();
+  await expect.poll(() => reads).toBe(1);
+  await expect.poll(() => syncs).toBe(1);
+  await page
+    .getByRole("navigation", { name: "Navegação principal" })
+    .getByRole("link", { name: "Módulos", exact: true })
+    .click();
+  await page
+    .getByRole("navigation", { name: "Módulos do sistema" })
+    .getByRole("link", { name: /Tarefas/ })
+    .click();
+  await expect(page.getByText("Nenhuma tarefa encontrada.")).toBeVisible();
+  await expect.poll(() => reads).toBe(1);
+  await expect.poll(() => syncs).toBe(1);
+  await page.getByRole("button", { name: "Atualizar alertas" }).click();
+  await expect.poll(() => reads).toBe(2);
+  expect(syncs).toBe(2);
 });

@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useState } from "react";
 import { Pencil, Save, X, Plus, ArrowLeft } from "lucide-react";
 import SiteHeader from "./site-header";
@@ -28,7 +29,7 @@ type Entry = {
   observation: string;
 };
 async function api(url: string, options?: RequestInit) {
-  const r = await fetch(url, options);
+  const r = await apiFetch(url, options);
   if (r.status === 401) {
     window.location.assign("/login");
     throw new Error("Sessão expirada.");
@@ -160,7 +161,9 @@ export default function CatalogConfiguration() {
     <>
       <SiteHeader active="settings" email={email} />
       <main className="catalog-settings">
-        <a className="catalog-settings-link" href="/fabricante"><ArrowLeft size={16} aria-hidden="true" /> Voltar ao catálogo</a>
+        <a className="catalog-settings-link" href="/fabricante">
+          <ArrowLeft size={16} aria-hidden="true" /> Voltar ao catálogo
+        </a>
         <section className="manual-card">
           <h1>Configuração do catálogo do fabricante</h1>
           <p>

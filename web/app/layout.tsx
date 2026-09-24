@@ -21,7 +21,14 @@ export default async function Layout({
   const access = await initialSessionAccess();
   return (
     <html lang="pt-BR">
-      <body><SessionAccessProvider access={access}>{children}</SessionAccessProvider></body>
+      <head>
+        <meta name="app-cache-scope" content={access.cacheScope} />
+      </head>
+      <body>
+        <SessionAccessProvider access={access}>
+          {children}
+        </SessionAccessProvider>
+      </body>
     </html>
   );
 }

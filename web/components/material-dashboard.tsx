@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
 import { companyName } from "@/lib/company-names";
 import { PriceValues, StockValues } from "./product-values";
 import { useEffect, useState, type FormEvent } from "react";
@@ -122,7 +123,7 @@ export default function MaterialDashboard() {
     setError("");
     const query = params(filters, page);
     window.history.replaceState(null, "", `/analise-materiais?${query}`);
-    fetch(`/api/material-analysis?${query}`, {
+    apiFetch(`/api/material-analysis?${query}`, {
       signal: controller.signal,
       cache: "no-store",
     })
@@ -179,7 +180,7 @@ export default function MaterialDashboard() {
     try {
       const query = params(filters, 1);
       query.set("export", "csv");
-      const response = await fetch(`/api/material-analysis?${query}`);
+      const response = await apiFetch(`/api/material-analysis?${query}`);
       if (response.status === 401) {
         window.location.assign("/login");
         return;
@@ -220,7 +221,10 @@ export default function MaterialDashboard() {
           <button
             className="button refresh-button"
             disabled={loading}
-            onClick={() => setRefresh((r) => r + 1)}
+            onClick={() => {
+              clearApiCache();
+              setRefresh((r) => r + 1);
+            }}
           >
             <RefreshCw size={16} className={loading ? "spin" : ""} />
             Atualizar análise
@@ -412,7 +416,12 @@ export default function MaterialDashboard() {
         {error && (
           <div role="alert" className="error results-error">
             {error}
-            <button onClick={() => setRefresh((r) => r + 1)}>
+            <button
+              onClick={() => {
+                clearApiCache();
+                setRefresh((r) => r + 1);
+              }}
+            >
               Tentar novamente
             </button>
           </div>

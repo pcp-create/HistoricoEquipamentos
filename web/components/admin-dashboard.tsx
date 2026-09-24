@@ -1,4 +1,6 @@
 "use client";
+import TaskTerritories from "./task-territories";
+import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
 import "./admin-dashboard.css";
 import { useEffect, useState } from "react";
 import SiteHeader from "./site-header";
@@ -39,7 +41,7 @@ export default function AdminDashboard() {
   const [password, setPassword] = useState("");
   async function load() {
     try {
-      const r = await fetch("/api/admin");
+      const r = await apiFetch("/api/admin");
       if (r.status === 401) {
         window.location.assign("/login");
         return;
@@ -61,7 +63,9 @@ export default function AdminDashboard() {
   }
   useEffect(() => {
     void load();
-    const timer = setInterval(load, 60000);
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 60000);
     return () => clearInterval(timer);
   }, []);
   async function save(e: React.FormEvent) {
@@ -70,7 +74,7 @@ export default function AdminDashboard() {
     setError("");
     setMessage("");
     try {
-      const r = await fetch("/api/admin", {
+      const r = await apiFetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, mode: editing ? "update" : "create" }),
@@ -93,7 +97,7 @@ export default function AdminDashboard() {
     setError("");
     setMessage("");
     try {
-      const r = await fetch("/api/admin", {
+      const r = await apiFetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -122,7 +126,13 @@ export default function AdminDashboard() {
         <section className="manual-card">
           <h1>Administração</h1>
           <p>Acessos da equipe e acompanhamento das integrações.</p>
-          <button disabled={busy} onClick={load}>
+          <button
+            disabled={busy}
+            onClick={() => {
+              clearApiCache();
+              void load();
+            }}
+          >
             Atualizar registros
           </button>
         </section>
@@ -139,6 +149,7 @@ export default function AdminDashboard() {
               {[
                 ["users", "Usuários"],
                 ["integrations", "Integrações"],
+                ["territories", "Divisão comercial"],
                 ["logs", "Logs de acesso"],
               ].map(([key, label]) => (
                 <button
@@ -151,6 +162,7 @@ export default function AdminDashboard() {
                 </button>
               ))}
             </nav>
+            {tab === "territories" && <TaskTerritories />}
             <div hidden={tab !== "users"}>
               <section className="manual-card">
                 <h2>Funcionários e acessos</h2>

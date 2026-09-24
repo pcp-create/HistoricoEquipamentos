@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useRef, useState } from "react";
 import { companyName } from "@/lib/company-names";
 export default function PreventivePlanQuote({
@@ -28,7 +29,7 @@ export default function PreventivePlanQuote({
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/equipment-management/quote", {
+      const response = await apiFetch("/api/equipment-management/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

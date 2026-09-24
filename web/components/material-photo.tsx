@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 type Photo = { company: number; images: { key: string; url: string }[] };
@@ -35,7 +36,7 @@ export default function MaterialPhoto({
       let failed = false;
       for (const company of companyKey.split(",").filter(Boolean).map(Number)) {
         try {
-          const response = await fetch(
+          const response = await apiFetch(
             `/api/products/${company}/${id}/images`,
             { signal: controller.signal },
           );

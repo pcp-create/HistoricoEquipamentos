@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   ArrowUpRight,
   ArrowLeft,
@@ -73,9 +74,9 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
       <main className="module-home-main">
         <div className="module-home-heading">
           {selected && (
-            <a className="module-back" href="/">
+            <Link prefetch={false} className="module-back" href="/">
               <ArrowLeft size={16} /> Todos os módulos
-            </a>
+            </Link>
           )}
           <span className="module-eyebrow">PORTAL DA EMPRESA</span>
           <h1>{selected ? selected.title : "Módulos"}</h1>
@@ -91,20 +92,26 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
             aria-label={"Menus de " + selected.title}
           >
             {selected.links.map(([label, href]) => (
-              <a
+              <Link
+                prefetch={false}
                 className="module-menu-item"
                 key={label}
                 href={href + "?module=" + selected.id}
               >
                 {label}
                 <ArrowUpRight size={18} aria-hidden="true" />
-              </a>
+              </Link>
             ))}
           </nav>
         ) : (
           <nav className="module-tile-grid" aria-label="Módulos do sistema">
             {modules.map(({ id, title, icon: Icon, description }) => (
-              <a className="module-tile" key={id} href={"/modulos/" + id}>
+              <Link
+                prefetch={false}
+                className="module-tile"
+                key={id}
+                href={id === "tarefas" ? "/tarefas" : "/modulos/" + id}
+              >
                 <span className="module-icon">
                   <Icon size={27} aria-hidden="true" />
                 </span>
@@ -112,7 +119,7 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
                   <h2>{title}</h2>
                   <p>{description}</p>
                 </span>
-              </a>
+              </Link>
             ))}
           </nav>
         )}

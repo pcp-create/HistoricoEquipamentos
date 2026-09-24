@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useState } from "react";
 import type { QuoteItem, QuoteSalesHistory } from "@/lib/quotes/types";
 import { compareQuoteItems } from "@/lib/quotes/presentation";
@@ -54,7 +55,7 @@ export default function PreventivePlanHistory({
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const r = await fetch(
+        const r = await apiFetch(
           "/api/quotes?" +
             new URLSearchParams({ lookup: "clients", q: clientQuery }),
           { signal: controller.signal },
@@ -84,7 +85,7 @@ export default function PreventivePlanHistory({
     setLoading(true);
     (async () => {
       try {
-        const r = await fetch(
+        const r = await apiFetch(
           "/api/quotes?" +
             new URLSearchParams({
               action: "suggestions",

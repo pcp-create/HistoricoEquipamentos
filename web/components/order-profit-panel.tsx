@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useState } from "react";
 import { estimatedMaterialCost, orderLaborHours } from "@/lib/order-profit";
 type Calculation = {
@@ -43,7 +44,7 @@ export default function OrderProfitPanel({
   const endpoint = `/api/orders/${company}/${id}/profit`;
   useEffect(() => {
     const controller = new AbortController();
-    fetch(endpoint, { signal: controller.signal })
+    apiFetch(endpoint, { signal: controller.signal })
       .then(async (r) => {
         const body = await r.json();
         if (!r.ok) throw new Error(body.error);
@@ -68,7 +69,7 @@ export default function OrderProfitPanel({
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(endpoint, {
+      const response = await apiFetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

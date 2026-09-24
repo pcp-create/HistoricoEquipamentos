@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/client-api-cache";
 import { companyName } from "@/lib/company-names";
 import { useEffect, useRef, useState } from "react";
 import QuoteOrderLink from "./quote-order-link";
@@ -36,7 +37,7 @@ export default function QuoteCatalogPicker({
     setError("");
     const timer = setTimeout(async () => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           "/api/quotes?" +
             new URLSearchParams({
               lookup: kind === "material" ? "materials" : "services",

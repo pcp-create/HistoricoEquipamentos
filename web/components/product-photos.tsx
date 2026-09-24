@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/client-api-cache";
 import { companyName } from "@/lib/company-names";
 import { useEffect, useRef, useState } from "react";
 import { Camera, X, ChevronLeft, ChevronRight } from "lucide-react";
@@ -38,7 +39,7 @@ export default function ProductPhotos({
     setData(null);
     setIndex(0);
     setBroken(false);
-    fetch(`/api/products/${company}/${id}/images`, {
+    apiFetch(`/api/products/${company}/${id}/images`, {
       signal: controller.signal,
     })
       .then(async (r) => {

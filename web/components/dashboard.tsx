@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
 import { companyName } from "@/lib/company-names";
 import { isNotApproved } from "@/lib/material-approval";
 import { PriceValues, StockValues, SoldValues } from "./product-values";
@@ -159,17 +160,17 @@ function searchParams(
   return p;
 }
 
-  async function api(url: string, signal?: AbortSignal) {
-    const response = await fetch(url, { signal, cache: "no-store" });
-    if (response.status === 401) {
-      window.location.assign("/login");
-      throw new Error("Sessão expirada.");
-    }
-    const data = await response.json();
-    if (!response.ok)
-      throw new Error(data.error || "Não foi possível carregar os dados.");
-    return data;
+async function api(url: string, signal?: AbortSignal) {
+  const response = await apiFetch(url, { signal, cache: "no-store" });
+  if (response.status === 401) {
+    window.location.assign("/login");
+    throw new Error("Sessão expirada.");
   }
+  const data = await response.json();
+  if (!response.ok)
+    throw new Error(data.error || "Não foi possível carregar os dados.");
+  return data;
+}
 
 export default function Dashboard() {
   const [draft, setDraft] = useState(initial),
@@ -274,7 +275,7 @@ export default function Dashboard() {
     try {
       const params = searchParams(filters, view, 1, size);
       params.set("export", "csv");
-      const response = await fetch(`/api/history?${params}`);
+      const response = await apiFetch(`/api/history?${params}`);
       if (response.status === 401) {
         window.location.assign("/login");
         return;
@@ -317,7 +318,10 @@ export default function Dashboard() {
           </div>
           <button
             className="button refresh-button"
-            onClick={() => setRefresh((r) => r + 1)}
+            onClick={() => {
+              clearApiCache();
+              setRefresh((r) => r + 1);
+            }}
             disabled={loading}
           >
             <RefreshCw size={16} className={loading ? "spin" : ""} />
@@ -612,7 +616,12 @@ export default function Dashboard() {
           {error && (
             <div className="error results-error" role="alert">
               {error}
-              <button onClick={() => setRefresh((r) => r + 1)}>
+              <button
+                onClick={() => {
+                  clearApiCache();
+                  setRefresh((r) => r + 1);
+                }}
+              >
                 Tentar novamente
               </button>
             </div>

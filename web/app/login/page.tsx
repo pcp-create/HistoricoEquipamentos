@@ -1,13 +1,9 @@
 "use client";
+import { apiFetch } from "@/lib/client-api-cache";
 import { planReturnPath } from "@/lib/plan-return-path";
 import Image from "next/image";
 import { useState, type FormEvent } from "react";
-import {
-  ArrowRight,
-  ShieldCheck,
-  LoaderCircle,
-  Layers3,
-} from "lucide-react";
+import { ArrowRight, ShieldCheck, LoaderCircle, Layers3 } from "lucide-react";
 export default function Login() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -17,7 +13,7 @@ export default function Login() {
     setError("");
     const data = new FormData(event.currentTarget);
     try {
-      const response = await fetch("/api/session", {
+      const response = await apiFetch("/api/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -27,7 +23,9 @@ export default function Login() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
-      window.location.assign(planReturnPath(new URLSearchParams(window.location.search).get("next")));
+      window.location.assign(
+        planReturnPath(new URLSearchParams(window.location.search).get("next")),
+      );
     } catch (error) {
       setError(
         error instanceof Error ? error.message : "Não foi possível entrar.",
@@ -39,7 +37,14 @@ export default function Login() {
     <main className="login">
       <section className="login-story">
         <div className="brand">
-          <Image className="rj-logo" src="/logo-rj.png" alt="RJ Compressores" width={444} height={312} unoptimized />
+          <Image
+            className="rj-logo"
+            src="/logo-rj.png"
+            alt="RJ Compressores"
+            width={444}
+            height={312}
+            unoptimized
+          />
           <span>
             Gestão Integrada<span className="brand-small">RJ COMPRESSORES</span>
           </span>

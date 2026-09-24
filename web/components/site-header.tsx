@@ -1,4 +1,6 @@
 "use client";
+import Link from "next/link";
+import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { userInitials } from "@/lib/user-display-name";
@@ -96,7 +98,7 @@ export default function SiteHeader({
     const pulse = async () => {
       if (document.visibilityState !== "visible") return;
       try {
-        const r = await fetch("/api/activity", { method: "POST" });
+        const r = await apiFetch("/api/activity", { method: "POST" });
         if (!stopped) {
           if (r.ok) {
             const data = await r.json();
@@ -117,7 +119,7 @@ export default function SiteHeader({
     };
   }, []);
   async function logout() {
-    await fetch("/api/session", {
+    await apiFetch("/api/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "logout" }),
@@ -127,7 +129,7 @@ export default function SiteHeader({
   return (
     <>
       <header className="topbar">
-        <a className="brand" href="/">
+        <Link prefetch={false} className="brand" href="/">
           <Image
             className="rj-logo"
             src="/logo-rj.png"
@@ -139,19 +141,20 @@ export default function SiteHeader({
           <span>
             RJ Compressores<span className="brand-small">GESTÃO INTEGRADA</span>
           </span>
-        </a>
+        </Link>
         <div className="header-divider" />
         <span className="workspace-name">Portal da empresa</span>
         <div className="header-right">
           {admin && (
-            <a
+            <Link
+              prefetch={false}
               className="icon-button"
               href="/administracao"
               aria-label="Administração"
               title="Administração"
             >
               <ShieldCheck size={18} />
-            </a>
+            </Link>
           )}
           <span className="connection">
             <span />
@@ -177,30 +180,32 @@ export default function SiteHeader({
           className="topnav module-breadcrumb"
           aria-label="Navegação principal"
         >
-          <a href="/" className="nav-link">
+          <Link prefetch={false} href="/" className="nav-link">
             <House size={17} /> Módulos
-          </a>
+          </Link>
           {currentModule && (
             <>
               <ChevronRight size={14} aria-hidden="true" />
-              <a
+              <Link
+                prefetch={false}
                 href={"/modulos/" + currentModule}
                 className={active === "home" ? "nav-active" : "nav-link"}
                 aria-current={active === "home" ? "page" : undefined}
               >
                 {moduleNames[currentModule]}
-              </a>
+              </Link>
             </>
           )}
           {active === "settings" && (
             <>
               <ChevronRight size={14} aria-hidden="true" />
-              <a
+              <Link
+                prefetch={false}
                 className="nav-link"
                 href={"/fabricante?module=" + currentModule}
               >
                 Catálogo do fabricante
-              </a>
+              </Link>
             </>
           )}
           {active !== "home" && (

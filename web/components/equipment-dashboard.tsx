@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/client-api-cache";
 import { fold } from "@/lib/filters";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -27,7 +28,7 @@ import {
 } from "@/lib/equipment-management/planning";
 import { companyName } from "@/lib/company-names";
 const api = async (url: string, options?: RequestInit) => {
-  const r = await fetch("/api/equipment-management" + url, options);
+  const r = await apiFetch("/api/equipment-management" + url, options);
   if (r.status === 401) {
     window.location.assign(
       "/login?next=" +

@@ -1,0 +1,189 @@
+{
+  "name": "Tarefas — resumo diário por responsável",
+  "nodes": [
+    {
+      "id": "Teste manual",
+      "name": "Teste manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "Agenda diária",
+      "name": "Agenda diária",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        160
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1-5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "Configuração",
+      "name": "Configuração",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{json:{systemUrl:'https://historicorj.vercel.app', deliver:false, testMode:true, testPhone:'', evolutionUrl:'http://EVOLUTION_INTERNO:8080', instance:'BotDemandas'}}];"
+      }
+    },
+    {
+      "id": "Gerar resumo diário",
+      "name": "Gerar resumo diário",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.systemUrl + '/api/tasks/automation' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {action:'daily-summary'} }}",
+        "options": {
+          "timeout": 60000
+        }
+      }
+    },
+    {
+      "id": "Preparar resumos",
+      "name": "Preparar resumos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const config=$('Configuração').first().json; const data=$input.first().json; if(!Array.isArray(data.summaries)) throw new Error('Resposta inválida'); if(config.deliver !== true) return []; if(typeof config.testMode !== 'boolean') throw new Error('Defina testMode'); if(config.testMode && !/^\\d{10,15}$/.test(config.testPhone || '')) throw new Error('Informe testPhone com DDI e DDD'); return data.summaries.map(s=>({json:{...config,...s,number:config.testMode?config.testPhone:s.number,text:config.testMode?'[TESTE — destinatário: '+s.name+']\\n'+s.text:s.text},pairedItem:{item:0}}));"
+      }
+    },
+    {
+      "id": "Enviar WhatsApp",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.evolutionUrl + '/message/sendText/' + encodeURIComponent($json.instance) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {number:$json.number,text:$json.text} }}",
+        "options": {
+          "timeout": 30000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 3000
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "Leia antes de ativar",
+      "name": "Leia antes de ativar",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        250
+      ],
+      "parameters": {
+        "content": "## Resumo diário por responsável\nUma mensagem por usuário ativo com tarefas em aberto e WhatsApp cadastrado. Não envia avisos de atribuição.\n1. Publicar aplicação.\n2. Configurar Authorization: Bearer TOKEN (TASK_AUTOMATION_TOKEN ou PREVENTIVE_REPORT_TOKEN) em Gerar resumo diário.\n3. Configurar Evolution e credencial apikey no envio.\n4. deliver=false: consulte a saída de Gerar resumo diário sem enviar.\n5. Para testar: deliver=true, testMode=true e testPhone preenchido. Todos os resumos irão somente para esse número.\n6. Produção: testMode=false e deliver=true. Ative/publice uma única cópia do workflow.\nAgenda: segunda a sexta, 07:00 America/Sao_Paulo (cron 0 7 * * 1-5).\nReexecutar manualmente envia novamente: não há bloqueio de duplicidade diária.",
+        "height": 450,
+        "width": 420
+      }
+    }
+  ],
+  "connections": {
+    "Teste manual": {
+      "main": [
+        [
+          {
+            "node": "Configuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agenda diária": {
+      "main": [
+        [
+          {
+            "node": "Configuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuração": {
+      "main": [
+        [
+          {
+            "node": "Gerar resumo diário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar resumo diário": {
+      "main": [
+        [
+          {
+            "node": "Preparar resumos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar resumos": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  }
+}

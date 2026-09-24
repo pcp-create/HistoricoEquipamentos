@@ -20,3 +20,7 @@ web/playwright-report/
 
 # Python research cache
 __pycache__/
+
+# Private maintenance-control workbooks
+/Tabela Controle Manutenções - *.xlsx
+/Divisão Vendedores Comercial.xlsx

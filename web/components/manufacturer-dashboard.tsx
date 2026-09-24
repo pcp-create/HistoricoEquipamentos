@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/client-api-cache";
 import VersionPicker from "./version-picker";
 import { useEffect, useMemo, useState } from "react";
 import { fold } from "@/lib/filters";
@@ -95,7 +96,7 @@ export default function ManufacturerDashboard() {
         serial: form.serial,
         variant: form.variant,
       });
-      fetch("/api/manufacturer?" + p, { signal: controller.signal })
+      apiFetch("/api/manufacturer?" + p, { signal: controller.signal })
         .then(async (r) => {
           if (r.status === 401) {
             window.location.assign("/login");
@@ -142,7 +143,7 @@ export default function ManufacturerDashboard() {
     const controller = new AbortController();
     setLoading(true);
     setError("");
-    fetch("/api/manufacturer?" + query, { signal: controller.signal })
+    apiFetch("/api/manufacturer?" + query, { signal: controller.signal })
       .then(async (r) => {
         if (r.status === 401) {
           window.location.assign("/login");
@@ -228,7 +229,9 @@ export default function ManufacturerDashboard() {
             </p>
           </div>
         </div>
-        <a className="catalog-settings-link" href="/configuracoes"><Settings size={16} aria-hidden="true" /> Configuração do catálogo</a>
+        <a className="catalog-settings-link" href="/configuracoes">
+          <Settings size={16} aria-hidden="true" /> Configuração do catálogo
+        </a>
         <form
           className="manual-card manual-filters"
           onSubmit={(e) => {

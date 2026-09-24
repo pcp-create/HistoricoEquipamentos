@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/client-api-cache";
 import { mergeQuoteItems } from "@/lib/quotes/merge-items";
 import { groupedProducts } from "@/lib/manufacturer/products";
 import VersionPicker from "./version-picker";
@@ -69,7 +70,7 @@ const money = (v: number | null) =>
         currency: "BRL",
       }).format(v / 100);
 async function api(url: string, options?: RequestInit) {
-  const r = await fetch(url, options);
+  const r = await apiFetch(url, options);
   if (r.status === 401) {
     window.location.assign(
       "/login?next=" +

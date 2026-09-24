@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/client-api-cache";
 import { useSearchParams } from "next/navigation";
 import { companyName } from "@/lib/company-names";
 import MaterialPhoto from "./material-photo";
@@ -46,9 +47,14 @@ export default function MaterialLookup() {
   const searchParams = useSearchParams();
   const linkedCode = searchParams.get("code") || "";
   const [code, setCode] = useState("");
-  const [request, setRequest] = useState<{ code?: string; q?: string } | null>(null);
+  const [request, setRequest] = useState<{ code?: string; q?: string } | null>(
+    null,
+  );
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [matches, setMatches] = useState<{ products: (Row & { manufacturer?: string })[]; total: number } | null>(null);
+  const [matches, setMatches] = useState<{
+    products: (Row & { manufacturer?: string })[];
+    total: number;
+  } | null>(null);
   const [similar, setSimilar] = useState<Row[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -66,8 +72,11 @@ export default function MaterialLookup() {
     setRows(null);
     setMatches(null);
     setSimilar([]);
-    fetch(
-      "/api/products/lookup?" + new URLSearchParams(request.code ? { code: request.code } : { q: request.q || "" }),
+    apiFetch(
+      "/api/products/lookup?" +
+        new URLSearchParams(
+          request.code ? { code: request.code } : { q: request.q || "" },
+        ),
       { signal: controller.signal },
     )
       .then(async (response) => {
@@ -77,7 +86,10 @@ export default function MaterialLookup() {
         }
         const body = await response.json();
         if (!response.ok) throw new Error(body.error);
-        if (body.products) { setMatches(body); return; }
+        if (body.products) {
+          setMatches(body);
+          return;
+        }
         setRows(body.rows);
         setSimilar(body.similar || []);
       })
@@ -89,7 +101,9 @@ export default function MaterialLookup() {
       });
     return () => controller.abort();
   }, [request]);
-  const productDetails = rows?.find(row => Number(row.company_id) === 1)?.details;
+  const productDetails = rows?.find(
+    (row) => Number(row.company_id) === 1,
+  )?.details;
   return (
     <section
       className="manual-card material-lookup"
@@ -137,16 +151,45 @@ export default function MaterialLookup() {
       {error && <p role="alert">{error}</p>}
       {matches && (
         <div>
-          <p>{matches.total} produto(s) encontrado(s).{matches.total > matches.products.length && " Exibindo os primeiros 100; refine a pesquisa."}</p>
+          <p>
+            {matches.total} produto(s) encontrado(s).
+            {matches.total > matches.products.length &&
+              " Exibindo os primeiros 100; refine a pesquisa."}
+          </p>
           <div className="manual-table-scroll">
             <table className="manual-table">
-              <thead><tr><th>Código</th><th>Produto</th><th>Referência fabricante</th><th>Fabricante</th><th>Ação</th></tr></thead>
-              <tbody>{matches.products.map(product => (
-                <tr key={product.product_id}>
-                  <td>{product.product_id}</td><td>{product.name}</td><td>{product.reference || "—"}</td><td>{product.manufacturer || "—"}</td>
-                  <td><button type="button" className="product-consult-button" onClick={() => { setCode(product.product_id); setRequest({ code: product.product_id }); }}><Search size={15} aria-hidden="true" />Consultar produto</button></td>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Produto</th>
+                  <th>Referência fabricante</th>
+                  <th>Fabricante</th>
+                  <th>Ação</th>
                 </tr>
-              ))}</tbody>
+              </thead>
+              <tbody>
+                {matches.products.map((product) => (
+                  <tr key={product.product_id}>
+                    <td>{product.product_id}</td>
+                    <td>{product.name}</td>
+                    <td>{product.reference || "—"}</td>
+                    <td>{product.manufacturer || "—"}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="product-consult-button"
+                        onClick={() => {
+                          setCode(product.product_id);
+                          setRequest({ code: product.product_id });
+                        }}
+                      >
+                        <Search size={15} aria-hidden="true" />
+                        Consultar produto
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
         </div>
@@ -201,8 +244,14 @@ export default function MaterialLookup() {
                     </td>
                     <td>
                       {number(row.last_purchase_cost ?? null, true)}
-                      <small className="material-collected">{row.last_purchase_at ? date(row.last_purchase_at) : "Compra não informada"}</small>
-                      {row.purchase_establishment && <small>{row.purchase_establishment}</small>}
+                      <small className="material-collected">
+                        {row.last_purchase_at
+                          ? date(row.last_purchase_at)
+                          : "Compra não informada"}
+                      </small>
+                      {row.purchase_establishment && (
+                        <small>{row.purchase_establishment}</small>
+                      )}
                     </td>
                     <td>
                       {number(row.minimum_price, true)}
@@ -270,36 +319,90 @@ export default function MaterialLookup() {
             {productDetails ? (
               <dl className="product-details-grid">
                 {Object.entries(productDetails).map(([key, value]) => (
-                  <div key={key}><dt>{key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, c => c.toUpperCase())}</dt>
-                  <dd>{value == null || value === "" ? "Não informado" : typeof value === "object" ? JSON.stringify(value) : String(value)}</dd></div>
+                  <div key={key}>
+                    <dt>
+                      {key
+                        .replace(/([a-z])([A-Z])/g, "$1 $2")
+                        .replace(/^./, (c) => c.toUpperCase())}
+                    </dt>
+                    <dd>
+                      {value == null || value === ""
+                        ? "Não informado"
+                        : typeof value === "object"
+                          ? JSON.stringify(value)
+                          : String(value)}
+                    </dd>
+                  </div>
                 ))}
               </dl>
-            ) : <p>Informações complementares ainda não disponíveis no cadastro da RJ Industria.</p>}
+            ) : (
+              <p>
+                Informações complementares ainda não disponíveis no cadastro da
+                RJ Industria.
+              </p>
+            )}
           </details>
           <h3>Produtos similares</h3>
-          <p>Relacionados pelas referências e códigos de similaridade cadastrados. Confira a aplicação antes de substituir.</p>
-          {!similar.length ? <p>Nenhum similar identificado na base.</p> : (
+          <p>
+            Relacionados pelas referências e códigos de similaridade
+            cadastrados. Confira a aplicação antes de substituir.
+          </p>
+          {!similar.length ? (
+            <p>Nenhum similar identificado na base.</p>
+          ) : (
             <div className="manual-table-scroll">
               <table className="manual-table">
-                <thead><tr><th>Produto / referência</th><th>Empresa</th><th>Unidade</th><th>Estoque</th><th>Disponível</th></tr></thead>
-                <tbody>{similar.map(item => (
-                  <tr key={item.product_id + ":" + item.company_id}>
-                    <td><a className="quote-order-link" href={"/analise-materiais?code=" + item.product_id}>Cód. {item.product_id}</a> · {item.name}<small>Ref. fabricante: {item.reference || "Não informada"}</small></td>
-                    <td>{companyName(item.company_id)}</td><td>{item.unit || "—"}</td>
-                    <td>{number(item.stock)}<small className="material-collected">{date(item.stock_at)}</small></td>
-                    <td>{number(item.available)}<small className="material-collected">{date(item.available_at)}</small></td>
+                <thead>
+                  <tr>
+                    <th>Produto / referência</th>
+                    <th>Empresa</th>
+                    <th>Unidade</th>
+                    <th>Estoque</th>
+                    <th>Disponível</th>
                   </tr>
-                ))}</tbody>
+                </thead>
+                <tbody>
+                  {similar.map((item) => (
+                    <tr key={item.product_id + ":" + item.company_id}>
+                      <td>
+                        <a
+                          className="quote-order-link"
+                          href={"/analise-materiais?code=" + item.product_id}
+                        >
+                          Cód. {item.product_id}
+                        </a>{" "}
+                        · {item.name}
+                        <small>
+                          Ref. fabricante: {item.reference || "Não informada"}
+                        </small>
+                      </td>
+                      <td>{companyName(item.company_id)}</td>
+                      <td>{item.unit || "—"}</td>
+                      <td>
+                        {number(item.stock)}
+                        <small className="material-collected">
+                          {date(item.stock_at)}
+                        </small>
+                      </td>
+                      <td>
+                        {number(item.available)}
+                        <small className="material-collected">
+                          {date(item.available_at)}
+                        </small>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
             </div>
           )}
           <p>
-            Última compra: custo do estabelecimento com a compra mais recente registrada na empresa.
-            Custo médio atual por empresa, ponderado pelos saldos quando há
-            custos diferentes entre estabelecimentos. Valores ausentes não são
-            considerados zero. Última venda: OS processada e com coleta
-            concluída nesta empresa, excluindo materiais removidos. Datas em
-            horário de Brasília.
+            Última compra: custo do estabelecimento com a compra mais recente
+            registrada na empresa. Custo médio atual por empresa, ponderado
+            pelos saldos quando há custos diferentes entre estabelecimentos.
+            Valores ausentes não são considerados zero. Última venda: OS
+            processada e com coleta concluída nesta empresa, excluindo materiais
+            removidos. Datas em horário de Brasília.
           </p>
         </>
       )}

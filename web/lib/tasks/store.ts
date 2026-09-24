@@ -1,3 +1,4 @@
+import { assignNewTasks } from "./territories";
 import { randomUUID } from "node:crypto";
 import { taskColumn, taskColumns } from "./kanban";
 import {
@@ -152,6 +153,10 @@ export async function syncTasks(
       await c.query(
         `INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) SELECT x.id::bigint,'Alerta identificado',x.description,true,'Sistema','Sistema' FROM jsonb_to_recordset($1::jsonb) AS x(id text,description text)`,
         [JSON.stringify(notes)],
+      );
+      await assignNewTasks(
+        c,
+        inserted.map((t) => String(t.id)),
       );
       created = inserted.length;
     }

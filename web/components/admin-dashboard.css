@@ -142,3 +142,6 @@
   border-color: #85aad7;
   font-weight: 600;
 }
+
+.territory-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 16px 0; }
+.territory-toolbar label { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }

@@ -42,6 +42,8 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       "010_tasks.sql",
       "011_task_kanban.sql",
       "012_manual_tasks.sql",
+      "015_task_origin_rules.sql",
+      "013_task_territories.sql",
     ])
       await db.exec(
         readFileSync(new URL("../sql/" + f, import.meta.url), "utf8"),
