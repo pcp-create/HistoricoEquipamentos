@@ -1,5 +1,6 @@
 "use client";
-import { apiFetch } from "@/lib/client-api-cache";
+import CreateLinkedTask from "./create-linked-task";
+import { apiFetch, cachedEquipmentList } from "@/lib/client-api-cache";
 import { fold } from "@/lib/filters";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -369,6 +370,12 @@ export default function EquipmentDashboard() {
     }
   };
   useEffect(() => {
+    const cached = cachedEquipmentList();
+    if (cached) {
+      setResult(cached);
+      setLoading(false);
+      return;
+    }
     const controller = new AbortController();
     setLoading(true);
     const timer = setTimeout(() => {
@@ -515,7 +522,7 @@ export default function EquipmentDashboard() {
         {!selected ? (
           <section className="manual-card">
             <nav
-              className="equipment-view-tabs"
+              className="equipment-view-tabs app-section-tabs"
               aria-label="Visão dos equipamentos"
             >
               {[
@@ -751,6 +758,7 @@ export default function EquipmentDashboard() {
                         )}
                       </td>
                       <td>
+                        <div className="order-row-actions equipment-row-actions">
                         <button
                           className="catalog-edit-button"
                           onClick={() => {
@@ -760,6 +768,8 @@ export default function EquipmentDashboard() {
                         >
                           <Wrench size={14} /> Gerenciar
                         </button>
+                        <CreateLinkedTask equipmentId={String(e.id)}/>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1433,6 +1443,7 @@ export default function EquipmentDashboard() {
                                   : "Equipamento atribuído na OS"}
                             </td>
                             <td>
+                              <div className="order-row-actions">
                               <button
                                 type="button"
                                 className="icon-button"
@@ -1448,6 +1459,8 @@ export default function EquipmentDashboard() {
                               >
                                 <Eye size={17} />
                               </button>
+                              <CreateLinkedTask orderId={String(o.id)} orderCompany={o.company_id} equipmentId={String(selected)}/>
+                              </div>
                             </td>
                           </tr>
                         ))}

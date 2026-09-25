@@ -1,3 +1,4 @@
+import { claimReminders, acknowledgeReminder } from "@/lib/tasks/reminders";
 import { dailyTaskSummaries } from "@/lib/tasks/daily-summary";
 import { database } from "@/lib/db";
 import { brazilToday } from "@/lib/equipment-management/planning";
@@ -26,9 +27,21 @@ export async function POST(req: Request) {
     if (raw.length > 1000) throw new TaskInputError("Dados excedem o limite.");
     const body = JSON.parse(raw);
     if (body.action === "ack") {
-      await acknowledgeNotification(body.id, body.token);
+      if (typeof body.id === "string" && body.id.startsWith("reminder:"))
+        await acknowledgeReminder(body.id.slice(9), body.token);
+      else await acknowledgeNotification(body.id, body.token);
       return Response.json({ ok: true }, { headers });
     }
+    if (body.action === "reminders")
+      return Response.json(
+        {
+          notifications:
+            body.deliver === true
+              ? await claimReminders(new URL(req.url).origin)
+              : [],
+        },
+        { headers },
+      );
     if (body.action === "daily-summary") {
       await syncTasks();
       const db = database();

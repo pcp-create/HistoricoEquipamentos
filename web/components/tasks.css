@@ -426,3 +426,22 @@
 .task-settings-table select:disabled,
 .task-settings-table button:disabled { cursor:not-allowed; opacity:.6; }
 .task-assignment-locked { font-size: .85rem; color:#64748b; }
+/* Seletor agrupado de visualização. */
+.task-view-controls { border-left:0; padding-left:0; gap:16px; }
+.task-view-controls > strong { margin:0; padding-right:18px; border-right:1px solid #dbe5f0; line-height:34px; font-size:14px; color:#56677d; }
+.task-view-segments { display:inline-flex; align-items:center; padding:4px; border:1px solid #d7e1ed; border-radius:16px; background:#fafdff; box-shadow:0 3px 12px #253e6410; }
+.task-view-segments > button { position:relative; display:inline-flex; align-items:center; justify-content:center; gap:9px; min-height:42px; padding:9px 16px; border:0; border-radius:11px; background:transparent; color:#56677d; font-size:14px; font-weight:600; white-space:nowrap; transition:background .15s,color .15s; }
+.task-view-segments > button + button::before { content:""; position:absolute; left:-1px; top:11px; bottom:11px; width:1px; background:#e0e8f2; }
+.task-view-segments > button[aria-pressed="true"] { background:#e8f0ff; color:#1261e8; }
+.task-view-segments > button:hover { background:#eef4fc; color:#285d94; }
+.task-view-segments > button[aria-pressed="true"]:hover { background:#e0ebff; color:#1261e8; }
+.task-view-segments > button[aria-pressed="true"]::before,
+.task-view-segments > button[aria-pressed="true"] + button::before { opacity:0; }
+.task-view-segments > button:focus-visible { outline:2px solid #337cc1; outline-offset:2px; z-index:1; }
+@media(max-width:650px) {
+ .task-view-controls { width:100%; gap:8px; }
+ .task-view-controls > strong { border-right:0; padding-right:0; }
+ .task-view-segments { width:100%; }
+ .task-view-segments > button { flex:1; padding:8px 7px; gap:5px; font-size:12px; }
+ .task-view-segments > button svg { width:17px; height:17px; flex-shrink:0; }
+}

@@ -19,3 +19,10 @@ Tarefas e seus vínculos em equipamentos compartilham a sincronização em andam
 e reutilizam o resultado recente ao navegar. Atualizações periódicas de tarefas e
 administração só executam com a tela visível. O cache não preserva formulários não
 salvos nem substitui persistência no banco.
+
+A lista completa de equipamentos (`all=1`) é uma exceção à expiração: permanece
+em memória na aba durante a navegação, sem limite de 60 segundos. Não é salva no
+sessionStorage, portanto atualizar a página obtém uma lista nova. Sincronizações
+e alterações de tarefas preservam essa lista; alterações de equipamentos,
+limpeza explícita, login/logout ou mudança de usuário a invalidam. Atualizações
+feitas por outros usuários aparecem após recarregar a página.

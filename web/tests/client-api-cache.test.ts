@@ -70,6 +70,18 @@ test("client cache reuses data, isolates identities, invalidates writes and resp
       now += 61000;
       await apiFetch("/api/tasks");
       assert.equal(calls, 9);
+      await apiFetch("/api/equipment-management?all=1");
+      const initial = calls;
+      now += 3600_000;
+      await apiFetch("/api/tasks", {method:"POST",body:JSON.stringify({action:"sync"})});
+      await apiFetch("/api/equipment-management?all=1");
+      assert.equal(calls, initial + 1, "task sync must preserve the equipment list even after an hour");
+      await apiFetch("/api/equipment-management", {method:"POST",body:"{}"});
+      await apiFetch("/api/equipment-management?all=1");
+      assert.equal(calls, initial + 3, "equipment writes invalidate the list");
+      user="three";
+      await apiFetch("/api/equipment-management?all=1");
+      assert.equal(calls, initial + 4, "equipment list is isolated by user");
     } finally {
       Date.now = oldNow;
     }

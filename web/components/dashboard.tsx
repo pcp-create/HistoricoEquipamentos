@@ -1,4 +1,5 @@
 "use client";
+import CreateLinkedTask from "./create-linked-task";
 import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
 import { companyName } from "@/lib/company-names";
 import { isNotApproved } from "@/lib/material-approval";
@@ -543,22 +544,22 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="results-toolbar">
-            <div className="view-tabs" aria-label="Tipo de visão">
+            <nav className="view-tabs app-section-tabs" aria-label="Tipo de visão">
               <button
-                className={view === "orders" ? "selected" : ""}
+                aria-pressed={view === "orders"}
                 onClick={() => changeView("orders")}
               >
                 <ClipboardList size={16} />
                 Por ordem de serviço
               </button>
               <button
-                className={view === "materials" ? "selected" : ""}
+                aria-pressed={view === "materials"}
                 onClick={() => changeView("materials")}
               >
                 <Box size={16} />
                 Por material
               </button>
-            </div>
+            </nav>
             <span className="result-count">
               {loading ? (
                 <>
@@ -817,6 +818,7 @@ export default function Dashboard() {
                           </span>
                         </td>
                         <td>
+                          <div className="order-row-actions">
                           <button
                             className="detail-button"
                             aria-label={`Ver detalhes da OS ${row.number}`}
@@ -824,6 +826,8 @@ export default function Dashboard() {
                           >
                             <Eye size={17} />
                           </button>
+                          <CreateLinkedTask orderId={row.id} orderCompany={row.company_id} number={row.number}/>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1093,7 +1097,7 @@ export function OrderDetails({
             <span className="eyebrow">
               ORDEM DE SERVIÇO · {companyName(selection?.company_id)}
             </span>
-            <h2>OS-{selection?.number.padStart(5, "0")}</h2>
+            <h2>OS-{selection?.number.padStart(5, "0")} <CreateLinkedTask orderId={selection.id} orderCompany={selection.company_id} number={selection.number}/></h2>
           </div>
           <button
             className="icon-button"

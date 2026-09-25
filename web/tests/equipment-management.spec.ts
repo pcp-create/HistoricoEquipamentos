@@ -261,3 +261,28 @@ test("rental views show a compact photo carousel, popup and separate situation c
   await expect(page.getByText("Nenhum equipamento encontrado.")).toBeVisible();
   expect(reads).toBe(initial);
 });
+
+test('equipment list survives task navigation and refreshes on browser reload',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.addInitScript(()=>{const query=document.querySelector.bind(document);document.querySelector=((s:string)=>s==='meta[name="app-cache-scope"]'?{content:'equipment-cache-user:user'}:query(s)) as typeof document.querySelector;});
+ await page.route('**/api/activity',r=>r.fulfill({json:{admin:false}}));
+ let reads=0;
+ await page.route('**/api/equipment-management?all=1',r=>{reads++;return r.fulfill({json:{rows:[],total:0}});});
+ await page.goto('/equipamentos?module=equipamentos');
+ await expect(page.getByText('Nenhum equipamento encontrado.')).toBeVisible();
+ expect(reads).toBe(1);
+ await page.getByRole('navigation',{name:'Navegação principal'}).getByRole('link',{name:'Módulos',exact:true}).click();
+ await expect(page).toHaveURL(/\/$/);
+ await page.getByRole('navigation',{name:'Módulos do sistema'}).getByRole('link',{name:/Tarefas/}).click();
+ await expect(page).toHaveURL(/\/tarefas$/);
+ await expect(page.getByRole('heading',{name:'Tarefas',exact:true})).toBeVisible();
+ await page.goBack();
+ await expect(page).toHaveURL(/\/$/);
+ await page.goBack();
+ await expect(page).toHaveURL(/\/equipamentos/);
+ await expect(page.getByText('Nenhum equipamento encontrado.')).toBeVisible();
+ expect(reads).toBe(1);
+ await page.reload();
+ await expect(page.getByText('Nenhum equipamento encontrado.')).toBeVisible();
+ expect(reads).toBe(2);
+});

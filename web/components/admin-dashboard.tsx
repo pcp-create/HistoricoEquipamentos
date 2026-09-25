@@ -145,7 +145,7 @@ export default function AdminDashboard() {
         {!data && !error && <p>Carregando administração…</p>}
         {data && !denied && (
           <>
-            <nav className="admin-tabs" aria-label="Seções da administração">
+            <nav className="admin-tabs app-section-tabs" aria-label="Seções da administração">
               {[
                 ["users", "Usuários"],
                 ["integrations", "Integrações"],

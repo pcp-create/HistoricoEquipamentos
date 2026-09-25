@@ -1,7 +1,8 @@
 "use client";
 import { apiFetch, hasFreshApiResponse } from "@/lib/client-api-cache";
 import "./tasks.css";
-import { Plus } from "lucide-react";
+import TaskReminders from "./task-reminders";
+import { Plus, List, CalendarDays, Columns3, ChartNoAxesColumnIncreasing } from "lucide-react";
 import { taskColumn, taskColumns, type TaskColumn } from "@/lib/tasks/kanban";
 import {
   allowedTaskAttachment,
@@ -230,6 +231,7 @@ export function TaskDrawer({
               <dl>
                 <dt>Origem</dt>
                 <dd>{t.origin}</dd>
+                {t.order_id && <><dt>OS vinculada</dt><dd><a href={"/historico?"+new URLSearchParams({view:"orders",company:String(t.order_company),orderNumber:t.order_number||String(t.order_id)})} target="_blank" rel="noopener noreferrer">OS {t.order_number||t.order_id} · Empresa {t.order_company}</a></dd></>}
                 <dt>Equipamento / cliente</dt>
                 <dd>
                   {t.equipment_id ? (
@@ -314,6 +316,7 @@ export function TaskDrawer({
                 </p>
               )}
             </section>
+            <TaskReminders task={t} onChanged={()=>void reload().catch(e=>setError(e.message))}/>
             <section className="task-card">
               <h3>Acompanhamento</h3>
               {t.status === "completed" &&
@@ -684,16 +687,13 @@ export default function TasksDashboard() {
             <p>Alertas, responsáveis e histórico das tratativas.</p>
             <small>Última verificação: {date(data?.syncedAt)}</small>
           </div>
-          <button disabled={busy} onClick={() => void sync()}>
-            {busy ? "Verificando alertas…" : "Atualizar alertas"}
-          </button>
         </header>
         {error && (
           <p role="alert" className="task-error">
             {error}
           </p>
         )}
-        <nav className="task-toolbar" aria-label="Seções de tarefas">
+        <nav className="app-section-tabs" aria-label="Seções de tarefas">
           <button
             aria-pressed={tab === "tasks"}
             onClick={() => setTab("tasks")}
@@ -822,30 +822,19 @@ export default function TasksDashboard() {
                 aria-label="Modo de visualização"
               >
                 <strong>Visualização</strong>
-                <button
-                  aria-pressed={view === "list"}
-                  onClick={() => setView("list")}
-                >
-                  Lista
-                </button>
-                <button
-                  aria-pressed={view === "calendar"}
-                  onClick={() => setView("calendar")}
-                >
-                  Calendário
-                </button>
-                <button
-                  aria-pressed={view === "kanban"}
-                  onClick={() => setView("kanban")}
-                >
-                  Kanban
-                </button>
-                <button
-                  aria-pressed={view === "chart"}
-                  onClick={() => setView("chart")}
-                >
-                  Gráfico
-                </button>
+                <div className="task-view-segments">
+                  {([
+                    ["list", "Lista", List],
+                    ["calendar", "Calendário", CalendarDays],
+                    ["kanban", "Kanban", Columns3],
+                    ["chart", "Gráfico", ChartNoAxesColumnIncreasing],
+                  ] as const).map(([key, label, Icon]) => (
+                    <button key={key} type="button" aria-pressed={view === key} onClick={() => setView(key)}>
+                      <Icon size={20} strokeWidth={2} aria-hidden="true" />
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
               </nav>
             </div>
             <div className="task-toolbar">

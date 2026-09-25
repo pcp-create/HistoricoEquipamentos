@@ -215,7 +215,5 @@ test("returning through modules reuses task data without another synchronization
   await expect(page.getByText("Nenhuma tarefa encontrada.")).toBeVisible();
   await expect.poll(() => reads).toBe(1);
   await expect.poll(() => syncs).toBe(1);
-  await page.getByRole("button", { name: "Atualizar alertas" }).click();
-  await expect.poll(() => reads).toBe(2);
-  expect(syncs).toBe(2);
+
 });

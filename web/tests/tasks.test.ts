@@ -42,6 +42,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       "010_tasks.sql",
       "011_task_kanban.sql",
       "012_manual_tasks.sql",
+      "016_task_order_links.sql",
       "015_task_origin_rules.sql",
       "013_task_territories.sql",
     ])
@@ -286,7 +287,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     assert.equal(d.attachments.length, 1);
     for (const name of [
       "programa.exe",
-      "foto.png",
+      "foto.svg",
       "arquivo.pdf.exe",
       "semextensao",
       "documento.docm",
@@ -298,7 +299,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
             new File(["conteúdo"], name, { type: "application/pdf" }),
             user,
           ),
-        /Envie PDF/,
+        /Envie fotos/,
       );
     }
 

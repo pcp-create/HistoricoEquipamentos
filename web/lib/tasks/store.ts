@@ -1,3 +1,4 @@
+import { creationContext, TaskContextError } from "./creation-context";
 import { assignNewTasks } from "./territories";
 import { randomUUID } from "node:crypto";
 import { taskColumn, taskColumns } from "./kanban";
@@ -518,6 +519,7 @@ export async function createTask(body: any, user: AuthUser) {
   let id: string;
   try {
     await c.query("BEGIN READ WRITE");
+    const context = await creationContext(c, body);
     if (assigned) {
       const employee = (
         await c.query(
@@ -535,8 +537,8 @@ export async function createTask(body: any, user: AuthUser) {
     id = String(
       (
         await c.query(
-          `INSERT INTO web_tasks(source_key,cycle,origin,title,equipment_name,source_status,priority,priority_manual,assigned_to,due_date,first_assigned_at,created_by,updated_by)
-      VALUES($1,'manual','Tarefa manual',$2,'','manual',$3,true,$4,$5,CASE WHEN $4::text IS NOT NULL THEN now() END,$6,$6) RETURNING id`,
+          `INSERT INTO web_tasks(source_key,cycle,origin,title,equipment_name,source_status,priority,priority_manual,assigned_to,due_date,first_assigned_at,created_by,updated_by,order_company,order_id,order_number,equipment_id,customer)
+      VALUES($1,'manual',$7,$2,$8,'manual',$3,true,$4,$5,CASE WHEN $4::text IS NOT NULL THEN now() END,$6,$6,$9,$10,$11,$12,$13) RETURNING id`,
           [
             "manual:" + randomUUID(),
             body.title.trim(),
@@ -544,6 +546,17 @@ export async function createTask(body: any, user: AuthUser) {
             assigned,
             due,
             user.email,
+            context.order
+              ? "Ordem de Serviço"
+              : context.equipment
+                ? "Equipamento"
+                : "Tarefa manual",
+            context.equipmentName,
+            context.order?.company_id ?? null,
+            context.order?.id ?? null,
+            context.order?.number ?? null,
+            context.equipment?.id ?? null,
+            context.customer,
           ],
         )
       ).rows[0].id,
@@ -552,7 +565,10 @@ export async function createTask(body: any, user: AuthUser) {
       c,
       id,
       "Tarefa manual criada",
-      body.description.trim() || "Tarefa cadastrada manualmente.",
+      (body.description.trim() || "Tarefa cadastrada manualmente.") +
+        (context.order
+          ? `\nVinculada à OS ${context.order.number}, empresa ${context.order.company_id}.`
+          : ""),
       user,
     );
     if (assigned)
@@ -563,6 +579,7 @@ export async function createTask(body: any, user: AuthUser) {
     await c.query("COMMIT");
   } catch (e) {
     await c.query("ROLLBACK");
+    if (e instanceof TaskContextError) throw new TaskInputError(e.message);
     throw e;
   } finally {
     c.release();

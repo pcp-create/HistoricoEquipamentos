@@ -7,6 +7,9 @@ let scope = "",
   generation = 0;
 const entries = new Map<string, Entry>();
 const pending = new Map<string, Promise<Response>>();
+const equipmentKey = "/api/equipment-management?all=1";
+let equipmentEntry: Entry | undefined;
+let equipmentGeneration = 0;
 function currentScope() {
   if (typeof document === "undefined") return "";
   return (
@@ -41,6 +44,8 @@ function prepare() {
   const next = currentScope();
   if (next === scope) return;
   scope = next;
+  equipmentEntry = undefined;
+  equipmentGeneration++;
   entries.clear();
   pending.clear();
   generation++;
@@ -48,13 +53,20 @@ function prepare() {
     const saved = JSON.parse(sessionStorage.getItem(storageKey) || "null");
     if (scope && saved?.scope === scope)
       for (const [url, e] of saved.entries || [])
-        if (e.expires > Date.now()) entries.set(url, e);
+        if (url !== equipmentKey && e.expires > Date.now()) entries.set(url, e);
   } catch {}
   persist();
 }
-export function clearApiCache() {
+export function clearApiCache(preserveEquipment = false) {
   entries.clear();
-  pending.clear();
+  if (!preserveEquipment) {
+    equipmentEntry = undefined;
+    equipmentGeneration++;
+    pending.clear();
+  } else {
+    for (const key of pending.keys())
+      if (key !== equipmentKey) pending.delete(key);
+  }
   generation++;
   try {
     sessionStorage.removeItem(storageKey);
@@ -86,10 +98,19 @@ function keyFor(input: string | URL | Request) {
   url.searchParams.sort();
   return url.pathname + url.search;
 }
+export function cachedEquipmentList(): unknown | null {
+  prepare();
+  return scope && equipmentEntry ? JSON.parse(equipmentEntry.body) : null;
+}
 export function hasFreshApiResponse(url: string) {
   prepare();
   const key = keyFor(url);
-  return Boolean(scope && key && entries.get(key)?.expires! > Date.now());
+  return Boolean(
+    scope &&
+    key &&
+    (key === equipmentKey ? equipmentEntry : entries.get(key))?.expires! >
+      Date.now(),
+  );
 }
 function waitFor(
   promise: Promise<Response>,
@@ -127,7 +148,11 @@ export async function apiFetch(
   const key = keyFor(input);
   const activity = String(input).startsWith("/api/activity");
   const mutation = method !== "GET" && method !== "HEAD" && !activity;
-  if (mutation) clearApiCache();
+  // Task changes never alter the equipment catalogue or preventive plans.
+  const taskMutation =
+    mutation &&
+    Boolean(key && (key === "/api/tasks" || key.startsWith("/api/tasks/")));
+  if (mutation) clearApiCache(taskMutation);
   if (
     !scope ||
     !key ||
@@ -137,32 +162,42 @@ export async function apiFetch(
     init?.cache === "reload"
   ) {
     const r = await fetch(input, init);
-    if (mutation || r.status === 401 || r.status === 403) clearApiCache();
+    if (r.status === 401 || r.status === 403) clearApiCache();
+    else if (mutation) clearApiCache(taskMutation);
     return r;
   }
   if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-  const cached = entries.get(key);
+  const equipment = key === equipmentKey;
+  const cached = equipment ? equipmentEntry : entries.get(key);
   if (cached && cached.expires > Date.now())
     return new Response(cached.body, {
       headers: { "Content-Type": cached.type },
     });
   const existing = pending.get(key);
   if (existing) return waitFor(existing, init?.signal);
-  const version = generation;
+  const version = equipment ? equipmentGeneration : generation;
+  const unchanged = () =>
+    version === (equipment ? equipmentGeneration : generation);
   const request = fetch(input, { ...init, signal: undefined })
     .then(async (r) => {
       if (r.status === 401 || r.status === 403) clearApiCache();
       const type = r.headers.get("content-type") || "";
-      if (r.ok && type.includes("application/json") && version === generation) {
+      if (r.ok && type.includes("application/json") && unchanged()) {
         const body = await r.clone().text();
-        if (body.length <= maxBytes && version === generation) {
-          entries.delete(key);
-          entries.set(key, {
+        if ((equipment || body.length <= maxBytes) && unchanged()) {
+          const entry = {
             body,
             type,
-            expires: Date.now() + (key === "/api/admin" ? 15000 : ttl),
-          });
-          persist();
+            expires: equipment
+              ? Number.POSITIVE_INFINITY
+              : Date.now() + (key === "/api/admin" ? 15000 : ttl),
+          };
+          if (equipment) equipmentEntry = entry;
+          else {
+            entries.delete(key);
+            entries.set(key, entry);
+            persist();
+          }
         }
       }
       return r;

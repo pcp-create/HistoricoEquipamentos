@@ -1,4 +1,12 @@
 export const taskAttachmentExtensions = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".gif",
+  ".bmp",
+  ".heic",
+  ".heif",
   ".pdf",
   ".doc",
   ".docx",
@@ -11,7 +19,7 @@ export const taskAttachmentExtensions = [
 ] as const;
 export const taskAttachmentAccept = taskAttachmentExtensions.join(",");
 export const taskAttachmentTypeMessage =
-  "Envie PDF, Word (.doc, .docx), Excel (.xls, .xlsx) ou PowerPoint (.ppt, .pptx, .pps, .ppsx).";
+  "Envie fotos (.jpg, .jpeg, .png, .webp, .gif, .bmp, .heic, .heif), PDF, Word (.doc, .docx), Excel (.xls, .xlsx) ou PowerPoint (.ppt, .pptx, .pps, .ppsx).";
 export function allowedTaskAttachment(filename: string): boolean {
   const extension = filename.slice(filename.lastIndexOf(".")).toLowerCase();
   return taskAttachmentExtensions.some((allowed) => allowed === extension);
@@ -33,6 +41,11 @@ export function taskAttachmentMime(filename: string): string {
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     ".ppsx":
       "application/vnd.openxmlformats-officedocument.presentationml.slideshow",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".bmp": "image/bmp",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
     ".png": "image/png",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",

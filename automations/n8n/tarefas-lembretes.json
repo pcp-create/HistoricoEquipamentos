@@ -1,0 +1,216 @@
+{
+  "name": "Tarefas — alertas agendados",
+  "nodes": [
+    {
+      "id": "Teste manual",
+      "name": "Teste manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "A cada minuto",
+      "name": "A cada minuto",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        160
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "* * * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "Configuração",
+      "name": "Configuração",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{json:{systemUrl:'https://historicorj.vercel.app', deliver:false, evolutionUrl:'http://EVOLUTION_INTERNO:8080', instance:'BotDemandas'}}];"
+      }
+    },
+    {
+      "id": "Buscar alertas agendados",
+      "name": "Buscar alertas agendados",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.systemUrl + '/api/tasks/automation' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {action:'reminders',deliver:$json.deliver} }}",
+        "options": {
+          "timeout": 60000
+        }
+      }
+    },
+    {
+      "id": "Preparar avisos",
+      "name": "Preparar avisos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const data=$input.first().json; if(!Array.isArray(data.notifications)) throw new Error('Resposta inválida'); return data.notifications.map(n=>({json:{...$('Configuração').first().json,...n},pairedItem:{item:0}}));"
+      }
+    },
+    {
+      "id": "Enviar WhatsApp",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.evolutionUrl + '/message/sendText/' + encodeURIComponent($json.instance) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {number:$json.number,text:$json.text} }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "Confirmar entrega",
+      "name": "Confirmar entrega",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Preparar avisos').item.json.systemUrl + '/api/tasks/automation' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {action:'ack',id:$('Preparar avisos').item.json.id,token:$('Preparar avisos').item.json.token} }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "Leia antes de ativar",
+      "name": "Leia antes de ativar",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        250
+      ],
+      "parameters": {
+        "content": "## Alertas agendados\nConsulta a cada minuto, inclusive fins de semana. Selecione as credenciais do sistema e da Evolution. Configure evolutionUrl, instance e deliver:true para ativar. Confirmação só após sucesso do envio. Não reexecutar manualmente uma etapa de envio já concluída.",
+        "height": 450,
+        "width": 420
+      }
+    }
+  ],
+  "connections": {
+    "Teste manual": {
+      "main": [
+        [
+          {
+            "node": "Configuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A cada minuto": {
+      "main": [
+        [
+          {
+            "node": "Configuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuração": {
+      "main": [
+        [
+          {
+            "node": "Buscar alertas agendados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar alertas agendados": {
+      "main": [
+        [
+          {
+            "node": "Preparar avisos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar avisos": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Confirmar entrega",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  }
+}
