@@ -1,3 +1,4 @@
+import { predictPlans } from "./preventive-hierarchy";
 import { planItemUnit } from "./plan-items";
 import { planClients } from "./plan-clients";
 import { planCatalog } from "./plan-catalog";
@@ -59,14 +60,14 @@ export async function equipmentList(params: URLSearchParams) {
   ).rows;
   const plans = (
     await db.query(
-      "SELECT equipment_id::text,document FROM web_equipment_plans WHERE NOT archived",
+      "SELECT id,equipment_id::text,document FROM web_equipment_plans WHERE NOT archived",
     )
   ).rows;
   const byEquipment = new Map<string, any[]>();
   for (const p of plans)
     byEquipment.set(p.equipment_id, [
       ...(byEquipment.get(p.equipment_id) || []),
-      p.document,
+      { ...p.document, id: p.id },
     ]);
   const priority: Record<string, number> = {
     overdue: 0,
@@ -84,14 +85,8 @@ export async function equipmentList(params: URLSearchParams) {
   );
   const all = rows
     .map((e) => {
-      const forecasts = (byEquipment.get(e.id) || []).map((p) =>
-        predict(
-          p,
-          { ...emptyOperating, ...e.settings },
-          undefined,
-          usage.get(e.id),
-        ),
-      );
+      const planned = predictPlans(byEquipment.get(e.id) || [], { ...emptyOperating, ...e.settings }, undefined, usage.get(e.id));
+      const forecasts = planned.filter(p => !p.coveredBy).map(p => p.forecast);
       const urgent = [...forecasts].sort(
         (a, b) =>
           priority[a.status] - priority[b.status] ||
@@ -101,7 +96,7 @@ export async function equipmentList(params: URLSearchParams) {
         ...e,
         ownership: e.rental ? "own" : e.settings.ownership || "unknown",
         rentalStatus: rentalStates.get(e.id) || null,
-        plans: forecasts.length,
+        plans: planned.length,
         forecast: urgent || null,
       };
     })
@@ -215,6 +210,8 @@ export async function equipmentDetail(raw: string) {
       equipment.usage,
     ),
   }));
+  const grouped = predictPlans(plans.map(p => ({ ...p.document, id: p.id })), settings.document, undefined, equipment.usage);
+  for (const p of plans) Object.assign(p.forecast, { coveredBy: grouped.find(g => g.id === p.id)?.coveredBy || null });
   const history = (
     await db.query(
       `SELECT o.id_m8::text AS id,o.company_id,COALESCE(o.emissao,o.data_abertura) AS date,o.cliente_nome,o.tipo_nome,o.status,o.total_geral::text AS total,l.method

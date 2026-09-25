@@ -374,6 +374,7 @@ h3 {
   gap: 17px 19px;
 }
 .filter-actions {
+  grid-column: 1 / -1;
   display: flex;
   justify-content: flex-end;
   align-items: flex-end;
@@ -1222,9 +1223,6 @@ footer > span {
   .filter-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .filter-actions {
-    grid-column: span 3;
-  }
   .page-heading h1 {
     font-size: 23px;
   }
@@ -1360,7 +1358,6 @@ footer > span {
     gap: 14px 12px;
   }
   .filter-actions {
-    grid-column: span 1;
     gap: 7px;
   }
   .filter-actions .button {

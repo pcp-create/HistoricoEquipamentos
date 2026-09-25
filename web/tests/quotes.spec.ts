@@ -344,12 +344,12 @@ test("quote selects equipment, combines suggestions, edits prices, saves and reo
     material
       .locator("tbody")
       .getByRole("link", { name: "OS 14083", exact: true }),
-  ).toHaveAttribute("href", "/?view=orders&company=2&orderNumber=14083");
+  ).toHaveAttribute("href", "/historico?view=orders&orderNumber=14083&company=2");
   await expect(
     material
       .locator("tbody")
       .getByRole("link", { name: "OS 14083", exact: true }),
-  ).toHaveAttribute("target", "_blank");
+  ).toHaveAttribute("title", "Abrir detalhes da OS");
   await material.locator(".quote-choice-details > summary").click();
   await expect(material.getByLabel("Valor unitário (R$)")).toHaveValue("90");
   await expect(page.getByLabel("Total do orçamento")).toContainText("380,00");

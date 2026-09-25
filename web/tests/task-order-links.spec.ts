@@ -67,6 +67,8 @@ test("OS details menu creates a task with the selected OS identifiers", async ({
       },
     }),
   );
+  await page.route("**/api/tasks/reminders?*",r=>r.fulfill({json:{reminders:[]}}));
+  await page.route("**/api/orders/2/100",r=>r.fulfill({json:{order:{id_m8:100,company_id:2,cliente_nome:"Cliente B"},materials:[],equipment:[]}}));
   await page.goto("/historico");
   await page.getByLabel("Ações da OS 42").click();
   await page.getByRole("button", { name: "Criar tarefa", exact: true }).click();
@@ -80,4 +82,11 @@ test("OS details menu creates a task with the selected OS identifiers", async ({
   await expect(
     page.getByRole("link", { name: "OS 42 · Empresa 2" }),
   ).toBeVisible();
+  const before=page.url();
+  await page.getByRole("link",{name:"OS 42 · Empresa 2"}).click();
+  await expect(page.getByRole("button",{name:"Fechar detalhes",exact:true})).toBeVisible();
+  await expect(page.getByRole("heading",{name:/OS-00042/})).toBeVisible();
+  expect(page.url()).toBe(before);
+  await page.getByRole("button",{name:"Fechar detalhes",exact:true}).click();
+  await expect(page.getByRole("link",{name:"OS 42 · Empresa 2"})).toBeVisible();
 });

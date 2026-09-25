@@ -1,3 +1,4 @@
+import { predictPlans } from "../equipment-management/preventive-hierarchy";
 import {
   brazilToday,
   emptyOperating,
@@ -23,15 +24,7 @@ export function buildReport(
   today = brazilToday(),
 ) {
   const equipment = sources.map((e) => {
-    const plans = e.plans.map((p) => ({
-      ...p,
-      forecast: predict(
-        p,
-        { ...emptyOperating, ...e.settings },
-        today,
-        e.usage,
-      ),
-    }));
+    const plans = predictPlans(e.plans, { ...emptyOperating, ...e.settings }, today, e.usage).filter(p => !p.coveredBy);
     const status = plans.some((p) =>
       ["overdue", "due"].includes(p.forecast.status),
     )

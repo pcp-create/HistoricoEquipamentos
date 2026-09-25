@@ -8,7 +8,7 @@ export async function claimNotifications(origin: string) {
     await c.query("BEGIN READ WRITE");
     const rows = (
       await c.query(
-        `SELECT n.*,u.phone,u.enabled,t.title,t.origin,t.equipment_name,t.status,t.assigned_to,NOT EXISTS(SELECT 1 FROM web_task_notifications newer WHERE newer.task_id=n.task_id AND newer.id>n.id) current_assignment FROM web_task_notifications n JOIN web_user_access u ON u.email=n.recipient JOIN web_tasks t ON t.id=n.task_id WHERE n.state='pending' AND (n.leased_until IS NULL OR n.leased_until<now()) ORDER BY n.id LIMIT 20 FOR UPDATE OF n SKIP LOCKED`,
+        `SELECT n.*,u.phone,u.enabled,t.title,t.origin,t.equipment_name,t.customer,t.status,t.assigned_to,NOT EXISTS(SELECT 1 FROM web_task_notifications newer WHERE newer.task_id=n.task_id AND newer.id>n.id) current_assignment FROM web_task_notifications n JOIN web_user_access u ON u.email=n.recipient JOIN web_tasks t ON t.id=n.task_id WHERE n.state='pending' AND (n.leased_until IS NULL OR n.leased_until<now()) ORDER BY n.id LIMIT 20 FOR UPDATE OF n SKIP LOCKED`,
       )
     ).rows;
     const result = [];
@@ -35,7 +35,7 @@ export async function claimNotifications(origin: string) {
         id: String(n.id),
         token,
         number: n.phone,
-        text: `📋 *Nova tarefa atribuída a você*\n*TAR-${n.task_id} · ${n.title}*\nOrigem: ${n.origin}\nEquipamento: ${n.equipment_name}\nAbra para acompanhar: ${origin}/tarefas?task=${n.task_id}`,
+        text: `📋 *Nova tarefa atribuída a você*\n*TAR-${n.task_id} · ${n.title}*\nOrigem: ${n.origin}\nEquipamento: ${n.equipment_name}\nCliente: ${n.customer || "Não informado"}${n.assignment_reason ? `\nJustificativa: ${n.assignment_reason}` : ""}\nAbra para acompanhar: ${origin}/tarefas?task=${n.task_id}`,
       });
     }
     await c.query("COMMIT");

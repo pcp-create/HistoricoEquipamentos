@@ -27,6 +27,17 @@ const idValue = (v: unknown) => {
     throw new TaskInputError("Tarefa inválida.");
   return v;
 };
+function assignmentReason(body: any): string {
+  if (
+    typeof body.assignmentReason !== "string" ||
+    !body.assignmentReason.trim() ||
+    body.assignmentReason.trim().length > 2000
+  )
+    throw new TaskInputError(
+      "Informe a justificativa da mudança de responsável (até 2.000 caracteres).",
+    );
+  return body.assignmentReason.trim();
+}
 async function note(
   c: PoolClient,
   id: string,
@@ -46,12 +57,45 @@ async function note(
     ],
   );
 }
+async function interventionAttribution(
+  db: Pick<PoolClient, "query">,
+  task: any,
+  until: string | Date,
+): Promise<string> {
+  if (!task.plan_id) return "";
+  const event = (
+    await db.query(
+      `SELECT e.created_at,e.created_by,e.display_name,u.display_name user_name
+    FROM web_equipment_events e LEFT JOIN web_user_access u ON u.email=e.created_by
+    WHERE e.plan_id::text=$1 AND e.equipment_id=$2 AND e.created_at >= $4 AND e.created_at <= $5
+      AND jsonb_build_array(e.document->'before'->'lastDate',e.document->'before'->'lastOrder',e.document->'before'->'lastMeter')=$3::jsonb
+      AND jsonb_build_array(e.document->'after'->'lastDate',e.document->'after'->'lastOrder',e.document->'after'->'lastMeter') IS DISTINCT FROM $3::jsonb
+    ORDER BY e.created_at,e.id LIMIT 1`,
+      [task.plan_id, task.equipment_id, task.cycle, task.created_at, until],
+    )
+  ).rows[0];
+  if (!event)
+    return " Autoria da alteração não identificada no histórico disponível.";
+  const name =
+    event.user_name ||
+    (event.display_name?.includes("@") ? null : event.display_name) ||
+    "Usuário não identificado";
+  const date = new Date(event.created_at).toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+  });
+  return ` Alteração registrada por: ${name}, em ${date} (Brasília).`;
+}
 export async function syncTasks(
   provider: () => Promise<TaskSource[]> = taskSources,
+  options: {
+    client?: PoolClient;
+    silent?: boolean;
+    preventiveOnly?: boolean;
+  } = {},
 ) {
-  const c = await database().connect();
+  const c = options.client || (await database().connect());
   try {
-    await c.query("BEGIN READ WRITE");
+    if (!options.client) await c.query("BEGIN READ WRITE");
     await c.query("SELECT pg_advisory_xact_lock(81021,1)");
     // Read the complete source snapshot inside the synchronization lock. A failed read never closes tasks.
     const sources = await provider(),
@@ -59,7 +103,8 @@ export async function syncTasks(
     if (byKey.size !== sources.length) throw Error("Duplicate task source");
     const open = (
       await c.query(
-        "SELECT * FROM web_tasks WHERE status<>'completed' FOR UPDATE",
+        "SELECT * FROM web_tasks WHERE status<>'completed' AND (NOT $1::boolean OR source_key LIKE 'preventive%') FOR UPDATE",
+        [!!options.preventiveOnly],
       )
     ).rows;
     let created = 0,
@@ -67,7 +112,8 @@ export async function syncTasks(
     const active = new Set<string>();
     const closed = (
       await c.query(
-        "SELECT * FROM web_tasks WHERE status='completed' AND NOT source_resolved FOR UPDATE",
+        "SELECT * FROM web_tasks WHERE status='completed' AND NOT source_resolved AND (NOT $1::boolean OR source_key LIKE 'preventive%') FOR UPDATE",
+        [!!options.preventiveOnly],
       )
     ).rows;
     for (const t of closed) {
@@ -83,11 +129,13 @@ export async function syncTasks(
       if (t.source_key.startsWith("manual:")) continue;
       const source = byKey.get(t.source_key);
       if (!source || source.resolved || source.cycle !== t.cycle) {
-        const reason = !source
+        let reason = !source
           ? "Processo encerrado, substituído ou removido da base ativa."
           : source.cycle !== t.cycle
             ? "Nova intervenção registrada no plano preventivo."
             : `Processo atualizado: ${statusLabel(t.source_status)} → ${statusLabel(source.state)}.`;
+        if (source && source.cycle !== t.cycle)
+          reason += await interventionAttribution(c, t, new Date());
         await c.query(
           "UPDATE web_tasks SET status='completed',source_resolved=true,completed_at=now(),updated_at=now(),updated_by='Sistema',version=version+1 WHERE id=$1",
           [t.id],
@@ -110,12 +158,13 @@ export async function syncTasks(
         oldDue !== due ||
         t.origin !== source.origin ||
         t.customer !== source.customer ||
+        t.plan_id !== source.plan ||
         t.title !== source.title ||
         t.equipment_name !== source.name ||
         (!t.priority_manual && t.priority !== source.priority)
       ) {
         await c.query(
-          "UPDATE web_tasks SET source_status=$2,due_date=$3,priority=CASE WHEN priority_manual THEN priority ELSE $4 END,origin=$5,customer=$6,title=$7,equipment_name=$8,updated_at=now(),updated_by='Sistema',version=version+1 WHERE id=$1",
+          "UPDATE web_tasks SET source_status=$2,due_date=$3,priority=CASE WHEN priority_manual THEN priority ELSE $4 END,origin=$5,customer=$6,title=$7,equipment_name=$8,plan_id=$9,updated_at=now(),updated_by='Sistema',version=version+1 WHERE id=$1",
           [
             t.id,
             source.state,
@@ -125,6 +174,7 @@ export async function syncTasks(
             source.customer,
             source.title,
             source.name,
+            source.plan,
           ],
         );
         await note(
@@ -159,18 +209,23 @@ export async function syncTasks(
         c,
         inserted.map((t) => String(t.id)),
       );
+      if (options.silent)
+        await c.query(
+          "UPDATE web_task_notifications SET state='skipped' WHERE task_id=ANY($1::bigint[]) AND state='pending'",
+          [inserted.map((t) => String(t.id))],
+        );
       created = inserted.length;
     }
     await c.query(
       "INSERT INTO web_task_sync(id,synced_at) VALUES(1,now()) ON CONFLICT(id) DO UPDATE SET synced_at=now()",
     );
-    await c.query("COMMIT");
+    if (!options.client) await c.query("COMMIT");
     return { created, completed };
   } catch (e) {
-    await c.query("ROLLBACK");
+    if (!options.client) await c.query("ROLLBACK");
     throw e;
   } finally {
-    c.release();
+    if (!options.client) c.release();
   }
 }
 export async function listTasks(p: URLSearchParams, user: AuthUser) {
@@ -213,6 +268,15 @@ export async function taskDetail(id: string) {
       [id],
     )
   ).rows;
+  for (const n of notes) {
+    if (
+      n.automatic &&
+      n.title === "Tarefa concluída automaticamente" &&
+      n.description === "Nova intervenção registrada no plano preventivo."
+    ) {
+      n.description += await interventionAttribution(db, task, n.created_at);
+    }
+  }
   const attachments = (
     await db.query(
       "SELECT id,filename,octet_length(content) size,created_by,created_name,created_at FROM web_task_attachments WHERE task_id=$1 ORDER BY created_at DESC,id DESC",
@@ -313,6 +377,10 @@ export async function updateTask(body: any, user: AuthUser) {
         !Object.hasOwn(taskColumns, body.column)
       )
         throw new TaskInputError("Coluna inválida.");
+      if (body.column === "completed" && !t.source_key.startsWith("manual:"))
+        throw new TaskInputError(
+          "Tarefas de alertas são concluídas automaticamente após a resolução da pendência de origem.",
+        );
       if (body.column === "in_progress") {
         const actorEmail = user.email.trim().toLowerCase();
         if (
@@ -327,6 +395,7 @@ export async function updateTask(body: any, user: AuthUser) {
           !t.assigned_to ||
           (body.assignment === "self" && t.assigned_to !== actorEmail)
         ) {
+          const reason = assignmentReason(body);
           const actor = (
             await c.query(
               "SELECT enabled,phone,display_name FROM web_user_access WHERE email=$1 FOR SHARE",
@@ -349,12 +418,12 @@ export async function updateTask(body: any, user: AuthUser) {
             c,
             id,
             "Responsável alterado",
-            `Atribuído a: ${actor.display_name || "Funcionário sem nome cadastrado"}. Atribuição ao iniciar pelo Kanban.`,
+            `Atribuído a: ${actor.display_name || "Funcionário sem nome cadastrado"}. Atribuição ao iniciar pelo Kanban. Justificativa: ${reason}`,
             user,
           );
           await c.query(
-            "INSERT INTO web_task_notifications(task_id,task_version,recipient) VALUES($1,$2,$3)",
-            [id, t.version + 1, actorEmail],
+            "INSERT INTO web_task_notifications(task_id,task_version,recipient,assignment_reason) VALUES($1,$2,$3,$4)",
+            [id, t.version + 1, actorEmail, reason],
           );
         }
       }
@@ -377,7 +446,7 @@ export async function updateTask(body: any, user: AuthUser) {
         c,
         id,
         "Status de execução alterado",
-        `${taskColumns[taskColumn(t)]} → ${taskColumns[body.column as keyof typeof taskColumns]}.${completed ? (t.source_key.startsWith("manual:") ? " Tarefa manual concluída." : " Conclusão manual. O alerta de origem permanece independente; esta ocorrência não será reaberta.") : ""}`,
+        `${taskColumns[taskColumn(t)]} → ${taskColumns[body.column as keyof typeof taskColumns]}.${completed ? " Tarefa manual concluída." : ""}`,
         user,
       );
     } else if (body.action === "update") {
@@ -409,6 +478,7 @@ export async function updateTask(body: any, user: AuthUser) {
           );
       }
       const changed = assigned !== t.assigned_to;
+      const reason = changed ? assignmentReason(body) : null;
       await c.query(
         "UPDATE web_tasks SET assigned_to=$2,kanban_column=CASE WHEN assigned_to IS DISTINCT FROM $2 THEN NULL ELSE kanban_column END,status=CASE WHEN assigned_to IS NOT DISTINCT FROM $2 THEN status WHEN $2::text IS NULL THEN 'not_started' ELSE 'in_progress' END,first_assigned_at=CASE WHEN $2::text IS NOT NULL THEN COALESCE(first_assigned_at,now()) ELSE first_assigned_at END,priority=$3,priority_manual=$4 WHERE id=$1",
         [id, assigned, body.priority, !body.automaticPriority],
@@ -417,13 +487,13 @@ export async function updateTask(body: any, user: AuthUser) {
         c,
         id,
         "Responsável / prioridade atualizados",
-        `Atribuído a: ${assignedName}. Prioridade: ${{ normal: "Normal", high: "Alta", urgent: "Urgente" }[body.priority as string]}.`,
+        `Atribuído a: ${assignedName}. Prioridade: ${{ normal: "Normal", high: "Alta", urgent: "Urgente" }[body.priority as string]}.${reason ? ` Justificativa: ${reason}` : ""}`,
         user,
       );
       if (changed && assigned)
         await c.query(
-          "INSERT INTO web_task_notifications(task_id,task_version,recipient) VALUES($1,$2,$3)",
-          [id, t.version + 1, assigned],
+          "INSERT INTO web_task_notifications(task_id,task_version,recipient,assignment_reason) VALUES($1,$2,$3,$4)",
+          [id, t.version + 1, assigned, reason],
         );
     } else throw new TaskInputError("Operação inválida.");
     await c.query(

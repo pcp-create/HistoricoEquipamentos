@@ -1,3 +1,7 @@
+import {
+  predictPlans,
+  preventiveCycle,
+} from "../equipment-management/preventive-hierarchy";
 import "server-only";
 import { database } from "../db";
 import { rentalStatuses } from "../equipment-management/rental-status";
@@ -22,7 +26,17 @@ export type TaskSource = {
   priority: "normal" | "high" | "urgent";
   due: string | null;
 };
-export async function taskSources(): Promise<TaskSource[]> {
+export async function taskSources(
+  forceHierarchy?: boolean,
+): Promise<TaskSource[]> {
+  const hierarchy =
+    forceHierarchy ??
+    (
+      await database().query(
+        "SELECT enabled FROM web_task_hierarchy WHERE id=1",
+      )
+    ).rows[0]?.enabled ??
+    false;
   const rows = (
     await database()
       .query(`SELECT e.equipment_id::text id,e.name,COALESCE(e.payload->>'familiaId'='3',false) rental,COALESCE(s.document,'{}') settings,
@@ -62,7 +76,25 @@ export async function taskSources(): Promise<TaskSource[]> {
         due: contract?.end || null,
       });
     }
+    const planned = predictPlans(
+      e.plans,
+      { ...emptyOperating, ...e.settings },
+      today,
+      usage.get(e.id),
+    );
+    const hourly = planned.filter((p) => p.hours);
+    const representative =
+      hourly.find(
+        (p) =>
+          !p.coveredBy &&
+          ["soon", "due", "overdue"].includes(p.forecast.status) &&
+          !p.forecast.inconsistent,
+      ) ||
+      [...hourly].sort((a, b) =>
+        (a.forecast.due || "9999").localeCompare(b.forecast.due || "9999"),
+      )[0];
     for (const p of e.plans) {
+      if (hierarchy && p.hours && p.id !== representative?.id) continue;
       const f = predict(
         p,
         { ...emptyOperating, ...e.settings },
@@ -71,8 +103,14 @@ export async function taskSources(): Promise<TaskSource[]> {
       );
       const reliable = !f.incomplete && !f.inconsistent;
       result.push({
-        key: `preventive:${p.id}`,
-        cycle: JSON.stringify([p.lastDate, p.lastOrder, p.lastMeter]),
+        key:
+          hierarchy && p.hours
+            ? `preventive-group:${e.id}`
+            : `preventive:${p.id}`,
+        cycle:
+          hierarchy && p.hours
+            ? preventiveCycle(hourly)
+            : JSON.stringify([p.lastDate, p.lastOrder, p.lastMeter]),
         equipment: e.id,
         plan: p.id,
         origin: e.rental
@@ -87,7 +125,15 @@ export async function taskSources(): Promise<TaskSource[]> {
         customer: rental?.customer || e.customer,
         state: f.status,
         alert: ["soon", "due", "overdue"].includes(f.status),
-        resolved: reliable && f.status === "scheduled",
+        resolved:
+          hierarchy && p.hours
+            ? hourly.every(
+                (p) =>
+                  !p.forecast.incomplete &&
+                  !p.forecast.inconsistent &&
+                  p.forecast.status === "scheduled",
+              )
+            : reliable && f.status === "scheduled",
         priority: ["due", "overdue"].includes(f.status) ? "urgent" : "normal",
         due: f.due || null,
       });

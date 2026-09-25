@@ -16,6 +16,7 @@ test("tasks list, personal view, calendar and right drawer keep notes and assign
   );
   let task: any = {
     id: "42",
+    source_key: "manual:test",
     equipment_id: "1",
     plan_id: null,
     title: "Acompanhar locação",
@@ -33,9 +34,11 @@ test("tasks list, personal view, calendar and right drawer keep notes and assign
     updated_by: "Sistema",
     due_date: "2026-09-28",
   };
+  page.on("dialog", async d => { if (d.type() === "prompt") await d.accept("Redistribuição da equipe"); });
   let notes: any[] = [];
   await page.route("**/api/tasks**", async (r) => {
     const url = new URL(r.request().url());
+    if (url.pathname === "/api/tasks/reminders") return r.fulfill({ json: { reminders: [] } });
     if (r.request().method() === "POST") {
       const b = r.request().postDataJSON();
       if (b.action === "sync")
@@ -52,6 +55,7 @@ test("tasks list, personal view, calendar and right drawer keep notes and assign
           },
           ...notes,
         ];
+      if (b.action === "reopen") task = { ...task, status: "not_started", kanban_column: null, version: task.version + 1 };
       if (b.action === "move")
         task = {
           ...task,
@@ -131,20 +135,30 @@ test("tasks list, personal view, calendar and right drawer keep notes and assign
   await expect(
     page.getByRole("button", { name: /TAR-42 · Compressor GA37/ }),
   ).toBeVisible();
+  await page.getByRole("combobox", { name: "Responsável", exact: true }).selectOption("all");
   await page.getByRole("button", { name: "Kanban", exact: true }).click();
   await expect(
     page.getByRole("navigation", { name: "Modo de visualização" }),
   ).toBeVisible();
   const card = page.locator(".task-kanban-card").filter({ hasText: "TAR-42" });
   await card.dragTo(
-    page.getByRole("region", { name: "Atrasadas", exact: true }),
+    page.getByRole("region", { name: "Não iniciado", exact: true }),
   );
   await expect(
     page
-      .getByRole("region", { name: "Atrasadas", exact: true })
+      .getByRole("region", { name: "Não iniciado", exact: true })
       .locator(".task-kanban-card"),
   ).toHaveCount(1);
-  await card.getByRole("button", { name: /TAR-42/ }).click();
+  await page.getByLabel("Agrupar Kanban por").selectOption("deadline");
+  await expect(page.getByRole("region", { name: "Dentro do prazo", exact: true })).toBeVisible();
+  await page.getByLabel("Agrupar Kanban por").selectOption("responsible");
+  await expect(page.getByRole("region", { name: "Pessoa", exact: true }).locator(".task-kanban-card")).toHaveCount(1);
+  await card.dragTo(page.getByRole("region", { name: "Não atribuído", exact: true }));
+  await expect(page.getByRole("region", { name: "Não atribuído", exact: true }).locator(".task-kanban-card")).toHaveCount(1);
+  await card.dragTo(page.getByRole("region", { name: "Pessoa", exact: true }));
+  await expect(page.getByRole("region", { name: "Pessoa", exact: true }).locator(".task-kanban-card")).toHaveCount(1);
+  await page.getByLabel("Agrupar Kanban por").selectOption("progress");
+  await card.getByText("Compressor GA37", { exact: true }).click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Concluir tarefa", exact: true })
@@ -152,7 +166,7 @@ test("tasks list, personal view, calendar and right drawer keep notes and assign
   await expect(
     page
       .getByRole("dialog")
-      .getByText("Esta ocorrência foi concluída e não será reaberta."),
+      .getByText("Tarefa manual concluída. Você pode reabri-la em Acompanhamento."),
   ).toBeVisible();
   await expect(
     page
@@ -162,12 +176,23 @@ test("tasks list, personal view, calendar and right drawer keep notes and assign
   await page.getByRole("button", { name: "Fechar tarefa" }).click();
   await expect(
     page
-      .getByRole("region", { name: "Concluídas", exact: true })
+      .getByRole("region", { name: "Concluído", exact: true })
       .locator(".task-kanban-card"),
   ).toHaveCount(1);
   await expect(
     page.getByRole("button", { name: "Concluir tarefa", exact: true }),
   ).toHaveCount(0);
+  page.once("dialog", async (d) => { expect(d.message()).toBe("Deseja reabrir esta tarefa?"); await d.dismiss(); });
+  await card.getByRole("button", { name: "Reabrir tarefa", exact: true }).click();
+  await expect(card.getByRole("button", { name: "Reabrir tarefa", exact: true })).toBeVisible();
+  page.once("dialog", async (d) => { await d.accept(); });
+  await card.getByRole("button", { name: "Reabrir tarefa", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Não iniciado", exact: true }).locator(".task-kanban-card")).toHaveCount(1);
+  await card.locator(".task-kanban-title").hover();
+  await card.getByRole("button", { name: "Concluir tarefa", exact: true }).click();
+  await expect(card.getByRole("button", { name: "Reabrir tarefa", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
 });
 
 test("returning through modules reuses task data without another synchronization", async ({

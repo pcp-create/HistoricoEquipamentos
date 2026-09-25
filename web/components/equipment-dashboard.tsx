@@ -1,4 +1,5 @@
 "use client";
+import OrderDetailLink from "./order-detail-link";
 import CreateLinkedTask from "./create-linked-task";
 import { apiFetch, cachedEquipmentList } from "@/lib/client-api-cache";
 import { fold } from "@/lib/filters";
@@ -69,6 +70,7 @@ const emptyPlan = {
   notes: "",
 };
 function Forecast({ value }: { value: any }) {
+  if (value?.coveredBy) return <><span className="equipment-status">Incluída em {value.coveredBy.name}</span><small>Tratativa única pela revisão maior. O histórico deste plano é preservado.</small></>;
   return !value ? (
     <span className="muted">Sem plano</span>
   ) : (
@@ -181,24 +183,8 @@ function RentalBadge({ status }: { status: any }) {
     </span>
   );
 }
-function OrderLink({ id, company }: { id: string; company?: number }) {
-  return (
-    <a
-      className="quote-order-link"
-      target="_blank"
-      rel="noopener noreferrer"
-      href={
-        "/?" +
-        new URLSearchParams({
-          view: "orders",
-          orderNumber: id,
-          ...(company ? { company: String(company) } : {}),
-        })
-      }
-    >
-      OS {id}
-    </a>
-  );
+function OrderLink({id,company,equipment}:{id:string;company?:number;equipment?:string}){
+  return <OrderDetailLink id={String(id)} company={company} equipment={equipment}/>;
 }
 export default function EquipmentDashboard() {
   const { admin } = useSessionAccess();
@@ -1038,10 +1024,6 @@ export default function EquipmentDashboard() {
                         {detail.plans.map((p: any) => (
                           <tr key={p.id}>
                             <td>
-                              <EquipmentTaskLinks
-                                equipment={String(selected)}
-                                plan={p.id}
-                              />
                               <strong>{p.document.name}</strong>
                               <small>{p.document.notes}</small>
                               <small>
@@ -1061,6 +1043,11 @@ export default function EquipmentDashboard() {
                                   </ul>
                                 </details>
                               )}
+                              <EquipmentTaskLinks
+                                equipment={String(selected)}
+                                plan={p.id}
+                                hourly={!!p.document.hours}
+                              />
                             </td>
                             <td>
                               {p.document.hours
@@ -1078,7 +1065,7 @@ export default function EquipmentDashboard() {
                                 Horímetro: {qty(p.document.lastMeter)} h
                               </small>
                               {p.document.lastOrder && (
-                                <OrderLink id={p.document.lastOrder} />
+                                <OrderLink id={p.document.lastOrder} equipment={String(selected)} />
                               )}
                             </td>
                             <td>

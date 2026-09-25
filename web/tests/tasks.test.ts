@@ -40,6 +40,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       "008_administration.sql",
       "009_employees.sql",
       "010_tasks.sql",
+      "018_task_assignment_reason.sql",
       "011_task_kanban.sql",
       "012_manual_tasks.sql",
       "016_task_order_links.sql",
@@ -81,7 +82,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     );
     const done = await updateTask(
       {
-        action: "move",
+        action: "move", assignmentReason: "Redistribuição da equipe",
         id: String(manual.task.id),
         version: manual.task.version,
         column: "completed",
@@ -141,7 +142,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
           {
             id,
             version: t.version,
-            action: "update",
+            action: "update", assignmentReason: "Redistribuição da equipe",
             assignedTo: "missing@example.com",
             priority: "high",
             automaticPriority: false,
@@ -150,11 +151,12 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
         ),
       /ativo/,
     );
+    await assert.rejects(() => updateTask({ id, version: t.version, action: "update", assignedTo: user.email, priority: "high", automaticPriority: false }, user), /justificativa/);
     let d = await updateTask(
       {
         id,
         version: t.version,
-        action: "update",
+        action: "update", assignmentReason: "Redistribuição da equipe",
         assignedTo: user.email,
         priority: "high",
         automaticPriority: false,
@@ -179,6 +181,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     const notices = await claimNotifications("https://app.example");
     assert.equal(notices.length, 1);
     assert.match(notices[0].text, /TAR-/);
+    assert.match(notices[0].text, /Equipamento: Compressor\nCliente: Cliente/);
     assert.equal(notices[0].number, "5547999999999");
     assert.equal((await claimNotifications("https://app.example")).length, 0);
     await assert.rejects(() =>
@@ -212,7 +215,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       {
         id,
         version: d.task.version,
-        action: "update",
+        action: "update", assignmentReason: "Redistribuição da equipe",
         assignedTo: "other@example.com",
         priority: "high",
         automaticPriority: false,
@@ -224,13 +227,15 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     assert.match(d.notes[0].description, /Atribuído a: Outro/);
     const reassigned = await claimNotifications("https://app.example");
     assert.equal(reassigned.length, 1);
+    assert.match(reassigned[0].text, /Justificativa: Redistribuição da equipe/);
+    assert.match(d.notes[0].description, /Justificativa: Redistribuição da equipe/);
     assert.equal(reassigned[0].number, "5547888888888");
     await acknowledgeNotification(reassigned[0].id, reassigned[0].token);
     d = await updateTask(
       {
         id,
         version: d.task.version,
-        action: "update",
+        action: "update", assignmentReason: "Redistribuição da equipe",
         assignedTo: "other@example.com",
         priority: "normal",
         automaticPriority: false,
@@ -242,7 +247,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       {
         id,
         version: d.task.version,
-        action: "update",
+        action: "update", assignmentReason: "Redistribuição da equipe",
         assignedTo: "other@example.com",
         priority: "high",
         automaticPriority: false,
@@ -333,7 +338,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
           {
             id,
             version: d.task.version,
-            action: "update",
+            action: "update", assignmentReason: "Redistribuição da equipe",
             assignedTo: user.email,
             priority: "high",
             automaticPriority: false,
@@ -352,7 +357,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       {
         id: String(current.id),
         version: current.version,
-        action: "update",
+        action: "update", assignmentReason: "Redistribuição da equipe",
         assignedTo: "other@example.com",
         priority: "normal",
         automaticPriority: true,
@@ -369,7 +374,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
         {
           id: String(current.id),
           version: movable.task.version,
-          action: "move",
+          action: "move", assignmentReason: "Redistribuição da equipe",
           column: "in_progress",
           assignment,
         },
@@ -398,7 +403,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       {
         id: String(current.id),
         version: movable.task.version,
-        action: "move",
+        action: "move", assignmentReason: "Redistribuição da equipe",
         column: "pending",
       },
       user,
@@ -409,30 +414,41 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       {
         id: String(current.id),
         version: movable.task.version,
-        action: "move",
+        action: "move", assignmentReason: "Redistribuição da equipe",
         column: "overdue",
       },
       user,
     );
     assert.equal(movable.task.kanban_column, "overdue");
-    movable = await updateTask(
-      {
-        id: String(current.id),
-        version: movable.task.version,
-        action: "move",
-        column: "completed",
-      },
-      user,
-    );
-    assert.equal(movable.task.status, "completed");
-    assert.equal((await syncTasks(async () => [source])).created, 0);
     await assert.rejects(
       () =>
         updateTask(
           {
             id: String(current.id),
             version: movable.task.version,
-            action: "move",
+            action: "move", assignmentReason: "Redistribuição da equipe",
+            column: "completed",
+          },
+          user,
+        ),
+      /automaticamente/,
+    );
+    assert.notEqual(
+      (await taskDetail(String(current.id))).task.status,
+      "completed",
+    );
+    await syncTasks(async () => [
+      { ...source, state: "current", alert: false, resolved: true },
+    ]);
+    movable = await taskDetail(String(current.id));
+    assert.equal(movable.task.status, "completed");
+    await assert.rejects(
+      () =>
+        updateTask(
+          {
+            id: String(current.id),
+            version: movable.task.version,
+            action: "move", assignmentReason: "Redistribuição da equipe",
             column: "pending",
           },
           user,

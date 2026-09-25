@@ -317,6 +317,7 @@
   margin: 0 0 16px;
 }
 .task-kanban-card {
+  cursor: pointer;
   background: white;
   border: 1px solid #dce5ef;
   border-radius: 9px;
@@ -445,3 +446,48 @@
  .task-view-segments > button { flex:1; padding:8px 7px; gap:5px; font-size:12px; }
  .task-view-segments > button svg { width:17px; height:17px; flex-shrink:0; }
 }
+
+.task-kanban-controls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.task-kanban-controls label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+}
+.task-kanban-controls select {
+  width: auto;
+  min-width: 180px;
+}
+.task-kanban-controls small {
+  color: #62758c;
+}
+
+.task-kanban { cursor: grab; }
+.task-kanban.is-panning { cursor: grabbing; user-select: none; }
+.task-kanban-column { display: flex; flex-direction: column; max-height: min(680px, 70dvh); min-height: 240px; min-width: 0; }
+.task-kanban-column h2 { flex-shrink: 0; }
+.task-kanban-cards { overflow-y: auto; min-height: 0; overscroll-behavior-y: contain; scrollbar-gutter: stable; padding-right: 4px; }
+.task-kanban-add { flex-shrink: 0; text-align: left; margin-top: 8px; padding: 10px; border: 0; border-radius: 7px; background: transparent; color: #2c567d; cursor: pointer; }
+.task-kanban-add:hover { background: #dce8f5; }
+
+.task-status-completed { display: inline-block; color: #167443; background: #e6f4ec; border-radius: 5px; padding: 4px 8px; font-size: 11px; font-weight: 400; }
+.task-kanban-card .task-status-completed { margin-top: 8px; }
+
+.task-kanban-title { display: flex; align-items: flex-start; gap: 7px; }
+.task-kanban-title .task-link { min-width: 0; }
+.task-completion-icon { display: inline-flex; flex: 0 0 22px; width: 22px; height: 22px; padding: 0; align-items: center; justify-content: center; border: 0; background: transparent; color: #718297; border-radius: 50%; }
+.tasks-page button.task-completion-icon { cursor: pointer; opacity: 1; border: 0; padding: 0; background: transparent; box-shadow: none; border-radius: 50%; }
+.task-kanban-title:hover .task-completion-icon, .task-kanban-title:focus-within .task-completion-icon, .task-completion-icon.is-completed { opacity: 1; }
+.task-completion-icon.is-completed { color: #16834b; }
+.task-completion-icon.is-completed svg { fill: #16834b; stroke: white; }
+.task-completion-icon:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+@media (hover: none) { button.task-completion-icon { opacity: 1; } }
+
+.equipment-task-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px 12px; margin-top: 10px; }
+.equipment-task-links a { display: inline-flex; align-items: center; gap: 4px; margin-top: 0; }

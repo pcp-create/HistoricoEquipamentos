@@ -11,7 +11,7 @@ import {
 } from "@/lib/tasks/store";
 export const runtime = "nodejs";
 export const maxDuration = 60;
-const headers = { "Cache-Control": "private, no-store" };
+const headers = { "Cache-Control": "private, no-store", "X-Task-Hierarchy-Version": "1" };
 const json = (data: unknown, status = 200) =>
   Response.json(data, { status, headers });
 function failure(e: unknown) {
