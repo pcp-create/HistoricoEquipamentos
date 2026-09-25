@@ -181,7 +181,7 @@ export async function assignNewTasks(c: PoolClient, taskIds: string[]) {
   if (!assignments.length) return;
   const payload = JSON.stringify(assignments);
   await c.query(
-    `UPDATE web_tasks t SET assigned_to=x.email,status='in_progress',first_assigned_at=now() FROM jsonb_to_recordset($1::jsonb) x(id bigint,email text) WHERE t.id=x.id`,
+    `UPDATE web_tasks t SET assigned_to=x.email,first_assigned_at=now() FROM jsonb_to_recordset($1::jsonb) x(id bigint,email text) WHERE t.id=x.id`,
     [payload],
   );
   await c.query(

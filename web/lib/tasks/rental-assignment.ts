@@ -6,7 +6,7 @@ export const RENTAL_ASSIGNEE = "atendimento@rjserranacompressores.com.br";
 export async function assignNewRentalTasks(c: PoolClient, ids: string[]) {
   if (!ids.length) return;
   const result = await c.query(
-    `UPDATE web_tasks t SET assigned_to=u.email,status='in_progress',
+    `UPDATE web_tasks t SET assigned_to=u.email,status=CASE WHEN t.source_key LIKE 'preventive%' THEN t.status ELSE 'in_progress' END,
        first_assigned_at=now(),updated_at=now(),updated_by='Sistema'
      FROM web_task_origin_rules r JOIN web_user_access u ON u.email=r.assignee
      WHERE t.origin=r.origin AND u.enabled

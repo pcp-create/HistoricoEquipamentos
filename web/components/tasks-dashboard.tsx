@@ -258,7 +258,10 @@ export function TaskDrawer({
     >
       <header>
         <div>
-          <small>TAREFA · TAR-{id}</small>
+          <div className="task-header-meta">
+            <small>TAREFA · TAR-{id}</small>
+            {t && <span className={`task-progress-badge task-progress-${t.status}`} aria-label="Andamento da tarefa">{t.status === "completed" ? "Concluído" : t.status === "in_progress" ? "Em andamento" : "Não iniciado"}</span>}
+          </div>
           <h2 id="task-heading">{t?.title || "Carregando tarefa…"}</h2>
         </div>
         <button type="button" onClick={onClose} aria-label="Fechar tarefa">
@@ -542,6 +545,7 @@ export function TaskDrawer({
                     {n.created_name} · {date(n.created_at)}
                   </small>
                   <p>{n.description}</p>
+                  {n.quote_id && <a href={`/orcamentos?id=${encodeURIComponent(n.quote_id)}`}>Abrir orçamento</a>}
                 </article>
               ))}
             </section>
@@ -1456,6 +1460,7 @@ export default function TasksDashboard() {
                                 </button>
                               </div>
                               <p>{t.equipment_name}</p>
+                              <small>{t.customer || "Não informado"}</small>
                               <small>{t.origin}</small>
                               <small>
                                 {t.assignee_name ||
@@ -1467,9 +1472,14 @@ export default function TasksDashboard() {
                               {t.status === "completed" && t.completed_at && (
                                 <small>Conclusão: {date(t.completed_at)}</small>
                               )}
-                              <span className={"task-priority " + t.priority}>
-                                {priorityNames[t.priority]}
-                              </span>
+                              <div className="task-card-badges">
+                                <span className={"task-priority " + t.priority}>
+                                  {priorityNames[t.priority]}
+                                </span>
+                                <span className={`task-progress-badge task-progress-${t.status}`}>
+                                  {t.status === "completed" ? "Concluído" : t.status === "in_progress" ? "Em andamento" : "Não iniciado"}
+                                </span>
+                              </div>
                             </article>
                           ))}
                           {!cards.length && (

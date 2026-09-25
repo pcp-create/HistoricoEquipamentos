@@ -121,7 +121,7 @@ test("tasks list, personal view, calendar and right drawer keep notes and assign
   await dialog
     .getByRole("button", { name: "Salvar responsável e prioridade" })
     .click();
-  await expect(dialog.getByText("Em andamento", { exact: true })).toBeVisible();
+  await expect(dialog.getByLabel("Andamento da tarefa")).toHaveText("Em andamento");
   await dialog.getByRole("button", { name: "Incluir nota" }).click();
   await dialog.getByLabel("Título da nota").fill("Contato com cliente");
   await dialog.getByLabel("Descritivo da nota").fill("Aguardando renovação.");

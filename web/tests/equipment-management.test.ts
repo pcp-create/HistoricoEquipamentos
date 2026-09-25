@@ -38,6 +38,8 @@ test("equipment plans persist independently of M8, enforce scope/concurrency and
     await db.exec(
       readFileSync(new URL("../sql/005_quotes.sql", import.meta.url), "utf8"),
     );
+    for (const file of ["008_administration.sql", "009_employees.sql", "010_tasks.sql", "011_task_kanban.sql", "012_manual_tasks.sql", "016_task_order_links.sql", "020_task_process_history.sql"])
+      await db.exec(readFileSync(new URL("../sql/" + file, import.meta.url), "utf8"));
     const query = db.query.bind(db);
     global.historyPool = {
       query,
@@ -352,8 +354,15 @@ test("equipment plans persist independently of M8, enforce scope/concurrency and
       createPlanQuote({ ...request, clientId: "99" }, user),
       /Selecione um cliente/,
     );
+    const taskId = (await db.query<{id:string}>(`INSERT INTO web_tasks(source_key,cycle,equipment_id,plan_id,origin,title,equipment_name,source_status,priority) VALUES('preventive-group:100','cycle',100,$1,'Preventiva de Equipamento de Cliente','Revisão','GA90','overdue','normal') RETURNING id`, [itemPlan.id])).rows[0].id;
+    await db.query("INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,'Contato','Apenas nota',false,'test@example.com','Equipe')", [taskId]);
+    assert.equal((await db.query<{status:string}>('SELECT status FROM web_tasks WHERE id=$1',[taskId])).rows[0].status,'not_started');
     const created = await createPlanQuote(request, user);
     const retry = await createPlanQuote(request, user);
+    assert.equal((await db.query<{status:string}>('SELECT status FROM web_tasks WHERE id=$1',[taskId])).rows[0].status,'in_progress');
+    assert.equal((await db.query<{n:number}>("SELECT count(*)::int n FROM web_task_notes WHERE task_id=$1 AND title='Orçamento criado' AND quote_id=$2",[taskId,created.id])).rows[0].n,1);
+    assert.equal((await db.query<{n:number}>('SELECT count(*)::int n FROM web_task_quote_links WHERE task_id=$1',[taskId])).rows[0].n,1);
+
     assert.equal(created.id, retry.id);
     const drafts = (await db.query("SELECT * FROM web_quotes")).rows as any[];
     assert.equal(drafts.length, 1);
@@ -410,6 +419,17 @@ test("equipment plans persist independently of M8, enforce scope/concurrency and
     assert.ok(deletedHistory.quote_deleted_at);
     assert.equal(deletedHistory.document.planName, "Plano com itens");
     await assert.rejects(createPlanQuote(request, user), /já foi excluído/);
+    assert.equal((await db.query<{n:number}>("SELECT count(*)::int n FROM web_task_notes WHERE task_id=$1 AND title='Orçamento excluído'",[taskId])).rows[0].n,1);
+
+    const linked=(await db.query<{id:string}>("INSERT INTO web_tasks(source_key,cycle,equipment_id,origin,title,equipment_name,source_status,priority,order_company,order_id) VALUES('manual:os','manual',100,'Ordem de Serviço','Acompanhar OS','GA90','manual','normal',1,600) RETURNING id")).rows[0].id;
+    await db.exec("UPDATE m8_ordens_servico SET status='Pendente' WHERE company_id=1 AND id_m8=600");
+    await db.exec("UPDATE m8_ordens_servico SET status='Pendente' WHERE company_id=1 AND id_m8=600");
+    await db.exec("UPDATE m8_os_produtos SET quantidade=3 WHERE company_id=1 AND ordem_servico_id=600");
+    await db.exec("UPDATE m8_os_produtos SET quantidade=3 WHERE company_id=1 AND ordem_servico_id=600");
+    const linkedNotes=(await db.query<{title:string}>("SELECT title FROM web_task_notes WHERE task_id=$1",[linked])).rows;
+    assert.deepEqual(linkedNotes.map(n=>n.title),['OS vinculada atualizada','Material da OS atualizado']);
+    assert.equal((await db.query<{status:string}>('SELECT status FROM web_tasks WHERE id=$1',[linked])).rows[0].status,'not_started');
+
   } finally {
     global.historyPool = old;
     await db.close();

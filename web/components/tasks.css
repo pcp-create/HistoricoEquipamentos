@@ -491,3 +491,11 @@
 
 .equipment-task-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px 12px; margin-top: 10px; }
 .equipment-task-links a { display: inline-flex; align-items: center; gap: 4px; margin-top: 0; }
+
+.task-header-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.task-progress-badge { display: inline-block; padding: 4px 8px; border-radius: 5px; font-size: 11px; font-weight: 400; color: #65758a; background: #e9eef4; }
+.task-progress-in_progress { color: #245c91; background: #e8f0ff; }
+.task-progress-completed { color: #167443; background: #e6f4ec; }
+
+.task-card-badges { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.task-kanban-card .task-card-badges .task-priority { margin-top: 0; }

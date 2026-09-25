@@ -21,7 +21,7 @@ try {
   writeFileSync(new URL(batch+'-preview.json',folder),JSON.stringify({summary,old:old.map(t=>({id:t.id,equipment:t.equipment_id,title:t.title,status:t.status})),planned:active},null,2),{mode:0o600});
   await c.query('ROLLBACK'); console.log(JSON.stringify(summary));
  } else {
-  const tables=['web_task_notes','web_task_attachments','web_task_notifications','web_task_reminders'];
+  const tables=['web_task_quote_links','web_task_notes','web_task_attachments','web_task_notifications','web_task_reminders'];
   const backup:any={batch,tasks:old};
   for(const table of tables) backup[table]=(await c.query(`SELECT * FROM ${table} WHERE task_id=ANY($1::bigint[]) FOR UPDATE`,[ids])).rows;
   if(['web_task_notifications','web_task_reminders'].some(table=>backup[table].some((n:any)=>n.state==='pending' && n.leased_until && new Date(n.leased_until).getTime()>Date.now()))) throw Error('Há notificações em envio. Aguarde as execuções em curso antes de limpar.');
