@@ -145,3 +145,4 @@
 
 .territory-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 16px 0; }
 .territory-toolbar label { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }
+.admin-page input[type="color"] { width: 64px; height: 42px; padding: 4px; cursor: pointer; }

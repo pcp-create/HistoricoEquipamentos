@@ -1,4 +1,5 @@
 "use client";
+import { userTaskColor } from "@/lib/tasks/user-color";
 import TaskTerritories from "./task-territories";
 import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
 import "./admin-dashboard.css";
@@ -11,6 +12,7 @@ const emptyEmployee = {
   department: "",
   job_title: "",
   phone: "",
+  task_color: null as string | null,
   role: "user",
   enabled: true,
   alert_preventive: false,
@@ -70,6 +72,14 @@ export default function AdminDashboard() {
   }, []);
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    const before = data;
+    if (editing && data)
+      setData({
+        ...data,
+        users: data.users.map((u: any) =>
+          u.email === form.email ? { ...u, ...form } : u,
+        ),
+      });
     setBusy(true);
     setError("");
     setMessage("");
@@ -87,6 +97,7 @@ export default function AdminDashboard() {
       setEditing(true);
       await load();
     } catch (e) {
+      setData(before);
       setError((e as Error).message);
     } finally {
       setBusy(false);
@@ -145,7 +156,10 @@ export default function AdminDashboard() {
         {!data && !error && <p>Carregando administração…</p>}
         {data && !denied && (
           <>
-            <nav className="admin-tabs app-section-tabs" aria-label="Seções da administração">
+            <nav
+              className="admin-tabs app-section-tabs"
+              aria-label="Seções da administração"
+            >
               {[
                 ["users", "Usuários"],
                 ["integrations", "Integrações"],
@@ -221,6 +235,21 @@ export default function AdminDashboard() {
                               />
                             </label>
                           ))}
+                          <label>
+                            Cor nas tarefas
+                            <input
+                              type="color"
+                              aria-label="Cor nas tarefas"
+                              value={userTaskColor(form.email, form.task_color)}
+                              onChange={(e) =>
+                                setForm({ ...form, task_color: e.target.value })
+                              }
+                            />
+                            <small>
+                              Identifica este funcionário no Kanban e no
+                              calendário.
+                            </small>
+                          </label>
                           <label>
                             E-mail
                             <input

@@ -233,13 +233,13 @@ export async function listTasks(p: URLSearchParams, user: AuthUser) {
   if (equipment) idValue(equipment);
   const rows = (
     await database().query(
-      `SELECT t.*,u.display_name assignee_name,m.display_name modifier_name,u.enabled assignee_enabled FROM web_tasks t LEFT JOIN web_user_access u ON u.email=t.assigned_to LEFT JOIN web_user_access m ON m.email=t.updated_by WHERE ($1::text IS NULL OR t.assigned_to=$1) AND ($2::bigint IS NULL OR t.equipment_id=$2) ORDER BY t.created_at DESC,t.id DESC`,
+      `SELECT t.*,u.display_name assignee_name,to_jsonb(u)->>'task_color' assignee_color,m.display_name modifier_name,u.enabled assignee_enabled FROM web_tasks t LEFT JOIN web_user_access u ON u.email=t.assigned_to LEFT JOIN web_user_access m ON m.email=t.updated_by WHERE ($1::text IS NULL OR t.assigned_to=$1) AND ($2::bigint IS NULL OR t.equipment_id=$2) ORDER BY t.created_at DESC,t.id DESC`,
       [p.get("mine") === "true" ? user.email.toLowerCase() : null, equipment],
     )
   ).rows;
   const users = (
     await database().query(
-      "SELECT email,display_name,phone FROM web_user_access WHERE enabled ORDER BY COALESCE(display_name,email),email",
+      "SELECT email,display_name,phone,to_jsonb(web_user_access)->>'task_color' task_color FROM web_user_access WHERE enabled ORDER BY COALESCE(display_name,email),email",
     )
   ).rows;
   const sync = (
@@ -257,7 +257,7 @@ export async function taskDetail(id: string) {
   const db = database();
   const task = (
     await db.query(
-      "SELECT t.*,u.display_name assignee_name,m.display_name modifier_name FROM web_tasks t LEFT JOIN web_user_access u ON u.email=t.assigned_to LEFT JOIN web_user_access m ON m.email=t.updated_by WHERE t.id=$1",
+      "SELECT t.*,u.display_name assignee_name,to_jsonb(u)->>'task_color' assignee_color,m.display_name modifier_name FROM web_tasks t LEFT JOIN web_user_access u ON u.email=t.assigned_to LEFT JOIN web_user_access m ON m.email=t.updated_by WHERE t.id=$1",
       [id],
     )
   ).rows[0];

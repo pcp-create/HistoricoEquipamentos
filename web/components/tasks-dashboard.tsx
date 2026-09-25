@@ -1,10 +1,12 @@
 "use client";
+import { userTaskColor } from "@/lib/tasks/user-color";
 import { apiFetch, hasFreshApiResponse } from "@/lib/client-api-cache";
 import "./tasks.css";
 import OrderDetailLink from "./order-detail-link";
 import TaskReminders from "./task-reminders";
 import {
   Plus,
+  Settings,
   Circle,
   CircleCheck,
   List,
@@ -25,6 +27,7 @@ import {
   createContext,
   useContext,
   type ReactNode,
+  type CSSProperties,
 } from "react";
 import { useSearchParams } from "next/navigation";
 import SiteHeader from "./site-header";
@@ -47,7 +50,9 @@ function TaskStatus({ task }: { task: any }) {
     >
       {task.status === "completed"
         ? "Concluída"
-        : taskColumn(task) === "overdue" ? "Atrasada" : taskColumns[taskColumn(task)]}
+        : taskColumn(task) === "overdue"
+          ? "Atrasada"
+          : taskColumns[taskColumn(task)]}
     </span>
   );
 }
@@ -260,7 +265,18 @@ export function TaskDrawer({
         <div>
           <div className="task-header-meta">
             <small>TAREFA · TAR-{id}</small>
-            {t && <span className={`task-progress-badge task-progress-${t.status}`} aria-label="Andamento da tarefa">{t.status === "completed" ? "Concluído" : t.status === "in_progress" ? "Em andamento" : "Não iniciado"}</span>}
+            {t && (
+              <span
+                className={`task-progress-badge task-progress-${t.status}`}
+                aria-label="Andamento da tarefa"
+              >
+                {t.status === "completed"
+                  ? "Concluído"
+                  : t.status === "in_progress"
+                    ? "Em andamento"
+                    : "Não iniciado"}
+              </span>
+            )}
           </div>
           <h2 id="task-heading">{t?.title || "Carregando tarefa…"}</h2>
         </div>
@@ -545,7 +561,13 @@ export function TaskDrawer({
                     {n.created_name} · {date(n.created_at)}
                   </small>
                   <p>{n.description}</p>
-                  {n.quote_id && <a href={`/orcamentos?id=${encodeURIComponent(n.quote_id)}`}>Abrir orçamento</a>}
+                  {n.quote_id && (
+                    <a
+                      href={`/orcamentos?id=${encodeURIComponent(n.quote_id)}`}
+                    >
+                      Abrir orçamento
+                    </a>
+                  )}
                 </article>
               ))}
             </section>
@@ -637,6 +659,8 @@ export default function TasksDashboard() {
     [mine, setMine] = useState(params.get("mine") === "1"),
     [responsible, setResponsible] = useState("all"),
     [originFilter, setOriginFilter] = useState("all"),
+    [period, setPeriod] = useState("all"),
+    [sort, setSort] = useState("recent"),
     [view, setView] = useState("list"),
     [kanbanView, setKanbanView] = useState("progress"),
     [tab, setTab] = useState("tasks"),
@@ -734,8 +758,23 @@ export default function TasksDashboard() {
         (t.is_mine === undefined &&
           t.assigned_to?.trim().toLowerCase() ===
             data.email?.trim().toLowerCase())) &&
-      (!params.get("equipment") || String(t.equipment_id) === params.get("equipment")) &&
+      (!params.get("equipment") ||
+        String(t.equipment_id) === params.get("equipment")) &&
       (originFilter === "all" || t.origin === originFilter) &&
+      (period === "all" ||
+        (() => {
+          const today = new Date().toLocaleDateString("sv-SE", {
+            timeZone: "America/Sao_Paulo",
+          });
+          const due = day(t.due_date);
+          const delta =
+            (Date.parse(due + "T12:00:00Z") -
+              Date.parse(today + "T12:00:00Z")) /
+            86400000;
+          return period === "today"
+            ? delta === 0
+            : delta >= 0 && delta <= (period === "week" ? 7 : 30);
+        })()) &&
       (responsible === "all" ||
         (responsible === "unassigned"
           ? !t.assigned_to
@@ -750,9 +789,37 @@ export default function TasksDashboard() {
   );
   // Stable sorting preserves the existing order within each status group.
   const statusOrder = { overdue: 0, pending: 1, in_progress: 2, completed: 3 };
-  rows.sort(
-    (a: any, b: any) => statusOrder[taskColumn(a)] - statusOrder[taskColumn(b)],
-  );
+  rows.sort((a: any, b: any) => {
+    const completed =
+      Number(a.status === "completed") - Number(b.status === "completed");
+    if (completed) return completed;
+    if (sort === "due")
+      return (day(a.due_date) || "9999").localeCompare(
+        day(b.due_date) || "9999",
+      );
+    const statusDiff = statusOrder[taskColumn(a)] - statusOrder[taskColumn(b)];
+    return (
+      statusDiff ||
+      (sort === "oldest" ? 1 : -1) *
+        (String(a.created_at).localeCompare(String(b.created_at)) ||
+          Number(a.id) - Number(b.id))
+    );
+  });
+  function assigneeStyle(
+    email?: string | null,
+    configured?: string | null,
+  ): CSSProperties {
+    const color = userTaskColor(
+      email,
+      (data?.users || []).find(
+        (u: any) => u.email.toLowerCase() === email?.toLowerCase(),
+      )?.task_color || configured,
+    );
+    return {
+      "--assignee-color": color,
+      "--assignee-tint": color + "12",
+    } as CSSProperties;
+  }
   function boardColumn(t: any): string {
     if (kanbanView === "responsible")
       return t.assigned_to?.toLowerCase() || "unassigned";
@@ -795,7 +862,10 @@ export default function TasksDashboard() {
     boardColumns.sort((a, b) => {
       if (a[0] === "unassigned") return -1;
       if (b[0] === "unassigned") return 1;
-      return (counts.get(b[0]) || 0) - (counts.get(a[0]) || 0) || a[1].localeCompare(b[1], "pt-BR");
+      return (
+        (counts.get(b[0]) || 0) - (counts.get(a[0]) || 0) ||
+        a[1].localeCompare(b[1], "pt-BR")
+      );
     });
   }
   async function dropTask(id: string, column: string) {
@@ -1026,7 +1096,11 @@ export default function TasksDashboard() {
     setSelected(null);
     const query = new URLSearchParams(params.toString());
     query.delete("task");
-    history.replaceState(null, "", "/tarefas" + (query.size ? "?" + query : ""));
+    history.replaceState(
+      null,
+      "",
+      "/tarefas" + (query.size ? "?" + query : ""),
+    );
   }
   const [year, mo] = month.split("-").map(Number),
     offset = new Date(Date.UTC(year, mo - 1, 1)).getUTCDay(),
@@ -1041,26 +1115,39 @@ export default function TasksDashboard() {
             <p>Alertas, responsáveis e histórico das tratativas.</p>
             <small>Última verificação: {date(data?.syncedAt)}</small>
           </div>
+          <div className="task-heading-actions">
+            <button
+              type="button"
+              className="task-settings-button"
+              aria-label={
+                tab === "settings"
+                  ? "Voltar às tarefas"
+                  : "Configurações de Tarefas"
+              }
+              title="Configurações de Tarefas"
+              aria-pressed={tab === "settings"}
+              onClick={() => setTab(tab === "settings" ? "tasks" : "settings")}
+            >
+              <Settings size={20} />
+            </button>
+            <button
+              type="button"
+              className="task-new-button"
+              disabled={busy}
+              onClick={() => {
+                setTab("tasks");
+                setCreating(true);
+              }}
+            >
+              <Plus size={18} /> Nova tarefa
+            </button>
+          </div>
         </header>
         {error && (
           <p role="alert" className="task-error">
             {error}
           </p>
         )}
-        <nav className="app-section-tabs" aria-label="Seções de tarefas">
-          <button
-            aria-pressed={tab === "tasks"}
-            onClick={() => setTab("tasks")}
-          >
-            Acompanhamento de tarefas
-          </button>
-          <button
-            aria-pressed={tab === "settings"}
-            onClick={() => setTab("settings")}
-          >
-            Configurações de Tarefas
-          </button>
-        </nav>
         {tab === "settings" ? (
           <TaskSettings />
         ) : (
@@ -1143,67 +1230,32 @@ export default function TasksDashboard() {
                 </div>
               </form>
             )}
-            <div className="task-control-groups">
-              <nav
-                className="task-toolbar"
-                aria-label="Filtros de responsáveis"
-              >
-                <strong>Responsáveis</strong>
-                <button
-                  aria-pressed={!mine}
-                  onClick={() => {
-                    setMine(false);
-                    setResponsible("all");
-                  }}
-                >
-                  Últimas tarefas · Todos
-                </button>
-                <button
-                  aria-pressed={mine}
-                  onClick={() => {
-                    setMine(true);
-                    setResponsible("all");
-                  }}
-                >
-                  Minhas tarefas
-                </button>
-                <button
-                  type="button"
-                  className="task-new-button"
-                  disabled={busy}
-                  onClick={() => setCreating(true)}
-                >
-                  <Plus size={18} aria-hidden="true" /> Nova tarefa
-                </button>
-              </nav>
-              <nav
-                className="task-toolbar task-view-controls"
-                aria-label="Modo de visualização"
-              >
-                <strong>Visualização</strong>
-                <div className="task-view-segments">
-                  {(
-                    [
-                      ["list", "Lista", List],
-                      ["calendar", "Calendário", CalendarDays],
-                      ["kanban", "Kanban", Columns3],
-                      ["chart", "Gráfico", ChartNoAxesColumnIncreasing],
-                    ] as const
-                  ).map(([key, label, Icon]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      aria-pressed={view === key}
-                      onClick={() => setView(key)}
-                    >
-                      <Icon size={20} strokeWidth={2} aria-hidden="true" />
-                      <span>{label}</span>
-                    </button>
-                  ))}
-                </div>
-              </nav>
-            </div>
-            <div className="task-toolbar">
+            <nav
+              className="task-view-navigation"
+              aria-label="Modo de visualização"
+            >
+              <div className="task-view-segments">
+                {(
+                  [
+                    ["list", "Lista", List],
+                    ["calendar", "Calendário", CalendarDays],
+                    ["kanban", "Kanban", Columns3],
+                    ["chart", "Gráfico", ChartNoAxesColumnIncreasing],
+                  ] as const
+                ).map(([key, label, Icon]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={view === key}
+                    onClick={() => setView(key)}
+                  >
+                    <Icon size={20} strokeWidth={2} aria-hidden="true" />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </nav>
+            <div className="task-filter-panel">
               <label>
                 Pesquisar
                 <input
@@ -1271,14 +1323,59 @@ export default function TasksDashboard() {
                     ))}
                 </select>
               </label>
-              <span>{rows.length} tarefas</span>
+              <label>
+                Período
+                <select
+                  value={period}
+                  onChange={(e) => setPeriod(e.target.value)}
+                >
+                  <option value="all">Todas as datas</option>
+                  <option value="today">Vence hoje</option>
+                  <option value="week">Próximos 7 dias</option>
+                  <option value="month">Próximos 30 dias</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className="task-clear-filters"
+                onClick={() => {
+                  setQuery("");
+                  setResponsible("all");
+                  setOriginFilter("all");
+                  setStatus("all");
+                  setPeriod("all");
+                  setMine(false);
+                  if (params.get("equipment"))
+                    history.replaceState(null, "", "/tarefas");
+                }}
+              >
+                Limpar filtros
+              </button>
             </div>
-            {params.get("equipment") && <p className="task-equipment-filter">Tarefas do equipamento: {(data?.tasks || []).find((t: any) => String(t.equipment_id) === params.get("equipment"))?.equipment_name || params.get("equipment")} · <a href="/tarefas">Limpar filtro</a></p>}
-            {view === "chart" ? (
-              <TaskChart tasks={rows} />
-            ) : view === "kanban" ? (
-              <>
-                <div className="task-kanban-controls">
+            <div className="task-results-toolbar">
+              <strong>{rows.length} tarefas</strong>
+              <nav aria-label="Filtros de responsáveis">
+                <button
+                  aria-pressed={mine}
+                  onClick={() => {
+                    setMine(true);
+                    setResponsible("all");
+                  }}
+                >
+                  Minhas tarefas
+                </button>
+                <button
+                  aria-pressed={!mine}
+                  onClick={() => {
+                    setMine(false);
+                    setResponsible("all");
+                  }}
+                >
+                  Últimas tarefas · Todos
+                </button>
+              </nav>
+              <div className="task-display-controls">
+                {view === "kanban" && (
                   <label>
                     Agrupar Kanban por
                     <select
@@ -1290,6 +1387,34 @@ export default function TasksDashboard() {
                       <option value="responsible">Responsável</option>
                     </select>
                   </label>
+                )}
+              <label>
+                Ordenar por
+                <select value={sort} onChange={(e) => setSort(e.target.value)}>
+                  <option value="recent">
+                    Status e criação (mais recente)
+                  </option>
+                  <option value="oldest">Status e criação (mais antiga)</option>
+                  <option value="due">Vencimento</option>
+                </select>
+              </label>
+              </div>
+            </div>
+            {params.get("equipment") && (
+              <p className="task-equipment-filter">
+                Tarefas do equipamento:{" "}
+                {(data?.tasks || []).find(
+                  (t: any) =>
+                    String(t.equipment_id) === params.get("equipment"),
+                )?.equipment_name || params.get("equipment")}{" "}
+                · <a href="/tarefas">Limpar filtro</a>
+              </p>
+            )}
+            {view === "chart" ? (
+              <TaskChart tasks={rows} />
+            ) : view === "kanban" ? (
+              <>
+                <div className="task-kanban-controls">
                   <small>
                     {kanbanView === "deadline"
                       ? "Prazo calculado pelo vencimento. Somente tarefas manuais podem ser arrastadas para Concluído."
@@ -1357,6 +1482,11 @@ export default function TasksDashboard() {
                         key={key}
                         className={
                           "task-kanban-column " + (dragging ? "drop-ready" : "")
+                        }
+                        style={
+                          kanbanView === "responsible"
+                            ? assigneeStyle(key === "unassigned" ? null : key)
+                            : undefined
                         }
                         aria-label={label}
                         onDragOver={(e) => {
@@ -1468,7 +1598,29 @@ export default function TasksDashboard() {
                                     ? "Funcionário sem nome cadastrado"
                                     : "Não atribuído")}
                               </small>
-                              <small>Vencimento: {date(day(t.due_date))}</small>
+                              <div className="task-card-date">
+                                <small>
+                                  <CalendarDays size={13} />{" "}
+                                  {date(day(t.due_date))}
+                                </small>
+                                <span
+                                  className="task-assignee-avatar"
+                                  style={assigneeStyle(
+                                    t.assigned_to,
+                                    t.assignee_color,
+                                  )}
+                                  title={t.assignee_name || "Não atribuído"}
+                                >
+                                  {t.assignee_name
+                                    ? t.assignee_name
+                                        .split(/\s+/)
+                                        .filter(Boolean)
+                                        .slice(0, 2)
+                                        .map((part: string) => part[0])
+                                        .join("")
+                                    : "–"}
+                                </span>
+                              </div>
                               {t.status === "completed" && t.completed_at && (
                                 <small>Conclusão: {date(t.completed_at)}</small>
                               )}
@@ -1476,8 +1628,14 @@ export default function TasksDashboard() {
                                 <span className={"task-priority " + t.priority}>
                                   {priorityNames[t.priority]}
                                 </span>
-                                <span className={`task-progress-badge task-progress-${t.status}`}>
-                                  {t.status === "completed" ? "Concluído" : t.status === "in_progress" ? "Em andamento" : "Não iniciado"}
+                                <span
+                                  className={`task-progress-badge task-progress-${t.status}`}
+                                >
+                                  {t.status === "completed"
+                                    ? "Concluído"
+                                    : t.status === "in_progress"
+                                      ? "Em andamento"
+                                      : "Não iniciado"}
                                 </span>
                               </div>
                             </article>
@@ -1603,7 +1761,15 @@ export default function TasksDashboard() {
                         {rows
                           .filter((t: any) => day(t.due_date) === key)
                           .map((t: any) => (
-                            <button key={t.id} onClick={() => open(t.id)}>
+                            <button
+                              className="task-calendar-event"
+                              style={assigneeStyle(
+                                t.assigned_to,
+                                t.assignee_color,
+                              )}
+                              key={t.id}
+                              onClick={() => open(t.id)}
+                            >
                               TAR-{t.id} · {t.equipment_name}
                               <small>
                                 <TaskStatus task={t} />
@@ -1711,7 +1877,10 @@ export function EquipmentTaskLinks({
     (t) =>
       t.status !== "completed" &&
       String(t.equipment_id) === String(equipment) &&
-      (plan ? t.plan_id === plan || (hourly && t.source_key === `preventive-group:${equipment}`) : !t.plan_id),
+      (plan
+        ? t.plan_id === plan ||
+          (hourly && t.source_key === `preventive-group:${equipment}`)
+        : !t.plan_id),
   );
   return (
     <div className="equipment-task-links">
@@ -1727,7 +1896,9 @@ export function EquipmentTaskLinks({
           TAR-{t.id} · <TaskStatus task={t} />
         </a>
       ))}
-      <a href={"/tarefas?equipment=" + encodeURIComponent(equipment)}>Ver todas</a>
+      <a href={"/tarefas?equipment=" + encodeURIComponent(equipment)}>
+        Ver todas
+      </a>
     </div>
   );
 }

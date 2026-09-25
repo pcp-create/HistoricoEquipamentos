@@ -1,0 +1,20 @@
+import {test,expect} from '@playwright/test';
+test('task workspace uses employee colors on owner columns and calendar, with settings beside creation',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ const users=[{email:'maick@example.com',display_name:'Maick Coelho',task_color:'#60a5fa'},{email:'sara@example.com',display_name:'Sara',task_color:'#fbbf24'}];
+ const tasks=Array.from({length:12},(_,i)=>({id:String(i+1),source_key:'manual:'+i,title:'Preventiva 2.000 horas',equipment_name:'COMPRESSOR DE PARAFUSO – SÉRIE 1006',customer:'Cliente de demonstração',origin:'Preventiva de Equipamento de Cliente',status:'not_started',priority:'urgent',assigned_to:users[i%2].email,assignee_name:users[i%2].display_name,due_date:'2026-09-25',created_at:'2026-09-25T12:00:00Z'}));
+ await page.route('**/api/activity',r=>r.fulfill({json:{admin:true}}));
+ await page.route('**/api/tasks',r=>r.fulfill({json:r.request().method()==='POST'?{}:{tasks,users,email:users[0].email}}));
+ await page.goto('/tarefas');
+ await page.getByRole('button',{name:'Kanban',exact:true}).click();
+ await page.getByLabel('Agrupar Kanban por').selectOption('responsible');
+ const column=page.getByRole('region',{name:'Sara',exact:true});
+ await expect(column).toHaveCSS('border-top-color','rgb(251, 191, 36)');
+ await expect(page.getByRole('button',{name:'Configurações de Tarefas',exact:true})).toBeVisible();
+ await page.screenshot({path:'/tmp/task-workspace-desktop.png',fullPage:true});
+ await page.getByRole('button',{name:'Calendário',exact:true}).click();
+ await page.getByLabel('Mês',{exact:true}).fill('2026-09');
+ await expect(page.locator('.task-calendar-event').first()).toHaveCSS('border-left-color',/rgb\((96, 165, 250|251, 191, 36)\)/);
+ await page.setViewportSize({width:390,height:844});
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+});

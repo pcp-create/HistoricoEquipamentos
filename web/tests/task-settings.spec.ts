@@ -65,7 +65,7 @@ test("task settings show fixed commercial assignment and save origin owner", asy
   await expect(page.getByRole("status")).toContainText("Regra salva");
   expect(assignee).toBe("sara@example.com");
   await page
-    .getByRole("button", { name: "Acompanhamento de tarefas", exact: true })
+    .getByRole("button", { name: "Voltar às tarefas", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Minhas tarefas", exact: true }),

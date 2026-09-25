@@ -29,7 +29,9 @@ export function employeeFields(body: any) {
     !body.alert_whatsapp
   )
     throw Error("Selecione ao menos um canal de recebimento.");
+  if (body.task_color != null && !/^#[0-9a-f]{6}$/i.test(body.task_color)) throw Error("Selecione uma cor válida para as tarefas.");
   return {
+    task_color: body.task_color || null,
     display_name,
     department: string("department", 120),
     job_title: string("job_title", 120),

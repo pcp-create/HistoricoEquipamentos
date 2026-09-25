@@ -121,7 +121,7 @@ export async function setAccess(body: any, actor: AuthUser) {
     );
     if (employee)
       await c.query(
-        `UPDATE web_user_access SET display_name=$2,department=$3,job_title=$4,phone=$5,alert_preventive=$6,alert_rental=$7,alert_email=$8,alert_whatsapp=$9 WHERE email=$1`,
+        `UPDATE web_user_access SET display_name=$2,department=$3,job_title=$4,phone=$5,alert_preventive=$6,alert_rental=$7,alert_email=$8,alert_whatsapp=$9,task_color=$10 WHERE email=$1`,
         [
           email,
           employee.display_name,
@@ -132,6 +132,7 @@ export async function setAccess(body: any, actor: AuthUser) {
           employee.alert_rental,
           employee.alert_email,
           employee.alert_whatsapp,
+          employee.task_color,
         ],
       );
     await c.query(
@@ -156,7 +157,7 @@ export async function setAccess(body: any, actor: AuthUser) {
 export async function adminOverview() {
   const db = database();
   const users = (
-    await db.query(`SELECT email,display_name,department,job_title,phone,alert_preventive,alert_rental,alert_email,alert_whatsapp,user_id,role,enabled,last_login_at,last_seen_at,last_logout_at,
+    await db.query(`SELECT to_jsonb(web_user_access)->>'task_color' AS task_color,email,display_name,department,job_title,phone,alert_preventive,alert_rental,alert_email,alert_whatsapp,user_id,role,enabled,last_login_at,last_seen_at,last_logout_at,
  (enabled AND last_seen_at>now()-interval '15 minutes' AND (last_logout_at IS NULL OR last_seen_at>last_logout_at)) AS online FROM web_user_access ORDER BY role,email`)
   ).rows;
   const events = (
