@@ -369,6 +369,7 @@ export async function updateTask(body: any, user: AuthUser) {
           "Informe título (até 160 caracteres) e descrição (até 12.000).",
         );
       await note(c, id, body.title.trim(), body.description.trim(), user);
+      await c.query("UPDATE web_tasks SET status='in_progress',kanban_column='in_progress' WHERE id=$1 AND status='not_started'", [id]);
     } else if (body.action === "move") {
       if (t.status === "completed")
         throw new TaskInputError("Tarefas concluídas não podem ser reabertas.");

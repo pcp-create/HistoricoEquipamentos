@@ -118,7 +118,7 @@ export async function history(filters: Filters, exporting = false) {
     ${dateColumn} AS date, o.cliente_nome AS client, o.cliente_cpf_cnpj AS document,
     COALESCE(NULLIF(o.equipamento,''),registered.names) AS equipment, COALESCE(NULLIF(o.modelo_equipamento,''),eq.models,registered.models) AS model,
     COALESCE(NULLIF(o.numero_serie,''),NULLIF(o.serie,''),eq.serials,registered.serials) AS serial, registered.methods AS equipment_origin,
-    o.status, o.situacao_nome AS situation, s.last_detail_at AS detail_at,
+    o.status, o.tipo_nome AS type_name, o.situacao_nome AS situation, s.last_detail_at AS detail_at,
     ${filters.view === "materials" ? `p.id_m8::text AS item_id, p.produto_nome AS material, p.referencia_fabricante AS reference, p.produto_id::text AS product_id, p.quantidade AS quantity, p.unidade_nome AS unit, p.valor_total AS amount, COALESCE(p.esta_excluido,false) AS is_excluded, p.aprovado AS approval, CASE WHEN p.esta_excluido IS TRUE THEN 'Excluído da OS' WHEN NOT (${approvedMaterialSql("p")}) THEN 'Reprovado' ELSE 'Ativo'  END AS item_status` : `o.total_geral AS amount, (SELECT count(*)::int FROM public.m8_os_produtos p WHERE ${productLink}) AS materials, (SELECT count(*)::int FROM public.m8_os_produtos p WHERE ${productLink} AND p.esta_excluido IS TRUE) AS excluded_materials, (SELECT count(*)::int FROM public.m8_os_produtos p WHERE ${productLink} AND p.esta_excluido IS NOT TRUE AND NOT (${approvedMaterialSql("p")})) AS rejected_materials`}
     ${from}
     LEFT JOIN public.integracao_m8_os_sync s ON s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8

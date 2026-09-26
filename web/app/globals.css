@@ -3926,3 +3926,14 @@ body .results-toolbar nav.app-section-tabs { width:auto; margin:0; }
  body :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar) nav.app-section-tabs > button { padding:11px 12px; font-size:13px; }
  body nav.app-section-tabs { margin:14px 0 20px; }
 }
+
+/* Touch users can read equipment names without a hover tooltip. */
+@media (max-width: 760px), (hover: none) {
+  .cell-title.history-equipment-name {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    min-width: 160px;
+  }
+}

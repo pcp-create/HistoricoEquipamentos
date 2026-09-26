@@ -49,6 +49,7 @@ type Row = {
   serial: string | null;
   status: string | null;
   situation: string | null;
+  type_name?: string | null;
   detail_at: string | null;
   materials?: number;
   excluded_materials?: number;
@@ -683,6 +684,9 @@ export default function Dashboard() {
                             OS-{row.number.padStart(5, "0")}
                           </button>
                           <small className="cell-secondary">
+                            {row.type_name || "Tipo não informado"}
+                          </small>
+                          <small className="cell-secondary">
                             {row.situation || "Situação não informada"}
                           </small>
                         </td>
@@ -697,7 +701,7 @@ export default function Dashboard() {
                         </td>
                         <td>
                           <span
-                            className="cell-title"
+                            className="cell-title history-equipment-name"
                             title={row.equipment || ""}
                           >
                             {row.equipment || "Não informado"}

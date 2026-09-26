@@ -7,6 +7,10 @@ import TaskReminders from "./task-reminders";
 import {
   Plus,
   Settings,
+  ChevronDown,
+  ListFilter,
+  SlidersHorizontal,
+  X,
   Circle,
   CircleCheck,
   List,
@@ -187,7 +191,8 @@ export function TaskDrawer({
       (assigned.trim().toLowerCase() || null) !== data.task.assigned_to;
     const assignmentReason = changed ? requestAssignmentReason() : undefined;
     if (assignmentReason === null) return;
-    if (changed)
+    const startsProgress = (action === "note" || action === "update") && data.task.status === "not_started";
+    if (changed || startsProgress)
       setData({
         ...data,
         task: {
@@ -195,7 +200,8 @@ export function TaskDrawer({
           assigned_to: assigned || null,
           assignee_name: users.find((u: any) => u.email === assigned)
             ?.display_name,
-          status: assigned ? "in_progress" : "not_started",
+          status: startsProgress || changed ? "in_progress" : data.task.status,
+          kanban_column: startsProgress || changed ? "in_progress" : data.task.kanban_column,
         },
       });
     setBusy(true);
@@ -222,7 +228,7 @@ export function TaskDrawer({
       }
       onChanged?.();
     } catch (e) {
-      if (changed) accept(before);
+      if (changed || startsProgress) accept(before);
       setError((e as Error).message);
     } finally {
       setBusy(false);
@@ -230,12 +236,15 @@ export function TaskDrawer({
   }
   async function upload(file: File | undefined) {
     if (!file) return;
+    const before = data;
     setBusy(true);
     setError("");
     try {
       if (file.size > 3000000) throw Error("Selecione um arquivo de até 3 MB.");
       if (!allowedTaskAttachment(file.name))
         throw Error(taskAttachmentTypeMessage);
+      if (data.task.status === "not_started")
+        setData({...data, task: {...data.task, status: "in_progress", kanban_column: "in_progress"}});
       const form = new FormData();
       form.set("id", id);
       form.set("file", file);
@@ -245,6 +254,7 @@ export function TaskDrawer({
       accept(b);
       onChanged?.();
     } catch (e) {
+      accept(before);
       setError((e as Error).message);
     } finally {
       setBusy(false);
@@ -1255,6 +1265,11 @@ export default function TasksDashboard() {
                 ))}
               </div>
             </nav>
+            <details className="filter-panel task-search-panel" open>
+              <summary className="filter-toggle">
+                <span><SlidersHorizontal size={17} aria-hidden="true" />Filtros de pesquisa</span>
+                <ChevronDown size={17} aria-hidden="true" />
+              </summary>
             <div className="task-filter-panel">
               <label>
                 Pesquisar
@@ -1335,9 +1350,10 @@ export default function TasksDashboard() {
                   <option value="month">Próximos 30 dias</option>
                 </select>
               </label>
+              <div className="filter-actions">
               <button
                 type="button"
-                className="task-clear-filters"
+                className="text-button task-clear-filters"
                 onClick={() => {
                   setQuery("");
                   setResponsible("all");
@@ -1349,9 +1365,11 @@ export default function TasksDashboard() {
                     history.replaceState(null, "", "/tarefas");
                 }}
               >
-                Limpar filtros
+                <X size={15} aria-hidden="true" /> Limpar
               </button>
+              </div>
             </div>
+            </details>
             <div className="task-results-toolbar">
               <strong>{rows.length} tarefas</strong>
               <nav aria-label="Filtros de responsáveis">
@@ -1376,9 +1394,12 @@ export default function TasksDashboard() {
               </nav>
               <div className="task-display-controls">
                 {view === "kanban" && (
-                  <label>
-                    Agrupar Kanban por
+                  <label className="task-compact-select" title={`Agrupar por: ${{progress: "Andamento", deadline: "Prazo", responsible: "Responsável"}[kanbanView]}`}>
+                    <Columns3 size={16} aria-hidden="true" />
+                    <span>Agrupar por</span>
+                    <ChevronDown size={14} aria-hidden="true" />
                     <select
+                      aria-label="Agrupar Kanban por"
                       value={kanbanView}
                       onChange={(e) => setKanbanView(e.target.value)}
                     >
@@ -1388,16 +1409,16 @@ export default function TasksDashboard() {
                     </select>
                   </label>
                 )}
-              <label>
-                Ordenar por
-                <select value={sort} onChange={(e) => setSort(e.target.value)}>
-                  <option value="recent">
-                    Status e criação (mais recente)
-                  </option>
-                  <option value="oldest">Status e criação (mais antiga)</option>
-                  <option value="due">Vencimento</option>
-                </select>
-              </label>
+                <label className="task-compact-select" title={`Ordenar por: ${{recent: "Status e criação (mais recente)", oldest: "Status e criação (mais antiga)", due: "Vencimento"}[sort]}`}>
+                  <ListFilter size={16} aria-hidden="true" />
+                  <span>Ordenar por</span>
+                  <ChevronDown size={14} aria-hidden="true" />
+                  <select aria-label="Ordenar por" value={sort} onChange={(e) => setSort(e.target.value)}>
+                    <option value="recent">Status e criação (mais recente)</option>
+                    <option value="oldest">Status e criação (mais antiga)</option>
+                    <option value="due">Vencimento</option>
+                  </select>
+                </label>
               </div>
             </div>
             {params.get("equipment") && (
