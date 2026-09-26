@@ -113,7 +113,7 @@ test("tasks list, personal view, calendar and right drawer keep notes and assign
   ).toBeVisible();
   await page.getByRole("button", { name: "Minhas tarefas" }).click();
   await expect(page.getByText("Nenhuma tarefa encontrada.")).toBeVisible();
-  await page.getByRole("button", { name: "Últimas tarefas · Todos" }).click();
+  await page.getByRole("button", { name: "Minhas tarefas" }).click();
   await page.getByText("TAR-42 · Acompanhar locação", { exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();

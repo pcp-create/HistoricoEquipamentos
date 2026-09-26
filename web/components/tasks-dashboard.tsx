@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ListFilter,
   SlidersHorizontal,
+  UserRound,
   X,
   Circle,
   CircleCheck,
@@ -1371,27 +1372,23 @@ export default function TasksDashboard() {
             </div>
             </details>
             <div className="task-results-toolbar">
-              <strong>{rows.length} tarefas</strong>
-              <nav aria-label="Filtros de responsáveis">
+              <div className="task-scope-controls">
+                <strong>{rows.length} tarefas</strong>
                 <button
+                  type="button"
+                  className="task-mine-toggle"
+                  aria-label="Minhas tarefas"
                   aria-pressed={mine}
+                  title={mine ? "Mostrar todas as tarefas" : "Mostrar somente minhas tarefas"}
                   onClick={() => {
-                    setMine(true);
+                    setMine(!mine);
                     setResponsible("all");
                   }}
                 >
-                  Minhas tarefas
+                  <UserRound size={15} aria-hidden="true" />
+                  <span>Minhas tarefas</span>
                 </button>
-                <button
-                  aria-pressed={!mine}
-                  onClick={() => {
-                    setMine(false);
-                    setResponsible("all");
-                  }}
-                >
-                  Últimas tarefas · Todos
-                </button>
-              </nav>
+              </div>
               <div className="task-display-controls">
                 {view === "kanban" && (
                   <label className="task-compact-select" title={`Agrupar por: ${{progress: "Andamento", deadline: "Prazo", responsible: "Responsável"}[kanbanView]}`}>

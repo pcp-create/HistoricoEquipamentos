@@ -586,3 +586,39 @@
 .tasks-page .task-search-panel .task-clear-filters:hover { color: #2e5d93; }
 @media(max-width:1100px) { .task-search-panel .task-filter-panel { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 @media(max-width:650px) { .task-search-panel .task-filter-panel { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+
+.task-scope-controls { display: flex; align-items: center; gap: 18px; white-space: nowrap; }
+.task-scope-controls > strong { font-size: 15px; }
+.tasks-page .task-mine-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 7px; font-size: 12px; min-height: 36px; }
+@media (max-width: 650px) {
+ .task-heading { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 6px 10px; }
+ .task-heading > div:first-child { display: contents; }
+ .task-heading h1 { grid-column: 1; grid-row: 1; margin: 0; font-size: 26px; }
+ .task-heading-actions { grid-column: 2; grid-row: 1; gap: 7px; margin: 0; }
+ .task-heading p, .task-heading > div:first-child > small { grid-column: 1 / -1; margin: 0; }
+ .tasks-page .task-heading-actions .task-settings-button { width: 34px; height: 36px; }
+ .tasks-page .task-heading-actions .task-new-button { min-height: 36px; padding: 6px 8px; gap: 5px; font-size: 12px; white-space: nowrap; }
+ .task-scope-controls { width: 100%; justify-content: space-between; gap: 10px; }
+ .task-scope-controls > strong { font-size: 14px; }
+ .tasks-page .task-mine-toggle { min-height: 34px; padding: 6px 9px; font-size: 11px; }
+}
+@media (max-width: 360px) {
+ .task-view-navigation .task-view-segments button { padding: 8px 4px; gap: 4px; font-size: 11px; }
+ .task-view-navigation .task-view-segments button svg { width: 14px; height: 14px; }
+}
+
+/* Keep the count and all three controls on one toolbar row. */
+.task-results-toolbar { flex-wrap: nowrap; gap: 12px; }
+.task-scope-controls { width: auto; flex: 1; justify-content: space-between; gap: 12px; }
+.task-display-controls { flex-wrap: nowrap; flex-shrink: 0; margin-left: 0; }
+@media (max-width: 650px) {
+ .task-results-toolbar { gap: 6px; }
+ .task-scope-controls { gap: 6px; }
+ .task-display-controls { gap: 6px; }
+ .task-display-controls > .task-compact-select { padding: 0 8px; font-size: 11px; gap: 5px; min-height: 36px; }
+}
+@media (max-width: 520px) {
+ .task-mine-toggle > span, .task-compact-select > span { display: none; }
+ .tasks-page .task-mine-toggle { width: 44px; height: 44px; padding: 0; }
+ .task-display-controls > .task-compact-select { min-width: 44px; height: 44px; padding: 0 6px; justify-content: center; box-sizing: border-box; }
+}

@@ -17,4 +17,29 @@ test('task workspace uses employee colors on owner columns and calendar, with se
  await expect(page.locator('.task-calendar-event').first()).toHaveCSS('border-left-color',/rgb\((96, 165, 250|251, 191, 36)\)/);
  await page.setViewportSize({width:390,height:844});
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ for (const width of [390, 320]) {
+  await page.setViewportSize({width,height:844});
+  const heading=await page.getByRole('heading',{name:'Tarefas',exact:true}).boundingBox();
+  const create=await page.getByRole('button',{name:'Nova tarefa',exact:true}).boundingBox();
+  expect(Math.abs(heading!.y-create!.y)).toBeLessThan(12);
+  expect(create!.x).toBeGreaterThan(heading!.x);
+  const count=await page.locator('.task-scope-controls strong').boundingBox();
+  const mine=await page.getByRole('button',{name:'Minhas tarefas',exact:true}).boundingBox();
+  expect(Math.abs((count!.y+count!.height/2)-(mine!.y+mine!.height/2))).toBeLessThan(2);
+  expect(create!.x + create!.width).toBeLessThanOrEqual(width);
+  expect(mine!.x + mine!.width).toBeLessThanOrEqual(width);
+ }
+ await page.getByRole('button',{name:'Kanban',exact:true}).click();
+ for (const control of await page.locator('.task-compact-select').all()) {
+  const box=await control.boundingBox();
+  const mine=await page.getByRole('button',{name:'Minhas tarefas',exact:true}).boundingBox();
+  expect(Math.abs(box!.y-mine!.y)).toBeLessThan(2);
+  expect(box!.x+box!.width).toBeLessThanOrEqual(320);
+ }
+ await page.getByRole('button',{name:'Minhas tarefas',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Minhas tarefas',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('.task-scope-controls strong')).toHaveText('6 tarefas');
+ await page.getByRole('button',{name:'Minhas tarefas',exact:true}).click();
+ await expect(page.locator('.task-scope-controls strong')).toHaveText('12 tarefas');
+
 });
