@@ -671,8 +671,8 @@ export default function TasksDashboard() {
     [originFilter, setOriginFilter] = useState("all"),
     [period, setPeriod] = useState("all"),
     [sort, setSort] = useState("recent"),
-    [view, setView] = useState("list"),
-    [kanbanView, setKanbanView] = useState("progress"),
+    [view, setView] = useState("kanban"),
+    [kanbanView, setKanbanView] = useState("responsible"),
     [tab, setTab] = useState("tasks"),
     [creating, setCreating] = useState(false),
     [status, setStatus] = useState("all"),
@@ -1265,7 +1265,7 @@ export default function TasksDashboard() {
                 ))}
               </div>
             </nav>
-            <details className="filter-panel task-search-panel" open>
+            <details className="filter-panel task-search-panel">
               <summary className="filter-toggle">
                 <span><SlidersHorizontal size={17} aria-hidden="true" />Filtros de pesquisa</span>
                 <ChevronDown size={17} aria-hidden="true" />
