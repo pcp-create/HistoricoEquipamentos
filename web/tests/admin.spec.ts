@@ -47,6 +47,16 @@ test("admin interface shows integration dates and lets an administrator change a
     });
   });
   await page.goto("/administracao");
+  for (const width of [320, 390]) {
+    await page.setViewportSize({width, height:844});
+    for (const name of ["Usuários", "Integrações", "Logs de acesso"]) {
+      await page.getByRole("button", {name, exact:true}).click();
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    }
+  }
+  await page.getByRole("button", {name:"Usuários", exact:true}).click();
+  await page.setViewportSize({width:1440,height:1080});
+
   await expect(page.getByText("Online", { exact: true })).toBeHidden();
   await page
     .getByRole("button", { name: "Logs de acesso", exact: true })

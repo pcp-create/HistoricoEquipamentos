@@ -132,3 +132,9 @@ por empresa por ciclo, com duas chamadas simultâneas. A primeira cobertura
 completa ocorrerá progressivamente. Produtos omitidos pelo ERP continuam como
 “A consultar” quando não existe saldo anterior; omissão nunca vira zero.
 O pacote contém somente o integrador, sem `.env`, certificado, banco ou aplicação web.
+
+## Disponível: correção da fonte (28/09/2026)
+
+A view `m8_product_current` usa o campo `available` de `m8_product_stock`, coletado por `/v1/estoque/produto/{id}/estoque`, e a data dessa mesma coleta. A consulta em lote retornou zero para o produto 19420/empresa 1 enquanto o endpoint detalhado e o ERP mostravam 329 litros. Por isso, a tabela `m8_product_available` permanece como coleta auxiliar, mas não alimenta mais o saldo exibido, mesmo quando é mais recente. Não há fallback para o zero do lote: sem detalhe válido, o saldo fica desconhecido. Saldos negativos e zeros reais são preservados; estabelecimentos são somados dentro da mesma empresa.
+
+Aplicar `011_m8_available_from_detailed_stock.sql` via `npm run db:migrate`. A alteração beneficia consulta de produtos, histórico e análises que usam a view, sem alterar estoque no M8. A frequência do disponível exibido passa a acompanhar a coleta detalhada; consulte a data apresentada antes de interpretar o saldo como atual.

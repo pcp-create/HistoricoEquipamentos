@@ -1354,7 +1354,7 @@ footer > span {
     padding: 0 15px 16px;
   }
   .filter-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px 12px;
   }
   .filter-actions {
@@ -3936,4 +3936,44 @@ body .results-toolbar nav.app-section-tabs { width:auto; margin:0; }
     overflow-wrap: anywhere;
     min-width: 160px;
   }
+}
+
+.equipment-view-tabs { margin: 18px 0; }
+.equipment-group-hint { color: #72849e; font-size: 12px; }
+.equipment-client-group td { padding: 0; background: #f1f6fc; }
+.equipment-client-group button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 16px; border: 0; background: transparent; color: #294d70; cursor: pointer; }
+.equipment-client-group button span { flex: 1; }
+.equipment-client-group button b { white-space: nowrap; font-size: 12px; }
+.equipment-client-group .collapsed { transform: rotate(-90deg); }
+.equipment-client-group button:focus-visible { outline: 2px solid #337cc1; outline-offset: -2px; }
+
+/* Native date controls must shrink with the filter grid on mobile Safari. */
+.filter-grid > label { min-width: 0; }
+.filter-grid input[type="date"] {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.filter-grid input[type="date"]::-webkit-date-and-time-value {
+  min-width: 0;
+  text-align: left;
+}
+.filter-grid input[type="date"]::-webkit-datetime-edit { min-width: 0; padding: 0; }
+/* Keep header and breadcrumb within narrow mobile viewports. */
+@media (max-width: 760px) {
+ .topbar { min-width: 0; max-width: 100%; box-sizing: border-box; }
+ .topbar .brand { min-width: 0; flex: 1; }
+ .topbar .brand > span { min-width: 0; overflow-wrap: anywhere; }
+ .topbar .header-right { flex-shrink: 0; }
+ .topnav.module-breadcrumb { min-width: 0; max-width: 100%; overflow-x: auto; box-sizing: border-box; }
+ .topnav.module-breadcrumb > * { flex-shrink: 0; }
+}
+@media (max-width: 390px) {
+ .topbar { padding: 0 12px; gap: 8px; }
+ .topbar .rj-logo { width: 45px; }
+ .topbar .brand { font-size: 14px; gap: 6px; }
+ .topbar .header-right { gap: 5px; }
 }

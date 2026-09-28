@@ -94,6 +94,17 @@ test("equipment module restricts access and creates a plan from manual operating
   });
   await page.goto("/equipamentos");
   await expect(page.getByRole("button", { name: "Gerenciar" })).toBeVisible();
+  await page.getByRole("button", {name: "Agrupado por Cliente", exact: true}).click();
+  const clientGroup = page.locator('.equipment-client-group button');
+  await expect(clientGroup).toContainText("Cliente A");
+  await expect(clientGroup).toContainText("1 equipamento");
+  await expect(page.getByRole("button", {name: "Gerenciar"})).toHaveCount(0);
+  await clientGroup.click();
+  await expect(page.getByRole("button", {name: "Gerenciar"})).toBeVisible();
+  await clientGroup.click();
+  await expect(page.getByRole("button", {name: "Gerenciar"})).toHaveCount(0);
+  await page.getByRole("button", {name: "Lista", exact: true}).click();
+
   const beforeFilter = listReads;
   const rental = page.getByRole("button", {
     name: /^Máquinas de Locação \(/,

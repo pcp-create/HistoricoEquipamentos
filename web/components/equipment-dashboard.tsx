@@ -12,6 +12,7 @@ import {
   Wrench,
   ArrowLeft,
   Eye,
+  ChevronDown,
 } from "lucide-react";
 import PreventivePlanItems from "./preventive-plan-items";
 import PreventivePlanQuote from "./preventive-plan-quote";
@@ -188,6 +189,8 @@ function OrderLink({id,company,equipment}:{id:string;company?:number;equipment?:
 }
 export default function EquipmentDashboard() {
   const { admin } = useSessionAccess();
+  const [equipmentView, setEquipmentView] = useState("list");
+  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [loaded, setResult] = useState<any>(null),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
@@ -323,8 +326,25 @@ export default function EquipmentDashboard() {
       return aDays - bDays;
     });
   }
-  const pages = Math.max(1, Math.ceil(filteredRows.length / 30));
+  const groups = new Map<string, {id: string; name: string; equipment: any[]}>();
+  for (const equipment of filteredRows) {
+    const clients = equipment.clients?.length ? equipment.clients : [{id: "unassigned", name: "Sem cliente vinculado"}];
+    for (const client of clients) {
+      const key = String(client.id);
+      if (!groups.has(key)) groups.set(key, {id: key, name: client.name || `Cliente ${key}`, equipment: []});
+      const group = groups.get(key)!;
+      if (!group.equipment.some(item => item.id === equipment.id)) group.equipment.push(equipment);
+    }
+  }
+  const clientGroups = [...groups.values()].sort((a,b) => a.name.localeCompare(b.name, "pt-BR"));
+  const pages = Math.max(1, Math.ceil((equipmentView === "clients" ? clientGroups.length : filteredRows.length) / 30));
   const currentPage = Math.min(page, pages);
+  const displayRows = equipmentView === "clients"
+    ? clientGroups.slice((currentPage - 1) * 30, currentPage * 30).flatMap(group => [
+        {group, key: `client:${group.id}`},
+        ...(expandedClients.has(group.id) ? group.equipment.map(e => ({...e, key: `${group.id}:${e.id}`})) : []),
+      ])
+    : filteredRows.slice((currentPage - 1) * 30, currentPage * 30);
   const result = loaded
     ? {
         ...loaded,
@@ -658,6 +678,11 @@ export default function EquipmentDashboard() {
                 </select>
               </label>
             </div>
+            <nav className="app-section-tabs equipment-view-tabs" aria-label="Visualização dos equipamentos">
+              <button type="button" aria-pressed={equipmentView === "list"} onClick={() => {setEquipmentView("list"); setPage(1);}}>Lista</button>
+              <button type="button" aria-pressed={equipmentView === "clients"} onClick={() => {setEquipmentView("clients"); setPage(1);}}>Agrupado por Cliente</button>
+            </nav>
+            {equipmentView === "clients" && <p className="equipment-group-hint">{clientGroups.length} grupos · Equipamentos com mais de um vínculo aparecem em cada cliente. Quantidades conforme os filtros selecionados.</p>}
             {loading && <p role="status">Consultando equipamentos…</p>}
             <div className="equipment-table">
               <table>
@@ -673,8 +698,22 @@ export default function EquipmentDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {result?.rows.map((e: any) => (
-                    <tr key={e.id}>
+                  {displayRows.map((e: any) => e.group ? (
+                    <tr key={e.key} className="equipment-client-group">
+                      <td colSpan={7}>
+                        <button type="button" aria-expanded={expandedClients.has(e.group.id)} onClick={() => setExpandedClients(previous => {
+                          const next = new Set(previous);
+                          if (next.has(e.group.id)) next.delete(e.group.id); else next.add(e.group.id);
+                          return next;
+                        })}>
+                          <ChevronDown size={18} className={expandedClients.has(e.group.id) ? "" : "collapsed"} aria-hidden="true" />
+                          <span><strong>{e.group.name}</strong>{e.group.id !== "unassigned" && <small>Código do cliente: {e.group.id}</small>}</span>
+                          <b>{e.group.equipment.length} {e.group.equipment.length === 1 ? "equipamento" : "equipamentos"}</b>
+                        </button>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={e.key || e.id}>
                       <td>
                         <div className="equipment-identity">
                           {rentalOnly && (

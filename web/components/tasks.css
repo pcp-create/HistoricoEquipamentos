@@ -622,3 +622,6 @@
  .tasks-page .task-mine-toggle { width: 44px; height: 44px; padding: 0; }
  .task-display-controls > .task-compact-select { min-width: 44px; height: 44px; padding: 0 6px; justify-content: center; box-sizing: border-box; }
 }
+.tasks-page { width: 100%; min-width: 0; box-sizing: border-box; }
+.tasks-page > *, .task-kanban { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.task-kanban { overscroll-behavior-x: contain; }

@@ -30,6 +30,13 @@ test('task workspace uses employee colors on owner columns and calendar, with se
   expect(mine!.x + mine!.width).toBeLessThanOrEqual(width);
  }
  await page.getByRole('button',{name:'Kanban',exact:true}).click();
+ for (const width of [320,375,390]) {
+  await page.setViewportSize({width,height:844});
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  await page.locator('.task-kanban').evaluate(e=>{e.scrollLeft=300;});
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth && window.scrollX===0)).toBe(true);
+ }
+ await page.setViewportSize({width:320,height:844});
  for (const control of await page.locator('.task-compact-select').all()) {
   const box=await control.boundingBox();
   const mine=await page.getByRole('button',{name:'Minhas tarefas',exact:true}).boundingBox();

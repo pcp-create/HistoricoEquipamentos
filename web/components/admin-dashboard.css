@@ -146,3 +146,26 @@
 .territory-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 16px 0; }
 .territory-toolbar label { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }
 .admin-page input[type="color"] { width: 64px; height: 42px; padding: 4px; cursor: pointer; }
+/* Constrain grid children so wide tables scroll locally on phones. */
+.catalog-settings.admin-page {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  grid-template-columns: minmax(0, 1fr);
+}
+.admin-page > *, .admin-page .manual-card, .admin-page .admin-table {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.admin-page .admin-table { overscroll-behavior-x: contain; }
+.admin-page .admin-form-grid > *, .admin-page .territory-toolbar > * { min-width: 0; max-width: 100%; }
+.admin-page :is(p,legend) { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+ .catalog-settings.admin-page { padding: 0 12px; }
+ .catalog-settings.admin-page .manual-card { padding: 16px; }
+ .admin-page .admin-tabs { max-width: 100%; overflow-x: auto; flex-wrap: nowrap; }
+ .admin-page .admin-tabs button { flex-shrink: 0; }
+ .admin-page .territory-toolbar label { width: 100%; }
+ .admin-page .catalog-editor-actions { flex-wrap: wrap; }
+}
