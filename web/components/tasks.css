@@ -625,3 +625,18 @@
 .tasks-page { width: 100%; min-width: 0; box-sizing: border-box; }
 .tasks-page > *, .task-kanban { min-width: 0; max-width: 100%; box-sizing: border-box; }
 .task-kanban { overscroll-behavior-x: contain; }
+/* Isolate the board's intrinsic width from the mobile document (Safari too). */
+@media (max-width: 760px) {
+ html:has(.tasks-page), body:has(.tasks-page) {
+   width: 100%;
+   max-width: 100%;
+   overflow-x: clip;
+ }
+ .tasks-page { overflow-x: clip; }
+ .tasks-page .task-kanban {
+   width: 100%;
+   contain: inline-size;
+   overflow-x: auto;
+   -webkit-overflow-scrolling: touch;
+ }
+}

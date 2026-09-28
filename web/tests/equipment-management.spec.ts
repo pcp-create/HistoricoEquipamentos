@@ -43,7 +43,7 @@ test("equipment module restricts access and creates a plan from manual operating
   };
   const detail: any = {
     equipment,
-    clients: [{ id: "1", name: "Cliente A" }],
+    clients: [{ id: "1", name: "Cliente A", city: "Criciúma", state: "SC", document: "12345678000190" }],
     settings: { document: emptyOperating, version: null },
     plans: [],
     history: [],
@@ -97,6 +97,8 @@ test("equipment module restricts access and creates a plan from manual operating
   await page.getByRole("button", {name: "Agrupado por Cliente", exact: true}).click();
   const clientGroup = page.locator('.equipment-client-group button');
   await expect(clientGroup).toContainText("Cliente A");
+  await expect(clientGroup).toContainText("Criciúma / SC");
+  await expect(clientGroup).toContainText("12.345.678/0001-90");
   await expect(clientGroup).toContainText("1 equipamento");
   await expect(page.getByRole("button", {name: "Gerenciar"})).toHaveCount(0);
   await clientGroup.click();
@@ -119,10 +121,15 @@ test("equipment module restricts access and creates a plan from manual operating
   await expect(rental).toHaveAttribute("aria-pressed", "false");
   await page.waitForTimeout(400);
   expect(listReads).toBe(beforeFilter);
-  await page.getByRole("button", { name: "Gerenciar" }).click();
+  await page.getByRole("button", { name: /^Visualizar equipamento / }).click();
   await expect(
     page.getByRole("heading", { name: "Compressor GA 90" }),
   ).toBeVisible();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("heading", {name:"Operação e horímetro"})).toBeVisible();
+  await page.getByRole("button", {name:"Fechar detalhes do equipamento"}).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", {name:"Gerenciar", exact:true}).click();
   await page.getByLabel("Horas de operação por dia").fill("24");
   await page.getByLabel("Dias de operação por ano").fill("365");
   await page.getByRole("button", { name: "Salvar operação" }).click();

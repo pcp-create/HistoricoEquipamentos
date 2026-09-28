@@ -54,8 +54,13 @@ export async function equipmentList(params: URLSearchParams) {
  COALESCE(s.document,'{}') AS settings,
  COALESCE(c.clients,'[]') AS clients
  FROM m8_equipment_catalog e LEFT JOIN web_equipment_settings s USING(equipment_id)
- LEFT JOIN LATERAL (SELECT jsonb_agg(jsonb_build_object('id',p.person_id::text,'name',p.name) ORDER BY p.name) AS clients FROM (
- SELECT person_id,max(person_name) AS name FROM m8_person_equipment WHERE equipment_id=e.equipment_id AND present GROUP BY person_id) p) c ON true
+ LEFT JOIN LATERAL (SELECT jsonb_agg(jsonb_build_object('id',p.person_id::text,'name',p.name,'city',p.city,'state',p.state,'document',p.document) ORDER BY p.name) AS clients FROM (
+ SELECT l.person_id,max(l.person_name) AS name,
+ max(NULLIF(d.payload->>'municipioNome','')) AS city,
+ max(NULLIF(d.payload->>'ufSigla','')) AS state,
+ max(NULLIF(d.document,'')) AS document
+ FROM m8_person_equipment l LEFT JOIN m8_customer_directory d ON d.company_id=l.company_id AND d.person_id=l.person_id
+ WHERE l.equipment_id=e.equipment_id AND l.present GROUP BY l.person_id) p) c ON true
  WHERE e.present ORDER BY e.name,e.equipment_id`)
   ).rows;
   const plans = (
@@ -186,7 +191,10 @@ export async function equipmentDetail(raw: string) {
     : undefined;
   const clients = (
     await db.query(
-      "SELECT person_id::text AS id,max(person_name) AS name FROM m8_person_equipment WHERE equipment_id=$1 AND present GROUP BY person_id ORDER BY name",
+      `SELECT l.person_id::text AS id,max(l.person_name) AS name,max(d.document) AS document,
+ max(d.payload->>'municipioNome') AS city,max(d.payload->>'ufSigla') AS state
+ FROM m8_person_equipment l LEFT JOIN m8_customer_directory d ON d.company_id=l.company_id AND d.person_id=l.person_id
+ WHERE l.equipment_id=$1 AND l.present GROUP BY l.person_id ORDER BY name`,
       [id],
     )
   ).rows;

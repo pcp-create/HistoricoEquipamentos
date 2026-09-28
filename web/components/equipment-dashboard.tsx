@@ -1,4 +1,5 @@
 "use client";
+import EquipmentDetailsDrawer from "./equipment-details-drawer";
 import OrderDetailLink from "./order-detail-link";
 import CreateLinkedTask from "./create-linked-task";
 import { apiFetch, cachedEquipmentList } from "@/lib/client-api-cache";
@@ -189,6 +190,7 @@ function OrderLink({id,company,equipment}:{id:string;company?:number;equipment?:
 }
 export default function EquipmentDashboard() {
   const { admin } = useSessionAccess();
+  const [previewEquipment, setPreviewEquipment] = useState("");
   const [equipmentView, setEquipmentView] = useState("list");
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [loaded, setResult] = useState<any>(null),
@@ -326,12 +328,12 @@ export default function EquipmentDashboard() {
       return aDays - bDays;
     });
   }
-  const groups = new Map<string, {id: string; name: string; equipment: any[]}>();
+  const groups = new Map<string, {id: string; name: string; city?: string; state?: string; document?: string; equipment: any[]}>();
   for (const equipment of filteredRows) {
     const clients = equipment.clients?.length ? equipment.clients : [{id: "unassigned", name: "Sem cliente vinculado"}];
     for (const client of clients) {
       const key = String(client.id);
-      if (!groups.has(key)) groups.set(key, {id: key, name: client.name || `Cliente ${key}`, equipment: []});
+      if (!groups.has(key)) groups.set(key, {id: key, name: client.name || `Cliente ${key}`, city: client.city, state: client.state, document: client.document, equipment: []});
       const group = groups.get(key)!;
       if (!group.equipment.some(item => item.id === equipment.id)) group.equipment.push(equipment);
     }
@@ -707,7 +709,10 @@ export default function EquipmentDashboard() {
                           return next;
                         })}>
                           <ChevronDown size={18} className={expandedClients.has(e.group.id) ? "" : "collapsed"} aria-hidden="true" />
-                          <span><strong>{e.group.name}</strong>{e.group.id !== "unassigned" && <small>Código do cliente: {e.group.id}</small>}</span>
+                          <span className="equipment-client-identity">
+                            <span className="equipment-client-names"><strong>{e.group.name}</strong>{(e.group.city || e.group.state) && <span className="equipment-client-location">{[e.group.city, e.group.state].filter(Boolean).join(" / ")}</span>}</span>
+                            {e.group.id !== "unassigned" && <small>{e.group.document ? e.group.document.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : "CNPJ não informado"}</small>}
+                          </span>
                           <b>{e.group.equipment.length} {e.group.equipment.length === 1 ? "equipamento" : "equipamentos"}</b>
                         </button>
                       </td>
@@ -784,6 +789,18 @@ export default function EquipmentDashboard() {
                       </td>
                       <td>
                         <div className="order-row-actions equipment-row-actions">
+                        <button
+                          type="button"
+                          className="equipment-view-button"
+                          aria-label={`Visualizar equipamento ${e.name}`}
+                          title="Visualizar equipamento"
+                          onClick={() => {
+                            setPreviewEquipment(String(e.id));
+                            setMessage("");
+                          }}
+                        >
+                          <Eye size={17} aria-hidden="true" />
+                        </button>
                         <button
                           className="catalog-edit-button"
                           onClick={() => {
@@ -1586,6 +1603,7 @@ export default function EquipmentDashboard() {
           </>
         )}
       </main>
+      {previewEquipment && <EquipmentDetailsDrawer key={previewEquipment} id={previewEquipment} onClose={() => setPreviewEquipment("")} />}
       {quotePlan && detail && (
         <PreventivePlanQuote
           equipment={selected}
