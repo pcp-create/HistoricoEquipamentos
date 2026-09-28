@@ -50,9 +50,10 @@ test("task settings show fixed commercial assignment and save origin owner", asy
   await expect(
     page.getByText("Conforme Divisão Comercial", { exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Divisão comercial por cidade e UF" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Divisão comercial por cidade e UF" })).not.toBeVisible();
+  await page.getByRole("button", {name:"Divisão comercial",exact:true}).click();
+  await expect(page.getByRole("heading", { name: "Divisão comercial por cidade e UF" })).toBeVisible();
+  await page.getByRole("button", {name:"Regras e atribuição",exact:true}).click();
   await page
     .getByRole("combobox", { name: "Responsável por Máquina de Locação" })
     .selectOption("sara@example.com");

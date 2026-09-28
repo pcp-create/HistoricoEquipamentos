@@ -7,6 +7,7 @@ import {
   taskAttachmentTypeMessage,
 } from "./attachment-types";
 import "server-only";
+import { Forbidden } from "../auth";
 import { database } from "../db";
 import { taskSources, type TaskSource } from "./sources";
 import { userDisplayName, type AuthUser } from "../user-display-name";
@@ -330,6 +331,8 @@ export async function updateTask(body: any, user: AuthUser) {
   const c = await database().connect();
   try {
     await c.query("BEGIN READ WRITE");
+    if (body.action === "stage")
+      await c.query("SELECT pg_advisory_xact_lock(724026)");
     if (body.action === "move")
       await c.query("SELECT pg_advisory_xact_lock(81021,1)");
     const t = (
@@ -356,6 +359,17 @@ export async function updateTask(body: any, user: AuthUser) {
         "Tarefa manual reaberta como pendente. Responsável e prazo mantidos.",
         user,
       );
+    } else if (body.action === "stage") {
+      if(t.status === "completed")throw new TaskInputError("Tarefas concluídas não podem mudar de etapa.");
+      if(body.stageId !== null && (typeof body.stageId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.stageId)))throw new TaskInputError("Etapa inválida.");
+      const stage=body.stageId ? (await c.query("SELECT * FROM web_task_stages WHERE id=$1 FOR SHARE",[body.stageId])).rows[0] : null;
+      if(body.stageId && !stage)throw new TaskInputError("Etapa removida. Atualize a lista de etapas.");
+      if((t.stage_id || null) !== body.stageId){
+        const old=t.stage_id?(await c.query("SELECT * FROM web_task_stages WHERE id=$1",[t.stage_id])).rows[0]:null;
+        const label=(s:any)=>s?`${s.job_title} · ${s.sort_order}. ${s.name}`:"Sem etapa";
+        await c.query("UPDATE web_tasks SET stage_id=$2,status=CASE WHEN status='not_started' THEN 'in_progress' ELSE status END,kanban_column=CASE WHEN status='not_started' THEN 'in_progress' ELSE kanban_column END WHERE id=$1",[id,body.stageId]);
+        await note(c,id,"Etapa alterada",`De: ${label(old)}. Para: ${label(stage)}.`,user);
+      }
     } else if (body.action === "note") {
       if (
         typeof body.title !== "string" ||
@@ -590,6 +604,13 @@ export async function createTask(body: any, user: AuthUser) {
   let id: string;
   try {
     await c.query("BEGIN READ WRITE");
+    let initialStage:any=null;
+    if(body.stageId!=null){
+      if(typeof body.stageId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.stageId))throw new TaskInputError('Etapa inválida.');
+      await c.query('SELECT pg_advisory_xact_lock(724026)');
+      initialStage=(await c.query('SELECT * FROM web_task_stages WHERE id=$1 FOR SHARE',[body.stageId])).rows[0];
+      if(!initialStage)throw new TaskInputError('Etapa removida. Atualize a lista.');
+    }
     const context = await creationContext(c, body);
     if (assigned) {
       const employee = (
@@ -632,11 +653,13 @@ export async function createTask(body: any, user: AuthUser) {
         )
       ).rows[0].id,
     );
+    if(initialStage)await c.query("UPDATE web_tasks SET stage_id=$2 WHERE id=$1",[id,initialStage.id]);
     await note(
       c,
       id,
       "Tarefa manual criada",
       (body.description.trim() || "Tarefa cadastrada manualmente.") +
+        (initialStage?`\nEtapa inicial: ${initialStage.job_title} · ${initialStage.name}.`:"") +
         (context.order
           ? `\nVinculada à OS ${context.order.number}, empresa ${context.order.company_id}.`
           : ""),
@@ -656,4 +679,21 @@ export async function createTask(body: any, user: AuthUser) {
     c.release();
   }
   return taskDetail(id!);
+}
+
+export async function deleteTaskNote(body:any,user:AuthUser){
+ const id=idValue(body?.id),noteId=idValue(body?.noteId),c=await database().connect();
+ try{
+ await c.query('BEGIN READ WRITE');
+ const access=(await c.query('SELECT role,enabled FROM web_user_access WHERE email=$1 FOR SHARE',[user.email])).rows[0];
+ if(!access?.enabled||access.role!=='admin')throw new Forbidden();
+ const task=(await c.query('SELECT id FROM web_tasks WHERE id=$1 FOR UPDATE',[id])).rows[0];
+ if(!task)throw new TaskInputError('Tarefa não encontrada.');
+ const removed=(await c.query('DELETE FROM web_task_notes WHERE id=$1 AND task_id=$2 RETURNING *',[noteId,id])).rows[0];
+ if(!removed)throw new TaskConflict('A nota já foi removida ou não pertence a esta tarefa.');
+ await c.query("INSERT INTO web_access_events(event,email,actor,details) VALUES('task_note_deleted',$1,$1,$2)",[user.email,JSON.stringify({task_id:id,note:removed})]);
+ await c.query('UPDATE web_tasks SET version=version+1,updated_at=now(),updated_by=$2 WHERE id=$1',[id,user.email]);
+ await c.query('COMMIT');
+ }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+ return taskDetail(id);
 }

@@ -1,5 +1,6 @@
-import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
+import { requireUser, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import {
+  deleteTaskNote,
   createTask,
   listTasks,
   taskDetail,
@@ -9,12 +10,14 @@ import {
   TaskInputError,
   TaskConflict,
 } from "@/lib/tasks/store";
+import {accessRecord} from "@/lib/admin-store";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const headers = { "Cache-Control": "private, no-store", "X-Task-Hierarchy-Version": "1" };
 const json = (data: unknown, status = 200) =>
   Response.json(data, { status, headers });
 function failure(e: unknown) {
+  if (e instanceof Forbidden)return json({error:"Somente administradores podem excluir notas."},403);
   if (e instanceof Unauthorized)
     return json({ error: "Sessão expirada." }, 401);
   if (e instanceof TaskInputError) return json({ error: e.message }, 400);
@@ -32,9 +35,8 @@ export async function GET(req: Request) {
   try {
     const user = await requireUser(),
       p = new URL(req.url).searchParams;
-    return json(
-      p.has("id") ? await taskDetail(p.get("id")!) : await listTasks(p, user),
-    );
+    if(p.has("id")){const access=await accessRecord(user.email);return json({...await taskDetail(p.get("id")!),canDeleteNotes:!!access?.enabled&&access.role==="admin"});}
+    return json(await listTasks(p,user));
   } catch (e) {
     return failure(e);
   }
@@ -61,6 +63,7 @@ export async function POST(req: Request) {
     } catch {
       throw new TaskInputError("Dados inválidos.");
     }
+    if (body?.action === "delete_note") return json(await deleteTaskNote(body,user));
     if (body?.action === "sync") return json(await syncTasks());
     if (body?.action === "create")
       return json(await createTask(body, user), 201);

@@ -53,3 +53,63 @@ cadastrado. A origem aparece como **Tarefa manual**, com o nome do criador.
 Notas, anexos, Kanban, calendário e gráfico também estão disponíveis.
 A sincronização dos alertas não encerra tarefas manuais; a conclusão é feita
 pelo usuário. Tarefas manuais concluídas podem ser reabertas nos detalhes, mantendo responsável e prazo, com registro no histórico. Aplicar `web/sql/012_manual_tasks.sql` antes do deploy.
+
+## Configurações em abas e etapas por cargo
+
+As configurações são divididas em Regras e atribuição, Divisão comercial
+(administradores) e Etapas da tarefa. A última aba lista Cargo, Etapa e Ordem da
+etapa, com inclusão e edição na própria tabela e remoção por linha.
+O cargo sugere os valores do cadastro de funcionários, mas aceita novos nomes.
+A ordem vai de 1 a 9.999 e não pode se repetir dentro do mesmo cargo.
+A migração `web/sql/025_task_stage_order.sql` garante essa exclusividade.
+Não são permitidos nomes de etapa duplicados no mesmo cargo, ignorando maiúsculas.
+
+A migração `web/sql/024_task_stages.sql` cria o cadastro com controle de versão,
+RLS e auditoria em `web_access_events`. Somente administradores podem gravar;
+usuários autenticados podem consultar. A interface atualiza imediatamente e
+restaura a lista se a gravação falhar. Conflitos de edição exigem atualizar a lista.
+Este cadastro prepara a futura visão Kanban por etapa; ainda não atribui etapas
+às tarefas nem altera os status e fluxos existentes.
+
+A ordem das etapas é somente leitura na tela. Arraste pelo ícone junto ao número
+ou use as setas subir/descer para reposicionar uma etapa dentro do mesmo cargo.
+A nova sequência é renumerada de 1 a N, aparece imediatamente e é salva em uma
+transação; em caso de falha, a sequência anterior é restaurada. A migração
+`web/sql/026_task_stage_reordering.sql` mantém a unicidade da ordem e permite
+reorganizar o grupo atomicamente. A API confere as versões de todas as etapas
+para não sobrescrever alterações concorrentes e registra a movimentação na auditoria.
+
+Os campos de cargo e nome da etapa salvam automaticamente após uma pausa de
+800 ms na digitação ou ao sair do campo. A inclusão também é automática quando
+os campos obrigatórios estão preenchidos. Não há botão Salvar nas linhas;
+a coluna Ações mantém a remoção. Durante a gravação a tela indica “Salvando…”.
+Falhas restauram o cadastro anterior e exibem o erro.
+
+## Etapa na tarefa
+
+A migração `web/sql/027_task_stage_assignment.sql` vincula a tarefa a uma etapa.
+No detalhe, abaixo da prioridade, o seletor mostra as etapas agrupadas por cargo
+em ordem crescente. A seta avança à próxima etapa do mesmo cargo; fica inativa
+quando nenhuma etapa foi escolhida ou quando a etapa atual é a última.
+A escolha manual permite selecionar qualquer etapa cadastrada ou “Sem etapa”.
+
+A mudança salva imediatamente em segundo plano, registra origem/destino e autor
+nas notas e inicia o andamento de tarefas ainda não iniciadas. Não altera o
+responsável e não conclui a tarefa ao chegar à última etapa. Tarefas concluídas
+não permitem alterar a etapa. Versões concorrentes são rejeitadas e a interface
+restaura o valor anterior em caso de falha. Etapas vinculadas a tarefas não podem
+ser removidas do cadastro antes de trocar ou limpar esses vínculos.
+
+Administradores podem excluir notas pelo ícone de lixeira no detalhe da tarefa,
+após confirmação. A permissão é conferida no servidor dentro da transação;
+usuários comuns não veem o botão nem podem executar a operação pela API.
+A nota desaparece imediatamente e retorna em caso de erro. A exclusão mantém
+uma cópia da nota e o autor da remoção na auditoria `web_access_events`, sem
+alterar o status da tarefa nem desfazer o processo que originou a nota.
+
+No Kanban, “Agrupar por → Etapa” exibe “Sem etapa” e as etapas cadastradas,
+ordenadas pela sequência configurada. Os títulos exibem somente o nome da etapa;
+o seletor “Cargo da etapa” permite mostrar um cargo ou todos.
+Arrastar um cartão altera sua etapa com atualização otimista e registro nas notas;
+tarefas concluídas não podem ser movimentadas. “Adicionar tarefa” dentro da
+coluna já inclui a etapa inicial na criação, na mesma transação da tarefa.

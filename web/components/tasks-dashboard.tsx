@@ -4,7 +4,10 @@ import { apiFetch, hasFreshApiResponse } from "@/lib/client-api-cache";
 import "./tasks.css";
 import OrderDetailLink from "./order-detail-link";
 import TaskReminders from "./task-reminders";
+import TaskStageSelect from "./task-stage-select";
+import TaskCharts from "./task-charts";
 import {
+  Trash2,
   Plus,
   Settings,
   ChevronDown,
@@ -149,6 +152,7 @@ export function TaskDrawer({
   const dialog = useRef<HTMLDialogElement>(null),
     [data, setData] = useState<any>(null),
     [users, setUsers] = useState<any[]>([]),
+    [canDeleteNotes,setCanDeleteNotes]=useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [assigned, setAssigned] = useState(""),
@@ -159,6 +163,7 @@ export function TaskDrawer({
     [description, setDescription] = useState("");
   function accept(b: any) {
     setData(b);
+    if(typeof b.canDeleteNotes === "boolean")setCanDeleteNotes(b.canDeleteNotes);
     setAssigned(b.task.assigned_to || "");
     setPriority(b.task.priority);
     setAutomatic(!b.task.priority_manual);
@@ -170,6 +175,7 @@ export function TaskDrawer({
     dialog.current?.showModal();
     let alive = true;
     setData(null);
+    setCanDeleteNotes(false);
     setError("");
     Promise.all([api("/api/tasks?id=" + id), api("/api/tasks")])
       .then(([d, list]) => {
@@ -234,6 +240,21 @@ export function TaskDrawer({
     } finally {
       setBusy(false);
     }
+  }
+  async function removeNote(noteId:string){
+    if(busy||!canDeleteNotes||!window.confirm('Deseja excluir esta nota da tarefa?'))return;
+    const before=data;setBusy(true);setError('');
+    setData({...data,notes:data.notes.filter((n:any)=>String(n.id)!==noteId)});
+    try{setData(await api('/api/tasks',{action:'delete_note',id,noteId}));onChanged?.();}
+    catch(e){setData(before);setError((e as Error).message);}finally{setBusy(false);}
+  }
+  async function changeStage(stageId:string|null){
+    if(busy||data.task.status==='completed'||(data.task.stage_id||null)===stageId)return;
+    const before=data;
+    setBusy(true);setError('');
+    setData({...data,task:{...data.task,stage_id:stageId,status:data.task.status==='not_started'?'in_progress':data.task.status,kanban_column:data.task.status==='not_started'?'in_progress':data.task.kanban_column}});
+    try{const result=await api('/api/tasks',{action:'stage',id,version:before.task.version,stageId});setData(result);onChanged?.();}
+    catch(e){setData(before);setError((e as Error).message);}finally{setBusy(false);}
   }
   async function upload(file: File | undefined) {
     if (!file) return;
@@ -390,6 +411,7 @@ export function TaskDrawer({
                     ))}
                   </select>
                 </label>
+                <TaskStageSelect task={t} disabled={busy || t.status === "completed"} onChange={stageId=>void changeStage(stageId)} />
                 <label className="task-check">
                   <input
                     type="checkbox"
@@ -566,7 +588,7 @@ export function TaskDrawer({
               )}
               {data.notes.map((n: any) => (
                 <article key={n.id} className="task-note">
-                  <strong>{n.title}</strong>
+                  <div className="task-note-heading"><strong>{n.title}</strong>{canDeleteNotes&&<button type="button" disabled={busy} title="Excluir nota" aria-label={"Excluir nota: "+n.title} onClick={()=>void removeNote(String(n.id))}><Trash2 size={15}/></button>}</div>
                   <small>
                     {n.automatic ? "Automática · " : ""}
                     {n.created_name} · {date(n.created_at)}
@@ -588,79 +610,6 @@ export function TaskDrawer({
     </dialog>
   );
 }
-function TaskChart({ tasks }: { tasks: any[] }) {
-  const groups = new Map<
-    string,
-    { name: string; counts: Record<TaskColumn, number> }
-  >();
-  for (const task of tasks) {
-    const key = task.assigned_to?.trim().toLowerCase() || "unassigned";
-    if (!groups.has(key))
-      groups.set(key, {
-        name: task.assigned_to
-          ? task.assignee_name || "Funcionário sem nome cadastrado"
-          : "Não atribuído",
-        counts: { pending: 0, in_progress: 0, overdue: 0, completed: 0 },
-      });
-    groups.get(key)!.counts[taskColumn(task)]++;
-  }
-  const entries = [...groups.entries()].sort((a, b) =>
-    a[1].name.localeCompare(b[1].name, "pt-BR"),
-  );
-  const maximum = Math.max(
-    1,
-    ...entries.flatMap(([, group]) => Object.values(group.counts)),
-  );
-  return (
-    <section
-      className="task-card task-chart"
-      aria-label="Gráfico de tarefas por responsável"
-    >
-      <h2>Tarefas por responsável</h2>
-      <p>Quantidade por status, considerando os filtros selecionados.</p>
-      {!entries.length && <p>Nenhuma tarefa encontrada.</p>}
-      {entries.map(([key, group]) => (
-        <section
-          key={key}
-          className="task-chart-person"
-          aria-label={group.name}
-        >
-          <h3>
-            {group.name}{" "}
-            <small>
-              ·{" "}
-              {Object.values(group.counts).reduce(
-                (sum, count) => sum + count,
-                0,
-              )}{" "}
-              tarefas
-            </small>
-          </h3>
-          {(Object.entries(taskColumns) as [TaskColumn, string][]).map(
-            ([status, label]) => (
-              <div
-                key={status}
-                className="task-chart-row"
-                aria-label={`${label}: ${group.counts[status]}`}
-              >
-                <span>{label}</span>
-                <div className="task-chart-track" aria-hidden="true">
-                  <div
-                    className={`task-chart-bar task-chart-${status}`}
-                    style={{
-                      width: `${(group.counts[status] / maximum) * 100}%`,
-                    }}
-                  />
-                </div>
-                <strong>{group.counts[status]}</strong>
-              </div>
-            ),
-          )}
-        </section>
-      ))}
-    </section>
-  );
-}
 
 export default function TasksDashboard() {
   const params = useSearchParams(),
@@ -671,7 +620,7 @@ export default function TasksDashboard() {
     [responsible, setResponsible] = useState("all"),
     [originFilter, setOriginFilter] = useState("all"),
     [period, setPeriod] = useState("all"),
-    [sort, setSort] = useState("recent"),
+    [sort, setSort] = useState("status"),
     [view, setView] = useState("kanban"),
     [kanbanView, setKanbanView] = useState("responsible"),
     [tab, setTab] = useState("tasks"),
@@ -704,6 +653,9 @@ export default function TasksDashboard() {
         ?.focus({ preventScroll: true });
     }
   }, [creating]);
+  const [stageRole,setStageRole]=useState("");
+  const [stages,setStages]=useState<any[]>([]),[stagesLoading,setStagesLoading]=useState(false),[newStage,setNewStage]=useState<string|null>(null);
+  useEffect(()=>{if(kanbanView!=="stage"||tab!=="tasks")return;let alive=true;setStagesLoading(true);api('/api/task-stages').then(b=>{if(alive)setStages(b.stages);}).catch(e=>{if(alive)setError(e.message);}).finally(()=>{if(alive)setStagesLoading(false);});return()=>{alive=false;};},[kanbanView,tab]);
   const lastCardDrag = useRef(0);
   const [dragging, setDragging] = useState<string | null>(null);
   const optimisticTask = useRef<any>(null);
@@ -762,8 +714,16 @@ export default function TasksDashboard() {
         t.assigned_to.toLowerCase(),
         t.assignee_name || "Funcionário sem nome cadastrado",
       );
+  const stageRoles = new Map<string,string>();
+  for(const stage of stages)stageRoles.set(stage.job_title.trim().toLowerCase(),stage.job_title);
+  const activeStageRole=stageRoles.has(stageRole)?stageRole:"";
+  const chartTasks = (data?.tasks || []).filter((t: any) =>
+    (!mine || t.is_mine === true || (t.is_mine === undefined && t.assigned_to?.trim().toLowerCase() === data?.email?.trim().toLowerCase())) &&
+    (!params.get("equipment") || String(t.equipment_id) === params.get("equipment")),
+  );
   const rows = (data?.tasks || []).filter(
     (t: any) =>
+      (view!=="kanban" || kanbanView!=="stage" || !activeStageRole || !t.stage_id || stages.some(s=>s.id===t.stage_id&&s.job_title.trim().toLowerCase()===activeStageRole)) &&
       (!mine ||
         t.is_mine === true ||
         (t.is_mine === undefined &&
@@ -798,7 +758,7 @@ export default function TasksDashboard() {
           .toLocaleLowerCase("pt-BR")
           .includes(query.toLocaleLowerCase("pt-BR"))),
   );
-  // Stable sorting preserves the existing order within each status group.
+  // Completed tasks remain below open tasks in every ordering.
   const statusOrder = { overdue: 0, pending: 1, in_progress: 2, completed: 3 };
   rows.sort((a: any, b: any) => {
     const completed =
@@ -808,7 +768,9 @@ export default function TasksDashboard() {
       return (day(a.due_date) || "9999").localeCompare(
         day(b.due_date) || "9999",
       );
-    const statusDiff = statusOrder[taskColumn(a)] - statusOrder[taskColumn(b)];
+    const statusDiff = sort === "status"
+      ? statusOrder[taskColumn(a)] - statusOrder[taskColumn(b)]
+      : 0;
     return (
       statusDiff ||
       (sort === "oldest" ? 1 : -1) *
@@ -832,6 +794,7 @@ export default function TasksDashboard() {
     } as CSSProperties;
   }
   function boardColumn(t: any): string {
+    if(kanbanView === "stage")return t.stage_id || "no-stage";
     if (kanbanView === "responsible")
       return t.assigned_to?.toLowerCase() || "unassigned";
     if (t.status === "completed") return "completed";
@@ -845,7 +808,7 @@ export default function TasksDashboard() {
     }
     return t.status === "in_progress" ? "in_progress" : "pending";
   }
-  const boardColumns: [string, string][] =
+  let boardColumns: [string, string][] =
     kanbanView === "responsible"
       ? [
           ["unassigned", "Não atribuído"],
@@ -864,7 +827,18 @@ export default function TasksDashboard() {
             ["in_progress", "Em andamento"],
             ["completed", "Concluído"],
           ];
+  if(kanbanView === "stage"){
+    boardColumns=[["no-stage","Sem etapa"],...([...stages].filter(s=>!activeStageRole||s.job_title.trim().toLowerCase()===activeStageRole).sort((a,b)=>a.job_title.localeCompare(b.job_title,'pt-BR')||a.sort_order-b.sort_order).map(s=>[s.id,s.name] as [string,string]))];
+    for(const task of rows)if(task.stage_id&&!boardColumns.some(([key])=>key===task.stage_id))boardColumns.push([task.stage_id,stagesLoading?"Carregando etapa…":"Etapa indisponível"]);
+  }
   if (kanbanView === "responsible") {
+    if (mine) {
+      const currentUser = data?.email?.trim().toLowerCase();
+      const ownResponsibleKeys = new Set(rows.map((task: any) => boardColumn(task)));
+      boardColumns = boardColumns.filter(([key]) =>
+        key !== "unassigned" && (key === currentUser || ownResponsibleKeys.has(key)),
+      );
+    }
     const counts = new Map<string, number>();
     for (const task of rows) {
       const key = boardColumn(task);
@@ -888,6 +862,16 @@ export default function TasksDashboard() {
       boardColumn(task) === column
     )
       return;
+    if(kanbanView === "stage"){
+      if(stagesLoading || (column!=="no-stage"&&!stages.some(s=>s.id===column)))return;
+      const preview={...task,stage_id:column==="no-stage"?null:column,status:task.status==="not_started"?"in_progress":task.status,kanban_column:task.status==="not_started"?"in_progress":task.kanban_column};
+      optimisticTask.current=preview;snapshotRevision.current++;setBusy(true);setError('');
+      setData((d:any)=>({...d,tasks:d.tasks.map((t:any)=>String(t.id)===id?preview:t)}));
+      try{const result=await api('/api/tasks',{action:'stage',id,version:task.version,stageId:preview.stage_id});optimisticTask.current=null;snapshotRevision.current++;setData((d:any)=>({...d,tasks:d.tasks.map((t:any)=>String(t.id)===id?{...t,...result.task}:t)}));}
+      catch(e){optimisticTask.current=null;snapshotRevision.current++;setData((d:any)=>({...d,tasks:d.tasks.map((t:any)=>String(t.id)===id?task:t)}));setError((e as Error).message);}
+      finally{setBusy(false);setDragging(null);}
+      return;
+    }
     if (kanbanView !== "responsible") {
       if (kanbanView === "deadline" && column !== "completed") {
         setError(
@@ -1147,6 +1131,7 @@ export default function TasksDashboard() {
               disabled={busy}
               onClick={() => {
                 setTab("tasks");
+                setNewStage(null);
                 setCreating(true);
               }}
             >
@@ -1176,6 +1161,7 @@ export default function TasksDashboard() {
                     const result = await api("/api/tasks", {
                       action: "create",
                       ...Object.fromEntries(fields),
+                      stageId:newStage,
                     });
                     setCreating(false);
                     await load();
@@ -1188,6 +1174,7 @@ export default function TasksDashboard() {
                 }}
               >
                 <h2>Nova tarefa manual</h2>
+                {newStage&&<p>Etapa inicial: {stages.find(s=>s.id===newStage)?.name}</p>}
                 <div className="task-toolbar">
                   <label>
                     Título
@@ -1266,7 +1253,7 @@ export default function TasksDashboard() {
                 ))}
               </div>
             </nav>
-            <details className="filter-panel task-search-panel">
+            <details hidden={view === "chart"} className="filter-panel task-search-panel">
               <summary className="filter-toggle">
                 <span><SlidersHorizontal size={17} aria-hidden="true" />Filtros de pesquisa</span>
                 <ChevronDown size={17} aria-hidden="true" />
@@ -1373,7 +1360,7 @@ export default function TasksDashboard() {
             </details>
             <div className="task-results-toolbar">
               <div className="task-scope-controls">
-                <strong>{rows.length} tarefas</strong>
+                <strong>{view === "chart" ? chartTasks.length : rows.length} tarefas</strong>
                 <button
                   type="button"
                   className="task-mine-toggle"
@@ -1389,9 +1376,9 @@ export default function TasksDashboard() {
                   <span>Minhas tarefas</span>
                 </button>
               </div>
-              <div className="task-display-controls">
+              <div className="task-display-controls" hidden={view === "chart"}>
                 {view === "kanban" && (
-                  <label className="task-compact-select" title={`Agrupar por: ${{progress: "Andamento", deadline: "Prazo", responsible: "Responsável"}[kanbanView]}`}>
+                  <label className="task-compact-select" title={`Agrupar por: ${{progress: "Andamento", deadline: "Prazo", responsible: "Responsável", stage: "Etapa"}[kanbanView]}`}>
                     <Columns3 size={16} aria-hidden="true" />
                     <span>Agrupar por</span>
                     <ChevronDown size={14} aria-hidden="true" />
@@ -1403,16 +1390,22 @@ export default function TasksDashboard() {
                       <option value="progress">Andamento</option>
                       <option value="deadline">Prazo</option>
                       <option value="responsible">Responsável</option>
+                      <option value="stage">Etapa</option>
                     </select>
                   </label>
                 )}
-                <label className="task-compact-select" title={`Ordenar por: ${{recent: "Status e criação (mais recente)", oldest: "Status e criação (mais antiga)", due: "Vencimento"}[sort]}`}>
+                {view === "kanban" && kanbanView === "stage" && <label className="task-compact-select" title={`Cargo da etapa: ${stageRoles.get(activeStageRole)||"Todos"}`}>
+                  <UserRound size={16} aria-hidden="true"/><span>Cargo da etapa</span><ChevronDown size={14} aria-hidden="true"/>
+                  <select aria-label="Cargo da etapa" value={activeStageRole} disabled={stagesLoading} onChange={e=>setStageRole(e.target.value)}><option value="">Todos os cargos</option>{[...stageRoles.entries()].sort((a,b)=>a[1].localeCompare(b[1],'pt-BR')).map(([key,name])=><option key={key} value={key}>{name}</option>)}</select>
+                </label>}
+                <label className="task-compact-select" title={`Ordenar por: ${{status: "Status", recent: "Criação (mais recente)", oldest: "Criação (mais antiga)", due: "Vencimento"}[sort]}`}>
                   <ListFilter size={16} aria-hidden="true" />
                   <span>Ordenar por</span>
                   <ChevronDown size={14} aria-hidden="true" />
                   <select aria-label="Ordenar por" value={sort} onChange={(e) => setSort(e.target.value)}>
-                    <option value="recent">Status e criação (mais recente)</option>
-                    <option value="oldest">Status e criação (mais antiga)</option>
+                    <option value="status">Status</option>
+                    <option value="recent">Criação (mais recente)</option>
+                    <option value="oldest">Criação (mais antiga)</option>
                     <option value="due">Vencimento</option>
                   </select>
                 </label>
@@ -1429,12 +1422,12 @@ export default function TasksDashboard() {
               </p>
             )}
             {view === "chart" ? (
-              <TaskChart tasks={rows} />
+              <TaskCharts tasks={chartTasks} users={data?.users || []} />
             ) : view === "kanban" ? (
               <>
                 <div className="task-kanban-controls">
                   <small>
-                    {kanbanView === "deadline"
+                    {kanbanView === "stage" ? "Arraste para alterar a etapa. As colunas seguem a ordem configurada por cargo; tarefas concluídas não podem ser movimentadas." : kanbanView === "deadline"
                       ? "Prazo calculado pelo vencimento. Somente tarefas manuais podem ser arrastadas para Concluído."
                       : kanbanView === "responsible"
                         ? "Arraste para alterar o responsável. Tarefas concluídas permanecem no histórico."
@@ -1673,6 +1666,7 @@ export default function TasksDashboard() {
                                 ? key
                                 : "",
                             );
+                            setNewStage(kanbanView === "stage" && key!=="no-stage" ? key : null);
                             setCreating(true);
                             createForm.current?.scrollIntoView({
                               behavior: "smooth",
