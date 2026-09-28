@@ -640,3 +640,10 @@
    -webkit-overflow-scrolling: touch;
  }
 }
+.reminder-recurrence { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+.reminder-recurrence > fieldset, .reminder-recurrence > small, .reminder-preview, .reminder-recurrence > p { grid-column: 1 / -1; }
+.reminder-weekdays { display:flex; flex-wrap:wrap; gap:12px; }
+.task-drawer .reminder-weekdays label { display:flex; flex-direction:row; align-items:center; gap:5px; }
+.task-drawer .reminder-weekdays input { width:16px; height:16px; }
+.reminder-preview { padding:12px; border:1px solid #dbe5f0; border-radius:8px; }
+@media(max-width:500px) { .reminder-recurrence { grid-template-columns: minmax(0,1fr); } }

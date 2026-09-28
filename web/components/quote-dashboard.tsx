@@ -5,7 +5,7 @@ import { groupedProducts } from "@/lib/manufacturer/products";
 import VersionPicker from "./version-picker";
 import { matchesInterval } from "../lib/manufacturer/intervals";
 import { useEffect, useId, useRef, useState } from "react";
-import { ClipboardList, Plus, Save, Trash2 } from "lucide-react";
+import { ClipboardList, Plus, Save, Trash2, FileDown } from "lucide-react";
 import SiteHeader from "./site-header";
 import { compareQuoteItems } from "@/lib/quotes/presentation";
 import QuoteItemRow from "./quote-item-row";
@@ -468,11 +468,29 @@ export default function QuoteDashboard() {
       setDirty(false);
       setMessage("Rascunho salvo.");
       await refreshList();
+      return saved;
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setSaving(false);
     }
+  }
+  async function generatePdf() {
+    const tab = window.open("about:blank", "_blank");
+    if (tab) { tab.opener = null; tab.document.title = "Gerando orçamento…"; tab.document.body.textContent = "Gerando PDF do orçamento…"; }
+    setError("");
+    try {
+      const current = dirty ? await save() : quote;
+      if (!current?.id) { tab?.close(); return; }
+      setSaving(true);
+      const response = await apiFetch("/api/quotes/pdf?id=" + encodeURIComponent(current.id));
+      if (!response.ok) { const result = await response.json(); throw Error(result.error || "Falha ao gerar PDF."); }
+      const url = URL.createObjectURL(await response.blob());
+      if (tab) tab.location.href = url;
+      else { const link = document.createElement("a"); link.href=url; link.download=`orcamento-${current.number}.pdf`; link.click(); }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) { tab?.close(); setError((e as Error).message); }
+    finally { setSaving(false); }
   }
   async function removeDraft() {
     if (
@@ -718,6 +736,7 @@ export default function QuoteDashboard() {
                       <Trash2 size={15} /> Excluir rascunho
                     </button>
                   )}
+                  {quote.id && <button type="button" className="secondary-button" disabled={saving} onClick={generatePdf}><FileDown size={15} /> Gerar PDF</button>}
                   <small>
                     {dirty
                       ? "Alterações não salvas"

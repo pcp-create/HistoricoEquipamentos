@@ -26,7 +26,7 @@ export async function getQuote(id: string) {
     return null;
   const r = (
     await database().query(
-      "SELECT id,number::text,version,document,updated_at,updated_by FROM web_quotes WHERE id=$1 AND document->>'deletedAt' IS NULL",
+      "SELECT id,number::text,version,document,created_at,updated_at,updated_by FROM web_quotes WHERE id=$1 AND document->>'deletedAt' IS NULL",
       [id],
     )
   ).rows[0];
@@ -36,6 +36,7 @@ export async function getQuote(id: string) {
         id: r.id,
         version: r.version,
         number: r.number,
+        created_at: r.created_at,
         updated_at: r.updated_at,
         updated_by: r.updated_by,
       }

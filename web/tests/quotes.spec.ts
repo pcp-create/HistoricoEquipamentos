@@ -19,6 +19,7 @@ test("quotation routes require login and reject cross-origin writes", async ({
   page,
   request,
 }) => {
+  expect((await request.get("/api/quotes/pdf?id=missing")).status()).toBe(401);
   await page.goto("/orcamentos");
   await expect(page).toHaveURL(/login/);
   for (const query of [
@@ -926,7 +927,17 @@ test("saved draft can be deleted after confirmation without deleting on cancel",
       },
     });
   });
+  let pdfRequests = 0;
+  await page.route("**/api/quotes/pdf?*", route => {
+    pdfRequests++;
+    return route.fulfill({contentType:"application/pdf",body:"%PDF-1.7\n%%EOF"});
+  });
   await page.goto(`/orcamentos?id=${saved.id}`);
+  const popupPromise = page.waitForEvent("popup");
+  await page.getByRole("button", {name:"Gerar PDF", exact:true}).click();
+  const popup = await popupPromise;
+  await expect.poll(()=>pdfRequests).toBe(1);
+  await popup.close();
   const button = page.getByRole("button", {
     name: "Excluir rascunho",
     exact: true,

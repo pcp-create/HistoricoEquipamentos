@@ -1,4 +1,5 @@
 import "server-only";
+import { parseRecurrence, nextOccurrence, recurrenceLabel } from "./recurrence";
 import { randomUUID } from "node:crypto";
 import { database } from "../db";
 import { TaskInputError, TaskConflict } from "./store";
@@ -25,7 +26,7 @@ export async function listReminders(task: unknown) {
   if (!validId(task)) throw new TaskInputError("Tarefa inválida.");
   return (
     await database().query(
-      `SELECT r.id::text,r.scheduled_at,r.state,r.sent_at,u.display_name recipient_name FROM web_task_reminders r LEFT JOIN web_user_access u ON u.email=r.recipient WHERE r.task_id=$1 ORDER BY r.scheduled_at DESC`,
+      `SELECT r.id::text,r.scheduled_at,r.state,r.sent_at,r.series_id,r.occurrence_index,s.rule,s.active series_active,u.display_name recipient_name FROM web_task_reminders r LEFT JOIN web_task_reminder_series s ON s.id=r.series_id LEFT JOIN web_user_access u ON u.email=r.recipient WHERE r.task_id=$1 ORDER BY r.scheduled_at DESC`,
       [task],
     )
   ).rows;
@@ -34,6 +35,12 @@ export async function saveReminder(b: any, actor: string) {
   if (!validId(b?.taskId) || !["create", "cancel"].includes(b.action))
     throw new TaskInputError("Alerta inválido.");
   const when = b.action === "create" ? reminderInstant(b.when) : null;
+  let rule;
+  try {
+    rule = b.action === "create" ? parseRecurrence(b.recurrence, b.when) : null;
+  } catch (e) {
+    throw new TaskInputError((e as Error).message);
+  }
   const c = await database().connect();
   try {
     await c.query("BEGIN READ WRITE");
@@ -57,24 +64,48 @@ export async function saveReminder(b: any, actor: string) {
         throw new TaskInputError(
           "Atribua a tarefa a um funcionário ativo com WhatsApp cadastrado.",
         );
+      const series = rule ? randomUUID() : null;
+      if (series)
+        await c.query(
+          "INSERT INTO web_task_reminder_series(id,task_id,anchor_local,rule) VALUES($1,$2,$3,$4)",
+          [series, b.taskId, b.when, JSON.stringify(rule)],
+        );
       const result = await c.query(
-        `INSERT INTO web_task_reminders(task_id,scheduled_at,recipient,created_by) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING id`,
-        [b.taskId, when, t.assigned_to, actor],
+        `INSERT INTO web_task_reminders(task_id,scheduled_at,recipient,created_by,series_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING id`,
+        [b.taskId, when, t.assigned_to, actor, series],
       );
       if (!result.rows.length)
         throw new TaskInputError(
           "Já existe um alerta para este horário e responsável.",
         );
-      description = `Alerta agendado para ${new Date(when!).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} (Brasília). Destinatário: ${u.display_name || "Funcionário"}.`;
+      description = `Alerta agendado para ${new Date(when!).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} (Brasília). Destinatário: ${u.display_name || "Funcionário"}. ${recurrenceLabel(rule)}.`;
     } else {
       if (!validId(b.id)) throw new TaskInputError("Alerta inválido.");
+      const current = (
+        await c.query(
+          "SELECT series_id FROM web_task_reminders WHERE id=$1 AND task_id=$2",
+          [b.id, b.taskId],
+        )
+      ).rows[0];
+      if (current?.series_id)
+        await c.query(
+          "SELECT id FROM web_task_reminder_series WHERE id=$1 FOR UPDATE",
+          [current.series_id],
+        );
       const result = await c.query(
         `UPDATE web_task_reminders SET state='cancelled' WHERE id=$1 AND task_id=$2 AND state='pending' AND (leased_until IS NULL OR leased_until<now()) RETURNING id`,
         [b.id, b.taskId],
       );
       if (!result.rows.length)
         throw new TaskConflict("Alerta já enviado, cancelado ou em envio.");
-      description = "Alerta agendado cancelado.";
+      if (current?.series_id)
+        await c.query(
+          "UPDATE web_task_reminder_series SET active=false WHERE id=$1",
+          [current.series_id],
+        );
+      description = current?.series_id
+        ? "Recorrência cancelada. Nenhum próximo alerta desta série será enviado."
+        : "Alerta agendado cancelado.";
     }
     await c.query(
       `INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,$2,$3,false,$4,coalesce((SELECT display_name FROM web_user_access WHERE email=$4),'Usuário'))`,
@@ -103,7 +134,7 @@ export async function claimReminders(origin: string) {
     await c.query("BEGIN READ WRITE");
     const rows = (
       await c.query(
-        `SELECT r.*,t.title,t.origin,t.status,u.enabled,u.phone FROM web_task_reminders r JOIN web_tasks t ON t.id=r.task_id LEFT JOIN web_user_access u ON u.email=r.recipient WHERE r.state='pending' AND r.scheduled_at<=now() AND (r.leased_until IS NULL OR r.leased_until<now()) ORDER BY r.scheduled_at LIMIT 20 FOR UPDATE OF r SKIP LOCKED`,
+        `SELECT r.*,t.title,t.origin,t.status,u.enabled,u.phone FROM web_task_reminders r JOIN web_tasks t ON t.id=r.task_id LEFT JOIN web_user_access u ON u.email=r.recipient LEFT JOIN web_task_reminder_series s ON s.id=r.series_id WHERE (r.series_id IS NULL OR s.active) AND r.state='pending' AND r.scheduled_at<=now() AND (r.leased_until IS NULL OR r.leased_until<now()) ORDER BY r.scheduled_at LIMIT 20 FOR UPDATE OF r SKIP LOCKED`,
       )
     ).rows;
     const result = [];
@@ -147,15 +178,83 @@ export async function acknowledgeReminder(id: string, token: unknown) {
     !/^[0-9a-f-]{36}$/i.test(token)
   )
     throw new TaskInputError("Confirmação inválida.");
-  const c=await database().connect();
+  const c = await database().connect();
   try {
-  await c.query("BEGIN READ WRITE");
-  const r = await c.query(
-    "UPDATE web_task_reminders SET state='sent',sent_at=coalesce(sent_at,now()) WHERE id=$1 AND lease_token=$2 AND state IN('pending','sent') RETURNING id",
-    [id, token],
-  );
-  if (!r.rows.length)
-    throw new TaskConflict("Entrega reclamada por outra execução.");
-  await c.query("COMMIT");
-  }catch(e){await c.query("ROLLBACK");throw e;}finally{c.release();}
+    await c.query("BEGIN READ WRITE");
+    const existing = (
+      await c.query("SELECT series_id FROM web_task_reminders WHERE id=$1", [
+        id,
+      ])
+    ).rows[0];
+    const series = existing?.series_id
+      ? (
+          await c.query(
+            "SELECT * FROM web_task_reminder_series WHERE id=$1 FOR UPDATE",
+            [existing.series_id],
+          )
+        ).rows[0]
+      : null;
+    const reminder = (
+      await c.query("SELECT * FROM web_task_reminders WHERE id=$1 FOR UPDATE", [
+        id,
+      ])
+    ).rows[0];
+    if (
+      !reminder ||
+      reminder.lease_token !== token ||
+      !["pending", "sent"].includes(reminder.state)
+    )
+      throw new TaskConflict("Entrega reclamada por outra execução.");
+    if (reminder.state === "pending") {
+      await c.query(
+        "UPDATE web_task_reminders SET state='sent',sent_at=now() WHERE id=$1",
+        [id],
+      );
+      const task = (
+        await c.query("SELECT status FROM web_tasks WHERE id=$1", [
+          reminder.task_id,
+        ])
+      ).rows[0];
+      if (series?.active && task?.status !== "completed") {
+        let index = reminder.occurrence_index,
+          inserted = false;
+        for (let attempt = 0; attempt < 1000; attempt++) {
+          const next = nextOccurrence(
+            series.anchor_local,
+            series.rule,
+            index,
+            Date.now(),
+          );
+          if (!next) break;
+          index = next.index;
+          const r = await c.query(
+            `INSERT INTO web_task_reminders(task_id,scheduled_at,recipient,created_by,series_id,occurrence_index) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id`,
+            [
+              reminder.task_id,
+              next.when,
+              reminder.recipient,
+              reminder.created_by,
+              series.id,
+              index,
+            ],
+          );
+          if (r.rows.length) {
+            inserted = true;
+            break;
+          }
+        }
+        if (!inserted)
+          await c.query(
+            "UPDATE web_task_reminder_series SET active=false WHERE id=$1",
+            [series.id],
+          );
+      }
+    }
+    await c.query("COMMIT");
+  } catch (e) {
+    await c.query("ROLLBACK");
+    throw e;
+  } finally {
+    c.release();
+  }
 }
