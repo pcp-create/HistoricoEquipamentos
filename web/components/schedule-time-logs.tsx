@@ -12,6 +12,7 @@ export default function ScheduleTimeLogs({
   data,
   technician = false,
   onChanged,
+  onRefresh,
 }: any) {
   const [editing, setEditing] = useState<any>(null);
   const [now, setNow] = useState(Date.now());
@@ -35,10 +36,13 @@ export default function ScheduleTimeLogs({
   ];
   return (
     <section className="schedule-time-logs" aria-label="Apontamentos da OS">
-      {technician && data.timeAdjustmentsAvailable !== false && (
-        <button onClick={() => setEditing({})}>
-          Incluir apontamento manual
-        </button>
+      {technician && (
+        <div className="time-log-toolbar">
+          {data.timeAdjustmentsAvailable !== false && (
+            <button onClick={() => setEditing({})}>Incluir apontamento manual</button>
+          )}
+          {onRefresh && <button onClick={onRefresh}>Atualizar</button>}
+        </div>
       )}
       {editing && (
         <TimeAdjustmentForm
@@ -93,11 +97,9 @@ export default function ScheduleTimeLogs({
                     <th>Pessoa / tipo</th>
                     <th>Início</th>
                     <th>Fim</th>
-                    <th>Atividade</th>
-                    <th>Paradas</th>
-                    <th>Deslocamento</th>
+                    <th>Tempo</th>
                     <th>Total</th>
-                    <th>Localização original</th>
+                    {!technician && <th>Localização original</th>}
                     <th>Ações</th>
                   </tr>
                 </thead>
@@ -165,13 +167,7 @@ function LogRows({ row: r, technician, onEdit, pending, canAdjust }: any) {
               ? date(r.finished_at)
               : "Em andamento"}
         </td>
-        <td data-label="Atividade">
-          {r.kind === "work" ? elapsedTime(r.active) : "—"}
-        </td>
-        <td data-label="Paradas">{elapsedTime(r.pause)}</td>
-        <td data-label="Deslocamento">
-          {r.kind === "travel" ? elapsedTime(r.active) : "—"}
-        </td>
+        <td data-label="Tempo">{elapsedTime(r.active)}</td>
         <td data-label="Total">
           <strong>{elapsedTime(r.total)}</strong>
           {r.adjusted && (
@@ -180,7 +176,7 @@ function LogRows({ row: r, technician, onEdit, pending, canAdjust }: any) {
             </small>
           )}
         </td>
-        <td data-label="Localização original">
+        {!technician && <td data-label="Localização original">
           <Coordinates label="Início" value={r.startLocation} />
           <Coordinates label="Fim" value={r.endLocation} />
           {r.originalPauses?.length > 0 && (
@@ -201,7 +197,7 @@ function LogRows({ row: r, technician, onEdit, pending, canAdjust }: any) {
               value={r.correction.requestLocation}
             />
           )}
-        </td>
+        </td>}
         <td data-label="Ações">
           {canAdjust && r.state === "finished" && (
             <button disabled={pending} onClick={onEdit}>
@@ -222,16 +218,14 @@ function LogRows({ row: r, technician, onEdit, pending, canAdjust }: any) {
           </td>
           <td data-label="Início">{date(p.start)}</td>
           <td data-label="Fim">{p.end ? date(p.end) : "Em pausa"}</td>
-          <td>—</td>
-          <td data-label="Paradas">{elapsedTime(p.seconds)}</td>
-          <td>—</td>
+          <td data-label="Tempo">{elapsedTime(p.seconds)}</td>
           <td>
             <small>Incluída no total acima</small>
           </td>
-          <td data-label="Localização original">
+          {!technician && <td data-label="Localização original">
             <Coordinates label="Início" value={p.startLocation} />
             <Coordinates label="Fim" value={p.endLocation} />
-          </td>
+          </td>}
           <td />
         </tr>
       ))}

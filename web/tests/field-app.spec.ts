@@ -111,10 +111,12 @@ test('report fills the phone viewport, keeps drafts when returning and saves all
  const template={id:'ccp',name:'Corretiva Compressor Parafuso',prefix:'CCP',items:[],stages:[{id:'stage',name:'01. Inspeções',groups:[{id:'group',name:'Condições do equipamento',fields:[{id:'status',label:'Avaliar todos os componentes do compressor',type:'flag',required:true,options:['OK','NOK','NA'],comment:true},{id:'date',label:'Data da leitura',type:'date'},{id:'note',label:'Relatório técnico',type:'textarea'}]}]}]};
  const row={id:'op1',schedule_id:1,number:14849,position:1,description:'Inspeção do compressor',date:'2026-09-29',time:'08:00',status:'executing',customer:'Cliente de teste'};
  const operation:any={...row,version:1,document:{responsible:'tech',support:[],checklistId:'ccp',checklistRun:{template,stages:{stage:{status:'released',answers:{}}}}}};
- const detail={operation,checked:true,infoRead:true,email:'tech',settings:{document:{checklists:[template],vehicles:[]}},detail:{order:{equipamento:'1795 - COMPRESSOR DE PARAFUSO - TPE 25 - SÉRIE 55533'},equipment_links:[]},materials:{items:[],complete:true},history:[]};
+ const detail:any={operation,checked:true,infoRead:true,email:'tech',settings:{document:{checklists:[template],vehicles:[]}},detail:{order:{equipamento:'1795 - COMPRESSOR DE PARAFUSO - TPE 25 - SÉRIE 55533'},equipment_links:[]},materials:{items:[],complete:true},history:[]};
  let saved:any;
  await page.route('**/api/activity',r=>r.fulfill({json:{admin:true}}));
- await page.route('**/api/field*',async r=>{if(r.request().method()==='POST'){saved=r.request().postDataJSON();for(const stage of saved.stages||[])operation.document.checklistRun.stages[stage.stageId]={...stage,status:'released'};operation.version++;await r.fulfill({json:{saved:true}});}else await r.fulfill({json:r.request().url().includes('?')?detail:{email:'tech',displayName:'Técnico',rows:[row],active:null}});});
+ await page.route('**/api/field*',async r=>{if(r.request().method()==='POST'){saved=r.request().postDataJSON();for(const stage of saved.stages||[])operation.document.checklistRun.stages[stage.stageId]={...stage,status:'released'};if(saved.action==='report_send_partial')operation.document.checklistRun.partialSubmission={at:new Date().toISOString(),name:'Técnico',by:'tech'};
+if(saved.action==='report_send'){detail.reportSubmission={at:new Date().toISOString(),name:'Técnico',by:'tech'};operation.document.checklistRun.submission=detail.reportSubmission;for(const stage of Object.values(operation.document.checklistRun.stages) as any[])stage.status='submitted';}
+operation.version++;await r.fulfill({json:{saved:true}});}else await r.fulfill({json:r.request().url().includes('?')?detail:{email:'tech',displayName:'Técnico',rows:[row],active:null}});});
  await page.goto('/tecnico');await page.getByRole('button',{name:'Programação'}).click();await page.getByText('OS 14849',{exact:true}).click();await page.getByRole('button',{name:/Operação 1/}).click();await page.getByRole('button',{name:'Relatório',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Relatório · OS 14849 · Operação 1'});
  await expect(dialog).toBeVisible();expect(await dialog.boundingBox()).toEqual({x:0,y:0,width:390,height:844});
@@ -127,6 +129,15 @@ test('report fills the phone viewport, keeps drafts when returning and saves all
  await dialog.getByRole('button',{name:'Voltar',exact:true}).click();await expect(dialog).toBeHidden();
  await page.getByRole('button',{name:'Relatório',exact:true}).click();await expect(dialog.getByLabel('Relatório técnico',{exact:true})).toHaveValue('Texto ainda não salvo');
  await dialog.getByRole('button',{name:'Salvar Relatório',exact:true}).click();await expect(dialog.getByText('Registro salvo.',{exact:true})).toBeVisible();expect(saved.action).toBe('report_save');expect(saved.stages[0].answers.note).toBe('Texto ainda não salvo');
+ await dialog.getByRole('button',{name:'Enviar parcial',exact:true}).click();
+ await expect(dialog.getByText(/Você pode continuar editando/)).toBeVisible();
+ await expect(dialog.getByLabel('Relatório técnico',{exact:true})).toBeEnabled();
+ await dialog.getByLabel('Relatório técnico',{exact:true}).fill('Alteração após envio parcial');
+ await dialog.getByRole('button',{name:'Enviar completo',exact:true}).click();
+ await expect(dialog.getByText(/Relatório enviado completo em/)).toBeVisible();
+ expect(saved.stages[0].answers.note).toBe('Alteração após envio parcial');
+ await expect(dialog.getByRole('button',{name:'Salvar Relatório',exact:true})).toHaveCount(0);
+ await expect(dialog.getByLabel('Relatório técnico',{exact:true})).toBeDisabled();
  await page.setViewportSize({width:320,height:740});expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
  await page.keyboard.press('Escape');await expect(dialog).toBeHidden();
 });

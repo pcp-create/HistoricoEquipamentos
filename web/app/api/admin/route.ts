@@ -1,4 +1,4 @@
-import { createEmployeeLogin } from "@/lib/employee-login";
+import { createEmployeeLogin, resetEmployeePassword } from "@/lib/employee-login";
 import { NextResponse } from "next/server";
 import { requireAdmin, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import { adminOverview, setAccess, AdminInputError } from "@/lib/admin-store";
@@ -45,6 +45,7 @@ export async function POST(req: Request) {
       return json({ error: "Dados inválidos." }, 400);
     }
     if (body.action === "create-login") await createEmployeeLogin(body, user);
+    else if (body.action === "reset-password") await resetEmployeePassword(body, user);
     else await setAccess(body, user);
     return json({ saved: true });
   } catch (e) {

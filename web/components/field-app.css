@@ -456,3 +456,9 @@ dialog.field-report-screen {
   font-size: 15px;
   font-variant-numeric: tabular-nums;
 }
+
+.field-report-actions { flex-wrap:wrap; }
+@media(max-width:480px) {
+ .field-report-footer .field-report-actions > button { flex-basis:calc(50% - 8px); }
+ .field-report-footer .field-report-actions > button:first-child { flex-basis:100%; }
+}

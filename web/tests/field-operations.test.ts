@@ -153,7 +153,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     await db.exec("INSERT INTO web_order_links(company_id,order_id,linked_company_id,linked_order_id,updated_by) VALUES(1,100,NULL,NULL,'test')");
     assert.equal((await fieldData("tech", id)).materials?.complete, true);
     await act("materials", parts(1, null));
-    const run={template:{id:'test',name:'Teste',stages:[{id:'s1',name:'Primeira',fields:[{id:'f1',label:'Texto',type:'text'}]},{id:'s2',name:'Segunda',fields:[{id:'f2',label:'Texto',type:'text'}]}]},stages:{s1:{status:'released',answers:{}},s2:{status:'released',answers:{}}}};
+    const run={template:{id:'test',name:'Teste',stages:[{id:'s1',name:'Primeira',fields:[{id:'f1',label:'Texto',type:'text'}]},{id:'s2',name:'Segunda',fields:[{id:'f2',label:'Texto',type:'text',required:true}]}]},stages:{s1:{status:'released',answers:{}},s2:{status:'released',answers:{}}}};
     await db.query("UPDATE web_service_operations SET document=document||$2::jsonb WHERE id=$1",[id,JSON.stringify({checklistId:'test',checklistRun:run})]);
     const beforeSave:any=await fieldData('tech',id);
     await act('report_save',{version:beforeSave.operation.version,stages:[{stageId:'s1',answers:{f1:'Um'}},{stageId:'s2',answers:{f2:'Dois'}}]});
@@ -162,7 +162,14 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     assert.equal(afterSave.operation.document.checklistRun.stages.s2.answers.f2,'Dois');
     await assert.rejects(act('report_save',{version:afterSave.operation.version,stages:[{stageId:'s1',answers:{f1:'Não persistir'}},{stageId:'inexistente',answers:{}}]}));
     assert.equal((await fieldData('tech',id) as any).operation.document.checklistRun.stages.s1.answers.f1,'Um');
-    await act('report_send',{version:afterSave.operation.version});
+    await act('report_send_partial',{version:afterSave.operation.version,stages:[{stageId:'s2',answers:{f2:''}}]});
+    const partial:any=await fieldData('tech',id);
+    assert.equal(partial.reportSubmission,null);
+    assert.ok(partial.operation.document.checklistRun.partialSubmission.at);
+    assert.equal(partial.operation.document.checklistRun.stages.s2.status,'released');
+    await assert.rejects(act('report_send',{version:partial.operation.version}),/Texto/);
+    await act('report_send',{version:partial.operation.version,stages:[{stageId:'s2',answers:{f2:'Dois'}}]});
+
     const sent:any=await fieldData('tech',id);
     assert.equal(sent.reportSubmission.by,'tech');
     assert.ok(sent.reportSubmission.at);
@@ -180,6 +187,21 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     const corrected:any=await fieldData('tech',id);
     await act('report_send',{version:corrected.operation.version});
     assert.equal((await fieldData('tech',id) as any).operation.document.checklistRun.stages.s1.answers.f1,'Corrigido');
+    const {reopenReport}=await import('../lib/service-scheduling/checklist-store');
+    const latest:any=await fieldData('tech',id);
+    await assert.rejects(reopenReport(db,latest.operation,'tech',false),/planejador/);
+    await db.query("UPDATE web_service_operations SET status='awaiting_review' WHERE id=$1",[id]);
+    const toReturn:any=await fieldData('tech',id);
+    await db.query("INSERT INTO web_user_access(email,display_name,role,updated_by) VALUES('planner','Planejador','admin','test')");
+    const {mutateSchedule}=await import('../lib/service-scheduling/store');
+    await assert.rejects(mutateSchedule({action:'report_reopen',scheduleId:String(schedule.id),operationId:id,version:toReturn.operation.version-1},'planner'),/outro usuário/);
+    await mutateSchedule({action:'report_reopen',scheduleId:String(schedule.id),operationId:id,version:toReturn.operation.version},'planner');
+    const returned:any=await fieldData('tech',id);
+    assert.equal(returned.operation.status,'executing');
+    assert.equal(returned.reportSubmission,null);
+    assert.ok(Object.values(returned.operation.document.checklistRun.stages).every((stage:any)=>stage.status==='released'));
+    assert.equal(returned.operation.document.checklistRun.submissionHistory.length,1);
+    await assert.rejects(reopenReport(db,{...latest.operation,status:'reviewed'},'planner',true),/revisados/);
     let detail: any = await fieldData("helper", id);
     assert.equal(detail.checked, false);
     assert.equal(detail.materials.items[0].usage.position, 1);

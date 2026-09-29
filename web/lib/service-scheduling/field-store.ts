@@ -399,15 +399,24 @@ export async function fieldAction(b: any, email: string) {
       }
       operationUpdated=true;
       details={stages:b.stages.map((s:any)=>s.stageId)};
-    } else if (b.action === "report_send") {
+    } else if (b.action === "report_send" || b.action === "report_send_partial") {
       if(reportSubmission(p.document.checklistRun))throw new FieldError("Relatório enviado. O planejador precisa reabrir a edição.");
       if(p.document.responsible!==email)throw new FieldError('Somente o responsável pode enviar o relatório.');
       if(p.version!==b.version)throw new FieldError('O checklist foi atualizado. Reabra para carregar a versão atual.');
       if(!p.document.checklistId)throw new FieldError('Esta operação não possui checklist.');
-      const checklistRun=prepareChecklistSubmission(p.document.checklistRun,email);
-      checklistRun.submission={at:new Date().toISOString(),by:email,name:(await user(c,email)).display_name||email};
+      let current=p;
+      if(b.stages!==undefined){
+        if(!Array.isArray(b.stages)||b.stages.length>100||new Set(b.stages.map((s:any)=>s.stageId)).size!==b.stages.length)throw new FieldError('Etapas inválidas.');
+        for(const stage of b.stages)current=await updateChecklist(c,{...stage,action:'checklist_save'},current,s,settings,email,false);
+      }
+      const partial=b.action==='report_send_partial';
+      if(!current.document.checklistRun)throw new FieldError('Preencha e salve o relatório antes do envio.');
+      const checklistRun=partial?structuredClone(current.document.checklistRun):prepareChecklistSubmission(current.document.checklistRun,email);
+      const receipt={at:new Date().toISOString(),by:email,name:(await user(c,email)).display_name||email};
+      if(partial)checklistRun.partialSubmission=receipt;
+      else checklistRun.submission=receipt;
       await c.query("UPDATE web_service_operations SET document=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1",[p.id,JSON.stringify({...p.document,checklistRun}),email]);
-      await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[p.id,b.action,email,'Relatório enviado pelo técnico']);
+      await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[p.id,b.action,email,partial?'Relatório enviado parcialmente; edição permanece liberada':'Relatório enviado completo pelo técnico']);
       operationUpdated=true;
     } else if (b.action === "finish_partial" || b.action === "finish_full") {
       if (p.document.responsible !== email)

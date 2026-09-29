@@ -64,3 +64,18 @@ Migração aplicada no banco compartilhado em 29/09/2026, com autorização do u
   a configuração de gestores não concede acesso administrativo.
 - Não há envio ao GitHub, publicação ou migração de produção sem autorização
   explícita do usuário.
+
+### Envio e devolução do relatório
+
+Na linha da operação, o planejamento vê o status do relatório: Salvo, Enviado
+parcial, Enviado completo ou Devolvido para edição. O técnico pode salvar e
+continuar editando após envio parcial; somente o envio completo submete todas
+as etapas e bloqueia a edição. Ambos os envios salvam os campos atuais na mesma
+transação, sem perder o rascunho da tela.
+
+O botão **Devolver relatório ao técnico** aparece diretamente nas ações da
+operação para relatórios enviados completos, antes da revisão/conclusão.
+A devolução libera todas as etapas preenchidas, preserva respostas e fotos,
+registra o autor e arquiva o comprovante anterior. Se a operação estava
+aguardando revisão, volta para execução. Relatórios já revisados (com efeitos
+no equipamento/preventivas) não são reabertos por esta ação.

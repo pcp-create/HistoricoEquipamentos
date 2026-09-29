@@ -148,7 +148,7 @@ export function TaskDrawer({
   onChanged,
 }: {
   id: string;
-  onClose: () => void;
+  onClose: (message?: string) => void;
   onChanged?: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null),
@@ -314,7 +314,7 @@ export function TaskDrawer({
           </div>
           <h2 id="task-heading">{t?.title || "Carregando tarefa…"}</h2>
         </div>
-        <button type="button" onClick={onClose} aria-label="Fechar tarefa">
+        <button type="button" onClick={() => onClose()} aria-label="Fechar tarefa">
           ×
         </button>
       </header>
@@ -438,7 +438,7 @@ export function TaskDrawer({
             />
             <section className="task-card">
               <h3>Acompanhamento</h3>
-              {t.source_key?.startsWith("time-request:")&&<TimeRequestApproval task={t} onChanged={reload}/>}
+              {t.source_key?.startsWith("time-request:")&&<TimeRequestApproval task={t} onChanged={(message: string) => { onChanged?.(); onClose(message); }}/>}
               {t.status === "completed" &&
                 t.source_key?.startsWith("manual:") && (
                   <button
@@ -1088,7 +1088,9 @@ export default function TasksDashboard() {
     query.set("task", id);
     history.replaceState(null, "", "/tarefas?" + query);
   }
-  function close() {
+  const [analysisMessage, setAnalysisMessage] = useState("");
+  function close(message?: string) {
+    if (message) setAnalysisMessage(message);
     setSelected(null);
     const query = new URLSearchParams(params.toString());
     query.delete("task");
@@ -1808,6 +1810,7 @@ export default function TasksDashboard() {
           </>
         )}
       </main>
+      {analysisMessage && <div role="status" className="task-analysis-result"><span>{analysisMessage}</span><button type="button" aria-label="Fechar confirmação" onClick={() => setAnalysisMessage("")}>×</button></div>}
       {selected && (
         <TaskDrawer
           key={selected}

@@ -1,4 +1,6 @@
 "use client";
+import {reportStatusLabel,reportSubmission} from "@/lib/service-scheduling/checklists";
+import SupportPicker from "./support-picker";
 import SchedulePauseReasons from "./schedule-pause-reasons";
 import SaveActionIcon from "./save-action-icon";
 import { useEffect, useState, useRef } from "react";
@@ -702,137 +704,6 @@ function ScheduleOverview({ schedules }: { schedules: any[] }) {
     </section>
   );
 }
-function SupportPicker({ position, disabled, users, selected, onChange }: any) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const trigger = useRef<HTMLButtonElement>(null);
-  const panel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open || disabled || !panel.current) return;
-    const place = () => {
-      if (!trigger.current || !panel.current) return;
-      const r = trigger.current.getBoundingClientRect();
-      const width = Math.min(280, window.innerWidth - 16);
-      panel.current.style.width = width + "px";
-      panel.current.style.left =
-        Math.max(8, Math.min(r.left, window.innerWidth - width - 8)) + "px";
-      const height = Math.min(240, window.innerHeight - 16);
-      panel.current.style.maxHeight = height + "px";
-      panel.current.style.top =
-        Math.max(8, Math.min(r.bottom + 4, window.innerHeight - height - 8)) +
-        "px";
-    };
-    place();
-    panel.current.showPopover();
-    panel.current.querySelector("input")?.focus();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
-    return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
-    };
-  }, [open, disabled]);
-  const fold = (value: string) =>
-    value
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
-  const filtered = users.filter((u: any) =>
-    fold(u.display_name || u.email).includes(fold(query.trim())),
-  );
-  return (
-    <div
-      className="support-picker"
-      onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.stopPropagation();
-          setOpen(false);
-        }
-        // Enter in this picker selects a person without submitting the operation.
-        if (e.key === "Enter") e.stopPropagation();
-      }}
-    >
-      <div className="support-selected">
-        {selected.map((email: string) => (
-          <span key={email}>
-            {users.find((u: any) => u.email === email)?.display_name || email}
-            <button
-              type="button"
-              disabled={disabled}
-              aria-label={
-                "Remover apoio " +
-                (users.find((u: any) => u.email === email)?.display_name ||
-                  email)
-              }
-              onClick={() =>
-                onChange(selected.filter((v: string) => v !== email))
-              }
-            >
-              ×
-            </button>
-          </span>
-        ))}
-      </div>
-      <button
-        ref={trigger}
-        className="support-add"
-        type="button"
-        aria-label={"Equipe de Apoio " + position}
-        aria-expanded={open && !disabled}
-        aria-controls={"support-options-" + position}
-        disabled={disabled}
-        onClick={() => setOpen(!open)}
-      >
-        + adicionar
-      </button>
-      {open && !disabled && (
-        <div
-          ref={panel}
-          popover="auto"
-          onToggle={(e) => {
-            if (e.newState === "closed") setOpen(false);
-          }}
-          className="support-options"
-          id={"support-options-" + position}
-        >
-          <input
-            autoFocus
-            aria-label={"Filtrar equipe de apoio " + position}
-            placeholder="Pesquisar usuário..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <div
-            className="support-options-list"
-            role="group"
-            aria-label="Usuários de apoio"
-          >
-            {filtered.map((u: any) => (
-              <button
-                type="button"
-                key={u.email}
-                aria-pressed={selected.includes(u.email)}
-                onClick={() => {
-                  if (!selected.includes(u.email))
-                    onChange([...selected, u.email]);
-                }}
-              >
-                <span>{u.display_name || u.email}</span>
-                {selected.includes(u.email) && (
-                  <span aria-hidden="true">✓</span>
-                )}
-              </button>
-            ))}
-            {!filtered.length && <small>Nenhum usuário encontrado.</small>}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 function OperationRow({
   operation: o,
   data,
@@ -1123,6 +994,9 @@ function OperationRow({
             <Trash2 size={18} />
           </button>
           </div>
+          {o.document.checklistId&&<div className="operation-report-state"><span>Relatório: <strong>{reportStatusLabel(o.document.checklistRun)}</strong></span>
+            {data.canEditSettings&&reportSubmission(o.document.checklistRun)&&!['reviewed','completed'].includes(o.status)&&<button type="button" disabled={busy||dirty} onClick={()=>void mutate({action:'report_reopen',operationId:o.id,version:o.version})}>Devolver relatório ao técnico</button>}
+          </div>}
           {dirty && (
             <small className="operation-draft-label" role="status">
               Alterações não salvas
@@ -1245,6 +1119,9 @@ function OperationRow({
                           finish_full: "Finalização completa",
                           review: "Operação revisada",
                           complete: "Operação concluída",
+                          report_send: "Relatório enviado completo",
+                          report_send_partial: "Relatório enviado parcial",
+                          report_reopen: "Relatório devolvido para edição",
                         } as any
                       )[e.action] || e.action}
                       {e.hours ? " · " + qty(e.hours) + " h" : ""}{" "}

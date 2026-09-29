@@ -1,7 +1,7 @@
 import {timeRequestsAvailable} from "./time-request-availability";
 import {reviewChecklist} from "./checklist-review";
 import "server-only";
-import {updateChecklist,prepareChecklistSubmission} from "./checklist-store";
+import {updateChecklist,prepareChecklistSubmission,reopenReport} from "./checklist-store";
 import {stagesOf} from "./checklists";
 import {validateAutomaticRules} from "./automatic-rules";
 import { combineOrderItems } from "./linked-items";
@@ -384,6 +384,11 @@ export async function mutateSchedule(b: any, email: string) {
       );
     if (operation.status === "completed")
       throw new ScheduleInputError("Operação concluída não pode ser alterada.");
+    if(b.action==='report_reopen'){
+      let result;
+      try{result=await reopenReport(c,operation,email,admin);}catch(e){throw new ScheduleInputError((e as Error).message);}
+      await c.query('COMMIT');return {operation:result};
+    }
     if (b.action.startsWith("checklist_")) {
       let result;
       try {result=await updateChecklist(c,b,operation,schedule,config.document,email,admin);}

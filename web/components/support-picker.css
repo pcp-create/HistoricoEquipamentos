@@ -1,0 +1,101 @@
+.support-picker {
+  width: 230px;
+}
+.support-picker > button {
+  width: 100%;
+  text-align: left;
+  font-size: 12px;
+}
+.support-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.support-selected > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #edf4fc;
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-size: 11px;
+}
+.support-picker .support-selected button {
+  border: 0;
+  background: transparent;
+  padding: 0 4px;
+  font-size: 17px;
+}
+.support-options {
+  border: 1px solid #ccdbeb;
+  border-radius: 6px;
+  padding: 6px;
+  margin-top: 4px;
+  background: white;
+}
+.support-options input {
+  width: 100%;
+  min-width: 0 !important;
+}
+.support-options-list {
+  max-height: 170px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+.support-picker .support-options-list button {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 3px;
+  padding: 6px;
+  font-size: 12px;
+  white-space: normal;
+}
+.support-picker .support-options-list button[aria-pressed="true"] {
+  background: #edf4fc;
+  color: #245f9b;
+}
+.support-picker {
+  position: relative;
+  height: 30px;
+}
+.support-selected {
+  border: 1px solid #dfe5ed;
+  border-radius: 6px;
+  background: #fff;
+  box-sizing: border-box;
+  padding: 0 4px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  height: 30px;
+  margin: 0;
+  align-items: center;
+}
+.support-selected > span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.support-picker > .support-add {
+  position: absolute;
+  top: 31px;
+  left: 0;
+  width: auto;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 11px;
+  line-height: 15px;
+}
+.support-options[popover] {
+  position: fixed;
+  margin: 0;
+  box-sizing: border-box;
+  overflow: auto;
+  box-shadow: 0 6px 22px #14395b30;
+  z-index: 100;
+}

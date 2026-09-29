@@ -46,7 +46,7 @@ export default function TimeAdjustmentForm({
     requestId = useRef(crypto.randomUUID());
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [operation, setOperation] = useState(row?.operation_id || ""),
+    [operation, setOperation] = useState(row?.operation_id || (operations.length === 1 ? operations[0].id : "")),
     [kind, setKind] = useState(row?.kind || "work"),
     [start, setStart] = useState(local(row?.started_at)),
     [end, setEnd] = useState(local(row?.finished_at)),
@@ -186,7 +186,7 @@ export default function TimeAdjustmentForm({
           />
         </label>
         {kind === "work" && (
-          <section>
+          <section className="time-adjustment-pauses">
             <h3>Pausas</h3>
             {pauses.map((p, i) => (
               <fieldset key={i}>
@@ -222,6 +222,8 @@ export default function TimeAdjustmentForm({
                   </label>
                 ))}
                 <button
+                  type="button"
+                  className="time-adjustment-remove"
                   onClick={() => setPauses(pauses.filter((_, n) => n !== i))}
                 >
                   Remover pausa
@@ -229,6 +231,8 @@ export default function TimeAdjustmentForm({
               </fieldset>
             ))}
             <button
+              type="button"
+              className="time-adjustment-add"
               onClick={() =>
                 setPauses([...pauses, { start: "", end: "", reason: "" }])
               }
@@ -240,6 +244,8 @@ export default function TimeAdjustmentForm({
         <label>
           Motivo da solicitação / ajuste
           <textarea
+            rows={3}
+            placeholder="Descreva o motivo da inclusão ou alteração do apontamento."
             maxLength={2000}
             value={reason}
             onChange={(e) => setReason(e.target.value)}

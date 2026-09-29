@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   RefreshCw,
   MapPin,
+  Clock3,
 } from "lucide-react";
 import {stagesOf,groupsOf} from '@/lib/service-scheduling/checklists';
 import {checklistProgress} from '@/lib/service-scheduling/checklist-progress';
@@ -112,7 +113,7 @@ export default function FieldApp() {
           <h1>
             {screen === "home"
               ? "Olá! O que vamos fazer?"
-              : screen==="logs"?"Meus apontamentos":"Minha programação"}
+              : "Minha programação"}
           </h1>
         </div>
         {screen !== "home" && (
@@ -143,7 +144,6 @@ export default function FieldApp() {
             </span>
             <ChevronDown />
           </button>
-          <button onClick={()=>setScreen("logs")}><ClipboardList/><span><b>Meus apontamentos</b><small>Consultar e solicitar ajustes</small></span></button>
           <button disabled>
             <Wallet />
             <span>
@@ -160,9 +160,8 @@ export default function FieldApp() {
           </button>
           <a href="/modulos/assistencia-tecnica">Acessar sistema de gestão</a>
         </nav>
-      ) : screen==="logs"?<FieldTimeLogs/>: (
+      ) : (
         <>
-          <nav className="field-toolbar"><button aria-pressed={true}>Programação</button><button onClick={()=>setScreen("logs")}>Apontamentos</button></nav>
           <div className="field-toolbar">
             <span>
               {groups.size} {groups.size === 1 ? "OS enviada" : "OSs enviadas"}
@@ -362,7 +361,7 @@ function FieldOperation({ row, active, now, refresh }: any) {
           ) : (
             <>
               {view && view!=="report" && (
-                <button type="button" disabled={busy} onClick={() => { setView(""); setError(""); setMessage(""); }}>
+                <button className={view === "logs" ? "field-logs-back" : undefined} type="button" disabled={busy} onClick={() => { setView(""); setError(""); setMessage(""); }}>
                   <ArrowLeft size={18} /> Voltar ao menu
                 </button>
               )}
@@ -376,16 +375,25 @@ function FieldOperation({ row, active, now, refresh }: any) {
                     busy={busy}
                     dirty={false}
                     mutate={act}
-                    renderActions={(save:()=>Promise<any>)=><div className="field-report-footer">
+                    renderActions={(save:()=>Promise<any>,getDrafts:()=>any[])=><div className="field-report-footer">
                       {busy&&<p role="status">Obtendo localização e salvando…</p>}
                       {error&&<p className="field-error" role="alert">{error}</p>}
                       {message&&<p className="field-success" role="status">{message}</p>}
-                      {data.reportSubmission?<p className="field-success" role="status">Relatório enviado em {new Date(data.reportSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {data.reportSubmission.name||data.reportSubmission.by}.<br/>Somente o planejador pode liberar a edição novamente.</p>:<div className="field-report-actions"><button disabled={!ready} onClick={()=>void save()}><SaveActionIcon/> Salvar Relatório</button><button disabled={!ready||operation.document.responsible!==data.email} onClick={()=>void act({action:'report_send',version:operation.version})}><Flag size={18}/> Enviar relatório</button></div>}
+                      {data.reportSubmission?<p className="field-success" role="status">Relatório enviado completo em {new Date(data.reportSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {data.reportSubmission.name||data.reportSubmission.by}.<br/>O planejador pode devolver o relatório para edição.</p>:<>
+                        {checklistRun?.partialSubmission&&<p className="field-success">Enviado parcial em {new Date(checklistRun.partialSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {checklistRun.partialSubmission.name||checklistRun.partialSubmission.by}. Você pode continuar editando.</p>}
+                        <div className="field-report-actions">
+                          <button disabled={!ready} onClick={()=>void save()}><SaveActionIcon/> Salvar Relatório</button>
+                          <button disabled={!ready||operation.document.responsible!==data.email} onClick={()=>void act({action:'report_send_partial',version:operation.version,stages:getDrafts()})}><Flag size={18}/> Enviar parcial</button>
+                          <button disabled={!ready||operation.document.responsible!==data.email} onClick={()=>void act({action:'report_send',version:operation.version,stages:getDrafts()})}><Flag size={18}/> Enviar completo</button>
+                        </div>
+                      </>}
+
                     </div>}
                   />
 
                 </FieldReportScreen>
               )}
+              {view === "logs" && <FieldTimeLogs operationId={row.id} />}
               {!view && <>
               {!data.infoRead && !locked && <p className="field-step"><b>1. Leia as informações</b><br/>Abra Informações e confirme a leitura das observações internas para continuar.</p>}
               {data.infoRead && !data.checked && !locked && (
@@ -490,6 +498,10 @@ function FieldOperation({ row, active, now, refresh }: any) {
                     </button>
                   </>
                 )}
+                <button onClick={() => void show("logs")}>
+                  <Clock3 />
+                  <span>Apontamentos</span>
+                </button>
                 <button
                   disabled={busy || !data.infoRead || !data.checked || !operation.document.checklistId}
                   onClick={() => void show("report")}
@@ -673,7 +685,8 @@ function FieldOperation({ row, active, now, refresh }: any) {
                         stop: "Apontamento finalizado",
                         pause_ack: "Pausa confirmada",
                         report_save: "Relatório salvo como rascunho",
-                        report_send: "Relatório enviado",
+                        report_send: "Relatório enviado completo",
+                        report_send_partial: "Relatório enviado parcial",
                         finish_full: "Operação finalizada",
                         finish_partial: "Relatório parcial",
                         checklist_save: "Rascunho do checklist",

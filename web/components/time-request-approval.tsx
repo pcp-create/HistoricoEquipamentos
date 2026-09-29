@@ -1,4 +1,5 @@
 "use client";
+import { clearApiCache } from "@/lib/client-api-cache";
 import { useState } from "react";
 export default function TimeRequestApproval({ task, onChanged }: any) {
   const [busy, setBusy] = useState(false),
@@ -19,7 +20,8 @@ export default function TimeRequestApproval({ task, onChanged }: any) {
       });
       const b = await res.json();
       if (!res.ok) throw Error(b.error);
-      await onChanged();
+      clearApiCache();
+      await onChanged(action === "approve" ? "Solicitação aprovada. Tarefa concluída." : "Solicitação rejeitada. Tarefa concluída.");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -28,7 +30,7 @@ export default function TimeRequestApproval({ task, onChanged }: any) {
   }
   if (task.status === "completed")
     return (
-      <p>Solicitação analisada. Consulte o resultado nas notas da tarefa.</p>
+      <p role="status">Resultado da análise: {task.source_status}. Tarefa concluída.</p>
     );
   return (
     <div>

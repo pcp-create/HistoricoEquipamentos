@@ -93,3 +93,11 @@ export function reportSubmission(run:any):{at:string;by:string;name?:string}|nul
  const sent=stages.map(s=>run.stages[s.id]).filter(s=>s.submittedAt).sort((a,b)=>String(b.submittedAt).localeCompare(String(a.submittedAt)))[0];
  return sent?{at:sent.submittedAt,by:sent.submittedBy}:null;
 }
+
+export function reportStatusLabel(run:any):string{
+ if(reportSubmission(run))return 'Enviado completo';
+ if(run?.partialSubmission)return 'Enviado parcial';
+ if(run?.reportReturnedAt&&!run?.reportSavedAt)return 'Devolvido para edição';
+ if(run?.reportSavedAt||Object.values(run?.stages||{}).some((s:any)=>s.updatedAt))return 'Salvo';
+ return 'Não preenchido';
+}

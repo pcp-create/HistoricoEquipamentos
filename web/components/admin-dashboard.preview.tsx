@@ -1,4 +1,5 @@
 "use client";
+import SupportPicker from "./support-picker";
 import SaveActionIcon from "./save-action-icon";
 import { userTaskColor } from "@/lib/tasks/user-color";
 import TaskTerritories from "./task-territories";
@@ -32,6 +33,7 @@ const eventNames: Record<string, string> = {
   logout: "Saída do sistema",
   access_changed: "Cadastro / permissão alterados",
   account_created: "Conta de acesso criada",
+  password_reset: "Senha redefinida pelo administrador",
 };
 export default function AdminDashboard() {
   const [data, setData] = useState<any>(null),
@@ -44,6 +46,9 @@ export default function AdminDashboard() {
   const [formOpen, setFormOpen] = useState(false);
   const [tab, setTab] = useState("users");
   const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const hasLogin = Boolean(data?.users?.find((u: any) => u.email === form.email)?.user_id);
+  useEffect(() => { setPassword(""); setPasswordConfirmation(""); }, [form.email]);
   async function load() {
     try {
       const r = await apiFetch("/api/admin");
@@ -106,7 +111,7 @@ export default function AdminDashboard() {
       setBusy(false);
     }
   }
-  async function createLogin() {
+  async function createLogin(reset = false) {
     setBusy(true);
     setError("");
     setMessage("");
@@ -115,21 +120,25 @@ export default function AdminDashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "create-login",
+          action: reset ? "reset-password" : "create-login",
           email: form.email,
           password,
+          ...(reset ? { passwordConfirmation } : {}),
         }),
       });
       const b = await r.json();
       if (!r.ok) throw Error(b.error);
       setMessage(
-        "Conta de acesso criada. Entregue a senha inicial ao funcionário por um canal privado.",
+        reset
+          ? "Senha redefinida. Informe a nova senha ao funcionário por um canal privado."
+          : "Conta de acesso criada. Entregue a senha inicial ao funcionário por um canal privado.",
       );
       await load();
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setPassword("");
+      setPasswordConfirmation("");
       setBusy(false);
     }
   }
@@ -238,12 +247,20 @@ export default function AdminDashboard() {
                               />
                             </label>
                           ))}
-                          <fieldset disabled={data.managersAvailable===false}><legend>Gestores para aprovação de apontamentos</legend>
-                          {data.managersAvailable===false&&<p>O cadastro de gestores aguarda habilitação. Os demais dados do funcionário podem ser salvos normalmente.</p>}
-                          <small>Selecione um ou mais gestores. Qualquer um poderá aprovar.</small>
-                          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{(form.managers||[]).map((email:string)=><button type="button" key={email} onClick={()=>setForm({...form,managers:form.managers.filter((x:string)=>x!==email)})}>{data.users.find((u:any)=>u.email===email)?.display_name||email} ×</button>)}</div>
-                          <select aria-label="Adicionar gestor" value="" onChange={e=>{if(e.target.value)setForm({...form,managers:[...(form.managers||[]),e.target.value]});}}><option value="">Adicionar gestor…</option>{data.users.filter((u:any)=>u.enabled&&u.email!==form.email&&!(form.managers||[]).includes(u.email)).map((u:any)=><option key={u.email} value={u.email}>{u.display_name||u.email}</option>)}</select>
-                          </fieldset>
+                          <div className="employee-managers">
+                            <span className="employee-managers-label">Gestores para aprovação de apontamentos</span>
+                            <SupportPicker
+                              className="employee-managers-picker"
+                              label="Gestores para aprovação de apontamentos"
+                              filterLabel="Pesquisar gestor"
+                              removeLabel="Remover gestor"
+                              disabled={busy || data.managersAvailable===false}
+                              users={data.users.filter((u:any)=>u.email!==form.email && (u.enabled || (form.managers||[]).includes(u.email)))}
+                              selected={form.managers||[]}
+                              onChange={(managers:string[])=>setForm({...form,managers})}
+                            />
+                            {data.managersAvailable===false&&<small>O cadastro de gestores aguarda habilitação.</small>}
+                          </div>
                           <label>Custo de mão de obra por hora (R$)<input type="number" min="0" max="1000000" step="0.01" value={form.hourly_cost??""} onChange={e=>setForm({...form,hourly_cost:e.target.value})}/></label>
                           <label>
                             Cor nas tarefas
@@ -360,18 +377,17 @@ export default function AdminDashboard() {
                         <legend>Conta de acesso</legend>
                         {!data.loginProvisioningConfigured && (
                           <p role="note">
-                            Criação de novas contas pendente de configuração de
-                            SUPABASE_SERVICE_ROLE_KEY no servidor. Contas
-                            existentes continuam funcionando.
+                            A criação de contas e a redefinição de senhas precisam
+                            ser configuradas no servidor.
                           </p>
                         )}
                         <p>
-                          Para quem ainda não possui login, salve o cadastro e
-                          crie a conta com uma senha inicial. Contas existentes
-                          continuam usando a senha atual.
+                          {hasLogin
+                            ? "Defina uma nova senha para substituir a senha atual deste funcionário."
+                            : "Salve o cadastro e crie a conta com uma senha inicial."}
                         </p>
                         <label>
-                          Senha inicial
+                          {hasLogin ? "Nova senha" : "Senha inicial"}
                           <input
                             type="password"
                             autoComplete="new-password"
@@ -381,15 +397,20 @@ export default function AdminDashboard() {
                             onChange={(e) => setPassword(e.target.value)}
                           />
                         </label>
+                        {hasLogin && (
+                          <label>
+                            Confirmar nova senha
+                            <input type="password" autoComplete="new-password" minLength={6} maxLength={128}
+                              value={passwordConfirmation} onChange={(e) => setPasswordConfirmation(e.target.value)} />
+                          </label>
+                        )}
                         <button
                           type="button"
-                          disabled={
-                            !data.loginProvisioningConfigured ||
-                            password.length < 6
-                          }
-                          onClick={createLogin}
+                          disabled={!data.loginProvisioningConfigured || password.length < 6 ||
+                            (hasLogin && password !== passwordConfirmation)}
+                          onClick={() => void createLogin(hasLogin)}
                         >
-                          Criar conta de acesso
+                          {hasLogin ? "Redefinir senha" : "Criar conta de acesso"}
                         </button>
                       </fieldset>
                     )}

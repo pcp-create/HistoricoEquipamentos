@@ -43,6 +43,7 @@ export async function updateChecklist(c:any,b:any,operation:any,schedule:any,set
   }
   run.stages[stage.id]={...previous,answers,details,status:b.action==='checklist_submit'?'submitted':'released',updatedBy:email,updatedAt:new Date().toISOString(),...(b.action==='checklist_submit'?{submittedBy:email,submittedAt:new Date().toISOString()}:{})};
  }else throw Error('Ação de checklist inválida.');
+ if(b.action==='checklist_save'){run.reportSavedAt=new Date().toISOString();run.reportSavedBy=email;}
  const document={...operation.document,checklistRun:run};
  const status=['checklist_save','checklist_submit'].includes(b.action)?'executing':operation.status;
  const result=(await c.query('UPDATE web_service_operations SET document=$2,status=$3,version=version+1,updated_at=now(),updated_by=$4 WHERE id=$1 RETURNING *',[operation.id,JSON.stringify(document),status,email])).rows[0];
@@ -63,4 +64,23 @@ export function prepareChecklistSubmission(run:any,email:string){
   next.stages[stage.id]={...saved,status:'submitted',submittedBy:saved.submittedBy||email,submittedAt:saved.submittedAt||new Date().toISOString()};
  }
  return next;
+}
+
+export async function reopenReport(c:any,operation:any,email:string,admin:boolean){
+ if(!admin)throw Error('Somente o planejador pode devolver o relatório ao técnico.');
+ if(['reviewed','completed'].includes(operation.status))throw Error('Relatórios já revisados ou operações concluídas não podem ser devolvidos por esta ação.');
+ const run=structuredClone(operation.document.checklistRun);
+ const receipt=reportSubmission(run);
+ if(!receipt)throw Error('Somente relatórios enviados completos precisam ser devolvidos.');
+ run.submissionHistory=[...(run.submissionHistory||[]),{...receipt,returnedAt:new Date().toISOString(),returnedBy:email}];
+ delete run.submission;delete run.partialSubmission;delete run.reportSavedAt;
+ run.reportReturnedAt=new Date().toISOString();run.reportReturnedBy=email;
+ for(const stage of stagesOf(run.template)){
+  const saved=run.stages[stage.id];
+  if(saved?.status==='submitted')run.stages[stage.id]={...saved,status:'released',submittedAt:undefined,submittedBy:undefined,reopenedAt:run.reportReturnedAt,reopenedBy:email};
+ }
+ const result=(await c.query("UPDATE web_service_operations SET document=$2,status=CASE WHEN status='awaiting_review' THEN 'executing' ELSE status END,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1 RETURNING *",[operation.id,JSON.stringify({...operation.document,checklistRun:run}),email])).rows[0];
+ await c.query("INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,'report_reopen',$2,'Relatório devolvido ao técnico para edição')",[operation.id,email]);
+ await c.query("INSERT INTO web_access_events(event,email,actor,details) VALUES('report_reopen',$1,$1,$2)",[email,JSON.stringify({operationId:operation.id,submission:receipt})]);
+ return result;
 }

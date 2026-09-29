@@ -51,13 +51,18 @@ test("technician requests edits and manual entries while official hours stay unc
   await context.grantPermissions(["geolocation"]);
   await context.setGeolocation({ latitude: -27, longitude: -49 });
   await page.setViewportSize({ width: 390, height: 844 });
-  const data = logs(),
-    bodies: any[] = [];
+  const data = logs();
+  data.operations.push({ ...op, id: "other", position: 2 });
+  data.fieldSessions.push({ ...session, id: "other-session", operation_id: "other" });
+  const bodies: any[] = [];
   await page.route("**/api/activity", (r) =>
     r.fulfill({ json: { admin: true } }),
   );
-  await page.route("**/api/field", (r) =>
-    r.fulfill({ json: { rows: [], displayName: "Técnico", email: "tech" } }),
+  await page.route(/\/api\/field(?:\?.*)?$/, (r) =>
+    r.fulfill({ json: r.request().url().includes("?")
+      ? { operation: op, checked: true, infoRead: true, email: "tech",
+          settings: { document: { vehicles: [], pauseReasons: [] } }, history: [] }
+      : { rows: [{ ...op, schedule_id: "schedule", number: 123, description: "Revisão" }], displayName: "Técnico", email: "tech" } }),
   );
   await page.route("**/api/field/time-requests", (r) => {
     if (r.request().method() === "POST") {
@@ -76,8 +81,13 @@ test("technician requests edits and manual entries while official hours stay unc
     return r.fulfill({ json: data });
   });
   await page.goto("/tecnico");
-  await page.getByRole("button", { name: "Meus apontamentos" }).click();
-  await expect(page.getByText("Lat. -27.500000")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Meus apontamentos" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Programação" }).click();
+  await page.getByText("OS 123", { exact: true }).click();
+  await page.getByRole("button", { name: /Operação 1/ }).click();
+  await page.getByRole("button", { name: "Apontamentos", exact: true }).click();
+  await expect(page.getByText("Lat. -27.500000")).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Início", exact: true })).toBeVisible();
   await page
     .getByRole("button", { name: "Solicitar ajuste", exact: true })
     .click();
@@ -100,7 +110,7 @@ test("technician requests edits and manual entries while official hours stay unc
   await page
     .getByRole("button", { name: "Incluir apontamento manual" })
     .click();
-  await dialog.getByLabel("Operação", { exact: true }).selectOption(op.id);
+  await expect(dialog.getByLabel("Operação", { exact: true })).toHaveValue(op.id);
   await dialog.getByLabel("Tipo", { exact: true }).selectOption("travel");
   await dialog.getByLabel("Início", { exact: true }).fill("2026-01-02T07:00");
   await dialog.getByLabel("Fim", { exact: true }).fill("2026-01-02T08:00");
@@ -242,9 +252,10 @@ test("manager task shows reason and approves through the dedicated action", asyn
     .click();
   await expect(
     page.getByText(
-      "Solicitação analisada. Consulte o resultado nas notas da tarefa.",
+      "Solicitação aprovada. Tarefa concluída.",
     ),
   ).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(body).toMatchObject({
     action: "approve",
     id: "33333333-3333-4333-8333-333333333333",

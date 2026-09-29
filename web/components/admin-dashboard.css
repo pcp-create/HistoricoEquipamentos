@@ -169,3 +169,40 @@
  .admin-page .territory-toolbar label { width: 100%; }
  .admin-page .catalog-editor-actions { flex-wrap: wrap; }
 }
+
+/* Match the surrounding .catalog-settings labels and 39px form controls. */
+.admin-page .employee-managers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+  color: #526077;
+  font-size: 13px;
+  font-weight: 600;
+}
+.admin-page .employee-managers-label {
+  display: block;
+  font: inherit;
+  color: inherit;
+  margin: 0;
+}
+.admin-page .employee-managers-picker {
+  width: 100%;
+  height: 39px;
+}
+.admin-page .employee-managers-picker .support-selected {
+  height: 39px;
+  padding: 0 12px;
+  border-color: #cbd8e7;
+  color: var(--text);
+  font: inherit;
+}
+.admin-page .employee-managers-picker .support-selected > span {
+  font: inherit;
+  color: inherit;
+}
+.admin-page .employee-managers-picker > .support-add {
+  top: 40px;
+  font-size: 12px;
+  font-weight: 400;
+}
