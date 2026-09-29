@@ -6,14 +6,14 @@ import {stagesOf,groupsOf,photoLimit,fieldOptions,type ChecklistField} from '@/l
 import {apiFetch} from '@/lib/client-api-cache';
 import {DictationText,SignatureInput} from './checklist-inputs';
 import './schedule-checklists.css';
-export default function ScheduleChecklistRun({operation,data,mutate,busy,dirty,renderActions}:any){
+export default function ScheduleChecklistRun({operation,data,mutate,busy,dirty,renderActions,compact=false}:any){
  const drafts=useRef<Record<string,()=>any>>({});
  const run=operation.document.checklistRun,template=run?.template||data.settings.document.checklists.find((c:any)=>c.id===operation.document.checklistId);
  if(!template)return null;
  const canWork=data.canEditSettings||operation.document.responsible===data.email||operation.document.support.includes(data.email);
  const locked=busy||dirty||['completed','reviewed','awaiting_review'].includes(operation.status);
- return <section className="checklist-run"><h4>{template.prefix?template.prefix+' — ':''}{template.name}</h4><p>Preencha os grupos de cada etapa. Salve o rascunho ao terminar. Depois, utilize Enviar relatório ao final do checklist. Fotos de até 3 MB cada.</p><p>Equipamento: {data.detail?.order?.equipamento||'Selecione o equipamento da OS ao registrar o horímetro.'}</p>
- {run&&canWork&&<a href={`/api/service-scheduling/checklist-pdf?operationId=${operation.id}`} target="_blank" rel="noreferrer">Gerar PDF do checklist</a>}
+ return <section className="checklist-run"><h4>{template.prefix?template.prefix+' — ':''}{template.name}</h4>{compact?<details className="checklist-report-context"><summary>Equipamento e orientações</summary><p>{data.detail?.order?.equipamento||'Equipamento não informado'}</p><p>Preencha as etapas e salve antes de enviar. Fotos de até 3 MB cada.</p>{run&&canWork&&<a href={`/api/service-scheduling/checklist-pdf?operationId=${operation.id}`} target="_blank" rel="noreferrer">Gerar PDF do checklist</a>}</details>:<><p>Preencha os grupos de cada etapa. Salve o rascunho ao terminar. Depois, utilize Enviar relatório ao final do checklist. Fotos de até 3 MB cada.</p><p>Equipamento: {data.detail?.order?.equipamento||'Selecione o equipamento da OS ao registrar o horímetro.'}</p>
+ {run&&canWork&&<a href={`/api/service-scheduling/checklist-pdf?operationId=${operation.id}`} target="_blank" rel="noreferrer">Gerar PDF do checklist</a>}</>}
  {stagesOf(template).map(stage=><Stage key={operation.id+':'+stage.id} stage={stage} operation={operation} data={data} mutate={mutate} locked={locked} canWork={canWork} register={(id:string,get:any)=>{if(get)drafts.current[id]=get;else delete drafts.current[id];}}/>)}
  {renderActions?.(()=>mutate({action:'report_save',operationId:operation.id,version:operation.version,stages:Object.values(drafts.current).map(get=>get()).filter(Boolean)}))}
  </section>;

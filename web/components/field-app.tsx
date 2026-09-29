@@ -22,6 +22,7 @@ import {
 import {stagesOf,groupsOf} from '@/lib/service-scheduling/checklists';
 import {checklistProgress} from '@/lib/service-scheduling/checklist-progress';
 import SaveActionIcon from "./save-action-icon";
+import FieldReportScreen from "./field-report-screen";
 import ScheduleChecklistRun from "./schedule-checklist-run";
 import { statusNames } from "@/lib/service-scheduling/model";
 import { sessionTotals } from "@/lib/service-scheduling/field-model";
@@ -261,6 +262,7 @@ function FieldOperation({ row, active, now, refresh }: any) {
   const [open, setOpen] = useState(false),
     [data, setData] = useState<any>(null),
     [view, setView] = useState(""),
+    [reportVisited,setReportVisited]=useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
@@ -321,6 +323,7 @@ function FieldOperation({ row, active, now, refresh }: any) {
     (v: any) => v.id === operation?.document.vehicleId,
   );
   async function show(which: string) {
+    if(which==='report')setReportVisited(true);
     setView(which);
     setError("");
     setMessage("");
@@ -350,23 +353,29 @@ function FieldOperation({ row, active, now, refresh }: any) {
             <p>Carregando operação…</p>
           ) : (
             <>
-              {view && (
+              {view && view!=="report" && (
                 <button type="button" disabled={busy} onClick={() => { setView(""); setError(""); setMessage(""); }}>
                   <ArrowLeft size={18} /> Voltar ao menu
                 </button>
               )}
-              {view === "report" && data.checked && !locked && (
-                <section className="field-panel">
+              {reportVisited && data.checked && !locked && (
+                <FieldReportScreen open={view==='report'} busy={busy} title={`OS ${row.number} · Operação ${row.position}`} onClose={()=>setView('')}>
                   <ScheduleChecklistRun
+                    compact
                     operation={operation}
                     data={data}
                     busy={busy}
                     dirty={false}
                     mutate={act}
-                    renderActions={(save:()=>Promise<any>)=><><p>Salve as alterações antes de enviar o relatório.</p><div className="field-report-actions"><button disabled={!ready} onClick={()=>void save()}><SaveActionIcon/> Salvar Relatório</button><button disabled={!ready||operation.document.responsible!==data.email} onClick={()=>void act({action:'report_send',version:operation.version})}><Flag size={18}/> Enviar relatório</button></div></>}
+                    renderActions={(save:()=>Promise<any>)=><div className="field-report-footer">
+                      {busy&&<p role="status">Obtendo localização e salvando…</p>}
+                      {error&&<p className="field-error" role="alert">{error}</p>}
+                      {message&&<p className="field-success" role="status">{message}</p>}
+                      <div className="field-report-actions"><button disabled={!ready} onClick={()=>void save()}><SaveActionIcon/> Salvar Relatório</button><button disabled={!ready||operation.document.responsible!==data.email} onClick={()=>void act({action:'report_send',version:operation.version})}><Flag size={18}/> Enviar relatório</button></div>
+                    </div>}
                   />
 
-                </section>
+                </FieldReportScreen>
               )}
               {!view && <>
               {!data.infoRead && !locked && <p className="field-step"><b>1. Leia as informações</b><br/>Abra Informações e confirme a leitura das observações internas para continuar.</p>}

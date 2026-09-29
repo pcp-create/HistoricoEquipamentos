@@ -414,3 +414,36 @@
 .field-report-actions { display:flex; gap:10px; margin-top:14px; }
 .field-report-actions > button { flex:1; min-width:0; padding:12px 8px; font-size:13px; }
 .field-report-actions > button:last-child { background:#215e93; color:white; }
+
+/* A dedicated viewport for mobile report entry, outside the nested OS cards. */
+dialog.field-report-screen {
+ position:fixed; inset:0; margin:0; width:100%; max-width:none; height:100dvh;
+ max-height:none; min-height:0; padding:0; border:0; border-radius:0; background:#f5f8fb;
+ overflow:auto; overscroll-behavior:contain; text-align:left;
+}
+.field-report-screen::backdrop { background:#f5f8fb; }
+.field-report-header { position:sticky; top:0; z-index:3; display:flex; align-items:center; gap:14px; background:white; border-bottom:1px solid #dce5ee; padding:calc(8px + env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left)); }
+.field-report-header > div { min-width:0; }
+.field-report-header strong,.field-report-header small { display:block; }
+.field-report-header small { margin-top:3px; font-size:12px; color:#6b8298; }
+.field-report-header button { flex-shrink:0; }
+.field-report-content { max-width:860px; margin:0 auto; padding:16px max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); }
+.field-report-screen .checklist-run h4 { font-size:17px; line-height:1.4; margin:0 0 10px; }
+.field-report-screen .checklist-report-context { margin-bottom:16px; font-size:13px; color:#637f98; }
+.field-report-screen .checklist-report-context summary { cursor:pointer; min-height:32px; }
+.field-report-screen .checklist-stage-response { padding:12px; margin:12px 0; }
+.field-report-screen .checklist-response-group { padding:12px 0 0; border:0; border-top:1px solid #dce5ee; border-radius:0; margin-top:14px; }
+.field-report-screen .checklist-answers { gap:18px; }
+.field-report-screen .checklist-summary-title { display:inline; }
+.field-report-screen .checklist-stage-status { display:block; margin:5px 0 0 16px; font-size:11px; }
+.field-report-screen input:not([type=checkbox]):not([type=radio]),.field-report-screen select,.field-report-screen textarea { width:100%; min-width:0; max-width:100%; box-sizing:border-box; font-family:inherit; }
+.field-report-screen input[type=date],.field-report-screen input[type=time] { display:block; -webkit-appearance:none; appearance:none; }
+.field-report-screen input::-webkit-date-and-time-value { text-align:left; min-height:1.4em; }
+.field-report-screen .checklist-status-field { display:block; }
+.field-report-screen .checklist-status-field > .checklist-status-options { display:flex; max-width:none; justify-content:flex-start; margin-top:10px; gap:8px; }
+.field-report-screen .checklist-status-option { flex:1 1 70px; justify-content:center; font-size:14px; padding:10px; }
+.field-report-footer { position:sticky; bottom:0; z-index:2; background:#fff; border-top:1px solid #dce5ee; margin:18px -12px 0; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); }
+.field-report-footer .field-report-actions { margin:0; }
+.field-report-footer p { margin:0 0 8px; font-size:12px; }
+.field-report-footer .field-report-actions button { gap:6px; min-height:48px; font-size:13px; }
+.field-report-screen .checklist-field-title { line-height:1.5; }
