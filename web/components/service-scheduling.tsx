@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import SiteHeader from "./site-header";
 import ScheduleAutomaticRules from "./schedule-automatic-rules";
+import ScheduleTimeLogs from "./schedule-time-logs";
 import CompactNameTable from "./compact-name-table";
 import ScheduleChecklistRun from "./schedule-checklist-run";
 import ScheduleChecklistEditor from "./schedule-checklist-editor";
@@ -448,6 +449,7 @@ export default function ServiceScheduling() {
                 ["products", "Produtos"],
                 ["services", "Serviços"],
                 ["costs", "Custos"],
+                ["timeLogs", "Apontamentos"],
               ].map(([k, n]) => (
                 <button
                   key={k}
@@ -633,6 +635,7 @@ export default function ServiceScheduling() {
                 {!services.length && <p>Nenhum serviço disponível nesta OS.</p>}
               </div>
             )}
+            {tab === "timeLogs" && <ScheduleTimeLogs data={data}/>}
             {tab === "costs" && (
               <ScheduleCosts
                 data={data}

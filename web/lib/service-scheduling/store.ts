@@ -108,7 +108,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
     ])
   ).rows[0];
   if (!schedule) throw new ScheduleInputError("Programação não encontrada.");
-  const [detail, operations, usage, costs, events, profit] = await Promise.all([
+  const [detail, operations, usage, costs, events, profit, fieldSessions, fieldEvents] = await Promise.all([
     orderDetail(String(schedule.company_id), String(schedule.order_id)),
     db.query(
       "SELECT * FROM web_service_operations WHERE schedule_id=$1 ORDER BY position",
@@ -128,6 +128,8 @@ export async function schedulingData(scheduleId: string | null, email: string) {
       "SELECT document FROM web_order_profit WHERE company_id=$1 AND order_id=$2",
       [schedule.company_id, schedule.order_id],
     ),
+    db.query("SELECT f.*,u.display_name FROM web_field_sessions f JOIN web_service_operations p ON p.id=f.operation_id LEFT JOIN web_user_access u ON u.email=f.actor WHERE p.schedule_id=$1 ORDER BY f.started_at DESC,f.id",[scheduleId]),
+    db.query("SELECT e.id,e.operation_id,e.actor,e.action,e.created_at,e.document FROM web_field_events e JOIN web_service_operations p ON p.id=e.operation_id WHERE p.schedule_id=$1 AND e.action IN ('pause','resume','stop') ORDER BY e.created_at,e.id",[scheduleId]),
   ]);
   const link = (await db.query("SELECT linked_company_id,linked_order_id FROM web_order_links WHERE company_id=$1 AND order_id=$2",[schedule.company_id,schedule.order_id])).rows[0];
   const linkedDetail = link?.linked_order_id ? await orderDetail(String(link.linked_company_id),String(link.linked_order_id)) : null;
@@ -142,6 +144,8 @@ export async function schedulingData(scheduleId: string | null, email: string) {
     detail: combinedDetail,
     linked_detail_incomplete: !!link?.linked_order_id && !linkedDetail?.detail_at,
     operations: operations.rows,
+    fieldSessions: fieldSessions.rows,
+    fieldEvents: fieldEvents.rows,
     usage: usage.rows,
     costs: costs.rows,
     events: events.rows,
