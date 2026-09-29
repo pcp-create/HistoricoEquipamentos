@@ -1,7 +1,7 @@
-// Run from repository root: node --env-file=.env --import tsx web/scripts/migrate-ccp-structure.mts
-import {connectDatabase} from '../../src/database/postgres';
-import {repairCcpStructure} from '../lib/service-scheduling/ccp-structure';
-import {validateChecklists} from '../lib/service-scheduling/checklists';
+// Run from repository root: node --env-file=.env --import tsx scripts/migrate-ccp-structure.mts
+import {connectDatabase} from '../src/database/postgres';
+import {repairCcpStructure} from '../web/lib/service-scheduling/ccp-structure';
+import {validateChecklists} from '../web/lib/service-scheduling/checklists';
 const db=await connectDatabase();
 try {
  await db.query('BEGIN');await db.query('SELECT pg_advisory_xact_lock(728001)');

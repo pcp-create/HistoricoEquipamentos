@@ -61,7 +61,7 @@ Textos longos, comentários e observações oferecem ditado `pt-BR` via SpeechRe
 
 Campos podem pertencer diretamente à etapa (`direct: true`, sem cabeçalho de grupo) ou a grupos nomeados. Inspeções tem sete indicadores com comentários associados; Materiais e Fotos também não recebem grupo artificial “Geral”. Medições, Diagnóstico e Aceitação mantêm os subtítulos do documento. O botão “Adicionar campo à etapa” permite essa estrutura nos novos modelos.
 
-Após as migrações SQL, execute `node --env-file=.env --import tsx web/scripts/migrate-ccp-structure.mts` a partir da raiz. A atualização é idempotente, limitada ao CCP original, preserva nomes personalizados e não altera snapshots ou respostas das operações. O modelo embarcado para “Usar modelo CCP” já contém a estrutura corrigida.
+Após as migrações SQL, execute `node --env-file=.env --import tsx scripts/migrate-ccp-structure.mts` a partir da raiz. A atualização é idempotente, limitada ao CCP original, preserva nomes personalizados e não altera snapshots ou respostas das operações. O modelo embarcado para “Usar modelo CCP” já contém a estrutura corrigida.
 
 ### Lista de checklists e identificação M8
 A aba abre com os modelos cadastrados; o botão Editar abre cada modelo. Prefixo, Nome e Identificador M8 (tipo_atendimento_nome) são configuráveis. O identificador é preservado na cópia do checklist iniciada pela operação.
