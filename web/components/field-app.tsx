@@ -358,10 +358,11 @@ function FieldOperation({ row, active, now, refresh }: any) {
                   <ArrowLeft size={18} /> Voltar ao menu
                 </button>
               )}
-              {reportVisited && data.checked && !locked && (
+              {reportVisited && data.checked && (
                 <FieldReportScreen open={view==='report'} busy={busy} title={`OS ${row.number} · Operação ${row.position}`} onClose={()=>setView('')}>
                   <ScheduleChecklistRun
                     compact
+                    readOnly={!!data.reportSubmission}
                     operation={operation}
                     data={data}
                     busy={busy}
@@ -371,7 +372,7 @@ function FieldOperation({ row, active, now, refresh }: any) {
                       {busy&&<p role="status">Obtendo localização e salvando…</p>}
                       {error&&<p className="field-error" role="alert">{error}</p>}
                       {message&&<p className="field-success" role="status">{message}</p>}
-                      <div className="field-report-actions"><button disabled={!ready} onClick={()=>void save()}><SaveActionIcon/> Salvar Relatório</button><button disabled={!ready||operation.document.responsible!==data.email} onClick={()=>void act({action:'report_send',version:operation.version})}><Flag size={18}/> Enviar relatório</button></div>
+                      {data.reportSubmission?<p className="field-success" role="status">Relatório enviado em {new Date(data.reportSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {data.reportSubmission.name||data.reportSubmission.by}.<br/>Somente o planejador pode liberar a edição novamente.</p>:<div className="field-report-actions"><button disabled={!ready} onClick={()=>void save()}><SaveActionIcon/> Salvar Relatório</button><button disabled={!ready||operation.document.responsible!==data.email} onClick={()=>void act({action:'report_send',version:operation.version})}><Flag size={18}/> Enviar relatório</button></div>}
                     </div>}
                   />
 
@@ -482,7 +483,7 @@ function FieldOperation({ row, active, now, refresh }: any) {
                   </>
                 )}
                 <button
-                  disabled={!ready || !operation.document.checklistId}
+                  disabled={busy || !data.infoRead || !data.checked || !operation.document.checklistId}
                   onClick={() => void show("report")}
                 >
                   <ClipboardList />

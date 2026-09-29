@@ -5,7 +5,7 @@ import { Forbidden } from "../auth";
 import { combineOrderItems } from "./linked-items";
 import { locationOf, odometer, sessionTotals } from "./field-model";
 import { updateChecklist, prepareChecklistSubmission } from "./checklist-store";
-import { stagesOf } from "./checklists";
+import { reportSubmission, stagesOf } from "./checklists";
 export class FieldError extends Error {}
 const assigned =
   "(p.document->>'responsible'=$1 OR p.document->'support' ? $1)";
@@ -145,7 +145,12 @@ export async function fieldData(email: string, operationId?: string | null) {
       [p.id],
     )
   ).rows;
+  const submission=reportSubmission(p.document.checklistRun);
+  if(submission&&!submission.name){
+    submission.name=(await c.query('SELECT display_name FROM web_user_access WHERE email=$1',[submission.by])).rows[0]?.display_name||submission.by;
+  }
   return {
+    reportSubmission:submission,
     operation: p,
     active,
     email,
@@ -385,6 +390,7 @@ export async function fieldAction(b: any, email: string) {
       }
       details = { ...details, sessionId: active.id, seconds: totals };
     } else if (b.action === "report_save") {
+      if(reportSubmission(p.document.checklistRun))throw new FieldError("Relatório enviado. O planejador precisa reabrir a edição.");
       if(p.version!==b.version)throw new FieldError('O relatório foi atualizado. Reabra para carregar a versão atual.');
       if(!Array.isArray(b.stages)||b.stages.length>100||new Set(b.stages.map((s:any)=>s.stageId)).size!==b.stages.length)throw new FieldError('Etapas inválidas.');
       let current=p;
@@ -394,10 +400,12 @@ export async function fieldAction(b: any, email: string) {
       operationUpdated=true;
       details={stages:b.stages.map((s:any)=>s.stageId)};
     } else if (b.action === "report_send") {
+      if(reportSubmission(p.document.checklistRun))throw new FieldError("Relatório enviado. O planejador precisa reabrir a edição.");
       if(p.document.responsible!==email)throw new FieldError('Somente o responsável pode enviar o relatório.');
       if(p.version!==b.version)throw new FieldError('O checklist foi atualizado. Reabra para carregar a versão atual.');
       if(!p.document.checklistId)throw new FieldError('Esta operação não possui checklist.');
       const checklistRun=prepareChecklistSubmission(p.document.checklistRun,email);
+      checklistRun.submission={at:new Date().toISOString(),by:email,name:(await user(c,email)).display_name||email};
       await c.query("UPDATE web_service_operations SET document=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1",[p.id,JSON.stringify({...p.document,checklistRun}),email]);
       await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[p.id,b.action,email,'Relatório enviado pelo técnico']);
       operationUpdated=true;

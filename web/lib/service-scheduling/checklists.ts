@@ -84,3 +84,12 @@ export function validateFieldDetails(stage:ChecklistStage,raw:any={}){
  }
  return result;
 }
+
+/** Includes reports sent before explicit receipt metadata was introduced. */
+export function reportSubmission(run:any):{at:string;by:string;name?:string}|null{
+ if(run?.submission)return run.submission;
+ const stages=run?.template?stagesOf(run.template):[];
+ if(!stages.length||!stages.every(s=>run.stages?.[s.id]?.status==='submitted'))return null;
+ const sent=stages.map(s=>run.stages[s.id]).filter(s=>s.submittedAt).sort((a,b)=>String(b.submittedAt).localeCompare(String(a.submittedAt)))[0];
+ return sent?{at:sent.submittedAt,by:sent.submittedBy}:null;
+}

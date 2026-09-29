@@ -1,5 +1,5 @@
 import 'server-only';
-import {stagesOf,validateAnswers,validateFieldDetails} from './checklists';
+import {reportSubmission,stagesOf,validateAnswers,validateFieldDetails} from './checklists';
 export async function updateChecklist(c:any,b:any,operation:any,schedule:any,settings:any,email:string,admin:boolean){
  if(['completed','reviewed','awaiting_review'].includes(operation.status))throw Error('A operação está concluída ou em revisão.');
  const assigned=operation.document.responsible===email||operation.document.support?.includes(email);
@@ -10,6 +10,7 @@ export async function updateChecklist(c:any,b:any,operation:any,schedule:any,set
   if(!template)throw Error('Selecione e salve um checklist na operação.');
   run={template:structuredClone(template),stages:{},equipmentId:'',meterDate:''};
  }
+ if(reportSubmission(run)&&b.action!=='checklist_reopen')throw Error('Relatório enviado. O planejador precisa reabrir a edição.');
  const stage=stagesOf(run.template).find(s=>s.id===b.stageId);
  if(!stage)throw Error('Etapa não encontrada.');
  const previous=run.stages[stage.id]||{status:'pending',answers:{}};
@@ -20,7 +21,8 @@ export async function updateChecklist(c:any,b:any,operation:any,schedule:any,set
   run.stages[stage.id]={...previous,status:'released',releasedAt:new Date().toISOString(),releasedBy:email};
  }else if(b.action==='checklist_reopen'){
   if(!admin||previous.status!=='submitted')throw Error('Somente administradores podem reabrir etapas devolvidas.');
-  run.stages[stage.id]={...previous,status:'released',reopenedAt:new Date().toISOString(),reopenedBy:email};
+  delete run.submission;
+  run.stages[stage.id]={...previous,submittedAt:undefined,submittedBy:undefined,status:'released',reopenedAt:new Date().toISOString(),reopenedBy:email};
  }else if(['checklist_save','checklist_submit'].includes(b.action)){
   if(previous.status!=='released')throw Error('A etapa precisa estar liberada para preenchimento.');
   const answers=validateAnswers(stage,b.answers,b.action==='checklist_submit');
