@@ -27,3 +27,7 @@
 .linked-task-dialog button:disabled { opacity:.6; cursor:wait; }
 .equipment-row-actions { justify-content:flex-start; width:max-content; }
 .equipment-row-actions > .catalog-edit-button { flex-shrink:0; white-space:nowrap; }
+.linked-task-menu .schedule-order-entry { display:block; margin:0; }
+.linked-task-menu .schedule-order-entry button { display:flex; align-items:center; gap:9px; width:100%; min-height:38px; padding:9px 12px; border:0; border-radius:6px; background:white; color:#285d94; font-size:13px; font-weight:600; line-height:1.4; font-family:inherit; text-align:left; white-space:normal; }
+.linked-task-menu .schedule-order-entry button:hover { background:#edf4fc; }
+.linked-task-dialog .order-link-editor { font-size:12px; }

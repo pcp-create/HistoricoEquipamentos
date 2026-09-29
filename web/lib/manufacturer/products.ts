@@ -63,6 +63,7 @@ export function groupedProducts(products: CatalogProduct[]) {
       const compatible = units.every((u) => !!u && u === units[0]);
       return {
         id,
+        reservedOrders: companies.flatMap(c => c.current?.reserved_orders || []),
         lastSale: Math.max(
           -Infinity,
           ...companies.map((p) =>

@@ -41,6 +41,7 @@ export type Operating = {
   notes: string;
 };
 export type Plan = {
+  m8Identifier?: string;
   items?: PlanItem[];
   name: string;
   hours: number | null;
@@ -204,10 +205,10 @@ export function predict(
         ? "overdue"
         : days === 0
           ? "due"
-          : incomplete
-            ? "incomplete"
-            : days != null && days <= 30
-              ? "soon"
+          : days != null && days <= 30
+            ? "soon"
+            : incomplete
+              ? "incomplete"
               : "scheduled",
     basis: due === hoursDate ? "hours" : "months",
   };
@@ -274,6 +275,7 @@ export function parsePlan(v: any): Plan {
         throw new EquipmentInputError((e as Error).message);
       }
     })(),
+    m8Identifier: text(v.m8Identifier ?? "", 500),
     name: text(v.name, 160),
     hours: number(v.hours, 1000000, false, 0.001),
     months: number(v.months, 1200, true, 1),

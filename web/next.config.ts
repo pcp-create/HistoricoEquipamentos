@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 import path from "node:path";
 const config: NextConfig = {
   devIndicators: false,
+  distDir: process.env.NEXT_DIST_DIR || ".next",
+  async redirects() {
+    return [{ source: "/programacao-os", destination: "/programacao", permanent: true }];
+  },
   allowedDevOrigins: [
     "127.0.0.1",
     ...(process.env.CODESPACE_NAME

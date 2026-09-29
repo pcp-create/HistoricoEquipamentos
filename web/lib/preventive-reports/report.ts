@@ -1,4 +1,4 @@
-import { predictPlans } from "../equipment-management/preventive-hierarchy";
+import { predictPlans } from "../equipment-management/preventive-hierarchy.stable";
 import {
   brazilToday,
   emptyOperating,
@@ -7,7 +7,7 @@ import {
   type Plan,
   type Operating,
   type RentalUsage,
-} from "../equipment-management/planning";
+} from "../equipment-management/planning.stable";
 export type ReportKind = "weekly" | "overdue" | "monthly";
 export type Source = {
   id: string;

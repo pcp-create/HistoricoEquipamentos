@@ -30,7 +30,10 @@ export function employeeFields(body: any) {
   )
     throw Error("Selecione ao menos um canal de recebimento.");
   if (body.task_color != null && !/^#[0-9a-f]{6}$/i.test(body.task_color)) throw Error("Selecione uma cor válida para as tarefas.");
+  const hourly=body.hourly_cost;
+  if(hourly!==undefined&&hourly!==null&&hourly!==""&&(!/^(\d+)(\.\d{1,2})?$/.test(String(hourly))||Number(hourly)>1000000))throw Error("Informe um custo por hora válido, com até duas casas decimais.");
   return {
+    ...(hourly!==undefined?{hourly_cost:hourly===null||hourly===""?null:Number(hourly)}:{}),
     task_color: body.task_color || null,
     display_name,
     department: string("department", 120),

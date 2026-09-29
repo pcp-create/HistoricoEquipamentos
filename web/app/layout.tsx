@@ -24,7 +24,7 @@ export default async function Layout({
       <head>
         <meta name="app-cache-scope" content={access.cacheScope} />
       </head>
-      <body>
+      <body className={access.admin ? "admin-preview" : undefined}>
         <SessionAccessProvider access={access}>
           {children}
         </SessionAccessProvider>

@@ -4009,3 +4009,105 @@ body .results-toolbar nav.app-section-tabs { width:auto; margin:0; }
 .equipment-preview-fields dd { margin: 5px 0 0; white-space: pre-wrap; }
 .equipment-preview-drawer article + article { border-top: 1px solid #dbe5f0; padding-top: 12px; margin-top: 16px; }
 @media(max-width:600px) { .equipment-preview-drawer { width: 100%; padding: 16px; } }
+
+/* Pending interface updates are scoped to authenticated administrators. */
+
+body.admin-preview :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar,.scheduling-page) nav.app-section-tabs > button {
+  position:relative; display:inline-flex; align-items:center; justify-content:center;
+  gap:8px; flex:0 0 auto; min-height:46px; margin:0; padding:12px 18px;
+  border:0; border-bottom:3px solid transparent; border-radius:6px 6px 0 0;
+  box-shadow:none; background:transparent; color:#64748b;
+  font-family:inherit; font-size:14px; font-weight:500; line-height:1.4;
+  white-space:nowrap; cursor:pointer;
+}
+body.admin-preview :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar,.scheduling-page) nav.app-section-tabs > button:hover {
+  color:#245f9b; background:#edf4fc;
+}
+body.admin-preview :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar,.scheduling-page) nav.app-section-tabs > button[aria-pressed="true"] {
+  color:#245f9b; background:#edf4fc; border-bottom-color:#2870b8; font-weight:600;
+}
+@media(max-width:650px) {
+ body.admin-preview :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar,.scheduling-page) nav.app-section-tabs > button { padding:11px 12px; font-size:13px; }
+}
+:where(body.admin-preview) .order-link-editor { margin-top: 10px; font-size: 12px; font-weight: 400; }
+:where(body.admin-preview) .order-link-editor > div { margin-top: 10px; padding: 12px; border: 1px solid #dfe5ed; border-radius: 8px; }
+:where(body.admin-preview) .order-link-results { max-height: 270px; overflow: auto; margin: 10px 0; }
+:where(body.admin-preview) .order-link-results > button { display: flex; flex-direction: column; text-align: left; gap: 4px; width: 100%; white-space: normal; margin-bottom: 5px; border: 1px solid #dfe5ed; background: white; padding: 8px; border-radius: 5px; }
+:where(body.admin-preview) .order-link-results > button[aria-pressed="true"] { border-color: #2870b8; background: #edf4fc; }
+:where(body.admin-preview) .drawer-header .order-link-caption { display:block; margin-top:3px; font-size:10px; font-weight:400; line-height:1.4; color:#8293a8; }
+:where(body.admin-preview) .material-lookup .material-similar-table {
+  table-layout: fixed;
+  min-width: 960px;
+}
+:where(body.admin-preview) .material-lookup .material-similar-table td {
+  width: auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+:where(body.admin-preview) .material-similar-table th:nth-child(n + 4),
+:where(body.admin-preview) .material-similar-table td:nth-child(n + 4) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+:where(body.admin-preview) .material-similar-table .material-collected {
+  font-size: 10px;
+  white-space: nowrap;
+}
+:where(body.admin-preview) .product-reservations{display:block;margin-top:5px;font-size:11px;line-height:1.5;font-weight:400;white-space:normal;color:#718399;}
+:where(body.admin-preview) .product-reservation-order{display:block;overflow-wrap:anywhere;}
+:where(body.admin-preview) .product-reservation-order .quote-order-link{font-size:inherit;}
+:where(body.admin-preview) .product-reservation-company{font-size:10px;}
+:where(body.admin-preview) button:has(> .save-action-icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 7px;
+  gap: 0;
+}
+:where(body.admin-preview) .save-action-icon { flex-shrink: 0; }
+:where(body.admin-preview) .product-reservations .product-reservations-trigger {
+  display:inline;padding:0;border:0;border-radius:0;background:none;box-shadow:none;
+  min-height:0;min-width:0;margin:0;font:inherit;color:#17649a;text-decoration:underline;cursor:pointer;
+}
+:where(body.admin-preview) .product-reservations-trigger:focus-visible{outline:2px solid #17649a;outline-offset:3px;}
+:where(body.admin-preview) .product-reservations-dialog{width:min(440px,calc(100vw - 32px));max-height:80dvh;margin:auto;padding:20px;border:1px solid #dce6f0;border-radius:12px;color:#29445f;overflow:auto;}
+:where(body.admin-preview) .product-reservations-dialog::backdrop{background:rgba(20,38,57,.35);}
+:where(body.admin-preview) .product-reservations-dialog header{display:flex;align-items:center;justify-content:space-between;gap:16px;}
+:where(body.admin-preview) .product-reservations-dialog h3{margin:0;font-size:17px;}
+:where(body.admin-preview) .product-reservations-dialog p{font-size:13px;color:#718399;margin:12px 0;}
+:where(body.admin-preview) .product-reservations-dialog ul{list-style:none;padding:0;margin:0;}
+:where(body.admin-preview) .product-reservations-dialog li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #e5edf4;font-size:14px;}
+:where(body.admin-preview) .order-reservation-observation{white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid #dce6f0;border-radius:8px;background:#f5f8fb;padding:12px;margin:12px 0;font-size:13px;}
+:where(body.admin-preview) .order-reservation-observation strong{display:block;margin-bottom:6px;}
+:where(body.admin-preview) .product-reservations-dialog li { height:42px;box-sizing:border-box;padding:5px 0; }
+:where(body.admin-preview) .product-reservations-dialog li > .quote-order-link { flex-shrink:0;white-space:nowrap; }
+:where(body.admin-preview) .product-reservation-context { flex:1;min-width:0;text-align:left; }
+:where(body.admin-preview) .product-reservation-customer,:where(body.admin-preview) .product-reservation-equipment { display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:14px; }
+:where(body.admin-preview) .product-reservation-customer { font-size:12px; }
+:where(body.admin-preview) .product-reservation-equipment { font-size:10px;color:#718399; }
+:where(body.admin-preview) .product-reservations-dialog .product-reservation-company { max-width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+:where(body.admin-preview) .quote-context-fields > .quote-lookup:first-child { grid-column: 1 / -1; }
+:where(body.admin-preview) .quote-header-actions { display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto; }
+:where(body.admin-preview) .quote-header-actions:empty { display:none; }
+@media(max-width:650px) { :where(body.admin-preview) .quote-header-actions { margin-left:0; } }
+:where(body.admin-preview) .quote-revision-toggle { display:inline-flex;align-items:center;gap:8px;padding:0;border:0;background:none;box-shadow:none;color:inherit;font:inherit;text-align:left;cursor:pointer; }
+:where(body.admin-preview) .quote-revision-toggle > svg { flex-shrink:0; }
+:where(body.admin-preview) .quote-revision-toggle[aria-expanded="true"] > svg { transform:rotate(90deg); }
+:where(body.admin-preview) .quote-revision-toggle:focus-visible { outline:2px solid #17649a;outline-offset:4px; }
+:where(body.admin-preview) .quote-extras-card > .quote-extras { margin-top:0;padding-top:0;border-top:0; }
+:where(body.admin-preview) .quote-extras-card > .quote-extras > summary { font-size:20px;color:var(--text); }
+:where(body.admin-preview) .quote-manufacturer-card .quote-section-title h2,
+:where(body.admin-preview) .quote-extras-card .quote-block-heading { font-size:16px;font-weight:600;line-height:1.4; }
+:where(body.admin-preview) .quote-manufacturer-card .quote-revision-toggle > svg { width:18px;height:18px; }
+:where(body.admin-preview) .quote-extras-card > .quote-extras > summary { display:block;list-style:none;font-size:16px;font-weight:400; }
+:where(body.admin-preview) .quote-extras-card > .quote-extras > summary::-webkit-details-marker { display:none; }
+:where(body.admin-preview) .quote-extras-card .quote-block-heading { display:flex;align-items:center;gap:8px; }
+:where(body.admin-preview) .quote-extras-card .quote-block-heading > svg { flex-shrink:0; }
+:where(body.admin-preview) .quote-extras-card details[open] .quote-block-heading > svg { transform:rotate(90deg); }
+:where(body.admin-preview) .quote-extras-card > .quote-extras > summary .count-pill { display:inline-block;margin:0;font-size:10px;color:#317bc4;font-weight:400; }
+:where(body.admin-preview) .quote-extras-card .quote-section-title { margin-bottom:0; }
+:where(body.admin-preview) .quote-extras-card summary > .muted { margin:0;font-size:12px;font-weight:400; }
+:where(body.admin-preview) .quote-manufacturer-card > .quote-section-title { margin-bottom:0; }
+:where(body.admin-preview) .quote-manufacturer-card .quote-section-title .muted { margin:0;font-size:12px; }

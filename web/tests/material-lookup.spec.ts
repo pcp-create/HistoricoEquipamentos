@@ -25,6 +25,7 @@ test("material lookup is protected and consults exact code independently of anal
             ? [
                 {
                   company_id: 1,
+                  reserved_orders: [{company_id:1,order_id:"14850",order_number:"14850",imported:true,customer:"Cliente da reserva",equipment:"Compressor de parafuso"}],
                   last_sale_at: "2026-09-10T12:00:00Z",
                   last_order_id: "17",
                   last_order_number: "14083",
@@ -93,17 +94,35 @@ test("material lookup is protected and consults exact code independently of anal
   await expect(panel).toContainText("A consultar");
   await expect(panel.getByRole("link", { name: "OS 14083" })).toHaveAttribute(
     "href",
-    "/?view=orders&company=1&orderNumber=14083",
+    "/historico?view=orders&orderNumber=14083&company=1",
   );
-  await expect(panel.getByRole("link", { name: "OS 14083" })).toHaveAttribute(
-    "target",
-    "_blank",
-  );
+  await expect(panel.getByRole("link", { name: "OS 14083" })).not.toHaveAttribute("target", "_blank");
+  await page.route("**/api/orders/1/17",r=>r.fulfill({json:{order:{id_m8:17,company_id:1,cliente_nome:"Cliente última venda",observacao:"Observação alinhada à esquerda"},materials:[],equipment:[]}}));
+  await panel.getByRole("link",{name:"OS 14083",exact:true}).click();
+  await expect(page.locator("body > .detail-dialog")).toBeVisible();
+  await expect(page.locator(".detail-dialog h3").filter({hasText:"Cliente última venda"})).toHaveCSS("text-align","start");
+  await page.getByRole("button",{name:"Fechar detalhes",exact:true}).click();
+
   await expect(panel).toContainText("10/09/2026");
   await expect(panel.locator(".material-collected").first()).toHaveCSS(
     "font-size",
     "10px",
   );
+  await expect(panel.getByRole("link",{name:"OS 14850",exact:true})).toHaveCount(0);
+  await panel.getByRole("button",{name:"(1) OS",exact:true}).click();
+  const reservations=page.getByRole("dialog",{name:"OSs com empenho (1)",exact:true});
+  await expect(reservations).toBeVisible();
+  await expect(reservations.locator(".product-reservation-customer")).toHaveText("Cliente da reserva");
+  await expect(reservations.locator(".product-reservation-equipment")).toHaveText("Compressor de parafuso");
+  await expect(reservations.getByRole("link",{name:"OS 14850",exact:true})).toHaveAttribute("href","/historico?view=orders&orderNumber=14850&company=1");
+  await page.route("**/api/orders/1/14850",r=>r.fulfill({json:{order:{id_m8:14850,company_id:1,cliente_nome:"Cliente da reserva",observacao:"Verificar aplicação do material"},materials:[],equipment:[]}}));
+  await reservations.getByRole("link",{name:"OS 14850",exact:true}).click();
+  await expect(page.locator(".detail-dialog")).toContainText("Cliente da reserva");
+  await expect(page.locator(".detail-dialog")).toContainText("Verificar aplicação do material");
+  await page.getByRole("button",{name:"Fechar detalhes",exact:true}).click();
+  await expect(reservations).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(reservations).toHaveCount(0);
   expect(codes).toEqual(["5"]);
   await expect(
     panel.getByRole("img", { name: "Filtro teste — foto 1", exact: true }),

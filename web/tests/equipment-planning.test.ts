@@ -203,3 +203,20 @@ test("plan items accept materials and services, reject duplicates and invalid qu
     2,
   );
 });
+
+test("calendar deadline alerts within 30 days even when the hourly forecast is incomplete", () => {
+  const partial = { ...plan, months: 12, lastDate: "2025-10-20", lastMeter: null };
+  const upcoming = predict(partial, emptyOperating, "2026-09-29");
+  assert.equal(upcoming.status, "soon");
+  assert.equal(upcoming.days, 21);
+  assert.equal(upcoming.due, "2026-10-20");
+  assert.equal(upcoming.basis, "months");
+  assert.equal(upcoming.incomplete, true);
+  assert.equal(upcoming.hoursDate, null);
+  assert.equal(predict(partial, emptyOperating, "2026-09-20").status, "soon");
+  assert.equal(predict(partial, emptyOperating, "2026-09-19").status, "incomplete");
+  assert.equal(predict(partial, emptyOperating, "2026-10-20").status, "due");
+  assert.equal(predict(partial, emptyOperating, "2026-10-21").status, "overdue");
+  assert.equal(predict({...partial, lastDate: ""}, emptyOperating, "2026-09-29").status, "incomplete");
+  assert.equal(predict({...partial, lastMeter: 14577}, emptyOperating, "2026-09-29").status, "soon");
+});

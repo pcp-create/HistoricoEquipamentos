@@ -1,0 +1,416 @@
+.field-app {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 16px 50px;
+  color: #233f5b;
+  font-size: 15px;
+  min-height: 100dvh;
+}
+.field-app * {
+  box-sizing: border-box;
+}
+.field-app button {
+  min-height: 48px;
+  cursor: pointer;
+  border: 1px solid #d6e2ed;
+  border-radius: 12px;
+  background: white;
+  color: #245988;
+  padding: 12px 16px;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  font-weight: 600;
+}
+.field-app button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.field-app button:focus-visible {
+  outline: 3px solid #4c93db;
+  outline-offset: 2px;
+}
+.field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.field-header small {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: #738aa0;
+}
+.field-header h1 {
+  font-size: 25px;
+  margin: 8px 0;
+  line-height: 1.25;
+}
+.field-user {
+  font-size: 12px;
+  color: #738aa0;
+  margin: 0 0 24px;
+  overflow-wrap: anywhere;
+}
+.field-home {
+  display: grid;
+  gap: 16px;
+}
+.field-home button {
+  justify-content: flex-start;
+  padding: 24px;
+  text-align: left;
+  gap: 20px;
+  box-shadow: 0 4px 15px #234a6810;
+}
+.field-home button:first-child {
+  background: #205b8e;
+  color: white;
+}
+.field-home button > svg {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+}
+.field-home span {
+  flex: 1;
+}
+.field-home b,
+.field-home small {
+  display: block;
+}
+.field-home small {
+  font-size: 12px;
+  font-weight: 400;
+  margin-top: 6px;
+}
+.field-home a {
+  text-align: center;
+  font-size: 13px;
+  margin-top: 15px;
+}
+.field-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  font-size: 13px;
+}
+.field-empty {
+  padding: 50px 20px;
+  text-align: center;
+  background: white;
+  border: 1px solid #dae5ee;
+  border-radius: 16px;
+}
+.field-empty h2 {
+  font-size: 20px;
+}
+.field-empty p {
+  color: #71869a;
+}
+.field-order {
+  border: 1px solid #d7e3ed;
+  border-radius: 16px;
+  background: white;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.field-order > summary {
+  padding: 18px;
+  display: flex;
+  gap: 16px;
+  cursor: pointer;
+  list-style: none;
+  align-items: flex-start;
+}
+.field-order > summary::-webkit-details-marker {
+  display: none;
+}
+.field-order > summary > svg {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.field-order[open] > summary > svg {
+  transform: rotate(180deg);
+}
+.field-order small,
+.field-order-customer span {
+  display: block;
+  font-size: 12px;
+  color: #6b8298;
+  line-height: 1.5;
+}
+.field-order > summary > div:first-child {
+  flex-shrink: 0;
+}
+.field-order-customer {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.field-order-customer b {
+  font-size: 14px;
+}
+.field-operations {
+  padding: 0 12px 12px;
+}
+.field-operation {
+  border: 1px solid #e0e8ef;
+  border-radius: 12px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+.field-app .field-operation-title {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  background: #f5f8fb;
+  text-align: left;
+  justify-content: space-between;
+  font-size: 14px;
+}
+.field-operation-title span {
+  min-width: 0;
+}
+.field-operation-title small {
+  margin-top: 5px;
+  font-size: 11px;
+}
+.field-operation-body {
+  padding: 12px;
+}
+.field-step {
+  padding: 12px;
+  background: #fff7e5;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.field-checked {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: #21816b;
+  font-size: 12px;
+}
+.field-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.field-actions button {
+  flex-direction: column;
+  font-size: 12px;
+  min-height: 90px;
+  padding: 12px 7px;
+}
+.field-actions svg {
+  width: 24px;
+  height: 24px;
+}
+.field-icon-pair {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.field-app .is-active {
+  background: #e0f3ea;
+  border-color: #5fa78a;
+  color: #14684c;
+}
+.field-app .is-paused {
+  background: #fff0ce;
+  border-color: #d7a747;
+  color: #825c00;
+}
+.field-active {
+  background: #e0f3ea;
+  border: 1px solid #a6d8bd;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+}
+.field-active small {
+  width: 100%;
+  font-size: 11px;
+}
+.field-active.paused,
+.field-timer.paused {
+  background: #fff0ce;
+  color: #825c00;
+}
+.field-timer {
+  padding: 12px;
+  background: #e0f3ea;
+  border-radius: 10px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.field-panel {
+  padding: 14px;
+  border: 1px solid #d7e3ed;
+  border-radius: 12px;
+  margin: 14px 0;
+  background: #fafcfe;
+}
+.field-panel h3 {
+  font-size: 17px;
+  margin: 0 0 10px;
+}
+.field-panel p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.field-panel > button {
+  width: 100%;
+  margin-top: 10px;
+  background: #215e93;
+  color: white;
+}
+.field-app label {
+  display: block;
+  font-size: 13px;
+  margin: 12px 0;
+}
+.field-app input:not([type="checkbox"]),
+.field-app select,
+.field-app textarea {
+  width: 100%;
+  min-height: 46px;
+  font-size: 16px;
+  border: 1px solid #cddcea;
+  border-radius: 9px;
+  background: white;
+  padding: 10px;
+  color: #233f5b;
+}
+.field-app .field-confirm {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.5;
+}
+.field-confirm input {
+  margin: 0;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.field-part {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #dce5ee;
+}
+.field-part b {
+  font-size: 13px;
+}
+.field-part small {
+  margin: 5px 0;
+}
+.field-part.linked {
+  background: #fff9e4;
+}
+.field-note {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.field-error {
+  background: #fff0ef;
+  color: #9e342b;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.field-success {
+  color: #167552;
+  font-size: 13px;
+}
+.field-location {
+  display: flex;
+  gap: 8px;
+  color: #71869a;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.field-location svg {
+  flex-shrink: 0;
+}
+.field-history {
+  font-size: 12px;
+  margin-top: 16px;
+}
+.field-history summary {
+  cursor: pointer;
+}
+.field-history p {
+  padding: 8px 0;
+  border-bottom: 1px solid #e0e8ef;
+}
+.field-pause-alert {
+  background: #fff4d8;
+  border: 2px solid #d8a534;
+  padding: 16px;
+  border-radius: 12px;
+  margin: 16px 0;
+}
+.field-pause-alert button {
+  margin: 6px 6px 0 0;
+  font-size: 13px;
+}
+.field-app .checklist-answers {
+  grid-template-columns: minmax(0, 1fr);
+}
+.field-app .checklist-toolbar {
+  flex-wrap: wrap;
+}
+.field-app .checklist-run {
+  min-width: 0;
+}
+.field-app .checklist-run h4 {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .field-order > summary {
+    gap: 10px;
+    padding: 14px;
+    flex-wrap: wrap;
+  }
+  .field-order-customer {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .field-header h1 {
+    font-size: 23px;
+  }
+  .field-panel {
+    padding: 10px;
+  }
+  .field-app {
+    padding: 20px 12px;
+  }
+}
+
+.field-part-info { min-width: 0; overflow-wrap: anywhere; }
+.field-part-info small { display: block; }
+.field-app .field-part > label { margin: 0; font-size: 12px; }
+.field-part > label input { margin-top: 5px; text-align: right; }
+.field-actions > button { position: relative; }
+.field-menu-light { position: absolute; top: 9px; right: 9px; width: 10px; height: 10px; border-radius: 50%; border: 1px solid #0002; background: #a0a9b4; }
+.field-menu-light-complete { background: #239564; }
+.field-menu-light-partial { background: #e6b62e; }
+.field-menu-light-required { background: #dc4545; }
+.field-report-actions { display:flex; gap:10px; margin-top:14px; }
+.field-report-actions > button { flex:1; min-width:0; padding:12px 8px; font-size:13px; }
+.field-report-actions > button:last-child { background:#215e93; color:white; }

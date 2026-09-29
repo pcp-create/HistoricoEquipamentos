@@ -37,7 +37,7 @@ test("administrator can create, edit, search and remove a city assignment", asyn
           {
             ...b,
             id: "1",
-            version: 1,
+            version: (b.version || 0) + 1,
             display_name:
               b.assignee === "a@example.com" ? "Pessoa A" : "Pessoa B",
             enabled: true,
@@ -59,34 +59,46 @@ test("administrator can create, edit, search and remove a city assignment", asyn
   await page
     .getByRole("button", { name: "Divisão comercial", exact: true })
     .click();
-  await page.getByRole("button", { name: "Nova regra" }).click();
-  await page.getByLabel("Cidade", { exact: true }).fill("São José");
-  await page.getByLabel("Mesorregião", { exact: true }).fill("Grande Florianópolis");
-  await page.getByLabel("Microrregião", { exact: true }).fill("Florianópolis");
-  await page.getByLabel("Vendedor", { exact: true }).fill("Bruno");
+  await page.getByRole("button", { name: "Adicionar regra" }).click();
+  await page.getByLabel("Cidade nova regra", { exact: true }).fill("São José");
   await page
-    .getByRole("combobox", { name: "Orçamentista", exact: true })
+    .getByLabel("Mesorregião nova regra", { exact: true })
+    .fill("Grande Florianópolis");
+  await page
+    .getByLabel("Microrregião nova regra", { exact: true })
+    .fill("Florianópolis");
+  await page.getByLabel("Vendedor nova regra", { exact: true }).fill("Bruno");
+  await page
+    .getByLabel("Orçamentista nova regra", { exact: true })
     .selectOption("a@example.com");
-  await page.getByRole("button", { name: "Salvar regra" }).click();
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(
-    page.getByRole("cell", { name: "Pessoa A", exact: true }),
-  ).toBeVisible();
-  for (const name of ["Grande Florianópolis", "Florianópolis", "Bruno"]) await expect(page.getByRole("cell", {name, exact:true})).toBeVisible();
+    page.getByLabel("Orçamentista São José", { exact: true }),
+  ).toHaveValue("a@example.com");
   await page.getByLabel("Pesquisar divisão").fill("BRUNO");
-  await page.getByRole("button", { name: "Editar", exact: true }).click();
-  await expect(page.getByLabel("Mesorregião", { exact:true })).toHaveValue("Grande Florianópolis");
+  await expect(
+    page.getByLabel("Mesorregião São José", { exact: true }),
+  ).toHaveValue("Grande Florianópolis");
   await page
-    .getByRole("combobox", { name: "Orçamentista", exact: true })
+    .getByLabel("Orçamentista São José", { exact: true })
     .selectOption("b@example.com");
-  await page.getByRole("button", { name: "Salvar regra" }).click();
   await expect(
-    page.getByRole("cell", { name: "Pessoa B", exact: true }),
+    page.getByText("Alterações não salvas", { exact: true }),
   ).toBeVisible();
+  await page.getByLabel("Vendedor São José", { exact: true }).press("Enter");
+  await expect(
+    page.getByText("Alterações não salvas", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByLabel("Orçamentista São José", { exact: true }),
+  ).toHaveValue("b@example.com");
   await page.getByLabel("Pesquisar divisão").fill("SAO JOSE");
-  await expect(
-    page.getByRole("cell", { name: "São José", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByLabel("Cidade São José", { exact: true })).toHaveValue(
+    "São José",
+  );
   page.once("dialog", (d) => d.accept());
-  await page.getByRole("button", { name: "Remover", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Remover regra de São José", exact: true })
+    .click();
   await expect(page.getByText("0 regras", { exact: true })).toBeVisible();
 });

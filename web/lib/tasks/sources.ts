@@ -1,7 +1,7 @@
 import {
   predictPlans,
   preventiveCycle,
-} from "../equipment-management/preventive-hierarchy";
+} from "../equipment-management/preventive-hierarchy.stable";
 import "server-only";
 import { database } from "../db";
 import { rentalStatuses } from "../equipment-management/rental-status";
@@ -10,7 +10,7 @@ import {
   brazilToday,
   emptyOperating,
   predict,
-} from "../equipment-management/planning";
+} from "../equipment-management/planning.stable";
 export type TaskSource = {
   key: string;
   cycle: string;

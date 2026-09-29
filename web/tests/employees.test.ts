@@ -166,3 +166,12 @@ test("account provisioning never returns or records passwords and rejects unregi
 });
 
 test("employee task color validates hexadecimal colors", () => { assert.throws(() => employeeFields({ ...employee, task_color: "red; background:url(x)" }), /cor válida/); assert.equal(employeeFields(employee).task_color, "#34d399"); });
+
+test("hourly labor cost preserves empty values and rejects invalid prices", () => {
+  assert.equal(employeeFields({ ...employee, hourly_cost: "52.75" }).hourly_cost, 52.75);
+  assert.equal(employeeFields({ ...employee, hourly_cost: "" }).hourly_cost, null);
+  assert.equal(employeeFields({ ...employee, hourly_cost: 0 }).hourly_cost, 0);
+  assert.equal("hourly_cost" in employeeFields(employee), false);
+  for (const hourly_cost of [-1, "1.234", "abc", Infinity])
+    assert.throws(() => employeeFields({ ...employee, hourly_cost }), /custo por hora/);
+});

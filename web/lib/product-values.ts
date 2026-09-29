@@ -1,4 +1,6 @@
+export type ReservedOrder = {company_id:number|string;order_id:string;order_number:string;imported:boolean;customer?:string|null;equipment?:string|null};
 export type ProductCurrent = {
+  reserved_orders?: ReservedOrder[];
   unit: string | null;
   sale_price: string | null;
   minimum_price: string | null;

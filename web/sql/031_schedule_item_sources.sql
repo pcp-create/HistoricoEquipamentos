@@ -1,0 +1,12 @@
+ALTER TABLE web_service_item_usage ADD COLUMN IF NOT EXISTS item_company integer;
+ALTER TABLE web_service_item_usage ADD COLUMN IF NOT EXISTS item_order bigint;
+ALTER TABLE web_service_item_cost ADD COLUMN IF NOT EXISTS item_company integer;
+ALTER TABLE web_service_item_cost ADD COLUMN IF NOT EXISTS item_order bigint;
+UPDATE web_service_item_usage i SET item_company=s.company_id,item_order=s.order_id FROM web_service_schedules s WHERE s.id=i.schedule_id AND i.item_company IS NULL;
+UPDATE web_service_item_cost i SET item_company=s.company_id,item_order=s.order_id FROM web_service_schedules s WHERE s.id=i.schedule_id AND i.item_company IS NULL;
+ALTER TABLE web_service_item_usage ALTER COLUMN item_company SET NOT NULL, ALTER COLUMN item_order SET NOT NULL;
+ALTER TABLE web_service_item_cost ALTER COLUMN item_company SET NOT NULL, ALTER COLUMN item_order SET NOT NULL;
+ALTER TABLE web_service_item_usage DROP CONSTRAINT IF EXISTS web_service_item_usage_pkey;
+ALTER TABLE web_service_item_usage ADD PRIMARY KEY(schedule_id,item_company,item_order,item_id);
+ALTER TABLE web_service_item_cost DROP CONSTRAINT IF EXISTS web_service_item_cost_pkey;
+ALTER TABLE web_service_item_cost ADD PRIMARY KEY(schedule_id,item_company,item_order,item_id);

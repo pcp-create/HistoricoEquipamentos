@@ -296,6 +296,11 @@ test("quote selects equipment, combines suggestions, edits prices, saves and reo
     .locator(".quote-choice")
     .filter({ hasText: "Revisão preventiva" });
   await service.getByRole("checkbox").check();
+  await page.locator(".quote-extras > summary").click();
+  await expect(page.getByRole("list",{name:"Peças e serviços selecionados"})).toHaveCount(0);
+  await expect(page.locator(".quote-extras > summary .count-pill")).toContainText("1 selecionados");
+  await page.locator(".quote-extras > summary").click();
+
   await expect(service).toContainText("Última venda · base geral");
   await service.getByRole("button", { name: "Usar última venda:" }).click();
   const listFilter = page.getByLabel("Filtrar materiais e serviços");
@@ -468,11 +473,14 @@ test("manual manufacturer selection works with blank model and serial", async ({
   await page.getByLabel("Intervalo da revisão").selectOption("");
   await page.waitForTimeout(400);
   expect(queries.length).toBe(requestCount);
+  await page.keyboard.press("Escape");
   await page
-    .getByRole("button", { name: "Minimizar peças da revisão" })
+    .getByRole("button", { name: "Peças e recomendações do catálogo do fabricante", exact: true })
     .click();
   await expect(page.locator("#quote-revision-content")).toBeHidden();
-  await page.getByRole("button", { name: "Expandir peças da revisão" }).click();
+  await expect(page.locator(".quote-extras-card")).toBeVisible();
+  await expect(page.locator(".quote-extras-card > details > summary")).toContainText("Demais peças e serviços");
+  await page.getByRole("button", { name: "Peças e recomendações do catálogo do fabricante", exact: true }).click();
   await expect(page.locator("#quote-revision-content")).toBeVisible();
   expect(queries.at(-1)?.get("variant")).toBe("gx");
   await expect(page.getByLabel("Modelo", { exact: true })).toHaveValue("");

@@ -1,0 +1,66 @@
+.compact-edit-wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid #dce6f0;
+  border-radius: 8px;
+  background: white;
+  margin: 12px 0;
+}
+.compact-edit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.compact-edit-table th {
+  background: #f3f7fb;
+  color: #71859d;
+  font-size: 11px;
+  text-align: left;
+  padding: 8px 10px;
+}
+.compact-edit-table td {
+  padding: 6px 8px;
+  border-top: 1px solid #e7edf4;
+  vertical-align: middle;
+}
+.compact-edit-table td:last-child {
+  white-space: nowrap;
+  width: 1%;
+}
+.compact-edit-table input,
+.compact-edit-table select {
+  min-width: 140px;
+  height: 32px;
+  padding: 4px 8px;
+  font-size: 12px;
+  margin: 0;
+}
+.compact-edit-table button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px;
+  margin: 0 3px 0 0;
+  font-size: 12px;
+  border: 1px solid #dce6f0;
+  border-radius: 5px;
+  color: #285d94;
+  background: white;
+}
+.compact-edit-table small {
+  display: block;
+  font-size: 10px;
+  color: #956a16;
+  margin-top: 3px;
+}
+.compact-edit-table tr.compact-edit-dirty td {
+  background: #fffbeb;
+}
+.compact-edit-table tfoot button {
+  border: 0;
+  background: transparent;
+}
+.compact-edit-table tfoot td {
+  padding: 8px;
+}
