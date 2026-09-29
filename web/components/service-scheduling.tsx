@@ -274,7 +274,7 @@ export default function ServiceScheduling() {
           {busy ? "Salvando…" : ""}
         </span>
         {!data ? (
-          <p>Carregando programação…</p>
+          <p>{error ? "Clique em Atualizar para tentar novamente." : "Carregando programação…"}</p>
         ) : config ? (
           <ScheduleSettings
             data={data}
@@ -635,7 +635,7 @@ export default function ServiceScheduling() {
                 {!services.length && <p>Nenhum serviço disponível nesta OS.</p>}
               </div>
             )}
-            {tab === "timeLogs" && <ScheduleTimeLogs data={data}/>}
+            {tab === "timeLogs" && <ScheduleTimeLogs data={data} onChanged={async()=>{clearApiCache();await load();}}/>}
             {tab === "costs" && (
               <ScheduleCosts
                 data={data}
@@ -1093,21 +1093,20 @@ function OperationRow({
           </select>
         </td>
         <td>
+          <div className="operation-execution-actions">
           <button
+            className="operation-icon-action"
             disabled={locked || !dirty}
             aria-label={"Salvar operação " + o.position}
             onClick={() => void persist()}
            title={"Salvar operação " + o.position}><SaveActionIcon /></button>
-          {dirty && (
-            <small className="operation-draft-label" role="status">
-              Alterações não salvas
-            </small>
-          )}
           {data.canEditSettings && <button type="button" disabled={busy||dirty||o.status!=="scheduled"||!d.responsible} onClick={()=>void mutate({action:"dispatch",operationId:o.id,version:o.version})}>{o.sent_at?"Enviado ao técnico":"Enviar ao técnico"}</button>}
           <button onClick={() => setExpanded(!expanded)}>
             {expanded ? "Fechar" : "Acompanhar"}
           </button>
           <button
+            className="operation-icon-action"
+            title={"Remover operação " + o.position}
             aria-label={"Remover operação " + o.position}
             disabled={
               busy || !["pending", "planning", "scheduled"].includes(o.status)
@@ -1121,8 +1120,14 @@ function OperationRow({
                 });
             }}
           >
-            <Trash2 size={14} />
+            <Trash2 size={18} />
           </button>
+          </div>
+          {dirty && (
+            <small className="operation-draft-label" role="status">
+              Alterações não salvas
+            </small>
+          )}
         </td>
       </tr>
       {expanded && (

@@ -36,3 +36,31 @@ Para liberar depois, remover a seleção de versões estáveis e revisar os bloq
 Validação da publicação de 29/09/2026: build de produção aprovado; quatro testes de navegador aprovados (administrador, usuário comum com acesso direto negado, fluxo móvel e programação). Suíte unitária: 126/129; as três falhas de equipamentos vinculados, catálogo e orçamentos foram reproduzidas no commit base `e50c6a3`, com os mesmos resultados, antes da publicação. Documentos de clientes, arquivos de ambiente, configurações locais e certificados privados não foram incluídos.
 
 O preenchimento do relatório abre em uma tela que ocupa toda a área útil do navegador, com retorno fixo no topo e ações Salvar/Enviar no rodapé. Os rascunhos permanecem ao voltar ao menu e reabrir o relatório enquanto a operação continuar aberta. Não substitui salvar antes de sair da página. A organização móvel foi validada em Chromium e WebKit, em larguras de 390 e 320 px.
+
+### Ajustes de apontamentos e aprovação
+
+A estrutura desta funcionalidade é instalada por
+`web/sql/038_time_adjustment_requests.sql`. Antes da instalação, a consulta das
+programações permanece disponível e as ações de ajuste ficam desabilitadas.
+Migração aplicada no banco compartilhado em 29/09/2026, com autorização do usuário.
+
+- Configuração de funcionário: seleção de um ou mais gestores ativos; não permite
+  autoatribuição. Os gestores podem ser adicionados/removidos individualmente.
+- Programação → Apontamentos: coordenadas originais de início/fim e das pausas,
+  ajuste direto de registros encerrados pelo planejador, com justificativa.
+- Portal técnico → Meus apontamentos: consulta dos próprios registros, solicitação
+  de correção e inclusão manual com motivo. Horários informados em Brasília.
+- Solicitações pendentes não alteram horas nem custos. Cada gestor recebe uma
+  tarefa, com identificação da OS/operação, motivo e horários. A aprovação por
+  qualquer gestor ainda cadastrado aplica a mudança e conclui todas as tarefas
+  da solicitação. Rejeição exige motivo e também encerra as tarefas.
+- O técnico não pode aprovar sua própria solicitação. A aprovação é transacional
+  e verifica novamente sobreposição e versão. Registros em andamento precisam
+  ser encerrados antes de solicitar ajuste.
+- Correções preservam horários e GPS originais; o histórico registra pedido,
+  motivo, autor e análise. A localização de um lançamento manual é identificada
+  como o local da solicitação, nunca como o local histórico da atividade.
+- O piloto continua restrito a administradores, inclusive APIs e tarefas novas;
+  a configuração de gestores não concede acesso administrativo.
+- Não há envio ao GitHub, publicação ou migração de produção sem autorização
+  explícita do usuário.

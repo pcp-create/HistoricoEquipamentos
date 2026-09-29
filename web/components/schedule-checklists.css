@@ -126,3 +126,7 @@
 
 .checklist-summary-title { display: inline-flex; align-items: baseline; gap: 4px; max-width: 100%; }
 .checklist-run .checklist-summary-title > .checklist-stage-count { display: inline; flex-shrink: 0; margin: 0; }
+
+.checklist-run .checklist-answer select.checklist-equipment-select {
+ font-size: 13px;
+}

@@ -118,7 +118,7 @@ export async function syncTasks(
       )
     ).rows;
     for (const t of closed) {
-      if (t.source_key.startsWith("manual:")) continue;
+      if (t.source_key.startsWith("manual:") || t.source_key.startsWith("time-request:")) continue;
       const source = byKey.get(t.source_key);
       if (!source || source.resolved || source.cycle !== t.cycle) {
         await c.query("UPDATE web_tasks SET source_resolved=true WHERE id=$1", [
@@ -127,7 +127,7 @@ export async function syncTasks(
       } else active.add(t.source_key);
     }
     for (const t of open) {
-      if (t.source_key.startsWith("manual:")) continue;
+      if (t.source_key.startsWith("manual:") || t.source_key.startsWith("time-request:")) continue;
       const source = byKey.get(t.source_key);
       if (!source || source.resolved || source.cycle !== t.cycle) {
         let reason = !source
@@ -234,8 +234,8 @@ export async function listTasks(p: URLSearchParams, user: AuthUser) {
   if (equipment) idValue(equipment);
   const rows = (
     await database().query(
-      `SELECT t.*,u.display_name assignee_name,to_jsonb(u)->>'task_color' assignee_color,m.display_name modifier_name,u.enabled assignee_enabled FROM web_tasks t LEFT JOIN web_user_access u ON u.email=t.assigned_to LEFT JOIN web_user_access m ON m.email=t.updated_by WHERE ($1::text IS NULL OR t.assigned_to=$1) AND ($2::bigint IS NULL OR t.equipment_id=$2) ORDER BY t.created_at DESC,t.id DESC`,
-      [p.get("mine") === "true" ? user.email.toLowerCase() : null, equipment],
+      `SELECT t.*,u.display_name assignee_name,to_jsonb(u)->>'task_color' assignee_color,m.display_name modifier_name,u.enabled assignee_enabled FROM web_tasks t LEFT JOIN web_user_access u ON u.email=t.assigned_to LEFT JOIN web_user_access m ON m.email=t.updated_by WHERE ($1::text IS NULL OR t.assigned_to=$1) AND ($2::bigint IS NULL OR t.equipment_id=$2) AND (t.source_key NOT LIKE 'time-request:%' OR EXISTS(SELECT 1 FROM web_user_access a WHERE a.email=$3 AND a.enabled AND a.role='admin')) ORDER BY t.created_at DESC,t.id DESC`,
+      [p.get("mine") === "true" ? user.email.toLowerCase() : null, equipment, user.email],
     )
   ).rows;
   const users = (
@@ -343,6 +343,7 @@ export async function updateTask(body: any, user: AuthUser) {
       throw new TaskConflict(
         "A tarefa foi atualizada. Recarregue antes de salvar.",
       );
+    if(t.source_key.startsWith('time-request:')&&['move','reopen','update','stage'].includes(body.action))throw new TaskInputError('Esta tarefa deve ser analisada pelo botão Aprovar Solicitação ou Rejeitar Solicitação.');
     if (body.action === "reopen") {
       if (!t.source_key.startsWith("manual:") || t.status !== "completed")
         throw new TaskInputError(

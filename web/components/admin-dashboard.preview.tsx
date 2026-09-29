@@ -13,6 +13,7 @@ const emptyEmployee = {
   department: "",
   job_title: "",
   hourly_cost: "",
+  managers: [] as string[],
   phone: "",
   task_color: null as string | null,
   role: "user",
@@ -237,6 +238,12 @@ export default function AdminDashboard() {
                               />
                             </label>
                           ))}
+                          <fieldset disabled={data.managersAvailable===false}><legend>Gestores para aprovação de apontamentos</legend>
+                          {data.managersAvailable===false&&<p>O cadastro de gestores aguarda habilitação. Os demais dados do funcionário podem ser salvos normalmente.</p>}
+                          <small>Selecione um ou mais gestores. Qualquer um poderá aprovar.</small>
+                          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{(form.managers||[]).map((email:string)=><button type="button" key={email} onClick={()=>setForm({...form,managers:form.managers.filter((x:string)=>x!==email)})}>{data.users.find((u:any)=>u.email===email)?.display_name||email} ×</button>)}</div>
+                          <select aria-label="Adicionar gestor" value="" onChange={e=>{if(e.target.value)setForm({...form,managers:[...(form.managers||[]),e.target.value]});}}><option value="">Adicionar gestor…</option>{data.users.filter((u:any)=>u.enabled&&u.email!==form.email&&!(form.managers||[]).includes(u.email)).map((u:any)=><option key={u.email} value={u.email}>{u.display_name||u.email}</option>)}</select>
+                          </fieldset>
                           <label>Custo de mão de obra por hora (R$)<input type="number" min="0" max="1000000" step="0.01" value={form.hourly_cost??""} onChange={e=>setForm({...form,hourly_cost:e.target.value})}/></label>
                           <label>
                             Cor nas tarefas

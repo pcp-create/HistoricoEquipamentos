@@ -29,6 +29,7 @@ test("employee opt-ins, blocked access, deduplication and registered name surviv
       await db.exec(
         readFileSync(new URL("../sql/" + f, import.meta.url), "utf8"),
       );
+    await db.exec("ALTER TABLE web_user_access ADD COLUMN managers jsonb NOT NULL DEFAULT '[]'");
     const query = db.query.bind(db);
     g.historyPool = { query, connect: async () => ({ query, release() {} }) };
     const admin = { id: "a", email: "guih.waltrick@gmail.com" };
@@ -46,11 +47,21 @@ test("employee opt-ins, blocked access, deduplication and registered name surviv
       ).rows[0].role,
       "admin",
     );
-    await setAccess({ ...employee, mode: "create" }, admin);
+    await db.exec("ALTER TABLE web_user_access DROP COLUMN managers");
+    await setAccess({ ...employee, mode: "create", managers: [] }, admin);
+    await assert.rejects(setAccess({...employee,display_name:"Não persistir",managers:[admin.email]},admin),/habilitado no banco/);
+    assert.equal((await db.query<any>("SELECT display_name FROM web_user_access WHERE email=$1",[employee.email])).rows[0].display_name,employee.display_name);
+    await db.exec("ALTER TABLE web_user_access ADD COLUMN managers jsonb NOT NULL DEFAULT '[]'");
+
     await setAccess(
       { ...employee, email: "other@example.com", alert_email: false },
       admin,
     );
+    await setAccess({...employee,managers:[admin.email,"other@example.com"]},admin);
+    assert.deepEqual((await db.query<any>("SELECT managers FROM web_user_access WHERE email=$1",[employee.email])).rows[0].managers,[admin.email,"other@example.com"]);
+    await assert.rejects(setAccess({...employee,managers:[employee.email]},admin),/próprio gestor/);
+    await assert.rejects(setAccess({...employee,managers:["missing@example.com"]},admin),/gestores ativos/);
+    assert.throws(()=>employeeFields({...employee,managers:[admin.email,admin.email]}),/Gestores inválidos/);
     assert.deepEqual(await alertRecipients("preventive"), {
       emails: [employee.email],
       whatsapp: ["5547999999999"],

@@ -52,6 +52,9 @@ export async function recordActivity(
   }
 }
 export class AdminInputError extends Error {}
+async function managersAvailable(db:any):Promise<boolean>{
+ return (await db.query("SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='web_user_access' AND column_name='managers') AS available")).rows[0]?.available===true;
+}
 export async function setAccess(body: any, actor: AuthUser) {
   const email =
     typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
@@ -135,7 +138,18 @@ export async function setAccess(body: any, actor: AuthUser) {
           employee.task_color,
         ],
       );
-    if(employee && "hourly_cost" in employee)await c.query("UPDATE web_user_access SET hourly_cost=$2 WHERE email=$1",[email,employee.hourly_cost]);
+    if(employee && "managers" in employee){
+      const managers=employee.managers as string[];
+      if(managers.includes(email))throw new AdminInputError('O funcionário não pode ser seu próprio gestor.');
+      const valid=await c.query('SELECT email FROM web_user_access WHERE enabled AND email=ANY($1::text[])',[managers]);
+      if(valid.rows.length!==managers.length)throw new AdminInputError('Selecione somente gestores ativos.');
+      if(await managersAvailable(c)){
+        await c.query('UPDATE web_user_access SET managers=$2 WHERE email=$1',[email,JSON.stringify(managers)]);
+      }else if(managers.length){
+        throw new AdminInputError('O cadastro de gestores ainda precisa ser habilitado no banco de dados. Nenhuma alteração foi salva.');
+      }
+    }
+    if(employee && "hourly_cost"  in employee)await c.query("UPDATE web_user_access SET hourly_cost=$2 WHERE email=$1",[email,employee.hourly_cost]);
     await c.query(
       "INSERT INTO web_access_events(event,email,actor,details) VALUES('access_changed',$1,$2,$3)",
       [
@@ -158,7 +172,7 @@ export async function setAccess(body: any, actor: AuthUser) {
 export async function adminOverview() {
   const db = database();
   const users = (
-    await db.query(`SELECT to_jsonb(web_user_access)->>'hourly_cost' AS hourly_cost,to_jsonb(web_user_access)->>'task_color' AS task_color,email,display_name,department,job_title,phone,alert_preventive,alert_rental,alert_email,alert_whatsapp,user_id,role,enabled,last_login_at,last_seen_at,last_logout_at,
+    await db.query(`SELECT COALESCE(to_jsonb(web_user_access)->'managers','[]'::jsonb) managers,to_jsonb(web_user_access)->>'hourly_cost' AS hourly_cost,to_jsonb(web_user_access)->>'task_color' AS task_color,email,display_name,department,job_title,phone,alert_preventive,alert_rental,alert_email,alert_whatsapp,user_id,role,enabled,last_login_at,last_seen_at,last_logout_at,
  (enabled AND last_seen_at>now()-interval '15 minutes' AND (last_logout_at IS NULL OR last_seen_at>last_logout_at)) AS online FROM web_user_access ORDER BY role,email`)
   ).rows;
   const events = (
@@ -186,5 +200,5 @@ export async function adminOverview() {
       "SELECT company_id,data_inicio,data_fim,status,registros_recebidos FROM integracao_m8_log ORDER BY data_inicio DESC LIMIT 30",
     )
   ).rows;
-  return { users, events, orders, products, equipment, runs };
+  return { users, events, orders, products, equipment, runs, managersAvailable: await managersAvailable(db) };
 }

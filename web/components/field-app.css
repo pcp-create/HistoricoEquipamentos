@@ -447,3 +447,12 @@ dialog.field-report-screen {
 .field-report-footer p { margin:0 0 8px; font-size:12px; }
 .field-report-footer .field-report-actions button { gap:6px; min-height:48px; font-size:13px; }
 .field-report-screen .checklist-field-title { line-height:1.5; }
+
+.field-panel .field-travel-distance {
+  padding: 12px;
+  border-radius: 8px;
+  background: #eaf3fc;
+  color: #215e93;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}

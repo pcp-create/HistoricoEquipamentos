@@ -1,4 +1,5 @@
 "use client";
+import TimeRequestApproval from "./time-request-approval";
 import SaveActionIcon from "./save-action-icon";
 import { userTaskColor } from "@/lib/tasks/user-color";
 import { apiFetch, hasFreshApiResponse } from "@/lib/client-api-cache";
@@ -374,7 +375,7 @@ export function TaskDrawer({
                 <dt>Vencimento do processo</dt>
                 <dd>{date(day(t.due_date))}</dd>
               </dl>
-              <fieldset disabled={busy || t.status === "completed"}>
+              <fieldset disabled={busy || t.status === "completed" || t.source_key?.startsWith("time-request:")}>
                 <label>
                   Atribuído a
                   <select
@@ -437,6 +438,7 @@ export function TaskDrawer({
             />
             <section className="task-card">
               <h3>Acompanhamento</h3>
+              {t.source_key?.startsWith("time-request:")&&<TimeRequestApproval task={t} onChanged={reload}/>}
               {t.status === "completed" &&
                 t.source_key?.startsWith("manual:") && (
                   <button

@@ -22,6 +22,7 @@ import {
 import {stagesOf,groupsOf} from '@/lib/service-scheduling/checklists';
 import {checklistProgress} from '@/lib/service-scheduling/checklist-progress';
 import SaveActionIcon from "./save-action-icon";
+import FieldTimeLogs from "./field-time-logs";
 import FieldReportScreen from "./field-report-screen";
 import ScheduleChecklistRun from "./schedule-checklist-run";
 import { statusNames } from "@/lib/service-scheduling/model";
@@ -111,7 +112,7 @@ export default function FieldApp() {
           <h1>
             {screen === "home"
               ? "Olá! O que vamos fazer?"
-              : "Minha programação"}
+              : screen==="logs"?"Meus apontamentos":"Minha programação"}
           </h1>
         </div>
         {screen !== "home" && (
@@ -142,6 +143,7 @@ export default function FieldApp() {
             </span>
             <ChevronDown />
           </button>
+          <button onClick={()=>setScreen("logs")}><ClipboardList/><span><b>Meus apontamentos</b><small>Consultar e solicitar ajustes</small></span></button>
           <button disabled>
             <Wallet />
             <span>
@@ -158,8 +160,9 @@ export default function FieldApp() {
           </button>
           <a href="/modulos/assistencia-tecnica">Acessar sistema de gestão</a>
         </nav>
-      ) : (
+      ) : screen==="logs"?<FieldTimeLogs/>: (
         <>
+          <nav className="field-toolbar"><button aria-pressed={true}>Programação</button><button onClick={()=>setScreen("logs")}>Apontamentos</button></nav>
           <div className="field-toolbar">
             <span>
               {groups.size} {groups.size === 1 ? "OS enviada" : "OSs enviadas"}
@@ -307,6 +310,10 @@ function FieldOperation({ row, active, now, refresh }: any) {
     locked = ["awaiting_review", "reviewed", "completed"].includes(
       operation?.status || row.status,
     );
+  const endingTravel = session?.kind === "travel";
+  const initialOdometer = endingTravel ? Number(session.odometer_start) : 0;
+  const invalidOdometer = reading !== "" && (!Number.isFinite(Number(reading)) || Number(reading) < initialOdometer);
+  const distance = endingTravel && reading !== "" && !invalidOdometer ? Number(reading) - initialOdometer : null;
   const checklistRun=operation?.document.checklistRun;
   const reportFields=checklistRun?stagesOf(checklistRun.template).flatMap(stage=>groupsOf(stage).flatMap(group=>group.fields)):[];
   const reportAnswers=Object.assign({},...Object.values(checklistRun?.stages||{}).map((stage:any)=>stage.answers||{}));
@@ -324,6 +331,7 @@ function FieldOperation({ row, active, now, refresh }: any) {
   );
   async function show(which: string) {
     if(which==='report')setReportVisited(true);
+    if(which==="travel")setReading("");
     setView(which);
     setError("");
     setMessage("");
@@ -573,20 +581,25 @@ function FieldOperation({ row, active, now, refresh }: any) {
                     {vehicle?.name ||
                       "Veículo não atribuído. Solicite ao planejamento."}
                   </p>
+                  {endingTravel && <p>Odômetro inicial: <strong>{initialOdometer.toLocaleString("pt-BR", {maximumFractionDigits: 3})} km</strong></p>}
                   <label>
                     Odômetro {session?.kind === "travel" ? "final" : "inicial"}{" "}
                     (km)
                     <input
                       type="number"
-                      min="0"
+                      min={initialOdometer}
                       step="0.1"
                       inputMode="decimal"
                       value={reading}
                       onChange={(e) => setReading(e.target.value)}
                     />
                   </label>
+                  {endingTravel && <p className="field-travel-distance" role="status" aria-live="polite">
+                    Quilômetros percorridos: <strong>{distance === null ? "—" : distance.toLocaleString("pt-BR", {maximumFractionDigits: 3}) + " km"}</strong>
+                  </p>}
+                  {invalidOdometer && <p className="field-error" role="alert">{endingTravel ? "O odômetro final não pode ser menor que o inicial." : "Informe um odômetro válido."}</p>}
                   <button
-                    disabled={!ready || !reading || !vehicle}
+                    disabled={!ready || !reading || !vehicle || invalidOdometer}
                     onClick={async () => {
                       if (
                         await act({

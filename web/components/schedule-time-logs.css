@@ -1,15 +1,185 @@
-.time-log-cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:18px 0}
-.time-log-cards>div{border:1px solid #d8e4ef;border-radius:12px;padding:16px;background:#f7fafc;display:flex;flex-direction:column;gap:8px}
-.time-log-cards span{font-size:13px;color:#56738e}
-.time-log-cards strong{font-size:23px;font-variant-numeric:tabular-nums}
-.time-log-cards>div:last-child{background:#eaf3fc}
-.schedule-time-logs>p{font-size:13px;color:#56738e}
-.time-log-operation{border:1px solid #d8e4ef;border-radius:12px;padding:16px;margin-top:18px;min-width:0}
-.time-log-operation h3{font-size:16px;margin:0 0 6px}
-.time-log-operation table{min-width:920px;margin-top:12px}
-.time-log-operation td{vertical-align:top;font-variant-numeric:tabular-nums}
-.time-log-operation small,.time-log-secondary{display:block;font-size:12px;color:#56738e;margin-top:4px}
-.time-log-pause{background:#fff9eb}
-.time-log-empty{padding:24px;text-align:center}
-@media(max-width:1100px){.time-log-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:580px){.time-log-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.time-log-operation{padding:10px}}
+.time-log-cards {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.time-log-cards > div {
+  border: 1px solid #d8e4ef;
+  border-radius: 12px;
+  padding: 16px;
+  background: #f7fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.time-log-cards span {
+  font-size: 13px;
+  color: #56738e;
+}
+.time-log-cards strong {
+  font-size: 23px;
+  font-variant-numeric: tabular-nums;
+}
+.time-log-cards > div:last-child {
+  background: #eaf3fc;
+}
+.schedule-time-logs > p {
+  font-size: 13px;
+  color: #56738e;
+}
+.time-log-operation {
+  border: 1px solid #d8e4ef;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 18px;
+  min-width: 0;
+}
+.time-log-operation h3 {
+  font-size: 16px;
+  margin: 0 0 6px;
+}
+.time-log-operation table {
+  min-width: 920px;
+  margin-top: 12px;
+}
+.time-log-operation td {
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+.time-log-operation small,
+.time-log-secondary {
+  display: block;
+  font-size: 12px;
+  color: #56738e;
+  margin-top: 4px;
+}
+.time-log-pause {
+  background: #fff9eb;
+}
+.time-log-empty {
+  padding: 24px;
+  text-align: center;
+}
+@media (max-width: 1100px) {
+  .time-log-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 580px) {
+  .time-log-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .time-log-operation {
+    padding: 10px;
+  }
+}
+.time-adjustment-dialog {
+  width: min(680px, 95vw);
+  max-height: 90dvh;
+  overflow: auto;
+  border: 1px solid #d8e4ef;
+  border-radius: 14px;
+  padding: 24px;
+  color: #23415d;
+  background: white;
+}
+.time-adjustment-dialog::backdrop {
+  background: #10253b66;
+}
+.time-adjustment-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+}
+.time-adjustment-dialog input,
+.time-adjustment-dialog select,
+.time-adjustment-dialog textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 10px;
+}
+.time-adjustment-dialog fieldset {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+.time-adjustment-dialog section fieldset {
+  border-top: 1px solid #d8e4ef;
+  margin-top: 12px;
+}
+.time-adjustment-dialog button {
+  padding: 10px;
+  border: 1px solid #bdd0e2;
+  border-radius: 8px;
+  background: white;
+  color: #23415d;
+}
+.time-adjustment-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+}
+.time-requests {
+  border: 1px solid #d8e4ef;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px 0;
+}
+.time-requests details {
+  border-top: 1px solid #d8e4ef;
+  padding: 10px 0;
+}
+.time-requests p {
+  white-space: pre-wrap;
+}
+.schedule-time-logs .scheduling-table {
+  overflow-x: auto;
+  max-width: 100%;
+}
+@media (max-width: 580px) {
+  .field-app .schedule-time-logs table,
+  .field-app .schedule-time-logs tbody {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+  .field-app .schedule-time-logs thead {
+    display: none;
+  }
+  .field-app .schedule-time-logs tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    border-top: 1px solid #d8e4ef;
+    padding: 14px 0;
+  }
+  .field-app .schedule-time-logs td {
+    display: block;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    padding: 0;
+  }
+  .field-app .schedule-time-logs td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    color: #56738e;
+    margin-bottom: 3px;
+  }
+  .field-app .schedule-time-logs td:first-child,
+  .field-app .schedule-time-logs td[data-label="Localização original"],
+  .field-app .schedule-time-logs td[data-label="Ações"] {
+    grid-column: 1/-1;
+  }
+  .field-app .schedule-time-logs .time-log-pause td:not([data-label]) {
+    display: none;
+  }
+  .time-adjustment-dialog {
+    padding: 14px;
+    box-sizing: border-box;
+  }
+}
