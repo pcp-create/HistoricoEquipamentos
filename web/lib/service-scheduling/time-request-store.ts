@@ -465,6 +465,10 @@ export async function changeTimeRequest(b: any, email: string) {
             ],
           )
         ).rows[0];
+        await c.query(
+          "INSERT INTO web_task_notifications(task_id,task_version,recipient) VALUES($1,1,$2)",
+          [task.id, manager],
+        );
         const description = `Funcionário: ${employee.display_name || actor}\nOS ${os.numero_sequencia || os.order_id} · Operação ${operation.position} · ${operation.document.description}\nTipo: ${s || legacy ? "Ajuste" : "Inclusão manual"} de ${kind === "work" ? "atividade" : "deslocamento"}\nMotivo: ${justification}\nHorário solicitado: ${fmt(proposed.started_at)} até ${fmt(proposed.finished_at)}\nAtividade/deslocamento: ${(proposed.active_seconds / 3600).toFixed(2)} h · Paradas: ${(proposed.pause_seconds / 3600).toFixed(2)} h\nPausas: ${proposed.pauses.map((p: any) => p.reason + " (" + fmt(p.start) + " – " + fmt(p.end) + ")").join("; ") || "Nenhuma"}\n${s ? "Original: " + fmt(s.correction?.started_at || s.started_at) + " até " + fmt(s.correction?.finished_at || s.finished_at) : legacy ? "Horas originais: " + legacy.hours + " h" : "Localização capturada na solicitação, não no horário manual."}`;
         await c.query(
           "INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,$2,$3,false,$4,$5)",

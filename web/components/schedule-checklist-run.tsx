@@ -14,7 +14,7 @@ export default function ScheduleChecklistRun({operation,data,mutate,busy,dirty,r
  const locked=readOnly||busy||dirty||['completed','reviewed','awaiting_review'].includes(operation.status);
  return <section className="checklist-run"><h4>{template.prefix?template.prefix+' — ':''}{template.name}</h4>{compact?<details className="checklist-report-context"><summary>Equipamento e orientações</summary><p>{data.detail?.order?.equipamento||'Equipamento não informado'}</p><p>Preencha as etapas e salve antes de enviar. Fotos de até 3 MB cada.</p>{run&&canWork&&<a href={`/api/service-scheduling/checklist-pdf?operationId=${operation.id}`} target="_blank" rel="noreferrer">Gerar PDF do checklist</a>}</details>:<><p>Preencha os grupos de cada etapa. Salve o rascunho ao terminar. Depois, utilize Enviar relatório ao final do checklist. Fotos de até 3 MB cada.</p><p>Equipamento: {data.detail?.order?.equipamento||'Selecione o equipamento da OS ao registrar o horímetro.'}</p>
  {run&&canWork&&<a href={`/api/service-scheduling/checklist-pdf?operationId=${operation.id}`} target="_blank" rel="noreferrer">Gerar PDF do checklist</a>}</>}
- {stagesOf(template).map(stage=><Stage key={operation.id+':'+stage.id} stage={stage} operation={operation} data={data} mutate={mutate} locked={locked} readOnly={readOnly} canWork={canWork} register={(id:string,get:any)=>{if(get)drafts.current[id]=get;else delete drafts.current[id];}}/>)}
+ {stagesOf(template).map(stage=><Stage key={operation.id+':'+stage.id} stage={stage} operation={operation} data={data} mutate={mutate} locked={locked} readOnly={readOnly} canWork={canWork} showStageSave={!renderActions} register={(id:string,get:any)=>{if(get)drafts.current[id]=get;else delete drafts.current[id];}}/>)}
  {renderActions?.(()=>mutate({action:'report_save',operationId:operation.id,version:operation.version,stages:Object.values(drafts.current).map(get=>get()).filter(Boolean)}),()=>Object.values(drafts.current).map(get=>get()).filter(Boolean))}
  </section>;
 }
@@ -22,7 +22,7 @@ function Progress({fields,answers}: {fields:ChecklistField[],answers:Record<stri
  const status=checklistProgress(fields,answers);
  return <span className={'checklist-progress checklist-progress-'+status} role="img" aria-label={progressLabels[status]} title={progressLabels[status]}/>;
 }
-function Stage({stage,operation,data,mutate,locked,readOnly,canWork,register}:any){
+function Stage({stage,operation,data,mutate,locked,readOnly,canWork,showStageSave,register}:any){
  const run=operation.document.checklistRun,saved=run?.stages[stage.id]||{status:'pending',answers:{}};
  const [answers,setAnswers]=useState<Record<string,any>>(saved.answers),[details,setDetails]=useState<Record<string,any>>(saved.details||{}),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const equipment=data.detail?.equipment_links||[];
@@ -61,6 +61,6 @@ function Stage({stage,operation,data,mutate,locked,readOnly,canWork,register}:an
  })}</div></Container>;})}
  </fieldset>}
  {error&&<p role="alert">{error}</p>}
- <div className="checklist-toolbar">{saved.status==='pending'&&data.canEditSettings&&<button type="button" disabled={locked||busy} onClick={()=>void act('checklist_release')}>Liberar etapa para o técnico</button>}{!readOnly&&saved.status==='released'&&canWork&&<><button type="button" disabled={disabled} onClick={()=>void act('checklist_save')} aria-label="Salvar rascunho da etapa" title="Salvar rascunho da etapa"><SaveActionIcon /></button></>}{saved.status==='submitted'&&data.canEditSettings&&<button type="button" disabled={locked||busy} onClick={()=>void act('checklist_reopen')}>Reabrir para correção</button>}</div>
+ <div className="checklist-toolbar">{saved.status==='pending'&&data.canEditSettings&&<button type="button" disabled={locked||busy} onClick={()=>void act('checklist_release')}>Liberar etapa para o técnico</button>}{showStageSave&&!readOnly&&saved.status==='released'&&canWork&&<><button type="button" disabled={disabled} onClick={()=>void act('checklist_save')} aria-label="Salvar rascunho da etapa" title="Salvar rascunho da etapa"><SaveActionIcon /></button></>}{saved.status==='submitted'&&data.canEditSettings&&<button type="button" disabled={locked||busy} onClick={()=>void act('checklist_reopen')}>Reabrir para correção</button>}</div>
  </details>;
 }

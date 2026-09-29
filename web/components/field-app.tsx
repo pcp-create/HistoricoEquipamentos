@@ -24,9 +24,11 @@ import {stagesOf,groupsOf} from '@/lib/service-scheduling/checklists';
 import {checklistProgress} from '@/lib/service-scheduling/checklist-progress';
 import SaveActionIcon from "./save-action-icon";
 import FieldTimeLogs from "./field-time-logs";
+import FieldCalendar, { fieldToday } from "./field-calendar";
+import { fieldOperationOverdue } from "@/lib/service-scheduling/field-overdue";
 import FieldReportScreen from "./field-report-screen";
 import ScheduleChecklistRun from "./schedule-checklist-run";
-import { statusNames } from "@/lib/service-scheduling/model";
+import { statusNames, calendarEnd } from "@/lib/service-scheduling/model";
 import { sessionTotals } from "@/lib/service-scheduling/field-model";
 import "./field-app.css";
 async function api(url = "/api/field", body?: any) {
@@ -72,11 +74,20 @@ const when = (date: string, time?: string) =>
   date
     ? date.split("-").reverse().join("/") + (time ? " às " + time : "")
     : "Sem data";
+function plannedDuration(value: unknown) {
+  if (value == null || value === "" || !Number.isFinite(Number(value)) || Number(value) < 0) return "Não informada";
+  const minutes = Math.round(Number(value) * 60);
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours ? hours + " h" + (rest ? " " + rest + " min" : "") : minutes + " min";
+}
 const elapsed = (seconds: number) => {
   const n = Math.floor(seconds);
   return `${String(Math.floor(n / 3600)).padStart(2, "0")}:${String(Math.floor((n % 3600) / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
 };
 export default function FieldApp() {
+  const [scheduleView, setScheduleView] = useState("list");
+  const [selectedDay, setSelectedDay] = useState(() => fieldToday(Date.now()));
   const [screen, setScreen] = useState("home"),
     [data, setData] = useState<any>(null),
     [error, setError] = useState(""),
@@ -177,6 +188,12 @@ export default function FieldApp() {
               <RefreshCw size={16} /> Atualizar
             </button>
           </div>
+          <nav className="field-view-switch" aria-label="Visualização da programação">
+            <button aria-pressed={scheduleView === "list"} onClick={() => setScheduleView("list")}><ClipboardList size={16}/>Lista</button>
+            <button aria-pressed={scheduleView === "calendar"} onClick={() => setScheduleView("calendar")}><CalendarDays size={16}/>Calendário</button>
+          </nav>
+          {scheduleView === "calendar" && <FieldCalendar rows={data?.rows || []} selected={selectedDay} onSelect={setSelectedDay} now={now}/>}
+          {scheduleView === "calendar" && data && groups.size > 0 && !data.rows.some((row: any) => (row.date || "") === selectedDay) && <p className="field-day-empty">Nenhuma OS programada para esta data.</p>}
           {active && (
             <div
               className={
@@ -211,13 +228,15 @@ export default function FieldApp() {
             </section>
           ) : (
             [...groups].map(([id, rows]) => {
-              const first = rows[0];
+              const first = (scheduleView === "calendar" ? rows.find(row => (row.date || "") === selectedDay) : null) || rows[0];
+              const overdue = rows.some((row) => fieldOperationOverdue(row.date, row.status, now));
               return (
-                <details className="field-order" key={id}>
+                <details hidden={scheduleView === "calendar" && !rows.some(row => (row.date || "") === selectedDay)} className={"field-order" + (overdue ? " field-order-overdue" : "")} key={id}>
                   <summary>
                     <div>
                       <strong>OS {first.number}</strong>
-                      <small>{when(first.date, first.time)}</small>
+                      <small className={fieldOperationOverdue(first.date, first.status, now) ? "field-overdue-date" : undefined}>{when(first.date, first.time)}</small>
+                      {overdue && <span className="field-overdue-badge">Em atraso</span>}
                     </div>
                     <div className="field-order-customer">
                       <b>{first.customer || "Cliente não informado"}</b>
@@ -234,13 +253,13 @@ export default function FieldApp() {
                   </summary>
                   <div className="field-operations">
                     {rows.map((row) => (
-                      <FieldOperation
+                      <div key={row.id} hidden={scheduleView === "calendar" && (row.date || "") !== selectedDay}><FieldOperation
                         key={row.id}
                         row={row}
                         active={active}
                         now={now}
                         refresh={refresh}
-                      />
+                      /></div>
                     ))}
                   </div>
                 </details>
@@ -313,6 +332,12 @@ function FieldOperation({ row, active, now, refresh }: any) {
   const initialOdometer = endingTravel ? Number(session.odometer_start) : 0;
   const invalidOdometer = reading !== "" && (!Number.isFinite(Number(reading)) || Number(reading) < initialOdometer);
   const distance = endingTravel && reading !== "" && !invalidOdometer ? Number(reading) - initialOdometer : null;
+  let estimatedEnd = row.estimated_end;
+  if (operation) {
+    try {
+      estimatedEnd = calendarEnd(operation.document, data.settings.document.calendars?.find((calendar: any) => calendar.id === (operation.document.calendarId || "standard")));
+    } catch { estimatedEnd = null; }
+  }
   const checklistRun=operation?.document.checklistRun;
   const reportFields=checklistRun?stagesOf(checklistRun.template).flatMap(stage=>groupsOf(stage).flatMap(group=>group.fields)):[];
   const reportAnswers=Object.assign({},...Object.values(checklistRun?.stages||{}).map((stage:any)=>stage.answers||{}));
@@ -329,6 +354,7 @@ function FieldOperation({ row, active, now, refresh }: any) {
     (v: any) => v.id === operation?.document.vehicleId,
   );
   async function show(which: string) {
+    if (which === "logs" && !data?.infoRead) return;
     if(which==='report')setReportVisited(true);
     if(which==="travel")setReading("");
     setView(which);
@@ -347,10 +373,13 @@ function FieldOperation({ row, active, now, refresh }: any) {
           <b>
             Operação {row.position} · {row.description || "Sem descrição"}
           </b>
-          <small>
+          <small className={fieldOperationOverdue(row.date, operation?.status || row.status, now) ? "field-overdue-date" : undefined}>
             {when(row.date, row.time)} ·{" "}
             {statusNames[operation?.status || row.status]}
+            {fieldOperationOverdue(row.date, operation?.status || row.status, now) && " · Em atraso"}
           </small>
+          <small className="field-planned-duration"><Clock3 size={14} aria-hidden="true" /> Duração programada: {plannedDuration(operation ? operation.document.duration : row.duration)}</small>
+          <small className="field-planned-duration"><Clock3 size={14} aria-hidden="true" /> Término estimado: {estimatedEnd ? new Date(estimatedEnd).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }) : "Não informado"}</small>
         </span>
         <ChevronDown size={18} />
       </button>
@@ -498,7 +527,7 @@ function FieldOperation({ row, active, now, refresh }: any) {
                     </button>
                   </>
                 )}
-                <button onClick={() => void show("logs")}>
+                <button disabled={busy || !data.infoRead} onClick={() => void show("logs")}>
                   <Clock3 />
                   <span>Apontamentos</span>
                 </button>

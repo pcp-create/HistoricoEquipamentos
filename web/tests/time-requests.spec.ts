@@ -261,3 +261,30 @@ test("manager task shows reason and approves through the dedicated action", asyn
     id: "33333333-3333-4333-8333-333333333333",
   });
 });
+
+test("planner calendar groups OSs per date and opens all orders in the day", async ({page,context}) => {
+  await context.addCookies([{name:"m8-access",value:"test",domain:"localhost",path:"/"}]);
+  await page.clock.setFixedTime(new Date("2026-09-29T12:00:00Z"));
+  const schedules = Array.from({length:5},(_,i)=>({
+    id:String(i+1),company_id:1,order_id:String(100+i),numero_sequencia:100+i,
+    cliente_nome:"Cliente "+i,equipamento:"Compressor",operation_count:2,
+    programming_status:i===0?"executing":"scheduled",operation_status_counts:{scheduled:2},
+    calendar_operations:[{date:"2026-09-29",responsible:"Técnico "+i},{date:"2026-09-29",responsible:"Técnico "+i}],
+  }));
+  await page.route("**/api/activity",r=>r.fulfill({json:{admin:true}}));
+  await page.route("**/api/service-scheduling",r=>r.fulfill({json:{schedules,users:[],canEditSettings:true,email:"planner",settings:{document:{}}}}));
+  await page.goto("/programacao");
+  await page.getByRole("button",{name:"Calendário",exact:true}).click();
+  const calendar=page.getByRole("region",{name:"Calendário de OSs"});
+  await expect(calendar.getByText("Técnico 0",{exact:true})).toBeVisible();
+  await expect(calendar.getByText("Cliente 0",{exact:true})).toBeVisible();
+  await expect(calendar.locator("a.executing")).toHaveCount(1);
+  await page.getByRole("button",{name:"+4 OSs",exact:true}).click();
+  const dialog=page.getByRole("dialog",{name:"OSs do dia"});
+  await expect(dialog.getByRole("link")).toHaveCount(5);
+  await expect(dialog.getByRole("link").first()).toHaveAttribute("href","/programacao?id=1");
+  await dialog.getByRole("button",{name:"Fechar OSs do dia"}).click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button",{name:"Lista",exact:true}).click();
+  await expect(page.locator(".scheduling-orders-list")).toBeVisible();
+});

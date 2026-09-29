@@ -1,5 +1,6 @@
 "use client";
 import {reportStatusLabel,reportSubmission} from "@/lib/service-scheduling/checklists";
+import ScheduleOrdersCalendar from "./schedule-orders-calendar";
 import SupportPicker from "./support-picker";
 import SchedulePauseReasons from "./schedule-pause-reasons";
 import SaveActionIcon from "./save-action-icon";
@@ -95,6 +96,22 @@ export default function ServiceScheduling() {
     [config, setConfig] = useState(false),
     [tab, setTab] = useState("operations"),
     [query, setQuery] = useState("");
+  const [overviewView, setOverviewView] = useState("list");
+  const [executor, setExecutor] = useState("");
+  const executorOptions = new Map<string, string>();
+  for (const u of data?.users || []) executorOptions.set(u.email, u.display_name || u.email);
+  for (const schedule of data?.schedules || []) for (const operation of schedule.calendar_operations || []) {
+    if (operation.responsibleEmail) executorOptions.set(operation.responsibleEmail, operation.responsible || operation.responsibleEmail);
+    for (const email of operation.support || []) if (!executorOptions.has(email)) executorOptions.set(email, email);
+  }
+  const filteredSchedules = (data?.schedules || []).filter((s: any) =>
+    `${s.numero_sequencia || s.order_id} ${s.cliente_nome} ${s.equipamento}`.toLowerCase().includes(query.toLowerCase())
+  ).map((s: any) => ({
+    ...s,
+    calendar_operations: executor ? (s.calendar_operations || []).filter((o: any) =>
+      o.responsibleEmail === executor || (o.support || []).includes(executor)
+    ) : s.calendar_operations,
+  })).filter((s: any) => !executor || s.calendar_operations.length > 0);
   async function load() {
     setError("");
     try {
@@ -287,16 +304,30 @@ export default function ServiceScheduling() {
           />
         ) : !id ? (
           <>
-            <ScheduleOverview schedules={data.schedules || []} />
+            <ScheduleOverview schedules={filteredSchedules} />
+            <div className="schedule-overview-filters">
             <label className="scheduling-search">
               Pesquisar OS, cliente ou equipamento
               <input value={query} onChange={(e) => setQuery(e.target.value)} />
             </label>
+            <label className="scheduling-search">
+              Executante
+              <select value={executor} onChange={(e) => setExecutor(e.target.value)}>
+                <option value="">Todos os executantes</option>
+                {[...executorOptions].sort((a,b) => a[1].localeCompare(b[1], "pt-BR")).map(([email,name]) => <option key={email} value={email}>{name}</option>)}
+              </select>
+            </label>
+            </div>
             <p>
               Use “Programar OS” nos detalhes da ordem no Histórico para
               incluí-la nesta lista.
             </p>
-            <div className="scheduling-table scheduling-orders-list">
+            <nav className="schedule-overview-views" aria-label="Visão da programação">
+              <button aria-pressed={overviewView === "list"} onClick={() => setOverviewView("list")}>Lista</button>
+              <button aria-pressed={overviewView === "calendar"} onClick={() => setOverviewView("calendar")}>Calendário</button>
+            </nav>
+            {overviewView === "calendar" && <ScheduleOrdersCalendar schedules={filteredSchedules}/>}
+            <div hidden={overviewView !== "list"} className="scheduling-table scheduling-orders-list">
               <table>
                 <thead>
                   <tr>
@@ -311,12 +342,7 @@ export default function ServiceScheduling() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(data.schedules || [])
-                    .filter((s: any) =>
-                      `${s.numero_sequencia || s.order_id} ${s.cliente_nome} ${s.equipamento}`
-                        .toLowerCase()
-                        .includes(query.toLowerCase()),
-                    )
+                  {filteredSchedules
                     .map((s: any) => (
                       <tr key={s.id}>
                         <td>
@@ -373,8 +399,8 @@ export default function ServiceScheduling() {
                     ))}
                 </tbody>
               </table>
-              {!data.schedules?.length && (
-                <p>Nenhuma OS incluída na programação.</p>
+              {!filteredSchedules.length && (
+                <p>Nenhuma OS encontrada para os filtros selecionados.</p>
               )}
             </div>
           </>

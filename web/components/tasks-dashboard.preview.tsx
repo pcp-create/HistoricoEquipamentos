@@ -1154,7 +1154,7 @@ export default function TasksDashboard() {
             {creating && (
               <form
                 ref={createForm}
-                className="task-card"
+                className="task-card task-manual-form"
                 onSubmit={async (event) => {
                   event.preventDefault();
                   const fields = new FormData(event.currentTarget);
@@ -1178,7 +1178,7 @@ export default function TasksDashboard() {
               >
                 <h2>Nova tarefa manual</h2>
                 {newStage&&<p>Etapa inicial: {stages.find(s=>s.id===newStage)?.name}</p>}
-                <div className="task-toolbar">
+                <div className="task-manual-fields">
                   <label>
                     Título
                     <input name="title" required maxLength={160} />

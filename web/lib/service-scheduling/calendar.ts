@@ -52,3 +52,36 @@ export function validateCalendarExceptions(exceptions: any) {
     });
   }
 }
+
+/** Splits planned time into the configured work slots, in Brasília time. */
+export function operationCalendarAllocation(operation: any, calendar: any): {date:string; minutes:number; start:string; end:string}[] {
+  let remaining = Math.round(Number(operation.duration) * 3600000);
+  if (!operation.date || !operation.time || !Number.isFinite(remaining) || remaining <= 0 || !calendar?.week?.length)
+    return [];
+  let cursor = Date.parse(operation.date + "T" + operation.time + ":00-03:00");
+  if (!Number.isFinite(cursor)) return [];
+  const result: {date:string; minutes:number; start:string; end:string}[] = [];
+  for (let days = 0; days < 3660; days++) {
+    const date = new Date(cursor - 10800000).toISOString().slice(0, 10);
+    for (const slot of workingSlots(calendar, date)) {
+      const start = Date.parse(date + "T" + slot.start + ":00-03:00");
+      const end = Date.parse(date + "T" + slot.end + ":00-03:00");
+      const at = Math.max(cursor, start);
+      if (at >= end) continue;
+      const used = Math.min(remaining, end - at);
+      const finish = new Date(at + used).toISOString();
+      const last = result.at(-1);
+      if (last?.date === date) {last.minutes += used / 60000; last.end = finish;}
+      else result.push({date, minutes: used / 60000, start: new Date(at).toISOString(), end: finish});
+      remaining -= used;
+      if (remaining <= 0) return result;
+      cursor = end;
+    }
+    cursor = Date.parse(date + "T00:00:00-03:00") + 86400000;
+  }
+  return [];
+}
+export function operationCalendarDates(operation: any, calendar: any): string[] {
+  const allocation = operationCalendarAllocation(operation, calendar);
+  return allocation.length ? allocation.map(day => day.date) : [operation.date || ""];
+}

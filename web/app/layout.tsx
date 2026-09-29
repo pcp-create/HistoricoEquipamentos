@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { initialSessionAccess } from "@/lib/initial-access";
 import { SessionAccessProvider } from "@/components/session-access";
 import "@fontsource/dm-sans/400.css";
@@ -14,7 +14,17 @@ export const metadata: Metadata = {
   description:
     "CRM, assistência técnica, suprimentos e gestão de equipamentos.",
   robots: { index: false, follow: false },
+  applicationName: "Gestão Integrada",
+  icons: {
+    icon: [
+      { url: "/icons/gestao-integrada-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/gestao-integrada-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/gestao-integrada-180.png", sizes: "180x180", type: "image/png" }],
+  },
+  appleWebApp: { capable: true, title: "Gestão Integrada", statusBarStyle: "default" },
 };
+export const viewport: Viewport = { themeColor: "#183554" };
 export default async function Layout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {

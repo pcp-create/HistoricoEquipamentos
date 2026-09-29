@@ -462,3 +462,120 @@ dialog.field-report-screen {
  .field-report-footer .field-report-actions > button { flex-basis:calc(50% - 8px); }
  .field-report-footer .field-report-actions > button:first-child { flex-basis:100%; }
 }
+
+.field-order.field-order-overdue {
+  border-color: #e8b5b0;
+}
+.field-order-overdue > summary {
+  background: #fff6f5;
+}
+.field-order .field-overdue-date {
+  color: #b42318;
+  font-weight: 600;
+}
+.field-overdue-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #fee4e2;
+  color: #b42318;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.field-view-switch {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+.field-app .field-view-switch button {
+  min-height: 40px;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+.field-view-switch button[aria-pressed="true"] {
+  background: #215e93;
+  border-color: #215e93;
+  color: white;
+}
+.field-calendar {
+  padding: 12px;
+  border: 1px solid #d6e2ed;
+  border-radius: 12px;
+  background: white;
+  margin-bottom: 16px;
+}
+.field-calendar-heading {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.field-calendar-heading strong {
+  flex: 1;
+  text-align: center;
+  font-size: 14px;
+  text-transform: capitalize;
+}
+.field-app .field-calendar-heading button {
+  min-height: 40px;
+  padding: 8px;
+  font-size: 12px;
+}
+.field-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.field-calendar-weekday {
+  text-align: center;
+  font-size: 11px;
+  color: #6b8298;
+  padding: 6px 0;
+}
+.field-app .field-calendar-grid button {
+  min-width: 0;
+  min-height: 54px;
+  padding: 5px 2px;
+  font-size: 13px;
+  border-radius: 7px;
+  flex-direction: column;
+  gap: 2px;
+}
+.field-calendar-grid button small {
+  font-size: 9px;
+  white-space: nowrap;
+}
+.field-calendar-grid button[aria-current="date"] {
+  border-color: #215e93;
+}
+.field-calendar-grid .field-calendar-overdue {
+  color: #b42318;
+  background: #fff1f0;
+}
+.field-calendar-grid button[aria-pressed="true"] {
+  outline: 2px solid #215e93;
+  outline-offset: -2px;
+  background: #eaf3fc;
+}
+.field-calendar-selected, .field-day-empty {
+  font-size: 13px;
+  margin: 16px 0 0;
+}
+.field-app .field-calendar-undated {
+  margin-top: 12px;
+  min-height: 40px;
+  font-size: 12px;
+}
+.field-order[hidden], .field-operations > [hidden] { display: none; }
+
+.field-operation-title .field-planned-duration {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.field-planned-duration svg { flex-shrink: 0; }

@@ -1,3 +1,4 @@
+import { operationCalendarAllocation } from "./calendar";
 import {timeRequestsAvailable} from "./time-request-availability";
 import {reviewChecklist} from "./checklist-review";
 import "server-only";
@@ -87,7 +88,8 @@ export async function schedulingData(scheduleId: string | null, email: string) {
     const schedules = (
       await db.query(
         `SELECT s.*,customer.payload->>'municipioNome' AS customer_city,customer.payload->>'ufSigla' AS customer_state,o.numero_sequencia,o.cliente_nome,o.equipamento,o.tipo_nome,o.tipo_atendimento_nome,o.status_lancamento_nome,linked.status_lancamento_nome AS linked_status_lancamento_nome,linked.id_m8 AS linked_order_id,linked.numero_sequencia AS linked_order_number,o.status order_status,(SELECT count(*)::int FROM web_service_operations p WHERE p.schedule_id=s.id) operation_count,
-        COALESCE((SELECT jsonb_object_agg(c.status,c.n) FROM (SELECT p.status,count(*)::int n FROM web_service_operations p WHERE p.schedule_id=s.id GROUP BY p.status) c),'{}'::jsonb) operation_status_counts
+        COALESCE((SELECT jsonb_object_agg(c.status,c.n) FROM (SELECT p.status,count(*)::int n FROM web_service_operations p WHERE p.schedule_id=s.id GROUP BY p.status) c),'{}'::jsonb) operation_status_counts,
+        COALESCE((SELECT jsonb_agg(jsonb_build_object('date',p.document->>'date','time',p.document->>'time','duration',p.document->'duration','calendarId',p.document->>'calendarId','responsibleEmail',p.document->>'responsible','support',COALESCE(p.document->'support','[]'::jsonb),'responsible',COALESCE(NULLIF(u.display_name,''),p.document->>'responsible')) ORDER BY p.document->>'time',p.position) FROM web_service_operations p LEFT JOIN web_user_access u ON u.email=p.document->>'responsible' WHERE p.schedule_id=s.id),'[]'::jsonb) calendar_operations
         FROM web_service_schedules s LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id LEFT JOIN m8_customer_directory customer ON customer.company_id=o.company_id AND customer.person_id=o.cliente_id LEFT JOIN web_order_links ol ON ol.company_id=s.company_id AND ol.order_id=s.order_id LEFT JOIN m8_ordens_servico linked ON linked.company_id=ol.linked_company_id AND linked.id_m8=ol.linked_order_id WHERE s.active ORDER BY s.created_at DESC,s.id DESC`,
       )
     ).rows;
@@ -96,6 +98,10 @@ export async function schedulingData(scheduleId: string | null, email: string) {
       schedules: schedules.map((s) => ({
         ...s,
         programming_status: scheduleStatus(s.operation_status_counts),
+        calendar_operations: (s.calendar_operations || []).map((operation: any) => {
+          const allocation = operationCalendarAllocation(operation, settings.document.calendars.find((calendar: any) => calendar.id === (operation.calendarId || "standard")));
+          return { ...operation, allocation, dates: allocation.length ? allocation.map(day => day.date) : [operation.date || ""] };
+        }),
       })),
     };
   }

@@ -733,3 +733,54 @@
   padding: 4px 8px;
   font-size: 20px;
 }
+
+.task-manual-form h2 {
+  margin: 0 0 20px;
+  font-size: 20px;
+  line-height: 1.4;
+}
+.task-manual-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) minmax(120px, .7fr) minmax(160px, .9fr);
+  gap: 14px;
+}
+.tasks-page .task-manual-form label {
+  min-width: 0;
+  margin: 0 0 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #526b83;
+}
+.tasks-page .task-manual-form input,
+.tasks-page .task-manual-form select,
+.tasks-page .task-manual-form textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #263c55;
+  background: white;
+  padding: 10px 12px;
+  border: 1px solid #c9daeb;
+  border-radius: 8px;
+}
+.tasks-page .task-manual-form input,
+.tasks-page .task-manual-form select { min-height: 44px; }
+.tasks-page .task-manual-form textarea { min-height: 120px; resize: vertical; }
+.tasks-page .task-manual-form :is(input, select, textarea):focus-visible {
+  outline: 2px solid #4c93db;
+  outline-offset: 2px;
+}
+.task-manual-form .task-toolbar { margin: 4px 0 0; gap: 10px; }
+.tasks-page .task-manual-form button { min-height: 40px; font-size: 13px; }
+.tasks-page .task-manual-form button[type="submit"] { background: #215e93; color: white; border-color: #215e93; }
+@media (max-width: 1000px) {
+  .task-manual-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .task-manual-fields label:first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 580px) {
+  .task-manual-fields { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}

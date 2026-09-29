@@ -68,8 +68,18 @@ test("mobile technician confirms pieces before starting work with location", asy
         : { email: "tech@test.com", rows: [row], active },
     });
   });
+  await page.clock.setFixedTime(new Date("2026-09-29T12:00:00Z"));
   await page.goto("/tecnico");
   await page.getByRole("button", { name: "Programação" }).click();
+  await page.getByRole("button", { name: "Calendário", exact: true }).click();
+  await page.getByRole("button", { name: "28/09/2026: 0 OSs", exact: true }).click();
+  await expect(page.getByText("Nenhuma OS programada para esta data.")).toBeVisible();
+  await expect(page.getByText("OS 14830", { exact: true })).toBeHidden();
+  await page.getByRole("button", { name: "Hoje", exact: true }).click();
+  await expect(page.getByText("OS 14830", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Próximo mês" }).click();
+  await expect(page.getByText("outubro de 2026", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Lista", exact: true }).click();
   await page.getByText("OS 14830", { exact: true }).click();
   await page.getByRole("button", { name: /Operação 1/ }).click();
   await expect(

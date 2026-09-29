@@ -109,6 +109,12 @@ test("requests require managers, stay pending, approve once, retain originals an
       "3600",
     );
     assert.equal((await db.query("SELECT * FROM web_tasks")).rows.length, 2);
+    const notifications = (await db.query<any>(
+      "SELECT n.recipient,n.state,n.task_version,t.assigned_to FROM web_task_notifications n JOIN web_tasks t ON t.id=n.task_id ORDER BY n.recipient",
+    )).rows;
+    assert.deepEqual(notifications.map(n => n.recipient), ["manager", "manager2"]);
+    assert.ok(notifications.every(n => n.state === "pending" && n.task_version === 1 && n.recipient === n.assigned_to));
+    // Repeating the same request above must not enqueue duplicate messages.
     await syncTasks(async () => []);
     assert.equal(
       (await db.query("SELECT * FROM web_tasks WHERE status='not_started'"))

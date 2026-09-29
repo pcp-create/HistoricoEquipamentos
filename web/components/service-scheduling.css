@@ -500,3 +500,14 @@
 }
 
 .operation-report-state { display:flex; flex-direction:column; align-items:flex-start; gap:4px; margin-top:8px; font-size:12px; white-space:normal; }
+
+.schedule-overview-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(200px, 1fr);
+  gap: 16px;
+  align-items: end;
+}
+.schedule-overview-filters .scheduling-search { max-width: none; min-width: 0; }
+@media (max-width: 600px) {
+  .schedule-overview-filters { grid-template-columns: 1fr; gap: 8px; }
+}

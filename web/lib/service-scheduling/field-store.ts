@@ -5,6 +5,7 @@ import { Forbidden } from "../auth";
 import { combineOrderItems } from "./linked-items";
 import { locationOf, odometer, sessionTotals } from "./field-model";
 import { updateChecklist, prepareChecklistSubmission } from "./checklist-store";
+import { calendarEnd } from "./model";
 import { reportSubmission, stagesOf } from "./checklists";
 export class FieldError extends Error {}
 const assigned =
@@ -99,7 +100,7 @@ export async function fieldData(email: string, operationId?: string | null) {
   if (!operationId) {
     const rows = (
       await c.query(
-        `SELECT p.id,p.schedule_id,p.position,p.status,p.document->>'description' description,p.document->>'date' date,p.document->>'time' time,
+        `SELECT p.id,p.schedule_id,p.position,p.status,p.document->>'description' description,p.document->>'date' date,p.document->>'time' time,p.document->'duration' duration,p.document->>'calendarId' calendar_id,
    o.id_m8::text AS order_id,COALESCE(o.numero_sequencia,o.id_m8)::text AS number,o.cliente_nome customer,o.equipamento equipment,c.payload->>'municipioNome' city,c.payload->>'ufSigla' state,
    EXISTS(SELECT 1 FROM web_field_material_checks k WHERE k.operation_id=p.id AND k.actor=$1) checked
    FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id
@@ -109,7 +110,11 @@ export async function fieldData(email: string, operationId?: string | null) {
         [email],
       )
     ).rows;
-    return { rows, active, email, displayName: profile.display_name };
+    return { rows: rows.map((row: any) => {
+      let estimated_end = null;
+      try { estimated_end = calendarEnd(row, settings.calendars?.find((calendar: any) => calendar.id === (row.calendar_id || "standard"))); } catch {}
+      return { ...row, estimated_end };
+    }), active, email, displayName: profile.display_name };
   }
   if (!/^[0-9a-f-]{36}$/i.test(operationId))
     throw new FieldError("Operação inválida.");
