@@ -6,6 +6,7 @@ import {
   calendarEnd,
   blankOperation,
   planningStatus,
+  effectiveOperationStatus,
   totalHours,
   validateOperation,
 } from "../lib/service-scheduling/model";
@@ -48,6 +49,10 @@ test("working calendar skips lunch, Friday afternoon and weekends; statuses and 
   assert.equal(planningStatus(blankOperation()), "pending");
   assert.equal(planningStatus({ ...d, time: "" }), "planning");
   assert.equal(planningStatus(d), "scheduled");
+  assert.equal(planningStatus({...d,responsible:""}), "planning");
+  assert.equal(planningStatus({...d,responsible:"   "}), "planning");
+  assert.equal(effectiveOperationStatus("scheduled",{...d,responsible:""}), "planning");
+  assert.equal(effectiveOperationStatus("executing",{...d,responsible:""}), "executing");
   const settings = {
       serviceTypes: ["Interno"],
       calendars: [calendar],
@@ -89,6 +94,8 @@ test("scheduling includes once, versions operations, protects execution and reco
       "030_service_schedule_visibility",
       "031_schedule_item_sources",
       "037_field_operations",
+      "038_time_adjustment_requests",
+      "039_material_withdrawals",
     ])
       await db.exec(
         readFileSync(
@@ -123,6 +130,12 @@ test("scheduling includes once, versions operations, protects execution and reco
     assert.equal(ops.length, 1);
     const added = (await mutateSchedule({action:"add_operation",scheduleId:sid},user)).operation;
     await mutateSchedule({action:"remove_operation",scheduleId:sid,operationId:added.id,version:added.version},user);
+    const discarded=(await mutateSchedule({action:'add_operation',scheduleId:sid},admin)).operation;
+    await db.query("UPDATE web_service_operations SET document=document||'{\"checklistReturn\":{\"reason\":\"Checklist incorreto\"}}'::jsonb WHERE id=$1",[discarded.id]);
+    await db.query('INSERT INTO web_field_material_checks(operation_id,actor) VALUES($1,$2)',[discarded.id,user]);
+    await mutateSchedule({action:'remove_operation',scheduleId:sid,operationId:discarded.id,version:discarded.version},admin);
+    assert.equal((await db.query('SELECT 1 FROM web_field_material_checks WHERE operation_id=$1',[discarded.id])).rows.length,0);
+
     assert.equal((await db.query("SELECT * FROM web_service_operations")).rows.length,1);
     assert.equal(ops[0].document.date, "");
     assert.equal(ops[0].sent_at, null);
@@ -155,6 +168,19 @@ test("scheduling includes once, versions operations, protects execution and reco
     await assert.rejects(()=>send("dispatch"),e=>(e as Error).constructor.name==="Forbidden");
     ops[0]=(await mutateSchedule({action:"dispatch",scheduleId:sid,operationId:ops[0].id,version:ops[0].version},admin)).operation;
     assert.equal(ops[0].status,"awaiting_execution");assert.ok(ops[0].sent_at);
+    // A returned operation accepts a replacement template and starts with empty answers.
+    const template={id:'replacement',name:'Checklist corrigido',items:[],stages:[{id:'step',name:'Etapa',fields:[{id:'answer',label:'Verificação',type:'text',required:false}]}]};
+    await db.query("UPDATE web_service_schedule_settings SET document=jsonb_set(document,'{checklists}',$1::jsonb)",[JSON.stringify([template])]);
+    await db.query("UPDATE web_service_operations SET sent_at=NULL,status='scheduled',document=(document-'checklistRun')||$2::jsonb WHERE id=$1",[ops[0].id,JSON.stringify({checklistReturn:{reason:'Checklist errado'},checked:[]})]);
+    ops[0]=(await send('operation',{document:{...doc,time:'11:00',checklistId:'replacement',checked:[]}})).operation;
+    assert.equal(ops[0].document.checklistReturn.reason,'Checklist errado');
+    ops[0]=(await mutateSchedule({action:'dispatch',scheduleId:sid,operationId:ops[0].id,version:ops[0].version},admin)).operation;
+    assert.equal(ops[0].document.checklistRun.template.id,'replacement');
+    assert.deepEqual(ops[0].document.checklistRun.stages.step.answers,{});
+    assert.equal(ops[0].document.checklistReturn,undefined);
+    // Restore the original no-checklist fixture for the remaining lifecycle assertions.
+    await db.query("UPDATE web_service_operations SET document=(document-'checklistRun')||'{\"checklistId\":\"\"}'::jsonb WHERE id=$1",[ops[0].id]);
+
 
     assert.equal(
       new Date(ops[0].ends_at).toISOString(),
@@ -204,6 +230,18 @@ test("scheduling includes once, versions operations, protects execution and reco
     assert.equal(ops[0].status, "executing");
     ops[0] = (await send("finish_full")).operation;
     assert.equal(ops[0].status, "awaiting_review");
+    const reviewRun={template:{id:'check',name:'Teste',stages:[{id:'s',name:'Etapa',fields:[{id:'f',label:'Resultado',type:'text',required:true}]}]},submission:{at:'2026-09-30T10:00:00Z',by:user},stages:{s:{status:'submitted',answers:{f:'Original'}}}};
+    await db.query("UPDATE web_service_operations SET document=document||$2::jsonb WHERE id=$1",[ops[0].id,JSON.stringify({checklistRun:reviewRun})]);
+    const corrections={action:'checklist_review_save',scheduleId:sid,operationId:ops[0].id,version:ops[0].version,stages:[{stageId:'s',answers:{f:'Corrigido'},details:{}}]};
+    await assert.rejects(mutateSchedule(corrections,user),e=>(e as Error).constructor.name==='Forbidden');
+    await assert.rejects(mutateSchedule({...corrections,stages:[...corrections.stages,{stageId:'missing',answers:{},details:{}}]},admin),/Etapa não encontrada/);
+    assert.equal((await db.query<any>("SELECT document->'checklistRun'->'stages'->'s'->'answers'->>'f' value FROM web_service_operations WHERE id=$1",[ops[0].id])).rows[0].value,'Original');
+    ops[0]=(await mutateSchedule(corrections,admin)).operation;
+    assert.equal(ops[0].status,'awaiting_review');assert.equal(ops[0].document.checklistRun.stages.s.answers.f,'Corrigido');
+    assert.deepEqual(ops[0].document.checklistRun.submission,reviewRun.submission);
+    await assert.rejects(mutateSchedule(corrections,admin),/alterada/);
+    await db.query("UPDATE web_service_operations SET document=document-'checklistRun' WHERE id=$1",[ops[0].id]);
+
     await assert.rejects(
       () => send("review"),
       (e) => (e as Error).constructor.name === "Forbidden",

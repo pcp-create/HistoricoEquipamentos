@@ -58,6 +58,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
       "030_service_schedule_visibility",
       "031_schedule_item_sources",
       "037_field_operations",
+      "039_material_withdrawals",
     ])
       await db.exec(
         readFileSync(
@@ -94,6 +95,8 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
           vehicleId: "v1",
           date: "2026-10-01",
           time: "08:00",
+          duration: 15,
+          calendarId: "standard",
         }),
         other,
       ],
@@ -108,6 +111,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
       fieldAction(
         {
           action,
+          quantityScope: "operation",
           operationId: id,
           requestId: randomUUID(),
           location: location(),
@@ -127,6 +131,10 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     );
     await db.exec("UPDATE web_service_operations SET sent_at=now()");
     assert.equal((await fieldData("tech")).rows?.length, 2);
+    const listed = (await fieldData("tech")).rows?.find((row:any) => row.id === id);
+    const opened: any = await fieldData("tech",id);
+    assert.ok(listed.estimated_end);
+    assert.equal(opened.estimated_end,listed.estimated_end);
     assert.equal((await fieldData("outsider")).rows?.length, 0);
     await assert.rejects(
       fieldData("outsider", id),
@@ -198,6 +206,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     await mutateSchedule({action:'report_reopen',scheduleId:String(schedule.id),operationId:id,version:toReturn.operation.version},'planner');
     const returned:any=await fieldData('tech',id);
     assert.equal(returned.operation.status,'executing');
+    assert.ok((await fieldData('tech')).rows?.some((row:any) => row.id === id));
     assert.equal(returned.reportSubmission,null);
     assert.ok(Object.values(returned.operation.document.checklistRun.stages).every((stage:any)=>stage.status==='released'));
     assert.equal(returned.operation.document.checklistRun.submissionHistory.length,1);
@@ -211,7 +220,33 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
       /Outro técnico/,
     );
     await act("materials", parts(1, 1), "helper");
-    await act("materials", { ...parts(1, 1), operationId: other });
+    await db.exec("UPDATE m8_os_produtos SET quantidade=1; UPDATE web_service_item_usage SET allocations=NULL");
+    // Legacy withdrawals remain attributed to their original operation.
+    await assert.rejects(act("materials", { ...parts(0.5, 1), operationId: other }), /Saldo insuficiente/);
+    await assert.rejects(act("materials", { ...parts(0.5, 1), quantityScope: undefined }), /Atualize a página/);
+    await act("materials", { ...parts(0, 1), operationId: other });
+    assert.equal(Number((await fieldData("tech", id)).materials?.items[0].usage.withdrawn), 1);
+    // Return half, then let the other operation take precisely that available half.
+    await act("materials", parts(0.5, 1));
+    await assert.rejects(act("materials", { ...parts(0.5, 1), operationId: other }), /Outro técnico/);
+    await act("materials", { ...parts(0.5, 2), operationId: other });
+    let shared: any = (await fieldData("tech", id)).materials?.items[0].usage;
+    assert.equal(Number(shared.withdrawn), 1);
+    assert.deepEqual(shared.allocations.map((row: any) => row.quantity), [0.5, 0.5]);
+    assert.ok(shared.allocations.every((row: any) => row.by === 'tech' && row.at));
+    await assert.rejects(act("materials", parts(0.6, 3)), /Saldo insuficiente/);
+    await assert.rejects(act("materials", parts(0.0001, 3)), /três casas/);
+    // A return changes only the current operation's allocation.
+    await act("materials", { ...parts(0, 3), operationId: other });
+    shared = (await fieldData("tech", id)).materials?.items[0].usage;
+    assert.equal(Number(shared.withdrawn), 0.5);
+    assert.equal(shared.allocations.length, 1);
+    assert.equal(shared.allocations[0].operationId, id);
+    await act("materials", parts(1, 4));
+    await db.exec("UPDATE web_service_item_usage SET used=1");
+    await assert.rejects(act("materials", parts(0, 5)), /já utilizada/);
+    await db.exec("UPDATE web_service_item_usage SET used=NULL");
+
     const requestId = randomUUID();
     await act("start_work", { requestId });
     await act("start_work", { requestId });
@@ -262,7 +297,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     );
     await act("stop", { sessionId: session.id, odometer: 1010 });
     await assert.rejects(act("finish_full", {}, "helper"), /responsável/);
-    await act("finish_partial");
+    await assert.rejects(act("finish_partial"), /não está mais disponível/);
     await act("start_work");
     session = (
       await db.query<any>(
@@ -270,14 +305,60 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
       )
     ).rows[0];
     await act("stop", { sessionId: session.id });
+    await assert.rejects(act("finish_partial"), /não está mais disponível/);
+    assert.ok((await fieldData("tech")).rows?.some((row: any) => row.id === id));
+    const pendingFinish: any = await fieldData("tech", id);
+    assert.ok(pendingFinish.finishPending.some((v: string) => v.startsWith("Relatório:")));
+    await assert.rejects(act("finish_full"), /envio completo/);
+    await act("report_send_partial", { version: pendingFinish.operation.version });
+    await assert.rejects(act("finish_full"), /envio completo/);
+    const readyReport: any = await fieldData("tech", id);
+    await assert.rejects(act("report_return",{version:readyReport.operation.version,reason:"Checklist incorreto",confirmDiscard:true}),/Após o envio/);
+    await act("report_send", { version: readyReport.operation.version });
+    const sentReport:any=await fieldData("tech",id);
+    await assert.rejects(act("report_return",{version:sentReport.operation.version,reason:"Checklist incorreto",confirmDiscard:true}),/Após o envio/);
+    assert.deepEqual(sentReport.finishPending, []);
     await act("finish_full");
+    const visible = (await fieldData("tech")).rows || [];
+    assert.ok(!visible.some((row: any) => row.id === id));
+    assert.ok(visible.some((row: any) => row.id === other));
     await assert.rejects(act("start_work"), /revisão/);
+    const { checklistPdf, ChecklistPdfPending } = await import('../lib/service-scheduling/checklist-pdf');
+    await assert.rejects(checklistPdf(id, 'planner'), ChecklistPdfPending);
+    await db.query("UPDATE web_service_operations SET status='reviewed' WHERE id=$1", [id]);
+    const pdf = await checklistPdf(id, 'planner');
+    assert.ok(pdf && pdf.bytes.length > 0);
+
+    // Return a draft to planning without erasing time records or material allocations.
+    await db.exec(`CREATE TABLE IF NOT EXISTS web_service_checklist_photos(id bigint,operation_id uuid);`);
+    await db.query("UPDATE web_service_operations SET status='executing',document=document||$2::jsonb WHERE id=$1",[id,JSON.stringify({checklistId:'wrong',checklistRun:{template:{name:'Wrong',stages:[{id:'s',name:'Etapa',fields:[{id:'f',label:'Campo',type:'text'}]}]},stages:{s:{status:'released',answers:{f:'discard'}}}}})]);
+    const beforeReturn=(await db.query<any>('SELECT * FROM web_service_operations WHERE id=$1',[id])).rows[0];
+    await assert.rejects(act('report_return',{version:beforeReturn.version,reason:'Checklist incorreto',confirmDiscard:true},'helper'),/responsável/);
+    await assert.rejects(act('report_return',{version:beforeReturn.version,reason:'Checklist incorreto'}),/Confirme/);
+    await assert.rejects(act('report_return',{version:beforeReturn.version-1,reason:'Checklist incorreto',confirmDiscard:true}),/alterada/);
+    const sessionsBefore=(await db.query<any>('SELECT count(*) AS count FROM web_field_sessions WHERE operation_id=$1',[id])).rows[0].count;
+    await act('report_return',{version:beforeReturn.version,reason:'Checklist incorreto',confirmDiscard:true});
+    const returnedOperation=(await db.query<any>('SELECT * FROM web_service_operations WHERE id=$1',[id])).rows[0];
+    assert.equal(returnedOperation.sent_at,null);
+    assert.equal(returnedOperation.document.checklistRun,undefined);
+    assert.equal(returnedOperation.document.checklistReturn.reason,'Checklist incorreto');
+    assert.equal(returnedOperation.status,'scheduled');
+    assert.equal((await db.query<any>('SELECT count(*) AS count FROM web_field_sessions WHERE operation_id=$1',[id])).rows[0].count,sessionsBefore);
+    assert.ok(!(await fieldData('tech')).rows?.some((r:any)=>r.id===id));
+    await assert.rejects(act('report_save',{version:returnedOperation.version,stages:[]}),e=>(e as Error).constructor.name==='Forbidden');
+
     const events = (await db.query<any>("SELECT * FROM web_field_events")).rows;
     assert.ok(events.length > 10);
     assert.ok(events.every((e) => e.latitude === -27 && e.longitude === -49));
     // No materials is still a real, recorded confirmation.
     await db.exec("DELETE FROM m8_os_produtos");
     await act("materials", { operationId: other, items: [] });
+    await assert.rejects(act("finish_full", { operationId: other }), /Atividade/);
+    await act("start_work", { operationId: other });
+    const lastSession = (await db.query<any>("SELECT id FROM web_field_sessions WHERE state<>'finished'")).rows[0];
+    await act("stop", { operationId: other, sessionId: lastSession.id });
+    await act("finish_full", { operationId: other });
+    assert.equal((await fieldData("tech")).rows?.length, 0);
   } finally {
     g.historyPool = old;
     await db.close();

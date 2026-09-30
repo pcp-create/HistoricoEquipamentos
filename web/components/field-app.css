@@ -579,3 +579,89 @@ dialog.field-report-screen {
   font-weight: 500;
 }
 .field-planned-duration svg { flex-shrink: 0; }
+.field-report-header > div { flex: 1; min-width: 0; }
+.field-report-header > div > small {
+  display: block;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.field-report-screen .checklist-report-equipment {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #637f98;
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+
+.field-order, .field-operation {
+  scroll-margin-top: 12px;
+}
+
+.field-material-held { color: #805600; background: #fff8e8; border-radius: 8px; padding: 10px; font-size: 13px; line-height: 1.5; }
+
+.field-part > small { grid-column: 1 / -1; justify-self: start; }
+
+.field-part-quantity { min-width: 0; }
+.field-app .field-part-return {
+  display: block;
+  min-height: 28px;
+  margin: 3px 0 0 auto;
+  padding: 3px 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.field-finish-dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 20px;
+  border: 1px solid #d6e2ed;
+  border-radius: 14px;
+  color: #233f5b;
+  background: white;
+  font: inherit;
+}
+.field-finish-dialog::backdrop { background: rgb(20 40 60 / 45%); }
+.field-finish-dialog h3 { margin: 0 0 12px; font-size: 17px; }
+.field-finish-dialog p { margin: 0 0 12px; font-size: 14px; line-height: 1.5; }
+.field-finish-actions { display: grid; gap: 8px; margin-top: 18px; }
+.field-app .field-finish-actions button { min-height: 42px; padding: 9px 12px; font-size: 14px; font-weight: 500; }
+.field-app .field-finish-actions .field-finish-cancel { border: 0; background: transparent; }
+
+.field-finish-pending { padding: 12px; margin-bottom: 14px; background: #fff8e8; border-radius: 8px; color: #805600; font-size: 13px; line-height: 1.5; }
+.field-finish-pending p { margin: 0 0 8px; }
+.field-finish-pending ul { margin: 0; padding-left: 20px; }
+.field-finish-pending li + li { margin-top: 6px; }
+
+/* Keep each material readable at phone widths, without competing columns. */
+.field-part {
+  display: block;
+  padding: 14px;
+  margin: 14px 0;
+  border: 1px solid #dce5ee;
+  border-radius: 10px;
+  background: #fff;
+}
+.field-part-info > b { display: block; font-size: 13px; line-height: 1.5; }
+.field-part .field-part-unit { font-size: 11px; margin: 4px 0 12px; }
+.field-part-balances { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 0 0 14px; }
+.field-part-balances > div { min-width: 0; padding: 8px 4px; border-radius: 6px; background: #f4f7fa; text-align: center; }
+.field-part-balances dt { font-size: 11px; color: #627d98; }
+.field-part-balances dd { margin: 3px 0 0; font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+.field-part-balances .field-part-available { background: #eaf3fc; }
+.field-app .field-part-quantity label { display: block; font-size: 12px; margin: 0; text-align: center; font-family: "Manrope", var(--font); font-weight: 600; }
+.field-app .field-part-quantity input { width: 100%; margin-top: 5px; text-align: center; font-family: "Manrope", var(--font); font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.field-part-history { margin-top: 12px; padding-top: 10px; border-top: 1px solid #e4ebf2; font-size: 12px; color: #627d98; }
+.field-part-history > summary { cursor: pointer; padding: 4px 0; }
+.field-part-withdrawal { display: grid; gap: 3px; padding: 8px 0; overflow-wrap: anywhere; }
+.field-part-withdrawal strong { font-size: 12px; font-weight: 500; color: #233f5b; }
+.field-part-withdrawal time { font-size: 11px; }

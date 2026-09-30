@@ -5,8 +5,15 @@ import { Forbidden } from "../auth";
 import { combineOrderItems } from "./linked-items";
 import { locationOf, odometer, sessionTotals } from "./field-model";
 import { updateChecklist, prepareChecklistSubmission } from "./checklist-store";
-import { calendarEnd } from "./model";
+import { materialBalance, materialQuantity } from "./material-balance";
+import { calendarEnd, planningStatus } from "./model";
 import { reportSubmission, stagesOf } from "./checklists";
+function estimatedEnd(document: any, settings: any) {
+  try {
+    return calendarEnd(document, settings.calendars?.find((calendar: any) =>
+      calendar.id === (document.calendarId || document.calendar_id || "standard")));
+  } catch { return null; }
+}
 export class FieldError extends Error {}
 const assigned =
   "(p.document->>'responsible'=$1 OR p.document->'support' ? $1)";
@@ -52,7 +59,23 @@ async function materials(c: any, s: any) {
   );
   const usage = (
     await c.query(
-      `SELECT i.*,u.display_name,o.position FROM web_service_item_usage i LEFT JOIN web_user_access u ON u.email=i.updated_by LEFT JOIN web_service_operations o ON o.id=i.operation_id WHERE i.schedule_id=$1`,
+      `SELECT i.*,u.display_name,o.position,
+        COALESCE(withdrawal.actor,i.updated_by) AS withdrawn_by,
+        COALESCE(withdrawer.display_name,u.display_name) AS withdrawn_name,
+        COALESCE(withdrawal.created_at,i.updated_at) AS withdrawn_at
+       FROM web_service_item_usage i
+       LEFT JOIN web_user_access u ON u.email=i.updated_by
+       LEFT JOIN web_service_operations o ON o.id=i.operation_id
+       LEFT JOIN LATERAL (
+         SELECT e.actor,e.created_at FROM web_field_events e
+         WHERE e.operation_id=i.operation_id AND e.action='materials'
+         AND EXISTS (SELECT 1 FROM jsonb_array_elements(e.document->'changes') change
+           WHERE change->>'item'=concat(i.item_company,':',i.item_order,':',i.item_id)
+           AND (change->>'after')::numeric > 0)
+         ORDER BY e.created_at DESC LIMIT 1
+       ) withdrawal ON true
+       LEFT JOIN web_user_access withdrawer ON withdrawer.email=withdrawal.actor
+       WHERE i.schedule_id=$1`,
       [s.id],
     )
   ).rows;
@@ -100,21 +123,19 @@ export async function fieldData(email: string, operationId?: string | null) {
   if (!operationId) {
     const rows = (
       await c.query(
-        `SELECT p.id,p.schedule_id,p.position,p.status,p.document->>'description' description,p.document->>'date' date,p.document->>'time' time,p.document->'duration' duration,p.document->>'calendarId' calendar_id,
+        `SELECT p.id,p.schedule_id,p.position,p.status,p.version,p.document->>'description' description,p.document->>'date' date,p.document->>'time' time,p.document->'duration' duration,p.document->>'calendarId' calendar_id,
    o.id_m8::text AS order_id,COALESCE(o.numero_sequencia,o.id_m8)::text AS number,o.cliente_nome customer,o.equipamento equipment,c.payload->>'municipioNome' city,c.payload->>'ufSigla' state,
    EXISTS(SELECT 1 FROM web_field_material_checks k WHERE k.operation_id=p.id AND k.actor=$1) checked
    FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id
    LEFT JOIN m8_customer_directory c ON c.company_id=o.company_id AND c.person_id=o.cliente_id
-   WHERE s.active AND p.sent_at IS NOT NULL AND ${assigned} AND p.status<>'completed'
+   WHERE s.active AND p.sent_at IS NOT NULL AND ${assigned} AND p.status NOT IN ('awaiting_review','reviewed','completed')
    ORDER BY p.document->>'date' DESC NULLS LAST,p.document->>'time' DESC NULLS LAST,p.position`,
         [email],
       )
     ).rows;
-    return { rows: rows.map((row: any) => {
-      let estimated_end = null;
-      try { estimated_end = calendarEnd(row, settings.calendars?.find((calendar: any) => calendar.id === (row.calendar_id || "standard"))); } catch {}
-      return { ...row, estimated_end };
-    }), active, email, displayName: profile.display_name };
+    return { rows: rows.map((row: any) => ({
+      ...row, estimated_end: estimatedEnd(row, settings),
+    })), active, email, displayName: profile.display_name };
   }
   if (!/^[0-9a-f-]{36}$/i.test(operationId))
     throw new FieldError("Operação inválida.");
@@ -154,8 +175,11 @@ export async function fieldData(email: string, operationId?: string | null) {
   if(submission&&!submission.name){
     submission.name=(await c.query('SELECT display_name FROM web_user_access WHERE email=$1',[submission.by])).rows[0]?.display_name||submission.by;
   }
+  const materialData = await materials(c, { ...p, id: p.schedule_id });
   return {
+    finishPending: await finishPending(c, p, email, materialData.complete),
     reportSubmission:submission,
+    estimated_end: estimatedEnd(p.document, settings),
     operation: p,
     active,
     email,
@@ -166,7 +190,7 @@ export async function fieldData(email: string, operationId?: string | null) {
       EXISTS(SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND actor=$2 AND kind='work' AND state='finished') AS work,
       EXISTS(SELECT 1 FROM web_field_events WHERE operation_id=$1 AND action='finish_partial') AS partial
     `,[p.id,email])).rows[0],
-    materials: await materials(c, { ...p, id: p.schedule_id }),
+    materials: materialData,
     history,
     canEditSettings: false,
     settings: {
@@ -179,11 +203,32 @@ export async function fieldData(email: string, operationId?: string | null) {
     detail: { order, equipment_links },
   };
 }
+async function finishPending(c: any, p: any, email: string, materialsComplete: boolean) {
+  const progress = (await c.query(`SELECT
+    EXISTS(SELECT 1 FROM web_field_events WHERE operation_id=$1 AND actor=$2 AND action='info_read') AS info,
+    EXISTS(SELECT 1 FROM web_field_material_checks WHERE operation_id=$1 AND actor=$2) AS checked,
+    EXISTS(SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND kind='work' AND state='finished') AS worked,
+    EXISTS(SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished') AS active
+  `, [p.id, email])).rows[0];
+  const pending: string[] = [];
+  if (!progress.info) pending.push("Informações: leia e confirme as observações internas.");
+  if (!materialsComplete || !progress.checked) pending.push("Peças: conclua a conferência dos materiais.");
+  if (!progress.worked) pending.push("Atividade: registre e conclua um apontamento de atividade.");
+  if (progress.active) pending.push("Apontamentos: finalize os apontamentos de atividade, deslocamento e pausas de toda a equipe.");
+  if (p.document.checklistId) {
+    if (!reportSubmission(p.document.checklistRun)) pending.push("Relatório: conclua as etapas obrigatórias e faça o envio completo.");
+    else {
+      try { prepareChecklistSubmission(p.document.checklistRun, email); }
+      catch { pending.push("Relatório: há etapas obrigatórias pendentes. Solicite a reabertura ao planejamento para corrigir."); }
+    }
+  }
+  return pending;
+}
 export async function fieldAction(b: any, email: string) {
   const c = await database().connect();
   try {
     await c.query("BEGIN READ WRITE");
-    await user(c, email);
+    const actor = await user(c, email);
     await c.query("SELECT pg_advisory_xact_lock(728001)");
     if (
       !b ||
@@ -214,6 +259,8 @@ export async function fieldAction(b: any, email: string) {
       throw new FieldError(
         "Esta operação já foi enviada para revisão e não permite novos apontamentos.",
       );
+    if (b.action === "finish_partial")
+      throw new FieldError("A finalização parcial não está mais disponível. Conclua os módulos para encerrar a operação.");
     const location = locationOf(b.location);
     const s = {
       id: p.schedule_id,
@@ -232,9 +279,9 @@ export async function fieldAction(b: any, email: string) {
           [p.id, email],
         )
       ).rows.length > 0;
-    if (b.action !== "info_read" && !(await hasReadInformation(c,p.id,email)))
+    if (!["info_read","report_return"].includes(b.action) && !(await hasReadInformation(c,p.id,email)))
       throw new FieldError("Leia e confirme as observações internas antes de continuar.");
-    if (!["materials","info_read"].includes(b.action) && !checked)
+    if (!["materials","info_read","report_return"].includes(b.action) && !checked)
       throw new FieldError("Confira as peças antes de iniciar o trabalho.");
     const active = (
       await c.query(
@@ -248,6 +295,8 @@ export async function fieldAction(b: any, email: string) {
       details={internalNote:p.document.internalNote||""};
       operationUpdated=true;
     } else if (b.action === "materials") {
+      if (b.quantityScope !== "operation")
+        throw new FieldError("O controle de retiradas mudou. Atualize a página e reabra a conferência.");
       const current = await materials(c, s);
       if (!current.complete)
         throw new FieldError(
@@ -276,33 +325,46 @@ export async function fieldAction(b: any, email: string) {
           throw new FieldError(
             "Outro técnico atualizou as peças. Reabra a conferência para ver os valores atuais.",
           );
-        if (
-          (item.usage?.withdrawn == null
-            ? null
-            : Number(item.usage.withdrawn)) === withdrawn
-        )
-          continue;
+        const balance = materialBalance(item, p.id);
+        if (withdrawn === null && !balance.own) continue;
         if (withdrawn === null)
-          throw new FieldError(
-            "Informe zero para corrigir uma retirada, em vez de apagar a quantidade.",
-          );
+          throw new FieldError("Informe zero para devolver a retirada desta operação.");
+        if (Math.abs(withdrawn - materialQuantity(withdrawn)) > 1e-9)
+          throw new FieldError("Informe a quantidade com até três casas decimais.");
+        if (balance.own === withdrawn) continue;
+        const total = materialQuantity(balance.total - balance.own + withdrawn);
+        if (withdrawn > balance.own && total > balance.reserved)
+          throw new FieldError(`Saldo insuficiente. Disponível para retirada: ${balance.available}. Outra operação pode ter retirado este material.`);
+        if (total < Number(item.usage?.used || 0))
+          throw new FieldError("Não é possível devolver uma quantidade já utilizada. Confira a utilização com o planejamento.");
+        const allocations = balance.withdrawals.filter(row => row.operationId !== p.id);
+        const previous = balance.withdrawals.find(row => row.operationId === p.id);
+        if (withdrawn > 0) allocations.push({ operationId: p.id, position: p.position,
+          quantity: withdrawn,
+          by: withdrawn < balance.own && previous ? previous.by : email,
+          name: withdrawn < balance.own && previous ? previous.name : actor.display_name || email,
+          at: withdrawn < balance.own && previous ? previous.at : new Date().toISOString() });
         await c.query(
-          `INSERT INTO web_service_item_usage(schedule_id,item_company,item_order,item_id,withdrawn,updated_by,operation_id) VALUES($1,$2,$3,$4,$5,$6,$7)
-     ON CONFLICT(schedule_id,item_company,item_order,item_id) DO UPDATE SET withdrawn=$5,updated_by=$6,operation_id=$7,updated_at=now(),version=web_service_item_usage.version+1`,
+          `INSERT INTO web_service_item_usage(schedule_id,item_company,item_order,item_id,withdrawn,updated_by,operation_id,allocations) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
+     ON CONFLICT(schedule_id,item_company,item_order,item_id) DO UPDATE SET withdrawn=$5,updated_by=$6,operation_id=$7,allocations=$8::jsonb,updated_at=now(),version=web_service_item_usage.version+1`,
           [
             s.id,
             item.item_company,
             item.item_order,
             item.id_m8,
-            withdrawn,
+            total,
             email,
             p.id,
+            JSON.stringify(allocations),
           ],
         );
         details.changes.push({
           item: key(item),
-          before: item.usage?.withdrawn ?? null,
-          after: withdrawn,
+          before: balance.total,
+          after: total,
+          operationBefore: balance.own,
+          operationAfter: withdrawn,
+          allocations,
         });
       }
       await c.query(
@@ -394,6 +456,23 @@ export async function fieldAction(b: any, email: string) {
         details.odometer = end;
       }
       details = { ...details, sessionId: active.id, seconds: totals };
+    } else if (b.action === "report_return") {
+      if(reportSubmission(p.document.checklistRun)||p.document.checklistRun?.partialSubmission)throw new FieldError("Após o envio do relatório, a devolução para ajuste do checklist não está disponível.");
+      if(p.document.responsible!==email)throw new FieldError('Somente o responsável pode devolver para ajuste do checklist.');
+      if(p.version!==b.version)throw new FieldError('A operação foi alterada. Atualize antes de devolver.');
+      if(!p.document.checklistId)throw new FieldError('Esta operação não possui checklist.');
+      if(b.confirmDiscard!==true)throw new FieldError('Confirme o descarte dos dados do relatório.');
+      const reason=typeof b.reason==='string'?b.reason.trim():'';
+      if(!reason||reason.length>2000)throw new FieldError('Informe o motivo da devolução (até 2.000 caracteres).');
+      if((await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[p.id])).rows.length)throw new FieldError('Finalize os apontamentos ativos da operação antes de devolver.');
+      const document={...p.document};
+      delete document.checklistRun;
+      document.checked=[];
+      document.checklistReturn={at:new Date().toISOString(),by:email,reason,checklistId:p.document.checklistId};
+      await c.query('DELETE FROM web_service_checklist_photos WHERE operation_id=$1',[p.id]);
+      await c.query('UPDATE web_service_operations SET document=$2,status=$3,sent_at=NULL,version=version+1,updated_at=now(),updated_by=$4 WHERE id=$1',[p.id,JSON.stringify(document),planningStatus(document),email]);
+      await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[p.id,b.action,email,'Devolvida para ajuste do checklist. Dados do relatório descartados. Motivo: '+reason]);
+      operationUpdated=true;details={reason,checklistId:p.document.checklistId};
     } else if (b.action === "report_save") {
       if(reportSubmission(p.document.checklistRun))throw new FieldError("Relatório enviado. O planejador precisa reabrir a edição.");
       if(p.version!==b.version)throw new FieldError('O relatório foi atualizado. Reabra para carregar a versão atual.');
@@ -423,29 +502,17 @@ export async function fieldAction(b: any, email: string) {
       await c.query("UPDATE web_service_operations SET document=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1",[p.id,JSON.stringify({...p.document,checklistRun}),email]);
       await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[p.id,b.action,email,partial?'Relatório enviado parcialmente; edição permanece liberada':'Relatório enviado completo pelo técnico']);
       operationUpdated=true;
-    } else if (b.action === "finish_partial" || b.action === "finish_full") {
+    } else if (b.action === "finish_full") {
       if (p.document.responsible !== email)
         throw new FieldError("Somente o responsável pode enviar a operação.");
-      if (
-        (
-          await c.query(
-            "SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",
-            [p.id],
-          )
-        ).rows.length
-      )
-        throw new FieldError(
-          "Finalize os apontamentos da equipe antes de enviar o relatório.",
-        );
-      if (b.action === "finish_full" && p.document.checklistId) {
-        p.document={...p.document,checklistRun:prepareChecklistSubmission(p.document.checklistRun,email)};
-        await c.query('UPDATE web_service_operations SET document=$2 WHERE id=$1',[p.id,JSON.stringify(p.document)]);
-      }
+      const materialData = await materials(c, s);
+      const pending = await finishPending(c, p, email, materialData.complete);
+      if (pending.length) throw new FieldError("Não é possível encerrar a operação. " + pending.join(" "));
       await c.query(
         "UPDATE web_service_operations SET status=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1",
         [
           p.id,
-          b.action === "finish_full" ? "awaiting_review" : "executing",
+          "awaiting_review",
           email,
         ],
       );
@@ -456,9 +523,7 @@ export async function fieldAction(b: any, email: string) {
           p.id,
           b.action,
           email,
-          b.action === "finish_full"
-            ? "Relatório completo enviado pelo técnico"
-            : "Relatório parcial enviado pelo técnico",
+          "Operação finalizada pelo técnico após conclusão dos módulos",
         ],
       );
     } else if (["checklist_save", "checklist_submit"].includes(b.action)) {

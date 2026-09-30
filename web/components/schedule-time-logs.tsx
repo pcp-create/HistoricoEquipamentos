@@ -1,4 +1,5 @@
 "use client";
+import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import TimeAdjustmentForm from "./time-adjustment-form";
 import TimeRequestList from "./time-request-list";
 import { useEffect, useState } from "react";
@@ -84,7 +85,7 @@ export default function ScheduleTimeLogs({
               {operation.order_number
                 ? "OS " + operation.order_number + " · "
                 : ""}
-              Operação {operation.position} · {operation.document.description}
+              Operação {operationNumber(operation.position)} · {operation.document.description}
             </h3>
             <small>
               {items.length} apontamento(s) · Total{" "}

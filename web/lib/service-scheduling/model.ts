@@ -29,7 +29,10 @@ export const blankOperation = () => ({
   checked: [] as string[],
 });
 export function planningStatus(d: any) {
-  return !d.date ? "pending" : !d.time ? "planning" : "scheduled";
+  return !d.date ? "pending" : !d.time || !d.responsible?.trim() ? "planning" : "scheduled";
+}
+export function effectiveOperationStatus(status: string, document: any) {
+  return ["pending", "planning", "scheduled"].includes(status) ? planningStatus(document) : status;
 }
 export function totalHours(d: any) {
   return d.duration == null

@@ -84,7 +84,7 @@ test("technician requests edits and manual entries while official hours stay unc
   await expect(page.getByRole("button", { name: "Meus apontamentos" })).toHaveCount(0);
   await page.getByRole("button", { name: "Programação" }).click();
   await page.getByText("OS 123", { exact: true }).click();
-  await page.getByRole("button", { name: /Operação 1/ }).click();
+  await page.getByRole("button", { name: /Operação 01/ }).click();
   await page.getByRole("button", { name: "Apontamentos", exact: true }).click();
   await expect(page.getByText("Lat. -27.500000")).toHaveCount(0);
   await expect(page.getByRole("columnheader", { name: "Início", exact: true })).toBeVisible();

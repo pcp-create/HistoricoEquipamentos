@@ -1894,8 +1894,7 @@ export function EquipmentTaskLinks({
       t.status !== "completed" &&
       String(t.equipment_id) === String(equipment) &&
       (plan
-        ? t.plan_id === plan ||
-          (hourly && t.source_key === `preventive-group:${equipment}`)
+        ? t.plan_id === plan
         : !t.plan_id),
   );
   return (

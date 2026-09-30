@@ -1,4 +1,5 @@
 "use client";
+import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 function local(value?: string) {
@@ -147,7 +148,7 @@ export default function TimeAdjustmentForm({
             {operations.map((o: any) => (
               <option key={o.id} value={o.id}>
                 {o.order_number ? "OS " + o.order_number + " · " : ""}Operação{" "}
-                {o.position} · {o.document.description}
+                {operationNumber(o.position)} · {o.document.description}
               </option>
             ))}
           </select>

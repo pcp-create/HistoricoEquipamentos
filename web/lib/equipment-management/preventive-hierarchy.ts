@@ -1,5 +1,7 @@
 import {
   predict,
+  estimateCurrentMeter,
+  validDate,
   brazilToday,
   type Plan,
   type Operating,
@@ -16,11 +18,35 @@ export function predictPlans<T extends Plan & { id?: string }>(
   today = brazilToday(),
   usage?: RentalUsage,
 ) {
-  const rows = plans.map((p) => ({
-    ...p,
-    forecast: predict(p, operating, today, usage),
-    coveredBy: null as null | { id?: string; name: string },
-  }));
+  // Current usage belongs to the equipment, independently of each plan's history.
+  const readings = [
+    { meter: operating.meter, meterDate: operating.meterDate },
+    ...plans.map(p => ({ meter: p.lastMeter, meterDate: p.lastDate })),
+  ].filter(r => r.meter != null && Number.isFinite(r.meter) && r.meter >= 0
+    && validDate(r.meterDate) && r.meterDate <= today)
+    .sort((a, b) => b.meterDate.localeCompare(a.meterDate));
+  const estimatedMeter = estimateCurrentMeter({ ...operating, ...readings[0] }, today, usage);
+  const forecasts = plans.map(p => predict(p, operating, today, usage));
+  const rows = plans.map((p, index) => {
+    let target = forecasts[index].target;
+    if (p.hours && p.hours > 0 && target != null && !forecasts[index].inconsistent) {
+      const larger = plans.map((other, i) => ({ other, forecast: forecasts[i] }))
+        .filter(({ other, forecast }) => other.hours != null && other.hours > p.hours!
+          && other.hours % p.hours! === 0 && forecast.target != null
+          && !forecast.incomplete && !forecast.inconsistent);
+      // Advance along this plan's own sequence; never change the recorded intervention.
+      while (larger.some(({ forecast }) => Math.abs(target! - forecast.target!) < 0.000001)) {
+        target += p.hours;
+      }
+    }
+    return {
+      ...p,
+      forecast: target === forecasts[index].target ? forecasts[index]
+        : predict(p, operating, today, usage, target ?? undefined),
+      coveredBy: null as null | { id?: string; name: string },
+    };
+  });
+  for (const row of rows) row.forecast.estimatedMeter = estimatedMeter;
   const candidates = rows.filter(
     (p) =>
       p.hours &&

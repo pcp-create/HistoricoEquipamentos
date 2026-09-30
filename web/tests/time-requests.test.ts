@@ -25,6 +25,7 @@ test("requests require managers, stay pending, approve once, retain originals an
       "028_service_scheduling",
       "030_service_schedule_visibility",
       "037_field_operations",
+      "039_material_withdrawals",
       "038_time_adjustment_requests",
     ]) {
       // 016 schema is small; load it using the repository's actual filename below.

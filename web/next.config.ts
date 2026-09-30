@@ -15,7 +15,7 @@ const config: NextConfig = {
   turbopack: { root: path.resolve(__dirname) },
   serverExternalPackages: ["pg"],
   outputFileTracingIncludes: {
-    "/api/**": ["./certs/supabase-ca.crt", "./public/logo-rj.png"],
+    "/api/**": ["./certs/supabase-ca.crt", "./public/logo-rj.png", "./public/fonts/report/*"],
   },
   async headers() {
     return [

@@ -206,7 +206,7 @@ export async function equipmentDetail(raw: string) {
   ).rows[0] || { document: emptyOperating, version: null };
   const plans = (
     await db.query(
-      "SELECT id,document,version,updated_at,updated_by FROM web_equipment_plans WHERE equipment_id=$1 AND NOT archived ORDER BY updated_at DESC",
+      "SELECT id,document,version,updated_at,updated_by FROM web_equipment_plans WHERE equipment_id=$1 AND NOT archived ORDER BY NULLIF(document->>'hours', '')::numeric ASC NULLS LAST, document->>'name', id",
       [id],
     )
   ).rows.map((p) => ({
@@ -219,7 +219,10 @@ export async function equipmentDetail(raw: string) {
     ),
   }));
   const grouped = predictPlans(plans.map(p => ({ ...p.document, id: p.id })), settings.document, undefined, equipment.usage);
-  for (const p of plans) Object.assign(p.forecast, { coveredBy: grouped.find(g => g.id === p.id)?.coveredBy || null });
+  for (const p of plans) {
+    const row = grouped.find(g => g.id === p.id);
+    if (row) Object.assign(p.forecast, row.forecast, { coveredBy: row.coveredBy });
+  }
   const history = (
     await db.query(
       `SELECT o.id_m8::text AS id,o.company_id,COALESCE(o.emissao,o.data_abertura) AS date,o.cliente_nome,o.tipo_nome,o.status,o.total_geral::text AS total,l.method
@@ -230,7 +233,14 @@ export async function equipmentDetail(raw: string) {
   ).rows;
   const events = (
     await db.query(
-      `SELECT e.id::text,e.plan_id,e.kind,e.document,e.created_at,e.created_by,e.display_name, (SELECT q.document->>'deletedAt' FROM web_quotes q WHERE q.id::text=e.document->>'quoteId') AS quote_deleted_at FROM web_equipment_events e WHERE e.equipment_id=$1 ORDER BY e.created_at DESC,e.id DESC LIMIT 50`,
+      `SELECT e.id::text,e.plan_id,e.kind,e.document,e.created_at,e.created_by,e.display_name, (SELECT q.document->>'deletedAt' FROM web_quotes q WHERE q.id::text=e.document->>'quoteId') AS quote_deleted_at,
+       COALESCE(e.document->>'operationPosition',op.position::text) AS source_operation_position,
+       COALESCE(e.document->>'orderNumber',os.numero_sequencia::text,e.document->>'orderId') AS source_order_number
+       FROM web_equipment_events e
+       LEFT JOIN web_service_operations op ON op.id::text=e.document->>'operationId' AND e.document->>'source'='checklist_review'
+       LEFT JOIN web_service_schedules schedule ON schedule.id=op.schedule_id
+       LEFT JOIN m8_ordens_servico os ON os.company_id=schedule.company_id AND os.id_m8=schedule.order_id
+       WHERE e.equipment_id=$1 ORDER BY e.created_at DESC,e.id DESC LIMIT 50`,
       [id],
     )
   ).rows;

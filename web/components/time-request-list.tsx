@@ -1,4 +1,5 @@
 "use client";
+import { operationNumber } from "@/lib/service-scheduling/operation-number";
 const fmt = (v: string) =>
   new Date(v).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
 export default function TimeRequestList({ requests, operations }: any) {
@@ -12,7 +13,7 @@ export default function TimeRequestList({ requests, operations }: any) {
           <details key={r.id}>
             <summary>
               {op?.order_number ? "OS " + op.order_number + " · " : ""}Operação{" "}
-              {op?.position} · {r.actor_name || ""}{" "}
+              {operationNumber(op?.position)} · {r.actor_name || ""}{" "}
               {
                 (
                   {

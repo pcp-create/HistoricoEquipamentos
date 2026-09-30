@@ -131,12 +131,12 @@ test("operations save explicitly, keep support distinct, show order-wide items a
   ).toBeVisible();
   await expect(page.locator(".operations-table tbody>tr")).toHaveCount(1);
   await page
-    .getByLabel("Tipo Serviço 1", { exact: true })
+    .getByLabel("Tipo Serviço 01", { exact: true })
     .selectOption("Interno");
   await page
-    .getByLabel("Responsável 1", { exact: true })
+    .getByLabel("Responsável 01", { exact: true })
     .selectOption("a@test.com");
-  const support = page.getByLabel("Equipe de Apoio 1", { exact: true });
+  const support = page.getByLabel("Equipe de Apoio 01", { exact: true });
   const row = page.locator(".operations-table tbody>tr").first();
   const rowHeight = await row.evaluate(
     (el) => el.getBoundingClientRect().height,
@@ -162,21 +162,21 @@ test("operations save explicitly, keep support distinct, show order-wide items a
   ).toHaveCount(0);
   await support.click();
   await options.getByRole("button", { name: "Bruno", exact: true }).click();
-  await page.getByLabel("Duração 1", { exact: true }).fill("2");
-  await page.getByLabel("Duração 1", { exact: true }).press("Tab");
+  await page.getByLabel("Duração 01", { exact: true }).fill("2");
+  await page.getByLabel("Duração 01", { exact: true }).press("Tab");
   await expect(
     page.locator(".operations-table tbody>tr").first().locator("td").nth(9),
   ).toHaveText("4,00");
   await page
-    .getByLabel("Data de Programação 1", { exact: true })
+    .getByLabel("Data de Programação 01", { exact: true })
     .fill("2026-10-02");
-  await page.getByLabel("Data de Programação 1", { exact: true }).blur();
+  await page.getByLabel("Data de Programação 01", { exact: true }).blur();
   await expect(
     page.getByText("Alterações não salvas", { exact: true }),
   ).toBeVisible();
   expect(data.operations[0].version).toBe(1);
   await page
-    .getByRole("button", { name: "Salvar operação 1", exact: true })
+    .getByRole("button", { name: "Salvar operação 01", exact: true })
     .click();
   await expect(
     page.getByText("Alterações não salvas", { exact: true }),
@@ -184,21 +184,21 @@ test("operations save explicitly, keep support distinct, show order-wide items a
   await expect(page.locator(".operation-status").first()).toHaveText(
     "Em planejamento",
   );
-  await page.getByLabel("Hora início 1", { exact: true }).fill("11:00");
-  await page.getByLabel("Hora início 1", { exact: true }).press("Enter");
+  await page.getByLabel("Hora início 01", { exact: true }).fill("11:00");
+  await page.getByLabel("Hora início 01", { exact: true }).press("Enter");
   await expect(page.locator(".operation-status").first()).toHaveText(
     "Programado",
   );
   const heightBeforeNote = await row.evaluate(el => el.getBoundingClientRect().height);
-  await page.getByLabel("Observação interna 1", {exact:true}).click();
+  await page.getByLabel("Observação interna 01", {exact:true}).click();
   const note = "Texto completo da observação interna.\n".repeat(50);
   await page.getByLabel("Texto da observação interna").fill(note);
   await page.getByRole("dialog").getByRole("button", {name:"Salvar",exact:true}).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(data.operations[0].document.internalNote).toBe(note);
-  await page.getByLabel("Veículo 1", {exact:true}).selectOption("van");
-  await page.getByRole("button", {name:"Salvar operação 1",exact:true}).click();
-  await expect(page.getByRole("button", {name:"Salvar operação 1",exact:true})).toBeDisabled();
+  await page.getByLabel("Veículo 01", {exact:true}).selectOption("van");
+  await page.getByRole("button", {name:"Salvar operação 01",exact:true}).click();
+  await expect(page.getByRole("button", {name:"Salvar operação 01",exact:true})).toBeDisabled();
   expect(data.operations[0].document.internalNote).toBe(note);
   expect(data.operations[0].document.vehicleId).toBe("van");
   expect(await row.evaluate(el => el.getBoundingClientRect().height)).toBe(heightBeforeNote);

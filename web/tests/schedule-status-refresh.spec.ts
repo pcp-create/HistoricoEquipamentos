@@ -1,0 +1,21 @@
+import {test,expect} from '@playwright/test';
+import {blankOperation} from '../lib/service-scheduling/model';
+test('planner refreshes finalization from another device without overwriting unsaved edits',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/activity',r=>r.fulfill({json:{admin:true}}));
+ const operation={id:'one',position:1,version:1,status:'executing',document:{...blankOperation(),description:'Original',responsible:'tech'}};
+ const data={canEditSettings:true,email:'planner',settings:{document:{checklists:[],serviceTypes:[],calendars:[],vehicles:[]}},users:[{email:'tech',display_name:'Técnico',enabled:true}],schedule:{id:'1',company_id:1,order_id:'100'},detail:{order:{cliente_nome:'Cliente'},materials:[],services:[]},operations:[operation],usage:[],costs:[],events:[],fieldSessions:[],fieldEvents:[],requests:[]};
+ await page.route('**/api/service-scheduling**',r=>{expect(r.request().method()).toBe('GET');return r.fulfill({json:data});});
+ await page.goto('/programacao?id=1');
+ await expect(page.locator('.operation-status')).toHaveText('Em Execução');
+ const description=page.getByRole('textbox',{name:'Descrição da Operação 01',exact:true});
+ await description.fill('Rascunho não salvo');
+ operation.status='awaiting_review';operation.version++;
+ await description.blur();await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await expect(description).toHaveValue('Rascunho não salvo');
+ await expect(page.locator('.operation-status')).toHaveText('Em Execução');
+ await description.fill('Original');await description.blur();
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await expect(page.locator('.operation-status')).toHaveText('Aguardando Revisão');
+ await expect(description).toBeDisabled();
+});

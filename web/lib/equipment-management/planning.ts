@@ -110,13 +110,14 @@ export function predict(
   operating: Operating,
   today = brazilToday(),
   usage?: RentalUsage,
+  targetOverride?: number,
 ) {
   const monthDate =
     plan.months && plan.lastDate ? addMonths(plan.lastDate, plan.months) : null;
-  const target =
+  const target = targetOverride ?? (
     plan.hours != null && plan.lastMeter != null
       ? plan.hours + plan.lastMeter
-      : null;
+      : null);
   const rate =
     operating.hoursDay && operating.daysYear
       ? (operating.hoursDay * operating.daysYear) / 365

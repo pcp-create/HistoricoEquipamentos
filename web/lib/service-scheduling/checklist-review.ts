@@ -1,4 +1,5 @@
 import 'server-only';
+import {isChecklistEquipmentLinked} from './checklist-equipment';
 import {randomUUID} from 'node:crypto';
 import {stagesOf} from './checklists';
 import {emptyOperating,validDate,brazilToday,parsePlan} from '../equipment-management/planning';
@@ -16,7 +17,7 @@ export async function reviewChecklist(c:any,operation:any,schedule:any,settings:
  if(meter!=null){
   if(typeof meter!=='number'||!Number.isFinite(meter)||meter<0||meter>100000000||!validDate(run.meterDate)||run.meterDate>brazilToday())throw Error('Horímetro ou data da leitura inválidos.');
   const equipment=run.equipmentId;
-  const linked=(await c.query(`SELECT equipment_id FROM m8_equipment_catalog e WHERE e.equipment_id=$1 AND e.present AND EXISTS(SELECT 1 FROM m8_order_equipment_links l WHERE l.equipment_id=e.equipment_id AND l.company_id=$2 AND l.order_id=$3 AND NOT l.stale) FOR UPDATE`,[equipment,schedule.company_id,schedule.order_id])).rows[0];
+   const linked=await isChecklistEquipmentLinked(c,equipment,schedule.company_id,schedule.order_id);
   if(!linked)throw Error('O equipamento da leitura não está mais vinculado à OS.');
   const old=(await c.query('SELECT document FROM web_equipment_settings WHERE equipment_id=$1 FOR UPDATE',[equipment])).rows[0]?.document||emptyOperating;
   const plans=(await c.query('SELECT * FROM web_equipment_plans WHERE equipment_id=$1 AND NOT archived FOR UPDATE',[equipment])).rows;
@@ -24,8 +25,9 @@ export async function reviewChecklist(c:any,operation:any,schedule:any,settings:
   if(old.meterDate<=run.meterDate&&old.meter!=null&&meter<Number(old.meter))throw Error('A leitura não pode diminuir o horímetro do equipamento.');
   if(old.meterDate>run.meterDate&&old.meter!=null&&meter>Number(old.meter))throw Error('A leitura anterior é maior que o horímetro mais recente do equipamento.');
   if(plans.some((p:any)=>p.document.lastDate<=run.meterDate&&p.document.lastMeter!=null&&Number(p.document.lastMeter)>meter))throw Error('Leitura menor que o horímetro de uma intervenção.');
+  const orderNumber=(await c.query('SELECT numero_sequencia FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2',[schedule.company_id,schedule.order_id])).rows[0]?.numero_sequencia || schedule.order_id;
   async function audit(kind:string,before:any,after:any,planId:string|null=null){
-   await c.query(`INSERT INTO web_equipment_events(equipment_id,plan_id,kind,document,created_by,display_name) VALUES($1,$2,$3,$4,$5,coalesce((SELECT display_name FROM web_user_access WHERE email=$5),$5))`,[equipment,planId,kind,JSON.stringify({before,after,source:'checklist_review',operationId:operation.id,orderId:schedule.order_id}),email]);
+   await c.query(`INSERT INTO web_equipment_events(equipment_id,plan_id,kind,document,created_by,display_name) VALUES($1,$2,$3,$4,$5,coalesce((SELECT display_name FROM web_user_access WHERE email=$5),$5))`,[equipment,planId,kind,JSON.stringify({before,after,source:'checklist_review',operationId:operation.id,operationPosition:operation.position,orderId:schedule.order_id,orderNumber,companyId:schedule.company_id}),email]);
   }
   if(!old.meterDate||old.meterDate<=run.meterDate){
    const next={...emptyOperating,...old,meter,meterDate:run.meterDate};

@@ -15,10 +15,24 @@ export const metadata: Metadata = {
     "CRM, assistência técnica, suprimentos e gestão de equipamentos.",
   robots: { index: false, follow: false },
   applicationName: "Gestão Integrada",
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    title: "RJ Compressores | Gestão integrada",
+    description: "CRM, assistência técnica, suprimentos e gestão de equipamentos.",
+    siteName: "Gestão Integrada",
+    images: [{
+      url: "https://historicorj.vercel.app/icons/gestao-integrada-512.png",
+      width: 512,
+      height: 512,
+      type: "image/png",
+      alt: "Gestão Integrada — RJ Compressores",
+    }],
+  },
   icons: {
     icon: [
-      { url: "/icons/gestao-integrada-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/icons/gestao-integrada-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/gestao-integrada-rounded-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/gestao-integrada-rounded-192.png", sizes: "192x192", type: "image/png" },
     ],
     apple: [{ url: "/icons/gestao-integrada-180.png", sizes: "180x180", type: "image/png" }],
   },

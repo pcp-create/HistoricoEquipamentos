@@ -1,5 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { materialBalance } from "@/lib/service-scheduling/material-balance";
+import { operationNumber } from "@/lib/service-scheduling/operation-number";
+import { useState, useEffect, useId, useRef } from "react";
 import {
   ArrowLeft,
   CalendarDays,
@@ -28,7 +30,7 @@ import FieldCalendar, { fieldToday } from "./field-calendar";
 import { fieldOperationOverdue } from "@/lib/service-scheduling/field-overdue";
 import FieldReportScreen from "./field-report-screen";
 import ScheduleChecklistRun from "./schedule-checklist-run";
-import { statusNames, calendarEnd } from "@/lib/service-scheduling/model";
+import { statusNames } from "@/lib/service-scheduling/model";
 import { sessionTotals } from "@/lib/service-scheduling/field-model";
 import "./field-app.css";
 async function api(url = "/api/field", body?: any) {
@@ -86,6 +88,8 @@ const elapsed = (seconds: number) => {
   return `${String(Math.floor(n / 3600)).padStart(2, "0")}:${String(Math.floor((n % 3600) / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
 };
 export default function FieldApp() {
+  const orderAccordionName = useId();
+  const [openOperation, setOpenOperation] = useState<string | null>(null);
   const [scheduleView, setScheduleView] = useState("list");
   const [selectedDay, setSelectedDay] = useState(() => fieldToday(Date.now()));
   const [screen, setScreen] = useState("home"),
@@ -231,7 +235,14 @@ export default function FieldApp() {
               const first = (scheduleView === "calendar" ? rows.find(row => (row.date || "") === selectedDay) : null) || rows[0];
               const overdue = rows.some((row) => fieldOperationOverdue(row.date, row.status, now));
               return (
-                <details hidden={scheduleView === "calendar" && !rows.some(row => (row.date || "") === selectedDay)} className={"field-order" + (overdue ? " field-order-overdue" : "")} key={id}>
+                <details name={orderAccordionName} onToggle={(event) => {
+                  if (event.target !== event.currentTarget || !event.currentTarget.open) return;
+                  const order = event.currentTarget;
+                  setOpenOperation(null);
+                  requestAnimationFrame(() => {
+                    if (order.open) order.scrollIntoView({ block: "start", behavior: "smooth" });
+                  });
+                }} hidden={scheduleView === "calendar" && !rows.some(row => (row.date || "") === selectedDay)} className={"field-order" + (overdue ? " field-order-overdue" : "")} key={id}>
                   <summary>
                     <div>
                       <strong>OS {first.number}</strong>
@@ -256,6 +267,8 @@ export default function FieldApp() {
                       <div key={row.id} hidden={scheduleView === "calendar" && (row.date || "") !== selectedDay}><FieldOperation
                         key={row.id}
                         row={row}
+                        open={openOperation === row.id}
+                        onToggle={() => setOpenOperation(openOperation === row.id ? null : row.id)}
                         active={active}
                         now={now}
                         refresh={refresh}
@@ -279,9 +292,23 @@ function MenuLight({status}:{status:string}) {
  const label=({complete:'Concluído',partial:'Em andamento / parcial',required:'Campo obrigatório pendente',empty:'Não preenchido'} as Record<string,string>)[status];
  return <span className={'field-menu-light field-menu-light-'+status} title={label} aria-hidden="true"/>;
 }
-function FieldOperation({ row, active, now, refresh }: any) {
-  const [open, setOpen] = useState(false),
-    [data, setData] = useState<any>(null),
+function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
+  const section = useRef<HTMLElement>(null);
+  const finishDialog = useRef<HTMLDialogElement>(null);
+  const [confirmFinish, setConfirmFinish] = useState(false);
+  useEffect(() => {
+    const dialog = finishDialog.current;
+    if (!dialog) return;
+    if (confirmFinish && open) dialog.showModal();
+    else dialog.close();
+    return () => dialog.close();
+  }, [confirmFinish, open]);
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => section.current?.scrollIntoView({ block: "start", behavior: "smooth" }));
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
+  const [data, setData] = useState<any>(null),
     [view, setView] = useState(""),
     [reportVisited,setReportVisited]=useState(false),
     [busy, setBusy] = useState(false),
@@ -300,6 +327,15 @@ function FieldOperation({ row, active, now, refresh }: any) {
   useEffect(() => {
     if (open) void load();
   }, [open]);
+  useEffect(() => {
+    // Refresh a locked report when the planner returns it, including an open dialog.
+    // Editable drafts are kept locally until the technician saves them.
+    if (open && data && row.version !== undefined && row.version !== data.operation.version &&
+      (data.reportSubmission || ["awaiting_review", "reviewed", "completed"].includes(data.operation.status))) {
+      void load();
+    }
+  }, [open, row.version]);
+
   async function act(body: any) {
     setError("");
     setMessage("");
@@ -312,7 +348,7 @@ function FieldOperation({ row, active, now, refresh }: any) {
         requestId: crypto.randomUUID(),
         location,
       });
-      await load();
+      if(body.action!=="report_return")await load();
       await refresh();
       setMessage("Registro salvo.");
       return true;
@@ -332,19 +368,16 @@ function FieldOperation({ row, active, now, refresh }: any) {
   const initialOdometer = endingTravel ? Number(session.odometer_start) : 0;
   const invalidOdometer = reading !== "" && (!Number.isFinite(Number(reading)) || Number(reading) < initialOdometer);
   const distance = endingTravel && reading !== "" && !invalidOdometer ? Number(reading) - initialOdometer : null;
-  let estimatedEnd = row.estimated_end;
-  if (operation) {
-    try {
-      estimatedEnd = calendarEnd(operation.document, data.settings.document.calendars?.find((calendar: any) => calendar.id === (operation.document.calendarId || "standard")));
-    } catch { estimatedEnd = null; }
-  }
+  const estimatedEnd = data ? data.estimated_end : row.estimated_end;
   const checklistRun=operation?.document.checklistRun;
   const reportFields=checklistRun?stagesOf(checklistRun.template).flatMap(stage=>groupsOf(stage).flatMap(group=>group.fields)):[];
   const reportAnswers=Object.assign({},...Object.values(checklistRun?.stages||{}).map((stage:any)=>stage.answers||{}));
-  const partsStatus=!data?.checked?'empty':data?.materials?.complete && data.materials.items.every((item:any)=>Number(item.usage?.withdrawn??0)>=Number(item.quantidade??0))?'complete':'partial';
-  const reportStatus=reportFields.length?checklistProgress(reportFields,reportAnswers):'empty';
+  const partsStatus=!data?.checked?'empty':data?.materials?.complete?'complete':'partial';
+  const reportStatus=data?.reportSubmission?'complete':reportFields.length?checklistProgress(reportFields,reportAnswers):'empty';
   const workStatus=session?.kind==='work'?'partial':data?.progress?.work?'complete':'empty';
   const ready = data?.infoRead && data?.checked && !locked && !busy;
+  const finishPending: string[] = data?.finishPending ?? ["Atualize a operação para verificar as pendências."];
+  const canFinish = ready && finishPending.length === 0 && operation?.document.responsible === data?.email;
   const limit = session?.state === "paused" && session.pause_reason?.minutes;
   const alert =
     limit &&
@@ -355,7 +388,10 @@ function FieldOperation({ row, active, now, refresh }: any) {
   );
   async function show(which: string) {
     if (which === "logs" && !data?.infoRead) return;
-    if(which==='report')setReportVisited(true);
+    if(which==='report') {
+      await load();
+      setReportVisited(true);
+    }
     if(which==="travel")setReading("");
     setView(which);
     setError("");
@@ -363,15 +399,28 @@ function FieldOperation({ row, active, now, refresh }: any) {
     if (which === "parts") await load();
   }
   return (
-    <section className="field-operation">
+    <section ref={section} className="field-operation">
+      <dialog ref={finishDialog} className="field-finish-dialog" aria-label="Conferência antes de finalizar" onCancel={() => setConfirmFinish(false)}>
+        <h3>Antes de finalizar a operação</h3>
+        <p>Há peças não utilizadas que ainda não foram devolvidas?</p>
+        <p>Se houver, registre a devolução no módulo <strong>Peças</strong> antes de encerrar a operação. Isso libera o saldo para outras operações.</p>
+        <div className="field-finish-actions">
+          <button type="button" autoFocus onClick={() => { setConfirmFinish(false); void show("parts"); }}>Sim, ir para Peças</button>
+          <button type="button" disabled={!canFinish} onClick={async () => {
+            setConfirmFinish(false);
+            if (await act({ action: "finish_full" })) setView("");
+          }}>Não, finalizar operação</button>
+          <button type="button" className="field-finish-cancel" onClick={() => setConfirmFinish(false)}>Cancelar</button>
+        </div>
+      </dialog>
       <button
         className="field-operation-title"
-        onClick={() => setOpen(!open)}
+        onClick={onToggle}
         aria-expanded={open}
       >
         <span>
           <b>
-            Operação {row.position} · {row.description || "Sem descrição"}
+            Operação {operationNumber(row.position)} · {row.description || "Sem descrição"}
           </b>
           <small className={fieldOperationOverdue(row.date, operation?.status || row.status, now) ? "field-overdue-date" : undefined}>
             {when(row.date, row.time)} ·{" "}
@@ -395,7 +444,7 @@ function FieldOperation({ row, active, now, refresh }: any) {
                 </button>
               )}
               {reportVisited && data.checked && (
-                <FieldReportScreen open={view==='report'} busy={busy} title={`OS ${row.number} · Operação ${row.position}`} onClose={()=>setView('')}>
+                <FieldReportScreen open={view==='report'} busy={busy} title={`OS ${row.number}/${operationNumber(row.position)} · ${row.customer || "Cliente não informado"}`} onClose={()=>setView('')}>
                   <ScheduleChecklistRun
                     compact
                     readOnly={!!data.reportSubmission}
@@ -412,10 +461,16 @@ function FieldOperation({ row, active, now, refresh }: any) {
                         {checklistRun?.partialSubmission&&<p className="field-success">Enviado parcial em {new Date(checklistRun.partialSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {checklistRun.partialSubmission.name||checklistRun.partialSubmission.by}. Você pode continuar editando.</p>}
                         <div className="field-report-actions">
                           <button disabled={!ready} onClick={()=>void save()}><SaveActionIcon/> Salvar Relatório</button>
-                          <button disabled={!ready||operation.document.responsible!==data.email} onClick={()=>void act({action:'report_send_partial',version:operation.version,stages:getDrafts()})}><Flag size={18}/> Enviar parcial</button>
-                          <button disabled={!ready||operation.document.responsible!==data.email} onClick={()=>void act({action:'report_send',version:operation.version,stages:getDrafts()})}><Flag size={18}/> Enviar completo</button>
+                          <button disabled={!ready||operation.document.responsible!==data.email} onClick={async()=>{if(await act({action:'report_send_partial',version:operation.version,stages:getDrafts()}))setView('');}}><Flag size={18}/> Enviar parcial</button>
+                          <button disabled={!ready||operation.document.responsible!==data.email} onClick={async()=>{if(await act({action:'report_send',version:operation.version,stages:getDrafts()}))setView('');}}><Flag size={18}/> Enviar completo</button>
                         </div>
                       </>}
+                      {!data.reportSubmission && !checklistRun?.partialSubmission && operation.document.responsible===data.email && <button type="button" disabled={busy||locked} onClick={async()=>{
+                        const reason=window.prompt('Informe ao planejador por que o checklist precisa ser corrigido:');
+                        if(!reason?.trim())return;
+                        if(!window.confirm('Devolver para ajuste do checklist? Todos os dados preenchidos e fotos deste relatório serão descartados, incluindo o preenchimento da equipe. A operação sairá do portal até o planejador corrigir e reenviar. Apontamentos e retiradas de peças serão preservados.'))return;
+                        if(await act({action:'report_return',version:operation.version,reason,confirmDiscard:true}))setView('');
+                      }}>Devolver para ajuste do checklist</button>}
 
                     </div>}
                   />
@@ -540,12 +595,12 @@ function FieldOperation({ row, active, now, refresh }: any) {
                 </button>
                 <button
                   disabled={
-                    !ready || operation.document.responsible !== data.email
+                    busy || locked || operation.document.responsible !== data.email
                   }
                   onClick={() => void show("send")}
                 >
                   <Flag />
-                  <MenuLight status={locked?"complete":data.progress?.partial?"partial":"empty"}/><span>Finalizar Operação</span>
+                  <MenuLight status={locked?"complete":finishPending.length?"required":"empty"}/><span>Finalizar Operação</span>
                 </button>
 
               </div>
@@ -589,26 +644,21 @@ function FieldOperation({ row, active, now, refresh }: any) {
                   {data.infoRead ? <p className="field-checked"><CheckCircle2 size={16}/> Leitura confirmada</p> : <button disabled={busy||locked} onClick={async()=>{if(await act({action:'info_read'}))setView('');}}>Li e compreendi as informações</button>}
                 </section>
               )}
-              {view === "parts" && <Parts data={data} busy={busy} save={act} />}
+              {view === "parts" && <Parts data={data} busy={busy} save={async (body: any) => {
+                if (await act(body)) setView("");
+              }} />}
               {view === "send" && (
                 <section className="field-panel">
                   <h3>Finalizar operação</h3>
-                  <p>Finalize os apontamentos da equipe antes de finalizar a operação.</p>
+                  {finishPending.length > 0 ? <div className="field-finish-pending" role="status">
+                    <p>Para encerrar esta operação, conclua as pendências:</p>
+                    <ul>{finishPending.map(pending => <li key={pending}>{pending}</li>)}</ul>
+                  </div> : <p>Etapas obrigatórias concluídas. Você já pode finalizar a operação.</p>}
                   <button
-                    disabled={!ready}
-                    onClick={async () => {
-                      if (await act({ action: "finish_partial" })) setView("");
-                    }}
+                    disabled={!canFinish}
+                    onClick={() => setConfirmFinish(true)}
                   >
-                    Finalização parcial · continuar depois
-                  </button>
-                  <button
-                    disabled={!ready}
-                    onClick={async () => {
-                      if (await act({ action: "finish_full" })) setView("");
-                    }}
-                  >
-                    Finalização completa · enviar para revisão
+                    Finalizar operação · enviar para revisão
                   </button>
                 </section>
               )}
@@ -751,7 +801,7 @@ function Parts({ data, busy, save }: any) {
   useEffect(() => {
     setValues(
       Object.fromEntries(
-        items.map((i: any) => [key(i), i.usage?.withdrawn ?? ""]),
+        items.map((i: any) => [key(i), String(materialBalance(i, data.operation.id).own)]),
       ),
     );
     setConfirmed(false);
@@ -760,8 +810,7 @@ function Parts({ data, busy, save }: any) {
     <section className="field-panel">
       <h3>Conferência de peças da OS</h3>
       <p>
-        Informe o total já retirado de cada peça. Valores de outras operações
-        são compartilhados; não some a mesma retirada duas vezes.
+        Informe a retirada desta operação. Devoluções liberam saldo para outras operações.
       </p>
       {!data.materials.complete && (
         <p className="field-error">
@@ -770,7 +819,11 @@ function Parts({ data, busy, save }: any) {
         </p>
       )}
       {!items.length && <p>Nenhuma peça cadastrada nesta OS.</p>}
-      {items.map((i: any) => (
+      {items.map((i: any) => {
+        const balance = materialBalance(i, data.operation.id);
+        const blocked = balance.available === 0 && balance.own === 0;
+        const canReturn = balance.own > 0 && balance.total - balance.own >= Number(i.usage?.used || 0);
+        return (
         <div
           className={"field-part " + (i.source_linked ? "linked" : "")}
           key={key(i)}
@@ -779,36 +832,25 @@ function Parts({ data, busy, save }: any) {
           <b>
             {i.produto_id} · {i.produto_nome}
           </b>
-          <small>
-            Quantidade na OS: {i.quantidade} {i.unidade_nome}
-          </small>
-          {i.quantity_inconsistency && (
-            <small className="field-error">
-              Quantidade divergente na OS vinculada.
-            </small>
-          )}
-          {i.usage && (
-            <small>
-              Última atualização:{" "}
-              {i.usage.position
-                ? "operação " + i.usage.position
-                : "planejamento"}{" "}
-              · {i.usage.display_name || i.usage.updated_by}
-              {i.usage.updated_at && (
-                <> · {new Date(i.usage.updated_at).toLocaleString("pt-BR", {
-                  timeZone: "America/Sao_Paulo",
-                  day: "2-digit", month: "2-digit", year: "numeric",
-                  hour: "2-digit", minute: "2-digit",
-                })}</>
-              )}
-            </small>
-          )}
+          <small className="field-part-unit">Unidade: {i.unidade_nome}</small>
+          {i.quantity_inconsistency && <small className="field-error">Quantidade divergente na OS vinculada.</small>}
+          <dl className="field-part-balances">
+            <div><dt>Reservado</dt><dd>{balance.reserved.toLocaleString("pt-BR")}</dd></div>
+            <div><dt>Retirado</dt><dd>{balance.total.toLocaleString("pt-BR")}</dd></div>
+            <div className="field-part-available"><dt>Disponível</dt><dd>{balance.available.toLocaleString("pt-BR")}</dd></div>
+          </dl>
+          {blocked && <p className="field-material-held" role="status">
+            Quantidade reservada totalmente retirada. Uma devolução na operação de origem libera saldo para nova retirada.
+          </p>}
           </div>
+          <div className="field-part-quantity">
           <label>
-            Total retirado
+            Retirado nesta operação
             <input
+              disabled={busy || Boolean(blocked)}
               type="number"
               min="0"
+              max={balance.maximum}
               step="0.001"
               inputMode="decimal"
               value={values[key(i)] ?? ""}
@@ -817,8 +859,23 @@ function Parts({ data, busy, save }: any) {
               }
             />
           </label>
+          {canReturn && <button className="field-part-return" type="button" disabled={busy || values[key(i)] === "0"} onClick={() => {
+            setValues({ ...values, [key(i)]: "0" });
+            setConfirmed(false);
+          }}>Devolver peça</button>}
+          </div>
+          {balance.withdrawals.some(row => row.quantity > 0) && <details className="field-part-history" open={blocked || undefined}>
+            <summary>Ver retiradas ({balance.withdrawals.filter(row => row.quantity > 0).length})</summary>
+            {balance.withdrawals.filter(row => row.quantity > 0).map((row, index) => <div className="field-part-withdrawal" key={row.operationId || index}>
+              <strong>{row.position ? `Operação ${operationNumber(row.position)}` : "Planejamento"} · {row.quantity.toLocaleString("pt-BR")} {i.unidade_nome}</strong>
+              <span>{row.name || row.by}</span>
+              {row.at && <time dateTime={row.at}>{new Date(row.at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })}</time>}
+            </div>)}
+          </details>}
+          {Number(values[key(i)] || 0) > balance.maximum && <small className="field-error">Quantidade acima do saldo. Esta operação pode retirar até {balance.maximum.toLocaleString("pt-BR")}.</small>}
+          {canReturn && values[key(i)] === "0" && <small>Devolução pendente. Confirme a conferência para liberar esta peça.</small>}
         </div>
-      ))}
+      );})}
       <label className="field-confirm">
         <input
           type="checkbox"
@@ -829,10 +886,14 @@ function Parts({ data, busy, save }: any) {
         retirada.</span>
       </label>
       <button
-        disabled={busy || !confirmed || !data.materials.complete}
+        disabled={busy || !confirmed || !data.materials.complete || items.some((item: any) => {
+          const value = Number(values[key(item)] || 0);
+          return !Number.isFinite(value) || value < 0 || value > materialBalance(item, data.operation.id).maximum;
+        })}
         onClick={() =>
           void save({
             action: "materials",
+            quantityScope: "operation",
             items: items.map((i: any) => ({
               id_m8: i.id_m8,
               item_company: i.item_company,

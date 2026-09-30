@@ -1,4 +1,5 @@
 "use client";
+import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import SaveActionIcon from "./save-action-icon";
 import EquipmentDetailsDrawer from "./equipment-details-drawer";
 import OrderDetailLink from "./order-detail-link";
@@ -1538,7 +1539,9 @@ export default function EquipmentDashboard() {
                           {detail.events.map((e: any) => (
                             <tr key={e.id}>
                               <td>
-                                {e.document.action === "quote"
+                                {e.kind === "settings" && e.document.source === "checklist_review"
+                                  ? "Horímetro atualizado após revisão"
+                                  : e.document.action === "quote"
                                   ? "Orçamento criado"
                                   : {
                                       settings: "Operação atualizada",
@@ -1549,9 +1552,11 @@ export default function EquipmentDashboard() {
                                 <small>{date(e.created_at)}</small>
                               </td>
                               <td>
-                                {e.document.planName ||
-                                  e.document.after?.name ||
-                                  "Configuração do equipamento"}
+                                {e.document.source === "checklist_review" ? <>
+                                  Revisão da OS {e.source_order_number || e.document.orderNumber || e.document.orderId}/{operationNumber(e.source_operation_position || e.document.operationPosition) || "—"}
+                                  {e.kind === "settings" && <small>Horímetro: {e.document.before?.meter == null ? "—" : Number(e.document.before.meter).toLocaleString("pt-BR")} → {Number(e.document.after?.meter).toLocaleString("pt-BR")} h</small>}
+                                  {e.kind !== "settings" && <small>{e.document.after?.name || e.document.planName}</small>}
+                                </> : e.document.planName || e.document.after?.name || "Configuração do equipamento"}
                                 {e.document.quoteId && (
                                   <small>
                                     {e.quote_deleted_at ? (

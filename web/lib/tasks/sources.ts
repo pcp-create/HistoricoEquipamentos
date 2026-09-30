@@ -1,3 +1,4 @@
+import { predictPlans as predictExclusivePlans } from "../equipment-management/preventive-hierarchy";
 import {
   predictPlans,
   preventiveCycle,
@@ -76,7 +77,7 @@ export async function taskSources(
         due: contract?.end || null,
       });
     }
-    const planned = predictPlans(
+    const planned = (hierarchy ? predictExclusivePlans : predictPlans)(
       e.plans,
       { ...emptyOperating, ...e.settings },
       today,
@@ -95,7 +96,7 @@ export async function taskSources(
       )[0];
     for (const p of e.plans) {
       if (hierarchy && p.hours && p.id !== representative?.id) continue;
-      const f = predict(
+      const f = (hierarchy ? planned.find(row => row.id === p.id)?.forecast : undefined) ?? predict(
         p,
         { ...emptyOperating, ...e.settings },
         today,

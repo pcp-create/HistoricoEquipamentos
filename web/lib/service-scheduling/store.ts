@@ -1,3 +1,4 @@
+import { operationNumber } from "./operation-number";
 import { operationCalendarAllocation } from "./calendar";
 import {timeRequestsAvailable} from "./time-request-availability";
 import {reviewChecklist} from "./checklist-review";
@@ -14,6 +15,7 @@ import {
   blankOperation,
   scheduleStatus,
   planningStatus,
+  effectiveOperationStatus,
   validateOperation,
   validateSettings,
   calendarEnd,
@@ -89,20 +91,27 @@ export async function schedulingData(scheduleId: string | null, email: string) {
       await db.query(
         `SELECT s.*,customer.payload->>'municipioNome' AS customer_city,customer.payload->>'ufSigla' AS customer_state,o.numero_sequencia,o.cliente_nome,o.equipamento,o.tipo_nome,o.tipo_atendimento_nome,o.status_lancamento_nome,linked.status_lancamento_nome AS linked_status_lancamento_nome,linked.id_m8 AS linked_order_id,linked.numero_sequencia AS linked_order_number,o.status order_status,(SELECT count(*)::int FROM web_service_operations p WHERE p.schedule_id=s.id) operation_count,
         COALESCE((SELECT jsonb_object_agg(c.status,c.n) FROM (SELECT p.status,count(*)::int n FROM web_service_operations p WHERE p.schedule_id=s.id GROUP BY p.status) c),'{}'::jsonb) operation_status_counts,
-        COALESCE((SELECT jsonb_agg(jsonb_build_object('date',p.document->>'date','time',p.document->>'time','duration',p.document->'duration','calendarId',p.document->>'calendarId','responsibleEmail',p.document->>'responsible','support',COALESCE(p.document->'support','[]'::jsonb),'responsible',COALESCE(NULLIF(u.display_name,''),p.document->>'responsible')) ORDER BY p.document->>'time',p.position) FROM web_service_operations p LEFT JOIN web_user_access u ON u.email=p.document->>'responsible' WHERE p.schedule_id=s.id),'[]'::jsonb) calendar_operations
+        COALESCE((SELECT jsonb_agg(jsonb_build_object('status',p.status,'date',p.document->>'date','time',p.document->>'time','duration',p.document->'duration','calendarId',p.document->>'calendarId','responsibleEmail',p.document->>'responsible','support',COALESCE(p.document->'support','[]'::jsonb),'responsible',COALESCE(NULLIF(u.display_name,''),p.document->>'responsible')) ORDER BY p.document->>'time',p.position) FROM web_service_operations p LEFT JOIN web_user_access u ON u.email=p.document->>'responsible' WHERE p.schedule_id=s.id),'[]'::jsonb) calendar_operations
         FROM web_service_schedules s LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id LEFT JOIN m8_customer_directory customer ON customer.company_id=o.company_id AND customer.person_id=o.cliente_id LEFT JOIN web_order_links ol ON ol.company_id=s.company_id AND ol.order_id=s.order_id LEFT JOIN m8_ordens_servico linked ON linked.company_id=ol.linked_company_id AND linked.id_m8=ol.linked_order_id WHERE s.active ORDER BY s.created_at DESC,s.id DESC`,
       )
     ).rows;
     return {
       ...base,
-      schedules: schedules.map((s) => ({
+      schedules: schedules.map((s) => {
+        const counts: Record<string,number> = {};
+        for (const operation of s.calendar_operations || []) {
+          const status = effectiveOperationStatus(operation.status, {...operation, responsible: operation.responsibleEmail});
+          counts[status] = (counts[status] || 0) + 1;
+        }
+        return {
         ...s,
-        programming_status: scheduleStatus(s.operation_status_counts),
+        operation_status_counts: counts,
+        programming_status: scheduleStatus(counts),
         calendar_operations: (s.calendar_operations || []).map((operation: any) => {
           const allocation = operationCalendarAllocation(operation, settings.document.calendars.find((calendar: any) => calendar.id === (operation.calendarId || "standard")));
           return { ...operation, allocation, dates: allocation.length ? allocation.map(day => day.date) : [operation.date || ""] };
         }),
-      })),
+      };}),
     };
   }
   const schedule = (
@@ -152,7 +161,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
     schedule,
     detail: combinedDetail,
     linked_detail_incomplete: !!link?.linked_order_id && !linkedDetail?.detail_at,
-    operations: operations.rows,
+    operations: operations.rows.map(operation => ({...operation, status: effectiveOperationStatus(operation.status, operation.document)})),
     timeAdjustmentsAvailable,
     requests: timeRequests.rows,
     fieldSessions: fieldSessions.rows,
@@ -353,6 +362,10 @@ export async function mutateSchedule(b: any, email: string) {
       ).rows[0];
       if ((old?.version ?? null) !== b.version)
         throw new ScheduleConflict("Item alterado. Atualize a página.");
+      if (b.action === "usage" && !admin && old?.operation_id && Number(old.withdrawn || 0) > 0 && amount(b.withdrawn) !== Number(old.withdrawn))
+        throw new ScheduleInputError("Esta peça está retirada em uma operação. Faça a devolução pela conferência de peças da operação de origem.");
+      if (b.action === "usage" && Array.isArray(old?.allocations) && amount(b.withdrawn) !== Number(old.withdrawn))
+        throw new ScheduleInputError("As retiradas são controladas por operação. Ajuste ou devolva a quantidade na conferência da operação de origem.");
       let result;
       if (b.action === "usage")
         result = (
@@ -395,6 +408,14 @@ export async function mutateSchedule(b: any, email: string) {
       try{result=await reopenReport(c,operation,email,admin);}catch(e){throw new ScheduleInputError((e as Error).message);}
       await c.query('COMMIT');return {operation:result};
     }
+    if(b.action==='checklist_review_save'){
+      if(!admin)throw new Forbidden();
+      if(!Array.isArray(b.stages)||!b.stages.length||b.stages.length>100||new Set(b.stages.map((s:any)=>s.stageId)).size!==b.stages.length)throw new ScheduleInputError('Etapas inválidas.');
+      let result=operation;
+      try{for(const stage of b.stages)result=await updateChecklist(c,{...stage,action:'checklist_review_save'},result,schedule,config.document,email,true);}
+      catch(e){throw new ScheduleInputError((e as Error).message);}
+      await c.query('COMMIT');return {operation:result};
+    }
     if (b.action.startsWith("checklist_")) {
       let result;
       try {result=await updateChecklist(c,b,operation,schedule,config.document,email,admin);}
@@ -406,6 +427,20 @@ export async function mutateSchedule(b: any, email: string) {
         throw new ScheduleInputError(
           "Não é possível remover uma operação em execução ou revisão.",
         );
+      if(operation.document.checklistReturn){
+        if(!admin)throw new Forbidden();
+        if((await c.query("SELECT 1 FROM web_service_item_usage WHERE schedule_id=$1 AND ((allocations IS NULL AND operation_id=$2 AND COALESCE(withdrawn,0)>0) OR EXISTS(SELECT 1 FROM jsonb_array_elements(COALESCE(allocations,'[]')) a WHERE a->>'operationId'=$2::text AND (a->>'quantity')::numeric>0))",[schedule.id,operation.id])).rows.length)
+          throw new ScheduleInputError('Devolva as peças retiradas nesta operação antes de excluí-la. Reenvie ao técnico para registrar a devolução.');
+        if((await c.query("SELECT 1 FROM web_field_time_requests WHERE operation_id=$1 AND status='pending'",[operation.id])).rows.length)
+          throw new ScheduleInputError('Analise as solicitações de apontamento pendentes antes de excluir a operação.');
+        const records:any={};
+        for(const table of ['web_field_time_requests','web_field_events','web_field_sessions','web_field_material_checks'])
+          records[table]=(await c.query(`SELECT * FROM ${table} WHERE operation_id=$1`,[operation.id])).rows;
+        await audit(c,email,'returned_operation_records_archived',{operationId:operation.id,...records});
+        for(const table of ['web_field_time_requests','web_field_events','web_field_sessions','web_field_material_checks'])
+          await c.query(`DELETE FROM ${table} WHERE operation_id=$1`,[operation.id]);
+        await c.query('UPDATE web_service_item_usage SET operation_id=NULL WHERE operation_id=$1',[operation.id]);
+      }
       await audit(c, email, "service_operation_removed", {
         operation,
         events: (
@@ -436,6 +471,7 @@ export async function mutateSchedule(b: any, email: string) {
       if(status!=="scheduled" || !document.responsible || !document.date || !document.time) throw new ScheduleInputError("Salve a data, a hora e o responsável antes de enviar a operação.");
       const enabled=(await c.query("SELECT email FROM web_user_access WHERE enabled AND email=$1",[document.responsible])).rows.length;
       if(!enabled)throw new ScheduleInputError("O responsável precisa estar ativo.");
+      if(document.checklistReturn&&!document.checklistId)throw new ScheduleInputError("Selecione o checklist corrigido antes de reenviar.");
       if(document.checklistId&&!document.checklistRun){
         const template=config.document.checklists.find((v:any)=>v.id===document.checklistId);
         if(!template)throw new ScheduleInputError("Checklist não encontrado.");
@@ -448,6 +484,7 @@ export async function mutateSchedule(b: any, email: string) {
         document={...document,checklistRun:run};
       }
       await c.query("UPDATE web_service_operations SET sent_at=now() WHERE id=$1",[operation.id]);
+      document={...document};delete document.checklistReturn;
       status="awaiting_execution";
     } else if (b.action === "operation") {
       if (["awaiting_review", "reviewed"].includes(status))
@@ -460,7 +497,7 @@ export async function mutateSchedule(b: any, email: string) {
           throw Error("O checklist já foi iniciado e não pode ser substituído.");
         if(operation.sent_at && (b.document.responsible!==operation.document.responsible || JSON.stringify(b.document.support)!==JSON.stringify(operation.document.support) || b.document.vehicleId!==operation.document.vehicleId) && (await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[operation.id])).rows.length)throw Error("Finalize os apontamentos ativos antes de alterar a equipe ou o veículo.");
         const checked = validateOperation({...b.document, checklistRun: operation.document.checklistRun}, config.document, users);
-        document = checked.document;
+        document = {...checked.document,...(operation.document.checklistReturn?{checklistReturn:operation.document.checklistReturn}:{})};
         ends = checked.ends_at;
       } catch (e) {
         throw new ScheduleInputError((e as Error).message);
@@ -502,6 +539,10 @@ export async function mutateSchedule(b: any, email: string) {
       if (!admin) throw new Forbidden();
       if (status !== "awaiting_review")
         throw new ScheduleInputError("A operação ainda não aguarda revisão.");
+      if (await timeRequestsAvailable(c)) {
+        if ((await c.query("SELECT 1 FROM web_field_time_requests WHERE operation_id=$1 AND status='pending'", [operation.id])).rows.length)
+          throw new ScheduleInputError("Analise as solicitações de apontamento pendentes antes de concluir a revisão.");
+      }
       try { document=await reviewChecklist(c,operation,schedule,config.document,email); }
       catch(e){throw new ScheduleInputError((e as Error).message);}
       status = "reviewed";
@@ -536,7 +577,7 @@ export async function mutateSchedule(b: any, email: string) {
       [
         schedule.company_id,
         schedule.order_id,
-        `Operação ${operation.position}: ${document.description || "Sem descrição"}. Ação: ${b.action}.`,
+        `Operação ${operationNumber(operation.position)}: ${document.description || "Sem descrição"}. Ação: ${b.action}.`,
         email,
       ],
     );

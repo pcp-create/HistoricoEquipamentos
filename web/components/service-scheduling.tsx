@@ -1,5 +1,7 @@
 "use client";
+import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import {reportStatusLabel,reportSubmission} from "@/lib/service-scheduling/checklists";
+import OperationReviewWindow from "./operation-review-window";
 import ScheduleOrdersCalendar from "./schedule-orders-calendar";
 import SupportPicker from "./support-picker";
 import SchedulePauseReasons from "./schedule-pause-reasons";
@@ -18,7 +20,6 @@ import SiteHeader from "./site-header";
 import ScheduleAutomaticRules from "./schedule-automatic-rules";
 import ScheduleTimeLogs from "./schedule-time-logs";
 import CompactNameTable from "./compact-name-table";
-import ScheduleChecklistRun from "./schedule-checklist-run";
 import ScheduleChecklistEditor from "./schedule-checklist-editor";
 import ScheduleCalendarEditor from "./schedule-calendar-editor";
 import ScheduleOrderButton from "./schedule-order-button";
@@ -96,6 +97,7 @@ export default function ServiceScheduling() {
     [config, setConfig] = useState(false),
     [tab, setTab] = useState("operations"),
     [query, setQuery] = useState("");
+  const dirtyOperations=useRef(new Set<string>());
   const [overviewView, setOverviewView] = useState("list");
   const [executor, setExecutor] = useState("");
   const executorOptions = new Map<string, string>();
@@ -125,11 +127,32 @@ export default function ServiceScheduling() {
     void load();
   }, [id]);
   useEffect(() => {
-    const refresh = () => { clearApiCache(); void load(); };
+    const refresh = () => { if(dirtyOperations.current.size)return; clearApiCache(); void load(); };
     window.addEventListener("order-link-updated", refresh);
     window.addEventListener("service-schedule-updated", refresh);
     return () => { window.removeEventListener("order-link-updated", refresh); window.removeEventListener("service-schedule-updated", refresh); };
   }, [id]);
+  useEffect(() => {
+    let disposed=false,inFlight=false;
+    const canRefresh=()=>!disposed&&!busy&&!config&&!dirtyOperations.current.size
+      && document.visibilityState==='visible'
+      && !document.activeElement?.matches('input,textarea,select,[contenteditable="true"]');
+    const refresh=async()=>{
+      if(inFlight||!canRefresh())return;
+      inFlight=true;
+      try{
+        clearApiCache();
+        const fresh=await request(undefined,id);
+        if(canRefresh())setData(fresh);
+      }catch{ /* Keep the last successful view when a background refresh fails. */ }
+      finally{inFlight=false;}
+    };
+    const timer=window.setInterval(()=>void refresh(),15000);
+    const onFocus=()=>void refresh();
+    window.addEventListener('focus',onFocus);
+    document.addEventListener('visibilitychange',onFocus);
+    return ()=>{disposed=true;window.clearInterval(timer);window.removeEventListener('focus',onFocus);document.removeEventListener('visibilitychange',onFocus);};
+  },[id,busy,config]);
   async function mutate(body: any) {
     if (busy) return false;
     const before = data;
@@ -527,6 +550,8 @@ export default function ServiceScheduling() {
                         <OperationRow
                           key={o.id}
                           operation={o}
+                          dirtyOperations={dirtyOperations.current}
+                          error={error}
                           data={data}
                           busy={busy}
                           mutate={mutate}
@@ -732,22 +757,25 @@ function ScheduleOverview({ schedules }: { schedules: any[] }) {
 }
 function OperationRow({
   operation: o,
+  dirtyOperations,
+  error,
   data,
   busy,
   mutate,
 }: {
   operation: any;
+  dirtyOperations: Set<string>;
+  error?: string;
   data: any;
   busy: boolean;
   mutate: (b: any) => Promise<boolean>;
 }) {
+  useEffect(()=>()=>{dirtyOperations.delete(o.id+":review");},[o.id,dirtyOperations]);
   const noteDialog = useRef<HTMLDialogElement>(null);
   const [noteError, setNoteError] = useState("");
   const noteBeforeEditing = useRef("");
   const [d, setD] = useState(o.document),
-    [expanded, setExpanded] = useState(false),
-    [hours, setHours] = useState(""),
-    [description, setDescription] = useState("");
+    [expanded, setExpanded] = useState(false);
   useEffect(() => setD(o.document), [o.version]);
   const locked =
       busy || ["completed", "reviewed", "awaiting_review"].includes(o.status),
@@ -765,9 +793,11 @@ function OperationRow({
       ...(k === "checklistId" ? { checked: [] } : {}),
       ...(k === "date" && !v ? { time: "" } : {}),
     };
+    if(JSON.stringify(next)!==JSON.stringify(o.document))dirtyOperations.add(o.id);else dirtyOperations.delete(o.id);
     setD(next);
   }
   const dirty = JSON.stringify(d) !== JSON.stringify(o.document);
+  useEffect(()=>{if(dirty)dirtyOperations.add(o.id);else dirtyOperations.delete(o.id);return ()=>{dirtyOperations.delete(o.id);};},[dirty,o.id,dirtyOperations]);
   async function persist(next = d) {
     if (locked) return false;
     if (JSON.stringify(next) !== JSON.stringify(o.document))
@@ -779,23 +809,7 @@ function OperationRow({
       });
     return true;
   }
-  const assigned =
-      d.responsible === data.email || d.support.includes(data.email),
-    canWork = data.canEditSettings || assigned,
-    canFinish = data.canEditSettings || d.responsible === data.email;
-  const action = (action: string) => {
-    if (dirty || busy) return;
-    void mutate({
-      action,
-      operationId: o.id,
-      version: o.version,
-      hours: number(hours),
-      description,
-    });
-  };
-  const checklist = data.settings.document.checklists.find(
-    (c: any) => c.id === d.checklistId,
-  );
+  const checklist = data.settings.document.checklists.find((c: any) => c.id === d.checklistId);
   return (
     <>
       <tr
@@ -812,12 +826,12 @@ function OperationRow({
         }}
       >
         <td>
-          <strong>{o.position}</strong>
+          <strong>{operationNumber(o.position)}</strong>
           {dirty && <small className="operation-draft-label">Não salvo</small>}
         </td>
         <td>
           <select
-            aria-label={"Tipo Serviço " + o.position}
+            aria-label={"Tipo Serviço " + operationNumber(o.position)}
             disabled={locked}
             value={d.serviceType}
             onChange={(e) => change("serviceType", e.target.value, true)}
@@ -830,7 +844,7 @@ function OperationRow({
         </td>
         <td>
           <input
-            aria-label={"Descrição da Operação " + o.position}
+            aria-label={"Descrição da Operação " + operationNumber(o.position)}
             disabled={locked}
             maxLength={40}
             value={d.description}
@@ -843,7 +857,7 @@ function OperationRow({
         <td>
           <div className="operation-checklist-select" title={checklist ? [checklist.prefix, checklist.name].filter(Boolean).join(" - ") : "Sem checklist"}>
           <select
-            aria-label={"Checklist " + o.position}
+            aria-label={"Checklist " + operationNumber(o.position)}
             disabled={locked || !!o.document.checklistRun}
             value={d.checklistId}
             onChange={(e) => change("checklistId", e.target.value, true)}
@@ -860,7 +874,7 @@ function OperationRow({
         </td>
         <td>
           <select
-            aria-label={"Responsável " + o.position}
+            aria-label={"Responsável " + operationNumber(o.position)}
             disabled={locked}
             value={d.responsible}
             onChange={(e) => change("responsible", e.target.value, true)}
@@ -875,7 +889,7 @@ function OperationRow({
         </td>
         <td>
           <SupportPicker
-            position={o.position}
+            position={operationNumber(o.position)}
             disabled={locked}
             users={users.filter((u: any) => u.email !== d.responsible)}
             selected={d.support}
@@ -884,7 +898,7 @@ function OperationRow({
         </td>
         <td>
           <input
-            aria-label={"Data de Programação " + o.position}
+            aria-label={"Data de Programação " + operationNumber(o.position)}
             type="date"
             disabled={locked}
             value={d.date}
@@ -893,7 +907,7 @@ function OperationRow({
         </td>
         <td>
           <input
-            aria-label={"Hora início " + o.position}
+            aria-label={"Hora início " + operationNumber(o.position)}
             type="time"
             disabled={locked || !d.date}
             value={d.time}
@@ -902,7 +916,7 @@ function OperationRow({
         </td>
         <td>
           <input
-            aria-label={"Duração " + o.position}
+            aria-label={"Duração " + operationNumber(o.position)}
             type="number"
             min="0"
             max="10000"
@@ -920,12 +934,12 @@ function OperationRow({
                 maximumFractionDigits: 3,
               })}
         </td>
-        <td aria-label={"Apontamento total da operação " + o.position}>
+        <td aria-label={"Apontamento total da operação " + operationNumber(o.position)}>
           {(data.events || []).filter((event: any) => String(event.operation_id) === String(o.id) && event.action === "work_log").reduce((total: number, event: any) => total + Number(event.hours || 0), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}
         </td>
         <td>
           <select
-            aria-label={"Calendário " + o.position}
+            aria-label={"Calendário " + operationNumber(o.position)}
             disabled={locked}
             value={d.calendarId}
             onChange={(e) => change("calendarId", e.target.value, true)}
@@ -939,14 +953,14 @@ function OperationRow({
         </td>
         <td>
           <span className={"operation-status " + o.status}>
-            {statusNames[o.status]}
+            {o.document.checklistReturn?"Devolvida para ajuste do checklist":statusNames[o.status]}
           </span>
         </td>
-        <td>{o.sent_at ? "Sim" : "Não"}</td>
+        <td>{o.sent_at ? "Sim" : "Não"}{o.document.checklistReturn&&<small>Motivo: {o.document.checklistReturn.reason}</small>}</td>
         <td>
           <button
             className="operation-note-preview"
-            aria-label={"Observação interna " + o.position}
+            aria-label={"Observação interna " + operationNumber(o.position)}
             onClick={() => { noteBeforeEditing.current = d.internalNote || ""; setNoteError(""); noteDialog.current?.showModal(); }}
           >
             {d.internalNote || "Incluir observação"}
@@ -957,7 +971,7 @@ function OperationRow({
             onCancel={(e) => { e.preventDefault(); if (!busy) { change("internalNote", noteBeforeEditing.current); noteDialog.current?.close(); } }}
             onKeyDown={(e) => e.stopPropagation()}
           >
-            <h3>Observação interna · Operação {o.position}</h3>
+            <h3>Observação interna · Operação {operationNumber(o.position)}</h3>
             <textarea
               aria-label="Texto da observação interna"
               readOnly={locked}
@@ -976,7 +990,7 @@ function OperationRow({
         </td>
         <td>
           <select
-            aria-label={"Veículo " + o.position}
+            aria-label={"Veículo " + operationNumber(o.position)}
             disabled={locked}
             value={d.vehicleId || ""}
             onChange={(e) => change("vehicleId", e.target.value)}
@@ -994,17 +1008,17 @@ function OperationRow({
           <button
             className="operation-icon-action"
             disabled={locked || !dirty}
-            aria-label={"Salvar operação " + o.position}
+            aria-label={"Salvar operação " + operationNumber(o.position)}
             onClick={() => void persist()}
-           title={"Salvar operação " + o.position}><SaveActionIcon /></button>
+           title={"Salvar operação " + operationNumber(o.position)}><SaveActionIcon /></button>
           {data.canEditSettings && <button type="button" disabled={busy||dirty||o.status!=="scheduled"||!d.responsible} onClick={()=>void mutate({action:"dispatch",operationId:o.id,version:o.version})}>{o.sent_at?"Enviado ao técnico":"Enviar ao técnico"}</button>}
-          <button onClick={() => setExpanded(!expanded)}>
-            {expanded ? "Fechar" : "Acompanhar"}
+          <button type="button" onClick={() => setExpanded(true)}>
+            Acompanhar
           </button>
           <button
             className="operation-icon-action"
-            title={"Remover operação " + o.position}
-            aria-label={"Remover operação " + o.position}
+            title={"Remover operação " + operationNumber(o.position)}
+            aria-label={"Remover operação " + operationNumber(o.position)}
             disabled={
               busy || !["pending", "planning", "scheduled"].includes(o.status)
             }
@@ -1030,135 +1044,8 @@ function OperationRow({
           )}
         </td>
       </tr>
-      {expanded && (
-        <tr
-          onKeyDown={(e) => {
-            if (
-              e.key === "Enter" &&
-              e.target instanceof HTMLInputElement &&
-              e.target.type === "checkbox"
-            ) {
-              e.preventDefault();
-              void persist();
-            }
-          }}
-        >
-          <td colSpan={17}>
-            <section className="operation-execution">
-              {dirty && (
-                <p className="operation-draft-label">
-                  Salve as alterações da operação antes de registrar ações de
-                  execução.
-                </p>
-              )}
-              <h3>
-                Operação {o.position} · {d.description || "Sem descrição"}
-              </h3>
-              {(checklist || o.document.checklistRun) && <ScheduleChecklistRun operation={o} data={data} mutate={mutate} busy={busy} dirty={dirty}/>}
-              {canWork &&
-                !["completed", "reviewed", "awaiting_review"].includes(
-                  o.status,
-                ) && (
-                  <div className="scheduling-actions">
-                    <label>
-                      Horas apontadas
-                      <input
-                        type="number"
-                        min="0.001"
-                        step="0.001"
-                        value={hours}
-                        onChange={(e) => setHours(e.target.value)}
-                      />
-                    </label>
-                    <label>
-                      Observação
-                      <input
-                        maxLength={2000}
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                      />
-                    </label>
-                    <button
-                      disabled={dirty || busy || !hours || Number(hours) <= 0}
-                      onClick={() => action("work_log")}
-                    >
-                      Registrar horas
-                    </button>
-                    <button
-                      disabled={dirty || busy || o.status === "executing"}
-                      onClick={() => action("activity")}
-                    >
-                      Iniciar execução
-                    </button>
-                  </div>
-                )}
-              <div className="scheduling-actions">
-                {canFinish && o.status === "executing" && (
-                  <>
-                    <button
-                      disabled={dirty || busy}
-                      onClick={() => action("finish_partial")}
-                    >
-                      Finalizar parcial
-                    </button>
-                    <button
-                      disabled={dirty || busy}
-                      onClick={() => action("finish_full")}
-                    >
-                      Finalizar completa
-                    </button>
-                  </>
-                )}
-                {data.canEditSettings && o.status === "awaiting_review" && (
-                  <button
-                    disabled={dirty || busy}
-                    onClick={() => action("review")}
-                  >
-                    Revisar operação
-                  </button>
-                )}
-                {data.canEditSettings && o.status === "reviewed" && (
-                  <button
-                    disabled={dirty || busy}
-                    onClick={() => action("complete")}
-                  >
-                    Concluir operação
-                  </button>
-                )}
-              </div>
-              <ul>
-                {data.events
-                  .filter((e: any) => e.operation_id === o.id)
-                  .map((e: any) => (
-                    <li key={e.id}>
-                      {e.display_name || "Usuário"} ·{" "}
-                      {new Date(e.created_at).toLocaleString("pt-BR", {
-                        timeZone: "America/Sao_Paulo",
-                      })}{" "}
-                      ·{" "}
-                      {(
-                        {
-                          operation: "Programação alterada",
-                          work_log: "Horas apontadas",
-                          activity: "Execução iniciada",
-                          finish_partial: "Finalização parcial",
-                          finish_full: "Finalização completa",
-                          review: "Operação revisada",
-                          complete: "Operação concluída",
-                          report_send: "Relatório enviado completo",
-                          report_send_partial: "Relatório enviado parcial",
-                          report_reopen: "Relatório devolvido para edição",
-                        } as any
-                      )[e.action] || e.action}
-                      {e.hours ? " · " + qty(e.hours) + " h" : ""}{" "}
-                      {e.description}
-                    </li>
-                  ))}
-              </ul>
-            </section>
-          </td>
-        </tr>
-      )}
+      {expanded && <OperationReviewWindow operation={o} data={data} busy={busy} dirty={dirty} error={error} mutate={mutate} onReportDirty={(value:boolean)=>{if(value)dirtyOperations.add(o.id+":review");else dirtyOperations.delete(o.id+":review");}} onClose={() => {dirtyOperations.delete(o.id+":review");setExpanded(false);}}/>}
+
     </>
   );
 }
@@ -1183,7 +1070,7 @@ function ScheduleCosts({ data, materials, services, busy, mutate }: any) {
       labor.set(key, {
         name:
           group === "operation"
-            ? `Operação ${o.position} · ${d.description || "Sem descrição"}`
+            ? `Operação ${operationNumber(o.position)} · ${d.description || "Sem descrição"}`
             : key,
         hours: 0,
         cost: 0,
