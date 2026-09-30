@@ -1,3 +1,4 @@
+import { variantBrand, catalogBrands } from "./brands";
 import { catalogProductCodesSql } from "./direct-products";
 import { approvedMaterialSql } from "../material-approval";
 import "server-only";
@@ -33,6 +34,7 @@ export function manualFilters(params: URLSearchParams) {
     company,
     page,
     serial,
+    brand: text("brand", 100),
     model: text("model", 80),
     variant: text("variant", 64),
     review: text("review") === "1",
@@ -55,6 +57,7 @@ export async function manufacturerCatalog(
       revision: null,
       variants: [],
       allVariants: [],
+      brands: [],
       intervals: [],
       rows: [],
       total: 0,
@@ -63,16 +66,22 @@ export async function manufacturerCatalog(
       consumption: null,
     };
   const all = (
-    await db.query<Variant>(
-      "SELECT id,name,header,models,rules,issues FROM manufacturer_variants WHERE revision_id IN (SELECT id FROM manufacturer_revisions WHERE active OR report->>'managed'='true') ORDER BY name",
+    await db.query<
+      Variant & { source_filename: string; source_manufacturer: string }
+    >(
+      "SELECT v.id,v.name,v.header,v.models,v.rules,v.issues,r.filename AS source_filename,r.report->>'manufacturer' AS source_manufacturer FROM manufacturer_variants v JOIN manufacturer_revisions r ON r.id=v.revision_id WHERE r.active OR r.report->>'managed'='true' ORDER BY v.name",
     )
-  ).rows;
-  const terms = catalogSearchTerms(f.q, all);
+  ).rows.map((v) => ({ ...v, brand: variantBrand(v) }));
+  const brands = catalogBrands(all);
+  const scoped = f.brand
+    ? all.filter((v) => fold(v.brand) === fold(f.brand))
+    : all;
+  const terms = catalogSearchTerms(f.q, scoped);
   const seriesTerms = terms.filter((term) =>
     /^[A-Z]*\d{4,}$/.test(normalizeSerial(term)),
   );
   const matchingSeries = new Map(
-    all.map((v) => [
+    scoped.map((v) => [
       v.id,
       new Set(
         seriesTerms.filter(
@@ -83,7 +92,7 @@ export async function manufacturerCatalog(
       ),
     ]),
   );
-  const candidates = all.map((v) => {
+  const candidates = scoped.map((v) => {
     const match = variantMatch(v, f.model, f.serial);
     return {
       ...v,
@@ -112,6 +121,7 @@ export async function manufacturerCatalog(
       revision,
       variants,
       allVariants: candidates,
+      brands,
       intervals,
       rows: [],
       total: 0,
@@ -231,9 +241,11 @@ export async function manufacturerCatalog(
     revision,
     variants,
     allVariants: candidates,
+    brands,
     intervals,
     rows: rows.map((r) => ({
       ...r,
+      brand: selected.find((v) => v.id === r.variant_id)!.brand,
       match: selected.find((v) => v.id === r.variant_id)!.match,
       products: enriched.filter((p) => p.code === r.code),
     })),

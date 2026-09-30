@@ -1,6 +1,7 @@
 "use client";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import {reportStatusLabel,reportSubmission} from "@/lib/service-scheduling/checklists";
+import OrderReportWindow from "./order-report-window";
 import OperationReviewWindow from "./operation-review-window";
 import ScheduleOrdersCalendar from "./schedule-orders-calendar";
 import SupportPicker from "./support-picker";
@@ -97,6 +98,7 @@ export default function ServiceScheduling() {
     [config, setConfig] = useState(false),
     [tab, setTab] = useState("operations"),
     [query, setQuery] = useState("");
+  const [orderReportOpen,setOrderReportOpen]=useState(false);
   const dirtyOperations=useRef(new Set<string>());
   const [overviewView, setOverviewView] = useState("list");
   const [executor, setExecutor] = useState("");
@@ -494,6 +496,8 @@ export default function ServiceScheduling() {
                 Ver detalhes da OS
               </OrderDetailLink>
             </section>
+            {data.canEditSettings && <div className="scheduling-actions order-report-launch"><button type="button" disabled={busy} onClick={()=>setOrderReportOpen(true)}>Gerar relatório da OS</button></div>}
+            {orderReportOpen && <OrderReportWindow key={data.schedule.id} data={data} onClose={()=>setOrderReportOpen(false)}/>}
             <nav className="app-section-tabs" aria-label="Abas da programação">
               {[
                 ["operations", "Operações"],

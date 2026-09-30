@@ -1,0 +1,49 @@
+{
+  "managed": true,
+  "sourceType": "rj-preventive-matrix",
+  "source": "Mnt. Prev. - Linha DD - 50 até 250hp - Padrão RJ.ods",
+  "sha256": "06588b1645e27168684455f184d4cac428b925c21852d1a24da5dfa0ec94e2bb",
+  "family": "DD",
+  "sourceRows": 88,
+  "items": 96,
+  "models": [
+    {
+      "model": "TPF50DD",
+      "items": 12
+    },
+    {
+      "model": "TPF60DD",
+      "items": 12
+    },
+    {
+      "model": "TPF75DD",
+      "items": 12
+    },
+    {
+      "model": "TPF100DD",
+      "items": 12
+    },
+    {
+      "model": "TPF125DD",
+      "items": 12
+    },
+    {
+      "model": "TPF150DD",
+      "items": 12
+    },
+    {
+      "model": "TPF200DD",
+      "items": 12
+    },
+    {
+      "model": "TPF250DD",
+      "items": 12
+    }
+  ],
+  "withoutCode": 0,
+  "priceDate": "18/01/2023",
+  "warnings": [
+    "Revisões preservadas como listas exatas de horas, sem tratá-las como periodicidades. Use o intervalo textual correspondente para filtrar a matriz original.",
+    "Óleo 3020225: ECOBLUE na aba Preços e EXTRA nas abas de modelo; conferir especificação."
+  ]
+}

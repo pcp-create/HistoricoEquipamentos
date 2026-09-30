@@ -115,11 +115,19 @@ export function variantMatch(
   serial: string,
 ): SerialMatch {
   const requested = modelKeys(model);
+  const compact = (value: string) => fold(value).replace(/\s+/g, "");
+  const escaped = fold(model)
+    .trim()
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const namedModel =
+    v.models.some((value) => compact(value) === compact(model)) ||
+    new RegExp(`(?:^|[^A-Z0-9])${escaped}(?=$|[^A-Z0-9])`).test(
+      fold([v.name, ...v.header].join(" ")),
+    );
   const hasModel =
     !model ||
     requested.some((k) => v.models.includes(k)) ||
-    (!requested.length &&
-      fold([v.name, ...v.header].join(" ")).includes(fold(model)));
+    (!requested.length && namedModel);
   if (!hasModel) return "no";
   if (v.header.includes("Aplicação somente por modelo"))
     return model ? "match" : "review";

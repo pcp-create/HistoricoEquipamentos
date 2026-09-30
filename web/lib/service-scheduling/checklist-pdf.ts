@@ -29,7 +29,7 @@ export async function checklistPdf(operationId:string,email:string,mode:ReportMo
  const photos=ids.length?(await db.query('SELECT id::text,content FROM web_service_checklist_photos WHERE operation_id=$1 AND id=ANY($2::bigint[])',[operationId,ids])).rows:[];
  return {bytes:await renderChecklistPdf({title:run.template.name,order:String(row.numero_sequencia||row.order_id),client:row.cliente_nome||'',equipment:row.equipamento||'',position:row.position,report,photos,mode}),filename:`Checklist-OS-${row.numero_sequencia||row.order_id}-${mode}.pdf`};
 }
-export async function renderChecklistPdf(data:{title:string;order:string;client:string;equipment:string;position:number;report:ReturnType<typeof checklistReport>;photos:any[];mode?:ReportMode}){
+export async function renderChecklistPdf(data:{title:string;order:string;client:string;equipment:string;position?:number;report:ReturnType<typeof checklistReport>;photos:any[];mode?:ReportMode;chapters?:{title:string;position:number;report:ReturnType<typeof checklistReport>}[]}){
  const pdf=await PDFDocument.create();
  pdf.registerFontkit(fontkit);
  const [regularBytes,boldBytes,titleBytes,labelBytes]=await Promise.all(['dm-sans-latin-400-normal.woff','dm-sans-latin-700-normal.woff','manrope-latin-800-normal.woff','dm-sans-latin-600-normal.woff'].map(file=>readFile(path.join(process.cwd(),'public/fonts/report',file))));
@@ -41,6 +41,7 @@ export async function renderChecklistPdf(data:{title:string;order:string;client:
  const pageHeight=841.89,headerHeight=60,bodyTop=pageHeight-headerHeight-14;
  const ink=rgb(39/255,68/255,95/255),lineColor=rgb(220/255,229/255,238/255);
  let page!:PDFPage,y=0;
+ let chapter={title:data.title,position:data.position,report:data.report};
  const clean=(value:string)=>Array.from(value).map(c=>{if(c==='\n'||c==='\r')return c;try{font.encodeText(c);return c;}catch{return '?';}}).join('');
  function wrap(value:string,limit:number,size=bodySize,strong=false,face=strong?bold:font){
   const lines:string[]=[];
@@ -66,7 +67,7 @@ export async function renderChecklistPdf(data:{title:string;order:string;client:
   page.drawLine({start:{x:110,y:793},end:{x:110,y:831},thickness:.6,color:rgb(.65,.78,.9)});
   const reportTitle=data.mode==='budget'?'RELATÓRIO DE ORÇAMENTO':'RELATÓRIO TÉCNICO';
   const titleSize=Math.min(15,345/titleFont.widthOfTextAtSize(reportTitle,1));
-  const subtitles=wrap(data.title.toLocaleUpperCase("pt-BR"),345,7).slice(0,2);
+  const subtitles=wrap(chapter.title.toLocaleUpperCase("pt-BR"),345,7).slice(0,2);
   const titleHeight=titleFont.heightAtSize(titleSize,{descender:false}),subtitleHeight=font.heightAtSize(7,{descender:false});
   const blockHeight=titleHeight+7+subtitleHeight+(subtitles.length-1)*10;
   const titleBaseline=pageHeight-headerHeight/2+blockHeight/2-titleHeight;
@@ -74,7 +75,7 @@ export async function renderChecklistPdf(data:{title:string;order:string;client:
   subtitles.forEach((line,index)=>page.drawText(line,{x:124,y:titleBaseline-7-subtitleHeight-index*10,size:7,font,color:rgb(.85,.92,1)}));
   page.drawLine({start:{x:490,y:793},end:{x:490,y:831},thickness:.6,color:rgb(.65,.78,.9)});
   page.drawText('OS Nº',{x:502,y:823,size:8,font,color:rgb(1,1,1)});
-  const identifier=clean(`${data.order}/${operationNumber(data.position)}`);
+  const identifier=clean(chapter.position==null?data.order:`${data.order}/${operationNumber(chapter.position)}`);
   const identifierSize=Math.min(15,77/Math.max(1,bold.widthOfTextAtSize(identifier,1)));
   page.drawText(identifier,{x:502,y:802,size:identifierSize,font:bold,color:rgb(1,1,1)});
   y=bodyTop;
@@ -163,11 +164,40 @@ export async function renderChecklistPdf(data:{title:string;order:string;client:
   }
  }
 
- newPage();
- for(const stage of data.report){
+ // Horizontal milestones flow left to right; additional operations continue in rows of three.
+ function milestones(fields:ReturnType<typeof checklistReport>[number]['groups'][number]['fields']){
+  for(let index=0;index<fields.length;index+=3){
+   const batch=fields.slice(index,index+3),columnWidth=width/batch.length;
+   const cards=batch.map(field=>({field,lines:[...wrap(reportFieldValue(field),columnWidth-24),...wrap(`Executado por: ${field.responsible||'Não informado'}`,columnWidth-24)]}));
+   const total=Math.max(...cards.map(card=>card.lines.length));
+   let offset=0;
+   while(offset<total){
+    room(85);
+    const count=Math.min(total-offset,Math.max(1,Math.floor((y-100)/11)));
+    const top=y,track=y-22,height=48+count*11;
+    page.drawLine({start:{x:left+12,y:track},end:{x:left+width-12,y:track},thickness:1,color:rgb(.65,.78,.89)});
+    cards.forEach(({field,lines},i)=>{
+     const x=left+i*columnWidth+12;
+     page.drawText(clean(field.label),{x,y:top-10,size:bodySize,font:bold,color:ink});
+     page.drawCircle({x:x+3,y:track,size:3,color:rgb(.14,.37,.57)});
+     page.drawText(clean((field.operation||'Operação')+(offset?' (continuação)':'')),{x,y:track-18,size:bodySize,font:bold,color:ink});
+     for(let n=0;n<count;n++)if(lines[offset+n])page.drawText(lines[offset+n],{x,y:track-32-n*11,size:bodySize,font,color:ink});
+    });
+    y=top-height-12;offset+=count;
+    if(offset<total)newPage();
+   }
+  }
+ }
+
+ for(const part of [chapter,...data.chapters||[]]){
+ chapter=part;sectionNumber=0;newPage();
+ for(const stage of chapter.report){
   heading(stage.name,true);
   for(const group of stage.groups){
    if(group.name)heading(group.name);
+   if(stage.id==='timeline'){
+    milestones(group.fields);continue;
+   }
    if(stage.id==='events'&&!group.name){
     room(46);timeRow(['Data e hora','Apontamento','Responsável'],true);
     for(const field of group.fields)timeRow([field.label,reportFieldValue(field),field.responsible||'—']);
@@ -197,6 +227,7 @@ export async function renderChecklistPdf(data:{title:string;order:string;client:
    targetPage.drawSvgPath(`M 5 0 H ${width-5} Q ${width} 0 ${width} 5 V ${h-5} Q ${width} ${h} ${width-5} ${h} H 5 Q 0 ${h} 0 ${h-5} V 5 Q 0 0 5 0 Z`,{x:left,y:top,borderColor:lineColor,borderWidth:.5});
   }
   y-=9;
+ }
  }
  const pages=pdf.getPages();pages.forEach((p,i)=>{
   p.drawLine({start:{x:left,y:35},end:{x:left+width,y:35},thickness:.7,color:ink});

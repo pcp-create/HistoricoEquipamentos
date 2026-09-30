@@ -1,0 +1,16 @@
+{
+  "managed": true,
+  "sourceType": "manufacturer-pdf-parts",
+  "source": "PSV25 AP.pdf",
+  "sha256": "df6b2abcbed2850ea7337c0779d99b139ac47570c3fea099289a9b0b22e4c8f4",
+  "manufacturer": "Pressure",
+  "model": "PSV25AP",
+  "version": "Rev. 00 — 06/2014",
+  "pages": 3,
+  "items": 56,
+  "withoutCode": 8,
+  "warnings": [
+    "Volume de óleo divergente na fonte: 950 ml na página 2 e 650 ml na página 3 (AW150). Conferir com o fabricante antes de abastecer; não foi definido volume de manutenção."
+  ],
+  "variantId": "f3430195a101e7e738f066d844911059a1e5bb9151b38ba2508e0673f39c5bae"
+}

@@ -1,0 +1,20 @@
+{
+  "managed": true,
+  "sourceType": "rj-preventive-matrix",
+  "source": "Mnt. Prev. Linha ROTOR - 10 - Padrão RJ.xlsx",
+  "sha256": "f67d1894cb967ae4384a88a60a2fd3d882604e877a3a882dd168d53a5d59d0df",
+  "family": "ROTOR",
+  "sourceRows": 19,
+  "items": 19,
+  "models": [
+    {
+      "model": "ROTOR 10",
+      "items": 19
+    }
+  ],
+  "withoutCode": 6,
+  "priceDate": "não informada",
+  "warnings": [
+    "Revisões preservadas como listas exatas de horas, sem tratá-las como periodicidades. Use o intervalo textual correspondente para filtrar a matriz original."
+  ]
+}

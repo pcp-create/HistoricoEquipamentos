@@ -1,0 +1,33 @@
+{
+  "managed": true,
+  "sourceType": "rj-preventive-matrix",
+  "source": "Mnt. Prev. - Linha TPF - 15 até 40hp - Padrão RJ.ods",
+  "sha256": "8c9378a2d80cb5b6410db984006cdbcbfe6df57e2f40b4b76c706bac2e41e4cd",
+  "family": "TPF",
+  "sourceRows": 41,
+  "items": 43,
+  "models": [
+    {
+      "model": "TPF15",
+      "items": 9
+    },
+    {
+      "model": "TPF25",
+      "items": 10
+    },
+    {
+      "model": "TPF30",
+      "items": 12
+    },
+    {
+      "model": "TPF40",
+      "items": 12
+    }
+  ],
+  "withoutCode": 4,
+  "priceDate": "27/08/2021",
+  "warnings": [
+    "Revisões preservadas como listas exatas de horas, sem tratá-las como periodicidades. Use o intervalo textual correspondente para filtrar a matriz original.",
+    "Referências com / preservadas sem vínculo automático; não foram alteradas para códigos semelhantes."
+  ]
+}

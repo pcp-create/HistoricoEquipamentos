@@ -1,5 +1,5 @@
 import {stagesOf,groupsOf,fieldOptions} from './checklists';
-export type ReportField = { id:string; label:string; type:string; value:any; photos:string[]; comment:string; options?:string[]; responsible?:string };
+export type ReportField = { id:string; label:string; type:string; value:any; photos:string[]; comment:string; options?:string[]; responsible?:string; operation?:string };
 export type ReportStage = { id:string; name:string; status:string; groups:{name:string;fields:ReportField[]}[] };
 export type ReportMode = "complete" | "summary" | "budget";
 /** Internal notes are included only in the explicitly requested budget export. */

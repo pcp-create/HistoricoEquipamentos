@@ -377,3 +377,21 @@ test("model-only piston applicability ignores serial but distinguishes W800 and 
   assert.equal(variantMatch(v, "W900", ""), "no");
   assert.equal(variantMatch(v, "", "123456"), "review");
 });
+test("custom model filters distinguish TPF15 from TPF150DD and normalize model spacing", () => {
+  const variant = (model: string) => ({
+    id: model,
+    name: `Metalplan · ${model} · Padrão RJ`,
+    models: [model],
+    header: ["Aplicação somente por modelo"],
+    rules: [],
+    issues: [],
+  });
+  assert.equal(variantMatch(variant("TPF150DD"), "TPF15", ""), "no");
+  assert.equal(variantMatch(variant("TPF150DD"), "TPF 15", ""), "no");
+  assert.equal(variantMatch(variant("TPF15"), "TPF 15", ""), "match");
+  assert.equal(variantMatch(variant("TPF150DD"), "TPF 150 DD", ""), "match");
+  assert.equal(variantMatch(variant("ROTOR 10"), "ROTOR10", ""), "match");
+  assert.equal(variantMatch(variant("ROTOR 100"), "ROTOR 10", ""), "no");
+  assert.equal(variantMatch(variant("PSV25AP"), "PSV25 AP", ""), "match");
+  assert.equal(variantMatch(variant("TPF150DD"), "TPF.*", ""), "no");
+});

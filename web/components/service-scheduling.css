@@ -644,3 +644,36 @@
   font:inherit; line-height:20px; border:1px solid #c9dbed;
   border-radius:4px; background:#f5f8fb; color:inherit; cursor:pointer;
 }
+
+.order-report-launch { margin:12px 0; }
+.order-report-window .order-report-select-all { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:18px 0; }
+.order-report-options { display:grid; gap:10px; }
+.order-report-window .order-report-option { display:flex; flex-direction:row; align-items:center; gap:14px; padding:16px; border:1px solid #d7e5f2; border-radius:10px; margin:0; cursor:pointer; background:#fff; }
+.order-report-window .order-report-option:has(input:checked) { background:#edf5fd; border-color:#7daed7; }
+.order-report-window .order-report-option.unavailable { background:#f6f8fa; cursor:default; }
+.order-report-window .order-report-option > input { width:17px; height:17px; min-height:0; margin:0; flex-shrink:0; }
+.order-report-option > span { display:grid; font-size:13px; font-weight:400; gap:4px; min-width:0; overflow-wrap:anywhere; }
+.order-report-option small { color:#617b93; }
+.order-report-window .order-report-footer { align-items:center; gap:14px; }
+.order-report-window .order-report-footer label { display:grid; width:auto; gap:4px; margin:0; }
+.order-report-footer small { flex:1; min-width:180px; }
+.order-report-footer button { display:flex; align-items:center; gap:8px; }
+.order-report-index { display:flex; flex-wrap:wrap; gap:12px; padding:14px 0; }
+.order-report-chapter { margin-top:24px; scroll-margin-top:16px; }
+.order-report-preview .review-report-row dd { white-space:pre-wrap; }
+@media(max-width:600px){
+ .order-report-window .order-report-option { padding:12px; align-items:flex-start; }
+ .order-report-window .order-report-footer { padding:12px; }
+ .order-report-window .order-report-footer button,.order-report-window .order-report-footer label { width:100%; }
+}
+
+.order-report-window .operation-review-tabs button[aria-pressed="true"] { background:#245e91; color:#fff; }
+
+.operation-milestones-scroll { overflow-x:auto; padding:18px 12px; }
+.operation-milestones { display:flex; list-style:none; padding:0; margin:0; }
+.operation-milestones > li { flex:1 0 230px; min-width:0; padding:0 12px; overflow-wrap:anywhere; }
+.operation-milestone-date { color:#245e91; font-weight:700; }
+.operation-milestone-track { position:relative; margin:16px -12px 18px; height:2px; background:#a7c8e3; }
+.operation-milestone-track > span { position:absolute; left:12px; top:-4px; width:10px; height:10px; border-radius:50%; background:#245e91; box-shadow:0 0 0 4px #eaf3fc; }
+.operation-milestones p { margin:8px 0 0; white-space:pre-wrap; line-height:1.5; }
+.operation-milestone-person { color:#617b93; }

@@ -30,3 +30,29 @@ test('only complete exports disclose pause events, duration and pause-inclusive 
   assert.equal(total?.value,mode==='complete'?'00:32:00':'00:30:00');
  }
 });
+test('summary groups all professionals into exactly three operation totals, including corrections and legacy records once',()=>{
+ const op={id:'one',document:{responsible:'tech',checklistRun:{template:{stages:[]},stages:{}}}};
+ const sessions=[
+  {id:'s1',operation_id:'one',actor:'tech',kind:'work',state:'finished',active_seconds:7200,pause_seconds:600,started_at:'2026-09-30T10:00:00Z',finished_at:'2026-09-30T12:00:00Z',correction:{active_seconds:3600,pause_seconds:300}},
+  {id:'s2',operation_id:'one',actor:'support',kind:'work',state:'finished',active_seconds:1800,pause_seconds:0,started_at:'2026-09-30T10:00:00Z',finished_at:'2026-09-30T10:30:00Z'},
+  {id:'s3',operation_id:'one',actor:'tech',kind:'travel',state:'finished',active_seconds:900,pause_seconds:60,started_at:'2026-09-30T09:00:00Z',finished_at:'2026-09-30T09:16:00Z'},
+  {id:'other',operation_id:'two',actor:'other',kind:'work',state:'finished',active_seconds:99999,pause_seconds:0},
+ ];
+ const events=[{id:1,operation_id:'one',actor:'tech',action:'work_log',hours:2,created_at:'2026-09-30T12:00:00Z'},{id:2,operation_id:'one',actor:'support',action:'travel_log',hours:.25,created_at:'2026-09-30T08:00:00Z'}];
+ for(const mode of ['complete','summary','budget'] as const){
+  const result=technicalReport(op,{},[],sessions,[],events,mode).find(s=>s.id==='events')!;
+  if(mode==='summary'){
+   assert.equal(result.groups.length,1);
+   assert.equal(result.groups[0].name,'Totais da operação');
+   assert.deepEqual(result.groups[0].fields.map(f=>[f.label,f.value]),[['Tempo de atividade','01:30:00'],['Tempo de deslocamento','00:30:00'],['Tempo total','02:00:00']]);
+   assert.ok(!JSON.stringify(result).includes('Início'));
+   assert.ok(!JSON.stringify(result).includes('Totais por profissional'));
+  }else{
+   assert.equal(result.groups[0].name,'');
+   assert.ok(result.groups[0].fields.some(f=>f.value==='Início de atividade'));
+   assert.equal(result.groups.filter(g=>g.name.startsWith('Totais por profissional')).length,2);
+  }
+ }
+ const empty=technicalReport(op,{},[],[],[],[],'summary').find(s=>s.id==='events')!;
+ assert.deepEqual(empty.groups[0].fields.map(f=>f.value),['00:00:00','00:00:00','00:00:00']);
+});

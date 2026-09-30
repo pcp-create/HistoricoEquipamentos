@@ -77,3 +77,9 @@ As revisões incluem periodicidades que se repetem: 8.000 h inclui 2.000, 4.000 
 Intervalos condicionais como 6.000/8.000 entram quando alguma periodicidade coincide, uma vez por linha da planilha, mantendo o aviso “Conferir condições”. Isso não confirma a aplicação de ambas as condições ao equipamento. Itens sem intervalo e anotações podem ser selecionados separadamente. Números acima de 100.000 horas são tratados conservadoramente como dados a conferir (possível código de peça na coluna), preservando o original.
 
 O resultado lista as peças registradas no comparativo; itens sem periodicidade e condições da versão ainda precisam ser conferidos. Não substitui o plano completo de manutenção do fabricante. Não exige migration nem atualização do integrador.
+
+## Filtro por marca
+
+O campo Marca separa os catálogos por fabricante (Atlas Copco, Wayne, Metalplan e Pressure). A opção Todas as marcas mantém a consulta conjunta. As sugestões de modelo, as versões e os intervalos acompanham a marca selecionada; trocar de marca limpa modelo, série, versão e intervalo. Clique em Pesquisar para aplicar aos resultados. A marca permanece na URL e na paginação, e aparece na origem de cada item.
+
+A classificação usa o fabricante declarado na importação ou a origem do catálogo; não deduz a marca apenas pelo nome do modelo. Fontes sem identificação ficam em Não informada. Não exige migration nem alteração no integrador.

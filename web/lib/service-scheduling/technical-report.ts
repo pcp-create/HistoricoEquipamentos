@@ -51,6 +51,13 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
   for (const person of people.values()) fieldEvents.groups.push({ name: `Totais por profissional · ${person.name}`, fields: [
     field("Tempo de atividade", elapsedTime(person.work), 0), field("Tempo de deslocamento", elapsedTime(person.travel), 1), ...(mode === "complete" ? [field("Tempo de paradas", elapsedTime(person.pause), 2)] : []), field("Tempo total", elapsedTime(person.work + person.travel + (mode === "complete" ? person.pause : 0)), 3),
   ] });
+  if(mode === "summary"){
+    fieldEvents.groups = [{name:"Totais da operação",fields:[
+      field("Tempo de atividade",elapsedTime(logs.summary.work),0),
+      field("Tempo de deslocamento",elapsedTime(logs.summary.travel),1),
+      field("Tempo total",elapsedTime(logs.summary.work + logs.summary.travel),2),
+    ]}];
+  }
   sections.push(fieldEvents);
   return filterReport([...sections, ...checklistReport(run, mode)],mode).map((stage, index) => ({ ...stage, name: stage.name.replace(/^\s*\d+[.\-–]?\s*/, ""), number: String(index + 1).padStart(2, "0") }));
 }

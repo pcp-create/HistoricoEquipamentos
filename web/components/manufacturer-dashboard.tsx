@@ -16,6 +16,7 @@ type Entry = {
   id: string;
   variant_id: string;
   variant_name: string;
+  brand?: string;
   row_number: number;
   section: string;
   description: string;
@@ -30,7 +31,8 @@ type Entry = {
 type Result = {
   email: string;
   revision: { filename: string; imported_at: string } | null;
-  variants: (Variant & { match: SerialMatch })[];
+  variants: (Variant & { match: SerialMatch; brand?: string })[];
+  brands?: { name: string; models: string[] }[];
   rows: Entry[];
   intervals?: IntervalOption[];
   total: number;
@@ -74,6 +76,7 @@ export default function ManufacturerDashboard() {
   const [form, setForm] = useState({
     q: "",
     list: "",
+    brand: "",
     model: "",
     serial: "",
     company: "",
@@ -81,6 +84,9 @@ export default function ManufacturerDashboard() {
     review: false,
     interval: "",
   });
+  const [optionVariants, setOptionVariants] = useState<
+    Result["variants"] | null
+  >(null);
   const [intervals, setIntervals] = useState<IntervalOption[]>([]);
   const [intervalsLoading, setIntervalsLoading] = useState(false);
   const [intervalsError, setIntervalsError] = useState("");
@@ -92,6 +98,7 @@ export default function ManufacturerDashboard() {
     const timer = setTimeout(() => {
       const p = new URLSearchParams({
         options: "intervals",
+        brand: form.brand,
         model: form.model,
         serial: form.serial,
         variant: form.variant,
@@ -107,7 +114,9 @@ export default function ManufacturerDashboard() {
               "Não foi possível listar os intervalos. Confira modelo e série.",
             );
           const body = await r.json();
+          if (controller.signal.aborted) return;
           setIntervals(body.intervals || []);
+          setOptionVariants(body.variants || []);
         })
         .catch((e) => {
           if (e.name !== "AbortError") setIntervalsError(e.message);
@@ -120,7 +129,14 @@ export default function ManufacturerDashboard() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query === null, form.model, form.serial, form.variant, refresh]);
+  }, [
+    query === null,
+    form.brand,
+    form.model,
+    form.serial,
+    form.variant,
+    refresh,
+  ]);
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     p.delete("company");
@@ -129,6 +145,7 @@ export default function ManufacturerDashboard() {
     setForm({
       q: p.get("q") || "",
       list: localFilter,
+      brand: p.get("brand") || "",
       model: p.get("model") || "",
       serial: p.get("serial") || "",
       company: "",
@@ -171,6 +188,7 @@ export default function ManufacturerDashboard() {
       setForm({
         q: "",
         list: "",
+        brand: "",
         model: "",
         serial: "",
         company: "",
@@ -185,7 +203,16 @@ export default function ManufacturerDashboard() {
   const applied = new URLSearchParams(query || ""),
     company = applied.get("company") || "",
     serial = applied.get("serial") || "";
-  const variants = data?.variants || [];
+  const variants = (optionVariants ?? data?.variants ?? []).filter(
+    (v) => !form.brand || v.brand === form.brand,
+  );
+  const models = [
+    ...new Set(
+      (data?.brands || [])
+        .filter((b) => !form.brand || b.name === form.brand)
+        .flatMap((b) => b.models),
+    ),
+  ].sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
   const indexedRows = useMemo(
     () =>
       (data?.rows || []).map((entry) => ({
@@ -249,10 +276,41 @@ export default function ManufacturerDashboard() {
             />
           </label>
           <label>
+            Marca
+            <select
+              value={form.brand}
+              onChange={(e) => {
+                setForm({
+                  ...form,
+                  brand: e.target.value,
+                  model: "",
+                  serial: "",
+                  variant: "",
+                  interval: "",
+                  list: "",
+                });
+                setOptionVariants(null);
+                setIntervals([]);
+              }}
+            >
+              <option value="">Todas as marcas</option>
+              {form.brand &&
+                !data?.brands?.some((b) => b.name === form.brand) && (
+                  <option value={form.brand}>{form.brand}</option>
+                )}
+              {(data?.brands || []).map((b) => (
+                <option key={b.name} value={b.name}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
             Modelo
             <input
               value={form.model}
-              placeholder="Ex.: GA 15"
+              list="manufacturer-models"
+              placeholder="Selecione ou informe o modelo"
               onChange={(e) =>
                 setForm({
                   ...form,
@@ -263,6 +321,11 @@ export default function ManufacturerDashboard() {
               }
             />
           </label>
+          <datalist id="manufacturer-models">
+            {models.map((model) => (
+              <option key={model} value={model} />
+            ))}
+          </datalist>
           <label>
             Número de série
             <input
@@ -369,9 +432,15 @@ export default function ManufacturerDashboard() {
               ) : (
                 <>
                   <p className="muted">
-                    Fonte: {data.revision.filename} · Importada em{" "}
-                    {date(data.revision.imported_at)} · {data.total} itens
-                    encontrados
+                    {data.brands ? (
+                      `${applied.get("brand") || "Todas as marcas"} · Catálogos das versões selecionadas`
+                    ) : (
+                      <>
+                        Fonte: {data.revision.filename} · Importada em{" "}
+                        {date(data.revision.imported_at)}
+                      </>
+                    )}{" "}
+                    · {data.total} itens encontrados
                   </p>
                   <div
                     className={
@@ -468,6 +537,7 @@ export default function ManufacturerDashboard() {
                                     ))}
                                   </td>
                                   <td>
+                                    {e.brand && <small>Marca: {e.brand}</small>}
                                     <strong>{e.variant_name}</strong>
                                     <small>
                                       Aba {e.variant_name} · linha{" "}
