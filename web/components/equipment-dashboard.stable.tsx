@@ -197,6 +197,7 @@ export default function EquipmentDashboard() {
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [loaded, setResult] = useState<any>(null),
     [error, setError] = useState(""),
+    [saveError, setSaveError] = useState(""),
     [message, setMessage] = useState("");
   const [query, setQuery] = useState(""),
     [ownership, setOwnership] = useState(""),
@@ -419,6 +420,7 @@ export default function EquipmentDashboard() {
     const controller = new AbortController();
     setDetailLoading(true);
     setDetail(null);
+    setSaveError("");
     setPlan(null);
     setMaintenance(null);
     setError("");
@@ -436,6 +438,7 @@ export default function EquipmentDashboard() {
   }, [selected]);
   async function save(action: string, document: any, existing?: any) {
     setSaving(true);
+    setSaveError("");
     setError("");
     setMessage("");
     try {
@@ -464,7 +467,7 @@ export default function EquipmentDashboard() {
           : "Informações salvas.",
       );
     } catch (e) {
-      setError((e as Error).message);
+      setSaveError((e as Error).message);
     } finally {
       setSaving(false);
     }
@@ -772,6 +775,12 @@ export default function EquipmentDashboard() {
           <p role="alert" className="catalog-settings-error">
             {error}
           </p>
+        )}
+        {saveError && (
+          <div role="alert" className="equipment-save-error">
+            <span>{saveError}</span>
+            <button type="button" aria-label="Fechar mensagem de erro" onClick={() => setSaveError("")}>×</button>
+          </div>
         )}
         {message && <p role="status">{message}</p>}
         {!selected ? (
@@ -1313,6 +1322,7 @@ export default function EquipmentDashboard() {
                     <CopyPreventivePlan disabled={saving} onCopy={copy => {setPlan({...emptyPlan,...copy});setPlanEdit(null);setPlanTab("plan");setMaintenance(null);}}/>
                     </div>
                   </div>
+                  {plan && !planEdit && planEditor}
                   <p className="muted">
                     Com horas e meses preenchidos, vale o limite que chegar
                     primeiro. Ao registrar uma manutenção, os planos com
@@ -1473,7 +1483,6 @@ export default function EquipmentDashboard() {
                       calcular a próxima preventiva.
                     </p>
                   )}
-                  {plan && !planEdit && planEditor}
 
                 </section>
                 <section className="manual-card">

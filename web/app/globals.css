@@ -4147,3 +4147,33 @@ body.admin-preview :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar,
 .preventive-plan-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 .equipment-plan-updated { display: block; margin-top: 12px; font-size: 11px; color: #72849a; }
+
+/* Keep save failures visible even when editing a plan far down the page. */
+.equipment-save-error {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: max-content;
+  max-width: min(640px, calc(100vw - 32px));
+  padding: 14px 18px;
+  border: 1px solid #f3b4af;
+  border-radius: 10px;
+  background: #fff1f0;
+  color: #b42318;
+  box-shadow: 0 4px 18px #0002;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.equipment-save-error button {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 22px;
+  cursor: pointer;
+}
