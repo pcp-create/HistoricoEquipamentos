@@ -4136,3 +4136,12 @@ body.admin-preview :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar,
 }
 
 .equipment-next-preventive { display: inline-block; margin-left: 8px; padding: 3px 7px; border-radius: 5px; background: #e4f2ff; color: #175b92; font-size: 11px; font-weight: 600; }
+
+.copy-preventive-dialog { width: min(850px, 94vw); max-height: 85vh; overflow: auto; border: 1px solid #d5e3f0; border-radius: 12px; padding: 24px; color: #27445f; }
+.copy-preventive-dialog::backdrop { background: #14263970; }
+.copy-preventive-dialog label { display: grid; gap: 6px; }
+.copy-preventive-results article { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 0; border-bottom: 1px solid #d5e3f0; }
+.copy-preventive-results article div { min-width: 0; overflow-wrap: anywhere; }
+.copy-preventive-results small { display: block; margin-top: 4px; }
+
+.preventive-plan-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

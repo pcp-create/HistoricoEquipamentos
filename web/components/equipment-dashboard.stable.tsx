@@ -1,4 +1,5 @@
 "use client";
+import CopyPreventivePlan from "./copy-preventive-plan";
 import EquipmentDetailsDrawer from "./equipment-details-drawer";
 import OrderDetailLink from "./order-detail-link";
 import CreateLinkedTask from "./create-linked-task";
@@ -621,6 +622,108 @@ export default function EquipmentDashboard() {
                         </div>
                       </fieldset>
                     </form>) : null;
+  const maintenanceEditor = maintenance ? (<form
+                      className="equipment-editor"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        save(
+                          "maintenance",
+                          {
+                            date: maintenance.date,
+                            meter: maintenance.meter,
+                            order: maintenance.order,
+                            notes: maintenance.notes,
+                          },
+                          maintenance.plan,
+                        );
+                      }}
+                    >
+                      <fieldset disabled={saving}>
+                        <legend>
+                          Manutenção realizada ·{" "}
+                          {maintenance.plan.document.name}
+                        </legend>
+                        <div className="equipment-form-grid">
+                          <label>
+                            Data da intervenção
+                            <input
+                              required
+                              type="date"
+                              max={brazilToday()}
+                              value={maintenance.date}
+                              onChange={(e) =>
+                                setMaintenance({
+                                  ...maintenance,
+                                  date: e.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label>
+                            Horímetro da intervenção
+                            <input
+                              required={!!maintenance.plan.document.hours}
+                              type="number"
+                              min="0"
+                              step="0.001"
+                              max="100000000"
+                              value={maintenance.meter}
+                              onChange={(e) =>
+                                setMaintenance({
+                                  ...maintenance,
+                                  meter: e.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label>
+                            OS vinculada (opcional)
+                            <input
+                              inputMode="numeric"
+                              value={maintenance.order}
+                              maxLength={18}
+                              onChange={(e) =>
+                                setMaintenance({
+                                  ...maintenance,
+                                  order: e.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="equipment-wide">
+                            Observações
+                            <textarea
+                              rows={3}
+                              maxLength={3000}
+                              value={maintenance.notes}
+                              onChange={(e) =>
+                                setMaintenance({
+                                  ...maintenance,
+                                  notes: e.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                        </div>
+                        <p className="muted">
+                          Reinicia somente este plano a partir da data e leitura
+                          informadas. Os demais planos permanecem com suas
+                          próprias intervenções.
+                        </p>
+                        <div className="catalog-editor-actions">
+                          <button className="catalog-save-button">
+                            <Wrench size={15} /> Registrar manutenção
+                          </button>
+                          <button
+                            type="button"
+                            className="catalog-cancel-button"
+                            onClick={() => setMaintenance(null)}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </fieldset>
+                    </form>) : null;
   return (
     <EquipmentTaskProvider>
       <SiteHeader active="equipment" email={result?.email} />
@@ -1191,6 +1294,7 @@ export default function EquipmentDashboard() {
                 <section className="manual-card">
                   <div className="equipment-heading">
                     <h2>Plano de preventivas</h2>
+                    <div className="preventive-plan-actions">
                     <button
                       disabled={saving}
                       className="catalog-edit-button"
@@ -1202,6 +1306,8 @@ export default function EquipmentDashboard() {
                     >
                       <Plus size={15} /> Criar plano
                     </button>
+                    <CopyPreventivePlan disabled={saving} onCopy={copy => {setPlan({...emptyPlan,...copy});setPlanEdit(null);setPlanTab("plan");setMaintenance(null);}}/>
+                    </div>
                   </div>
                   <p className="muted">
                     Com horas e meses preenchidos, vale o limite que chegar
@@ -1351,6 +1457,7 @@ export default function EquipmentDashboard() {
                             </td>
                           </tr>
                           {plan && planEdit?.id === p.id && <tr><td colSpan={6}>{planEditor}</td></tr>}
+                          {maintenance?.plan.id === p.id && <tr><td colSpan={6}>{maintenanceEditor}</td></tr>}
                           </Fragment>
                         ))}
                       </tbody>
@@ -1363,110 +1470,7 @@ export default function EquipmentDashboard() {
                     </p>
                   )}
                   {plan && !planEdit && planEditor}
-                  {maintenance && (
-                    <form
-                      className="equipment-editor"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        save(
-                          "maintenance",
-                          {
-                            date: maintenance.date,
-                            meter: maintenance.meter,
-                            order: maintenance.order,
-                            notes: maintenance.notes,
-                          },
-                          maintenance.plan,
-                        );
-                      }}
-                    >
-                      <fieldset disabled={saving}>
-                        <legend>
-                          Manutenção realizada ·{" "}
-                          {maintenance.plan.document.name}
-                        </legend>
-                        <div className="equipment-form-grid">
-                          <label>
-                            Data da intervenção
-                            <input
-                              required
-                              type="date"
-                              max={brazilToday()}
-                              value={maintenance.date}
-                              onChange={(e) =>
-                                setMaintenance({
-                                  ...maintenance,
-                                  date: e.target.value,
-                                })
-                              }
-                            />
-                          </label>
-                          <label>
-                            Horímetro da intervenção
-                            <input
-                              required={!!maintenance.plan.document.hours}
-                              type="number"
-                              min="0"
-                              step="0.001"
-                              max="100000000"
-                              value={maintenance.meter}
-                              onChange={(e) =>
-                                setMaintenance({
-                                  ...maintenance,
-                                  meter: e.target.value,
-                                })
-                              }
-                            />
-                          </label>
-                          <label>
-                            OS vinculada (opcional)
-                            <input
-                              inputMode="numeric"
-                              value={maintenance.order}
-                              maxLength={18}
-                              onChange={(e) =>
-                                setMaintenance({
-                                  ...maintenance,
-                                  order: e.target.value,
-                                })
-                              }
-                            />
-                          </label>
-                          <label className="equipment-wide">
-                            Observações
-                            <textarea
-                              rows={3}
-                              maxLength={3000}
-                              value={maintenance.notes}
-                              onChange={(e) =>
-                                setMaintenance({
-                                  ...maintenance,
-                                  notes: e.target.value,
-                                })
-                              }
-                            />
-                          </label>
-                        </div>
-                        <p className="muted">
-                          Reinicia somente este plano a partir da data e leitura
-                          informadas. Os demais planos permanecem com suas
-                          próprias intervenções.
-                        </p>
-                        <div className="catalog-editor-actions">
-                          <button className="catalog-save-button">
-                            <Wrench size={15} /> Registrar manutenção
-                          </button>
-                          <button
-                            type="button"
-                            className="catalog-cancel-button"
-                            onClick={() => setMaintenance(null)}
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      </fieldset>
-                    </form>
-                  )}
+
                 </section>
                 <section className="manual-card">
                   <h2>Últimas OS do equipamento</h2>
