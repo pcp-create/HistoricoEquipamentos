@@ -65,14 +65,14 @@ export async function equipmentList(params: URLSearchParams) {
   ).rows;
   const plans = (
     await db.query(
-      "SELECT id,equipment_id::text,document,updated_at FROM web_equipment_plans WHERE NOT archived",
+      "SELECT p.id,p.equipment_id::text,p.document,p.updated_at,COALESCE(NULLIF(u.display_name,''),p.updated_by) AS updated_by_name FROM web_equipment_plans p LEFT JOIN web_user_access u ON u.email=p.updated_by WHERE NOT p.archived",
     )
   ).rows;
   const byEquipment = new Map<string, any[]>();
   for (const p of plans)
     byEquipment.set(p.equipment_id, [
       ...(byEquipment.get(p.equipment_id) || []),
-      { ...p.document, id: p.id, updatedAt: p.updated_at },
+      { ...p.document, id: p.id, updatedAt: p.updated_at, updatedByName: p.updated_by_name },
     ]);
   const priority: Record<string, number> = {
     overdue: 0,
@@ -97,15 +97,15 @@ export async function equipmentList(params: URLSearchParams) {
           priority[a.status] - priority[b.status] ||
           (a.due || "9999").localeCompare(b.due || "9999"),
       )[0];
+      const lastModifiedPlan = [...(byEquipment.get(e.id) || [])].filter(p => p.updatedAt).sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime() || String(a.id).localeCompare(String(b.id)))[0];
       return {
         ...e,
         ownership: e.rental ? "own" : e.settings.ownership || "unknown",
         rentalStatus: rentalStates.get(e.id) || null,
         plans: planned.length,
-        plansUpdatedAt: (byEquipment.get(e.id) || []).reduce((latest: string | null, p: any) => {
-          const timestamp = p.updatedAt ? new Date(p.updatedAt).toISOString() : null;
-          return timestamp && (!latest || timestamp > latest) ? timestamp : latest;
-        }, null),
+        plansUpdatedAt: lastModifiedPlan ? new Date(lastModifiedPlan.updatedAt).toISOString() : null,
+        plansUpdatedBy: lastModifiedPlan?.updatedByName || null,
+        lastModifiedPlanName: lastModifiedPlan?.name || null,
         forecast: urgent || null,
       };
     })

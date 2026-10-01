@@ -1061,6 +1061,7 @@ export default function EquipmentDashboard() {
                         </div>
                         <small className="equipment-plan-updated" title="Última alteração entre os planos preventivos ativos deste equipamento">
                           {e.plansUpdatedAt ? `Planos atualizados: ${new Date(e.plansUpdatedAt).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo",dateStyle:"short",timeStyle:"short"})}` : "Planos: sem alteração registrada"}
+                          {e.plansUpdatedAt && <><br />{e.lastModifiedPlanName || "Plano preventivo"}<br />Por: {e.plansUpdatedBy || "Não informado"}</>}
                         </small>
                       </td>
                     </tr>
