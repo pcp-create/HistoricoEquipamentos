@@ -113,3 +113,14 @@ o seletor “Cargo da etapa” permite mostrar um cargo ou todos.
 Arrastar um cartão altera sua etapa com atualização otimista e registro nas notas;
 tarefas concluídas não podem ser movimentadas. “Adicionar tarefa” dentro da
 coluna já inclui a etapa inicial na criação, na mesma transação da tarefa.
+
+### Aviso de conclusão
+
+Conclusões manuais e automáticas enfileiram um aviso ao responsável atual, com tarefa, origem, equipamento, cliente, data/hora de Brasília e link. A transição para concluída gera o evento dentro da mesma transação, sem duplicar em sincronizações posteriores. Sem responsável, não há destinatário; usuários desabilitados ou sem telefone não recebem. Nenhuma notificação retroativa é criada.
+
+Implantação: pausar temporariamente o workflow consumidor de avisos, aplicar `041_task_completion_notifications.sql` pelo comando abaixo, publicar a aplicação atualizada e retomar o workflow. O payload da fila continua compatível com o n8n existente.
+
+```bash
+cd web
+node --env-file=.env.local --conditions=react-server --import tsx scripts/setup-task-completion-notifications.mts
+```

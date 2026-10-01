@@ -498,17 +498,17 @@ export function TaskDrawer({
             </section>
             {data.notifications.length > 0 && (
               <section className="task-card">
-                <h3>Avisos de atribuição</h3>
+                <h3>Avisos por WhatsApp</h3>
                 {data.notifications.map((n: any) => (
                   <p key={n.id}>
-                    {n.recipient_name || "Funcionário sem nome cadastrado"}
+                    {n.recipient_name || "Funcionário sem nome cadastrado"} · {n.kind === "completed" ? "Conclusão" : "Atribuição"}
                     <small>
                       {
                         {
                           pending: "Aguardando envio pelo n8n",
                           sent: "Enviado",
                           skipped:
-                            "Não enviado: atribuição não está mais vigente ou destinatário indisponível",
+                            "Não enviado: aviso desatualizado ou destinatário indisponível",
                         }[n.state as string]
                       }{" "}
                       · {date(n.created_at)}

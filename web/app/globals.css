@@ -4145,3 +4145,5 @@ body.admin-preview :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar,
 .copy-preventive-results small { display: block; margin-top: 4px; }
 
 .preventive-plan-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.equipment-plan-updated { display: block; margin-top: 12px; font-size: 11px; color: #72849a; }

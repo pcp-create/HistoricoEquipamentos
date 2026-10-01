@@ -1066,6 +1066,9 @@ export default function EquipmentDashboard() {
                         </button>
                         <CreateLinkedTask equipmentId={String(e.id)}/>
                         </div>
+                        <small className="equipment-plan-updated" title="Última alteração entre os planos preventivos ativos deste equipamento">
+                          {e.plansUpdatedAt ? `Planos atualizados: ${new Date(e.plansUpdatedAt).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo",dateStyle:"short",timeStyle:"short"})}` : "Planos: sem alteração registrada"}
+                        </small>
                       </td>
                     </tr>
                   ))}

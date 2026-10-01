@@ -65,14 +65,14 @@ export async function equipmentList(params: URLSearchParams) {
   ).rows;
   const plans = (
     await db.query(
-      "SELECT id,equipment_id::text,document FROM web_equipment_plans WHERE NOT archived",
+      "SELECT id,equipment_id::text,document,updated_at FROM web_equipment_plans WHERE NOT archived",
     )
   ).rows;
   const byEquipment = new Map<string, any[]>();
   for (const p of plans)
     byEquipment.set(p.equipment_id, [
       ...(byEquipment.get(p.equipment_id) || []),
-      { ...p.document, id: p.id },
+      { ...p.document, id: p.id, updatedAt: p.updated_at },
     ]);
   const priority: Record<string, number> = {
     overdue: 0,
@@ -102,6 +102,10 @@ export async function equipmentList(params: URLSearchParams) {
         ownership: e.rental ? "own" : e.settings.ownership || "unknown",
         rentalStatus: rentalStates.get(e.id) || null,
         plans: planned.length,
+        plansUpdatedAt: (byEquipment.get(e.id) || []).reduce((latest: string | null, p: any) => {
+          const timestamp = p.updatedAt ? new Date(p.updatedAt).toISOString() : null;
+          return timestamp && (!latest || timestamp > latest) ? timestamp : latest;
+        }, null),
         forecast: urgent || null,
       };
     })

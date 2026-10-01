@@ -46,6 +46,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       "016_task_order_links.sql",
       "015_task_origin_rules.sql",
       "013_task_territories.sql",
+      "041_task_completion_notifications.sql",
     ])
       await db.exec(
         readFileSync(new URL("../sql/" + f, import.meta.url), "utf8"),
@@ -89,6 +90,11 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       },
       user,
     );
+    const completedManual = await claimNotifications("https://app.example");
+    assert.equal(completedManual.length,1);
+    assert.match(completedManual[0].text,/Tarefa concluída/);
+    await acknowledgeNotification(completedManual[0].id,completedManual[0].token);
+    assert.equal((await claimNotifications("https://app.example")).length,0);
     const reopened = await updateTask(
       {
         action: "reopen",
@@ -329,6 +335,12 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     d = await taskDetail(id);
     assert.equal(d.task.status, "completed");
     assert.ok(d.task.completed_at);
+    const completedAuto = await claimNotifications("https://app.example");
+    assert.equal(completedAuto.length,1);
+    assert.match(completedAuto[0].text,/Tarefa concluída/);
+    await acknowledgeNotification(completedAuto[0].id,completedAuto[0].token);
+    await syncTasks(async () => [{ ...source, state:"current", alert:false, resolved:true }]);
+    assert.equal((await claimNotifications("https://app.example")).length,0);
     assert.ok(
       d.notes.some((n: any) => n.title === "Tarefa concluída automaticamente"),
     );
