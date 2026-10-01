@@ -86,3 +86,40 @@ journalctl -u m8-equipamentos.service -n 30 --no-pager
 A Vercel recebe a interface pelo GitHub. O workspace valida a carga inicial, mas **o agendamento permanente depende da instalação desse timer no servidor**.
 
 Contrato consultado: [OpenAPI do M8](https://api.integra.m8sistemas.com.br/swagger/v1/swagger.json), também acessível pela [documentação](https://api.integra.m8sistemas.com.br/docs/index.html).
+
+## Localidades dos clientes
+
+A partir da migration `014_m8_customer_localities.sql`, a coleta de clientes também mantém uma fila de endereços. O integrador usa `GET /v1/configuracoes/cliente/{clienteId}/endereco`, com paginação documentada (`Page` e `PageSize=100`), somente pela empresa 1, pois o cadastro é compartilhado. A migration `015_m8_shared_customer_localities.sql` remove as cópias e filas redundantes das demais empresas. Guarda todos os tipos (padrão, nota, cobrança, entrega e retirada), sem eleger um endereço arbitrariamente como local de atendimento da OS.
+
+A tabela `m8_customer_localities` guarda empresa, cliente, ID do endereço, CEP, logradouro, número, complemento, letra, bairro, município, UF, país, tipo e payload original (incluindo data de atualização do ERP). Use `present=true` para consultar as localidades atuais. A fonte canônica é `company_id=1`: associe o cliente pelo `person_id`, inclusive para OS das empresas 2 e 27404.
+
+Clientes novos e alterações no cadastro da empresa 1 entram na fila automaticamente. Mesmo sem mudança no cadastro do cliente, os endereços voltam à consulta após 24 horas, conforme capacidade da fila. Na coleta da empresa 1, cada execução de `sync:equipment` processa até `--max-people` clientes para localidades, independentemente da fila de equipamentos. Erros preservam a última coleta e agendam nova tentativa após uma hora. Uma resposta vazia válida desativa os endereços anteriores; uma resposta incompleta, repetida, inválida ou de outro cliente não substitui os dados. O status inclui localidades coletadas, clientes pendentes e falhas.
+
+Atualização no servidor do integrador (após obter esta versão):
+
+```bash
+npm ci
+npm run db:migrate
+npm run build
+npm run sync:localities -- --max-people=100
+npm run sync:equipment:status
+```
+
+O timer existente `m8-equipamentos` continua mantendo a fila; não exige outro timer. `sync:localities` permite adiantar a carga sem recoletar equipamentos e usa o cadastro de clientes já importado. A carga inicial entra na fila pela migration e progride em lotes. A aplicação web ainda não passa a escolher automaticamente a localidade da OS: a coleta preserva todas as opções para essa associação.
+
+Contrato: [OpenAPI oficial do ERP M8](https://api.integra.m8sistemas.com.br/swagger/v1/swagger.json), `PessoaEnderecoListResponseDto` e `TipoEnderecoEnum`.
+
+Pacote desta alteração: `.m8/m8-integrador-localidades.tar.gz` (sem credenciais). Para instalar no servidor onde o timer já existe, envie o pacote para `/root/m8-upload/` e execute:
+
+```bash
+systemctl stop m8-equipamentos.timer m8-equipamentos.service
+tar -xzf /root/m8-upload/m8-integrador-localidades.tar.gz -C /opt/m8-integrador
+chown -R m8-integrador:m8-integrador /opt/m8-integrador
+cd /opt/m8-integrador
+sudo -u m8-integrador npm ci && sudo -u m8-integrador npm run db:migrate && sudo -u m8-integrador npm run build
+# Somente após concluir os comandos acima sem erros:
+systemctl start m8-equipamentos.timer
+systemctl start --no-block m8-equipamentos.service
+```
+
+A migration é idempotente pelo controle de versões do integrador. Nenhum endereço é alterado no ERP: a integração apenas consulta e mantém a cópia local.

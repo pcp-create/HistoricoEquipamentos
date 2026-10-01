@@ -3,6 +3,9 @@ import { log, safeError } from "../utils/logger.js";
 const db = await connectDatabase();
 try {
   const r = await db.query(`SELECT s.*,
+ (SELECT count(*)::int FROM m8_customer_localities l WHERE l.company_id=s.company_id AND l.present) AS localities,
+ (SELECT count(*)::int FROM m8_customer_locality_queue q WHERE q.company_id=s.company_id AND q.checked_at IS NULL) AS localities_pending,
+ (SELECT count(*)::int FROM m8_customer_locality_queue q WHERE q.company_id=s.company_id AND q.error IS NOT NULL) AS localities_failures,
  (SELECT count(*)::int FROM m8_equipment_catalog WHERE present) AS catalog,
  (SELECT count(*)::int FROM m8_person_equipment p WHERE p.company_id=s.company_id AND p.present) AS person_links,
  (SELECT count(*)::int FROM m8_equipment_person_queue q WHERE q.company_id=s.company_id AND checked_at IS NULL) AS not_checked,

@@ -142,6 +142,7 @@ test("equipment import is canonical in company 1; per-person snapshots reconcile
       company: 2,
       get: async (path: string) => {
         calls.push(path);
+        if (path.endsWith("/endereco")) return {data:[]};
         if (path === "/v1/configuracoes/cliente")
           return { data: [{ id: 0 }, { id: 7, razaoSocial: "Cliente" }] };
         return {
@@ -153,6 +154,7 @@ test("equipment import is canonical in company 1; per-person snapshots reconcile
     };
     await syncEquipmentPeople(fake, db, { maxPeople: 1 });
     assert(calls.includes("/v1/estoque/equipamento/pessoa/7"));
+    assert(!calls.includes("/v1/configuracoes/cliente/7/endereco"));
     assert.equal(
       (await db.query("SELECT * FROM m8_equipment_person_queue")).rows.length,
       1,

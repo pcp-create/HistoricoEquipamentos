@@ -3,6 +3,7 @@ import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import {reportStatusLabel,reportSubmission} from "@/lib/service-scheduling/checklists";
 import OrderReportWindow from "./order-report-window";
 import OperationReviewWindow from "./operation-review-window";
+import ScheduleOrdersMap from "./schedule-orders-map";
 import ScheduleOrdersCalendar from "./schedule-orders-calendar";
 import SupportPicker from "./support-picker";
 import SchedulePauseReasons from "./schedule-pause-reasons";
@@ -350,7 +351,9 @@ export default function ServiceScheduling() {
             <nav className="schedule-overview-views" aria-label="Visão da programação">
               <button aria-pressed={overviewView === "list"} onClick={() => setOverviewView("list")}>Lista</button>
               <button aria-pressed={overviewView === "calendar"} onClick={() => setOverviewView("calendar")}>Calendário</button>
+              <button aria-pressed={overviewView === "map"} onClick={() => setOverviewView("map")}>Mapa</button>
             </nav>
+            {overviewView === "map" && <ScheduleOrdersMap schedules={filteredSchedules}/>}
             {overviewView === "calendar" && <ScheduleOrdersCalendar schedules={filteredSchedules}/>}
             <div hidden={overviewView !== "list"} className="scheduling-table scheduling-orders-list">
               <table>

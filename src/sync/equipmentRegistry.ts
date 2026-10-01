@@ -1,3 +1,4 @@
+import { syncCustomerLocalities } from "./customerLocalities.js";
 import type { M8Client } from "../m8/client.js";
 import { listData, uniqueRows } from "../m8/collections.js";
 import { id } from "../m8/ordemServico.js";
@@ -155,6 +156,10 @@ export async function syncEquipmentPeople(
         [company],
       );
     });
+    const localities = company === 1
+      ? await syncCustomerLocalities(client, db, options)
+      : { checked: 0, failures: 0 };
+    failures += localities.failures;
     // Observed shortcut, not a documented full snapshot: seed returned links, never delete absent ones.
     try {
       const seed = personRows(
@@ -228,7 +233,7 @@ export async function syncEquipmentPeople(
       failures,
       ...links,
     });
-    return { checked, failures, ...links };
+    return { checked, failures, localities, ...links };
   } finally {
     await db.query("SELECT pg_advisory_unlock(81016,$1)", [company]);
   }
