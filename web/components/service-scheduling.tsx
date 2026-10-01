@@ -1,4 +1,5 @@
 "use client";
+import { includesLaborCost } from "@/lib/service-scheduling/labor-costs";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import {reportStatusLabel,reportSubmission} from "@/lib/service-scheduling/checklists";
 import OrderReportWindow from "./order-report-window";
@@ -1070,7 +1071,7 @@ function ScheduleCosts({ data, materials, services, busy, mutate }: any) {
   >();
   for (const o of data.operations) {
     const d = o.document;
-    if (d.serviceType !== "Interno") continue;
+    if (!includesLaborCost(data.settings.document, d.serviceType)) continue;
     const key =
       group === "operation" ? String(o.position) : data.users.find((u: any) => u.email === d.responsible)?.job_title || "Sem função";
     if (!labor.has(key))
@@ -1154,7 +1155,7 @@ function ScheduleCosts({ data, materials, services, busy, mutate }: any) {
       <section>
         <h2>Mão de obra interna</h2>
         <p>
-          Custo planejado: duração de cada operação × custo/hora de cada pessoa
+          Custo planejado dos tipos de serviço habilitados nas configurações: duração de cada operação × custo/hora de cada pessoa
           atribuída. Custos ausentes não são tratados como zero.
         </p>
         <label>
@@ -1397,8 +1398,8 @@ function ScheduleSettings({ data, onSaved }: any) {
         </>}
         {tab === "types" && <>
           <p>Edite os tipos de serviço diretamente na tabela. Salve a linha com Enter ou no botão Salvar.</p>
-          <CompactNameTable label="Tipo de serviço" items={d.serviceTypes.map((name:string,i:number)=>({id:name,name}))} maxLength={80} busy={busy}
-            onSave={(id,name)=>save({...d,serviceTypes:d.serviceTypes.map((v:string,i:number)=>v===id?name:v)})}
+          <CompactNameTable extraColumn={{title:"Considerar mão de obra",render:item => <input type="checkbox" aria-label={`Considerar mão de obra: ${item.name}`} checked={includesLaborCost(d,item.name)} disabled={busy} onChange={e => void save({...d,serviceTypeLaborCosts:{...d.serviceTypeLaborCosts,[item.name]:e.target.checked}})} />}} label="Tipo de serviço" items={d.serviceTypes.map((name:string,i:number)=>({id:name,name}))} maxLength={80} busy={busy}
+            onSave={(id,name)=>save({...d,serviceTypes:d.serviceTypes.map((v:string,i:number)=>v===id?name:v),serviceTypeLaborCosts:{...d.serviceTypeLaborCosts,[name]:includesLaborCost(d,id)}})}
             onRemove={id=>save({...d,serviceTypes:d.serviceTypes.filter((v:string)=>v!==id)})}
             onAdd={name=>save({...d,serviceTypes:[...d.serviceTypes,name]})}/>
         </>}

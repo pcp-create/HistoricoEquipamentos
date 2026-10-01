@@ -4111,3 +4111,28 @@ body.admin-preview :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar,
 :where(body.admin-preview) .quote-extras-card summary > .muted { margin:0;font-size:12px;font-weight:400; }
 :where(body.admin-preview) .quote-manufacturer-card > .quote-section-title { margin-bottom:0; }
 :where(body.admin-preview) .quote-manufacturer-card .quote-section-title .muted { margin:0;font-size:12px; }
+
+/* Reserve space for preventive dates instead of expanding service notes. */
+.equipment-table .equipment-preventive-plans-table { table-layout: fixed; min-width: 1300px; }
+.equipment-preventive-plans-table th:nth-child(1) { width: 35%; }
+.equipment-preventive-plans-table th:nth-child(2) { width: 9%; }
+.equipment-preventive-plans-table th:nth-child(3) { width: 11%; }
+.equipment-preventive-plans-table th:nth-child(4) { width: 11%; }
+.equipment-preventive-plans-table th:nth-child(5) { width: 18%; }
+.equipment-preventive-plans-table th:nth-child(6) { width: 16%; }
+.equipment-preventive-plans-table td { overflow-wrap: anywhere; }
+
+.preventive-editor-tabs { display: flex; gap: 4px; margin: 10px 0 20px; border-bottom: 1px solid #d5e3f0; }
+.equipment-page .preventive-editor-tabs button { background: transparent; color: #65788c; border: 0; border-bottom: 3px solid transparent; border-radius: 0; padding: 12px 18px; margin-bottom: -1px; box-shadow: none; }
+.equipment-page .preventive-editor-tabs button:hover { color: #245e91; background: #edf4fc; }
+.equipment-page .preventive-editor-tabs button[aria-current="page"] { color: #245e91; border-bottom-color: #245e91; font-weight: 700; }
+
+.equipment-editor [hidden], .preventive-plan-items [hidden] { display: none !important; }
+
+.equipment-page .equipment-form-grid select.equipment-classification-pending {
+  background-color: #fff4cc;
+  border-color: #d9aa32;
+  color: #765300;
+}
+
+.equipment-next-preventive { display: inline-block; margin-left: 8px; padding: 3px 7px; border-radius: 5px; background: #e4f2ff; color: #175b92; font-size: 11px; font-weight: 600; }

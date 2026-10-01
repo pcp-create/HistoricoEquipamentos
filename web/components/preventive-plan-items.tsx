@@ -10,7 +10,9 @@ export default function PreventivePlanItems({
   disabled,
   equipment,
   clients,
+  viewKind,
 }: {
+  viewKind?: "material" | "service";
   equipment: { id: string; serial?: string; model?: string };
   clients: { id: string; name: string; priority?: number }[];
   items: PlanItem[];
@@ -41,7 +43,7 @@ export default function PreventivePlanItems({
   };
   return (
     <section className="preventive-plan-items">
-      <h3>Materiais e serviços da preventiva</h3>
+      <h3>{viewKind === "service" ? "Serviços da preventiva" : "Produtos da preventiva"}</h3>
       <p className="muted">
         Cadastre os itens e quantidades previstos para esta revisão. Eles serão
         incluídos no rascunho de orçamento.
@@ -49,6 +51,7 @@ export default function PreventivePlanItems({
       <PreventivePlanHistory
         key={equipment.id}
         equipment={equipment}
+        kind={viewKind || "material"}
         clients={clients}
         existing={new Set(items.map((i) => `${i.kind}:${i.code}`))}
         onAdd={add}
@@ -59,6 +62,7 @@ export default function PreventivePlanItems({
           type="button"
           className="secondary-button"
           disabled={disabled || items.length >= 100}
+          hidden={viewKind === "service"}
           onClick={() => setKind("material")}
         >
           Adicionar material
@@ -67,12 +71,13 @@ export default function PreventivePlanItems({
           type="button"
           className="secondary-button"
           disabled={disabled || items.length >= 100}
+          hidden={viewKind === "material"}
           onClick={() => setKind("service")}
         >
           Adicionar serviço
         </button>
       </div>
-      {items.length ? (
+      {items.some(i => !viewKind || i.kind === viewKind) ? (
         <div className="equipment-table">
           <table>
             <thead>
@@ -85,7 +90,7 @@ export default function PreventivePlanItems({
             </thead>
             <tbody>
               {items.map((i, index) => (
-                <tr key={`${i.kind}:${i.code}`}>
+                <tr key={`${i.kind}:${i.code}`} hidden={!!viewKind && i.kind !== viewKind}>
                   <td>
                     <strong>{i.name}</strong>
                     <small>
@@ -160,7 +165,7 @@ export default function PreventivePlanItems({
           </table>
         </div>
       ) : (
-        <p>Nenhum material ou serviço cadastrado neste plano.</p>
+        <p>Nenhum item cadastrado nesta aba do plano.</p>
       )}
       {kind && (
         <QuoteCatalogPicker

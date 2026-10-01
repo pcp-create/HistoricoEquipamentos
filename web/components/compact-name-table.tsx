@@ -1,6 +1,6 @@
 "use client";
 import SaveActionIcon from "./save-action-icon";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import "./compact-edit-table.css";
 export default function CompactNameTable({
@@ -11,7 +11,9 @@ export default function CompactNameTable({
   onSave,
   onRemove,
   onAdd,
+  extraColumn,
 }: {
+  extraColumn?: { title: string; render: (item: {id:string;name:string}) => ReactNode };
   items: { id: string; name: string }[];
   label: string;
   maxLength: number;
@@ -35,6 +37,7 @@ export default function CompactNameTable({
         <thead>
           <tr>
             <th>{label}</th>
+            {extraColumn && <th>{extraColumn.title}</th>}
             <th>Ações</th>
           </tr>
         </thead>
@@ -43,6 +46,7 @@ export default function CompactNameTable({
             <NameRow
               key={item.id}
               item={item}
+              extraColumn={extraColumn}
               label={label}
               maxLength={maxLength}
               busy={busy}
@@ -75,6 +79,7 @@ export default function CompactNameTable({
                 />
                 <small>Não salvo</small>
               </td>
+              {extraColumn && <td>Após cadastrar</td>}
               <td>
                 <button
                   disabled={busy || !name.trim()}
@@ -96,7 +101,7 @@ export default function CompactNameTable({
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={2}>
+            <td colSpan={extraColumn ? 3 : 2}>
               <button disabled={busy || adding} onClick={() => setAdding(true)}>
                 <Plus size={15} />
                 Adicionar {label.toLowerCase()}
@@ -108,7 +113,7 @@ export default function CompactNameTable({
     </div>
   );
 }
-function NameRow({ item, label, maxLength, busy, save, remove }: any) {
+function NameRow({ item, label, maxLength, busy, save, remove, extraColumn }: any) {
   const [name, setName] = useState(item.name);
   const dirty = name !== item.name;
   const persist = async () => {
@@ -141,6 +146,7 @@ function NameRow({ item, label, maxLength, busy, save, remove }: any) {
         />
         {dirty && <small>Alterações não salvas</small>}
       </td>
+      {extraColumn && <td>{extraColumn.render(item)}</td>}
       <td>
         <button
           disabled={busy || !dirty || !name.trim()}

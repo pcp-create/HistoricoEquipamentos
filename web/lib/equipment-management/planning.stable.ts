@@ -190,6 +190,8 @@ export function predict(
     (plan.hours && !hoursDate)
   );
   return {
+    neverPerformed: plan.lastMeter === 0 && !plan.lastDate,
+    missingMonthReference: !!plan.months && !plan.lastDate,
     due,
     days,
     target,
@@ -287,7 +289,7 @@ export function parsePlan(v: any): Plan {
     throw new EquipmentInputError(
       "Informe nome e intervalo em horas ou meses.",
     );
-  if (r.lastMeter != null && !r.lastDate)
+  if (r.lastMeter != null && r.lastMeter !== 0 && !r.lastDate)
     throw new EquipmentInputError(
       "Informe a data da intervenção para o horímetro.",
     );

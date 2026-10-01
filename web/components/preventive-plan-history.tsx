@@ -26,88 +26,52 @@ export default function PreventivePlanHistory({
   existing,
   onAdd,
   disabled,
+  kind = "material",
 }: {
   equipment: { id: string; serial?: string; model?: string };
   clients: Client[];
   existing: Set<string>;
   onAdd: (i: QuoteItem) => void;
   disabled: boolean;
+  kind?: "material" | "service";
 }) {
-  const [clientId, setClientId] = useState(
-    clients.length === 1 || clients[0]?.priority === 0 ? clients[0].id : "",
-  );
-  const [pickedClient, setPickedClient] = useState<Client | null>(null);
-  const [clientQuery, setClientQuery] = useState("");
-  const [choices, setChoices] = useState<Client[]>([]);
+  const clientIds = [...new Set(clients.map(c => c.id))].sort().join(",");
   const [items, setItems] = useState<QuoteItem[]>([]),
     [histories, setHistories] = useState<Record<string, QuoteSalesHistory>>({});
   const [loading, setLoading] = useState(false),
     [error, setError] = useState("");
   const [query, setQuery] = useState(""),
-    [kind, setKind] = useState("all"),
     [page, setPage] = useState(1),
     [retry, setRetry] = useState(0);
-  useEffect(() => {
-    if (!clientQuery.trim()) {
-      setChoices([]);
-      return;
-    }
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      try {
-        const r = await apiFetch(
-          "/api/quotes?" +
-            new URLSearchParams({ lookup: "clients", q: clientQuery }),
-          { signal: controller.signal },
-        );
-        const b = await r.json();
-        if (!r.ok) throw Error(b.error || "Não foi possível buscar clientes.");
-        if (!controller.signal.aborted) setChoices(b.rows || []);
-      } catch (e) {
-        if (!controller.signal.aborted) setError((e as Error).message);
-      }
-    }, 250);
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [clientQuery]);
   useEffect(() => {
     const controller = new AbortController();
     setItems([]);
     setHistories({});
     setError("");
     setPage(1);
-    if (!clientId) {
+    if (!clientIds) {
       setLoading(false);
       return;
     }
     setLoading(true);
     (async () => {
       try {
-        const r = await apiFetch(
-          "/api/quotes?" +
-            new URLSearchParams({
-              action: "suggestions",
-              clientId,
-              equipmentId: equipment.id,
-              serial: equipment.serial || "",
-              model: equipment.model || "",
-            }),
-          { signal: controller.signal },
-        );
-        if (r.status === 401) {
-          window.location.assign(
-            "/login?next=" +
-              encodeURIComponent(
-                window.location.pathname + window.location.search,
-              ),
-          );
-          return;
+        const responses = await Promise.all(clientIds.split(",").map(async clientId => {
+          const r = await apiFetch("/api/quotes?" + new URLSearchParams({action:"suggestions",clientId,equipmentId:equipment.id,serial:equipment.serial || "",model:equipment.model || ""}), {signal:controller.signal});
+          const b = await r.json();
+          if (!r.ok) throw Error(b.error || "Não foi possível consultar o histórico.");
+          return b;
+        }));
+        const b: {items: QuoteItem[]; histories: Record<string, QuoteSalesHistory>} = {items:[],histories:{}};
+        for (const response of responses) {
+          for (const item of response.items || []) if (!b.items.some(i => i.key === item.key)) b.items.push(item);
+          for (const [key,h] of Object.entries(response.histories || {}) as [string,QuoteSalesHistory][]) {
+            const previous = b.histories[key];
+            if (!previous) { b.histories[key] = h; continue; }
+            const rows = [...previous.rows,...h.rows].sort((a,b) => b.date.localeCompare(a.date));
+            b.histories[key] = {count:previous.count+h.count,minimum:String(Math.min(Number(previous.minimum),Number(h.minimum))),maximum:String(Math.max(Number(previous.maximum),Number(h.maximum))),rows};
+          }
         }
-        const b = await r.json();
-        if (!r.ok)
-          throw Error(b.error || "Não foi possível consultar o histórico.");
         if (!controller.signal.aborted) {
           const history: Record<string, QuoteSalesHistory> = b.histories || {};
           setHistories(history);
@@ -126,18 +90,11 @@ export default function PreventivePlanHistory({
       }
     })();
     return () => controller.abort();
-  }, [clientId, equipment.id, equipment.serial, equipment.model, retry]);
-  const options = [
-    ...clients,
-    ...[...(pickedClient ? [pickedClient] : []), ...choices].filter(
-      (c, index, all) =>
-        !clients.some((v) => v.id === c.id) &&
-        all.findIndex((v) => v.id === c.id) === index,
-    ),
-  ];
+  }, [clientIds, equipment.id, equipment.serial, equipment.model, retry]);
+  useEffect(() => { setPage(1); }, [kind]);
   const filtered = items.filter(
     (i) =>
-      (kind === "all" || i.kind === kind) &&
+      (i.kind === kind) &&
       fold(`${i.code} ${i.name} ${i.unit}`).includes(fold(query.trim())),
   );
   const pages = Math.max(1, Math.ceil(filtered.length / 10));
@@ -153,45 +110,7 @@ export default function PreventivePlanHistory({
         série válida, utiliza o ID do equipamento. O modelo não restringe o
         histórico.
       </p>
-      <div className="equipment-form-grid">
-        <label>
-          Cliente do histórico
-          <select
-            value={clientId}
-            disabled={disabled}
-            onChange={(e) => {
-              setClientId(e.target.value);
-              setPickedClient(
-                options.find((c) => c.id === e.target.value) || null,
-              );
-            }}
-          >
-            <option value="">Selecione o cliente</option>
-            {options.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Buscar outro cliente
-          <input
-            type="search"
-            value={clientQuery}
-            maxLength={120}
-            placeholder="Nome ou documento"
-            disabled={disabled}
-            onChange={(e) => setClientQuery(e.target.value)}
-          />
-        </label>
-      </div>
-      {!clientId && (
-        <p>
-          Selecione o cliente para consultar as peças e serviços utilizados
-          nessa máquina.
-        </p>
-      )}
+      {!clientIds && <p>Nenhum cliente vinculado disponível para consultar o histórico.</p>}
       {error && (
         <p role="alert" className="error">
           {error}{" "}
@@ -201,7 +120,7 @@ export default function PreventivePlanHistory({
         </p>
       )}
       {loading && <p role="status">Buscando histórico da máquina…</p>}
-      {clientId && !loading && !error && (
+      {clientIds && !loading && !error && (
         <>
           <div className="equipment-form-grid">
             <label>
@@ -216,20 +135,7 @@ export default function PreventivePlanHistory({
                 }}
               />
             </label>
-            <label>
-              Tipo de item
-              <select
-                value={kind}
-                onChange={(e) => {
-                  setKind(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="all">Materiais e serviços</option>
-                <option value="material">Materiais</option>
-                <option value="service">Serviços</option>
-              </select>
-            </label>
+
           </div>
           <p className="muted">
             {filtered.length} sugestões · mais recentes primeiro. Quantidades

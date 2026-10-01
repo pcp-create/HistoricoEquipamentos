@@ -121,7 +121,9 @@ test("equipment plans persist independently of M8, enforce scope/concurrency and
     );
     detail = await equipmentDetail("100");
     const updated = detail.plans.find((p: any) => p.id === plan.id);
-    assert.equal(updated.forecast.target, 9100);
+    // The 8,000 h revision at 9,000 precedes the smaller target at 9,100.
+    assert.equal(updated.forecast.target, 13000);
+    assert.equal(updated.document.lastMeter, 5100);
     assert.equal(
       detail.plans.find((p: any) => p.id !== plan.id).document.lastMeter,
       1000,

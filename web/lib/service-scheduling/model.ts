@@ -1,3 +1,4 @@
+import { includesLaborCost } from "./labor-costs";
 import {validatePauseReasons} from "./field-model";
 import {validatePreventiveTypes} from "./preventive-types";
 import { validateChecklists } from "./checklists";
@@ -136,7 +137,10 @@ export function validateSettings(d: any) {
       vehicles.length
   )
     throw Error("Informe veículos válidos, sem duplicidades.");
+  if (d.serviceTypeLaborCosts != null && (typeof d.serviceTypeLaborCosts !== "object" || Array.isArray(d.serviceTypeLaborCosts) || Object.values(d.serviceTypeLaborCosts).some(v => typeof v !== "boolean")))
+    throw Error("Informe opções válidas de custo de mão de obra.");
   return {
+    serviceTypeLaborCosts: Object.fromEntries(d.serviceTypes.map((name: string) => [name.trim(), includesLaborCost(d, name)])),
     automaticEntry: validateAutomaticRules(d.automaticEntry),
     vehicles: vehicles.map((v: any) => ({ id: v.id, name: v.name.trim() })),
     serviceTypes: d.serviceTypes.map((s: string) => s.trim()),

@@ -225,7 +225,7 @@ export async function equipmentDetail(raw: string) {
   }
   const history = (
     await db.query(
-      `SELECT o.id_m8::text AS id,o.company_id,COALESCE(o.emissao,o.data_abertura) AS date,o.cliente_nome,o.tipo_nome,o.status,o.total_geral::text AS total,l.method
+      `SELECT o.id_m8::text AS id,o.company_id,COALESCE(o.emissao,o.data_abertura) AS date,o.cliente_nome,o.tipo_nome,o.tipo_atendimento_nome,o.status,o.total_geral::text AS total,l.method
  FROM m8_equipment_linked l JOIN m8_ordens_servico o ON o.company_id=l.company_id AND o.id_m8=l.order_id
  WHERE l.equipment_id=$1 ORDER BY COALESCE(o.emissao,o.data_abertura) DESC NULLS LAST,o.id_m8 DESC LIMIT 30`,
       [id],

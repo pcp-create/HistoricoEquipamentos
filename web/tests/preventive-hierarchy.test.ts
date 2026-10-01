@@ -53,3 +53,11 @@ test('shared estimate uses the latest dated reading and does not invent missing 
  const unknown=predictPlans([{...p(4000),lastMeter:null,lastDate:''}],{...operating,meter:null,meterDate:''},'2026-02-02');
  assert.equal(unknown[0].forecast.estimatedMeter,null);
 });
+
+test('earlier larger target resets projected smaller target without changing intervention',()=>{
+ const rows=predictPlans([p(2000,13515),p(4000,13515),p(8000,9059)],{...operating,meter:15062},'2026-01-01');
+ assert.equal(rows[0].forecast.target,15515);
+ assert.equal(rows[1].forecast.target,21059);
+ assert.equal(rows[2].forecast.target,17059);
+ assert.equal(rows[1].lastMeter,13515);
+});

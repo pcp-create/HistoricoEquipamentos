@@ -26,7 +26,7 @@ export function predictPlans<T extends Plan & { id?: string }>(
     && validDate(r.meterDate) && r.meterDate <= today)
     .sort((a, b) => b.meterDate.localeCompare(a.meterDate));
   const estimatedMeter = estimateCurrentMeter({ ...operating, ...readings[0] }, today, usage);
-  const forecasts = plans.map(p => predict(p, operating, today, usage));
+  const forecasts = plans.map(p => predict(p, p.lastMeter === 0 && !p.lastDate ? {...operating,...readings[0]} : operating, today, usage));
   const rows = plans.map((p, index) => {
     let target = forecasts[index].target;
     if (p.hours && p.hours > 0 && target != null && !forecasts[index].inconsistent) {
@@ -34,15 +34,17 @@ export function predictPlans<T extends Plan & { id?: string }>(
         .filter(({ other, forecast }) => other.hours != null && other.hours > p.hours!
           && other.hours % p.hours! === 0 && forecast.target != null
           && !forecast.incomplete && !forecast.inconsistent);
-      // Advance along this plan's own sequence; never change the recorded intervention.
-      while (larger.some(({ forecast }) => Math.abs(target! - forecast.target!) < 0.000001)) {
-        target += p.hours;
+      // A larger revision performed first includes this service. Project the
+      // next smaller revision from that milestone, preserving actual history.
+      for (const { forecast } of larger.sort((a,b) => a.forecast.target! - b.forecast.target!)) {
+        if (forecast.target! > (p.lastMeter ?? -Infinity) && forecast.target! <= target + 0.000001)
+          target = forecast.target! + p.hours;
       }
     }
     return {
       ...p,
       forecast: target === forecasts[index].target ? forecasts[index]
-        : predict(p, operating, today, usage, target ?? undefined),
+        : predict(p, p.lastMeter === 0 && !p.lastDate ? {...operating,...readings[0]} : operating, today, usage, target ?? undefined),
       coveredBy: null as null | { id?: string; name: string },
     };
   });

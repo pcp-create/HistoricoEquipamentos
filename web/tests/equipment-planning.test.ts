@@ -220,3 +220,17 @@ test("calendar deadline alerts within 30 days even when the hourly forecast is i
   assert.equal(predict({...partial, lastDate: ""}, emptyOperating, "2026-09-29").status, "incomplete");
   assert.equal(predict({...partial, lastMeter: 14577}, emptyOperating, "2026-09-29").status, "soon");
 });
+
+test('zero without intervention date means never performed; empty remains unknown', () => {
+  const plan = parsePlan({name:'Primeira revisão',hours:20000,months:60,lastDate:'',lastMeter:'0',lastOrder:'',notes:''});
+  assert.equal(plan.lastMeter,0);
+  const forecast = predict(plan,{...emptyOperating,meter:15062,meterDate:'2026-10-01',hoursDay:8,daysYear:365},'2026-10-01');
+  assert.equal(forecast.target,20000);
+  assert.equal(forecast.neverPerformed,true);
+  assert.equal(forecast.monthDate,null);
+  assert.ok(forecast.hoursDate);
+  const unknown = parsePlan({...plan,lastMeter:''});
+  assert.equal(unknown.lastMeter,null);
+  assert.equal(predict(unknown,emptyOperating,'2026-10-01').target,null);
+  assert.throws(()=>parsePlan({...plan,lastMeter:100}),/data/);
+});

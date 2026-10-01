@@ -6,7 +6,7 @@ import OrderDetailLink from "./order-detail-link";
 import CreateLinkedTask from "./create-linked-task";
 import { apiFetch, cachedEquipmentList } from "@/lib/client-api-cache";
 import { fold } from "@/lib/filters";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   Plus,
   Pencil,
@@ -80,7 +80,7 @@ function Forecast({ value }: { value: any }) {
   ) : (
     <>
       <span className={`equipment-status equipment-${value.status}`}>
-        {statuses[value.status]}
+        {value.neverPerformed && value.incomplete && value.hoursDate ? "Previsão por horas" : statuses[value.status]}
       </span>
       <small>
         {value.due ? date(value.due) : "Preencha os dados do plano"}
@@ -94,7 +94,8 @@ function Forecast({ value }: { value: any }) {
               : `Em ${value.days} dias`}
         </small>
       )}
-      {value.incomplete && value.due && (
+      {value.neverPerformed && value.missingMonthReference && <small>Prazo por meses sem referência: informe a data de início de operação.</small>}
+      {value.incomplete && value.due && !value.neverPerformed && (
         <small>Previsão parcial: falta calcular outro limite</small>
       )}
     </>
@@ -308,6 +309,7 @@ export default function EquipmentDashboard() {
         key === "all" || (e.rentalStatus.contract?.key || "incomplete") === key,
     ).length,
   }));
+  const [planTab, setPlanTab] = useState("plan");
   const filteredRows = baseRows.filter((e: any) => {
     if (equipmentTab === "all") return true;
     if (!e.rental) return false;
@@ -374,7 +376,7 @@ export default function EquipmentDashboard() {
       const p = d.plans.find((p: any) => p.id === initialPlan.current);
       if (p) {
         setPlan({ ...p.document });
-        setPlanEdit(p);
+        setPlanEdit(p); setPlanTab("plan");
       }
       initialPlan.current = "";
     }
@@ -479,6 +481,153 @@ export default function EquipmentDashboard() {
       );
     } catch {}
   }
+  const planEditor = plan ? (<form
+                      className="equipment-editor"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        save("plan", plan, planEdit);
+                      }}
+                    >
+                      <fieldset disabled={saving}>
+                        <legend>
+                          {planEdit
+                            ? "Editar plano"
+                            : "Novo plano de preventiva"}
+                        </legend>
+                        <nav className="preventive-editor-tabs" aria-label="Edição do plano">
+                          {[["plan","Plano"],["material","Produtos"],["service","Serviços"]].map(([key,label]) => <button type="button" key={key} aria-current={planTab === key ? "page" : undefined} onClick={() => setPlanTab(key)}>{label}</button>)}
+                        </nav>
+                        <div className="equipment-form-grid" hidden={planTab !== "plan"}>
+                          <label className="equipment-wide">
+                            Serviço / nome do plano
+                            <input
+                              required
+                              maxLength={160}
+                              value={plan.name}
+                              placeholder="Ex.: Preventiva 4.000 horas"
+                              onChange={(e) =>
+                                setPlan({ ...plan, name: e.target.value })
+                              }
+                            />
+                          </label>
+                          <label className="equipment-wide">Identificador M8 / tipo de atendimento
+                            <select value={plan.m8Identifier||""} onChange={e=>setPlan({...plan,m8Identifier:e.target.value})}>
+                              <option value="">Não vinculado</option>
+                              {plan.m8Identifier&&!(detail.attendanceTypes||[]).includes(plan.m8Identifier)&&<option value={plan.m8Identifier}>{plan.m8Identifier}</option>}
+                              {(detail.attendanceTypes||[]).map((name:string)=><option key={name} value={name}>{name}</option>)}
+                            </select>
+                          </label>
+                          <label>
+                            Intervalo em horas
+                            <input
+                              type="number"
+                              min="0.001"
+                              max="1000000"
+                              step="0.001"
+                              value={plan.hours ?? ""}
+                              onChange={(e) =>
+                                setPlan({ ...plan, hours: e.target.value })
+                              }
+                            />
+                          </label>
+                          <label>
+                            Intervalo em meses
+                            <input
+                              type="number"
+                              min="1"
+                              max="1200"
+                              value={plan.months ?? ""}
+                              onChange={(e) =>
+                                setPlan({ ...plan, months: e.target.value })
+                              }
+                            />
+                          </label>
+                          <label>
+                            Data da última intervenção
+                            <input
+                              type="date"
+                              max={brazilToday()}
+                              value={plan.lastDate}
+                              onChange={(e) =>
+                                setPlan({ ...plan, lastDate: e.target.value })
+                              }
+                            />
+                          </label>
+                          <label>
+                            Horímetro na última intervenção (0 sem data = nunca realizada)
+                            <input
+                              type="number"
+                              min="0"
+                              max="100000000"
+                              step="0.001"
+                              value={plan.lastMeter ?? ""}
+                              onChange={(e) =>
+                                setPlan({ ...plan, lastMeter: e.target.value })
+                              }
+                            />
+                          </label>
+                          <label>
+                            Última OS vinculada (opcional)
+                            <input
+                              inputMode="numeric"
+                              maxLength={18}
+                              value={plan.lastOrder}
+                              onChange={(e) =>
+                                setPlan({ ...plan, lastOrder: e.target.value })
+                              }
+                            />
+                          </label>
+                          <label className="equipment-wide">
+                            Peças, serviços e condições do plano
+                            <textarea
+                              rows={3}
+                              maxLength={3000}
+                              value={plan.notes}
+                              onChange={(e) =>
+                                setPlan({ ...plan, notes: e.target.value })
+                              }
+                            />
+                          </label>
+                        </div>
+                        <div hidden={planTab === "plan"}>
+                        <PreventivePlanItems
+                          viewKind={planTab === "service" ? "service" : "material"}
+                          equipment={detail.equipment}
+                          clients={detail.quoteClients || detail.clients}
+                          items={plan.items || []}
+                          disabled={saving}
+                          onChange={(items) => setPlan({ ...plan, items })}
+                        />
+                        </div>
+                        <p className="muted" hidden={planTab !== "plan"}>
+                          Intervalos são contados desde a última intervenção
+                          deste plano. Pode salvar sem a data ou leitura
+                          inicial, mas a previsão ficará incompleta. Se este for
+                          o primeiro serviço, informe a data e leitura de início
+                          de operação como referência.
+                        </p>
+                        {planTab === "plan" && preview && (
+                          <div className="equipment-preview">
+                            <b>Prévia com os dados preenchidos</b>
+                            <Forecast value={preview} />
+                            <small>
+                              Salve a operação acima para usar esse regime no
+                              cálculo definitivo.
+                            </small>
+                          </div>
+                        )}
+                        <div className="catalog-editor-actions">
+                          <button className="catalog-save-button" aria-label="Salvar plano" title="Salvar plano"><SaveActionIcon /> Salvar plano</button>
+                          <button
+                            type="button"
+                            className="catalog-cancel-button"
+                            onClick={() => setPlan(null)}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </fieldset>
+                    </form>) : null;
   return (
     <EquipmentTaskProvider>
       <SiteHeader active="equipment" email={result?.email} />
@@ -911,6 +1060,7 @@ export default function EquipmentDashboard() {
                         <label>
                           Classificação
                           <select
+                            className={operating.ownership === "unknown" ? "equipment-classification-pending" : undefined}
                             value={operating.ownership}
                             disabled={detail.equipment.rental}
                             onChange={(e) =>
@@ -1051,7 +1201,7 @@ export default function EquipmentDashboard() {
                       className="catalog-edit-button"
                       onClick={() => {
                         setPlan({ ...emptyPlan });
-                        setPlanEdit(null);
+                        setPlanEdit(null); setPlanTab("plan");
                         setMaintenance(null);
                       }}
                     >
@@ -1065,7 +1215,7 @@ export default function EquipmentDashboard() {
                     intervenções mais recentes.
                   </p>
                   <div className="equipment-table">
-                    <table>
+                    <table className="equipment-preventive-plans-table">
                       <thead>
                         <tr>
                           <th>Serviço</th>
@@ -1078,9 +1228,10 @@ export default function EquipmentDashboard() {
                       </thead>
                       <tbody>
                         {detail.plans.map((p: any) => (
-                          <tr key={p.id}>
+                          <Fragment key={p.id}><tr>
                             <td>
                               <strong>{p.document.name}</strong>
+                              {p.forecast.target != null && !p.forecast.coveredBy && !p.forecast.inconsistent && p.id === [...detail.plans].filter((v: any) => v.forecast.target != null && !v.forecast.coveredBy && !v.forecast.inconsistent).sort((a: any,b: any) => a.forecast.target - b.forecast.target || Number(b.document.hours) - Number(a.document.hours))[0]?.id && <span className="equipment-next-preventive">Próxima Preventiva</span>}
                               <small>{p.document.notes}</small>
                               <small>
                                 {p.document.items?.length || 0} materiais e
@@ -1116,7 +1267,7 @@ export default function EquipmentDashboard() {
                               </small>
                             </td>
                             <td>
-                              {date(p.document.lastDate)}
+                              {p.document.lastMeter === 0 && !p.document.lastDate ? "Nunca realizada" : date(p.document.lastDate)}
                               <small>
                                 Horímetro: {qty(p.document.lastMeter)} h
                               </small>
@@ -1148,11 +1299,17 @@ export default function EquipmentDashboard() {
                               <div className="equipment-actions">
                                 <button
                                   disabled={saving}
-                                  title="Editar plano"
+                                  title={plan && planEdit?.id === p.id ? "Fechar edição do plano" : "Editar plano"}
+                                  aria-expanded={!!plan && planEdit?.id === p.id}
                                   aria-label={`Editar ${p.document.name}`}
                                   onClick={() => {
+                                    if (plan && planEdit?.id === p.id) {
+                                      setPlan(null);
+                                      setPlanEdit(null);
+                                      return;
+                                    }
                                     setPlan({ ...p.document });
-                                    setPlanEdit(p);
+                                    setPlanEdit(p); setPlanTab("plan");
                                     setMaintenance(null);
                                   }}
                                 >
@@ -1160,9 +1317,14 @@ export default function EquipmentDashboard() {
                                 </button>
                                 <button
                                   disabled={saving}
-                                  title="Registrar manutenção realizada"
+                                  title={maintenance?.plan.id === p.id ? "Fechar registro de manutenção" : "Registrar manutenção realizada"}
+                                  aria-expanded={maintenance?.plan.id === p.id}
                                   aria-label={`Registrar manutenção de ${p.document.name}`}
                                   onClick={() => {
+                                    if (maintenance?.plan.id === p.id) {
+                                      setMaintenance(null);
+                                      return;
+                                    }
                                     setMaintenance({
                                       plan: p,
                                       date: brazilToday(),
@@ -1193,6 +1355,8 @@ export default function EquipmentDashboard() {
                               </div>
                             </td>
                           </tr>
+                          {plan && planEdit?.id === p.id && <tr><td colSpan={6}>{planEditor}</td></tr>}
+                          </Fragment>
                         ))}
                       </tbody>
                     </table>
@@ -1203,149 +1367,7 @@ export default function EquipmentDashboard() {
                       calcular a próxima preventiva.
                     </p>
                   )}
-                  {plan && (
-                    <form
-                      className="equipment-editor"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        save("plan", plan, planEdit);
-                      }}
-                    >
-                      <fieldset disabled={saving}>
-                        <legend>
-                          {planEdit
-                            ? "Editar plano"
-                            : "Novo plano de preventiva"}
-                        </legend>
-                        <div className="equipment-form-grid">
-                          <label className="equipment-wide">
-                            Serviço / nome do plano
-                            <input
-                              required
-                              maxLength={160}
-                              value={plan.name}
-                              placeholder="Ex.: Preventiva 4.000 horas"
-                              onChange={(e) =>
-                                setPlan({ ...plan, name: e.target.value })
-                              }
-                            />
-                          </label>
-                          <label className="equipment-wide">Identificador M8 / tipo de atendimento
-                            <select value={plan.m8Identifier||""} onChange={e=>setPlan({...plan,m8Identifier:e.target.value})}>
-                              <option value="">Não vinculado</option>
-                              {plan.m8Identifier&&!(detail.attendanceTypes||[]).includes(plan.m8Identifier)&&<option value={plan.m8Identifier}>{plan.m8Identifier}</option>}
-                              {(detail.attendanceTypes||[]).map((name:string)=><option key={name} value={name}>{name}</option>)}
-                            </select>
-                          </label>
-                          <label>
-                            Intervalo em horas
-                            <input
-                              type="number"
-                              min="0.001"
-                              max="1000000"
-                              step="0.001"
-                              value={plan.hours ?? ""}
-                              onChange={(e) =>
-                                setPlan({ ...plan, hours: e.target.value })
-                              }
-                            />
-                          </label>
-                          <label>
-                            Intervalo em meses
-                            <input
-                              type="number"
-                              min="1"
-                              max="1200"
-                              value={plan.months ?? ""}
-                              onChange={(e) =>
-                                setPlan({ ...plan, months: e.target.value })
-                              }
-                            />
-                          </label>
-                          <label>
-                            Data da última intervenção
-                            <input
-                              type="date"
-                              max={brazilToday()}
-                              value={plan.lastDate}
-                              onChange={(e) =>
-                                setPlan({ ...plan, lastDate: e.target.value })
-                              }
-                            />
-                          </label>
-                          <label>
-                            Horímetro na última intervenção
-                            <input
-                              type="number"
-                              min="0"
-                              max="100000000"
-                              step="0.001"
-                              value={plan.lastMeter ?? ""}
-                              onChange={(e) =>
-                                setPlan({ ...plan, lastMeter: e.target.value })
-                              }
-                            />
-                          </label>
-                          <label>
-                            Última OS vinculada (opcional)
-                            <input
-                              inputMode="numeric"
-                              maxLength={18}
-                              value={plan.lastOrder}
-                              onChange={(e) =>
-                                setPlan({ ...plan, lastOrder: e.target.value })
-                              }
-                            />
-                          </label>
-                          <label className="equipment-wide">
-                            Peças, serviços e condições do plano
-                            <textarea
-                              rows={3}
-                              maxLength={3000}
-                              value={plan.notes}
-                              onChange={(e) =>
-                                setPlan({ ...plan, notes: e.target.value })
-                              }
-                            />
-                          </label>
-                        </div>
-                        <PreventivePlanItems
-                          equipment={detail.equipment}
-                          clients={detail.quoteClients || detail.clients}
-                          items={plan.items || []}
-                          disabled={saving}
-                          onChange={(items) => setPlan({ ...plan, items })}
-                        />
-                        <p className="muted">
-                          Intervalos são contados desde a última intervenção
-                          deste plano. Pode salvar sem a data ou leitura
-                          inicial, mas a previsão ficará incompleta. Se este for
-                          o primeiro serviço, informe a data e leitura de início
-                          de operação como referência.
-                        </p>
-                        {preview && (
-                          <div className="equipment-preview">
-                            <b>Prévia com os dados preenchidos</b>
-                            <Forecast value={preview} />
-                            <small>
-                              Salve a operação acima para usar esse regime no
-                              cálculo definitivo.
-                            </small>
-                          </div>
-                        )}
-                        <div className="catalog-editor-actions">
-                          <button className="catalog-save-button" aria-label="Salvar plano" title="Salvar plano"><SaveActionIcon /></button>
-                          <button
-                            type="button"
-                            className="catalog-cancel-button"
-                            onClick={() => setPlan(null)}
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      </fieldset>
-                    </form>
-                  )}
+                  {plan && !planEdit && planEditor}
                   {maintenance && (
                     <form
                       className="equipment-editor"
@@ -1465,7 +1487,7 @@ export default function EquipmentDashboard() {
                           <th>OS</th>
                           <th>Data</th>
                           <th>Cliente</th>
-                          <th>Tipo / situação</th>
+                          <th>Tipo / atendimento</th>
                           <th>Origem do vínculo</th>
                           <th>Ações</th>
                         </tr>
@@ -1481,7 +1503,7 @@ export default function EquipmentDashboard() {
                             <td>{o.cliente_nome || "—"}</td>
                             <td>
                               {o.tipo_nome || "Não informado"}
-                              <small>{o.status}</small>
+                              <small>{o.tipo_atendimento_nome || "Não informado"}</small>
                             </td>
                             <td>
                               {o.method === "observation"
