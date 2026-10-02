@@ -1,5 +1,6 @@
+import { assertTaskAccess } from "@/lib/tasks/privacy";
 import { taskAttachmentMime } from "@/lib/tasks/attachment-types";
-import { requireUser, Unauthorized } from "@/lib/auth";
+import { requireUser, Unauthorized, Forbidden } from "@/lib/auth";
 import { database } from "@/lib/db";
 export const runtime = "nodejs";
 export async function GET(
@@ -7,16 +8,17 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requireUser();
+    const user = await requireUser();
     const { id } = await params;
     if (!/^\d{1,18}$/.test(id)) return new Response(null, { status: 404 });
     const row = (
       await database().query(
-        "SELECT filename,content FROM web_task_attachments WHERE id=$1",
+        "SELECT task_id,filename,content FROM web_task_attachments WHERE id=$1",
         [id],
       )
     ).rows[0];
     if (!row) return new Response(null, { status: 404 });
+    await assertTaskAccess(String(row.task_id),user.email);
     return new Response(new Uint8Array(row.content), {
       headers: {
         "Content-Type": taskAttachmentMime(row.filename),
@@ -27,7 +29,7 @@ export async function GET(
     });
   } catch (e) {
     return new Response(null, {
-      status: e instanceof Unauthorized ? 401 : 503,
+      status: e instanceof Forbidden ? 403 : e instanceof Unauthorized ? 401 : 503,
     });
   }
 }

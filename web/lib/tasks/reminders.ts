@@ -32,12 +32,12 @@ export async function listReminders(task: unknown) {
   ).rows;
 }
 export async function saveReminder(b: any, actor: string) {
-  if (!validId(b?.taskId) || !["create", "cancel"].includes(b.action))
+  if (!validId(b?.taskId) || !["create", "edit", "cancel"].includes(b.action))
     throw new TaskInputError("Alerta inválido.");
-  const when = b.action === "create" ? reminderInstant(b.when) : null;
+  const when = b.action !== "cancel" ? reminderInstant(b.when) : null;
   let rule;
   try {
-    rule = b.action === "create" ? parseRecurrence(b.recurrence, b.when) : null;
+    rule = b.action !== "cancel" ? parseRecurrence(b.recurrence, b.when) : null;
   } catch (e) {
     throw new TaskInputError((e as Error).message);
   }
@@ -51,7 +51,24 @@ export async function saveReminder(b: any, actor: string) {
     ).rows[0];
     if (!t) throw new TaskInputError("Tarefa não encontrada.");
     let description = "";
-    if (b.action === "create") {
+    if (b.action === "edit") {
+      if (!validId(b.id)) throw new TaskInputError("Alerta inválido.");
+      if (t.status === "completed") throw new TaskInputError("A tarefa está concluída.");
+      const reference = (await c.query("SELECT series_id FROM web_task_reminders WHERE id=$1 AND task_id=$2",[b.id,b.taskId])).rows[0];
+      if (reference?.series_id) await c.query("SELECT id FROM web_task_reminder_series WHERE id=$1 FOR UPDATE",[reference.series_id]);
+      const current = (await c.query("SELECT * FROM web_task_reminders WHERE id=$1 AND task_id=$2 FOR UPDATE",[b.id,b.taskId])).rows[0];
+      if (!current || current.state !== "pending" || (current.leased_until && new Date(current.leased_until).getTime() > Date.now()))
+        throw new TaskConflict("Alerta já enviado, cancelado ou em envio.");
+      if (!b.expectedWhen || new Date(current.scheduled_at).toISOString() !== b.expectedWhen)
+        throw new TaskConflict("O alerta foi alterado. Atualize antes de editar.");
+      const duplicate = (await c.query("SELECT id FROM web_task_reminders WHERE task_id=$1 AND scheduled_at=$2 AND recipient=$3 AND id<>$4",[b.taskId,when,current.recipient,b.id])).rows[0];
+      if (duplicate) throw new TaskInputError("Já existe um alerta para este horário e responsável.");
+      if (current.series_id) await c.query("UPDATE web_task_reminder_series SET active=false WHERE id=$1",[current.series_id]);
+      const series = rule ? randomUUID() : null;
+      if (series) await c.query("INSERT INTO web_task_reminder_series(id,task_id,anchor_local,rule) VALUES($1,$2,$3,$4)",[series,b.taskId,b.when,JSON.stringify(rule)]);
+      await c.query("UPDATE web_task_reminders SET scheduled_at=$2,series_id=$3,occurrence_index=0,lease_token=NULL,leased_until=NULL WHERE id=$1",[b.id,when,series]);
+      description = `Alerta alterado de ${new Date(current.scheduled_at).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})} para ${new Date(when!).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})} (Brasília). Destinatário mantido. ${recurrenceLabel(rule)}.`;
+    } else if (b.action === "create") {
       if (t.status === "completed")
         throw new TaskInputError("A tarefa está concluída.");
       const u = (
@@ -111,7 +128,7 @@ export async function saveReminder(b: any, actor: string) {
       `INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,$2,$3,false,$4,coalesce((SELECT display_name FROM web_user_access WHERE email=$4),'Usuário'))`,
       [
         b.taskId,
-        b.action === "create" ? "Alerta agendado" : "Alerta cancelado",
+        b.action === "edit" ? "Alerta alterado" : b.action === "create" ? "Alerta agendado" : "Alerta cancelado",
         description,
         actor,
       ],
@@ -134,12 +151,13 @@ export async function claimReminders(origin: string) {
     await c.query("BEGIN READ WRITE");
     const rows = (
       await c.query(
-        `SELECT r.*,t.title,t.origin,t.status,u.enabled,u.phone FROM web_task_reminders r JOIN web_tasks t ON t.id=r.task_id LEFT JOIN web_user_access u ON u.email=r.recipient LEFT JOIN web_task_reminder_series s ON s.id=r.series_id WHERE (r.series_id IS NULL OR s.active) AND r.state='pending' AND r.scheduled_at<=now() AND (r.leased_until IS NULL OR r.leased_until<now()) ORDER BY r.scheduled_at LIMIT 20 FOR UPDATE OF r SKIP LOCKED`,
+        `SELECT r.*,to_jsonb(t)->>'restricted' restricted,u.role recipient_role,t.title,t.origin,t.status,u.enabled,u.phone FROM web_task_reminders r JOIN web_tasks t ON t.id=r.task_id LEFT JOIN web_user_access u ON u.email=r.recipient LEFT JOIN web_task_reminder_series s ON s.id=r.series_id WHERE (r.series_id IS NULL OR s.active) AND r.state='pending' AND r.scheduled_at<=now() AND (r.leased_until IS NULL OR r.leased_until<now()) ORDER BY r.scheduled_at LIMIT 20 FOR UPDATE OF r SKIP LOCKED`,
       )
     ).rows;
     const result = [];
     for (const r of rows) {
       if (
+        (r.restricted === "true" && r.recipient_role !== "admin") ||
         r.status === "completed" ||
         !r.enabled ||
         !/^\d{10,15}$/.test(r.phone || "")

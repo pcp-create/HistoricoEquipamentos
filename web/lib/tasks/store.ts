@@ -1,3 +1,4 @@
+import { assertTaskAccess, taskAdministrator, restrictedTaskSummary } from "./privacy";
 import { creationContext, TaskContextError } from "./creation-context";
 import { assignNewTasks } from "./territories";
 import { randomUUID } from "node:crypto";
@@ -247,14 +248,15 @@ export async function listTasks(p: URLSearchParams, user: AuthUser) {
     await database().query("SELECT synced_at FROM web_task_sync WHERE id=1")
   ).rows[0];
   return {
-    tasks: rows,
+    tasks: (await taskAdministrator(user.email)) ? rows : rows.map(t => t.restricted ? restrictedTaskSummary(t) : t),
     users,
     email: user.email,
     syncedAt: sync?.synced_at || null,
   };
 }
-export async function taskDetail(id: string) {
+export async function taskDetail(id: string, user?: AuthUser) {
   idValue(id);
+  await assertTaskAccess(id, user?.email);
   const db = database();
   const task = (
     await db.query(
@@ -326,6 +328,7 @@ export async function taskDetail(id: string) {
 }
 export async function updateTask(body: any, user: AuthUser) {
   const id = idValue(body?.id);
+  await assertTaskAccess(id, user.email);
   if (!Number.isInteger(body.version) || body.version < 1)
     throw new TaskInputError("Versão inválida.");
   const c = await database().connect();
@@ -523,7 +526,7 @@ export async function updateTask(body: any, user: AuthUser) {
   } finally {
     c.release();
   }
-  return taskDetail(id);
+  return taskDetail(id, user);
 }
 export async function attachTask(id: string, file: File, user: AuthUser) {
   idValue(id);
@@ -531,6 +534,7 @@ export async function attachTask(id: string, file: File, user: AuthUser) {
     throw new TaskInputError("Envie um arquivo de até 3 MB.");
   if (!allowedTaskAttachment(file.name))
     throw new TaskInputError(taskAttachmentTypeMessage);
+  await assertTaskAccess(id, user.email);
   const bytes = Buffer.from(await file.arrayBuffer());
   const filename = file.name.replace(/[\x00-\x1f\x7f/\\]/g, "_") || "anexo";
   if (filename.length > 180)
@@ -575,10 +579,11 @@ export async function attachTask(id: string, file: File, user: AuthUser) {
   } finally {
     c.release();
   }
-  return taskDetail(id);
+  return taskDetail(id, user);
 }
 
 export async function createTask(body: any, user: AuthUser) {
+  if (body.restricted != null && typeof body.restricted !== "boolean") throw new TaskInputError("Visibilidade inválida.");
   if (
     typeof body.title !== "string" ||
     !body.title.trim() ||
@@ -654,6 +659,7 @@ export async function createTask(body: any, user: AuthUser) {
         )
       ).rows[0].id,
     );
+    if(body.restricted) await c.query("UPDATE web_tasks SET restricted=true WHERE id=$1",[id]);
     if(initialStage)await c.query("UPDATE web_tasks SET stage_id=$2 WHERE id=$1",[id,initialStage.id]);
     await note(
       c,
@@ -679,7 +685,8 @@ export async function createTask(body: any, user: AuthUser) {
   } finally {
     c.release();
   }
-  return taskDetail(id!);
+  if (body.restricted && !(await taskAdministrator(user.email))) return { task: restrictedTaskSummary({id:id!,status:"not_started"}), notes:[],attachments:[],notifications:[] };
+  return taskDetail(id!, user);
 }
 
 export async function deleteTaskNote(body:any,user:AuthUser){
@@ -696,5 +703,5 @@ export async function deleteTaskNote(body:any,user:AuthUser){
  await c.query('UPDATE web_tasks SET version=version+1,updated_at=now(),updated_by=$2 WHERE id=$1',[id,user.email]);
  await c.query('COMMIT');
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
- return taskDetail(id);
+ return taskDetail(id, user);
 }

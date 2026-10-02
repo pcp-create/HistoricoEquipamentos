@@ -47,6 +47,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       "015_task_origin_rules.sql",
       "013_task_territories.sql",
       "041_task_completion_notifications.sql",
+      "042_restricted_tasks.sql",
     ])
       await db.exec(
         readFileSync(new URL("../sql/" + f, import.meta.url), "utf8"),
@@ -478,6 +479,24 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       ).length,
       0,
     );
+    const restricted = await createTask({title:"Conteúdo confidencial",description:"Nota sigilosa",priority:"normal",assignedTo:user.email,dueDate:"",restricted:true},user);
+    const restrictedId = String(restricted.task.id);
+    assert.equal(restricted.task.title,"Tarefa restrita");
+    assert.equal(restricted.task.redacted,true);
+    const publicTask = (await listTasks(new URLSearchParams(),user)).tasks.find(t=>String(t.id)===restrictedId);
+    assert.equal(publicTask.title,"Tarefa restrita");
+    assert.equal(JSON.stringify(publicTask).includes("confidencial"),false);
+    assert.equal(publicTask.created_by,undefined);
+    await assert.rejects(()=>taskDetail(restrictedId,user));
+    await assert.rejects(()=>updateTask({id:restrictedId,version:1,action:"note",title:"Nota",description:"Teste"},user));
+    await assert.rejects(()=>attachTask(restrictedId,new File(["secret"],"nota.pdf",{type:"application/pdf"}),user));
+    assert.equal((await claimNotifications("https://example.com")).some(n=>n.text.includes("Conteúdo confidencial")),false);
+    assert.equal((await db.query<{state:string}>("SELECT state FROM web_task_notifications WHERE task_id=$1",[restrictedId])).rows[0].state,"skipped");
+    await db.query("UPDATE web_user_access SET role='admin' WHERE email=$1",[user.email]);
+    const privateDetail = await taskDetail(restrictedId,user);
+    assert.equal(privateDetail.task.title,"Conteúdo confidencial");
+    assert.ok(privateDetail.notes.some(n=>n.description.includes("Nota sigilosa")));
+    assert.equal((await listTasks(new URLSearchParams(),user)).tasks.find(t=>String(t.id)===restrictedId).title,"Conteúdo confidencial");
   } finally {
     g.historyPool = old;
     await db.close();

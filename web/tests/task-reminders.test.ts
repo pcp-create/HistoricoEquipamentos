@@ -157,6 +157,22 @@ test("scheduled reminders validate time, lease once, acknowledge and cancel with
       ).rows[0].n,
       0,
     );
+    await saveReminder({action:"create",taskId:"1",when:"2099-04-01T08:00"},"a@example.com");
+    let editable = (await listReminders("1")).find(r=>new Date(r.scheduled_at).toISOString()==="2099-04-01T11:00:00.000Z")!;
+    const edit = {action:"edit",taskId:"1",id:editable.id,expectedWhen:new Date(editable.scheduled_at).toISOString(),when:"2099-04-02T09:00",recurrence};
+    await saveReminder(edit,"a@example.com");
+    editable = (await listReminders("1")).find(r=>r.id===editable.id)!;
+    assert.equal(new Date(editable.scheduled_at).toISOString(),"2099-04-02T12:00:00.000Z");
+    assert.ok(editable.series_id);
+    assert.equal(editable.recipient_name,"Pessoa");
+    await assert.rejects(()=>saveReminder(edit,"a@example.com"),/alterado/);
+    const previousSeries=editable.series_id;
+    await saveReminder({...edit,expectedWhen:new Date(editable.scheduled_at).toISOString(),when:"2099-04-03T09:00",recurrence:null},"a@example.com");
+    editable=(await listReminders("1")).find(r=>r.id===editable.id)!;
+    assert.equal(editable.series_id,null);
+    assert.equal((await db.query<any>("SELECT active FROM web_task_reminder_series WHERE id=$1",[previousSeries])).rows[0].active,false);
+    await db.query("UPDATE web_task_reminders SET leased_until=now()+interval '30 minutes' WHERE id=$1",[editable.id]);
+    await assert.rejects(()=>saveReminder({...edit,expectedWhen:new Date(editable.scheduled_at).toISOString()},"a@example.com"),/em envio/);
   } finally {
     g.historyPool = old;
     await db.close();

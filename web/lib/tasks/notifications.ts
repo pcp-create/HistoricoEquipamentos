@@ -8,12 +8,13 @@ export async function claimNotifications(origin: string) {
     await c.query("BEGIN READ WRITE");
     const rows = (
       await c.query(
-        `SELECT n.*,u.phone,u.enabled,t.title,t.origin,t.equipment_name,t.customer,t.status,t.assigned_to,t.completed_at,t.updated_by,NOT EXISTS(SELECT 1 FROM web_task_notifications newer WHERE newer.task_id=n.task_id AND COALESCE(to_jsonb(newer)->>'kind','assignment')=COALESCE(to_jsonb(n)->>'kind','assignment') AND newer.id>n.id) current_assignment FROM web_task_notifications n JOIN web_user_access u ON u.email=n.recipient JOIN web_tasks t ON t.id=n.task_id WHERE n.state='pending' AND (n.leased_until IS NULL OR n.leased_until<now()) ORDER BY n.id LIMIT 20 FOR UPDATE OF n SKIP LOCKED`,
+        `SELECT n.*,u.phone,u.enabled,to_jsonb(t)->>'restricted' restricted,u.role recipient_role,t.title,t.origin,t.equipment_name,t.customer,t.status,t.assigned_to,t.completed_at,t.updated_by,NOT EXISTS(SELECT 1 FROM web_task_notifications newer WHERE newer.task_id=n.task_id AND COALESCE(to_jsonb(newer)->>'kind','assignment')=COALESCE(to_jsonb(n)->>'kind','assignment') AND newer.id>n.id) current_assignment FROM web_task_notifications n JOIN web_user_access u ON u.email=n.recipient JOIN web_tasks t ON t.id=n.task_id WHERE n.state='pending' AND (n.leased_until IS NULL OR n.leased_until<now()) ORDER BY n.id LIMIT 20 FOR UPDATE OF n SKIP LOCKED`,
       )
     ).rows;
     const result = [];
     for (const n of rows) {
       if (
+        (n.restricted === "true" && n.recipient_role !== "admin") ||
         !n.current_assignment ||
         !n.enabled ||
         !n.phone ||

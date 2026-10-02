@@ -156,6 +156,7 @@ function LinkedTaskForm({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   ...fields,
+                  restricted: fields.restricted === "on",
                   action: "create",
                   orderId: context.orderId,
                   orderCompany: context.orderCompany,
@@ -163,7 +164,8 @@ function LinkedTaskForm({
               });
               const b = await r.json();
               if (!r.ok) throw Error(b.error);
-              onCreated(String(b.task.id));
+              if (b.task.redacted) onClose();
+              else onCreated(String(b.task.id));
             } catch (e) {
               setError((e as Error).message);
             } finally {
@@ -208,6 +210,8 @@ function LinkedTaskForm({
             Descrição
             <textarea name="description" maxLength={12000} />
           </label>
+          <label><input type="checkbox" name="restricted" /> Tarefa restrita</label>
+          <p>Somente administradores podem ver os detalhes. Os demais usuários verão apenas a tarefa e seu status.</p>
           <label>
             Responsável
             <select name="assignedTo" defaultValue="">

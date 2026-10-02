@@ -422,7 +422,7 @@ export function TaskDrawer({
                   />{" "}
                   Atualizar prioridade automaticamente pelo alerta
                 </label>
-                <button onClick={() => save("update")} aria-label="Salvar responsável e prioridade" title="Salvar responsável e prioridade"><SaveActionIcon /></button>
+                <button onClick={() => save("update")} aria-label="Salvar Tarefa" title="Salvar Tarefa"><SaveActionIcon /> Salvar Tarefa</button>
               </fieldset>
               {t.status === "completed" && (
                 <p>
@@ -1164,11 +1164,12 @@ export default function TasksDashboard() {
                     const result = await api("/api/tasks", {
                       action: "create",
                       ...Object.fromEntries(fields),
+                      restricted: fields.get("restricted") === "on",
                       stageId:newStage,
                     });
                     setCreating(false);
                     await load();
-                    open(String(result.task.id));
+                    if (!result.task.redacted) open(String(result.task.id));
                   } catch (e) {
                     setError((e as Error).message);
                   } finally {
@@ -1177,6 +1178,8 @@ export default function TasksDashboard() {
                 }}
               >
                 <h2>Nova tarefa manual</h2>
+                <label><input type="checkbox" name="restricted" /> Tarefa restrita</label>
+                <p className="muted">Somente administradores poderão ver os detalhes, inclusive se você for o criador ou responsável. Os demais verão apenas a tarefa e seu status.</p>
                 {newStage&&<p>Etapa inicial: {stages.find(s=>s.id===newStage)?.name}</p>}
                 <div className="task-manual-fields">
                   <label>
@@ -1540,7 +1543,7 @@ export default function TasksDashboard() {
                                   return;
                                 open(t.id);
                               }}
-                              draggable={!busy && t.status !== "completed"}
+                              draggable={!busy && !t.redacted && t.status !== "completed"}
                               onDragStart={(e) => {
                                 e.dataTransfer.setData(
                                   "text/plain",

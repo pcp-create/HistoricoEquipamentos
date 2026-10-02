@@ -1,4 +1,5 @@
-import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
+import { assertTaskAccess } from "@/lib/tasks/privacy";
+import { requireUser, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import { listReminders, saveReminder } from "@/lib/tasks/reminders";
 import { TaskInputError, TaskConflict } from "@/lib/tasks/store";
 const json = (b: unknown, status = 200) =>
@@ -16,7 +17,7 @@ const fail = (e: unknown) =>
             ? "Sessão expirada."
             : "Não foi possível processar o alerta.",
     },
-    e instanceof TaskInputError
+    e instanceof Forbidden ? 403 : e instanceof TaskInputError
       ? 400
       : e instanceof TaskConflict
         ? 409
@@ -26,7 +27,8 @@ const fail = (e: unknown) =>
   );
 export async function GET(req: Request) {
   try {
-    await requireUser();
+    const user = await requireUser();
+    await assertTaskAccess(new URL(req.url).searchParams.get("taskId") || "0",user.email);
     return json({
       reminders: await listReminders(
         new URL(req.url).searchParams.get("taskId"),
@@ -48,6 +50,7 @@ export async function POST(req: Request) {
     } catch {
       throw new TaskInputError("Dados inválidos.");
     }
+    await assertTaskAccess(String(body.taskId || "0"),u.email);
     await saveReminder(body, u.email);
     return json({ saved: true });
   } catch (e) {

@@ -17,7 +17,7 @@ const headers = { "Cache-Control": "private, no-store", "X-Task-Hierarchy-Versio
 const json = (data: unknown, status = 200) =>
   Response.json(data, { status, headers });
 function failure(e: unknown) {
-  if (e instanceof Forbidden)return json({error:"Somente administradores podem excluir notas."},403);
+  if (e instanceof Forbidden)return json({error:"Somente administradores podem acessar ou alterar as informações desta tarefa."},403);
   if (e instanceof Unauthorized)
     return json({ error: "Sessão expirada." }, 401);
   if (e instanceof TaskInputError) return json({ error: e.message }, 400);
@@ -35,7 +35,7 @@ export async function GET(req: Request) {
   try {
     const user = await requireUser(),
       p = new URL(req.url).searchParams;
-    if(p.has("id")){const access=await accessRecord(user.email);const detail=await taskDetail(p.get("id")!);if(detail.task.source_key.startsWith("time-request:")&&access?.role!=="admin")throw new Forbidden();return json({...detail,canDeleteNotes:!!access?.enabled&&access.role==="admin"});}
+    if(p.has("id")){const access=await accessRecord(user.email);const detail=await taskDetail(p.get("id")!,user);if(detail.task.source_key.startsWith("time-request:")&&access?.role!=="admin")throw new Forbidden();return json({...detail,canDeleteNotes:!!access?.enabled&&access.role==="admin"});}
     return json(await listTasks(p,user));
   } catch (e) {
     return failure(e);

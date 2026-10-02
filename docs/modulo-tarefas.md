@@ -124,3 +124,15 @@ Implantação: pausar temporariamente o workflow consumidor de avisos, aplicar `
 cd web
 node --env-file=.env.local --conditions=react-server --import tsx scripts/setup-task-completion-notifications.mts
 ```
+
+### Tarefas restritas
+
+Na criação manual (incluindo tarefas vinculadas a OS/equipamento), marque **Tarefa restrita**. Apenas usuários ativos com perfil administrador podem consultar detalhes, notas e anexos ou alterar a tarefa. Criador e responsável não recebem exceção. Os demais usuários visualizam apenas “Tarefa restrita” e o status. Avisos com conteúdo por WhatsApp e lembretes são suprimidos para destinatários sem perfil administrador.
+
+Antes de publicar esta versão, execute em `web`:
+
+```sh
+node --env-file=.env.local --conditions=react-server --import tsx scripts/setup-restricted-tasks.mts
+```
+
+A migração `042_restricted_tasks.sql` mantém todas as tarefas existentes públicas.

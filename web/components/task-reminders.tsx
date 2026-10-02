@@ -5,7 +5,7 @@ import {
   nextOccurrence,
   recurrenceLabel,
 } from "@/lib/tasks/recurrence";
-import { BellPlus } from "lucide-react";
+import { BellPlus, Pencil, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/client-api-cache";
 export default function TaskReminders({
   task,
@@ -18,6 +18,7 @@ export default function TaskReminders({
     [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [editing, setEditing] = useState<any>(null);
   const [when, setWhen] = useState(""),
     [frequency, setFrequency] = useState("none"),
     [interval, setInterval] = useState(1),
@@ -71,25 +72,6 @@ export default function TaskReminders({
     setBusy(true);
     setError("");
     try {
-      if (body.action === "cancel")
-        setRows(
-          rows.map((r) =>
-            r.id === body.id ? { ...r, state: "cancelled" } : r,
-          ),
-        );
-      else {
-        setOpen(false);
-        setRows([
-          {
-            id: "saving",
-            scheduled_at: new Date(body.when + "-03:00").toISOString(),
-            state: "pending",
-            recipient_name: task.assignee_name,
-            rule: recurrence ? parseRecurrence(recurrence, when) : null,
-          },
-          ...rows,
-        ]);
-      }
       const r = await apiFetch("/api/tasks/reminders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,11 +80,12 @@ export default function TaskReminders({
       const b = await r.json();
       if (!r.ok) throw Error(b.error);
       setOpen(false);
+      setEditing(null);
       await load();
       onChanged();
     } catch (e) {
       setRows(before);
-      if (body.action === "create") setOpen(true);
+      if (body.action !== "cancel") setOpen(true);
       setError((e as Error).message);
     } finally {
       setBusy(false);
@@ -117,7 +100,7 @@ export default function TaskReminders({
       <button
         type="button"
         disabled={busy || task.status === "completed"}
-        onClick={() => setOpen(true)}
+        onClick={() => { setEditing(null); setWhen(""); setFrequency("none"); setError(""); setOpen(true); }}
       >
         <BellPlus size={16} aria-hidden="true" /> Criar alerta
       </button>
@@ -126,7 +109,9 @@ export default function TaskReminders({
           onSubmit={(e) => {
             e.preventDefault();
             void save({
-              action: "create",
+              action: editing ? "edit" : "create",
+              id: editing?.id,
+              expectedWhen: editing ? new Date(editing.scheduled_at).toISOString() : undefined,
               when,
               recurrence,
             });
@@ -134,10 +119,11 @@ export default function TaskReminders({
         >
           <p>
             Enviar para{" "}
-            <strong>{task.assignee_name || "o responsável da tarefa"}</strong>,
+            <strong>{(editing ? editing.recipient_name : task.assignee_name) || "o responsável da tarefa"}</strong>,
             pelo WhatsApp cadastrado. O destinatário é mantido mesmo se o
             responsável da tarefa mudar depois.
           </p>
+          {editing && <p>Editar alerta: as alterações valem para este envio e as próximas repetições. A contagem de ocorrências reinicia neste alerta.</p>}
           <label>
             Data e hora do alerta (Brasília)
             <input
@@ -295,7 +281,7 @@ export default function TaskReminders({
             pendente, evitando mensagens acumuladas.
           </p>
           <button type="submit" disabled={busy || !!validation}>
-            Agendar alerta
+            {editing ? "Salvar alerta" : "Agendar alerta"}
           </button>{" "}
           <button type="button" disabled={busy} onClick={() => setOpen(false)}>
             Cancelar
@@ -327,12 +313,27 @@ export default function TaskReminders({
                 <>
                   {" "}
                   ·{" "}
+                  <button type="button" className="task-reminder-icon" disabled={busy || task.status === "completed"} title="Editar alerta" aria-label="Editar alerta" onClick={() => {
+                    setEditing(r);
+                    setWhen(new Date(new Date(r.scheduled_at).getTime() - 3 * 3600000).toISOString().slice(0,16));
+                    setFrequency(r.rule?.frequency || "none");
+                    setInterval(r.rule?.interval || 1);
+                    setWeekdays(r.rule?.weekdays || [1]);
+                    setMonthMode(r.rule?.monthMode || "date");
+                    setEnd(r.rule?.end || "never");
+                    setUntil(r.rule?.until || "");
+                    setCount(r.rule?.count ? Math.max(1,r.rule.count - (r.occurrence_index || 0)) : 10);
+                    setError(""); setOpen(true);
+                  }}><Pencil size={16} aria-hidden="true" /></button>
                   <button
                     type="button"
+                    className="task-reminder-icon"
+                    title={r.series_id ? "Cancelar recorrência" : "Cancelar alerta"}
+                    aria-label={r.series_id ? "Cancelar recorrência" : "Cancelar alerta"}
                     disabled={busy}
                     onClick={() => void save({ action: "cancel", id: r.id })}
                   >
-                    {r.series_id ? "Cancelar recorrência" : "Cancelar alerta"}
+                    <Trash2 size={16} aria-hidden="true" />
                   </button>
                 </>
               )}
