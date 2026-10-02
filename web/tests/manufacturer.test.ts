@@ -169,6 +169,11 @@ test("catalog SQL indexes exact multi-code references, refreshes on M8 updates a
         "utf8",
       ),
     );
+    await db.exec(readFileSync(new URL("../sql/043_manufacturer_reference_tokens.sql",import.meta.url),"utf8"));
+    const branded = await db.query<{code:string}>("SELECT manufacturer_code_tokens('METALPLAN 3120225/ KELTEC KL600-026/ UNIFILTER USH9405/') code");
+    for (const code of ["3120225","KL600026","USH9405"]) assert.ok(branded.rows.some(r=>r.code===code));
+    const noPartial = await db.query<{code:string}>("SELECT manufacturer_code_tokens('METALPLAN 99312022599/') code");
+    assert.ok(!noPartial.rows.some(r=>r.code==='3120225'));
     const tokens = await db.query<{ code: string }>(
       `SELECT manufacturer_code_tokens('ref 0367 0100 55 / 1234567890; 99123456789099') AS code`,
     );
@@ -308,7 +313,7 @@ test("catalog SQL indexes exact multi-code references, refreshes on M8 updates a
       manualFilters(new URLSearchParams("list=SEM-ITEM-XYZ")),
     );
     assert.equal(missingList.total, 0);
-    // Limit distinct products after prioritizing genuine references, then expand all company balances.
+    // Include all matching products, prioritizing genuine references and expanding company balances.
     await db.exec(`INSERT INTO m8_product_catalog(company_id,product_id,name,unit,collected_at,payload)
       SELECT company,product,'Peça teste','UN',now(),jsonb_build_object(CASE WHEN product=99 THEN 'referenciaFabricante' ELSE 'codigoSimilaridade' END,'0367010055')
       FROM unnest(ARRAY[1,2,27404]) company CROSS JOIN unnest(ARRAY[20,21,22,23,24,25,26,27,28,29,99]) product;
@@ -319,7 +324,7 @@ test("catalog SQL indexes exact multi-code references, refreshes on M8 updates a
     const matches = grouped.rows[0].products;
     assert.equal(
       new Set(matches.map((p: { product_id: string }) => p.product_id)).size,
-      8,
+      12,
     );
     assert.equal(matches[0].product_id, "10");
     assert.equal(matches[2].product_id, "99");

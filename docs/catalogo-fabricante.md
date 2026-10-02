@@ -83,3 +83,15 @@ O resultado lista as peças registradas no comparativo; itens sem periodicidade 
 O campo Marca separa os catálogos por fabricante (Atlas Copco, Wayne, Metalplan e Pressure). A opção Todas as marcas mantém a consulta conjunta. As sugestões de modelo, as versões e os intervalos acompanham a marca selecionada; trocar de marca limpa modelo, série, versão e intervalo. Clique em Pesquisar para aplicar aos resultados. A marca permanece na URL e na paginação, e aparece na origem de cada item.
 
 A classificação usa o fabricante declarado na importação ou a origem do catálogo; não deduz a marca apenas pelo nome do modelo. Fontes sem identificação ficam em Não informada. Não exige migration nem alteração no integrador.
+
+### Referências precedidas pelo nome do fabricante
+
+A migração `043_manufacturer_reference_tokens.sql` corrige a indexação de referências como `METALPLAN 3120225/`: o código isolado `3120225` também é reconhecido, tanto em `referenciaFabricante` quanto em `codigoSimilaridade`. Catálogo e sugestões de orçamento usam o mesmo índice. A busca continua por código completo, sem correspondência por trecho de um código maior.
+
+Para aplicar em outra base, execute a partir de `web`:
+
+```sh
+node --env-file=.env.local --conditions=react-server --import tsx scripts/setup-manufacturer-reference-tokens.mts
+```
+
+A migração reindexa os materiais existentes. As próximas sincronizações do ERP usam automaticamente a função corrigida pelo gatilho já instalado.
