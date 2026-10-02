@@ -1,3 +1,4 @@
+import { PUBLIC_SYSTEM_URL } from "../public-url";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import {
@@ -18,7 +19,7 @@ import {
 } from "./report";
 export async function reportPdf(
   report: Report,
-  baseUrl = "https://historicorj.vercel.app",
+  baseUrl = PUBLIC_SYSTEM_URL,
 ) {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica),

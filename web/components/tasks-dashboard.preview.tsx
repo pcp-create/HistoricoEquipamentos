@@ -160,10 +160,13 @@ export function TaskDrawer({
     [assigned, setAssigned] = useState(""),
     [priority, setPriority] = useState("normal"),
     [automatic, setAutomatic] = useState(true),
+    [restricted, setRestricted] = useState(false),
     [addingNote, setAddingNote] = useState(false),
     [title, setTitle] = useState(""),
     [description, setDescription] = useState("");
   function accept(b: any) {
+    if (b.task.redacted) { onChanged?.(); onClose(); return; }
+    setRestricted(!!b.task.restricted);
     setData(b);
     if(typeof b.canDeleteNotes === "boolean")setCanDeleteNotes(b.canDeleteNotes);
     setAssigned(b.task.assigned_to || "");
@@ -226,6 +229,7 @@ export function TaskDrawer({
           assignedTo: assigned,
           priority,
           automaticPriority: automatic,
+          ...(action === "update" && data.task.source_key?.startsWith("manual:") ? {restricted} : {}),
           title,
           description,
         }),
@@ -414,6 +418,7 @@ export function TaskDrawer({
                   </select>
                 </label>
                 <TaskStageSelect task={t} disabled={busy || t.status === "completed"} onChange={stageId=>void changeStage(stageId)} />
+                {t.source_key?.startsWith("manual:") && <div className="task-restriction-field"><label className="task-restriction-check"><input type="checkbox" checked={restricted} onChange={e=>setRestricted(e.target.checked)} /> Tarefa restrita</label><small>Oculta os detalhes da tarefa, mantendo sua existência e status visíveis.</small></div>}
                 <label className="task-check">
                   <input
                     type="checkbox"
@@ -1178,8 +1183,6 @@ export default function TasksDashboard() {
                 }}
               >
                 <h2>Nova tarefa manual</h2>
-                <label><input type="checkbox" name="restricted" /> Tarefa restrita</label>
-                <p className="muted">Somente administradores poderão ver os detalhes, inclusive se você for o criador ou responsável. Os demais verão apenas a tarefa e seu status.</p>
                 {newStage&&<p>Etapa inicial: {stages.find(s=>s.id===newStage)?.name}</p>}
                 <div className="task-manual-fields">
                   <label>
@@ -1211,10 +1214,13 @@ export default function TasksDashboard() {
                       ))}
                     </select>
                   </label>
+                  <div className="task-due-restriction">
                   <label>
                     Vencimento
                     <input type="date" name="dueDate" />
                   </label>
+                  <div className="task-restriction-field"><label className="task-restriction-check"><input type="checkbox" name="restricted" /> Tarefa restrita</label><small>Oculta os detalhes da tarefa, mantendo sua existência e status visíveis.</small></div>
+                  </div>
                 </div>
                 <label>
                   Descrição

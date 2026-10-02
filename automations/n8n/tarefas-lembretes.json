@@ -42,7 +42,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "return [{json:{systemUrl:'https://historicorj.vercel.app', deliver:false, evolutionUrl:'http://EVOLUTION_INTERNO:8080', instance:'BotDemandas'}}];"
+        "jsCode": "return [{json:{systemUrl:'https://rjcompressores.app', deliver:false, evolutionUrl:'http://EVOLUTION_INTERNO:8080', instance:'BotDemandas'}}];"
       }
     },
     {

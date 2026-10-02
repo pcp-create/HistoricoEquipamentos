@@ -1,3 +1,4 @@
+import { PUBLIC_SYSTEM_URL } from "../public-url";
 import { predictPlans } from "../equipment-management/preventive-hierarchy.stable";
 import {
   brazilToday,
@@ -146,7 +147,7 @@ export function planUrl(row: Report["rows"][number], baseUrl: string) {
 }
 export function reportMessage(
   report: Report,
-  baseUrl = "https://historicorj.vercel.app",
+  baseUrl = PUBLIC_SYSTEM_URL,
 ) {
   const title =
     report.kind === "weekly"

@@ -31,7 +31,7 @@ A publicação desta etapa no GitHub foi autorizada. Aguarde o deploy desta impl
 ## Passo a passo no n8n
 
 1. Importe cada JSON como um workflow novo. Preserve o workflow de teste SMTP existente.
-2. Abra o nó **Configuração**. `systemUrl` aponta para `https://historicorj.vercel.app`; ajuste caso o sistema seja hospedado em outro endereço. Não use `127.0.0.1` para alcançar o Codespace a partir do servidor n8n.
+2. Abra o nó **Configuração**. `systemUrl` aponta para `https://rjcompressores.app`; ajuste caso o sistema seja hospedado em outro endereço. Não use `127.0.0.1` para alcançar o Codespace a partir do servidor n8n.
 3. Crie uma credencial **Header Auth** chamada `Gestão Integrada — Relatórios`: Name `Authorization`, Value `Bearer <TOKEN>`. Selecione em **Gerar relatório**. Não use a chave do Evolution aqui.
 4. Em **Enviar e-mail**, selecione a credencial **SMTP account** que já foi testada. PDF usa propriedade binária `report`. Formato `Both` é HTML + texto alternativo; o PDF é o anexo. A assinatura automática do n8n fica desativada.
 5. Execute **Teste manual**. Confira assunto, destinatário, números do resumo e PDF completo. Cada execução manual pode enviar novamente.

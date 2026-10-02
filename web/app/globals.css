@@ -4177,3 +4177,84 @@ body.admin-preview :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar,
   font-size: 22px;
   cursor: pointer;
 }
+
+.equipment-rental-spec-filters { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 20px; margin: 16px 0 24px; }
+.equipment-rental-spec-filters label { display: grid; gap: 8px; }
+@media (max-width: 640px) { .equipment-rental-spec-filters { grid-template-columns: 1fr; } }
+
+.equipment-spec-range { border: 0; padding: 0; margin: 0; min-width: 0; }
+.equipment-spec-range legend { margin-bottom: 8px; }
+.equipment-spec-range-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.equipment-spec-range-buttons button { padding: 8px 10px; font-size: 12px; }
+.equipment-spec-range-buttons button[aria-pressed="true"] { background: #245f91; border-color: #245f91; color: white; }
+
+/* Rental filters: status overview and grouped technical characteristics. */
+.equipment-page .equipment-rental-status-cards {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 12px;
+  padding: 18px;
+  border-radius: 12px;
+  background: #f5f8fc;
+}
+.equipment-rental-status-cards h3 {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #425d80;
+}
+.equipment-page .equipment-rental-status-cards button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 80px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  text-align: left;
+}
+.equipment-rental-status-cards button strong { font-size: 24px; line-height: 1.1; }
+.equipment-rental-status-cards small { grid-column: 1 / -1; font-size: 11px; }
+.equipment-rental-spec-filters { gap: 16px; align-items: stretch; }
+.equipment-rental-spec-filters .equipment-spec-card {
+  padding: 18px;
+  border: 1px solid #d6e5f8;
+  border-radius: 12px;
+  background: #f5f9fe;
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.equipment-spec-heading { display: flex; align-items: center; gap: 10px; color: #245f91; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.equipment-spec-range-buttons { gap: 8px; }
+.equipment-page .equipment-spec-range-buttons button { padding: 10px 14px; min-height: 42px; border-radius: 9px; font-size: 13px; }
+.equipment-page .equipment-spec-range-buttons button[aria-pressed="true"] { background: #245f91; border-color: #245f91; color: white; }
+@media(max-width:1100px) { .equipment-page .equipment-rental-status-cards { grid-template-columns: repeat(4,minmax(0,1fr)); } }
+@media(max-width:760px) {
+  .equipment-rental-spec-filters { grid-template-columns: 1fr; }
+  .equipment-page .equipment-rental-status-cards { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+
+.equipment-search-filter-panel { margin: 20px 0; border: 1px solid #dce6f2; border-radius: 11px; background: #fff; }
+.equipment-search-filter-panel > summary { display: flex; align-items: center; gap: 12px; padding: 20px 24px; cursor: pointer; list-style: none; color: #34577f; font-weight: 600; }
+.equipment-search-filter-panel > summary::-webkit-details-marker { display: none; }
+.equipment-search-filter-panel > summary > svg { color: #7295bf; flex-shrink: 0; }
+.equipment-filter-chevron { margin-left: auto; transform: rotate(-90deg); transition: transform .15s ease; }
+.equipment-search-filter-panel[open] .equipment-filter-chevron { transform: rotate(0); }
+.equipment-search-filter-content { padding: 0 20px 4px; }
+.equipment-search-filter-panel > summary:focus-visible { outline: 2px solid #245f91; outline-offset: -3px; border-radius: 10px; }
+
+.equipment-page .equipment-contract-filter-row { display: grid; grid-template-columns: minmax(0,3fr) minmax(0,5fr); gap: 16px; }
+.equipment-page .equipment-contract-type-cards { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.equipment-page .equipment-contract-deadline-cards { grid-template-columns: repeat(5,minmax(0,1fr)); }
+.equipment-page .equipment-contract-filter-group.equipment-rental-status-cards { margin: 0; padding: 18px; background: #f5f8fc; border: 0; }
+@media(max-width:1200px) { .equipment-page .equipment-contract-filter-row { grid-template-columns: 1fr; } }
+@media(max-width:640px) {
+ .equipment-page .equipment-contract-type-cards, .equipment-page .equipment-contract-deadline-cards { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}

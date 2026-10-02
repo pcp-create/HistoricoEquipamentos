@@ -800,3 +800,13 @@
   vertical-align: middle;
 }
 .task-card button.task-reminder-icon:hover:not(:disabled) { background: #eaf3fd; }
+
+.task-restriction-field { display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+.task-restriction-field label.task-restriction-check { display: flex; align-items: center; gap: 8px; margin: 0; }
+.task-restriction-field input[type="checkbox"] { width: 16px; height: 16px; min-width: 16px; min-height: 16px; padding: 0; margin: 0; flex: 0 0 16px; }
+.task-restriction-field small { color: #6983a0; font-size: 12px; }
+.task-due-restriction { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media(max-width:640px) { .task-due-restriction { grid-template-columns: 1fr; } }
+
+.task-manual-fields > .task-due-restriction { grid-column: 1 / -1; }
+.task-manual-fields .task-due-restriction > label:first-child { grid-column: auto; }

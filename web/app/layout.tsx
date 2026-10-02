@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     description: "CRM, assistência técnica, suprimentos e gestão de equipamentos.",
     siteName: "Gestão Integrada",
     images: [{
-      url: "https://historicorj.vercel.app/icons/gestao-integrada-512.png",
+      url: "https://rjcompressores.app/icons/gestao-integrada-512.png",
       width: 512,
       height: 512,
       type: "image/png",

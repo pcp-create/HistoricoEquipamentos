@@ -197,8 +197,6 @@ function LinkedTaskForm({
             Descrição
             <textarea name="description" maxLength={12000} />
           </label>
-          <label><input type="checkbox" name="restricted" /> Tarefa restrita</label>
-          <p>Somente administradores podem ver os detalhes. Os demais usuários verão apenas a tarefa e seu status.</p>
           <label>
             Responsável
             <select name="assignedTo" defaultValue="">
@@ -218,10 +216,13 @@ function LinkedTaskForm({
               <option value="urgent">Urgente</option>
             </select>
           </label>
+          <div className="task-due-restriction">
           <label>
             Vencimento
             <input type="date" name="dueDate" />
           </label>
+          <div className="task-restriction-field"><label className="task-restriction-check"><input type="checkbox" name="restricted" /> Tarefa restrita</label><small>Oculta os detalhes da tarefa, mantendo sua existência e status visíveis.</small></div>
+          </div>
           <footer>
             <button disabled={busy} type="submit">
               {busy ? "Criando…" : "Criar tarefa"}

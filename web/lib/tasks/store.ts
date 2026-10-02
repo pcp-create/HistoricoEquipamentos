@@ -342,6 +342,7 @@ export async function updateTask(body: any, user: AuthUser) {
       await c.query("SELECT * FROM web_tasks WHERE id=$1 FOR UPDATE", [id])
     ).rows[0];
     if (!t) throw new TaskInputError("Tarefa não encontrada.");
+    if (t.restricted && !(await taskAdministrator(user.email))) throw new Forbidden();
     if (t.version !== body.version)
       throw new TaskConflict(
         "A tarefa foi atualizada. Recarregue antes de salvar.",
@@ -479,6 +480,13 @@ export async function updateTask(body: any, user: AuthUser) {
         typeof body.automaticPriority !== "boolean"
       )
         throw new TaskInputError("Confira responsável e prioridade.");
+      if (body.restricted !== undefined) {
+        if (typeof body.restricted !== "boolean" || !t.source_key.startsWith("manual:")) throw new TaskInputError("Visibilidade inválida.");
+        if (body.restricted !== !!t.restricted) {
+          await c.query("UPDATE web_tasks SET restricted=$2 WHERE id=$1",[id,body.restricted]);
+          await note(c,id,"Visibilidade alterada",body.restricted ? "Tarefa marcada como restrita." : "Restrição da tarefa removida.",user);
+        }
+      }
       const assigned = body.assignedTo.trim().toLowerCase() || null;
       let assignedName = "Não atribuído";
       if (assigned) {
@@ -525,6 +533,10 @@ export async function updateTask(body: any, user: AuthUser) {
     throw e;
   } finally {
     c.release();
+  }
+  if (body.action === "update" && body.restricted === true && !(await taskAdministrator(user.email))) {
+    const task = (await database().query("SELECT id,status,kanban_column FROM web_tasks WHERE id=$1",[id])).rows[0];
+    return {task:restrictedTaskSummary(task),notes:[],attachments:[],notifications:[]};
   }
   return taskDetail(id, user);
 }

@@ -1,3 +1,4 @@
+import { PUBLIC_SYSTEM_URL } from "@/lib/public-url";
 import { claimReminders, acknowledgeReminder } from "@/lib/tasks/reminders";
 import { dailyTaskSummaries } from "@/lib/tasks/daily-summary";
 import { database } from "@/lib/db";
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
         {
           notifications:
             body.deliver === true
-              ? await claimReminders(new URL(req.url).origin)
+              ? await claimReminders(PUBLIC_SYSTEM_URL)
               : [],
         },
         { headers },
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
         dailyTaskSummaries(
           tasks,
           users,
-          new URL(req.url).origin,
+          PUBLIC_SYSTEM_URL,
           brazilToday(),
         ),
         { headers },
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
     const result = await syncTasks();
     const notifications =
       body.deliver === true
-        ? await claimNotifications(new URL(req.url).origin)
+        ? await claimNotifications(PUBLIC_SYSTEM_URL)
         : [];
     return Response.json({ ...result, notifications }, { headers });
   } catch (e) {

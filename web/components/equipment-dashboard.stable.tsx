@@ -1,4 +1,5 @@
 "use client";
+import { rentalSpecifications, rentalSpecificationRanges, matchesRentalSpecification, type RentalSpecification } from "@/lib/equipment-management/rental-specifications";
 import CopyPreventivePlan from "./copy-preventive-plan";
 import EquipmentDetailsDrawer from "./equipment-details-drawer";
 import OrderDetailLink from "./order-detail-link";
@@ -7,6 +8,9 @@ import { apiFetch, cachedEquipmentList } from "@/lib/client-api-cache";
 import { fold } from "@/lib/filters";
 import { Fragment, useEffect, useRef, useState } from "react";
 import {
+  Settings2,
+  Wind,
+  Gauge,
   Plus,
   Pencil,
   Archive,
@@ -239,9 +243,14 @@ export default function EquipmentDashboard() {
       detail?.equipment?.usage,
     );
   } catch {}
+  const [specFilters, setSpecFilters] = useState({hp:"",pcm:"",pressure:""});
+  const specificationFields: [RentalSpecification,string][] = [["hp","Potência (HP)"],["pcm","Vazão (PCM)"],["pressure","Pressão"]];
+  const specificationRows = (loaded?.rows || []).filter((e:any) => e.rental && (equipmentTab !== "status" || ["rented","loaned"].includes(e.rentalStatus?.key)));
+  const specificationOptions = (key:RentalSpecification): string[] => [...new Set<string>(specificationRows.map((e:any)=>rentalSpecifications(e.name)[key]).filter(Boolean))].sort((a,b)=>parseFloat(a)-parseFloat(b)||a.localeCompare(b));
   const rentalOnly = equipmentTab !== "all";
   const baseRows = (loaded?.rows || []).filter(
     (e: any) =>
+      (equipmentTab === "all" || specificationFields.every(([key]) => matchesRentalSpecification(rentalSpecifications(e.name)[key], specFilters[key], key))) &&
       (!ownership || e.ownership === ownership) &&
       (!state ||
         (state === "none" ? !e.plans : e.forecast?.status === state)) &&
@@ -800,6 +809,7 @@ export default function EquipmentDashboard() {
                   aria-pressed={equipmentTab === key}
                   onClick={() => {
                     setEquipmentTab(key);
+                    setSpecFilters({hp:"",pcm:"",pressure:""});
                     setContractType("all");
                     setRentalStatus("");
                     setContractStatus("");
@@ -820,10 +830,11 @@ export default function EquipmentDashboard() {
             </nav>
             {equipmentTab === "rental" && (
               <div
-                className="equipment-rental-status-filters"
+                className="equipment-rental-status-filters equipment-rental-status-cards"
                 role="group"
                 aria-label="Status das máquinas de locação"
               >
+                <h3>Situação das máquinas de locação</h3>
                 {rentalOptions.map(({ key, label, count }) => (
                   <button
                     key={key}
@@ -845,11 +856,11 @@ export default function EquipmentDashboard() {
             {contractFilterVisible && (
               <div className="equipment-contract-filter-row">
                 <div
-                  className="equipment-rental-status-filters equipment-contract-filter-group"
+                  className="equipment-rental-status-filters equipment-contract-filter-group equipment-rental-status-cards equipment-contract-type-cards"
                   role="group"
                   aria-label="Tipo de contrato"
                 >
-                  <small>Tipo</small>
+                  <h3>Tipo</h3>
                   {contractTypeOptions.map(({ key, label, count }) => (
                     <button
                       type="button"
@@ -866,11 +877,11 @@ export default function EquipmentDashboard() {
                   ))}
                 </div>
                 <div
-                  className="equipment-rental-status-filters equipment-contract-filters equipment-contract-filter-group"
+                  className="equipment-rental-status-filters equipment-contract-filters equipment-contract-filter-group equipment-rental-status-cards equipment-contract-deadline-cards"
                   role="group"
                   aria-label="Situação do contrato de locação ou empréstimo"
                 >
-                  <small>Prazo do contrato</small>
+                  <h3>Prazo do contrato</h3>
                   {contractOptions.map(({ key, label, count }) => (
                     <button
                       type="button"
@@ -891,6 +902,9 @@ export default function EquipmentDashboard() {
                 </div>
               </div>
             )}
+            <details className="equipment-search-filter-panel">
+              <summary><Settings2 size={18} aria-hidden="true" /><span>Filtros de pesquisa</span><ChevronDown size={18} className="equipment-filter-chevron" aria-hidden="true" /></summary>
+              <div className="equipment-search-filter-content">
             <div className="equipment-filters">
               <label>
                 Pesquisar equipamento ou cliente
@@ -936,6 +950,21 @@ export default function EquipmentDashboard() {
                 </select>
               </label>
             </div>
+            {rentalOnly && <div className="equipment-rental-spec-filters">
+              {specificationFields.map(([key,label]) => key === "pressure" ? <label key={key} className="equipment-spec-card"><span className="equipment-spec-heading"><Gauge size={18} aria-hidden="true" />{label}</span>
+                <select value={specFilters[key]} onChange={event=>{setSpecFilters(previous=>({...previous,[key]:event.target.value}));setPage(1);}}>
+                  <option value="">Todos</option>
+                  {specificationOptions(key).map(value=><option key={value} value={value}>{value.replace('.',',')}</option>)}
+                  <option value="missing">Não informado no nome</option>
+                </select>
+              </label> : <div key={key} className="equipment-spec-range equipment-spec-card" role="group" aria-label={label}><div className="equipment-spec-heading">{key === "hp" ? <Settings2 size={18} aria-hidden="true" /> : <Wind size={18} aria-hidden="true" />}{label}</div>
+                <div className="equipment-spec-range-buttons">
+                  {[{id:"",label:"Todos"},...rentalSpecificationRanges.map(range=>({id:range.id,label:`${range.label} ${key.toUpperCase()}`})),{id:"missing",label:"Não informado"}].map(option=><button type="button" key={option.id} aria-pressed={specFilters[key] === option.id} onClick={()=>{setSpecFilters(previous=>({...previous,[key]:previous[key] === option.id ? "" : option.id}));setPage(1);}}>{option.label}</button>)}
+                </div>
+              </div>)}
+            </div>}
+              </div>
+            </details>
             <nav className="app-section-tabs equipment-view-tabs" aria-label="Visualização dos equipamentos">
               <button type="button" aria-pressed={equipmentView === "list"} onClick={() => {setEquipmentView("list"); setPage(1);}}>Lista</button>
               <button type="button" aria-pressed={equipmentView === "clients"} onClick={() => {setEquipmentView("clients"); setPage(1);}}>Agrupado por Cliente</button>

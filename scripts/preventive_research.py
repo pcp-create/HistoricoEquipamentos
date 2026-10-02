@@ -265,7 +265,7 @@ def build(folder):
         for e in report:
             for interval in e['intervals'] or [{}]:
                 latest=interval.get('latest') or interval.get('latest_mention') or {}
-                link=f"https://historicorj.vercel.app/?view=orders&company={latest['company']}&orderNumber={latest['order_number']}" if latest else ''
+                link=f"https://rjcompressores.app/?view=orders&company={latest['company']}&orderNumber={latest['order_number']}" if latest else ''
                 writer.writerow([e['id'],cell(e['name']),','.join(e['iliot_ids']),interval.get('hours',''),
                                  latest.get('date',''),latest.get('company',''),latest.get('order_number',''),
                                  latest.get('order_id',''),latest.get('date_source',''),

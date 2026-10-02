@@ -497,6 +497,13 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     assert.equal(privateDetail.task.title,"Conteúdo confidencial");
     assert.ok(privateDetail.notes.some(n=>n.description.includes("Nota sigilosa")));
     assert.equal((await listTasks(new URLSearchParams(),user)).tasks.find(t=>String(t.id)===restrictedId).title,"Conteúdo confidencial");
+    const madePublic = await updateTask({id:restrictedId,version:privateDetail.task.version,action:"update",priority:"normal",assignedTo:user.email,automaticPriority:false,restricted:false},user);
+    assert.equal(madePublic.task.restricted,false);
+    await db.query("UPDATE web_user_access SET role='user' WHERE email=$1",[user.email]);
+    const hidden = await updateTask({id:restrictedId,version:madePublic.task.version,action:"update",priority:"normal",assignedTo:user.email,automaticPriority:false,restricted:true},user);
+    assert.equal(hidden.task.redacted,true);
+    assert.equal(hidden.task.title,"Tarefa restrita");
+    await assert.rejects(()=>taskDetail(restrictedId,user));
   } finally {
     g.historyPool = old;
     await db.close();
