@@ -14,5 +14,5 @@ export async function assertTaskAccess(id: string, email?: string) {
 export function restrictedTaskSummary(task: any) {
   return { id: task.id, restricted: true, redacted: true, title: "Tarefa restrita", status: task.status,
     kanban_column: taskColumn(task), source_key: "manual:restricted", priority: "normal",
-    due_date: null, assigned_to: null, origin: "Tarefa restrita", equipment_name: "", customer: "" };
+    due_date: null, assigned_to: null, assignee_name: task.assignee_name || null, origin: "Tarefa restrita", equipment_name: "", customer: "" };
 }

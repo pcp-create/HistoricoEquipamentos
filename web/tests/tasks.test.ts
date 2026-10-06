@@ -495,6 +495,9 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     assert.equal(publicTask.title,"Tarefa restrita");
     assert.equal(JSON.stringify(publicTask).includes("confidencial"),false);
     assert.equal(publicTask.created_by,undefined);
+    assert.equal(publicTask.assignee_name,"Pessoa");
+    assert.equal(publicTask.assigned_to,null);
+    assert.equal(publicTask.description,undefined);
     await assert.rejects(()=>taskDetail(restrictedId,user));
     await assert.rejects(()=>updateTask({id:restrictedId,version:1,action:"note",title:"Nota",description:"Teste"},user));
     await assert.rejects(()=>attachTask(restrictedId,new File(["secret"],"nota.pdf",{type:"application/pdf"}),user));
