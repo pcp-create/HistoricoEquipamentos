@@ -4258,3 +4258,7 @@ body.admin-preview :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar,
 @media(max-width:640px) {
  .equipment-page .equipment-contract-type-cards, .equipment-page .equipment-contract-deadline-cards { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
+
+.equipment-page .equipment-rental-status-filters .rental-filter-in_review { --status-bg: #fff0dc; --status-color: #965a13; }
+.equipment-rental-state.rental-in_review { background: #fff0dc; color: #965a13; }
+@media(min-width:1101px) { .equipment-page .equipment-rental-status-cards:not(.equipment-contract-filter-group) { grid-template-columns: repeat(8,minmax(0,1fr)); } }

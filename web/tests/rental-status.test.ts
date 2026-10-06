@@ -103,3 +103,24 @@ test("uncommitted machines require positive stock; excess stock is flagged witho
   ] as const)
     assert.equal(resolveRentalStatus([order(type)], -1).key, key);
 });
+
+ test("internal sales type 34 follows the same sold rules as type 24", () => {
+  assert.equal(resolveRentalStatus([order(34,"Processado")],0).key,"sold");
+  assert.equal(resolveRentalStatus([order(34)],0).key,"reserved");
+  for (const stock of [1,null]) assert.equal(resolveRentalStatus([order(34,"Processado")],stock).key,"available");
+  assert.equal(resolveRentalStatus([order(34,"Processado")],-1).key,"unavailable");
+  assert.equal(resolveRentalStatus([order(34,"Processado"),order(8,"Pendente","99")],0).key,"rented");
+  assert.equal(resolveRentalStatus([order(1,"Processado"),order(34,"Processado","99")],0).key,"unavailable");
+ });
+
+test("pending repair and rental cost orders put otherwise available machines under review",()=>{
+ for (const type of [20,21]) {
+  assert.equal(resolveRentalStatus([order(type)],1).key,"in_review");
+  assert.equal(resolveRentalStatus([order(type)],0).key,"unavailable");
+  assert.equal(resolveRentalStatus([order(type)],-1).key,"unavailable");
+  assert.equal(resolveRentalStatus([order(type,"Processado")],1).key,"available");
+  assert.equal(resolveRentalStatus([order(type),order(8,"Pendente","99")],1).key,"rented");
+  assert.equal(resolveRentalStatus([order(type),order(45,"Pendente","99")],1).key,"loaned");
+  assert.equal(resolveRentalStatus([order(type),order(24,"Pendente","99")],1).key,"reserved");
+ }
+});

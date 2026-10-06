@@ -278,6 +278,7 @@ export default function EquipmentDashboard() {
     ["", "Todos"],
     ["available", "Disponível"],
     ["unavailable", "Indisponível"],
+    ["in_review", "Em Revisão"],
     ["rented", "Locado"],
     ["loaned", "Emprestado"],
     ["reserved", "Reservado"],
