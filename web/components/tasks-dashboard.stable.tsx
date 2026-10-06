@@ -659,7 +659,7 @@ export default function TasksDashboard() {
         ?.focus({ preventScroll: true });
     }
   }, [creating]);
-  const [stageRole,setStageRole]=useState("");
+  const [stageRole,setStageRole]=useState<string | null>(null);
   const [stages,setStages]=useState<any[]>([]),[stagesLoading,setStagesLoading]=useState(false),[newStage,setNewStage]=useState<string|null>(null);
   useEffect(()=>{if(kanbanView!=="stage"||tab!=="tasks")return;let alive=true;setStagesLoading(true);api('/api/task-stages').then(b=>{if(alive)setStages(b.stages);}).catch(e=>{if(alive)setError(e.message);}).finally(()=>{if(alive)setStagesLoading(false);});return()=>{alive=false;};},[kanbanView,tab]);
   const lastCardDrag = useRef(0);
@@ -722,7 +722,9 @@ export default function TasksDashboard() {
       );
   const stageRoles = new Map<string,string>();
   for(const stage of stages)stageRoles.set(stage.job_title.trim().toLowerCase(),stage.job_title);
-  const activeStageRole=stageRoles.has(stageRole)?stageRole:"";
+  const currentUserRole = (data?.users?.find((user:any) => user.email.toLowerCase() === data?.email?.toLowerCase())?.job_title || "").trim().toLowerCase();
+  const selectedStageRole = stageRole ?? currentUserRole;
+  const activeStageRole=stageRoles.has(selectedStageRole)?selectedStageRole:"";
   const chartTasks = (data?.tasks || []).filter((t: any) =>
     (!mine || t.is_mine === true || (t.is_mine === undefined && t.assigned_to?.trim().toLowerCase() === data?.email?.trim().toLowerCase())) &&
     (!params.get("equipment") || String(t.equipment_id) === params.get("equipment")),
@@ -1395,7 +1397,7 @@ export default function TasksDashboard() {
                     <select
                       aria-label="Agrupar Kanban por"
                       value={kanbanView}
-                      onChange={(e) => setKanbanView(e.target.value)}
+                      onChange={(e) => {setKanbanView(e.target.value); if(e.target.value === "stage") setStageRole(null);}}
                     >
                       <option value="progress">Andamento</option>
                       <option value="deadline">Prazo</option>
@@ -1619,6 +1621,7 @@ export default function TasksDashboard() {
                                     ? "Funcionário sem nome cadastrado"
                                     : "Não atribuído")}
                               </small>
+                              {!t.redacted && <small>Etapa: {t.stage_id ? (stages.find(stage => stage.id === t.stage_id)?.name || (stagesLoading ? "Carregando…" : "Etapa indisponível")) : "Não definida"}</small>}
                               <div className="task-card-date">
                                 <small>
                                   <CalendarDays size={13} />{" "}

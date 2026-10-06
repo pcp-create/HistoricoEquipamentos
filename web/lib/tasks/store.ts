@@ -241,7 +241,7 @@ export async function listTasks(p: URLSearchParams, user: AuthUser) {
   ).rows;
   const users = (
     await database().query(
-      "SELECT email,display_name,phone,to_jsonb(web_user_access)->>'task_color' task_color FROM web_user_access WHERE enabled ORDER BY COALESCE(display_name,email),email",
+      "SELECT email,display_name,phone,to_jsonb(web_user_access)->>'job_title' job_title,to_jsonb(web_user_access)->>'task_color' task_color FROM web_user_access WHERE enabled ORDER BY COALESCE(display_name,email),email",
     )
   ).rows;
   const sync = (
