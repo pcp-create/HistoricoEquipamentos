@@ -1,4 +1,5 @@
 "use client";
+import SupportPicker from "./support-picker";
 import TimeRequestApproval from "./time-request-approval";
 import SaveActionIcon from "./save-action-icon";
 import { userTaskColor } from "@/lib/tasks/user-color";
@@ -159,6 +160,7 @@ export function TaskDrawer({
     [busy, setBusy] = useState(false),
     [assigned, setAssigned] = useState(""),
     [priority, setPriority] = useState("normal"),
+    [followers,setFollowers] = useState<string[]>([]),
     [automatic, setAutomatic] = useState(true),
     [restricted, setRestricted] = useState(false),
     [addingNote, setAddingNote] = useState(false),
@@ -167,6 +169,7 @@ export function TaskDrawer({
   function accept(b: any) {
     if (b.task.redacted) { onChanged?.(); onClose(); return; }
     setRestricted(!!b.task.restricted);
+    setFollowers(b.task.followers || []);
     setData(b);
     if(typeof b.canDeleteNotes === "boolean")setCanDeleteNotes(b.canDeleteNotes);
     setAssigned(b.task.assigned_to || "");
@@ -226,6 +229,7 @@ export function TaskDrawer({
           version: data.task.version,
           ...(action === "move" ? { column: "completed" } : {}),
           assignmentReason,
+          followers,
           assignedTo: assigned,
           priority,
           automaticPriority: automatic,
@@ -443,6 +447,12 @@ export function TaskDrawer({
             />
             <section className="task-card">
               <h3>Acompanhamento</h3>
+              <div className="task-followers">
+                <span>Pessoas para notificação</span>
+                <SupportPicker label="Pessoas para notificação" filterLabel="Pesquisar pessoa" removeLabel="Remover pessoa" disabled={busy} users={users} selected={followers} onChange={setFollowers} />
+                <small>Recebem mudanças de responsável, alertas e conclusão. O responsável já recebe os avisos, sem duplicação.</small>
+                <button type="button" disabled={busy} onClick={()=>void save("followers")}>Salvar acompanhamento</button>
+              </div>
               {t.source_key?.startsWith("time-request:")&&<TimeRequestApproval task={t} onChanged={(message: string) => { onChanged?.(); onClose(message); }}/>}
               {t.status === "completed" &&
                 t.source_key?.startsWith("manual:") && (
@@ -506,7 +516,7 @@ export function TaskDrawer({
                 <h3>Avisos por WhatsApp</h3>
                 {data.notifications.map((n: any) => (
                   <p key={n.id}>
-                    {n.recipient_name || "Funcionário sem nome cadastrado"} · {n.kind === "completed" ? "Conclusão" : "Atribuição"}
+                    {n.recipient_name || "Funcionário sem nome cadastrado"} · {n.kind === "completed" ? "Conclusão" : n.kind === "reminder" ? "Alerta" : "Atribuição"}
                     <small>
                       {
                         {

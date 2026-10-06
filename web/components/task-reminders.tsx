@@ -121,7 +121,7 @@ export default function TaskReminders({
             Enviar para{" "}
             <strong>{(editing ? editing.recipient_name : task.assignee_name) || "o responsável da tarefa"}</strong>,
             pelo WhatsApp cadastrado. O destinatário é mantido mesmo se o
-            responsável da tarefa mudar depois.
+            responsável da tarefa mudar depois. As pessoas selecionadas em Acompanhamento também recebem o alerta.
           </p>
           {editing && <p>Editar alerta: as alterações valem para este envio e as próximas repetições. A contagem de ocorrências reinicia neste alerta.</p>}
           <label>

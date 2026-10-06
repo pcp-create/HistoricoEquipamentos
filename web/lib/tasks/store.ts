@@ -348,7 +348,15 @@ export async function updateTask(body: any, user: AuthUser) {
         "A tarefa foi atualizada. Recarregue antes de salvar.",
       );
     if(t.source_key.startsWith('time-request:')&&['move','reopen','update','stage'].includes(body.action))throw new TaskInputError('Esta tarefa deve ser analisada pelo botão Aprovar Solicitação ou Rejeitar Solicitação.');
-    if (body.action === "reopen") {
+    if (body.action === "followers") {
+      if (!Array.isArray(body.followers) || body.followers.length>100 || body.followers.some((email:unknown)=>typeof email!=="string")) throw new TaskInputError("Selecione os usuários para acompanhamento.");
+      const followers = [...new Set<string>(body.followers.map((email:string)=>email.trim().toLowerCase()))];
+      const recipients = (await c.query("SELECT email,display_name,enabled,phone,role FROM web_user_access WHERE email=ANY($1::text[]) FOR SHARE",[followers])).rows;
+      if (recipients.length!==followers.length || recipients.some(u=>!u.enabled || !/^\d{10,15}$/.test(u.phone || ""))) throw new TaskInputError("Selecione usuários ativos com WhatsApp cadastrado.");
+      if (t.restricted && recipients.some(u=>u.role!=="admin")) throw new TaskInputError("Tarefas restritas só podem notificar administradores.");
+      await c.query("UPDATE web_tasks SET followers=$2 WHERE id=$1",[id,followers]);
+      await note(c,id,"Pessoas para notificação atualizadas",recipients.length ? recipients.map(u=>u.display_name || u.email).join(", ") : "Nenhuma pessoa adicional selecionada.",user);
+    } else if (body.action === "reopen") {
       if (!t.source_key.startsWith("manual:") || t.status !== "completed")
         throw new TaskInputError(
           "Somente tarefas manuais concluídas podem ser reabertas.",
@@ -522,6 +530,7 @@ export async function updateTask(body: any, user: AuthUser) {
           "INSERT INTO web_task_notifications(task_id,task_version,recipient,assignment_reason) VALUES($1,$2,$3,$4)",
           [id, t.version + 1, assigned, reason],
         );
+      if (changed && !assigned) await c.query("INSERT INTO web_task_notifications(task_id,task_version,recipient,kind,assignment_reason) SELECT $1,$2,u.email,'assignment',$3 FROM web_user_access u WHERE u.email=ANY($4::text[]) ON CONFLICT DO NOTHING",[id,t.version+1,reason,t.followers || []]);
     } else throw new TaskInputError("Operação inválida.");
     await c.query(
       "UPDATE web_tasks SET updated_at=now(),updated_by=$2,version=version+1 WHERE id=$1",

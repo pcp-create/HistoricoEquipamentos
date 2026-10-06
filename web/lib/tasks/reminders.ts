@@ -156,6 +156,9 @@ export async function claimReminders(origin: string) {
     ).rows;
     const result = [];
     for (const r of rows) {
+      if (r.status !== "completed") await c.query(`INSERT INTO web_task_notifications(task_id,task_version,recipient,kind,reminder_id)
+        SELECT t.id,t.version,u.email,'reminder',$1 FROM web_tasks t JOIN web_user_access u ON u.email=ANY(t.followers)
+        WHERE t.id=$2 AND u.email<>$3 ON CONFLICT DO NOTHING`,[r.id,r.task_id,r.recipient]);
       if (
         (r.restricted === "true" && r.recipient_role !== "admin") ||
         r.status === "completed" ||

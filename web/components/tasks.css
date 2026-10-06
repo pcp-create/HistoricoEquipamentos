@@ -810,3 +810,7 @@
 
 .task-manual-fields > .task-due-restriction { grid-column: 1 / -1; }
 .task-manual-fields .task-due-restriction > label:first-child { grid-column: auto; }
+
+.task-followers { display: grid; gap: 10px; margin: 12px 0 20px; }
+.task-followers small { color: #6983a0; }
+.task-followers > button { justify-self: start; }

@@ -38,7 +38,7 @@ export async function POST(req: Request) {
         {
           notifications:
             body.deliver === true
-              ? await claimReminders(PUBLIC_SYSTEM_URL)
+              ? [...await claimReminders(PUBLIC_SYSTEM_URL), ...await claimNotifications(PUBLIC_SYSTEM_URL,true)]
               : [],
         },
         { headers },

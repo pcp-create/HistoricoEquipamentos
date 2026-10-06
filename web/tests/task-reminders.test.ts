@@ -1,3 +1,4 @@
+import { claimNotifications, acknowledgeNotification } from "../lib/tasks/notifications";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PGlite } from "@electric-sql/pglite";
@@ -25,6 +26,11 @@ test("scheduled reminders validate time, lease once, acknowledge and cancel with
       "012_manual_tasks",
       "017_task_reminders",
       "023_task_reminder_recurrence",
+      "018_task_assignment_reason",
+      "041_task_completion_notifications",
+      "024_task_stages",
+      "027_task_stage_assignment",
+      "044_task_followers",
     ])
       await db.exec(
         readFileSync(new URL("../sql/" + f + ".sql", import.meta.url), "utf8"),
@@ -54,8 +60,15 @@ test("scheduled reminders validate time, lease once, acknowledge and cancel with
     await db.exec(
       "UPDATE web_task_reminders SET scheduled_at=now()-interval '1 minute'",
     );
+    await db.exec("INSERT INTO web_user_access(email,display_name,phone,updated_by) VALUES('b@example.com','Acompanhante','5547888888888','test'); UPDATE web_tasks SET followers=ARRAY['a@example.com','b@example.com']");
     const claimed = await claimReminders("https://app.example");
     assert.equal(claimed.length, 1);
+    const followers = await claimNotifications("https://app.example",true);
+    assert.equal(followers.length,1);
+    assert.equal(followers[0].number,"5547888888888");
+    assert.match(followers[0].text,/Lembrete de tarefa/);
+    await acknowledgeNotification(followers[0].id,followers[0].token);
+    assert.equal((await claimNotifications("https://app.example",true)).length,0);
     assert.match(claimed[0].text, /Lembrete de tarefa/);
     assert.equal((await claimReminders("https://app.example")).length, 0);
     await assert.rejects(

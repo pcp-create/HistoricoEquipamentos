@@ -136,3 +136,17 @@ node --env-file=.env.local --conditions=react-server --import tsx scripts/setup-
 ```
 
 A migração `042_restricted_tasks.sql` mantém todas as tarefas existentes públicas.
+
+### Pessoas para notificação
+
+Em **Acompanhamento**, selecione várias pessoas e clique em **Salvar acompanhamento**. Os usuários precisam estar ativos e ter WhatsApp cadastrado. Recebem futuras mudanças de responsável, lembretes agendados e conclusão (inclusive automática). Selecionar alguém não reenvia eventos antigos. O responsável e os acompanhantes recebem uma única mensagem por evento, mesmo quando o responsável também está na seleção. Remover alguém impede novas notificações ainda não iniciadas.
+
+Tarefas restritas só permitem acompanhantes administradores; a permissão é conferida novamente antes de preparar cada envio. A seleção não concede acesso adicional à tarefa.
+
+Antes de publicar esta versão, em `web`:
+
+```sh
+node --env-file=.env.local --conditions=react-server --import tsx scripts/setup-task-followers.mts
+```
+
+A migração `044_task_followers.sql` adiciona os acompanhantes e as notificações por destinatário. O fluxo n8n existente continua usando os mesmos identificadores e confirmações; não há envio de WhatsApp durante a migração.

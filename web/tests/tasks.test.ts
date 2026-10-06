@@ -50,6 +50,9 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       "042_restricted_tasks.sql",
       "024_task_stages.sql",
       "027_task_stage_assignment.sql",
+      "017_task_reminders.sql",
+      "023_task_reminder_recurrence.sql",
+      "044_task_followers.sql",
     ])
       await db.exec(
         readFileSync(new URL("../sql/" + f, import.meta.url), "utf8"),
@@ -515,6 +518,31 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     assert.equal(hidden.task.redacted,true);
     assert.equal(hidden.task.title,"Tarefa restrita");
     await assert.rejects(()=>taskDetail(restrictedId,user));
+    await db.query("INSERT INTO web_user_access(email,display_name,phone,updated_by) VALUES('third@example.com','Terceiro','5547777777777','teste')");
+    await db.query("UPDATE web_user_access SET enabled=true WHERE email='other@example.com'");
+    let followed = await createTask({title:"Acompanhada",description:"",priority:"normal",assignedTo:user.email,dueDate:""},user);
+    for(const n of await claimNotifications("https://example.com")) await acknowledgeNotification(n.id,n.token);
+    followed = await updateTask({action:"followers",id:String(followed.task.id),version:followed.task.version,followers:[user.email,'other@example.com','third@example.com',user.email]},user);
+    assert.equal(followed.task.followers.length,3);
+    assert.equal((await claimNotifications("https://example.com")).length,0);
+    followed = await updateTask({action:"update",id:String(followed.task.id),version:followed.task.version,assignedTo:'other@example.com',priority:'normal',automaticPriority:false,assignmentReason:'Redistribuição'},user);
+    const fanout = await claimNotifications("https://example.com");
+    assert.equal(fanout.length,3);
+    assert.equal(new Set(fanout.map(n=>n.number)).size,3);
+    assert.ok(fanout.some(n=>n.text.includes('Responsável da tarefa atualizado')));
+    for(const n of fanout) await acknowledgeNotification(n.id,n.token);
+    await assert.rejects(()=>updateTask({action:"followers",id:String(followed.task.id),version:followed.task.version,followers:['missing@example.com']},user),/ativos/);
+    followed = await updateTask({action:"followers",id:String(followed.task.id),version:followed.task.version,followers:['third@example.com']},user);
+
+    followed = await updateTask({action:"move",id:String(followed.task.id),version:followed.task.version,column:'completed'},user);
+    const completions = await claimNotifications("https://example.com");
+    assert.equal(completions.length,2);
+    assert.ok(!completions.some(n=>n.number==='5547999999999'));
+    assert.ok(completions.every(n=>n.text.includes('Tarefa concluída')));
+    await db.query("UPDATE web_user_access SET role='admin' WHERE email=$1",[user.email]);
+    const secret = await taskDetail(restrictedId,user);
+    await assert.rejects(()=>updateTask({action:"followers",id:restrictedId,version:secret.task.version,followers:['third@example.com']},user),/administradores/);
+
   } finally {
     g.historyPool = old;
     await db.close();
