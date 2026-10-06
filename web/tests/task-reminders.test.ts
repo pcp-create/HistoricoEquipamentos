@@ -66,6 +66,8 @@ test("scheduled reminders validate time, lease once, acknowledge and cancel with
         ),
       /em envio/,
     );
+    await db.query("UPDATE web_task_reminders SET leased_until=now()-interval '1 minute' WHERE id=1");
+    assert.equal((await claimReminders("https://app.example")).length,0);
     await acknowledgeReminder("1", claimed[0].token);
     await acknowledgeReminder("1", claimed[0].token);
     assert.equal((await listReminders("1"))[0].state, "sent");

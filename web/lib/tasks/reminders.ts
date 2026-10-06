@@ -26,7 +26,7 @@ export async function listReminders(task: unknown) {
   if (!validId(task)) throw new TaskInputError("Tarefa inválida.");
   return (
     await database().query(
-      `SELECT r.id::text,r.scheduled_at,r.state,r.sent_at,r.series_id,r.occurrence_index,s.rule,s.active series_active,u.display_name recipient_name FROM web_task_reminders r LEFT JOIN web_task_reminder_series s ON s.id=r.series_id LEFT JOIN web_user_access u ON u.email=r.recipient WHERE r.task_id=$1 ORDER BY r.scheduled_at DESC`,
+      `SELECT r.id::text,r.scheduled_at,r.state,r.attempts,r.sent_at,r.series_id,r.occurrence_index,s.rule,s.active series_active,u.display_name recipient_name FROM web_task_reminders r LEFT JOIN web_task_reminder_series s ON s.id=r.series_id LEFT JOIN web_user_access u ON u.email=r.recipient WHERE r.task_id=$1 ORDER BY r.scheduled_at DESC`,
       [task],
     )
   ).rows;
@@ -57,7 +57,7 @@ export async function saveReminder(b: any, actor: string) {
       const reference = (await c.query("SELECT series_id FROM web_task_reminders WHERE id=$1 AND task_id=$2",[b.id,b.taskId])).rows[0];
       if (reference?.series_id) await c.query("SELECT id FROM web_task_reminder_series WHERE id=$1 FOR UPDATE",[reference.series_id]);
       const current = (await c.query("SELECT * FROM web_task_reminders WHERE id=$1 AND task_id=$2 FOR UPDATE",[b.id,b.taskId])).rows[0];
-      if (!current || current.state !== "pending" || (current.leased_until && new Date(current.leased_until).getTime() > Date.now()))
+      if (!current || current.state !== "pending" || current.attempts > 0 || (current.leased_until && new Date(current.leased_until).getTime() > Date.now()))
         throw new TaskConflict("Alerta já enviado, cancelado ou em envio.");
       if (!b.expectedWhen || new Date(current.scheduled_at).toISOString() !== b.expectedWhen)
         throw new TaskConflict("O alerta foi alterado. Atualize antes de editar.");
@@ -151,7 +151,7 @@ export async function claimReminders(origin: string) {
     await c.query("BEGIN READ WRITE");
     const rows = (
       await c.query(
-        `SELECT r.*,to_jsonb(t)->>'restricted' restricted,u.role recipient_role,t.title,t.origin,t.status,u.enabled,u.phone FROM web_task_reminders r JOIN web_tasks t ON t.id=r.task_id LEFT JOIN web_user_access u ON u.email=r.recipient LEFT JOIN web_task_reminder_series s ON s.id=r.series_id WHERE (r.series_id IS NULL OR s.active) AND r.state='pending' AND r.scheduled_at<=now() AND (r.leased_until IS NULL OR r.leased_until<now()) ORDER BY r.scheduled_at LIMIT 20 FOR UPDATE OF r SKIP LOCKED`,
+        `SELECT r.*,to_jsonb(t)->>'restricted' restricted,u.role recipient_role,t.title,t.origin,t.status,u.enabled,u.phone FROM web_task_reminders r JOIN web_tasks t ON t.id=r.task_id LEFT JOIN web_user_access u ON u.email=r.recipient LEFT JOIN web_task_reminder_series s ON s.id=r.series_id WHERE (r.series_id IS NULL OR s.active) AND r.state='pending' AND r.attempts=0 AND r.scheduled_at<=now() AND (r.leased_until IS NULL OR r.leased_until<now()) ORDER BY r.scheduled_at LIMIT 20 FOR UPDATE OF r SKIP LOCKED`,
       )
     ).rows;
     const result = [];

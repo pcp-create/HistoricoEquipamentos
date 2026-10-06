@@ -48,6 +48,8 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       "013_task_territories.sql",
       "041_task_completion_notifications.sql",
       "042_restricted_tasks.sql",
+      "024_task_stages.sql",
+      "027_task_stage_assignment.sql",
     ])
       await db.exec(
         readFileSync(new URL("../sql/" + f, import.meta.url), "utf8"),
@@ -185,9 +187,12 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       (await listTasks(new URLSearchParams("mine=true"), user)).tasks.length,
       1,
     );
+    await db.query("INSERT INTO web_task_stages(id,job_title,name,sort_order,updated_by) VALUES('11111111-1111-4111-8111-111111111111','Planejamento','Contato com cliente',1,'teste')");
+    await db.query("UPDATE web_tasks SET stage_id='11111111-1111-4111-8111-111111111111' WHERE id=$1",[id]);
     const notices = await claimNotifications("https://app.example");
     assert.equal(notices.length, 1);
     assert.match(notices[0].text, /TAR-/);
+    assert.match(notices[0].text, /Etapa: Contato com cliente/);
     assert.match(notices[0].text, /Equipamento: Compressor\nCliente: Cliente/);
     assert.equal(notices[0].number, "5547999999999");
     assert.equal((await claimNotifications("https://app.example")).length, 0);
@@ -197,6 +202,8 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
         "00000000-0000-0000-0000-000000000000",
       ),
     );
+    await db.query("UPDATE web_task_notifications SET leased_until=now()-interval '1 minute' WHERE id=$1",[notices[0].id]);
+    assert.equal((await claimNotifications("https://app.example")).length,0);
     await acknowledgeNotification(notices[0].id, notices[0].token);
     await acknowledgeNotification(notices[0].id, notices[0].token);
     assert.equal((await claimNotifications("https://app.example")).length, 0);
@@ -234,6 +241,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     assert.match(d.notes[0].description, /Atribuído a: Outro/);
     const reassigned = await claimNotifications("https://app.example");
     assert.equal(reassigned.length, 1);
+    assert.match(reassigned[0].text, /Etapa: Contato com cliente/);
     assert.match(reassigned[0].text, /Justificativa: Redistribuição da equipe/);
     assert.match(d.notes[0].description, /Justificativa: Redistribuição da equipe/);
     assert.equal(reassigned[0].number, "5547888888888");

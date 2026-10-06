@@ -32,7 +32,7 @@ No n8n:
 5. `deliver:false` verifica e cria/conclui tarefas, sem reclamar/enviar avisos. Testar assim primeiro. Não existe envio para número fixo: os avisos são sempre direcionados ao responsável cadastrado.
 6. Para enviar a fila, mudar para `deliver:true` e ativar/publicar o workflow. Não desabilitar envio deixando a confirmação ativa.
 
-A confirmação só ocorre após resposta bem-sucedida da Evolution. Reserva de 30 minutos evita que duas execuções reclamem simultaneamente a mesma notificação; depois desse prazo, falhas não confirmadas voltam à fila. Não há garantia de entrega exatamente uma vez: se a Evolution aceitar e a confirmação falhar, a repetição pode duplicar o aviso. Resposta de sucesso indica aceitação pela Evolution, não comprova leitura pelo destinatário.
+A confirmação só ocorre após resposta bem-sucedida da Evolution. O nó Confirmar entrega tenta até cinco vezes, sem repetir o envio. Uma notificação reclamada não volta automaticamente à fila após 30 minutos: se faltar confirmação, aparece como “Envio iniciado; aguardando confirmação”. Confira a execução do n8n/Evolution antes de qualquer nova tentativa. Essa política evita duplicação em entregas ambíguas, mas um envio que falhar antes de chegar à Evolution também exige intervenção. O token original continua válido para confirmação tardia. Resposta de sucesso indica aceitação pela Evolution, não comprova leitura pelo destinatário.
 
 Esta implantação não configura nem ativa remotamente o n8n e não envia avisos durante os testes. Frequências dos relatórios diários/semanais/mensais permanecem independentes.
 

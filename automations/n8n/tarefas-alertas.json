@@ -122,7 +122,10 @@
         "options": {
           "timeout": 30000
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
     },
     {
       "id": "Leia antes de ativar",
@@ -134,7 +137,7 @@
         250
       ],
       "parameters": {
-        "content": "## Tarefas e avisos de atribuição\n1. Publicar aplicação e aplicar SQL 010.\n2. Configurar credenciais Header Auth Authorization: Bearer TOKEN nos nós Sincronizar e Confirmar (TASK_AUTOMATION_TOKEN ou PREVENTIVE_REPORT_TOKEN).\n3. Configurar Evolution e Header Auth apikey no envio.\n4. deliver=false sincroniza alertas sem enviar mensagens.\n5. Para ativar avisos aos funcionários atribuídos, deliver=true e publique o workflow.\nNão desabilitar o nó de envio deixando a confirmação ativa.\nExecução a cada 5 minutos, inclusive finais de semana.\nEm falha, avisos não confirmados voltam à fila após 30 min. Uma falha depois do envio e antes da confirmação pode duplicar mensagem.",
+        "content": "## Tarefas e avisos de atribuição\n1. Publicar aplicação e aplicar SQL 010.\n2. Configurar credenciais Header Auth Authorization: Bearer TOKEN nos nós Sincronizar e Confirmar (TASK_AUTOMATION_TOKEN ou PREVENTIVE_REPORT_TOKEN).\n3. Configurar Evolution e Header Auth apikey no envio.\n4. deliver=false sincroniza alertas sem enviar mensagens.\n5. Para ativar avisos aos funcionários atribuídos, deliver=true e publique o workflow.\nNão desabilitar o nó de envio deixando a confirmação ativa.\nExecução a cada 5 minutos, inclusive finais de semana.\nA confirmação de entrega tenta novamente até 5 vezes. Envios sem confirmação não são reenviados automaticamente: confira a execução antes de qualquer nova tentativa.",
         "height": 450,
         "width": 420
       }

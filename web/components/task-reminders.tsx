@@ -97,13 +97,13 @@ export default function TaskReminders({
     <section className="task-card">
       <h3>Alertas agendados</h3>
       {error && <p role="alert">{error}</p>}
-      <button
+      {!open && <button
         type="button"
         disabled={busy || task.status === "completed"}
         onClick={() => { setEditing(null); setWhen(""); setFrequency("none"); setError(""); setOpen(true); }}
       >
         <BellPlus size={16} aria-hidden="true" /> Criar alerta
-      </button>
+      </button>}
       {open && (
         <form
           onSubmit={(e) => {
@@ -301,7 +301,7 @@ export default function TaskReminders({
               {
                 (
                   {
-                    pending: "Agendado",
+                    pending: r.attempts > 0 ? "Envio iniciado; aguardando confirmação" : "Agendado",
                     sent: "Enviado",
                     cancelled: "Cancelado",
                     skipped:
@@ -313,7 +313,7 @@ export default function TaskReminders({
                 <>
                   {" "}
                   ·{" "}
-                  <button type="button" className="task-reminder-icon" disabled={busy || task.status === "completed"} title="Editar alerta" aria-label="Editar alerta" onClick={() => {
+                  <button type="button" className="task-reminder-icon" disabled={busy || r.attempts > 0 || task.status === "completed"} title="Editar alerta" aria-label="Editar alerta" onClick={() => {
                     setEditing(r);
                     setWhen(new Date(new Date(r.scheduled_at).getTime() - 3 * 3600000).toISOString().slice(0,16));
                     setFrequency(r.rule?.frequency || "none");

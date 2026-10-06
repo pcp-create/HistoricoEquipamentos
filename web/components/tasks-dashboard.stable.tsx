@@ -510,7 +510,7 @@ export function TaskDrawer({
                     <small>
                       {
                         {
-                          pending: "Aguardando envio pelo n8n",
+                          pending: n.attempts > 0 ? "Envio iniciado; aguardando confirmação" : "Aguardando envio pelo n8n",
                           sent: "Enviado",
                           skipped:
                             "Não enviado: aviso desatualizado ou destinatário indisponível",
