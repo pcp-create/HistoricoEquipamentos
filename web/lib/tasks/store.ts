@@ -326,14 +326,14 @@ export async function taskDetail(id: string, user?: AuthUser) {
   }
   return { task, notes, attachments, notifications };
 }
-export async function updateTask(body: any, user: AuthUser) {
+export async function updateTask(body: any, user: AuthUser, transaction?: PoolClient) {
   const id = idValue(body?.id);
-  await assertTaskAccess(id, user.email);
+  await assertTaskAccess(id, user.email, transaction);
   if (!Number.isInteger(body.version) || body.version < 1)
     throw new TaskInputError("Versão inválida.");
-  const c = await database().connect();
+  const c = transaction || await database().connect();
   try {
-    await c.query("BEGIN READ WRITE");
+    if (!transaction) await c.query("BEGIN READ WRITE");
     if (body.action === "stage")
       await c.query("SELECT pg_advisory_xact_lock(724026)");
     if (body.action === "move")
@@ -342,7 +342,7 @@ export async function updateTask(body: any, user: AuthUser) {
       await c.query("SELECT * FROM web_tasks WHERE id=$1 FOR UPDATE", [id])
     ).rows[0];
     if (!t) throw new TaskInputError("Tarefa não encontrada.");
-    if (t.restricted && !(await taskAdministrator(user.email))) throw new Forbidden();
+    if (t.restricted && !(await taskAdministrator(user.email, transaction))) throw new Forbidden();
     if (t.version !== body.version)
       throw new TaskConflict(
         "A tarefa foi atualizada. Recarregue antes de salvar.",
@@ -536,14 +536,15 @@ export async function updateTask(body: any, user: AuthUser) {
       "UPDATE web_tasks SET updated_at=now(),updated_by=$2,version=version+1 WHERE id=$1",
       [id, user.email],
     );
-    await c.query("COMMIT");
+    if (!transaction) await c.query("COMMIT");
   } catch (e) {
-    await c.query("ROLLBACK");
+    if (!transaction) await c.query("ROLLBACK");
     throw e;
   } finally {
-    c.release();
+    if (!transaction) c.release();
   }
-  if (body.action === "update" && body.restricted === true && !(await taskAdministrator(user.email))) {
+  if (transaction) return { task: (await c.query("SELECT id,status FROM web_tasks WHERE id=$1", [id!])).rows[0], notes: [], attachments: [], notifications: [] };
+  if (body.action === "update" && body.restricted === true && !(await taskAdministrator(user.email, transaction))) {
     const task = (await database().query("SELECT id,status,kanban_column FROM web_tasks WHERE id=$1",[id])).rows[0];
     return {task:restrictedTaskSummary(task),notes:[],attachments:[],notifications:[]};
   }
@@ -603,7 +604,7 @@ export async function attachTask(id: string, file: File, user: AuthUser) {
   return taskDetail(id, user);
 }
 
-export async function createTask(body: any, user: AuthUser) {
+export async function createTask(body: any, user: AuthUser, transaction?: PoolClient) {
   if (body.restricted != null && typeof body.restricted !== "boolean") throw new TaskInputError("Visibilidade inválida.");
   if (
     typeof body.title !== "string" ||
@@ -627,10 +628,10 @@ export async function createTask(body: any, user: AuthUser) {
   )
     throw new TaskInputError("Data de vencimento inválida.");
   const assigned = body.assignedTo.trim().toLowerCase() || null;
-  const c = await database().connect();
+  const c = transaction || await database().connect();
   let id: string;
   try {
-    await c.query("BEGIN READ WRITE");
+    if (!transaction) await c.query("BEGIN READ WRITE");
     let initialStage:any=null;
     if(body.stageId!=null){
       if(typeof body.stageId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.stageId))throw new TaskInputError('Etapa inválida.');
@@ -698,15 +699,16 @@ export async function createTask(body: any, user: AuthUser) {
         "INSERT INTO web_task_notifications(task_id,task_version,recipient) VALUES($1,1,$2)",
         [id, assigned],
       );
-    await c.query("COMMIT");
+    if (!transaction) await c.query("COMMIT");
   } catch (e) {
-    await c.query("ROLLBACK");
+    if (!transaction) await c.query("ROLLBACK");
     if (e instanceof TaskContextError) throw new TaskInputError(e.message);
     throw e;
   } finally {
-    c.release();
+    if (!transaction) c.release();
   }
-  if (body.restricted && !(await taskAdministrator(user.email))) return { task: restrictedTaskSummary({id:id!,status:"not_started"}), notes:[],attachments:[],notifications:[] };
+  if (transaction) return { task: (await c.query("SELECT id,status FROM web_tasks WHERE id=$1", [id!])).rows[0], notes: [], attachments: [], notifications: [] };
+  if (body.restricted && !(await taskAdministrator(user.email, transaction))) return { task: restrictedTaskSummary({id:id!,status:"not_started"}), notes:[],attachments:[],notifications:[] };
   return taskDetail(id!, user);
 }
 

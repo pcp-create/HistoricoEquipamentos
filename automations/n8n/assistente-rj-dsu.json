@@ -1,0 +1,166 @@
+{
+  "name": "Assistente RJ (DSU) — WhatsApp e tarefas",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evolution",
+        "authentication": "headerAuth",
+        "options": {},
+        "responseMode": "onReceived"
+      },
+      "id": "bc440e57-e327-404e-bed0-1910d74abad4",
+      "name": "Receber mensagem",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        -224
+      ],
+      "webhookId": "assistente-rj-dsu"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input=$input.first().json.body;\nconst instance='BotDemandas';\nif(!input || input.instance!==instance || !['messages.upsert','MESSAGES_UPSERT'].includes(input.event) || input.data?.key?.fromMe!==false) return [];\n// Encaminhar apenas os campos necessários; nunca a apikey recebida da Evolution.\nconst data=input.data;\nreturn [{json:{systemUrl:'https://rjcompressores.app',evolutionUrl:'http://187.77.36.214:8080',instance,payload:{instance:input.instance,event:input.event,data:{key:data.key,messageTimestamp:data.messageTimestamp,message:data.message}}}}];"
+      },
+      "id": "f3b827ff-041e-47ee-8353-358e7138628d",
+      "name": "Configuração",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.systemUrl + '/api/dsu' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.payload }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "4c6b1721-f3e7-47c7-baa6-e229692e1077",
+      "name": "Processar conversa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        384,
+        -224
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const result=$input.first().json;\nif(!Array.isArray(result.replies)) throw new Error('Resposta DSU inválida');\nconst cfg=$('Configuração').first().json;\nreturn result.replies.map(reply=>{if(!['sendList','sendButtons','sendText'].includes(reply.endpoint))throw new Error('Tipo de resposta inválido');return {json:{evolutionUrl:cfg.evolutionUrl,instance:cfg.instance,...reply},pairedItem:{item:0}};});"
+      },
+      "id": "bac165da-fe19-4fb1-b513-be04c695a55d",
+      "name": "Preparar respostas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.evolutionUrl + '/message/' + $json.endpoint + '/' + encodeURIComponent($json.instance) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "f3f6fef4-d24a-48ce-8232-3c1574378f98",
+      "name": "Responder WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        864,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Assistente RJ (DSU) · BotDemandas · webhook existente\nEntrada mantida: POST /webhook/evolution. Atualizar este workflow; não ativar outro webhook com o mesmo método e caminho.\n\nCredenciais:\n• Receber mensagem e Responder WhatsApp: Evolution — BotDemandas (apikey).\n• A Evolution precisa ENVIAR o header HTTP apikey com o mesmo valor. A chave no corpo JSON não autentica o webhook.\n• Processar conversa: conferir Header Auth account: Name=Authorization; Value=Bearer <DSU_AUTOMATION_TOKEN>. O segredo deve coincidir com a variável do servidor. O JSON exportado só contém referências, não os valores das credenciais.\n\nAntes de publicar:\n1. Publicar o backend /api/dsu e configurar DSU_AUTOMATION_TOKEN; DSU_WHATSAPP_INSTANCE=BotDemandas.\n2. Manter MESSAGES_UPSERT habilitado na Evolution, Webhook by Events desligado e URL atual /webhook/evolution.\n3. Conferir se não há outro workflow ativo com POST /webhook/evolution.\n4. Publicar este workflow e enviar Menu a partir de outro telefone cadastrado.\n\nURL Evolution preservada conforme exportação: http://187.77.36.214:8080.\nNunca repetir manualmente o envio sem conferir a entrega. Menu Cliente ainda é um esboço.\nGuia: docs/assistente-rj-dsu.md",
+        "height": 640,
+        "width": 680
+      },
+      "id": "fa67fb31-f93e-4a79-b6f9-e36e15a67c01",
+      "name": "Configurar antes de ativar",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        112,
+        32
+      ]
+    }
+  ],
+  "connections": {
+    "Receber mensagem": {
+      "main": [
+        [
+          {
+            "node": "Configuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuração": {
+      "main": [
+        [
+          {
+            "node": "Processar conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar conversa": {
+      "main": [
+        [
+          {
+            "node": "Preparar respostas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar respostas": {
+      "main": [
+        [
+          {
+            "node": "Responder WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false
+  }
+}

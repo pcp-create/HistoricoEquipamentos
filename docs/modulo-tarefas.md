@@ -150,3 +150,7 @@ node --env-file=.env.local --conditions=react-server --import tsx scripts/setup-
 ```
 
 A migração `044_task_followers.sql` adiciona os acompanhantes e as notificações por destinatário. O fluxo n8n existente continua usando os mesmos identificadores e confirmações; não há envio de WhatsApp durante a migração.
+
+## Assistente RJ (DSU) pelo WhatsApp
+
+O fluxo inicial na instância BotDemandas permite criar tarefas, consultar as próprias tarefas e confirmar a conclusão de tarefas manuais com listas e botões interativos. Configuração, limites e implantação estão em [Assistente RJ (DSU)](assistente-rj-dsu.md).

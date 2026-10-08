@@ -1,15 +1,16 @@
 import "server-only";
+import type { PoolClient } from "pg";
 import { taskColumn } from "./kanban";
 import { database } from "../db";
 import { Forbidden } from "../auth";
-export async function taskAdministrator(email?: string, db = database()) {
+export async function taskAdministrator(email?: string, db: Pick<PoolClient, "query"> = database()) {
   if (!email) return false;
   const row = (await db.query("SELECT role,enabled FROM web_user_access WHERE email=$1", [email.toLowerCase()])).rows[0];
   return !!row?.enabled && row.role === "admin";
 }
-export async function assertTaskAccess(id: string, email?: string) {
-  const task = (await database().query("SELECT to_jsonb(t)->>'restricted' restricted FROM web_tasks t WHERE id=$1", [id])).rows[0];
-  if (task?.restricted === "true" && !(await taskAdministrator(email))) throw new Forbidden();
+export async function assertTaskAccess(id: string, email?: string, db: Pick<PoolClient, "query"> = database()) {
+  const task = (await db.query("SELECT to_jsonb(t)->>'restricted' restricted FROM web_tasks t WHERE id=$1", [id])).rows[0];
+  if (task?.restricted === "true" && !(await taskAdministrator(email, db))) throw new Forbidden();
 }
 export function restrictedTaskSummary(task: any) {
   return { id: task.id, restricted: true, redacted: true, title: "Tarefa restrita", status: task.status,
