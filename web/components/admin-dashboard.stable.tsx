@@ -1,4 +1,5 @@
 "use client";
+import IntegrationItems from "./integration-items";
 import { userTaskColor } from "@/lib/tasks/user-color";
 import TaskTerritories from "./task-territories";
 import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
@@ -456,7 +457,9 @@ export default function AdminDashboard() {
                 </div>
               </section>
             </div>
-            <div hidden={tab !== "integrations"}>
+            {tab === "integrations" && <>
+              <IntegrationItems />
+              <details><summary>Resumo das coletas e execuções do integrador</summary>
               <section className="manual-card">
                 <h2>Integração de ordens de serviço</h2>
                 <p className="muted">
@@ -586,7 +589,8 @@ export default function AdminDashboard() {
                   </table>
                 </div>
               </section>
-            </div>
+              </details>
+            </>}
             <div hidden={tab !== "logs"}>
               <section className="manual-card">
                 <h2>Presença e últimos acessos</h2>

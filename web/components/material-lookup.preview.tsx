@@ -7,7 +7,7 @@ import { companyName } from "@/lib/company-names";
 import MaterialPhoto from "./material-photo";
 import QuoteOrderLink from "./quote-order-link";
 import { Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 type Row = {
   reserved_orders?: ReservedOrder[];
   details?: Record<string, unknown>;
@@ -68,12 +68,12 @@ export default function MaterialLookup() {
     }
   }, [linkedCode]);
   useEffect(() => {
-    if (!request) return;
+    if (!request) { setBusy(false); setRows(null); setError(""); setSimilar([]); return; }
     const controller = new AbortController();
     setBusy(true);
     setError("");
     setRows(null);
-    setMatches(null);
+    if (!request.code) setMatches(null);
     setSimilar([]);
     apiFetch(
       "/api/products/lookup?" +
@@ -88,6 +88,7 @@ export default function MaterialLookup() {
           return;
         }
         const body = await response.json();
+        if (controller.signal.aborted) return;
         if (!response.ok) throw new Error(body.error);
         if (body.products) {
           setMatches(body);
@@ -107,41 +108,9 @@ export default function MaterialLookup() {
   const productDetails = rows?.find(
     (row) => Number(row.company_id) === 1,
   )?.details;
-  return (
-    <section
-      className="manual-card material-lookup"
-      aria-label="Consulta de produtos"
-    >
-      <div className="material-lookup-top">
-        <div className="material-lookup-search">
-          <h2>Consultar produtos</h2>
-          <p>
-            Preços, custo médio e saldos da última coleta, inclusive para
-            materiais sem histórico de consumo.
-          </p>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              setRequest({ q: code.trim() });
-            }}
-            className="quote-toolbar"
-          >
-            <label>
-              Pesquisar produto
-              <input
-                maxLength={200}
-                required
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="Código, descrição, referência, fabricante ou outro dado"
-              />
-            </label>
-            <button className="primary" disabled={busy}>
-              <Search size={16} />
-              {busy ? "Consultando…" : "Consultar material"}
-            </button>
-          </form>
-        </div>
+  const productPanel = <>
+    {busy && <p role="status">Consultando produto…</p>}
+    {error && <p role="alert">{error}</p>}
         {!!rows?.length && (
           <MaterialPhoto
             key={rows[0].product_id}
@@ -150,53 +119,6 @@ export default function MaterialLookup() {
             companies={rows.map((r) => r.company_id)}
           />
         )}
-      </div>
-      {error && <p role="alert">{error}</p>}
-      {matches && (
-        <div>
-          <p>
-            {matches.total} produto(s) encontrado(s).
-            {matches.total > matches.products.length &&
-              " Exibindo os primeiros 100; refine a pesquisa."}
-          </p>
-          <div className="manual-table-scroll">
-            <table className="manual-table">
-              <thead>
-                <tr>
-                  <th>Código</th>
-                  <th>Produto</th>
-                  <th>Referência fabricante</th>
-                  <th>Fabricante</th>
-                  <th>Ação</th>
-                </tr>
-              </thead>
-              <tbody>
-                {matches.products.map((product) => (
-                  <tr key={product.product_id}>
-                    <td>{product.product_id}</td>
-                    <td>{product.name}</td>
-                    <td>{product.reference || "—"}</td>
-                    <td>{product.manufacturer || "—"}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="product-consult-button"
-                        onClick={() => {
-                          setCode(product.product_id);
-                          setRequest({ code: product.product_id });
-                        }}
-                      >
-                        <Search size={15} aria-hidden="true" />
-                        Consultar produto
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
       {rows?.length === 0 && (
         <p>Nenhum material encontrado para esse código.</p>
       )}
@@ -418,6 +340,94 @@ export default function MaterialLookup() {
           </p>
         </>
       )}
+  </>;
+  return (
+    <section
+      className="manual-card material-lookup"
+      aria-label="Consulta de produtos"
+    >
+      <div className="material-lookup-top">
+        <div className="material-lookup-search">
+          <h2>Consultar produtos</h2>
+          <p>
+            Preços, custo médio e saldos da última coleta, inclusive para
+            materiais sem histórico de consumo.
+          </p>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              setRequest({ q: code.trim() });
+            }}
+            className="quote-toolbar"
+          >
+            <label>
+              Pesquisar produto
+              <input
+                maxLength={200}
+                required
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="Código, descrição, referência, fabricante ou outro dado"
+              />
+            </label>
+            <button className="primary" disabled={busy}>
+              <Search size={16} />
+              {busy ? "Consultando…" : "Consultar material"}
+            </button>
+          </form>
+        </div>
+
+      </div>
+      {error && !request?.code && <p role="alert">{error}</p>}
+      {matches && (
+        <div>
+          <p>
+            {matches.total} produto(s) encontrado(s).
+            {matches.total > matches.products.length &&
+              " Exibindo os primeiros 100; refine a pesquisa."}
+          </p>
+          <div className="manual-table-scroll">
+            <table className="manual-table">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Produto</th>
+                  <th>Referência fabricante</th>
+                  <th>Fabricante</th>
+                  <th>Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {matches.products.map((product) => (
+                  <Fragment key={product.product_id}><tr>
+                    <td>{product.product_id}</td>
+                    <td>{product.name}</td>
+                    <td>{product.reference || "—"}</td>
+                    <td>{product.manufacturer || "—"}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="product-consult-button"
+                        aria-expanded={request?.code === product.product_id}
+                        aria-controls={`product-details-${product.product_id}`}
+                        onClick={() => {
+                          setRequest(current => current?.code === product.product_id ? null : { code: product.product_id });
+                        }}
+                      >
+                        <Search size={15} aria-hidden="true" />
+                        Consultar produto
+                      </button>
+                    </td>
+                  </tr>
+                  {request?.code === product.product_id && <tr><td colSpan={5}><div id={`product-details-${product.product_id}`} className="material-inline-details">{productPanel}</div></td></tr>}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {!matches && productPanel}
     </section>
   );
 }

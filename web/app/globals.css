@@ -4262,3 +4262,9 @@ body.admin-preview :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar,
 .equipment-page .equipment-rental-status-filters .rental-filter-in_review { --status-bg: #fff0dc; --status-color: #965a13; }
 .equipment-rental-state.rental-in_review { background: #fff0dc; color: #965a13; }
 @media(min-width:1101px) { .equipment-page .equipment-rental-status-cards:not(.equipment-contract-filter-group) { grid-template-columns: repeat(8,minmax(0,1fr)); } }
+
+.integration-search { display:flex; align-items:flex-end; flex-wrap:wrap; gap:12px; margin:16px 0; }
+.integration-search label { display:grid; gap:8px; flex:1 1 320px; }
+.integration-search input { width:100%; }
+
+.material-inline-details { padding: 16px; background: #f7faff; border: 1px solid #dce6f2; border-radius: 10px; white-space: normal; }

@@ -1,3 +1,4 @@
+import { integrationItems } from "@/lib/integration-items";
 import { createEmployeeLogin, resetEmployeePassword } from "@/lib/employee-login";
 import { NextResponse } from "next/server";
 import { requireAdmin, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
@@ -17,9 +18,11 @@ function failure(e: unknown) {
   console.error("ADMIN_OPERATION_FAILED");
   return json({ error: "Não foi possível consultar a administração." }, 503);
 }
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const user = await requireAdmin();
+    const params = new URL(req.url).searchParams;
+    if (params.has("integration")) return json(await integrationItems(params));
     return json({
       ...(await adminOverview()),
       email: user.email,
