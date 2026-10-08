@@ -249,10 +249,10 @@ export default function AdminDashboard() {
                             </label>
                           ))}
                           <div className="employee-managers">
-                            <span className="employee-managers-label">Gestores para aprovação de apontamentos</span>
+                            <span className="employee-managers-label">Gestores para aprovação</span>
                             <SupportPicker
                               className="employee-managers-picker"
-                              label="Gestores para aprovação de apontamentos"
+                              label="Gestores para aprovação"
                               filterLabel="Pesquisar gestor"
                               removeLabel="Remover gestor"
                               disabled={busy || data.managersAvailable===false}
