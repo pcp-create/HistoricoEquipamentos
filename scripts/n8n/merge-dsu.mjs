@@ -70,7 +70,7 @@ const conditions = (leftValue, type, operation, rightValue) => ({
         id: randomUUID(),
         leftValue,
         rightValue,
-        operator: { type, operation },
+        operator: { type, operation, ...(type === "boolean" && ["true", "false"].includes(operation) ? { singleValue: true } : {}) },
       },
     ],
     combinator: "and",
@@ -80,7 +80,7 @@ const conditions = (leftValue, type, operation, rightValue) => ({
 node(
   "DSU — Conversa privada?",
   "if",
-  conditions("={{ $json.dsu }}", "boolean", "true", ""),
+  conditions("={{ $json.dsu === true }}", "boolean", "true", true),
   [480, -400],
   2.2,
 );

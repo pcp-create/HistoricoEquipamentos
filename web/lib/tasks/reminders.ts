@@ -1,4 +1,5 @@
 import "server-only";
+import type { PoolClient } from "pg";
 import { parseRecurrence, nextOccurrence, recurrenceLabel } from "./recurrence";
 import { randomUUID } from "node:crypto";
 import { database } from "../db";
@@ -31,7 +32,7 @@ export async function listReminders(task: unknown) {
     )
   ).rows;
 }
-export async function saveReminder(b: any, actor: string) {
+export async function saveReminder(b: any, actor: string, client?: PoolClient) {
   if (!validId(b?.taskId) || !["create", "edit", "cancel"].includes(b.action))
     throw new TaskInputError("Alerta inválido.");
   const when = b.action !== "cancel" ? reminderInstant(b.when) : null;
@@ -41,9 +42,9 @@ export async function saveReminder(b: any, actor: string) {
   } catch (e) {
     throw new TaskInputError((e as Error).message);
   }
-  const c = await database().connect();
+  const c = client || await database().connect();
   try {
-    await c.query("BEGIN READ WRITE");
+    if (!client) await c.query("BEGIN READ WRITE");
     const t = (
       await c.query("SELECT * FROM web_tasks WHERE id=$1 FOR UPDATE", [
         b.taskId,
@@ -137,12 +138,12 @@ export async function saveReminder(b: any, actor: string) {
       "UPDATE web_tasks SET updated_at=now(),updated_by=$2,version=version+1 WHERE id=$1",
       [b.taskId, actor],
     );
-    await c.query("COMMIT");
+    if (!client) await c.query("COMMIT");
   } catch (e) {
-    await c.query("ROLLBACK");
+    if (!client) await c.query("ROLLBACK");
     throw e;
   } finally {
-    c.release();
+    if (!client) c.release();
   }
 }
 export async function claimReminders(origin: string) {

@@ -59,7 +59,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const result=$input.first().json;\nif(!Array.isArray(result.replies)) throw new Error('Resposta DSU inválida');\nconst cfg=$('Configuração').first().json;\nreturn result.replies.map(reply=>{if(!['sendList','sendButtons','sendText'].includes(reply.endpoint))throw new Error('Tipo de resposta inválido');return {json:{evolutionUrl:cfg.evolutionUrl,instance:cfg.instance,...reply},pairedItem:{item:0}};});"
+        "jsCode": "// Código do nó “DSU — Preparar respostas” (Run Once for All Items).\nconst result = $input.first().json;\nif (!Array.isArray(result.replies)) throw new Error('A API DSU não retornou replies. Confira o nó Processar conversa.');\nconst cfg = $('Configuração').first().json;\nreturn result.replies.map((reply) => {\n  const body = reply.body;\n  if (!body || !['sendText', 'sendList', 'sendButtons'].includes(reply.endpoint)) throw new Error('Resposta DSU inválida.');\n  let text = body.text;\n  if (reply.endpoint !== 'sendText') {\n    const options = reply.endpoint === 'sendList'\n      ? (body.sections || []).flatMap(section => section.rows || []).map(row => ({title: row.title, description: row.description}))\n      : (body.buttons || []).map(button => ({title: button.displayText}));\n    if (!options.length) throw new Error('Menu DSU sem opções.');\n    text = [body.title ? `*${body.title}*` : null, body.description, options.map((option, i) => `*${i + 1} — ${option.title}*${option.description && option.description !== option.title ? `\\n   ${option.description}` : ''}`).join('\\n'), 'Responda com o número da opção.\\nDigite *Menu* ou *Cancelar* para voltar.'].filter(Boolean).join('\\n\\n');\n  }\n  if (typeof text !== 'string' || !text.trim()) throw new Error('Resposta DSU sem texto.');\n  text = text.replace(/^Assistente RJ \\(DSU\\)$/gm, '*Assistente RJ (DSU)*').replace(/^(\\d+ — [^\\n]+)$/gm, '*$1*');\n  return {json: {evolutionUrl: cfg.evolutionUrl, instance: cfg.instance, endpoint: 'sendText', body: {number: body.number, text}}, pairedItem: {item: 0}};\n});\n"
       },
       "id": "bac165da-fe19-4fb1-b513-be04c695a55d",
       "name": "Preparar respostas",
@@ -73,7 +73,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.evolutionUrl + '/message/' + $json.endpoint + '/' + encodeURIComponent($json.instance) }}",
+        "url": "={{ $json.evolutionUrl + '/message/sendText/' + encodeURIComponent($json.instance) }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,

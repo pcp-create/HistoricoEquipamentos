@@ -9,6 +9,7 @@ import {
   TaskConflict,
 } from "../tasks/store";
 import { Forbidden } from "../auth";
+import { reminderInstant, saveReminder } from "../tasks/reminders";
 import { PUBLIC_SYSTEM_URL } from "../public-url";
 import { dueDate, phoneKey, type Incoming } from "./protocol";
 
@@ -23,11 +24,18 @@ type State = {
   task?: { id: string; version: number };
 };
 export type Reply = {
-  endpoint: "sendText" | "sendList" | "sendButtons";
+  endpoint: "sendText";
+  menu?: {
+    title: string;
+    description: string;
+    buttonText: string;
+    footerText: string;
+    rows: { title: string; description?: string; rowId: string }[];
+  };
   body: Record<string, unknown>;
 };
 const name = "Assistente RJ (DSU)";
-const footer = "Digital Support Unit · Digite Menu ou Cancelar";
+const footer = "Digital Support Unit · Digite *Menu* ou *Cancelar*";
 const clip = (s: string, n: number) => [...s].slice(0, n).join("");
 const dateLabel = (value: any) =>
   value
@@ -50,47 +58,24 @@ async function respond(
     endpoint: "sendText",
     body: { number: event.phone, text: `*${name}*\n\n${message}` },
   });
-  const menu = (
-    description: string,
-    choices: Choice[],
-    buttons = false,
-  ): Reply => {
+  const menu = (description: string, choices: Choice[]): Reply => {
     state.nonce = randomUUID();
     state.choices = choices;
-    const id = (i: number) => `dsu:${state.nonce}:${i}`;
-    if (buttons)
-      return {
-        endpoint: "sendButtons",
-        body: {
-          number: event.phone,
-          title: name,
-          description,
-          footer,
-          buttons: choices.map((choice, i) => ({
-            type: "reply",
-            displayText: clip(choice.title, 20),
-            id: id(i),
-          })),
-        },
-      };
+    const options = choices.map((choice, index) =>
+      `*${index + 1} — ${choice.title}*${choice.description && choice.description !== choice.title ? `\n   ${choice.description}` : ""}`,
+    ).join("\n");
     return {
-      endpoint: "sendList",
-      body: {
-        number: event.phone,
+      ...text(`${description}\n\n${options}\n\nResponda com o número da opção.\n${footer}`),
+      menu: {
         title: name,
         description,
-        footerText: footer,
-        buttonText: "Ver opções",
-        sections: [
-          {
-            title: "Escolha uma opção",
-            rows: choices.map((choice, i) => ({
-              title: clip(choice.title, 24),
-              description: clip(choice.description || choice.title, 72),
-              rowId: id(i),
-            })),
-          },
-        ],
+        buttonText: "Escolha uma opção",
+        footerText: "Digite Menu ou Cancelar para voltar",
+        rows: choices.map((choice, index) => ({
+          title: clip(choice.title, 24),
+          description: clip(choice.description || (choice.title.length > 24 ? choice.title : ""), 72),
+          rowId: `dsu:${state.nonce}:${index}`,
+        })),
       },
     };
   };
@@ -137,6 +122,7 @@ async function respond(
       { title: "Criar tarefa", value: "create" },
       { title: "Minhas tarefas", value: "mine:0" },
       { title: "Concluir tarefa", value: "complete" },
+      { title: "Criar alerta", value: "reminder" },
     ]);
   };
   if (!actor) {
@@ -184,7 +170,6 @@ async function respond(
         { title: "Confirmar", value: "confirm" },
         { title: "Cancelar", value: "cancel" },
       ],
-      true,
     );
   };
   const direct = /^concluir\s+(?:tarefa\s+)?(?:tar[- ]?)?(\d{1,18})$/i.exec(
@@ -277,6 +262,52 @@ async function respond(
     state.choices = undefined;
     return text(`✅ TAR-${id} concluída.\nDigite Menu para continuar.`);
   }
+  const alertPrompt = "Qual a data e hora do alerta? Digite DD/MM/AAAA HH:mm (horário de Brasília). O alerta será enviado ao responsável da tarefa, sem repetição.";
+  const parseAlert = (value: string) => {
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/.exec(value);
+    if (!m) return null;
+    const local = `${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}`;
+    try { reminderInstant(local); return local; } catch { return null; }
+  };
+  const alertLabel = (value: string) => `${dateLabel(value.slice(0, 10))} às ${value.slice(11)} (Brasília)`;
+  if (state.step === "tasks" && input === "reminder") {
+    state.step = "reminder-id";
+    state.choices = undefined;
+    return text("Para qual tarefa deseja criar um alerta? Digite o código, por exemplo TAR-1521.");
+  }
+  if (state.step === "reminder-id") {
+    const m = /^(?:TAR[- ]?)?(\d{1,18})$/i.exec(input);
+    const t = m ? await readTask(m[1]) : null;
+    if (!t || (t.restricted && actor.role !== "admin")) return text("Tarefa não encontrada ou sem permissão. Informe outro código ou digite Menu.");
+    if (t.status === "completed") return text("A tarefa está concluída. Informe outra tarefa ou digite Menu.");
+    state.task = { id: String(t.id), version: t.version };
+    state.step = "reminder-date";
+    return text(`TAR-${t.id} — ${t.title}\n\n${alertPrompt}`);
+  }
+  if (state.step === "reminder-date") {
+    const when = parseAlert(input);
+    if (!when) return text("Data ou hora inválida. Informe uma data futura no formato DD/MM/AAAA HH:mm (Brasília).");
+    state.draft = { reminderWhen: when };
+    state.step = "confirm-reminder";
+    return menu(`Agendar alerta para TAR-${state.task?.id} em ${alertLabel(when)}?`, [
+      { title: "Agendar alerta", value: "schedule" },
+      { title: "Cancelar", value: "cancel" },
+    ]);
+  }
+  if (state.step === "confirm-reminder") {
+    if (input === "cancel") return home();
+    if (input !== "schedule" || !state.task) return text("Selecione Agendar alerta ou Cancelar na mensagem anterior.");
+    const t = await readTask(state.task.id);
+    if (!t || (t.restricted && actor.role !== "admin")) return home();
+    if (t.version !== state.task.version) throw new TaskConflict("A tarefa foi alterada. Inicie novamente o agendamento para conferir o responsável.");
+    await saveReminder({ action: "create", taskId: state.task.id, when: state.draft.reminderWhen }, actor.email, c);
+    const message = `✅ Alerta de TAR-${state.task.id} agendado para ${alertLabel(state.draft.reminderWhen)}.\nDigite Menu para continuar.`;
+    state.step = "home";
+    state.task = undefined;
+    state.draft = undefined;
+    state.choices = undefined;
+    return text(message);
+  }
   const recipients = async (page = 0, search = "") => {
     state.step = "assignee";
     state.page = page;
@@ -354,19 +385,47 @@ async function respond(
   }
   const confirmation = () =>
     menu(
-      `Confira antes de criar:\n\nTarefa: ${state.draft.title}\nResponsável: ${state.draft.assignedName}\nDescrição: ${clip(state.draft.description, 500)}\nVencimento: ${dateLabel(state.draft.dueDate)}`,
+      `Confira antes de criar:\n\nTarefa: ${state.draft.title}\nResponsável: ${state.draft.assignedName}\nDescrição: ${clip(state.draft.description, 500)}\nVencimento: ${dateLabel(state.draft.dueDate)}\nRestrita: ${state.draft.restricted ? "Sim" : "Não"}\nAlerta: ${state.draft.reminderWhen ? alertLabel(state.draft.reminderWhen) : "Sem alerta"}`,
       [
         { title: "Confirmar", value: "confirm" },
         { title: "Corrigir", value: "correct" },
         { title: "Cancelar", value: "cancel" },
       ],
-      true,
     );
   if (state.step === "due") {
     const due = dueDate(input);
     if (!due)
       return text("Data inválida. Use DD/MM/AAAA, por exemplo 15/10/2026.");
     state.draft.dueDate = due;
+    state.step = "create-restricted";
+    return menu("Esta tarefa deve ser restrita? Os detalhes de tarefas restritas ficam visíveis somente para administradores.", [
+      { title: "Sim, tarefa restrita", value: "restricted" },
+      { title: "Não, tarefa normal", value: "normal" },
+    ]);
+  }
+  if (state.step === "create-restricted") {
+    if (!["restricted", "normal"].includes(input)) return text("Selecione uma opção da mensagem anterior.");
+    state.draft.restricted = input === "restricted";
+    state.step = "create-alert";
+    return menu("Gostaria de agendar um alerta para esta tarefa?", [
+      { title: "Sim, agendar alerta", value: "yes" },
+      { title: "Não, criar sem alerta", value: "no" },
+    ]);
+  }
+  if (state.step === "create-alert") {
+    if (input === "yes") {
+      state.step = "create-alert-date";
+      state.choices = undefined;
+      return text(alertPrompt);
+    }
+    if (input !== "no") return text("Selecione uma opção da mensagem anterior.");
+    state.step = "confirm-create";
+    return confirmation();
+  }
+  if (state.step === "create-alert-date") {
+    const when = parseAlert(input);
+    if (!when) return text("Data ou hora inválida. Informe uma data futura no formato DD/MM/AAAA HH:mm (Brasília).");
+    state.draft.reminderWhen = when;
     state.step = "confirm-create";
     return confirmation();
   }
@@ -383,11 +442,13 @@ async function respond(
       auth,
       c,
     );
+    const reminderWhen = state.draft.reminderWhen;
+    if (reminderWhen) await saveReminder({ action: "create", taskId: String(result.task.id), when: reminderWhen }, actor.email, c);
     state.step = "home";
     state.draft = undefined;
     state.choices = undefined;
     return text(
-      `✅ Tarefa TAR-${result.task.id} criada!\n${PUBLIC_SYSTEM_URL}/tarefas?task=${result.task.id}\n\nDigite Menu para continuar.`,
+      `✅ Tarefa TAR-${result.task.id} criada!${reminderWhen ? `\nAlerta agendado para ${alertLabel(reminderWhen)}.` : ""}\n${PUBLIC_SYSTEM_URL}/tarefas?task=${result.task.id}\n\nDigite Menu para continuar.`,
     );
   }
   return home();
@@ -442,6 +503,7 @@ export async function processMessage(
       "description",
       "due",
       "confirm-create",
+      "create-restricted", "create-alert", "create-alert-date", "reminder-id", "reminder-date", "confirm-reminder",
       "complete-id",
       "confirm-complete",
     ].includes(state.step || "");

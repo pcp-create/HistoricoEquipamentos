@@ -2,19 +2,19 @@
 
 **DSU — Digital Support Unit · Assistente Digital de Suporte e Informação**.
 
-Primeira versão preparada para a instância **BotDemandas**, com listas e botões interativos da Evolution API v2. Os fluxos atuais de avisos, alertas e conclusão continuam responsáveis pelos envios automáticos; o novo fluxo recebe mensagens e responde à conversa. Não altera agendamentos existentes.
+Versão atual preparada para a instância **BotDemandas**, com menus numerados enviados por `sendText`. Listas e botões interativos foram substituídos por texto devido às falhas de entrega na instalação Evolution 2.3.7. Os fluxos atuais de avisos, alertas e conclusão continuam responsáveis pelos envios automáticos; o novo fluxo recebe mensagens e responde à conversa. Não altera agendamentos existentes.
 
 ## Conversa
 
 - Número associado a exatamente um usuário ativo: menu Colaborador → Tarefas.
 - Número externo, desativado ou ambíguo: menu Cliente, sem acesso a dados internos. Telefones brasileiros são normalizados com DDI e variação do nono dígito de celular.
-- Criar tarefa: título → responsável → descrição → vencimento → confirmar/corrigir/cancelar.
-- Lista de responsáveis ativos com WhatsApp cadastrado (regra atual de atribuição), opção Para mim, pesquisa por nome e paginação. Máximo de dez opções por lista.
+- Criar tarefa: título → responsável → descrição → vencimento → tarefa restrita (sim/não) → alerta opcional com data/hora → confirmar/corrigir/cancelar.
+- Menu numerado de responsáveis ativos com WhatsApp cadastrado (regra atual de atribuição), opção Para mim, pesquisa por nome e paginação. Máximo de dez opções por lista.
 - Datas DD/MM/AAAA, hoje e amanhã, considerando Brasília. A data completa é confirmada antes de gravar.
 - Minhas tarefas: tarefas abertas atribuídas ao remetente, ordenadas por vencimento e paginadas. A seleção mostra etapa, descrição inicial de tarefas manuais e link do sistema.
 - Concluir: opção do menu ou comando `Concluir TAR-1521`. Exige confirmação; apenas tarefas manuais atribuídas ao remetente ou acessíveis por administrador. Tarefas de origem automática continuam sendo resolvidas na origem.
 - Tarefas restritas: não revelam título, descrição, datas ou etapa para não administradores; mostram apenas código, responsável e status. Conclusão exige administrador.
-- `Menu`, `Voltar`, `0` ou `Cancelar`: reinicia a conversa. Estado expira após 30 minutos de inatividade. Botões de menus antigos são rejeitados.
+- `Menu`, `Voltar`, `0` ou `Cancelar`: reinicia a conversa. Estado expira após 30 minutos de inatividade. IDs de botões antigos são rejeitados quando expirados. As respostas numéricas se referem sempre ao menu mais recente.
 - Menu Cliente: atendimento técnico, orçamento e falar com a equipe. Nesta primeira versão, informa que o atendimento está em preparação, sem alegar abertura ou encaminhamento de solicitações.
 
 ## Implantação
@@ -81,3 +81,26 @@ Antes de publicar o integrado:
 O arquivo integrado fica inativo para revisão. IDs de credenciais e quaisquer segredos já presentes no fluxo antigo permanecem somente na pasta privada `.m8`. O gerador não imprime seus valores. Execuções não são salvas por padrão para evitar persistir mensagens e cabeçalhos nos logs do novo fluxo.
 
 Limitação de entrega: a decisão de encaminhar ao legado é deduplicada na API, mas a execução dos nós antigos não faz parte da transação do sistema. Se o ramo antigo falhar depois da decisão, revisar essa execução antes de tentar novamente; não há repetição automática de gravações de demandas DM.
+
+
+## Ativar os menus numerados no fluxo já instalado
+
+A criação, consulta, escolha de responsável, paginação e confirmações usam texto com `1 — opção`, `2 — opção` etc. A API persiste a correspondência entre número e ação, mantendo as permissões e deduplicação existentes.
+
+Para testar sem esperar pela publicação da aplicação, substituir todo o JavaScript do nó **DSU — Preparar respostas** pelo conteúdo de `scripts/n8n/dsu-respostas-texto.js`. Esse adaptador aceita tanto as respostas interativas do backend anterior quanto `sendText` do backend atualizado. Não exige alterar o container Evolution novamente.
+
+No nó **DSU — Responder WhatsApp**, restaurar os campos que possam ter sido modificados no teste dos botões:
+
+- URL (Expression): `{{ $json.evolutionUrl + '/message/sendText/' + encodeURIComponent($json.instance) }}`
+- JSON (Expression): `{{ $json.body }}`
+- Credencial: Header Auth da Evolution (`apikey`).
+
+Salvar/publicar o workflow, enviar **Menu** e responder com números. Não é preciso importar todo o fluxo nem alterar as credenciais já corrigidas. A apresentação enviada pela API do sistema passa a ser texto quando o backend for publicado. Os arquivos JSON locais também foram atualizados. Os comandos DM continuam no ramo antigo fora do preenchimento de tarefas.
+
+### Alertas pelo WhatsApp
+
+Na criação de uma tarefa, após o vencimento, o DSU pergunta se deseja agendar um alerta. Selecione Sim e informe `DD/MM/AAAA HH:mm`, no horário de Brasília. A confirmação cria a tarefa e o alerta na mesma transação. Também é possível acessar **Tarefas → Criar alerta**, informar o código `TAR-123`, a data e hora e confirmar o agendamento. Os alertas são únicos, sem repetição, destinados ao responsável conforme as regras existentes do sistema. O colaborador pode agendar nas próprias tarefas; administradores podem acessar outras tarefas. Tarefas concluídas e tarefas restritas sem permissão não permitem agendamento. Essa mudança requer publicar o backend atualizado; não exige trocar o adaptador de respostas do n8n.
+
+### Preparação de listas interativas
+
+As respostas de menu também incluem o campo `menu`, com título, descrição, texto do botão e linhas com `rowId` associado à sessão. O texto numerado continua em `body.text`, compatível com o adaptador existente. O clique deve devolver o `rowId` intacto; opções de menus anteriores são rejeitadas pela sessão. Essa estrutura permite escolher o transporte sem reconstruir as opções a partir do texto. Ainda não ativa o envio interativo: a integração de envio/recebimento e a renderização no aparelho precisam ser validadas antes da troca em produção.

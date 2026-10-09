@@ -139,11 +139,10 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
           legacy,
         )
       ).replies[0];
-    const choose = (reply: Reply, title: string) => {
-      const b: any = reply.body;
-      return b.buttons
-        ? b.buttons.find((r: any) => r.displayText === title)?.id
-        : b.sections[0].rows.find((r: any) => r.title === title)?.rowId;
+    const choose = (reply: Reply, title: string): string => {
+      assert.equal(reply.endpoint, "sendText");
+      const line = String(reply.body.text).split("\n").map(line => line.replace(/^\*|\*$/g, "")).find(line => /^\d+ — /.test(line) && line.slice(line.indexOf(" — ") + 3) === title);
+      return line?.split(" — ")[0] as string;
     };
     const legacyEvent = {
       text: "concluir DM-25",
@@ -160,12 +159,14 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
       duplicate: true,
     });
     let r = await send("Oi");
-    assert.equal(r.endpoint, "sendList");
-    const oldMenu = choose(r, "Tarefas");
+    assert.equal(r.endpoint, "sendText");
+    assert.equal(r.menu?.buttonText, "Escolha uma opção");
+    assert.equal(r.menu?.rows[0].title, "Tarefas");
+    const oldMenu = r.menu!.rows[0].rowId;
     r = await send(oldMenu);
     r = await send(choose(r, "Criar tarefa"));
     r = await send("Retornar cliente");
-    assert.equal(r.endpoint, "sendList");
+    assert.equal(r.endpoint, "sendText");
     r = await send(choose(r, "Para mim"));
     r = await send(
       "Conferir peças do compressor com @Bia",
@@ -176,7 +177,13 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
     r = await send("31/02/2026");
     assert.match(String(r.body.text), /Data inválida/);
     r = await send("15/10/2026");
-    assert.equal(r.endpoint, "sendButtons");
+    assert.match(String(r.body.text), /restrita/);
+    r = await send(choose(r, "Não, tarefa normal"));
+    r = await send(choose(r, "Sim, agendar alerta"));
+    r = await send("31/02/2099 10:00");
+    assert.match(String(r.body.text), /inválida/);
+    r = await send("15/10/2099 10:30");
+    assert.equal(r.endpoint, "sendText");
     assert.equal((await db.query("SELECT * FROM web_tasks")).rows.length, 0);
     const confirm = choose(r, "Confirmar");
     failSession = true;
@@ -189,6 +196,7 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
       (await db.query("SELECT * FROM web_task_notifications")).rows.length,
       0,
     );
+    assert.equal((await db.query("SELECT * FROM web_task_reminders")).rows.length, 0);
     failSession = false;
     r = await send(confirm, "5547999999999", "confirm-create");
     assert.match(String(r.body.text), /criada/);
@@ -202,6 +210,26 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
       { replies: [], duplicate: true },
     );
     const task: any = (await db.query("SELECT * FROM web_tasks")).rows[0];
+    const alerts = (await db.query("SELECT * FROM web_task_reminders")).rows as any[];
+    assert.equal(alerts.length, 1);
+    assert.equal(new Date(alerts[0].scheduled_at).toISOString(), "2099-10-15T13:30:00.000Z");
+    assert.equal(alerts[0].recipient, "ana@example.com");
+    r = await send("Menu", "5547888888888");
+    r = await send(choose(r, "Tarefas"), "5547888888888");
+    r = await send(choose(r, "Criar alerta"), "5547888888888");
+    r = await send(`TAR-${task.id}`, "5547888888888");
+    assert.match(String(r.body.text), /sem permissão/);
+    r = await send("Menu");
+    r = await send(choose(r, "Tarefas"));
+    r = await send(choose(r, "Criar alerta"));
+    r = await send(`TAR-${task.id}`);
+    r = await send("15/10/2099 11:30");
+    const schedule = choose(r, "Agendar alerta");
+    r = await send(schedule, undefined, "schedule-alert");
+    assert.match(String(r.body.text), /agendado/);
+    await send(schedule, undefined, "schedule-alert");
+    assert.equal((await db.query("SELECT * FROM web_task_reminders")).rows.length, 2);
+    assert.equal(task.restricted, false);
     assert.equal(task.created_by, "ana@example.com");
     assert.equal(task.assigned_to, "ana@example.com");
     assert.equal(
@@ -209,14 +237,14 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
       1,
     );
     assert.equal((await db.query("SELECT * FROM web_tasks")).rows.length, 1);
-    r = await send(oldMenu);
+    r = await send("dsu:expired:0");
     assert.match(String(r.body.text), /expirou/);
     r = await send(`Concluir TAR-${task.id}`, "5547888888888");
     assert.match(String(r.body.text), /sem permissão/);
     r = await send("Menu");
     r = await send(choose(r, "Tarefas"));
     r = await send(choose(r, "Minhas tarefas"));
-    assert.equal(r.endpoint, "sendList");
+    assert.equal(r.endpoint, "sendText");
     r = await send(choose(r, `TAR-${task.id}`));
     assert.match(String(r.body.text), /Conferir peças/);
     await db.query("UPDATE web_tasks SET restricted=true WHERE id=$1", [
@@ -289,6 +317,21 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
     );
     r = await send("Menu");
     assert.equal(choose(r, "Tarefas"), undefined);
+    await db.query("UPDATE web_user_access SET phone='5547888888888' WHERE email='bia@example.com'");
+    r = await send("Menu");
+    r = await send(choose(r, "Tarefas"));
+    r = await send(choose(r, "Criar tarefa"));
+    r = await send("Assunto confidencial");
+    r = await send(choose(r, "Para mim"));
+    r = await send("Descritivo reservado");
+    r = await send("15/10/2099");
+    r = await send(choose(r, "Sim, tarefa restrita"));
+    r = await send(choose(r, "Não, criar sem alerta"));
+    assert.match(String(r.body.text), /Restrita: Sim/);
+    r = await send(choose(r, "Confirmar"));
+    assert.match(String(r.body.text), /criada/);
+    const secret = (await db.query("SELECT restricted FROM web_tasks WHERE title='Assunto confidencial'")).rows[0] as any;
+    assert.equal(secret.restricted, true);
   } finally {
     g.historyPool = old;
     await db.close();
