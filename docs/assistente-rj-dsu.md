@@ -6,8 +6,8 @@ Versão atual preparada para a instância **BotDemandas**, com menus numerados e
 
 ## Conversa
 
-- Número associado a exatamente um usuário ativo: menu Colaborador → Tarefas.
-- Número externo, desativado ou ambíguo: menu Cliente, sem acesso a dados internos. Telefones brasileiros são normalizados com DDI e variação do nono dígito de celular.
+- Número associado a exatamente um usuário ativo: inicia menu Colaborador → Tarefas somente ao receber `menu` (sem distinguir maiúsculas/minúsculas). Após iniciar, as respostas seguem a sessão por até 30 minutos de inatividade.
+- Número externo, desativado ou ambíguo: nenhuma resposta, inclusive ao receber Menu; sessões anteriores são removidas. Atendimento a clientes temporariamente desabilitado. Telefones brasileiros são normalizados com DDI e variação do nono dígito de celular.
 - Criar tarefa: título → responsável → descrição → vencimento → tarefa restrita (sim/não) → alerta opcional com data/hora → confirmar/corrigir/cancelar.
 - Menu numerado de responsáveis ativos com WhatsApp cadastrado (regra atual de atribuição), opção Para mim, pesquisa por nome e paginação. Máximo de dez opções por lista.
 - Datas DD/MM/AAAA, hoje e amanhã, considerando Brasília. A data completa é confirmada antes de gravar.

@@ -484,6 +484,11 @@ export async function processMessage(
     // Número ambíguo/desabilitado nunca assume a identidade de colaborador.
     const actor =
       matches.length === 1 && matches[0].enabled ? matches[0] : null;
+    if (!actor) {
+      await c.query("DELETE FROM web_dsu_sessions WHERE instance=$1 AND phone=$2", [event.instance, phone]);
+      await c.query("COMMIT");
+      return { replies: [] };
+    }
     const old = (
       await c.query(
         "SELECT * FROM web_dsu_sessions WHERE instance=$1 AND phone=$2",
@@ -510,6 +515,10 @@ export async function processMessage(
     if (legacyCommand && !filling) {
       await c.query("COMMIT");
       return { replies: [], route: "legacy" };
+    }
+    if (!state.step && !/^menu$/i.test(event.text.trim())) {
+      await c.query("COMMIT");
+      return { replies: [] };
     }
     await c.query("SAVEPOINT dsu_action");
     let reply: Reply;

@@ -158,7 +158,9 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
       replies: [],
       duplicate: true,
     });
-    let r = await send("Oi");
+    assert.equal(await send("Oi"), undefined);
+    assert.equal(await send("1"), undefined);
+    let r = await send("MENU");
     assert.equal(r.endpoint, "sendText");
     assert.equal(r.menu?.buttonText, "Escolha uma opção");
     assert.equal(r.menu?.rows[0].title, "Tarefas");
@@ -239,6 +241,7 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
     assert.equal((await db.query("SELECT * FROM web_tasks")).rows.length, 1);
     r = await send("dsu:expired:0");
     assert.match(String(r.body.text), /expirou/);
+    await send("menu", "5547888888888");
     r = await send(`Concluir TAR-${task.id}`, "5547888888888");
     assert.match(String(r.body.text), /sem permissão/);
     r = await send("Menu");
@@ -271,6 +274,7 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
       ).rows[0].status,
       "not_started",
     );
+    await send("Menu");
     r = await send(`Concluir ${task.id}`);
     const completion = choose(r, "Confirmar");
     r = await send(completion, "5547999999999", "confirm-done");
@@ -302,13 +306,13 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
       1,
     );
     r = await send("Oi", "5547777777777");
-    assert.ok(choose(r, "Solicitar orçamento"));
-    assert.equal(choose(r, "Tarefas"), undefined);
+    assert.equal(r, undefined);
+    assert.equal(await send("Menu", "5547777777777"), undefined);
     await db.query(
       "UPDATE web_user_access SET enabled=false WHERE email='ana@example.com'",
     );
     r = await send("Menu");
-    assert.equal(choose(r, "Tarefas"), undefined);
+    assert.equal(r, undefined);
     await db.query(
       "UPDATE web_user_access SET enabled=true WHERE email='ana@example.com'",
     );
@@ -316,7 +320,7 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
       "UPDATE web_user_access SET phone='5547999999999' WHERE email='bia@example.com'",
     );
     r = await send("Menu");
-    assert.equal(choose(r, "Tarefas"), undefined);
+    assert.equal(r, undefined);
     await db.query("UPDATE web_user_access SET phone='5547888888888' WHERE email='bia@example.com'");
     r = await send("Menu");
     r = await send(choose(r, "Tarefas"));
