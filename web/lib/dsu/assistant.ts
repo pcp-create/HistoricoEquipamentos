@@ -97,7 +97,11 @@ async function respond(
     );
   };
   let input = event.text;
-  if (/^(menu|cancelar|voltar|0)$/i.test(input)) return home();
+  if (/^menu$/i.test(input)) return home();
+  if (/^(cancelar|voltar|0)$/i.test(input)) {
+    for (const key of Object.keys(state)) delete (state as any)[key];
+    return text("Atendimento encerrado. Digite Menu para iniciar novamente.");
+  }
   if (input.startsWith("dsu:")) {
     const [, nonce, index] = input.split(":");
     if (
@@ -517,6 +521,13 @@ export async function processMessage(
       return { replies: [], route: "legacy" };
     }
     if (!state.step && !/^menu$/i.test(event.text.trim())) {
+      await c.query("COMMIT");
+      return { replies: [] };
+    }
+    const input = event.text.trim();
+    const selected = /^\d+$/.test(input) && Number(input) > 0 && Number(input) <= (state.choices?.length || 0);
+    const command = /^(menu|cancelar|voltar|0)$/i.test(input) || /^concluir\s+(?:tarefa\s+)?(?:tar[- ]?)?\d{1,18}$/i.test(input);
+    if (!filling && !selected && !command && !input.startsWith("dsu:")) {
       await c.query("COMMIT");
       return { replies: [] };
     }

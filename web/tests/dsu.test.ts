@@ -160,12 +160,18 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
     });
     assert.equal(await send("Oi"), undefined);
     assert.equal(await send("1"), undefined);
+    await send("Menu");
+    assert.match(String((await send("Cancelar")).body.text), /encerrado/);
+    assert.equal(await send("Oi"), undefined);
     let r = await send("MENU");
     assert.equal(r.endpoint, "sendText");
     assert.equal(r.menu?.buttonText, "Escolha uma opção");
     assert.equal(r.menu?.rows[0].title, "Tarefas");
+    assert.equal(await send("Oi novamente"), undefined);
+    assert.equal(await send("qualquer palavra"), undefined);
     const oldMenu = r.menu!.rows[0].rowId;
     r = await send(oldMenu);
+    assert.equal(await send("bom dia"), undefined);
     r = await send(choose(r, "Criar tarefa"));
     r = await send("Retornar cliente");
     assert.equal(r.endpoint, "sendText");
