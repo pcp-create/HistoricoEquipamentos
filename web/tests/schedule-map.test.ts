@@ -1,3 +1,4 @@
+import { fieldMapData, saveFieldLocation } from "../lib/service-scheduling/field-map";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -66,6 +67,29 @@ test("map uses company 1 for every OS and invalidates changed addresses; writes 
         "utf8",
       ),
     );
+    await db.exec(`ALTER TABLE web_user_access ADD PRIMARY KEY(email); ALTER TABLE web_user_access ADD COLUMN job_title text DEFAULT ''; ALTER TABLE web_user_access ADD COLUMN display_name text;
+      UPDATE web_user_access SET job_title='Técnico',display_name='Técnico A' WHERE email='tech';
+      CREATE ROLE anon; CREATE ROLE authenticated;
+      ALTER TABLE m8_ordens_servico ADD COLUMN numero_sequencia bigint; ALTER TABLE m8_ordens_servico ADD COLUMN cliente_nome text;
+      CREATE TABLE web_service_operations(schedule_id bigint,sent_at timestamptz,document jsonb,status text);
+      INSERT INTO web_service_operations VALUES(1,now(),' {"responsible":"tech","date":"2000-01-01"}','executing'),(2,now(),'{"responsible":"admin"}','completed');
+      CREATE TABLE web_field_events(actor text,latitude double precision,longitude double precision,accuracy double precision,located_at timestamptz);
+      INSERT INTO web_field_events VALUES('tech',-26,-48,10,now()-interval '1 day');`);
+    await db.exec(readFileSync(new URL('../sql/046_field_locations.sql',import.meta.url),'utf8'));
+    let field=await fieldMapData('tech');
+    assert.equal(field.orders.length,1);
+    assert.equal(field.orders[0].id,'1');
+    assert.equal(field.orders[0].status,'executing');
+    assert.equal(field.technicians[0].source,'Apontamento');
+    await assert.rejects(()=>saveFieldLocation('admin',{latitude:-27,longitude:-49,accuracy:10,at:new Date().toISOString()}));
+    await saveFieldLocation('tech',{latitude:-27,longitude:-49,accuracy:10,at:new Date().toISOString()});
+    field=await fieldMapData('tech');
+    assert.equal(field.technicians[0].source,'Acesso ao portal');
+    assert.equal(field.technicians[0].latitude,-27);
+    await db.exec("UPDATE web_service_operations SET status='awaiting_execution' WHERE schedule_id=1");
+    assert.equal((await fieldMapData('tech')).orders[0].status,'overdue');
+    await db.exec("UPDATE web_service_operations SET status='completed' WHERE schedule_id=1");
+    assert.equal((await fieldMapData('tech')).orders[0].status,'done');
     await assert.rejects(() => scheduleMapData("tech"));
     let data = await scheduleMapData("admin");
     assert.equal(data.schedules.length, 2);

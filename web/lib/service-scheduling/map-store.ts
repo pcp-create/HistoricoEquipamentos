@@ -12,19 +12,19 @@ import {
 export class MapInputError extends Error {}
 const hash = (a: Locality) =>
   createHash("sha256").update(addressIdentity(a)).digest("hex");
-export async function scheduleMapData(email: string, db: any = database()) {
+export async function scheduleMapData(email: string, db: any = database(), fieldOnly = false) {
   const access = (
     await db.query("SELECT role,enabled FROM web_user_access WHERE email=$1", [
       email,
     ])
   ).rows[0];
-  if (!access?.enabled || access.role !== "admin") throw new Forbidden();
+  if (!access?.enabled || (!fieldOnly && access.role !== "admin")) throw new Forbidden();
   const rows = (
     await db.query(`SELECT s.id::text,o.cliente_id::text AS person_id,o.endereco_entrega_id::text AS delivery_id,
  c.address_id::text AS choice_id
  FROM web_service_schedules s JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id
  LEFT JOIN web_schedule_map_choices c ON c.schedule_id=s.id AND c.person_id=o.cliente_id
- WHERE s.active`)
+ WHERE s.active ${fieldOnly ? "AND EXISTS (SELECT 1 FROM web_service_operations p WHERE p.schedule_id=s.id AND p.sent_at IS NOT NULL AND (p.document->>'responsible'=$1 OR p.document->'support' ? $1))" : ""}`, fieldOnly ? [email] : [])
   ).rows;
   const addresses = (
     await db.query(

@@ -25,6 +25,7 @@ import {
 import {stagesOf,groupsOf} from '@/lib/service-scheduling/checklists';
 import {checklistProgress} from '@/lib/service-scheduling/checklist-progress';
 import SaveActionIcon from "./save-action-icon";
+import FieldMap from "./field-map";
 import FieldTimeLogs from "./field-time-logs";
 import FieldCalendar, { fieldToday } from "./field-calendar";
 import { fieldOperationOverdue } from "@/lib/service-scheduling/field-overdue";
@@ -195,7 +196,9 @@ export default function FieldApp() {
           <nav className="field-view-switch" aria-label="Visualização da programação">
             <button aria-pressed={scheduleView === "list"} onClick={() => setScheduleView("list")}><ClipboardList size={16}/>Lista</button>
             <button aria-pressed={scheduleView === "calendar"} onClick={() => setScheduleView("calendar")}><CalendarDays size={16}/>Calendário</button>
+            <button aria-pressed={scheduleView === "map"} onClick={() => setScheduleView("map")}><MapPin size={16}/>Mapa</button>
           </nav>
+          <FieldMap visible={scheduleView === "map"}/>
           {scheduleView === "calendar" && <FieldCalendar rows={data?.rows || []} selected={selectedDay} onSelect={setSelectedDay} now={now}/>}
           {scheduleView === "calendar" && data && groups.size > 0 && !data.rows.some((row: any) => (row.date || "") === selectedDay) && <p className="field-day-empty">Nenhuma OS programada para esta data.</p>}
           {active && (
@@ -222,7 +225,7 @@ export default function FieldApp() {
               <small>O registro continua mesmo ao fechar a página.</small>
             </div>
           )}
-          {!data ? (
+          {scheduleView === "map" ? null : !data ? (
             <p>Carregando programação…</p>
           ) : !groups.size ? (
             <section className="field-empty">
