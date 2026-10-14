@@ -40,7 +40,7 @@ export async function fieldMapData(email: string) {
     WHERE u.enabled AND ${technicianSql} AND s.active AND p.sent_at IS NOT NULL AND p.status NOT IN ('awaiting_review','reviewed','completed')
     GROUP BY u.email,s.id,o.numero_sequencia,o.id_m8,o.cliente_nome ORDER BY min(p.document->>'date') NULLS LAST,s.id`)).rows;
   for(const technician of technicians) technician.pendingOrders=pending.filter(row=>row.technician===technician.id).map(({technician:_,...order})=>order);
-  const rows=(await db.query(`SELECT s.id::text schedule_id,p.status,p.document->>'date' date,coalesce(o.numero_sequencia,o.id_m8)::text number,o.cliente_nome customer
+  const rows=(await db.query(`SELECT s.id::text schedule_id,p.status,p.document->>'date' date,o.cliente_id::text customer_id,coalesce(o.numero_sequencia,o.id_m8)::text number,o.cliente_nome customer
     FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id
     JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id
     WHERE s.active AND p.sent_at IS NOT NULL AND (p.document->>'responsible'=$1 OR p.document->'support' ? $1)`,[email])).rows;
@@ -50,7 +50,7 @@ export async function fieldMapData(email: string) {
     const a=s.localities.find((a:any)=>a.address_id===s.selectedAddressId);
     const done=operations.length>0 && operations.every(r=>['awaiting_review','reviewed','completed'].includes(r.status));
     const status=done?'done':operations.some(r=>r.status==='executing')?'executing':operations.some(r=>fieldOperationOverdue(r.date,r.status,Date.now()))?'overdue':'planned';
-    return {id:s.id,customer:operations[0]?.customer || 'Cliente não informado',name:`OS ${operations[0]?.number || s.id} · ${operations[0]?.customer || ''}`,latitude:a?.latitude,longitude:a?.longitude,address:a?localityText(a):s.reason,precision:a?positionLabel(a.precision):'',status};
+    return {id:s.id,customerId:operations[0]?.customer_id,customer:operations[0]?.customer || 'Cliente não informado',name:`OS ${operations[0]?.number || s.id} · ${operations[0]?.customer || ''}`,latitude:a?.latitude,longitude:a?.longitude,address:a?localityText(a):s.reason,precision:a?positionLabel(a.precision):'',status};
   });
-  return {technicians,orders,canShare:access.technician};
+  return {technicians,orders:orders.filter((order:any)=>order.status!=='done'),canShare:access.technician};
 }

@@ -6,3 +6,10 @@ export function customerMapLabel(value: string | null | undefined): string {
     .replace(/\s+/g, ' ')
     .trim() || 'Cliente não informado';
 }
+
+export function singleCustomerLabel(items: { customerId?: string | number | null; customer?: string | null }[]): string | null {
+  if (!items.length) return null;
+  const keys = items.map(item => item.customerId != null ? `id:${item.customerId}` : item.customer ? `name:${customerMapLabel(item.customer).toLocaleUpperCase('pt-BR')}` : null);
+  if (keys.some(key => key == null) || new Set(keys).size !== 1) return null;
+  return customerMapLabel(items[0].customer);
+}

@@ -665,3 +665,5 @@ dialog.field-report-screen {
 .field-part-withdrawal { display: grid; gap: 3px; padding: 8px 0; overflow-wrap: anywhere; }
 .field-part-withdrawal strong { font-size: 12px; font-weight: 500; color: #233f5b; }
 .field-part-withdrawal time { font-size: 11px; }
+
+.field-order.field-order-completed,.field-calendar-grid .field-calendar-completed {border-color:#16834a;background:#edf9f1}.field-completed-badge {color:#116d3d;font-weight:700}

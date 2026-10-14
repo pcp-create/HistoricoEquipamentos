@@ -1,5 +1,5 @@
 "use client";
-import { customerMapLabel } from "@/lib/service-scheduling/customer-map-label";
+import { customerMapLabel, singleCustomerLabel } from "@/lib/service-scheduling/customer-map-label";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import { clusterMapPoints } from "@/lib/service-scheduling/map-clusters";
@@ -122,14 +122,15 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
       });
     return () => controller.abort();
   }, [ids, refresh]);
-  const summaryOrders = useMemo(() => schedules.filter((s) =>
-    !day || (s.calendar_operations || []).some((o: any) => (o.dates || [o.date]).includes(day)),
+  const summaryOrders = useMemo(() => schedules.filter((s) => s.programming_status !== "completed" && (
+    !day || (s.calendar_operations || []).some((o: any) => (o.dates || [o.date]).includes(day))),
   ), [schedules, day]);
   const visible = useMemo(
     () =>
       schedules
         .filter(
           (s) =>
+            s.programming_status !== "completed" &&
             (!status || s.programming_status === status) &&
             (!day ||
               (s.calendar_operations || []).some((o: any) =>
@@ -249,6 +250,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
       s.id,
       s.programming_status,
       s.cliente_nome,
+      s.customer_id,
       s.address,
       s.calendar_operations,
     ]),
@@ -405,9 +407,10 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
             iconAnchor: [size / 2, size / 2],
           }),
         }).addTo(layer);
-        if(group.length===1){
+        const groupCustomer=singleCustomerLabel(group.map(s=>({customerId:s.customer_id,customer:s.cliente_nome})));
+        if(groupCustomer){
           const customerLabel=document.createElement("span");
-          customerLabel.textContent=customerMapLabel(group[0].cliente_nome);
+          customerLabel.textContent=groupCustomer;
           marker.bindTooltip(customerLabel,{permanent:true,direction:"right",offset:[size/2+4,0],className:"map-customer-label",opacity:1});
         }
         if (distinct)
@@ -547,7 +550,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
           Status da OS
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">Todos os status</option>
-            {[...new Set(schedules.map((s) => s.programming_status))].map(
+            {[...new Set(schedules.filter(s=>s.programming_status!=="completed").map((s) => s.programming_status))].map(
               (v) => (
                 <option key={v} value={v}>
                   {scheduleStatusNames[v] || v}
@@ -643,7 +646,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
           <h3>OSs da programação</h3>
           <button type="button" className="schedule-map-summary-total" aria-pressed={!status} onClick={() => setStatus("")}><span>Total</span><strong>{summaryOrders.length}</strong></button>
           <div className="schedule-map-status-filters">
-            {Object.entries(scheduleStatusNames).map(([key, name]) => (
+            {Object.entries(scheduleStatusNames).filter(([key])=>key!=="completed").map(([key, name]) => (
               <button type="button" key={key} aria-pressed={status === key} onClick={() => setStatus(status === key ? "" : key)}>
                 <span><span className={`schedule-map-status-dot operation-status ${key}`} aria-hidden="true" />{name}</span>
                 <strong>{summaryOrders.filter((s) => (s.programming_status || "pending") === key).length}</strong>

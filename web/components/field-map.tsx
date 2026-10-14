@@ -1,6 +1,6 @@
 "use client";
 import { clusterMapPoints } from "@/lib/service-scheduling/map-clusters";
-import { customerMapLabel } from "@/lib/service-scheduling/customer-map-label";
+import { customerMapLabel, singleCustomerLabel } from "@/lib/service-scheduling/customer-map-label";
 import {useEffect,useRef,useState} from 'react';
 import type * as Leaflet from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -42,7 +42,7 @@ export default function FieldMap({visible}:{visible:boolean}) {
    const m=L.map(container.current).setView([-27,-50],6);map.current=m;
    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',maxZoom:19,referrerPolicy:'origin'}).addTo(m);
    const points:Leaflet.LatLngExpression[]=[];
-   const entries:{point:Leaflet.LatLngExpression;marker:Leaflet.Layer;popup:HTMLElement;name:string}[]=[];
+   const entries:{point:Leaflet.LatLngExpression;marker:Leaflet.Layer;popup:HTMLElement;name:string;customerId?:string;status:string}[]=[];
    const markers=L.layerGroup().addTo(m);
    for(const item of data?.[mode]||[]){
     if(typeof item.latitude!=='number'||typeof item.longitude!=='number')continue;
@@ -83,7 +83,7 @@ export default function FieldMap({visible}:{visible:boolean}) {
      const customerLabel=document.createElement('span');customerLabel.textContent=customerMapLabel(item.customer);
      pin=L.circleMarker(point,{radius:10,color:'#fff',weight:2,fillColor:colors[item.status],fillOpacity:1}).bindPopup(popup,{maxWidth:360,minWidth:220}).bindTooltip(customerLabel,{permanent:true,direction:'right',offset:[12,0],className:'map-customer-label',opacity:1});
     }
-    entries.push({point,marker:pin,popup,name:mode==='technicians'?(item.name||'Técnico'):customerMapLabel(item.customer)});
+    entries.push({point,marker:pin,popup,customerId:item.customerId,status:item.status,name:mode==='technicians'?(item.name||'Técnico'):customerMapLabel(item.customer)});
    }
    const draw=()=>{
     markers.clearLayers();
@@ -91,7 +91,23 @@ export default function FieldMap({visible}:{visible:boolean}) {
     for(const group of groups){
      if(group.items.length===1){markers.addLayer(group.items[0].marker);continue}
      const count=document.createElement('span');count.className='field-map-cluster';count.textContent=String(group.items.length);
+     if(mode==='orders'){
+      const statuses=[...new Set(group.items.map(e=>e.status))].sort();
+      count.style.background=colors[statuses[0]];
+      if(statuses.length>1){
+       count.textContent='';count.style.background='transparent';
+       const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 100 100');svg.classList.add('field-cluster-segments');
+       let angle=-Math.PI/2;
+       for(const status of statuses){const end=angle+Math.PI*2/statuses.length;const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('fill',colors[status]);path.setAttribute('d',`M50 50 L${50+50*Math.cos(angle)} ${50+50*Math.sin(angle)} A50 50 0 ${end-angle>Math.PI?1:0} 1 ${50+50*Math.cos(end)} ${50+50*Math.sin(end)} Z`);svg.append(path);
+        const label=document.createElementNS(svg.namespaceURI,'text');const middle=(angle+end)/2;label.setAttribute('x',String(50+27*Math.cos(middle)));label.setAttribute('y',String(50+27*Math.sin(middle)));label.setAttribute('text-anchor','middle');label.setAttribute('dominant-baseline','central');label.setAttribute('fill','white');label.setAttribute('font-size','30');label.setAttribute('font-weight','700');label.textContent=String(group.items.filter(e=>e.status===status).length);svg.append(label);angle=end;
+       }count.append(svg);
+      }
+     }
      const cluster=L.marker(m.unproject([group.x,group.y]),{icon:L.divIcon({html:count,className:'field-map-cluster-icon',iconSize:[36,36],iconAnchor:[18,18]}),title:`${group.items.length} ${mode==='technicians'?'técnicos':'OSs'}`}).addTo(markers);
+     if(mode==='orders'){
+      const customer=singleCustomerLabel(group.items.map(e=>({customerId:e.customerId,customer:e.name})));
+      if(customer){const label=document.createElement('span');label.textContent=customer;cluster.bindTooltip(label,{permanent:true,direction:'right',offset:[22,0],className:'map-customer-label',opacity:1})}
+     }
      const distinct=new Set(group.items.map(e=>m.latLngToLayerPoint(e.point).toString())).size>1;
      if(distinct&&m.getZoom()<19)cluster.on('click',()=>m.fitBounds(L.latLngBounds(group.items.map(e=>e.point)),{padding:[60,60],maxZoom:Math.min(19,m.getZoom()+3)}));
      else{
@@ -110,7 +126,7 @@ export default function FieldMap({visible}:{visible:boolean}) {
  return <section className="field-map" aria-label="Mapa da equipe e programação">
   {error&&<p role="alert">{error}</p>}
   {mode==='technicians'&&<p>🟢 Online · 🔴 Offline — última posição registrada. Offline após 15 minutos sem atividade ou ao sair do sistema.</p>}
-  {mode==='orders'&&<p>🟢 Executadas · 🔵 Em execução · 🔴 Em atraso · ⚪ Programadas</p>}
+  {mode==='orders'&&<p>🔵 Em execução · 🔴 Em atraso · ⚪ Programadas</p>}
   <div className="field-map-canvas">
    <nav className="field-map-tabs" aria-label="Conteúdo do mapa">
     <button type="button" aria-pressed={mode==='technicians'} onClick={()=>setMode('technicians')}>Técnicos</button>

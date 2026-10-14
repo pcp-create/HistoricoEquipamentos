@@ -128,14 +128,14 @@ export async function fieldData(email: string, operationId?: string | null) {
    EXISTS(SELECT 1 FROM web_field_material_checks k WHERE k.operation_id=p.id AND k.actor=$1) checked
    FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id
    LEFT JOIN m8_customer_directory c ON c.company_id=o.company_id AND c.person_id=o.cliente_id
-   WHERE s.active AND p.sent_at IS NOT NULL AND ${assigned} AND p.status NOT IN ('awaiting_review','reviewed','completed')
+   WHERE s.active AND p.sent_at IS NOT NULL AND ${assigned}
    ORDER BY p.document->>'date' DESC NULLS LAST,p.document->>'time' DESC NULLS LAST,p.position`,
         [email],
       )
     ).rows;
-    return { rows: rows.map((row: any) => ({
+    return { rows: rows.filter((row:any)=>!["awaiting_review","reviewed","completed"].includes(row.status)).map((row: any) => ({
       ...row, estimated_end: estimatedEnd(row, settings),
-    })), active, email, isTechnician: ["técnico","tecnico"].includes((profile.job_title || "").trim().toLowerCase()), displayName: profile.display_name };
+    })), calendarRows: rows.map((row:any)=>({...row,estimated_end:estimatedEnd(row,settings)})), active, email, isTechnician: ["técnico","tecnico"].includes((profile.job_title || "").trim().toLowerCase()), displayName: profile.display_name };
   }
   if (!/^[0-9a-f-]{36}$/i.test(operationId))
     throw new FieldError("Operação inválida.");

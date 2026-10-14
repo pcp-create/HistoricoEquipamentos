@@ -117,7 +117,7 @@ export default function FieldApp() {
     };
   }, []);
   const groups = new Map<string, any[]>();
-  for (const row of data?.rows || []) {
+  for (const row of (scheduleView === "calendar" ? data?.calendarRows || data?.rows : data?.rows) || []) {
     const k = String(row.schedule_id);
     groups.set(k, [...(groups.get(k) || []), row]);
   }
@@ -201,8 +201,8 @@ export default function FieldApp() {
             <button aria-pressed={scheduleView === "map"} onClick={() => setScheduleView("map")}><MapPin size={16}/>Mapa</button>
           </nav>
           <FieldMap visible={scheduleView === "map"}/>
-          {scheduleView === "calendar" && <FieldCalendar rows={data?.rows || []} selected={selectedDay} onSelect={setSelectedDay} now={now}/>}
-          {scheduleView === "calendar" && data && groups.size > 0 && !data.rows.some((row: any) => (row.date || "") === selectedDay) && <p className="field-day-empty">Nenhuma OS programada para esta data.</p>}
+          {scheduleView === "calendar" && <FieldCalendar rows={data?.calendarRows || data?.rows || []} selected={selectedDay} onSelect={setSelectedDay} now={now}/>}
+          {scheduleView === "calendar" && data && groups.size > 0 && !(data.calendarRows || data.rows).some((row: any) => (row.date || "") === selectedDay) && <p className="field-day-empty">Nenhuma OS programada para esta data.</p>}
           {active && (
             <div
               className={
@@ -238,6 +238,7 @@ export default function FieldApp() {
           ) : (
             [...groups].map(([id, rows]) => {
               const first = (scheduleView === "calendar" ? rows.find(row => (row.date || "") === selectedDay) : null) || rows[0];
+              const done = rows.every(row=>["awaiting_review","reviewed","completed"].includes(row.status));
               const overdue = rows.some((row) => fieldOperationOverdue(row.date, row.status, now));
               return (
                 <details name={orderAccordionName} onToggle={(event) => {
@@ -247,11 +248,12 @@ export default function FieldApp() {
                   requestAnimationFrame(() => {
                     if (order.open) order.scrollIntoView({ block: "start", behavior: "smooth" });
                   });
-                }} hidden={scheduleView === "calendar" && !rows.some(row => (row.date || "") === selectedDay)} className={"field-order" + (overdue ? " field-order-overdue" : "")} key={id}>
+                }} hidden={scheduleView === "calendar" && !rows.some(row => (row.date || "") === selectedDay)} className={"field-order" + (done ? " field-order-completed" : overdue ? " field-order-overdue" : "")} key={id}>
                   <summary>
                     <div>
                       <strong>OS {first.number}</strong>
                       <small className={fieldOperationOverdue(first.date, first.status, now) ? "field-overdue-date" : undefined}>{when(first.date, first.time)}</small>
+                      {done && <span className="field-completed-badge">Executada</span>}
                       {overdue && <span className="field-overdue-badge">Em atraso</span>}
                     </div>
                     <div className="field-order-customer">

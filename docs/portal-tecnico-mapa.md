@@ -11,3 +11,5 @@ Antes de publicar, execute em web: `node --env-file=.env.local --conditions=reac
 ## Foto do técnico
 
 Na administração, edite o usuário e use Foto do usuário para enviar, substituir ou remover uma imagem. Para um cadastro novo, salve primeiro e então anexe a foto. São aceitos JPG, PNG e WebP de até 2 MB. O servidor grava uma miniatura JPEG de 256 × 256, sem metadados originais. O envio tem salvamento próprio. Apenas administradores alteram fotos; a leitura exige autenticação do próprio usuário ou acesso ao mapa (administrador/técnico). O popup usa a foto, com iniciais como alternativa. A migração 047 é aplicada por `scripts/setup-user-photos.mts`.
+
+Os mapas exibem somente pendências. OSs executadas continuam no calendário do portal, sinalizadas em verde. Grupos de OSs de um único cliente exibem o nome desse cliente; grupos com clientes distintos omitem a legenda. O círculo de OSs agrupadas no portal é dividido em cores por status, com quantidade por setor. Técnicos agrupados continuam sem legenda de nomes.

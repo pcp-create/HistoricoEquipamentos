@@ -36,12 +36,13 @@ export default function FieldCalendar({ rows, selected, onSelect, now }: {
         const day = month + "-" + String(i + 1).padStart(2, "0");
         const items = rows.filter(row => row.date === day);
         const orders = new Set(items.map(row => row.schedule_id)).size;
+        const completed = [...new Set(items.map(row=>row.schedule_id))].filter(id=>items.filter(row=>row.schedule_id===id).every(row=>["awaiting_review","reviewed","completed"].includes(row.status))).length;
         const overdue = items.some(row => fieldOperationOverdue(row.date, row.status, now));
         return <button key={day} aria-pressed={selected === day} aria-current={day === today ? "date" : undefined}
           aria-label={day.split("-").reverse().join("/") + ": " + orders + " OSs"}
-          className={overdue ? "field-calendar-overdue" : ""}
+          className={overdue ? "field-calendar-overdue" : completed === orders && orders > 0 ? "field-calendar-completed" : ""}
           onClick={() => onSelect(day)}>
-          <span>{i + 1}</span>{orders > 0 && <small>{orders} OS{orders > 1 ? "s" : ""}</small>}
+          <span>{i + 1}</span>{orders > 0 && <small>{orders} OS{orders > 1 ? "s" : ""}</small>}{completed > 0 && <small className="field-completed-badge">{completed} executada{completed > 1 ? "s" : ""}</small>}
         </button>;
       })}
     </div>

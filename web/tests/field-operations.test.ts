@@ -199,6 +199,9 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     const latest:any=await fieldData('tech',id);
     await assert.rejects(reopenReport(db,latest.operation,'tech',false),/planejador/);
     await db.query("UPDATE web_service_operations SET status='awaiting_review' WHERE id=$1",[id]);
+    const calendarData=await fieldData('tech');
+    assert.ok(calendarData.calendarRows?.some((row:any)=>row.id===id&&row.status==='awaiting_review'));
+    assert.ok(!calendarData.rows?.some((row:any)=>row.id===id));
     const toReturn:any=await fieldData('tech',id);
     await db.query("INSERT INTO web_user_access(email,display_name,role,updated_by) VALUES('planner','Planejador','admin','test')");
     const {mutateSchedule}=await import('../lib/service-scheduling/store');

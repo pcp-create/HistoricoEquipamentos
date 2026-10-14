@@ -28,3 +28,5 @@
 .schedule-calendar-duration svg { flex-shrink:0; }
 .schedule-calendar-start { display:flex; align-items:center; gap:4px; font-size:11px; }
 .schedule-calendar-start svg { flex-shrink:0; }
+
+.schedule-calendar-order.operation-status.completed {background:#edf9f1;border-color:#16834a;color:#116d3d}
