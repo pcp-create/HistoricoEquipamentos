@@ -42,12 +42,12 @@ export default function FieldMap({visible}:{visible:boolean}) {
    for(const item of data?.[mode]||[]){
     if(typeof item.latitude!=='number'||typeof item.longitude!=='number')continue;
     const point:Leaflet.LatLngExpression=[item.latitude,item.longitude];points.push(point);
-    const popup=document.createElement('div');
+    const popup=document.createElement('div');popup.className='field-technician-card';
+    const line=(label:string,value:string)=>{const p=document.createElement('p');const b=document.createElement('b');b.textContent=label+': ';p.append(b,document.createTextNode(value));popup.append(p)};
     const title=document.createElement('strong');title.textContent=item.name||'Técnico';popup.append(title);
     if(mode==='technicians') {
      popup.className='field-technician-card';
      const avatar=document.createElement('span');avatar.className='field-technician-avatar';avatar.textContent=(item.name||'T').split(/\s+/).filter(Boolean).slice(0,2).map((s:string)=>s[0]).join('');avatar.setAttribute('aria-hidden','true');popup.prepend(avatar);
-     const line=(label:string,value:string)=>{const p=document.createElement('p');const b=document.createElement('b');b.textContent=label+': ';p.append(b,document.createTextNode(value));popup.append(p)};
      line('Status',item.online?'Online':'Offline');
      const phone=String(item.phone||'').replace(/[^0-9+]/g,'');
      if(phone){const p=document.createElement('p');p.append('Telefone: ');const a=document.createElement('a');a.href='tel:'+phone;a.textContent=item.phone;p.append(a);popup.append(p)}else line('Telefone','Não cadastrado');
@@ -59,7 +59,12 @@ export default function FieldMap({visible}:{visible:boolean}) {
      const list=document.createElement('ul');for(const order of item.pendingOrders||[]){const li=document.createElement('li');li.textContent=`OS ${order.number} · ${order.customer||'Cliente não informado'} · ${order.date?order.date.split('-').reverse().join('/'):'Sem data'}`;list.append(li)}
      if(!list.children.length){const p=document.createElement('p');p.textContent='Nenhuma OS pendente enviada ao técnico.';details.append(p)}else details.append(list);
      popup.append(details);
-    }else{const info=document.createElement('p');info.textContent=`${labels[item.status]} · ${item.address} · ${item.precision}`;popup.append(info)}
+    }else{
+     const icon=document.createElement('span');icon.className='field-technician-avatar';icon.textContent='OS';icon.setAttribute('aria-hidden','true');popup.prepend(icon);
+     line('Status',labels[item.status]||'Programada');
+     line('Endereço',item.address||'Não informado');
+     if(item.precision)line('Localização',item.precision);
+    }
     L.circleMarker(point,{radius:10,color:'#fff',weight:2,fillColor:mode==='technicians'?(item.online?'#0f766e':'#dc2626'):colors[item.status],fillOpacity:1}).addTo(m).bindPopup(popup,{maxWidth:360,minWidth:220});
    }
    if(points.length)m.fitBounds(L.latLngBounds(points),{padding:[30,30],maxZoom:14});
@@ -68,12 +73,16 @@ export default function FieldMap({visible}:{visible:boolean}) {
  },[visible,data,mode]);
  if(!visible)return null;
  return <section className="field-map" aria-label="Mapa da equipe e programação">
-  <nav className="field-view-switch" aria-label="Conteúdo do mapa"><button aria-pressed={mode==='technicians'} onClick={()=>setMode('technicians')}>Técnicos</button><button aria-pressed={mode==='orders'} onClick={()=>setMode('orders')}>OSs</button></nav>
-  <p>Atualização da posição a cada 10 minutos com o portal aberto e autorizado. A última posição permanece disponível ao ficar offline ou fechar o portal.</p>
   {error&&<p role="alert">{error}</p>}
   {mode==='technicians'&&<p>🟢 Online · 🔴 Offline — última posição registrada. Offline após 15 minutos sem atividade ou ao sair do sistema.</p>}
   {mode==='orders'&&<p>🟢 Executadas · 🔵 Em execução · 🔴 Em atraso · ⚪ Programadas</p>}
-  <div ref={container} style={{height:'min(65vh, 560px)',minHeight:320,borderRadius:12,zIndex:0}}/>
+  <div className="field-map-canvas">
+   <nav className="field-map-tabs" aria-label="Conteúdo do mapa">
+    <button type="button" aria-pressed={mode==='technicians'} onClick={()=>setMode('technicians')}>Técnicos</button>
+    <button type="button" aria-pressed={mode==='orders'} onClick={()=>setMode('orders')}>OSs</button>
+   </nav>
+   <div ref={container} style={{height:'min(65vh, 560px)',minHeight:320,borderRadius:12,zIndex:0}}/>
+  </div>
   {!data&&!error&&<p>Carregando posições…</p>}
   {data&&!data[mode].length&&<p>{mode==='orders'?'Nenhuma OS na sua programação.':'Nenhum técnico cadastrado.'}</p>}
   <ul>{(data?.[mode]||[]).map((item:any)=><li key={item.id}><strong>{item.name||'Técnico'}</strong> — {mode==='technicians'?`${item.online?'Online':'Offline'} · ${item.located_at?`${item.source}: ${date(item.located_at)} (Brasília)${Date.now()-Date.parse(item.located_at)>1200000?' · Posição desatualizada':''}`:'Sem localização registrada'}`:`${labels[item.status]} · ${item.address}`}{mode==='orders'&&(item.latitude==null||item.longitude==null)&&' · Sem coordenadas; posicione a localidade na programação de serviços.'}</li>)}</ul>

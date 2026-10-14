@@ -6,3 +6,11 @@
 .field-technician-card summary {color:#1766a1;cursor:pointer;font-weight:600}
 .field-technician-card ul {padding-left:18px;max-height:180px;overflow:auto}
 .field-technician-card li {margin:8px 0}
+
+.field-map-canvas {position:relative;isolation:isolate}
+.field-map-tabs {position:absolute;top:12px;right:12px;z-index:1;display:flex;gap:2px;padding:4px;background:#fff;border:1px solid #dbe5ed;border-radius:12px;box-shadow:0 2px 10px #183d5b26}
+.field-map .field-map-tabs button {border:0;border-radius:8px;background:transparent;color:#37546b;padding:10px 16px;min-height:40px;font-size:14px;font-weight:600;cursor:pointer}
+.field-map .field-map-tabs button[aria-pressed="true"] {background:#245e89;color:white}
+.field-map .field-map-tabs button:hover {background:#e6eef5;color:#245e89}
+.field-map .field-map-tabs button:focus-visible {outline:3px solid #75b6ee;outline-offset:2px}
+@media(max-width:480px){.field-map-tabs{top:10px;right:10px}.field-map .field-map-tabs button{padding:9px 12px}}
