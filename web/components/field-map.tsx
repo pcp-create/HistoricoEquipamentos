@@ -68,7 +68,7 @@ export default function FieldMap({visible}:{visible:boolean}) {
     if(mode==='technicians') {
      const marker=document.createElement('div');marker.className='field-person-marker '+(item.online?'is-online':'is-offline');
      const person=document.createElement('span');person.className='field-person-symbol';person.setAttribute('aria-hidden','true');
-     person.innerHTML='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><path d="M7 13v-1a5 5 0 0 1 10 0v1M9 11v10m6-10v10M9 16h6"/></svg>';
+     person.innerHTML='<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M11 2h2v6h-2zM10 3a6 6 0 0 0-4 5H5v2h14V8h-1a6 6 0 0 0-4-5v5h-4V3zM8 11a4 4 0 0 0 8 0H8zM8 16l3 3v3H4v-2a4 4 0 0 1 4-4zm8 0a4 4 0 0 1 4 4v2h-7v-3l3-3zM10 16h4l-2 2-2-2z"/></svg>';
      const name=document.createElement('span');name.className='field-person-name';name.textContent=item.name||'Técnico';
      marker.append(person,name);
      L.marker(point,{icon:L.divIcon({html:marker,className:'field-person-icon',iconSize:[32,32],iconAnchor:[16,16],popupAnchor:[0,-18]}),title:`${item.name||'Técnico'} — ${item.online?'Online':'Offline'}`,alt:item.name||'Técnico',riseOnHover:true}).addTo(m).bindPopup(popup,{maxWidth:360,minWidth:220});

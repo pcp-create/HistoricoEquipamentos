@@ -22,5 +22,5 @@
 .field-person-marker.is-offline {color:#dc2626}
 .field-person-symbol {display:grid;place-items:center;flex-shrink:0;width:32px;height:32px;box-sizing:border-box;border:2px solid white;border-radius:50%;background:currentColor;box-shadow:0 1px 5px #0005}
 .field-person-symbol svg {color:white}
-.field-person-name {font:600 12px/1.2 Arial,sans-serif;color:#243b4d;white-space:nowrap;text-shadow:1px 1px 2px white,-1px -1px 2px white,1px -1px 2px white,-1px 1px 2px white;background:#ffffffe6;padding:3px 6px;border-radius:5px;box-shadow:0 1px 3px #0002}
+.field-person-name {font:600 12px/1.2 Arial,sans-serif;color:#243b4d;white-space:nowrap;-webkit-text-stroke:3px white;paint-order:stroke fill;text-shadow:1px 0 white,-1px 0 white,0 1px white,0 -1px white;background:none;padding:0;border:0;box-shadow:none}
 .field-person-icon:focus-visible {outline:3px solid #75b6ee;outline-offset:3px;border-radius:50%}
