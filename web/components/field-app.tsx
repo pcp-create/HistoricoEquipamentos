@@ -394,6 +394,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     (v: any) => v.id === operation?.document.vehicleId,
   );
   async function show(which: string) {
+    if (which === "send" && !canFinish) return;
     if (which === "logs" && !data?.infoRead) return;
     if(which==='report') {
       await load();
@@ -601,9 +602,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                   <MenuLight status={reportStatus}/><span>Relatório</span>
                 </button>
                 <button
-                  disabled={
-                    busy || locked || operation.document.responsible !== data.email
-                  }
+                  disabled={!canFinish}
                   onClick={() => void show("send")}
                 >
                   <Flag />
