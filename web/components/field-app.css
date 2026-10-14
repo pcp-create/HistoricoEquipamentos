@@ -678,3 +678,11 @@ dialog.field-report-screen {
 .field-order-completed > summary { background:#edf9f1; }
 .field-calendar-grid .field-calendar-completed { border-color:#16834a; background:#edf9f1; }
 .field-completed-badge { color:#116d3d; font-weight:700; }
+
+.field-header > div:first-child {min-width:0}
+.field-header-actions {display:flex;gap:6px;flex-shrink:0}
+.field-app .field-header-actions button {width:40px;height:40px;min-height:40px;padding:8px;border-radius:10px}
+.field-user-summary {display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;margin:0 0 10px}
+.field-user-summary .field-user {margin:0}
+.field-order-count {font-size:11px;color:#245988;background:#e8f0f7;border-radius:20px;padding:3px 8px;white-space:nowrap}
+@media(max-width:480px){.field-header{gap:8px}.field-header h1{font-size:22px}.field-header small{font-size:9px;letter-spacing:1px}}

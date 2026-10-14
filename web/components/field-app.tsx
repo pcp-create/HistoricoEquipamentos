@@ -134,12 +134,20 @@ export default function FieldApp() {
           </h1>
         </div>
         {screen !== "home" && (
-          <button aria-label="Voltar ao menu" onClick={() => setScreen("home")}>
-            <ArrowLeft />
-          </button>
+          <div className="field-header-actions">
+            <button aria-label="Atualizar" title="Atualizar programação" disabled={loading} onClick={async () => {
+              setLoading(true);
+              await refresh();
+              setLoading(false);
+            }}><RefreshCw size={18}/></button>
+            <button aria-label="Voltar ao menu" title="Voltar ao menu" onClick={() => setScreen("home")}><ArrowLeft size={20}/></button>
+          </div>
         )}
       </header>
-      <p className="field-user">{data?.displayName || "Técnico"}</p>
+      <div className="field-user-summary">
+        <p className="field-user">{data?.displayName || "Técnico"}</p>
+        {screen !== "home" && <span className="field-order-count">{groups.size} {groups.size === 1 ? "OS enviada" : "OSs enviadas"}</span>}
+      </div>
       {locationMessage && <p className="field-user" role="status">{locationMessage}</p>}
       {error && (
         <p className="field-error" role="alert">
@@ -180,21 +188,6 @@ export default function FieldApp() {
         </nav>
       ) : (
         <>
-          <div className="field-toolbar">
-            <span>
-              {groups.size} {groups.size === 1 ? "OS enviada" : "OSs enviadas"}
-            </span>
-            <button
-              disabled={loading}
-              onClick={async () => {
-                setLoading(true);
-                await refresh();
-                setLoading(false);
-              }}
-            >
-              <RefreshCw size={16} /> Atualizar
-            </button>
-          </div>
           <nav className="field-view-switch" aria-label="Visualização da programação">
             <button aria-pressed={scheduleView === "list"} onClick={() => setScheduleView("list")}><ClipboardList size={16}/>Lista</button>
             <button aria-pressed={scheduleView === "calendar"} onClick={() => setScheduleView("calendar")}><CalendarDays size={16}/>Calendário</button>
@@ -286,10 +279,10 @@ export default function FieldApp() {
               );
             })
           )}
-          <p className="field-location">
+          {scheduleView !== "map" && <p className="field-location">
             <MapPin size={14} /> Os apontamentos registram horário e
             localização. Mantenha a internet e a localização ativadas.
-          </p>
+          </p>}
         </>
       )}
     </main>

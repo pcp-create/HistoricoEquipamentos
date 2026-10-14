@@ -21,7 +21,7 @@ export function useAutomaticFieldLocation(enabled:boolean) {
    busy=true;last=Date.now();
    navigator.geolocation.getCurrentPosition(async p=>{
     if(disposed){busy=false;return}
-    try{const r=await fetch('/api/field/map',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy,at:new Date(p.timestamp).toISOString()})});if(!r.ok)throw Error('Não foi possível registrar a posição.');last=Date.now();setLocationMessage('Posição atualizada em '+date(new Date(p.timestamp).toISOString()))}
+    try{const r=await fetch('/api/field/map',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy,at:new Date(p.timestamp).toISOString()})});if(!r.ok)throw Error('Não foi possível registrar a posição.');last=Date.now();setLocationMessage('')}
     catch(e){setLocationMessage((e as Error).message)}finally{busy=false}
    },()=>{busy=false;if(!disposed){setLocationMessage('Permita a localização para compartilhar sua posição.')}},{enableHighAccuracy:true,timeout:20000,maximumAge:30000});
   };
@@ -146,9 +146,10 @@ export default function FieldMap({visible}:{visible:boolean}) {
  if(!visible)return null;
  return <section className="field-map" aria-label="Mapa da equipe e programação">
   {error&&<p role="alert">{error}</p>}
-  {mode==='technicians'&&<p>🟢 Online · 🔴 Offline — última posição registrada. Offline após 15 minutos sem atividade ou ao sair do sistema.</p>}
-  {mode==='orders'&&<p>🔵 Em execução · 🔴 Em atraso · ⚪ Programadas</p>}
   <div className="field-map-canvas">
+   <div className="field-map-legend" aria-label="Legenda do mapa">
+    {(mode==='technicians' ? [['#16834a','Online'],['#dc2626','Offline']] : [['#2563eb','Em execução'],['#dc2626','Em atraso'],['#64748b','Programadas']]).map(([color,label])=><span key={label}><i style={{background:color}} aria-hidden="true"/>{label}</span>)}
+   </div>
    <nav className="field-map-tabs" aria-label="Conteúdo do mapa">
     <button type="button" aria-pressed={mode==='technicians'} onClick={()=>setMode('technicians')}>Técnicos</button>
     <button type="button" aria-pressed={mode==='orders'} onClick={()=>setMode('orders')}>OSs</button>
@@ -157,6 +158,8 @@ export default function FieldMap({visible}:{visible:boolean}) {
   </div>
   {!data&&!error&&<p>Carregando posições…</p>}
   {data&&!data[mode].length&&<p>{mode==='orders'?'Nenhuma OS na sua programação.':'Nenhum técnico cadastrado.'}</p>}
-  <ul>{(data?.[mode]||[]).map((item:any)=><li key={item.id}><strong>{item.name||'Técnico'}</strong> — {mode==='technicians'?`${item.online?'Online':'Offline'} · ${item.located_at?`${item.source}: ${date(item.located_at)} (Brasília)${Date.now()-Date.parse(item.located_at)>1200000?' · Posição desatualizada':''}`:'Sem localização registrada'}`:`${labels[item.status]} · ${item.address}`}{mode==='orders'&&(item.latitude==null||item.longitude==null)&&' · Sem coordenadas; posicione a localidade na programação de serviços.'}</li>)}</ul>
+
+  {mode==='orders'&&<ul>{(data?.orders||[]).map((item:any)=><li key={item.id}><strong>{customerMapLabel(item.customer)}</strong> — {labels[item.status]} · {item.address}{(item.latitude==null||item.longitude==null)&&' · Sem coordenadas; posicione a localidade na programação de serviços.'}</li>)}</ul>}
+
  </section>;
 }
