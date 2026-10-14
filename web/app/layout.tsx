@@ -1,4 +1,3 @@
-import PasswordChangeForm from "@/components/password-change-form";
 import type { Metadata, Viewport } from "next";
 import { initialSessionAccess } from "@/lib/initial-access";
 import { SessionAccessProvider } from "@/components/session-access";
@@ -51,7 +50,7 @@ export default async function Layout({
       </head>
       <body className={access.admin ? "admin-preview" : undefined}>
         <SessionAccessProvider access={access}>
-          {access.mustChangePassword ? <PasswordChangeForm/> : children}
+          {children}
         </SessionAccessProvider>
       </body>
     </html>

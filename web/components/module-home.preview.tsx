@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useSessionAccess } from "./session-access";
-import { canOpenModulePage } from "@/lib/module-access";
 import {
   ArrowUpRight,
   ArrowLeft,
@@ -15,8 +13,6 @@ import {
 import SiteHeader from "./site-header";
 
 const modules = [
-  {id:"programacao",title:"Programação de OSs",icon:ClipboardList,description:"Planejamento e acompanhamento das ordens de serviço.",links:[["Programação de OSs","/programacao"]],next:""},
-  {id:"tecnico",title:"Portal Técnico",icon:Wrench,description:"Programação, apontamentos e relatórios do técnico.",links:[["Portal Técnico","/tecnico"]],next:""},
   {
     id: "crm",
     title: "CRM",
@@ -73,9 +69,7 @@ const modules = [
 ];
 
 export default function ModuleHome({ moduleId }: { moduleId?: string }) {
-  const access = useSessionAccess();
-  const visibleModules = modules.filter(module => access.modules.includes(module.id));
-  const selected = visibleModules.find((module) => module.id === moduleId);
+  const selected = modules.find((module) => module.id === moduleId);
   return (
     <div className="module-home">
       <SiteHeader active="home" moduleId={selected?.id} />
@@ -94,15 +88,12 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
               : "Escolha uma área para acessar suas ferramentas."}
           </p>
         </div>
-        {access.checking && <p role="status">Verificando acesso aos módulos…</p>}
-        {access.error && <p role="alert">{access.error} <button type="button" onClick={access.retry}>Tentar novamente</button></p>}
-        {!access.checking && !access.error && !visibleModules.length && <p>Nenhum módulo liberado. Solicite acesso ao administrador.</p>}
         {selected ? (
           <nav
             className="module-menu-grid"
             aria-label={"Menus de " + selected.title}
           >
-            {selected.links.filter(([,href])=>canOpenModulePage(access.modules,href)).map(([label, href]) => (
+            {selected.links.map(([label, href]) => (
               <Link
                 prefetch={false}
                 className="module-menu-item"
@@ -116,12 +107,12 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
           </nav>
         ) : (
           <nav className="module-tile-grid" aria-label="Módulos do sistema">
-            {visibleModules.map(({ id, title, icon: Icon, description }) => (
+            {modules.map(({ id, title, icon: Icon, description }) => (
               <Link
                 prefetch={false}
                 className="module-tile"
                 key={id}
-                href={["tarefas","programacao","tecnico"].includes(id) ? "/" + id : "/modulos/" + id}
+                href={id === "tarefas" ? "/tarefas" : "/modulos/" + id}
               >
                 <span className="module-icon">
                   <Icon size={27} aria-hidden="true" />

@@ -1,10 +1,9 @@
-import { Forbidden } from "@/lib/auth";
-import { requireModule, Unauthorized } from "@/lib/auth";
+import { requireUser, Unauthorized } from "@/lib/auth";
 import { database } from "@/lib/db";
 export const runtime = "nodejs";
 export async function GET(req: Request) {
   try {
-    await requireModule("equipamentos", "assistencia-tecnica");
+    await requireUser();
     const p = new URL(req.url).searchParams;
     const q = (p.get("q") || "").trim().slice(0,160);
     const page = Math.max(0, Math.min(10000, Number(p.get("page")) || 0));

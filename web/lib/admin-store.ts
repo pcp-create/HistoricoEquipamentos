@@ -6,7 +6,7 @@ export async function accessRecord(email: string) {
   return (
     (
       await database().query(
-        "SELECT role,enabled,display_name,to_jsonb(web_user_access)->'modules' AS modules,(to_jsonb(web_user_access)->>'must_change_password')::boolean AS must_change_password FROM web_user_access WHERE email=$1",
+        "SELECT role,enabled,display_name FROM web_user_access WHERE email=$1",
         [email.toLowerCase()],
       )
     ).rows[0] || null
@@ -79,7 +79,7 @@ export async function setAccess(body: any, actor: AuthUser) {
     await c.query("SELECT pg_advisory_xact_lock(81020,1)");
     const permission = (
       await c.query(
-        "SELECT role,enabled,display_name,to_jsonb(web_user_access)->'modules' AS modules,(to_jsonb(web_user_access)->>'must_change_password')::boolean AS must_change_password FROM web_user_access WHERE email=$1 FOR UPDATE",
+        "SELECT role,enabled,display_name FROM web_user_access WHERE email=$1 FOR UPDATE",
         [actor.email.toLowerCase()],
       )
     ).rows[0];
@@ -87,7 +87,7 @@ export async function setAccess(body: any, actor: AuthUser) {
       throw new AdminInputError("Permissão de administrador necessária.");
     const old = (
       await c.query(
-        "SELECT role,enabled,display_name,to_jsonb(web_user_access)->'modules' AS modules,(to_jsonb(web_user_access)->>'must_change_password')::boolean AS must_change_password FROM web_user_access WHERE email=$1",
+        "SELECT role,enabled,display_name FROM web_user_access WHERE email=$1",
         [email],
       )
     ).rows[0];
@@ -172,7 +172,7 @@ export async function setAccess(body: any, actor: AuthUser) {
 export async function adminOverview() {
   const db = database();
   const users = (
-    await db.query(`SELECT to_jsonb(web_user_access)->'modules' AS modules,(to_jsonb(web_user_access)->>'must_change_password')::boolean AS must_change_password,COALESCE(to_jsonb(web_user_access)->'managers','[]'::jsonb) managers,to_jsonb(web_user_access)->>'hourly_cost' AS hourly_cost,to_jsonb(web_user_access)->>'task_color' AS task_color,email,display_name,department,job_title,phone,alert_preventive,alert_rental,alert_email,alert_whatsapp,user_id,role,enabled,last_login_at,last_seen_at,last_logout_at,
+    await db.query(`SELECT COALESCE(to_jsonb(web_user_access)->'managers','[]'::jsonb) managers,to_jsonb(web_user_access)->>'hourly_cost' AS hourly_cost,to_jsonb(web_user_access)->>'task_color' AS task_color,email,display_name,department,job_title,phone,alert_preventive,alert_rental,alert_email,alert_whatsapp,user_id,role,enabled,last_login_at,last_seen_at,last_logout_at,
  (enabled AND last_seen_at>now()-interval '15 minutes' AND (last_logout_at IS NULL OR last_seen_at>last_logout_at)) AS online FROM web_user_access ORDER BY role,email`)
   ).rows;
   const events = (

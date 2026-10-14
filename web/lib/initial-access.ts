@@ -1,6 +1,4 @@
 import "server-only";
-import { cache } from "react";
-import { defaultModules } from "./module-access";
 import { cookies } from "next/headers";
 import { authRequest } from "./auth";
 import { accessRecord } from "./admin-store";
@@ -8,9 +6,9 @@ import { userDisplayName } from "./user-display-name";
 
 // Server rendering must not refresh sessions: cookie writes belong to route handlers.
 // Only verified identity and the current access record can expose the admin shortcut.
-export const initialSessionAccess = cache(async function initialSessionAccess() {
+export async function initialSessionAccess() {
   return resolveInitialSession((await cookies()).get("m8-access")?.value);
-});
+}
 
 export async function resolveInitialAdmin(
   token: string | undefined,
@@ -24,7 +22,7 @@ export async function resolveInitialSession(
   request = authRequest,
   lookup = accessRecord,
 ) {
-  const empty = { admin: false, displayName: "", cacheScope: "", modules: [] as string[], mustChangePassword: false, resolved: false };
+  const empty = { admin: false, displayName: "", cacheScope: "" };
   if (!token) return empty;
   try {
     const response = await request("user", undefined, token);
@@ -38,17 +36,12 @@ export async function resolveInitialSession(
     )
       return empty;
     const access = await lookup(user.email);
-    const mustChangePassword = access?.enabled === true && access.must_change_password === true;
-    const modules = !mustChangePassword && access?.enabled === true ? [...defaultModules] : [];
     return {
-      modules,
-      resolved: true,
-      mustChangePassword,
       cacheScope:
         access?.enabled === false
           ? ""
-          : user.id + ":" + (access?.role || "user") + ":" + modules.join(","),
-      admin: !mustChangePassword && access?.enabled === true && access.role === "admin",
+          : user.id + ":" + (access?.role || "user"),
+      admin: access?.enabled === true && access.role === "admin",
       displayName:
         access?.enabled === false
           ? ""

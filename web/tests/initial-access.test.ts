@@ -25,15 +25,3 @@ test('initials use the registered first and last names', async () => {
   assert.equal(access.displayName, 'Guilherme Waltrick');
   assert.equal(access.admin, true);
 });
-
-test('unresolved sessions are distinct from verified employees with all modules', async () => {
-  const { resolveInitialSession } = await import('../lib/initial-access');
-  const expired = await resolveInitialSession('expired', async () => new Response('', { status: 401 }));
-  assert.equal(expired.resolved, false);
-  const failed = await resolveInitialSession('token', async () => Response.json(user), async () => { throw new Error('database unavailable'); });
-  assert.equal(failed.resolved, false);
-  const denied = await resolveInitialSession('token', async () => Response.json(user), async () => ({enabled: true, role: 'user', modules: []}));
-  assert.equal(denied.resolved, true);
-  assert.ok(denied.modules.includes("tecnico"));
-  assert.ok(denied.modules.includes("programacao"));
-});

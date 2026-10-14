@@ -1,7 +1,6 @@
-import { Forbidden } from "@/lib/auth";
 import { syncTasks } from "@/lib/tasks/store";
 import { NextResponse } from "next/server";
-import { requireModule, sameOrigin, Unauthorized } from "@/lib/auth";
+import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
 import { logDataError } from "@/lib/data-error";
 import {
   equipmentList,
@@ -30,7 +29,7 @@ function failure(e: unknown) {
 }
 export async function GET(req: Request) {
   try {
-    const user = await requireModule("equipamentos", "assistencia-tecnica");
+    const user = await requireUser();
     const p = new URL(req.url).searchParams;
     return json(
       p.has("id")
@@ -38,14 +37,13 @@ export async function GET(req: Request) {
         : { ...(await equipmentList(p)), email: user.email },
     );
   } catch (e) {
-    if (e instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return failure(e);
   }
 }
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return json({ error: "Origem inválida." }, 403);
   try {
-    const user = await requireModule("equipamentos", "assistencia-tecnica");
+    const user = await requireUser();
     const raw = await req.text();
     if (raw.length > 150000)
       return json({ error: "Dados excedem o limite." }, 413);
@@ -63,7 +61,6 @@ export async function POST(req: Request) {
     }
     return json(result);
   } catch (e) {
-    if (e instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return failure(e);
   }
 }

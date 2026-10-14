@@ -86,7 +86,40 @@ export default function SiteHeader({
         sessionStorage.setItem("navigation-module", chosen);
       } catch {}
   }, [active, moduleId, queryModule]);
-  const { admin, displayName } = useSessionAccess();
+  const { admin: initialAdmin, displayName: initialName } = useSessionAccess();
+  const [displayName, setDisplayName] = useState(initialName);
+  useEffect(() => {
+    setDisplayName(initialName);
+  }, [initialName]);
+  const [admin, setAdmin] = useState(initialAdmin);
+  useEffect(() => {
+    setAdmin(initialAdmin);
+  }, [initialAdmin]);
+  useEffect(() => {
+    let stopped = false;
+    const pulse = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const r = await apiFetch("/api/activity", { method: "POST" });
+        if (!stopped) {
+          if (r.ok) {
+            const data = await r.json();
+            setAdmin(data.admin === true);
+            if (typeof data.displayName === "string")
+              setDisplayName(data.displayName);
+          } else if (r.status === 401) setAdmin(false);
+        }
+      } catch {}
+    };
+    void pulse();
+    const timer = setInterval(pulse, 60000);
+    document.addEventListener("visibilitychange", pulse);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", pulse);
+    };
+  }, []);
   async function logout() {
     await apiFetch("/api/session", {
       method: "POST",

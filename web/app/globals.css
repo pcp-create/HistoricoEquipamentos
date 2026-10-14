@@ -4268,11 +4268,3 @@ body.admin-preview :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar,
 .integration-search input { width:100%; }
 
 .material-inline-details { padding: 16px; background: #f7faff; border: 1px solid #dce6f2; border-radius: 10px; white-space: normal; }
-
-.password-change-screen {min-height:100dvh;display:grid;place-items:center;background:#f3f6fa;padding:24px}
-.password-change-card {width:100%;max-width:440px;padding:28px;background:white;border:1px solid #d7e3ed;border-radius:16px;box-shadow:0 8px 32px #19355012}
-.password-change-card h1 {font-size:24px}
-.password-change-card p {line-height:1.5}
-.password-change-card form,.password-change-card label {display:grid;gap:8px}
-.password-change-card form {gap:16px}
-.password-change-card input {width:100%;box-sizing:border-box}

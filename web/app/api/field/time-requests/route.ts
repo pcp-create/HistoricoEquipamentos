@@ -1,4 +1,4 @@
-import { requireModule, sameOrigin, Forbidden, Unauthorized } from "@/lib/auth";
+import { requireAdmin, sameOrigin, Forbidden, Unauthorized } from "@/lib/auth";
 import {
   personalTimeLogs,
   changeTimeRequest,
@@ -30,7 +30,7 @@ const failure = (e: unknown) =>
   );
 export async function GET() {
   try {
-    const u = await requireModule("tecnico");
+    const u = await requireAdmin();
     return json(await personalTimeLogs(u.email));
   } catch (e) {
     return failure(e);
@@ -39,7 +39,7 @@ export async function GET() {
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return json({ error: "Origem inválida." }, 403);
   try {
-    const u = await requireModule("tecnico");
+    const u = await requireAdmin();
     const raw = await req.text();
     if (raw.length > 40000)
       return json({ error: "Dados excedem o limite." }, 413);

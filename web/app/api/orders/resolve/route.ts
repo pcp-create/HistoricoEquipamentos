@@ -1,9 +1,8 @@
-import { Forbidden } from "@/lib/auth";
-import { requireModule, Unauthorized } from "@/lib/auth";
+import { requireUser, Unauthorized } from "@/lib/auth";
 import { database } from "@/lib/db";
 export async function GET(req: Request) {
   try {
-    await requireModule("crm", "assistencia-tecnica", "programacao", "tecnico", "equipamentos");
+    await requireUser();
     const p = new URL(req.url).searchParams,
       number = p.get("number") || "",
       equipment = p.get("equipment");
@@ -26,7 +25,6 @@ export async function GET(req: Request) {
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (e) {
-    if (e instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return Response.json(
       {
         error:

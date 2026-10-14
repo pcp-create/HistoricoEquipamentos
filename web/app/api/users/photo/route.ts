@@ -1,4 +1,3 @@
-import { accessRecord } from "@/lib/admin-store";
 import { requireUser, requireAdmin, sameOrigin, Forbidden, Unauthorized } from '@/lib/auth';
 import { database } from '@/lib/db';
 import { mapAccess } from '@/lib/service-scheduling/field-map';
@@ -10,7 +9,7 @@ const emailOf=(req:Request)=>(new URL(req.url).searchParams.get('email')||'').tr
 const failure=(e:unknown)=>json(e instanceof Unauthorized?'Entre novamente.':e instanceof Forbidden?'Acesso não permitido.':'Não foi possível acessar a foto.',e instanceof Unauthorized?401:e instanceof Forbidden?403:503);
 export async function GET(req:Request){try{
  const user=await requireUser(),email=emailOf(req);
- if(user.email!==email && (await accessRecord(user.email))?.role!=="admin")await mapAccess(user.email);
+ if(user.email!==email)await mapAccess(user.email);
  const row=(await database().query('SELECT image FROM web_user_photos WHERE email=$1',[email])).rows[0];
  if(!row)return new Response(null,{status:404,headers});
  return new Response(new Uint8Array(row.image),{headers:{...headers,'Content-Type':'image/jpeg'}});

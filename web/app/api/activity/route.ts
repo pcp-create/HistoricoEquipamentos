@@ -1,7 +1,6 @@
-import { defaultModules } from "@/lib/module-access";
 import { userDisplayName } from "@/lib/user-display-name";
 import { NextResponse } from "next/server";
-import { requireUser, sameOrigin, Unauthorized, Forbidden, PasswordChangeRequired } from "@/lib/auth";
+import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
 import { recordActivity, accessRecord } from "@/lib/admin-store";
 export const runtime = "nodejs";
 export async function POST(req: Request) {
@@ -13,18 +12,15 @@ export async function POST(req: Request) {
     const access = await accessRecord(user.email);
     return NextResponse.json(
       {
-        admin: access?.enabled === true && access.role === "admin",
-        modules: access?.enabled === true ? [...defaultModules] : [],
-        cacheScope: user.id + ":" + (access?.role || "user") + ":" + defaultModules.join(","),
+        admin: access?.role === "admin",
         displayName: access?.display_name || userDisplayName(user),
       },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {
-    if(e instanceof PasswordChangeRequired)return NextResponse.json({mustChangePassword:true},{status:403,headers:{"Cache-Control":"no-store"}});
     return NextResponse.json(
       { error: "Atividade indisponível." },
-      { status: e instanceof Unauthorized ? 401 : e instanceof Forbidden ? 403 : 503 },
+      { status: e instanceof Unauthorized ? 401 : 503 },
     );
   }
 }

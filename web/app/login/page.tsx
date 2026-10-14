@@ -2,13 +2,11 @@
 import { apiFetch } from "@/lib/client-api-cache";
 import { planReturnPath } from "@/lib/plan-return-path";
 import Image from "next/image";
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { ArrowRight, ShieldCheck, LoaderCircle, Layers3 } from "lucide-react";
 export default function Login() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const [changed,setChanged]=useState(false);
-  useEffect(()=>setChanged(new URLSearchParams(window.location.search).get("passwordChanged")==="1"),[]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -26,7 +24,7 @@ export default function Login() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
       window.location.assign(
-        result.mustChangePassword ? "/trocar-senha" : planReturnPath(new URLSearchParams(window.location.search).get("next")),
+        planReturnPath(new URLSearchParams(window.location.search).get("next")),
       );
     } catch (error) {
       setError(
@@ -78,7 +76,6 @@ export default function Login() {
             <ShieldCheck />
           </span>
           <h2>Bem-vindo de volta</h2>
-          {changed&&<p role="status">Senha alterada. Entre com sua nova senha.</p>}
           <p>Entre com sua conta para acessar a Gestão Integrada.</p>
           <label>
             E-mail

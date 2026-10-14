@@ -25,8 +25,7 @@ test("employee opt-ins, blocked access, deduplication and registered name surviv
     old = g.historyPool;
   try {
     await db.exec("CREATE ROLE anon;CREATE ROLE authenticated");
-    for (const f of ["008_administration.sql", "009_employees.sql",
-      "049_password_change.sql", "021_employee_task_color.sql"])
+    for (const f of ["008_administration.sql", "009_employees.sql", "021_employee_task_color.sql"])
       await db.exec(
         readFileSync(new URL("../sql/" + f, import.meta.url), "utf8"),
       );
@@ -122,8 +121,7 @@ test("account provisioning never returns or records passwords and rejects unregi
     };
   try {
     await db.exec("CREATE ROLE anon;CREATE ROLE authenticated");
-    for (const f of ["008_administration.sql", "009_employees.sql",
-      "049_password_change.sql", "021_employee_task_color.sql"])
+    for (const f of ["008_administration.sql", "009_employees.sql", "021_employee_task_color.sql"])
       await db.exec(
         readFileSync(new URL("../sql/" + f, import.meta.url), "utf8"),
       );

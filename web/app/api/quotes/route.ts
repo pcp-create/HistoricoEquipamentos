@@ -1,8 +1,7 @@
-import { Forbidden } from "@/lib/auth";
 import { userDisplayName } from "@/lib/user-display-name";
 import { quoteProducts } from "@/lib/quotes/products";
 import { NextResponse } from "next/server";
-import { requireModule, sameOrigin, Unauthorized } from "@/lib/auth";
+import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
 import { logDataError } from "@/lib/data-error";
 import {
   deleteQuote,
@@ -38,7 +37,7 @@ function failure(error: unknown) {
 }
 export async function GET(request: Request) {
   try {
-    const user = await requireModule("crm"),
+    const user = await requireUser(),
       p = new URL(request.url).searchParams;
     if (p.has("lookup")) return json(await quoteLookup(p));
     if (p.get("action") === "suggestions")
@@ -57,14 +56,13 @@ export async function GET(request: Request) {
       email: user.email,
     });
   } catch (error) {
-    if (error instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return failure(error);
   }
 }
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return json({ error: "Origem inválida." }, 403);
   try {
-    const user = await requireModule("crm");
+    const user = await requireUser();
     const raw = await request.text();
     if (raw.length > 1500000)
       return json({ error: "Orçamento muito grande." }, 413);
@@ -76,7 +74,6 @@ export async function POST(request: Request) {
     }
     return json(await saveQuote(body, user.email, userDisplayName(user)));
   } catch (error) {
-    if (error instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return failure(error);
   }
 }
@@ -84,7 +81,7 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   if (!sameOrigin(request)) return json({ error: "Origem inválida." }, 403);
   try {
-    const user = await requireModule("crm");
+    const user = await requireUser();
     const raw = await request.text();
     if (raw.length > 1000)
       return json({ error: "Dados excedem o limite." }, 413);
@@ -96,7 +93,6 @@ export async function DELETE(request: Request) {
     }
     return json(await deleteQuote(body, user.email, userDisplayName(user)));
   } catch (error) {
-    if (error instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return failure(error);
   }
 }

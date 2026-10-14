@@ -1,4 +1,4 @@
-import { requireModule, sameOrigin, Forbidden, Unauthorized } from "@/lib/auth";
+import { requireAdmin, sameOrigin, Forbidden, Unauthorized } from "@/lib/auth";
 import {
   fieldData,
   fieldAction,
@@ -35,7 +35,7 @@ function failure(e: unknown) {
 }
 export async function GET(req: Request) {
   try {
-    const user = await requireModule("tecnico");
+    const user = await requireAdmin();
     return json(
       await fieldData(
         user.email,
@@ -49,7 +49,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return json({ error: "Origem inválida." }, 403);
   try {
-    const user = await requireModule("tecnico");
+    const user = await requireAdmin();
     const raw = await req.text();
     if (raw.length > 300000)
       return json({ error: "Registro excede o limite." }, 413);

@@ -1,9 +1,8 @@
-import { Forbidden } from "@/lib/auth";
 import { companyName } from "@/lib/company-names";
 import { priceComparison } from "@/lib/product-values";
 import { logDataError } from "@/lib/data-error";
 import { NextResponse } from "next/server";
-import { requireModule, Unauthorized } from "@/lib/auth";
+import { requireUser, Unauthorized } from "@/lib/auth";
 import { history, overview } from "@/lib/history";
 import { csvCell, parseFilters } from "@/lib/filters";
 export const runtime = "nodejs";
@@ -11,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 export async function GET(request: Request) {
   try {
-    const user = await requireModule("crm", "assistencia-tecnica");
+    const user = await requireUser();
     const params = new URL(request.url).searchParams;
     if (params.get("overview") === "1")
       return NextResponse.json(
@@ -122,7 +121,6 @@ export async function GET(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    if (error instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     if (error instanceof Unauthorized)
       return NextResponse.json(
         { error: "Sua sessão expirou. Entre novamente." },

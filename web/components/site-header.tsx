@@ -1,2 +1,10 @@
 "use client";
-export { default } from "./site-header.preview";
+// Temporary admin rollout; stable version is the previously published interface.
+import {useSessionAccess} from "./session-access";
+import type {ComponentProps,ComponentType} from "react";
+import * as Preview from "./site-header.preview";
+import * as Stable from "./site-header.stable";
+export default function SiteHeader(props:ComponentProps<typeof Preview.default>) {
+ const Component=(useSessionAccess().admin?Preview.default:Stable.default) as ComponentType<any>;
+ return <Component {...(props as any)}/>;
+}

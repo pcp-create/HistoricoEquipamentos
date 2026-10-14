@@ -65,7 +65,7 @@ export async function createEmployeeLogin(body: any, actor: AuthUser) {
       );
     const created = await response.json();
     if (!created.id) throw Error("Missing identity");
-    await c.query("UPDATE web_user_access SET user_id=$2,must_change_password=true WHERE email=$1", [
+    await c.query("UPDATE web_user_access SET user_id=$2 WHERE email=$1", [
       user.email,
       created.id,
     ]);
@@ -83,8 +83,13 @@ export async function createEmployeeLogin(body: any, actor: AuthUser) {
 }
 
 export async function resetEmployeePassword(body: any, actor: AuthUser) {
-  if (typeof body?.email !== "string" || !body.email.trim())
-    throw new AdminInputError("Informe o e-mail do usuário.");
+  if (
+    typeof body?.email !== "string" ||
+    typeof body.password !== "string" ||
+    body.password.length < 6 ||
+    body.password.length > 128 ||
+    body.password !== body.passwordConfirmation
+  ) throw new AdminInputError("Informe e confirme a nova senha, de 6 a 128 caracteres.");
   const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key)
     throw new AdminInputError("A redefinição de senhas precisa ser configurada no servidor.");
@@ -116,11 +121,10 @@ export async function resetEmployeePassword(body: any, actor: AuthUser) {
       throw new AdminInputError("A conta vinculada não corresponde ao e-mail do funcionário.");
     const response = await fetch(endpoint, {
       method: "PUT", headers, cache: "no-store", signal: AbortSignal.timeout(15000),
-      body: JSON.stringify({ password: "123456" }),
+      body: JSON.stringify({ password: body.password }),
     });
     if (!response.ok)
       throw new AdminInputError("Não foi possível redefinir a senha. Verifique os requisitos de senha da autenticação e tente novamente.");
-    await c.query("UPDATE web_user_access SET must_change_password=true WHERE email=$1", [user.email]);
     await c.query(
       "INSERT INTO web_access_events(event,email,actor) VALUES('password_reset',$1,$2)",
       [user.email, actor.email],

@@ -1,6 +1,6 @@
 import { assertTaskAccess } from "@/lib/tasks/privacy";
 import { taskAttachmentMime } from "@/lib/tasks/attachment-types";
-import { requireModule, Unauthorized, Forbidden } from "@/lib/auth";
+import { requireUser, Unauthorized, Forbidden } from "@/lib/auth";
 import { database } from "@/lib/db";
 export const runtime = "nodejs";
 export async function GET(
@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = await requireModule("tarefas");
+    const user = await requireUser();
     const { id } = await params;
     if (!/^\d{1,18}$/.test(id)) return new Response(null, { status: 404 });
     const row = (
@@ -28,7 +28,6 @@ export async function GET(
       },
     });
   } catch (e) {
-    if (e instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return new Response(null, {
       status: e instanceof Forbidden ? 403 : e instanceof Unauthorized ? 401 : 503,
     });

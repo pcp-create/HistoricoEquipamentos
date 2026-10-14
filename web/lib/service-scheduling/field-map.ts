@@ -1,5 +1,4 @@
 import "server-only";
-import { hasModule } from "../module-access";
 import { database } from "../db";
 import { Forbidden } from "../auth";
 import { locationOf } from "./field-model";
@@ -8,8 +7,8 @@ import { localityText, positionLabel } from "./map-model";
 import { fieldOperationOverdue } from "./field-overdue";
 export const technicianSql = "lower(trim(job_title)) IN ('técnico','tecnico')";
 export async function mapAccess(email: string, db = database()) {
-  const u = (await db.query(`SELECT role,enabled,to_jsonb(web_user_access)->'modules' AS modules,${technicianSql} technician FROM web_user_access WHERE email=$1 AND enabled`, [email])).rows[0];
-  if (!hasModule(u, "tecnico")) throw new Forbidden();
+  const u = (await db.query(`SELECT role,${technicianSql} technician FROM web_user_access WHERE email=$1 AND enabled`, [email])).rows[0];
+  if (!u || (u.role !== 'admin' && !u.technician)) throw new Forbidden();
   return u;
 }
 export async function saveFieldLocation(email: string, raw: unknown) {

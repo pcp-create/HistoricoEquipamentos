@@ -1,5 +1,4 @@
 import "server-only";
-import { hasModule } from "./module-access";
 import { accessRecord } from "./admin-store";
 import type { AuthUser } from "./user-display-name";
 import { cookies, headers } from "next/headers";
@@ -25,11 +24,10 @@ export async function authRequest(
   endpoint: string,
   body?: object,
   token?: string,
-  method?: "PUT",
 ) {
   const { url, key } = settings();
   return fetch(`${url}/auth/v1/${endpoint}`, {
-    method: method || (body ? "POST" : "GET"),
+    method: body ? "POST" : "GET",
     cache: "no-store",
     signal: AbortSignal.timeout(15000),
     headers: {
@@ -61,7 +59,7 @@ export async function clearSession() {
   jar.delete("m8-refresh");
 }
 // Called only in route handlers: refresh can update HttpOnly cookies.
-export async function requireUser(options: { allowPasswordChange?: boolean } = {}) {
+export async function requireUser() {
   const jar = await cookies();
   const token = jar.get("m8-access")?.value;
   if (token) {
@@ -74,7 +72,7 @@ export async function requireUser(options: { allowPasswordChange?: boolean } = {
         user.email_confirmed_at &&
         (await authorizedEmail(user.email))
       )
-        return checkPasswordAccess(user as AuthUser, options.allowPasswordChange);
+        return user as AuthUser;
       throw new Unauthorized();
     }
     if (response.status !== 401 && response.status !== 403)
@@ -94,7 +92,7 @@ export async function requireUser(options: { allowPasswordChange?: boolean } = {
         (await authorizedEmail(data.user.email))
       ) {
         await setSession(data);
-        return checkPasswordAccess(data.user as AuthUser, options.allowPasswordChange);
+        return data.user as AuthUser;
       }
     }
   }
@@ -157,18 +155,5 @@ export async function requireAdmin() {
   const user = await requireUser();
   const access = await accessRecord(user.email);
   if (!access?.enabled || access.role !== "admin") throw new Forbidden();
-  return user;
-}
-
-export async function requireModule(...modules: string[]) {
-  const user = await requireUser();
-  if (!hasModule(await accessRecord(user.email), ...modules)) throw new Forbidden();
-  return user;
-}
-
-export class PasswordChangeRequired extends Forbidden {}
-async function checkPasswordAccess(user: AuthUser, allow = false) {
-  const access = await accessRecord(user.email);
-  if (!allow && (!access || access.must_change_password)) throw new PasswordChangeRequired("Altere sua senha para continuar.");
   return user;
 }

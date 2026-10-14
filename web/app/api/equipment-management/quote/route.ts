@@ -1,5 +1,4 @@
-import { Forbidden } from "@/lib/auth";
-import { requireModule, sameOrigin, Unauthorized } from "@/lib/auth";
+import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
 import { createPlanQuote } from "@/lib/equipment-management/plan-quote";
 import { EquipmentInputError } from "@/lib/equipment-management/planning";
 import { EquipmentConflict } from "@/lib/equipment-management/store";
@@ -14,7 +13,7 @@ const json = (body: unknown, status = 200) =>
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return json({ error: "Origem inválida." }, 403);
   try {
-    const user = await requireModule("equipamentos", "assistencia-tecnica");
+    const user = await requireUser();
     const raw = await req.text();
     if (raw.length > 5000)
       return json({ error: "Dados excedem o limite." }, 413);
@@ -26,7 +25,6 @@ export async function POST(req: Request) {
     }
     return json(await createPlanQuote(input, user));
   } catch (e) {
-    if (e instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     if (e instanceof Unauthorized)
       return json({ error: "Sessão expirada." }, 401);
     if (e instanceof EquipmentInputError || e instanceof QuoteValidation)
