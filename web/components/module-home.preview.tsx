@@ -94,7 +94,9 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
               : "Escolha uma área para acessar suas ferramentas."}
           </p>
         </div>
-        {!visibleModules.length && <p>Nenhum módulo liberado. Solicite acesso ao administrador.</p>}
+        {access.checking && <p role="status">Verificando acesso aos módulos…</p>}
+        {access.error && <p role="alert">{access.error} <button type="button" onClick={access.retry}>Tentar novamente</button></p>}
+        {!access.checking && !access.error && !visibleModules.length && <p>Nenhum módulo liberado. Solicite acesso ao administrador.</p>}
         {selected ? (
           <nav
             className="module-menu-grid"

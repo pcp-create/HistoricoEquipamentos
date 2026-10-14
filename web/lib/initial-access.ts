@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { userModules } from "./module-access";
 import { cookies } from "next/headers";
 import { authRequest } from "./auth";
@@ -7,9 +8,9 @@ import { userDisplayName } from "./user-display-name";
 
 // Server rendering must not refresh sessions: cookie writes belong to route handlers.
 // Only verified identity and the current access record can expose the admin shortcut.
-export async function initialSessionAccess() {
+export const initialSessionAccess = cache(async function initialSessionAccess() {
   return resolveInitialSession((await cookies()).get("m8-access")?.value);
-}
+});
 
 export async function resolveInitialAdmin(
   token: string | undefined,
@@ -23,7 +24,7 @@ export async function resolveInitialSession(
   request = authRequest,
   lookup = accessRecord,
 ) {
-  const empty = { admin: false, displayName: "", cacheScope: "", modules: [] as string[], mustChangePassword: false };
+  const empty = { admin: false, displayName: "", cacheScope: "", modules: [] as string[], mustChangePassword: false, resolved: false };
   if (!token) return empty;
   try {
     const response = await request("user", undefined, token);
@@ -41,6 +42,7 @@ export async function resolveInitialSession(
     const modules = !mustChangePassword && access?.enabled === true ? userModules(access.modules) : [];
     return {
       modules,
+      resolved: true,
       mustChangePassword,
       cacheScope:
         access?.enabled === false
