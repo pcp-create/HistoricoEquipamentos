@@ -1,4 +1,4 @@
-import { requireAdmin, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
+import { requireModule, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import {
   scheduleMapData,
   changeScheduleMap,
@@ -36,7 +36,7 @@ function failure(e: unknown) {
 }
 export async function GET() {
   try {
-    const user = await requireAdmin();
+    const user = await requireModule("programacao");
     return json(await scheduleMapData(user.email));
   } catch (e) {
     return failure(e);
@@ -45,7 +45,7 @@ export async function GET() {
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return json({ error: "Origem inválida." }, 403);
   try {
-    const user = await requireAdmin();
+    const user = await requireModule("programacao");
     const raw = await req.text();
     if (raw.length > 4000) return json({ error: "Dados inválidos." }, 400);
     let body;

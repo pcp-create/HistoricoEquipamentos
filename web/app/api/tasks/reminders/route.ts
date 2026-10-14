@@ -1,5 +1,5 @@
 import { assertTaskAccess } from "@/lib/tasks/privacy";
-import { requireUser, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
+import { requireModule, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import { listReminders, saveReminder } from "@/lib/tasks/reminders";
 import { TaskInputError, TaskConflict } from "@/lib/tasks/store";
 const json = (b: unknown, status = 200) =>
@@ -27,7 +27,7 @@ const fail = (e: unknown) =>
   );
 export async function GET(req: Request) {
   try {
-    const user = await requireUser();
+    const user = await requireModule("tarefas");
     await assertTaskAccess(new URL(req.url).searchParams.get("taskId") || "0",user.email);
     return json({
       reminders: await listReminders(
@@ -35,13 +35,14 @@ export async function GET(req: Request) {
       ),
     });
   } catch (e) {
+    if (e instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return fail(e);
   }
 }
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return json({ error: "Origem inválida." }, 403);
   try {
-    const u = await requireUser();
+    const u = await requireModule("tarefas");
     const raw = await req.text();
     if (raw.length > 2000) throw new TaskInputError("Dados excedem o limite.");
     let body;
@@ -54,6 +55,7 @@ export async function POST(req: Request) {
     await saveReminder(body, u.email);
     return json({ saved: true });
   } catch (e) {
+    if (e instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return fail(e);
   }
 }

@@ -1,5 +1,5 @@
 import {syncTasks} from "@/lib/tasks/store";
-import { requireAdmin, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
+import { requireModule, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import {
   schedulingData,
   scheduleForOrder,
@@ -40,7 +40,7 @@ function failure(e: unknown) {
 }
 export async function GET(req: Request) {
   try {
-    const user = await requireAdmin();
+    const user = await requireModule("programacao");
     const params = new URL(req.url).searchParams;
     if (params.has("orderId")) return json(await scheduleForOrder(params.get("company") || "", params.get("orderId") || ""));
     return json(
@@ -53,7 +53,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return json({ error: "Origem inválida." }, 403);
   try {
-    const user = await requireAdmin(),
+    const user = await requireModule("programacao"),
       raw = await req.text();
     let b;
     try {

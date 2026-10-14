@@ -1,5 +1,6 @@
 import { geocodeLocality, GeocodeError } from "./geocode";
 import "server-only";
+import { hasModule } from "../module-access";
 import { createHash } from "node:crypto";
 import { database } from "../db";
 import { Forbidden } from "../auth";
@@ -14,11 +15,11 @@ const hash = (a: Locality) =>
   createHash("sha256").update(addressIdentity(a)).digest("hex");
 export async function scheduleMapData(email: string, db: any = database(), fieldOnly = false) {
   const access = (
-    await db.query("SELECT role,enabled FROM web_user_access WHERE email=$1", [
+    await db.query("SELECT role,enabled,to_jsonb(web_user_access)->'modules' AS modules FROM web_user_access WHERE email=$1", [
       email,
     ])
   ).rows[0];
-  if (!access?.enabled || (!fieldOnly && access.role !== "admin")) throw new Forbidden();
+  if (!access?.enabled || (!fieldOnly && !hasModule(access, "programacao"))) throw new Forbidden();
   const rows = (
     await db.query(`SELECT s.id::text,o.cliente_id::text AS person_id,o.endereco_entrega_id::text AS delivery_id,
  c.address_id::text AS choice_id

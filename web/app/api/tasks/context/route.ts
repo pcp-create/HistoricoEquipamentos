@@ -1,4 +1,5 @@
-import { requireUser, Unauthorized } from "@/lib/auth";
+import { Forbidden } from "@/lib/auth";
+import { requireModule, Unauthorized } from "@/lib/auth";
 import { database } from "@/lib/db";
 import {
   creationContext,
@@ -7,7 +8,7 @@ import {
 export const runtime = "nodejs";
 export async function GET(req: Request) {
   try {
-    await requireUser();
+    await requireModule("tarefas");
     const context = await creationContext(
       database(),
       Object.fromEntries(new URL(req.url).searchParams),
@@ -22,6 +23,7 @@ export async function GET(req: Request) {
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (e) {
+    if (e instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return Response.json(
       {
         error:

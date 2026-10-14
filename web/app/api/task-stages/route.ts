@@ -1,6 +1,6 @@
 import {
   requireAdmin,
-  requireUser,
+  requireModule,
   sameOrigin,
   Unauthorized,
   Forbidden,
@@ -40,7 +40,7 @@ function failure(e: unknown) {
 }
 export async function GET() {
   try {
-    const user = await requireUser();
+    const user = await requireModule("tarefas");
     const access = await accessRecord(user.email);
     return json({
       ...(await taskStages()),

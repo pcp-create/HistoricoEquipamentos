@@ -1,4 +1,5 @@
 import "server-only";
+import { hasModule } from "./module-access";
 import { accessRecord } from "./admin-store";
 import type { AuthUser } from "./user-display-name";
 import { cookies, headers } from "next/headers";
@@ -155,5 +156,11 @@ export async function requireAdmin() {
   const user = await requireUser();
   const access = await accessRecord(user.email);
   if (!access?.enabled || access.role !== "admin") throw new Forbidden();
+  return user;
+}
+
+export async function requireModule(...modules: string[]) {
+  const user = await requireUser();
+  if (!hasModule(await accessRecord(user.email), ...modules)) throw new Forbidden();
   return user;
 }

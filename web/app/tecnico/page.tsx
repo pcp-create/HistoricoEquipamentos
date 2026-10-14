@@ -7,6 +7,7 @@ export default async function Page() {
   const jar = await cookies();
   if (!jar.has("m8-access") && !jar.has("m8-refresh"))
     redirect("/login?next=%2Ftecnico");
-  if (!(await initialSessionAccess()).admin) redirect("/");
+  const access = await initialSessionAccess();
+  if (!["tecnico"].some(id => access.modules.includes(id))) redirect("/");
   return <FieldApp />;
 }

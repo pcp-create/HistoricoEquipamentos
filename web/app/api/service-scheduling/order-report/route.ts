@@ -1,4 +1,4 @@
-import { requireAdmin, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
+import { requireModule, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import {
   orderReportPdf,
   OrderReportInputError,
@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     );
   if (!sameOrigin(req)) return json("Origem inválida.", 403);
   try {
-    const user = await requireAdmin();
+    const user = await requireModule("programacao");
     let body;
     try {
       body = await req.json();

@@ -1,3 +1,4 @@
+import { initialSessionAccess } from "@/lib/initial-access";
 import { planReturnPath } from "@/lib/plan-return-path";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -18,5 +19,7 @@ export default async function Page({
         encodeURIComponent(planReturnPath("/orcamentos?" + params)),
     );
   }
+  const access = await initialSessionAccess();
+  if (!["crm"].some(id => access.modules.includes(id))) redirect("/");
   return <QuoteDashboard />;
 }

@@ -1,4 +1,5 @@
 import "server-only";
+import { userModules, validateModules } from "./module-access";
 import { employeeFields } from "./employees";
 import { database } from "./db";
 import { userDisplayName, type AuthUser } from "./user-display-name";
@@ -6,7 +7,7 @@ export async function accessRecord(email: string) {
   return (
     (
       await database().query(
-        "SELECT role,enabled,display_name FROM web_user_access WHERE email=$1",
+        "SELECT role,enabled,display_name,to_jsonb(web_user_access)->'modules' AS modules FROM web_user_access WHERE email=$1",
         [email.toLowerCase()],
       )
     ).rows[0] || null
@@ -65,6 +66,11 @@ export async function setAccess(body: any, actor: AuthUser) {
     typeof body.enabled !== "boolean"
   )
     throw new AdminInputError("Informe e-mail, perfil e situação válidos.");
+  let modules: string[] | undefined;
+  if (body.modules !== undefined) {
+    try { modules = validateModules(body.modules); }
+    catch (e) { throw new AdminInputError((e as Error).message); }
+  }
   let employee;
   if (body.display_name !== undefined) {
     try {
@@ -79,7 +85,7 @@ export async function setAccess(body: any, actor: AuthUser) {
     await c.query("SELECT pg_advisory_xact_lock(81020,1)");
     const permission = (
       await c.query(
-        "SELECT role,enabled,display_name FROM web_user_access WHERE email=$1 FOR UPDATE",
+        "SELECT role,enabled,display_name,to_jsonb(web_user_access)->'modules' AS modules FROM web_user_access WHERE email=$1 FOR UPDATE",
         [actor.email.toLowerCase()],
       )
     ).rows[0];
@@ -87,7 +93,7 @@ export async function setAccess(body: any, actor: AuthUser) {
       throw new AdminInputError("Permissão de administrador necessária.");
     const old = (
       await c.query(
-        "SELECT role,enabled,display_name FROM web_user_access WHERE email=$1",
+        "SELECT role,enabled,display_name,to_jsonb(web_user_access)->'modules' AS modules FROM web_user_access WHERE email=$1",
         [email],
       )
     ).rows[0];
@@ -122,6 +128,7 @@ export async function setAccess(body: any, actor: AuthUser) {
       `INSERT INTO web_user_access(email,role,enabled,updated_by) VALUES($1,$2,$3,$4) ON CONFLICT(email) DO UPDATE SET role=$2,enabled=$3,updated_by=$4,updated_at=now()`,
       [email, body.role, body.enabled, actor.email],
     );
+    if (modules !== undefined) await c.query("UPDATE web_user_access SET modules=$2::jsonb WHERE email=$1", [email, JSON.stringify(modules)]);
     if (employee)
       await c.query(
         `UPDATE web_user_access SET display_name=$2,department=$3,job_title=$4,phone=$5,alert_preventive=$6,alert_rental=$7,alert_email=$8,alert_whatsapp=$9,task_color=$10 WHERE email=$1`,
@@ -157,7 +164,7 @@ export async function setAccess(body: any, actor: AuthUser) {
         actor.email,
         JSON.stringify({
           before: old || null,
-          after: { role: body.role, enabled: body.enabled, ...employee },
+          after: { role: body.role, enabled: body.enabled, ...employee, modules: modules ?? userModules(old?.modules) },
         }),
       ],
     );
@@ -172,7 +179,7 @@ export async function setAccess(body: any, actor: AuthUser) {
 export async function adminOverview() {
   const db = database();
   const users = (
-    await db.query(`SELECT COALESCE(to_jsonb(web_user_access)->'managers','[]'::jsonb) managers,to_jsonb(web_user_access)->>'hourly_cost' AS hourly_cost,to_jsonb(web_user_access)->>'task_color' AS task_color,email,display_name,department,job_title,phone,alert_preventive,alert_rental,alert_email,alert_whatsapp,user_id,role,enabled,last_login_at,last_seen_at,last_logout_at,
+    await db.query(`SELECT to_jsonb(web_user_access)->'modules' AS modules,COALESCE(to_jsonb(web_user_access)->'managers','[]'::jsonb) managers,to_jsonb(web_user_access)->>'hourly_cost' AS hourly_cost,to_jsonb(web_user_access)->>'task_color' AS task_color,email,display_name,department,job_title,phone,alert_preventive,alert_rental,alert_email,alert_whatsapp,user_id,role,enabled,last_login_at,last_seen_at,last_logout_at,
  (enabled AND last_seen_at>now()-interval '15 minutes' AND (last_logout_at IS NULL OR last_seen_at>last_logout_at)) AS online FROM web_user_access ORDER BY role,email`)
   ).rows;
   const events = (

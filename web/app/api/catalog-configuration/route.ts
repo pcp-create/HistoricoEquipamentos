@@ -1,6 +1,7 @@
+import { Forbidden } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
+import { requireModule, sameOrigin, Unauthorized } from "@/lib/auth";
 import { logDataError } from "@/lib/data-error";
 import {
   catalogFields,
@@ -35,7 +36,7 @@ function failure(e: unknown) {
 }
 export async function GET(request: Request) {
   try {
-    const user = await requireUser();
+    const user = await requireModule("crm", "assistencia-tecnica", "suprimentos");
     const p = new URL(request.url).searchParams;
     if (p.get("template") === "1") {
       const book = XLSX.utils.book_new();
@@ -107,13 +108,14 @@ export async function GET(request: Request) {
       });
     return json({ ...(await catalogConfiguration()), email: user.email });
   } catch (e) {
+    if (e instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return failure(e);
   }
 }
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return json({ error: "Origem inválida." }, 403);
   try {
-    const user = await requireUser();
+    const user = await requireModule("crm", "assistencia-tecnica", "suprimentos");
     if (Number(request.headers.get("content-length")) > 2_000_000)
       return json({ error: "Arquivo ou dados excedem 2 MB." }, 413);
     const bytes = await request.arrayBuffer();
@@ -194,6 +196,7 @@ export async function POST(request: Request) {
       return json({ error: checked.errors.slice(0, 20).join("\n") }, 400);
     return json(await saveCatalogRecords(checked.records, user.email));
   } catch (e) {
+    if (e instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return failure(e);
   }
 }
@@ -201,7 +204,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   if (!sameOrigin(request)) return json({ error: "Origem inválida." }, 403);
   try {
-    const user = await requireUser();
+    const user = await requireModule("crm", "assistencia-tecnica", "suprimentos");
     const bytes = await request.arrayBuffer();
     if (bytes.byteLength > 32000)
       return json({ error: "Dados excedem o limite." }, 413);
@@ -213,6 +216,7 @@ export async function PATCH(request: Request) {
     }
     return json(await updateCatalogItem(body, user.email));
   } catch (e) {
+    if (e instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return failure(e);
   }
 }

@@ -1,6 +1,7 @@
+import { Forbidden } from "@/lib/auth";
 import { logDataError } from "@/lib/data-error";
 import { NextResponse } from "next/server";
-import { requireUser, Unauthorized } from "@/lib/auth";
+import { requireModule, Unauthorized } from "@/lib/auth";
 import { orderDetail } from "@/lib/history";
 export const runtime = "nodejs";
 export async function GET(
@@ -8,7 +9,7 @@ export async function GET(
   context: { params: Promise<{ company: string; id: string }> },
 ) {
   try {
-    await requireUser();
+    await requireModule("crm", "assistencia-tecnica", "programacao", "tecnico", "equipamentos");
     const { company, id } = await context.params;
     const result = await orderDetail(company, id);
     return NextResponse.json(
@@ -19,6 +20,7 @@ export async function GET(
       },
     );
   } catch (error) {
+    if (error instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     const code = error instanceof Unauthorized ? undefined : logDataError("order-detail", error);
     return NextResponse.json(
       {

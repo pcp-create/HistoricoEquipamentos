@@ -1,3 +1,4 @@
+import { initialSessionAccess } from "@/lib/initial-access";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import TasksDashboard from "@/components/tasks-dashboard";
@@ -16,5 +17,7 @@ export default async function Page({
           "/tarefas" + (task && /^\d+$/.test(task) ? "?task=" + task : ""),
         ),
     );
+  const access = await initialSessionAccess();
+  if (!["tarefas"].some(id => access.modules.includes(id))) redirect("/");
   return <TasksDashboard />;
 }

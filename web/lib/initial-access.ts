@@ -1,4 +1,5 @@
 import "server-only";
+import { userModules } from "./module-access";
 import { cookies } from "next/headers";
 import { authRequest } from "./auth";
 import { accessRecord } from "./admin-store";
@@ -22,7 +23,7 @@ export async function resolveInitialSession(
   request = authRequest,
   lookup = accessRecord,
 ) {
-  const empty = { admin: false, displayName: "", cacheScope: "" };
+  const empty = { admin: false, displayName: "", cacheScope: "", modules: [] as string[] };
   if (!token) return empty;
   try {
     const response = await request("user", undefined, token);
@@ -36,11 +37,13 @@ export async function resolveInitialSession(
     )
       return empty;
     const access = await lookup(user.email);
+    const modules = access?.enabled === true ? userModules(access.modules) : [];
     return {
+      modules,
       cacheScope:
         access?.enabled === false
           ? ""
-          : user.id + ":" + (access?.role || "user"),
+          : user.id + ":" + (access?.role || "user") + ":" + modules.join(","),
       admin: access?.enabled === true && access.role === "admin",
       displayName:
         access?.enabled === false

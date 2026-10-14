@@ -1,7 +1,8 @@
+import { Forbidden } from "@/lib/auth";
 import { companyName } from "@/lib/company-names";
 import { logDataError } from "@/lib/data-error";
 import { NextResponse } from "next/server";
-import { requireUser, Unauthorized } from "@/lib/auth";
+import { requireModule, Unauthorized } from "@/lib/auth";
 import { parseAnalysis } from "@/lib/material-planning";
 import { materialAnalysis } from "@/lib/material-analysis";
 import { csvCell } from "@/lib/filters";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 export async function GET(request: Request) {
   try {
-    const user = await requireUser();
+    const user = await requireModule("suprimentos");
     const params = new URL(request.url).searchParams;
     let filters;
     try {
@@ -110,6 +111,7 @@ export async function GET(request: Request) {
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
+    if (error instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     const code =
       error instanceof Unauthorized
         ? undefined

@@ -1,5 +1,6 @@
+import { Forbidden } from "@/lib/auth";
 import { NextResponse } from "next/server";
-import { requireUser, Unauthorized } from "@/lib/auth";
+import { requireModule, Unauthorized } from "@/lib/auth";
 import {
   imageIdentity,
   ImageServiceError,
@@ -17,7 +18,7 @@ export async function GET(
   context: { params: Promise<{ company: string; id: string }> },
 ) {
   try {
-    await requireUser();
+    await requireModule("crm", "assistencia-tecnica", "suprimentos", "programacao", "tecnico", "equipamentos");
     const { company, id } = await context.params;
     const image = new URL(request.url).searchParams.get("image");
     try {
@@ -58,6 +59,7 @@ export async function GET(
       { headers },
     );
   } catch (error) {
+    if (error instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     const status = error instanceof Unauthorized ? 401 : 503;
     return NextResponse.json(
       {

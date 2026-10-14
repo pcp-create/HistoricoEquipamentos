@@ -1,6 +1,7 @@
+import { Forbidden } from "@/lib/auth";
 import { userDisplayName } from "@/lib/user-display-name";
 import { NextResponse } from "next/server";
-import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
+import { requireModule, sameOrigin, Unauthorized } from "@/lib/auth";
 import { logDataError } from "@/lib/data-error";
 import {
   getOrderProfit,
@@ -30,17 +31,18 @@ function failure(error: unknown) {
 type Context = { params: Promise<{ company: string; id: string }> };
 export async function GET(_request: Request, context: Context) {
   try {
-    await requireUser();
+    await requireModule("crm", "assistencia-tecnica", "programacao", "tecnico", "equipamentos");
     const { company, id } = await context.params;
     return json({ calculation: await getOrderProfit(company, id) });
   } catch (error) {
+    if (error instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return failure(error);
   }
 }
 export async function POST(request: Request, context: Context) {
   if (!sameOrigin(request)) return json({ error: "Origem inválida." }, 403);
   try {
-    const user = await requireUser();
+    const user = await requireModule("crm", "assistencia-tecnica", "programacao", "tecnico", "equipamentos");
     const { company, id } = await context.params;
     const raw = await request.text();
     if (raw.length > 2000) return json({ error: "Cálculo inválido." }, 400);
@@ -60,6 +62,7 @@ export async function POST(request: Request, context: Context) {
       ),
     });
   } catch (error) {
+    if (error instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return failure(error);
   }
 }

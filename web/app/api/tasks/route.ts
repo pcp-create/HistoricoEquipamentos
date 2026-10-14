@@ -1,4 +1,4 @@
-import { requireUser, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
+import { requireModule, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import {
   deleteTaskNote,
   createTask,
@@ -33,18 +33,19 @@ function failure(e: unknown) {
 }
 export async function GET(req: Request) {
   try {
-    const user = await requireUser(),
+    const user = await requireModule("tarefas"),
       p = new URL(req.url).searchParams;
     if(p.has("id")){const access=await accessRecord(user.email);const detail=await taskDetail(p.get("id")!,user);if(detail.task.source_key.startsWith("time-request:")&&access?.role!=="admin")throw new Forbidden();return json({...detail,canDeleteNotes:!!access?.enabled&&access.role==="admin"});}
     return json(await listTasks(p,user));
   } catch (e) {
+    if (e instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return failure(e);
   }
 }
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return json({ error: "Origem inválida." }, 403);
   try {
-    const user = await requireUser();
+    const user = await requireModule("tarefas");
     if (req.headers.get("content-type")?.includes("multipart/form-data")) {
       if (Number(req.headers.get("content-length") || 0) > 3100000)
         return json({ error: "Arquivo excede 3 MB." }, 413);
@@ -69,6 +70,7 @@ export async function POST(req: Request) {
       return json(await createTask(body, user), 201);
     return json(await updateTask(body, user));
   } catch (e) {
+    if (e instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     return failure(e);
   }
 }

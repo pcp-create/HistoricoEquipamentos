@@ -1,5 +1,6 @@
+import { Forbidden } from "@/lib/auth";
 import { NextResponse } from "next/server";
-import { requireUser, Unauthorized } from "@/lib/auth";
+import { requireModule, Unauthorized } from "@/lib/auth";
 import { logDataError } from "@/lib/data-error";
 import { productLookup, similarProducts, searchProducts } from "@/lib/product-lookup";
 export const runtime = "nodejs";
@@ -11,7 +12,7 @@ const json = (body: unknown, status = 200) =>
   });
 export async function GET(request: Request) {
   try {
-    await requireUser();
+    await requireModule("crm", "assistencia-tecnica", "suprimentos", "programacao", "tecnico", "equipamentos");
     const params = new URL(request.url).searchParams;
     if (params.has("q")) {
       const q = (params.get("q") || "").trim();
@@ -24,6 +25,7 @@ export async function GET(request: Request) {
     const [rows, similar] = await Promise.all([productLookup(code), similarProducts(code)]);
     return json({ rows, similar });
   } catch (error) {
+    if (error instanceof Forbidden) return Response.json({error:"Acesso ao módulo não permitido."},{status:403});
     if (error instanceof Unauthorized)
       return json({ error: "Sessão expirada." }, 401);
     const code = logDataError("product-lookup", error);

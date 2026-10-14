@@ -52,8 +52,8 @@ test("map uses company 1 for every OS and invalidates changed addresses; writes 
     connect: async () => ({ query: db.query.bind(db), release() {} }),
   };
   try {
-    await db.exec(`CREATE TABLE web_user_access(email text,role text,enabled boolean);
- INSERT INTO web_user_access VALUES('admin','admin',true),('tech','user',true);
+    await db.exec(`CREATE TABLE web_user_access(email text,role text,enabled boolean,modules jsonb);
+ INSERT INTO web_user_access VALUES('admin','admin',true,'["programacao","tecnico"]'),('tech','user',true,'["tecnico"]');
  CREATE TABLE web_service_schedules(id bigint PRIMARY KEY,company_id integer,order_id bigint,active boolean);
  INSERT INTO web_service_schedules VALUES(1,2,100,true),(2,27404,101,true),(3,1,102,false);
  CREATE TABLE m8_ordens_servico(company_id integer,id_m8 bigint,cliente_id bigint,endereco_entrega_id bigint);
@@ -82,7 +82,7 @@ test("map uses company 1 for every OS and invalidates changed addresses; writes 
     assert.equal(field.technicians[0].pendingOrders[0].id,'1');
     assert.equal(field.orders.length,1);
     assert.equal(field.orders[0].id,'1');
-    assert.equal(field.orders[0].status,'executing');
+    assert.equal(field.orders[0].status,'overdue');
     assert.equal(field.technicians[0].source,'Apontamento');
     assert.equal(field.technicians[0].online,false);
     await db.exec("UPDATE web_user_access SET last_seen_at=now() WHERE email='tech'");
