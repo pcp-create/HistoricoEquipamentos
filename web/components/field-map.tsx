@@ -76,10 +76,9 @@ export default function FieldMap({visible}:{visible:boolean}) {
     if(mode==='technicians') {
      const marker=document.createElement('div');marker.className='field-person-marker '+(item.online?'is-online':'is-offline');
      const person=document.createElement('span');person.className='field-person-symbol';person.setAttribute('aria-hidden','true');
-     person.innerHTML='<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M7.5 7.5a4.5 4.5 0 0 1 9 0h.5a.75.75 0 0 1 0 1.5H7a.75.75 0 0 1 0-1.5h.5zM8 10h8v.5a4 4 0 0 1-8 0V10zM9 16l3 2 3-2c3 .5 5 2.5 5 5v1H4v-1c0-2.5 2-4.5 5-5z"/></svg>';
      const name=document.createElement('span');name.className='field-person-name';name.textContent=item.name||'Técnico';
      marker.append(person,name);
-     pin=L.marker(point,{icon:L.divIcon({html:marker,className:'field-person-icon',iconSize:[32,32],iconAnchor:[16,16],popupAnchor:[0,-18]}),title:`${item.name||'Técnico'} — ${item.online?'Online':'Offline'}`,alt:item.name||'Técnico',riseOnHover:true}).bindPopup(popup,{maxWidth:360,minWidth:220});
+     pin=L.marker(point,{icon:L.divIcon({html:marker,className:'field-person-icon',iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-13]}),title:`${item.name||'Técnico'} — ${item.online?'Online':'Offline'}`,alt:item.name||'Técnico',riseOnHover:true}).bindPopup(popup,{maxWidth:360,minWidth:220});
     }else{
      const customerLabel=document.createElement('span');customerLabel.textContent=customerMapLabel(item.customer);
      pin=L.circleMarker(point,{radius:10,color:'#fff',weight:2,fillColor:colors[item.status],fillOpacity:1}).bindPopup(popup,{maxWidth:360,minWidth:220}).bindTooltip(customerLabel,{permanent:true,direction:'right',offset:[12,0],className:'map-customer-label',opacity:1});
