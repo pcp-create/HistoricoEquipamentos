@@ -16,6 +16,7 @@ import {
 } from "@/lib/service-scheduling/model";
 import "leaflet/dist/leaflet.css";
 import "./schedule-orders-map.css";
+import "./map-customer-label.css";
 type MapEntry = {
   id: string;
   localities: Locality[];
@@ -246,6 +247,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
     located.map((s) => [
       s.id,
       s.programming_status,
+      s.cliente_nome,
       s.address,
       s.calendar_operations,
     ]),
@@ -402,6 +404,10 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
             iconAnchor: [size / 2, size / 2],
           }),
         }).addTo(layer);
+        const customerNames=[...new Set<string>(group.map(s=>s.cliente_nome||"Cliente não informado"))];
+        const customerLabel=document.createElement("span");
+        customerLabel.textContent=customerNames.slice(0,2).join(" · ")+(customerNames.length>2?` +${customerNames.length-2} clientes`:"");
+        marker.bindTooltip(customerLabel,{permanent:true,direction:"right",offset:[size/2+4,0],className:"map-customer-label",opacity:1});
         if (distinct)
           marker.on("click", () =>
             m.fitBounds(
