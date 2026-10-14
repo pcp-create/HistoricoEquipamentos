@@ -468,18 +468,16 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                       {data.reportSubmission?<p className="field-success" role="status">Relatório enviado completo em {new Date(data.reportSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {data.reportSubmission.name||data.reportSubmission.by}.<br/>O planejador pode devolver o relatório para edição.</p>:<>
                         {checklistRun?.partialSubmission&&<p className="field-success">Enviado parcial em {new Date(checklistRun.partialSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {checklistRun.partialSubmission.name||checklistRun.partialSubmission.by}. Você pode continuar editando.</p>}
                         <div className="field-report-actions">
-                          <button disabled={!ready} onClick={()=>void save()}><SaveActionIcon/> Salvar Relatório</button>
-                          <button disabled={!ready||operation.document.responsible!==data.email} onClick={async()=>{if(await act({action:'report_send_partial',version:operation.version,stages:getDrafts()}))setView('');}}><Flag size={18}/> Enviar parcial</button>
-                          <button disabled={!ready||operation.document.responsible!==data.email} onClick={async()=>{if(await act({action:'report_send',version:operation.version,stages:getDrafts()}))setView('');}}><Flag size={18}/> Enviar completo</button>
+                          <button disabled={!ready} onClick={()=>void save()}><SaveActionIcon/> Salvar</button>
+                          <button type="button" disabled={busy||locked||!!checklistRun?.partialSubmission||operation.document.responsible!==data.email} onClick={async()=>{
+                            const reason=window.prompt('Informe ao planejador por que o checklist precisa ser corrigido:');
+                            if(!reason?.trim())return;
+                            if(!window.confirm('Devolver para ajuste do checklist? Todos os dados preenchidos e fotos deste relatório serão descartados, incluindo o preenchimento da equipe. A operação sairá do portal até o planejador corrigir e reenviar. Apontamentos e retiradas de peças serão preservados.'))return;
+                            if(await act({action:'report_return',version:operation.version,reason,confirmDiscard:true}))setView('');
+                          }}><ArrowLeft size={18}/> Devolver</button>
+                          <button disabled={!ready||operation.document.responsible!==data.email} onClick={async()=>{if(await act({action:'report_send',version:operation.version,stages:getDrafts()}))setView('');}}><Flag size={18}/> Enviar</button>
                         </div>
                       </>}
-                      {!data.reportSubmission && !checklistRun?.partialSubmission && operation.document.responsible===data.email && <button type="button" disabled={busy||locked} onClick={async()=>{
-                        const reason=window.prompt('Informe ao planejador por que o checklist precisa ser corrigido:');
-                        if(!reason?.trim())return;
-                        if(!window.confirm('Devolver para ajuste do checklist? Todos os dados preenchidos e fotos deste relatório serão descartados, incluindo o preenchimento da equipe. A operação sairá do portal até o planejador corrigir e reenviar. Apontamentos e retiradas de peças serão preservados.'))return;
-                        if(await act({action:'report_return',version:operation.version,reason,confirmDiscard:true}))setView('');
-                      }}>Devolver para ajuste do checklist</button>}
-
                     </div>}
                   />
 

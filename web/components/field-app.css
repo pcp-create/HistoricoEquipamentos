@@ -457,11 +457,9 @@ dialog.field-report-screen {
   font-variant-numeric: tabular-nums;
 }
 
-.field-report-actions { flex-wrap:wrap; }
-@media(max-width:480px) {
- .field-report-footer .field-report-actions > button { flex-basis:calc(50% - 8px); }
- .field-report-footer .field-report-actions > button:first-child { flex-basis:100%; }
-}
+.field-report-footer .field-report-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.field-report-footer .field-report-actions > button { padding:10px 4px; white-space:nowrap; }
+.field-report-footer .field-report-actions > button svg { flex-shrink:0; width:16px; height:16px; }
 
 .field-order.field-order-overdue {
   border-color: #e8b5b0;
