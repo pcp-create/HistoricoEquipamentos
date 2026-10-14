@@ -1,5 +1,4 @@
 "use client";
-import { moduleOptions, defaultModules } from "@/lib/module-access";
 import UserPhotoEditor from "./user-photo-editor";
 import IntegrationItems from "./integration-items";
 import SupportPicker from "./support-picker";
@@ -17,7 +16,6 @@ const emptyEmployee = {
   department: "",
   job_title: "",
   hourly_cost: "",
-  modules: [...defaultModules],
   managers: [] as string[],
   phone: "",
   task_color: null as string | null,
@@ -106,7 +104,7 @@ export default function AdminDashboard() {
       const b = await r.json();
       if (!r.ok) throw Error(b.error);
       setMessage(
-        "Funcionário salvo. Os acessos aos módulos foram atualizados. Reabra a página do usuário para atualizar o menu.",
+        "Funcionário salvo. Todos os módulos estão disponíveis para funcionários com acesso liberado.",
       );
       setEditing(true);
       await load();
@@ -327,13 +325,6 @@ export default function AdminDashboard() {
                             </select>
                           </label>
                         </div>
-                        <fieldset>
-                          <legend>Módulos disponíveis</legend>
-                          {moduleOptions.map(module => <label key={module.id} className="admin-alert-option">
-                            <input type="checkbox" checked={form.modules.includes(module.id)} onChange={e => setForm({...form, modules: e.target.checked ? [...form.modules, module.id] : form.modules.filter(id => id !== module.id)})}/>
-                            <span>{module.label}</span>
-                          </label>)}
-                        </fieldset>
                         <fieldset>
                           <legend>Recebimento de alertas</legend>
                           {(

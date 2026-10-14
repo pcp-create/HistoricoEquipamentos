@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { userModules } from "./module-access";
+import { defaultModules } from "./module-access";
 import { cookies } from "next/headers";
 import { authRequest } from "./auth";
 import { accessRecord } from "./admin-store";
@@ -39,7 +39,7 @@ export async function resolveInitialSession(
       return empty;
     const access = await lookup(user.email);
     const mustChangePassword = access?.enabled === true && access.must_change_password === true;
-    const modules = !mustChangePassword && access?.enabled === true ? userModules(access.modules) : [];
+    const modules = !mustChangePassword && access?.enabled === true ? [...defaultModules] : [];
     return {
       modules,
       resolved: true,

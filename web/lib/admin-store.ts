@@ -1,5 +1,4 @@
 import "server-only";
-import { userModules, validateModules } from "./module-access";
 import { employeeFields } from "./employees";
 import { database } from "./db";
 import { userDisplayName, type AuthUser } from "./user-display-name";
@@ -66,11 +65,6 @@ export async function setAccess(body: any, actor: AuthUser) {
     typeof body.enabled !== "boolean"
   )
     throw new AdminInputError("Informe e-mail, perfil e situação válidos.");
-  let modules: string[] | undefined;
-  if (body.modules !== undefined) {
-    try { modules = validateModules(body.modules); }
-    catch (e) { throw new AdminInputError((e as Error).message); }
-  }
   let employee;
   if (body.display_name !== undefined) {
     try {
@@ -128,7 +122,6 @@ export async function setAccess(body: any, actor: AuthUser) {
       `INSERT INTO web_user_access(email,role,enabled,updated_by) VALUES($1,$2,$3,$4) ON CONFLICT(email) DO UPDATE SET role=$2,enabled=$3,updated_by=$4,updated_at=now()`,
       [email, body.role, body.enabled, actor.email],
     );
-    if (modules !== undefined) await c.query("UPDATE web_user_access SET modules=$2::jsonb WHERE email=$1", [email, JSON.stringify(modules)]);
     if (employee)
       await c.query(
         `UPDATE web_user_access SET display_name=$2,department=$3,job_title=$4,phone=$5,alert_preventive=$6,alert_rental=$7,alert_email=$8,alert_whatsapp=$9,task_color=$10 WHERE email=$1`,
@@ -164,7 +157,7 @@ export async function setAccess(body: any, actor: AuthUser) {
         actor.email,
         JSON.stringify({
           before: old || null,
-          after: { role: body.role, enabled: body.enabled, ...employee, modules: modules ?? userModules(old?.modules) },
+          after: { role: body.role, enabled: body.enabled, ...employee },
         }),
       ],
     );

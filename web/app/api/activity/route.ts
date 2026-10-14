@@ -1,4 +1,4 @@
-import { userModules } from "@/lib/module-access";
+import { defaultModules } from "@/lib/module-access";
 import { userDisplayName } from "@/lib/user-display-name";
 import { NextResponse } from "next/server";
 import { requireUser, sameOrigin, Unauthorized, Forbidden, PasswordChangeRequired } from "@/lib/auth";
@@ -14,8 +14,8 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         admin: access?.enabled === true && access.role === "admin",
-        modules: access?.enabled === true ? userModules(access.modules) : [],
-        cacheScope: user.id + ":" + (access?.role || "user") + ":" + userModules(access?.modules).join(","),
+        modules: access?.enabled === true ? [...defaultModules] : [],
+        cacheScope: user.id + ":" + (access?.role || "user") + ":" + defaultModules.join(","),
         displayName: access?.display_name || userDisplayName(user),
       },
       { headers: { "Cache-Control": "no-store" } },
