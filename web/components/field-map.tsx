@@ -1,4 +1,5 @@
 "use client";
+import { clusterMapPoints } from "@/lib/service-scheduling/map-clusters";
 import { customerMapLabel } from "@/lib/service-scheduling/customer-map-label";
 import {useEffect,useRef,useState} from 'react';
 import type * as Leaflet from 'leaflet';
@@ -41,6 +42,8 @@ export default function FieldMap({visible}:{visible:boolean}) {
    const m=L.map(container.current).setView([-27,-50],6);map.current=m;
    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',maxZoom:19,referrerPolicy:'origin'}).addTo(m);
    const points:Leaflet.LatLngExpression[]=[];
+   const entries:{point:Leaflet.LatLngExpression;marker:Leaflet.Layer;popup:HTMLElement;name:string}[]=[];
+   const markers=L.layerGroup().addTo(m);
    for(const item of data?.[mode]||[]){
     if(typeof item.latitude!=='number'||typeof item.longitude!=='number')continue;
     const point:Leaflet.LatLngExpression=[item.latitude,item.longitude];points.push(point);
@@ -68,19 +71,38 @@ export default function FieldMap({visible}:{visible:boolean}) {
      line('Endereço',item.address||'Não informado');
      if(item.precision)line('Localização',item.precision);
     }
+    let pin:Leaflet.Layer;
     if(mode==='technicians') {
      const marker=document.createElement('div');marker.className='field-person-marker '+(item.online?'is-online':'is-offline');
      const person=document.createElement('span');person.className='field-person-symbol';person.setAttribute('aria-hidden','true');
      person.innerHTML='<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M7.5 7.5a4.5 4.5 0 0 1 9 0h.5a.75.75 0 0 1 0 1.5H7a.75.75 0 0 1 0-1.5h.5zM8 10h8v.5a4 4 0 0 1-8 0V10zM9 16l3 2 3-2c3 .5 5 2.5 5 5v1H4v-1c0-2.5 2-4.5 5-5z"/></svg>';
      const name=document.createElement('span');name.className='field-person-name';name.textContent=item.name||'Técnico';
      marker.append(person,name);
-     L.marker(point,{icon:L.divIcon({html:marker,className:'field-person-icon',iconSize:[32,32],iconAnchor:[16,16],popupAnchor:[0,-18]}),title:`${item.name||'Técnico'} — ${item.online?'Online':'Offline'}`,alt:item.name||'Técnico',riseOnHover:true}).addTo(m).bindPopup(popup,{maxWidth:360,minWidth:220});
+     pin=L.marker(point,{icon:L.divIcon({html:marker,className:'field-person-icon',iconSize:[32,32],iconAnchor:[16,16],popupAnchor:[0,-18]}),title:`${item.name||'Técnico'} — ${item.online?'Online':'Offline'}`,alt:item.name||'Técnico',riseOnHover:true}).bindPopup(popup,{maxWidth:360,minWidth:220});
     }else{
      const customerLabel=document.createElement('span');customerLabel.textContent=customerMapLabel(item.customer);
-     L.circleMarker(point,{radius:10,color:'#fff',weight:2,fillColor:colors[item.status],fillOpacity:1}).addTo(m).bindPopup(popup,{maxWidth:360,minWidth:220}).bindTooltip(customerLabel,{permanent:true,direction:'right',offset:[12,0],className:'map-customer-label',opacity:1});
+     pin=L.circleMarker(point,{radius:10,color:'#fff',weight:2,fillColor:colors[item.status],fillOpacity:1}).bindPopup(popup,{maxWidth:360,minWidth:220}).bindTooltip(customerLabel,{permanent:true,direction:'right',offset:[12,0],className:'map-customer-label',opacity:1});
     }
+    entries.push({point,marker:pin,popup,name:mode==='technicians'?(item.name||'Técnico'):customerMapLabel(item.customer)});
    }
+   const draw=()=>{
+    markers.clearLayers();
+    const groups=clusterMapPoints(entries,e=>m.project(e.point,m.getZoom()),m.getZoom()>=18?0:52);
+    for(const group of groups){
+     if(group.items.length===1){markers.addLayer(group.items[0].marker);continue}
+     const count=document.createElement('span');count.className='field-map-cluster';count.textContent=String(group.items.length);
+     const cluster=L.marker(m.unproject([group.x,group.y]),{icon:L.divIcon({html:count,className:'field-map-cluster-icon',iconSize:[36,36],iconAnchor:[18,18]}),title:`${group.items.length} ${mode==='technicians'?'técnicos':'OSs'}`}).addTo(markers);
+     const distinct=new Set(group.items.map(e=>m.latLngToLayerPoint(e.point).toString())).size>1;
+     if(distinct&&m.getZoom()<19)cluster.on('click',()=>m.fitBounds(L.latLngBounds(group.items.map(e=>e.point)),{padding:[60,60],maxZoom:Math.min(19,m.getZoom()+3)}));
+     else{
+      const list=document.createElement('div');list.className='field-cluster-list';
+      for(const entry of group.items){const button=document.createElement('button');button.type='button';button.textContent=entry.name;button.addEventListener('click',()=>m.openPopup(entry.popup,entry.point,{maxWidth:360,minWidth:220}));list.append(button)}
+      cluster.bindPopup(list);
+     }
+    }
+   };
    if(points.length)m.fitBounds(L.latLngBounds(points),{padding:[30,30],maxZoom:14});
+   draw();m.on('zoomend',draw);
   }).catch(()=>setError('Não foi possível carregar o mapa.'));
   return()=>{disposed=true;map.current?.remove();map.current=null};
  },[visible,data,mode]);

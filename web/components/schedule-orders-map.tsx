@@ -405,10 +405,11 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
             iconAnchor: [size / 2, size / 2],
           }),
         }).addTo(layer);
-        const customerNames=[...new Set<string>(group.map(s=>customerMapLabel(s.cliente_nome)))];
-        const customerLabel=document.createElement("span");
-        customerLabel.textContent=customerNames.slice(0,2).join(" · ")+(customerNames.length>2?` +${customerNames.length-2} clientes`:"");
-        marker.bindTooltip(customerLabel,{permanent:true,direction:"right",offset:[size/2+4,0],className:"map-customer-label",opacity:1});
+        if(group.length===1){
+          const customerLabel=document.createElement("span");
+          customerLabel.textContent=customerMapLabel(group[0].cliente_nome);
+          marker.bindTooltip(customerLabel,{permanent:true,direction:"right",offset:[size/2+4,0],className:"map-customer-label",opacity:1});
+        }
         if (distinct)
           marker.on("click", () =>
             m.fitBounds(
