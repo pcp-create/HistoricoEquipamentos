@@ -65,7 +65,16 @@ export default function FieldMap({visible}:{visible:boolean}) {
      line('Endereço',item.address||'Não informado');
      if(item.precision)line('Localização',item.precision);
     }
-    L.circleMarker(point,{radius:10,color:'#fff',weight:2,fillColor:mode==='technicians'?(item.online?'#0f766e':'#dc2626'):colors[item.status],fillOpacity:1}).addTo(m).bindPopup(popup,{maxWidth:360,minWidth:220});
+    if(mode==='technicians') {
+     const marker=document.createElement('div');marker.className='field-person-marker '+(item.online?'is-online':'is-offline');
+     const person=document.createElement('span');person.className='field-person-symbol';person.setAttribute('aria-hidden','true');
+     person.innerHTML='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><path d="M7 13v-1a5 5 0 0 1 10 0v1M9 11v10m6-10v10M9 16h6"/></svg>';
+     const name=document.createElement('span');name.className='field-person-name';name.textContent=item.name||'Técnico';
+     marker.append(person,name);
+     L.marker(point,{icon:L.divIcon({html:marker,className:'field-person-icon',iconSize:[32,32],iconAnchor:[16,16],popupAnchor:[0,-18]}),title:`${item.name||'Técnico'} — ${item.online?'Online':'Offline'}`,alt:item.name||'Técnico',riseOnHover:true}).addTo(m).bindPopup(popup,{maxWidth:360,minWidth:220});
+    }else{
+     L.circleMarker(point,{radius:10,color:'#fff',weight:2,fillColor:colors[item.status],fillOpacity:1}).addTo(m).bindPopup(popup,{maxWidth:360,minWidth:220});
+    }
    }
    if(points.length)m.fitBounds(L.latLngBounds(points),{padding:[30,30],maxZoom:14});
   }).catch(()=>setError('Não foi possível carregar o mapa.'));

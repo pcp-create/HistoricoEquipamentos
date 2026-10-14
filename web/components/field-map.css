@@ -16,3 +16,11 @@
 @media(max-width:480px){.field-map-tabs{top:10px;right:10px}.field-map .field-map-tabs button{padding:9px 12px}}
 
 .field-technician-card .field-technician-online {color:#16834a;font-weight:700}
+
+.field-person-icon {background:none;border:0}
+.field-person-marker {display:flex;align-items:center;gap:7px;width:max-content;height:32px;color:#16834a}
+.field-person-marker.is-offline {color:#dc2626}
+.field-person-symbol {display:grid;place-items:center;flex-shrink:0;width:32px;height:32px;box-sizing:border-box;border:2px solid white;border-radius:50%;background:currentColor;box-shadow:0 1px 5px #0005}
+.field-person-symbol svg {color:white}
+.field-person-name {font:600 12px/1.2 Arial,sans-serif;color:#243b4d;white-space:nowrap;text-shadow:1px 1px 2px white,-1px -1px 2px white,1px -1px 2px white,-1px 1px 2px white;background:#ffffffe6;padding:3px 6px;border-radius:5px;box-shadow:0 1px 3px #0002}
+.field-person-icon:focus-visible {outline:3px solid #75b6ee;outline-offset:3px;border-radius:50%}
