@@ -1,4 +1,5 @@
 "use client";
+import { technicianMarkerLayout } from "@/lib/service-scheduling/technician-marker-layout";
 import { clusterMapPoints } from "@/lib/service-scheduling/map-clusters";
 import { customerMapLabel, singleCustomerLabel } from "@/lib/service-scheduling/customer-map-label";
 import {useEffect,useRef,useState} from 'react';
@@ -78,7 +79,7 @@ export default function FieldMap({visible}:{visible:boolean}) {
      const person=document.createElement('span');person.className='field-person-symbol';person.setAttribute('aria-hidden','true');
      const name=document.createElement('span');name.className='field-person-name';name.textContent=item.name||'Técnico';
      marker.append(person,name);
-     pin=L.marker(point,{icon:L.divIcon({html:marker,className:'field-person-icon',iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-13]}),title:`${item.name||'Técnico'} — ${item.online?'Online':'Offline'}`,alt:item.name||'Técnico',riseOnHover:true}).bindPopup(popup,{maxWidth:360,minWidth:220});
+     pin=L.marker(point,{icon:L.divIcon({html:marker,className:'field-person-icon',iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-13]}),title:`${item.name||'Técnico'} — ${item.online?'Online':'Offline'}`,alt:item.name||'Técnico',riseOnHover:true}).bindPopup(popup,{maxWidth:360,minWidth:220,autoPanPaddingTopLeft:L.point(10,80),autoPanPaddingBottomRight:L.point(10,10)});
     }else{
      const customerLabel=document.createElement('span');customerLabel.textContent=customerMapLabel(item.customer);
      pin=L.circleMarker(point,{radius:10,color:'#fff',weight:2,fillColor:colors[item.status],fillOpacity:1}).bindPopup(popup,{maxWidth:360,minWidth:220}).bindTooltip(customerLabel,{permanent:true,direction:'right',offset:[12,0],className:'map-customer-label',opacity:1});
@@ -87,6 +88,16 @@ export default function FieldMap({visible}:{visible:boolean}) {
    }
    const draw=()=>{
     markers.clearLayers();
+    if(mode==='technicians'){
+     const canvas=document.createElement('canvas');const context=canvas.getContext('2d');if(context)context.font='600 12px Arial';
+     const positions=technicianMarkerLayout(entries,e=>m.project(e.point,m.getZoom()),e=>context?.measureText(e.name).width||e.name.length*8);
+     for(const p of positions){
+      const position=m.unproject([p.x,p.y],m.getZoom());
+      if(p.x!==p.originalX||p.y!==p.originalY)L.polyline([p.item.point,position],{color:'#64748b',weight:1,dashArray:'3 4',interactive:false}).addTo(markers);
+      (p.item.marker as Leaflet.Marker).setLatLng(position).addTo(markers);
+     }
+     return;
+    }
     const groups=clusterMapPoints(entries,e=>m.project(e.point,m.getZoom()),m.getZoom()>=18?0:52);
     for(const group of groups){
      if(group.items.length===1){markers.addLayer(group.items[0].marker);continue}
