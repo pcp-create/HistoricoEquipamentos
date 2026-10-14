@@ -1,12 +1,12 @@
 import { updateTerritorySeller } from "@/lib/service-scheduling/territory-map";
 import { AdminInputError } from "@/lib/admin-store";
-import { requireAdmin, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
+import { requireUser, requireAdmin, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import { commercialMap } from "@/lib/service-scheduling/territory-map";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 export async function GET() {
   try {
-    await requireAdmin();
+    await requireUser();
     return Response.json(await commercialMap(), { headers: { "Cache-Control": "private, no-store" } });
   } catch (e) {
     return Response.json({ error: "Não foi possível carregar a divisão comercial." }, { status: e instanceof Unauthorized ? 401 : e instanceof Forbidden ? 403 : 503 });

@@ -18,7 +18,7 @@ export async function scheduleMapData(email: string, db: any = database(), field
       email,
     ])
   ).rows[0];
-  if (!access?.enabled || (!fieldOnly && access.role !== "admin")) throw new Forbidden();
+  if (!access?.enabled) throw new Forbidden();
   const rows = (
     await db.query(`SELECT s.id::text,o.cliente_id::text AS person_id,o.endereco_entrega_id::text AS delivery_id,
  c.address_id::text AS choice_id

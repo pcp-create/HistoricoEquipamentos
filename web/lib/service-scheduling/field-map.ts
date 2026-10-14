@@ -8,7 +8,7 @@ import { fieldOperationOverdue } from "./field-overdue";
 export const technicianSql = "lower(trim(job_title)) IN ('técnico','tecnico')";
 export async function mapAccess(email: string, db = database()) {
   const u = (await db.query(`SELECT role,${technicianSql} technician FROM web_user_access WHERE email=$1 AND enabled`, [email])).rows[0];
-  if (!u || (u.role !== 'admin' && !u.technician)) throw new Forbidden();
+  if (!u) throw new Forbidden();
   return u;
 }
 export async function saveFieldLocation(email: string, raw: unknown) {

@@ -32,6 +32,8 @@ const modules = [
     description: "Consulta técnica e planejamento das manutenções.",
     links: [
       ["Consulta de histórico / OS", "/historico"],
+      ["Programação de OSs", "/programacao"],
+      ["Portal do técnico", "/tecnico"],
       ["Catálogo do fabricante", "/fabricante"],
       ["Equipamentos e planos preventivos", "/equipamentos"],
     ],

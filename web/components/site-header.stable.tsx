@@ -15,6 +15,7 @@ const moduleNames: Record<string, string> = {
   equipamentos: "Equipamentos",
 };
 const screens: Record<string, { label: string; modules: string[] }> = {
+  scheduling: { label: "Programação de OSs", modules: ["assistencia-tecnica"] },
   tasks: { label: "Acompanhamento de tarefas", modules: ["tarefas"] },
   history: {
     label: "Consulta de histórico",
@@ -43,6 +44,7 @@ export default function SiteHeader({
   moduleId,
 }: {
   active:
+    | "scheduling"
     | "tasks"
     | "home"
     | "history"

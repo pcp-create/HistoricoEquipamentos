@@ -1,10 +1,10 @@
-import {requireAdmin,sameOrigin,Unauthorized,Forbidden} from '@/lib/auth';
+import {requireUser,sameOrigin,Unauthorized,Forbidden} from '@/lib/auth';
 import {saveChecklistPhoto,ChecklistPhotoError} from '@/lib/service-scheduling/checklist-photos';
 export const runtime='nodejs';
 export async function POST(req:Request){
  if(!sameOrigin(req))return Response.json({error:'Origem inválida.'},{status:403});
  try{
-  const user=await requireAdmin();
+  const user=await requireUser();
   if(Number(req.headers.get('content-length')||0)>3300000)return Response.json({error:'Foto limitada a 3 MB.'},{status:413});
   const f=await req.formData(),file=f.get('file');
   if(!(file instanceof File))throw new ChecklistPhotoError('Selecione uma foto.');

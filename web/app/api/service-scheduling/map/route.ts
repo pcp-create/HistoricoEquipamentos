@@ -1,4 +1,4 @@
-import { requireAdmin, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
+import { requireUser, requireAdmin, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import {
   scheduleMapData,
   changeScheduleMap,
@@ -36,7 +36,7 @@ function failure(e: unknown) {
 }
 export async function GET() {
   try {
-    const user = await requireAdmin();
+    const user = await requireUser();
     return json(await scheduleMapData(user.email));
   } catch (e) {
     return failure(e);

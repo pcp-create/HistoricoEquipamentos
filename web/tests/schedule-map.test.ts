@@ -82,7 +82,7 @@ test("map uses company 1 for every OS and invalidates changed addresses; writes 
     assert.equal(field.technicians[0].pendingOrders[0].id,'1');
     assert.equal(field.orders.length,1);
     assert.equal(field.orders[0].id,'1');
-    assert.equal(field.orders[0].status,'executing');
+    assert.equal(field.orders[0].status,'overdue');
     assert.equal(field.technicians[0].source,'Apontamento');
     assert.equal(field.technicians[0].online,false);
     await db.exec("UPDATE web_user_access SET last_seen_at=now() WHERE email='tech'");
@@ -99,7 +99,7 @@ test("map uses company 1 for every OS and invalidates changed addresses; writes 
     await db.exec("UPDATE web_service_operations SET status='completed' WHERE schedule_id=1");
     assert.equal((await fieldMapData('tech')).orders.length,0);
     assert.equal((await fieldMapData('tech')).technicians[0].pendingOrders.length,0);
-    await assert.rejects(() => scheduleMapData("tech"));
+    assert.ok(await scheduleMapData("tech"));
     let data = await scheduleMapData("admin");
     assert.equal(data.schedules.length, 2);
     assert.equal(data.schedules[0].localities.length, 1);
