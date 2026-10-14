@@ -1,4 +1,5 @@
 "use client";
+import { customerMapLabel } from "@/lib/service-scheduling/customer-map-label";
 import {useEffect,useRef,useState} from 'react';
 import type * as Leaflet from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -74,7 +75,7 @@ export default function FieldMap({visible}:{visible:boolean}) {
      marker.append(person,name);
      L.marker(point,{icon:L.divIcon({html:marker,className:'field-person-icon',iconSize:[32,32],iconAnchor:[16,16],popupAnchor:[0,-18]}),title:`${item.name||'Técnico'} — ${item.online?'Online':'Offline'}`,alt:item.name||'Técnico',riseOnHover:true}).addTo(m).bindPopup(popup,{maxWidth:360,minWidth:220});
     }else{
-     const customerLabel=document.createElement('span');customerLabel.textContent=item.customer||'Cliente não informado';
+     const customerLabel=document.createElement('span');customerLabel.textContent=customerMapLabel(item.customer);
      L.circleMarker(point,{radius:10,color:'#fff',weight:2,fillColor:colors[item.status],fillOpacity:1}).addTo(m).bindPopup(popup,{maxWidth:360,minWidth:220}).bindTooltip(customerLabel,{permanent:true,direction:'right',offset:[12,0],className:'map-customer-label',opacity:1});
     }
    }

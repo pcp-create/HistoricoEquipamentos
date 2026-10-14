@@ -1,4 +1,5 @@
 "use client";
+import { customerMapLabel } from "@/lib/service-scheduling/customer-map-label";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import { clusterMapPoints } from "@/lib/service-scheduling/map-clusters";
@@ -404,7 +405,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
             iconAnchor: [size / 2, size / 2],
           }),
         }).addTo(layer);
-        const customerNames=[...new Set<string>(group.map(s=>s.cliente_nome||"Cliente não informado"))];
+        const customerNames=[...new Set<string>(group.map(s=>customerMapLabel(s.cliente_nome)))];
         const customerLabel=document.createElement("span");
         customerLabel.textContent=customerNames.slice(0,2).join(" · ")+(customerNames.length>2?` +${customerNames.length-2} clientes`:"");
         marker.bindTooltip(customerLabel,{permanent:true,direction:"right",offset:[size/2+4,0],className:"map-customer-label",opacity:1});
