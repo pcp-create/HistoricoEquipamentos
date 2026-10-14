@@ -1,5 +1,5 @@
-.field-technician-card {font:14px/1.45 Arial,sans-serif;min-width:220px;max-width:320px;color:#24445c;overflow-wrap:anywhere}
-.field-technician-card>strong {display:block;font-size:16px;padding-right:12px;margin-bottom:10px}
+.field-technician-card {font:12px/1.45 Arial,sans-serif;min-width:220px;max-width:320px;color:#24445c;overflow-wrap:anywhere}
+.field-technician-card>strong {display:block;font-size:14px;padding-right:12px;margin-bottom:10px}
 .field-technician-avatar {float:left;display:grid;place-items:center;width:46px;height:46px;background:#e6eef5;color:#245e89;border-radius:10px;margin:0 12px 8px 0;font-weight:700}
 .field-technician-card p {margin:5px 0!important}
 .field-technician-card details {clear:both;margin-top:12px;border-top:1px solid #dbe5ed;padding-top:10px}
