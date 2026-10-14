@@ -422,7 +422,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
         </div>
       </dialog>
       <button
-        className="field-operation-title"
+        className={"field-operation-title field-operation-status-" + (fieldOperationOverdue(row.date, operation?.status || row.status, now) ? "overdue" : operation?.status || row.status)}
         onClick={onToggle}
         aria-expanded={open}
       >

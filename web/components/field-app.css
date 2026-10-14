@@ -176,6 +176,15 @@
 .field-operation-title span {
   min-width: 0;
 }
+.field-app .field-operation-title.field-operation-status-overdue { background:#fff0ee; color:#b42318; }
+.field-app .field-operation-title.field-operation-status-executing { background:#e8f2ff; color:#185b9d; }
+.field-app .field-operation-title.field-operation-status-awaiting_review,
+.field-app .field-operation-title.field-operation-status-reviewed,
+.field-app .field-operation-title.field-operation-status-completed { background:#edf9f1; color:#116d3d; }
+.field-app .field-operation-title.field-operation-status-scheduled,
+.field-app .field-operation-title.field-operation-status-awaiting_execution { background:#fff8e8; color:#805600; }
+.field-app .field-operation-title.field-operation-status-planning { background:#f3edff; color:#7040a0; }
+.field-app .field-operation-title[class*="field-operation-status-"] small { color:inherit; }
 .field-operation-title small {
   margin-top: 5px;
   font-size: 11px;
