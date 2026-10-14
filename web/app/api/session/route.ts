@@ -1,4 +1,5 @@
-import { recordActivity } from "@/lib/admin-store";
+import { database } from "@/lib/db";
+import { recordActivity, accessRecord } from "@/lib/admin-store";
 import { NextResponse } from "next/server";
 import {
   authorizedEmail,
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     if (body.action === "logout") {
       try {
-        await recordActivity(await requireUser(), "logout");
+        await recordActivity(await requireUser({allowPasswordChange:true}), "logout");
       } catch {
         console.error("SESSION_LOGOUT_AUDIT_UNAVAILABLE");
       }
@@ -58,14 +59,18 @@ export async function POST(request: Request) {
         { error: "Acesso não autorizado. Consulte o administrador." },
         { status: 403 },
       );
-    await setSession(data);
-    try {
-      await recordActivity(data.user, "login");
-    } catch {
-      console.error("SESSION_LOGIN_AUDIT_UNAVAILABLE");
+    if (body.password === "123456") {
+      const c=await database().connect();
+      try {
+        await c.query("BEGIN READ WRITE");
+        await c.query("UPDATE web_user_access SET must_change_password=true WHERE email=$1",[data.user.email.toLowerCase()]);
+        await c.query("COMMIT");
+      } catch(e) {await c.query("ROLLBACK");throw e;} finally {c.release();}
     }
+    await recordActivity(data.user, "login");
+    await setSession(data);
     return NextResponse.json(
-      { ok: true },
+      { ok: true, mustChangePassword: (await accessRecord(data.user.email))?.must_change_password === true },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch {

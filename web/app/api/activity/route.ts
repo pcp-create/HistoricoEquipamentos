@@ -1,6 +1,6 @@
 import { userDisplayName } from "@/lib/user-display-name";
 import { NextResponse } from "next/server";
-import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
+import { requireUser, sameOrigin, Unauthorized, PasswordChangeRequired } from "@/lib/auth";
 import { recordActivity, accessRecord } from "@/lib/admin-store";
 export const runtime = "nodejs";
 export async function POST(req: Request) {
@@ -18,6 +18,7 @@ export async function POST(req: Request) {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {
+    if(e instanceof PasswordChangeRequired)return NextResponse.json({mustChangePassword:true},{status:403,headers:{"Cache-Control":"no-store"}});
     return NextResponse.json(
       { error: "Atividade indisponível." },
       { status: e instanceof Unauthorized ? 401 : 503 },

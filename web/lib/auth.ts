@@ -25,10 +25,11 @@ export async function authRequest(
   endpoint: string,
   body?: object,
   token?: string,
+  method?: "PUT",
 ) {
   const { url, key } = settings();
   return fetch(`${url}/auth/v1/${endpoint}`, {
-    method: body ? "POST" : "GET",
+    method: method || (body ? "POST" : "GET"),
     cache: "no-store",
     signal: AbortSignal.timeout(15000),
     headers: {
@@ -60,7 +61,7 @@ export async function clearSession() {
   jar.delete("m8-refresh");
 }
 // Called only in route handlers: refresh can update HttpOnly cookies.
-export async function requireUser() {
+export async function requireUser(options: { allowPasswordChange?: boolean } = {}) {
   const jar = await cookies();
   const token = jar.get("m8-access")?.value;
   if (token) {
@@ -73,7 +74,7 @@ export async function requireUser() {
         user.email_confirmed_at &&
         (await authorizedEmail(user.email))
       )
-        return user as AuthUser;
+        return checkPasswordAccess(user as AuthUser, options.allowPasswordChange);
       throw new Unauthorized();
     }
     if (response.status !== 401 && response.status !== 403)
@@ -93,7 +94,7 @@ export async function requireUser() {
         (await authorizedEmail(data.user.email))
       ) {
         await setSession(data);
-        return data.user as AuthUser;
+        return checkPasswordAccess(data.user as AuthUser, options.allowPasswordChange);
       }
     }
   }
@@ -162,5 +163,12 @@ export async function requireAdmin() {
 export async function requireModule(...modules: string[]) {
   const user = await requireUser();
   if (!hasModule(await accessRecord(user.email), ...modules)) throw new Forbidden();
+  return user;
+}
+
+export class PasswordChangeRequired extends Forbidden {}
+async function checkPasswordAccess(user: AuthUser, allow = false) {
+  const access = await accessRecord(user.email);
+  if (!allow && (!access || access.must_change_password)) throw new PasswordChangeRequired("Altere sua senha para continuar.");
   return user;
 }

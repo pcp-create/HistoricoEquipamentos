@@ -23,7 +23,7 @@ export async function resolveInitialSession(
   request = authRequest,
   lookup = accessRecord,
 ) {
-  const empty = { admin: false, displayName: "", cacheScope: "", modules: [] as string[] };
+  const empty = { admin: false, displayName: "", cacheScope: "", modules: [] as string[], mustChangePassword: false };
   if (!token) return empty;
   try {
     const response = await request("user", undefined, token);
@@ -37,14 +37,16 @@ export async function resolveInitialSession(
     )
       return empty;
     const access = await lookup(user.email);
-    const modules = access?.enabled === true ? userModules(access.modules) : [];
+    const mustChangePassword = access?.enabled === true && access.must_change_password === true;
+    const modules = !mustChangePassword && access?.enabled === true ? userModules(access.modules) : [];
     return {
       modules,
+      mustChangePassword,
       cacheScope:
         access?.enabled === false
           ? ""
           : user.id + ":" + (access?.role || "user") + ":" + modules.join(","),
-      admin: access?.enabled === true && access.role === "admin",
+      admin: !mustChangePassword && access?.enabled === true && access.role === "admin",
       displayName:
         access?.enabled === false
           ? ""

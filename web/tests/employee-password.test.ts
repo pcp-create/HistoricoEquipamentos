@@ -2,14 +2,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { resetEmployeePassword } from "../lib/employee-login";
 
-test("reset checks permission, identity and confirmation; audit never contains passwords", async () => {
+test("reset checks permission, identity and mandatory change; audit never contains passwords", async () => {
   const g = globalThis as any, pool = g.historyPool, fetchBefore = globalThis.fetch;
   const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   process.env.SUPABASE_URL = "https://auth.example.test";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
   const actor = { email: "admin@example.test", id: "admin" } as any;
   const user = { user_id: "user-id", email: "employee@example.test" };
-  const body = { email: user.email, password: "new-password", passwordConfirmation: "new-password" };
+  const body = { email: user.email };
   let admin = true, enabled = true, linked = true, identityMatches = true, authFails = false;
   const queries: any[] = [], requests: any[] = [];
   g.historyPool = { connect: async () => ({
@@ -29,12 +29,13 @@ test("reset checks permission, identity and confirmation; audit never contains p
   try {
     await resetEmployeePassword(body, actor);
     assert.equal(requests[1].method, "PUT");
-    assert.deepEqual(JSON.parse(requests[1].body), { password: body.password });
+    assert.deepEqual(JSON.parse(requests[1].body), { password: "123456" });
     assert.ok(queries.some(q => q.sql.includes("'password_reset'")));
-    assert.ok(!JSON.stringify(queries).includes(body.password));
+    assert.ok(!JSON.stringify(queries).includes("123456"));
+    assert.ok(queries.some(q=>q.sql.includes("must_change_password=true")));
     assert.equal(queries.at(-1).sql, "COMMIT");
     requests.length = 0;
-    await assert.rejects(resetEmployeePassword({ ...body, passwordConfirmation: "wrong" }, actor), /confirme/);
+    await assert.rejects(resetEmployeePassword({ email: "" }, actor), /e-mail/);
     admin = false;
     await assert.rejects(resetEmployeePassword(body, actor), /administrador/);
     admin = true; enabled = false;
