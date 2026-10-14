@@ -48,7 +48,7 @@ export default function FieldMap({visible}:{visible:boolean}) {
     if(mode==='technicians') {
      popup.className='field-technician-card';
      const avatar=document.createElement('span');avatar.className='field-technician-avatar';avatar.textContent=(item.name||'T').split(/\s+/).filter(Boolean).slice(0,2).map((s:string)=>s[0]).join('');avatar.setAttribute('aria-hidden','true');popup.prepend(avatar);
-     line('Status',item.online?'Online':'Offline');
+     const statusLine=document.createElement('p');const statusLabel=document.createElement('b');statusLabel.textContent='Status: ';const statusValue=document.createElement('span');statusValue.textContent=item.online?'Online':'Offline';if(item.online)statusValue.className='field-technician-online';statusLine.append(statusLabel,statusValue);popup.append(statusLine);
      const phone=String(item.phone||'').replace(/[^0-9+]/g,'');
      if(phone){const p=document.createElement('p');p.append('Telefone: ');const a=document.createElement('a');a.href='tel:'+phone;a.textContent=item.phone;p.append(a);popup.append(p)}else line('Telefone','Não cadastrado');
      line('Cargo',item.job_title||'Técnico');if(item.department)line('Setor',item.department);
