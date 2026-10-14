@@ -2,6 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import type * as Leaflet from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import './field-map.css';
 const labels:Record<string,string>={done:'Executada',executing:'Em execução',overdue:'Em atraso',planned:'Programada'};
 const colors:Record<string,string>={done:'#16834a',executing:'#2563eb',overdue:'#dc2626',planned:'#64748b'};
 const date=(value:string)=>new Date(value).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
@@ -41,9 +42,25 @@ export default function FieldMap({visible}:{visible:boolean}) {
    for(const item of data?.[mode]||[]){
     if(typeof item.latitude!=='number'||typeof item.longitude!=='number')continue;
     const point:Leaflet.LatLngExpression=[item.latitude,item.longitude];points.push(point);
-    const popup=document.createElement('div');const title=document.createElement('strong');title.textContent=item.name||'Técnico';popup.append(title);
-    const info=document.createElement('p');info.textContent=mode==='technicians'?`${item.online?'Online':'Offline'} · ${item.source} · ${date(item.located_at)} (Brasília) · precisão ${Math.round(item.accuracy)} m`: `${labels[item.status]} · ${item.address} · ${item.precision}`;popup.append(info);
-    L.circleMarker(point,{radius:10,color:'#fff',weight:2,fillColor:mode==='technicians'?(item.online?'#0f766e':'#dc2626'):colors[item.status],fillOpacity:1}).addTo(m).bindPopup(popup);
+    const popup=document.createElement('div');
+    const title=document.createElement('strong');title.textContent=item.name||'Técnico';popup.append(title);
+    if(mode==='technicians') {
+     popup.className='field-technician-card';
+     const avatar=document.createElement('span');avatar.className='field-technician-avatar';avatar.textContent=(item.name||'T').split(/\s+/).filter(Boolean).slice(0,2).map((s:string)=>s[0]).join('');avatar.setAttribute('aria-hidden','true');popup.prepend(avatar);
+     const line=(label:string,value:string)=>{const p=document.createElement('p');const b=document.createElement('b');b.textContent=label+': ';p.append(b,document.createTextNode(value));popup.append(p)};
+     line('Status',item.online?'Online':'Offline');
+     const phone=String(item.phone||'').replace(/[^0-9+]/g,'');
+     if(phone){const p=document.createElement('p');p.append('Telefone: ');const a=document.createElement('a');a.href='tel:'+phone;a.textContent=item.phone;p.append(a);popup.append(p)}else line('Telefone','Não cadastrado');
+     line('Cargo',item.job_title||'Técnico');if(item.department)line('Setor',item.department);
+     line('Última atividade',item.last_seen_at?date(item.last_seen_at)+' (Brasília)':'Não registrada');
+     line('Última posição',date(item.located_at)+' (Brasília)');
+     line('Origem',item.source);line('Precisão',Math.round(item.accuracy)+' m');
+     const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent=`Mostrar OSs pendentes (${item.pendingOrders?.length||0})`;details.append(summary);
+     const list=document.createElement('ul');for(const order of item.pendingOrders||[]){const li=document.createElement('li');li.textContent=`OS ${order.number} · ${order.customer||'Cliente não informado'} · ${order.date?order.date.split('-').reverse().join('/'):'Sem data'}`;list.append(li)}
+     if(!list.children.length){const p=document.createElement('p');p.textContent='Nenhuma OS pendente enviada ao técnico.';details.append(p)}else details.append(list);
+     popup.append(details);
+    }else{const info=document.createElement('p');info.textContent=`${labels[item.status]} · ${item.address} · ${item.precision}`;popup.append(info)}
+    L.circleMarker(point,{radius:10,color:'#fff',weight:2,fillColor:mode==='technicians'?(item.online?'#0f766e':'#dc2626'):colors[item.status],fillOpacity:1}).addTo(m).bindPopup(popup,{maxWidth:360,minWidth:220});
    }
    if(points.length)m.fitBounds(L.latLngBounds(points),{padding:[30,30],maxZoom:14});
   }).catch(()=>setError('Não foi possível carregar o mapa.'));
