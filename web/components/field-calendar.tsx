@@ -42,7 +42,7 @@ export default function FieldCalendar({ rows, selected, onSelect, now }: {
           aria-label={day.split("-").reverse().join("/") + ": " + orders + " OSs"}
           className={overdue ? "field-calendar-overdue" : completed === orders && orders > 0 ? "field-calendar-completed" : ""}
           onClick={() => onSelect(day)}>
-          <span>{i + 1}</span>{orders > 0 && <small>{orders} OS{orders > 1 ? "s" : ""}</small>}{completed > 0 && <small className="field-completed-badge">{completed} executada{completed > 1 ? "s" : ""}</small>}
+          <span>{i + 1}</span>{orders > 0 && <small>{orders} OS{orders > 1 ? "s" : ""}</small>}
         </button>;
       })}
     </div>
