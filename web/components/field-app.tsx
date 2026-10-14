@@ -25,7 +25,7 @@ import {
 import {stagesOf,groupsOf} from '@/lib/service-scheduling/checklists';
 import {checklistProgress} from '@/lib/service-scheduling/checklist-progress';
 import SaveActionIcon from "./save-action-icon";
-import FieldMap from "./field-map";
+import FieldMap, { useAutomaticFieldLocation } from "./field-map";
 import FieldTimeLogs from "./field-time-logs";
 import FieldCalendar, { fieldToday } from "./field-calendar";
 import { fieldOperationOverdue } from "@/lib/service-scheduling/field-overdue";
@@ -98,6 +98,7 @@ export default function FieldApp() {
     [error, setError] = useState(""),
     [loading, setLoading] = useState(false),
     [now, setNow] = useState(Date.now());
+  const locationMessage = useAutomaticFieldLocation(data?.isTechnician === true);
   async function refresh() {
     try {
       setData(await api());
@@ -139,6 +140,7 @@ export default function FieldApp() {
         )}
       </header>
       <p className="field-user">{data?.displayName || "Técnico"}</p>
+      {locationMessage && <p className="field-user" role="status">{locationMessage}</p>}
       {error && (
         <p className="field-error" role="alert">
           {error}

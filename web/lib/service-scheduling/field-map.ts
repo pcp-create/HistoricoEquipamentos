@@ -27,7 +27,7 @@ export async function saveFieldLocation(email: string, raw: unknown) {
 }
 export async function fieldMapData(email: string) {
   const db=database(); const access=await mapAccess(email,db);
-  const technicians=(await db.query(`SELECT u.email id,u.display_name name,p.latitude,p.longitude,p.accuracy,p.located_at,p.source
+  const technicians=(await db.query(`SELECT u.email id,u.display_name name,(u.last_seen_at>now()-interval '15 minutes' AND (u.last_logout_at IS NULL OR u.last_seen_at>u.last_logout_at)) IS TRUE online,p.latitude,p.longitude,p.accuracy,p.located_at,p.source
     FROM web_user_access u LEFT JOIN LATERAL (
       SELECT * FROM (
         SELECT latitude,longitude,accuracy,located_at,'Acesso ao portal' source FROM web_field_locations WHERE actor=u.email

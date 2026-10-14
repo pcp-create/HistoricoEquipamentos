@@ -67,7 +67,7 @@ test("map uses company 1 for every OS and invalidates changed addresses; writes 
         "utf8",
       ),
     );
-    await db.exec(`ALTER TABLE web_user_access ADD PRIMARY KEY(email); ALTER TABLE web_user_access ADD COLUMN job_title text DEFAULT ''; ALTER TABLE web_user_access ADD COLUMN display_name text;
+    await db.exec(`ALTER TABLE web_user_access ADD COLUMN last_seen_at timestamptz; ALTER TABLE web_user_access ADD COLUMN last_logout_at timestamptz; ALTER TABLE web_user_access ADD PRIMARY KEY(email); ALTER TABLE web_user_access ADD COLUMN job_title text DEFAULT ''; ALTER TABLE web_user_access ADD COLUMN display_name text;
       UPDATE web_user_access SET job_title='Técnico',display_name='Técnico A' WHERE email='tech';
       CREATE ROLE anon; CREATE ROLE authenticated;
       ALTER TABLE m8_ordens_servico ADD COLUMN numero_sequencia bigint; ALTER TABLE m8_ordens_servico ADD COLUMN cliente_nome text;
@@ -81,6 +81,11 @@ test("map uses company 1 for every OS and invalidates changed addresses; writes 
     assert.equal(field.orders[0].id,'1');
     assert.equal(field.orders[0].status,'executing');
     assert.equal(field.technicians[0].source,'Apontamento');
+    assert.equal(field.technicians[0].online,false);
+    await db.exec("UPDATE web_user_access SET last_seen_at=now() WHERE email='tech'");
+    assert.equal((await fieldMapData('tech')).technicians[0].online,true);
+    await db.exec("UPDATE web_user_access SET last_logout_at=now()+interval '1 second' WHERE email='tech'");
+    assert.equal((await fieldMapData('tech')).technicians[0].online,false);
     await assert.rejects(()=>saveFieldLocation('admin',{latitude:-27,longitude:-49,accuracy:10,at:new Date().toISOString()}));
     await saveFieldLocation('tech',{latitude:-27,longitude:-49,accuracy:10,at:new Date().toISOString()});
     field=await fieldMapData('tech');

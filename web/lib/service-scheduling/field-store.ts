@@ -20,7 +20,7 @@ const assigned =
 const key = (i: any) =>
   `${i.item_company}:${i.item_order}:${i.id_m8 ?? i.item_id}`;
 async function user(c: any, email: string) {
-  const profile=(await c.query("SELECT display_name FROM web_user_access WHERE email=$1 AND enabled",[email])).rows[0];
+  const profile=(await c.query("SELECT display_name,job_title FROM web_user_access WHERE email=$1 AND enabled",[email])).rows[0];
   if(!profile)throw new Forbidden();
   return profile;
 }
@@ -135,7 +135,7 @@ export async function fieldData(email: string, operationId?: string | null) {
     ).rows;
     return { rows: rows.map((row: any) => ({
       ...row, estimated_end: estimatedEnd(row, settings),
-    })), active, email, displayName: profile.display_name };
+    })), active, email, isTechnician: ["técnico","tecnico"].includes((profile.job_title || "").trim().toLowerCase()), displayName: profile.display_name };
   }
   if (!/^[0-9a-f-]{36}$/i.test(operationId))
     throw new FieldError("Operação inválida.");
