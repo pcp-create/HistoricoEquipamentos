@@ -24,3 +24,5 @@
 .field-person-symbol svg {color:white}
 .field-person-name {font:600 12px/1.2 Arial,sans-serif;color:#243b4d;white-space:nowrap;-webkit-text-stroke:3px white;paint-order:stroke fill;text-shadow:1px 0 white,-1px 0 white,0 1px white,0 -1px white;background:none;padding:0;border:0;box-shadow:none}
 .field-person-icon:focus-visible {outline:3px solid #75b6ee;outline-offset:3px;border-radius:50%}
+
+.field-technician-photo {float:left;width:46px;height:46px;object-fit:cover;border-radius:10px;margin:0 12px 8px 0}

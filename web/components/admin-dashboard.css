@@ -206,3 +206,5 @@
   font-size: 12px;
   font-weight: 400;
 }
+
+.user-photo-editor {display:grid;gap:10px;margin:12px 0;padding:16px;border:1px solid #dbe5ed;border-radius:12px}.user-photo-editor h3,.user-photo-editor p {margin:0}.user-photo-editor button {justify-self:start}

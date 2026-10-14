@@ -7,3 +7,7 @@ O portal solicita automaticamente a permissão de localização para usuários c
 OSs são limitadas às operações enviadas ao usuário como responsável ou apoio, incluindo executadas. Todas as operações do usuário executadas: verde; alguma em execução: azul; pendência em data anterior a hoje: vermelho; demais: cinza. A data é comparada em Brasília. Usa a localidade e coordenadas da programação de serviços, validando mudanças de endereço; localidades sem coordenadas são listadas e devem ser posicionadas no mapa da programação de serviços.
 
 Antes de publicar, execute em web: `node --env-file=.env.local --conditions=react-server --import tsx scripts/setup-field-map.mts`. A migração 046 guarda somente a última posição de acesso de cada técnico; os apontamentos permanecem na tabela existente.
+
+## Foto do técnico
+
+Na administração, edite o usuário e use Foto do usuário para enviar, substituir ou remover uma imagem. Para um cadastro novo, salve primeiro e então anexe a foto. São aceitos JPG, PNG e WebP de até 2 MB. O servidor grava uma miniatura JPEG de 256 × 256, sem metadados originais. O envio tem salvamento próprio. Apenas administradores alteram fotos; a leitura exige autenticação do próprio usuário ou acesso ao mapa (administrador/técnico). O popup usa a foto, com iniciais como alternativa. A migração 047 é aplicada por `scripts/setup-user-photos.mts`.

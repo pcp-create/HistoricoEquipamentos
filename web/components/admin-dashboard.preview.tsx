@@ -1,4 +1,5 @@
 "use client";
+import UserPhotoEditor from "./user-photo-editor";
 import IntegrationItems from "./integration-items";
 import SupportPicker from "./support-picker";
 import SaveActionIcon from "./save-action-icon";
@@ -30,6 +31,8 @@ const date = (v: string) =>
     ? new Date(v).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
     : "Sem registro";
 const eventNames: Record<string, string> = {
+  photo_updated: "Foto do usuário atualizada",
+  photo_removed: "Foto do usuário removida",
   login: "Login realizado",
   logout: "Saída do sistema",
   access_changed: "Cadastro / permissão alterados",
@@ -221,6 +224,7 @@ export default function AdminDashboard() {
                         <legend>
                           {editing ? "Editar funcionário" : "Novo funcionário"}
                         </legend>
+                        {editing ? <UserPhotoEditor key={form.email} email={form.email}/> : <p>Salve o cadastro para anexar a foto do usuário.</p>}
                         <div className="admin-form-grid">
                           {(
                             [

@@ -76,6 +76,7 @@ test("map uses company 1 for every OS and invalidates changed addresses; writes 
       CREATE TABLE web_field_events(actor text,latitude double precision,longitude double precision,accuracy double precision,located_at timestamptz);
       INSERT INTO web_field_events VALUES('tech',-26,-48,10,now()-interval '1 day');`);
     await db.exec(readFileSync(new URL('../sql/046_field_locations.sql',import.meta.url),'utf8'));
+    await db.exec(readFileSync(new URL('../sql/047_user_photos.sql',import.meta.url),'utf8'));
     let field=await fieldMapData('tech');
     assert.equal(field.technicians[0].pendingOrders.length,1);
     assert.equal(field.technicians[0].pendingOrders[0].id,'1');
