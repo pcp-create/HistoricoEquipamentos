@@ -38,9 +38,11 @@ export default function FieldMap({visible}:{visible:boolean}) {
  useEffect(()=>{
   if(!visible||!container.current)return;
   let disposed=false;
+  let resize:ResizeObserver|undefined;
   import('leaflet').then(L=>{
    if(disposed||!container.current)return;
    const m=L.map(container.current).setView([-27,-50],6);map.current=m;
+   resize=new ResizeObserver(()=>{if(!disposed)m.invalidateSize({pan:false})});resize.observe(container.current);
    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',maxZoom:19,referrerPolicy:'origin'}).addTo(m);
    const points:Leaflet.LatLngExpression[]=[];
    const entries:{point:Leaflet.LatLngExpression;marker:Leaflet.Layer;popup:HTMLElement;name:string;customerId?:string;status:string;address:string;number:string}[]=[];
@@ -141,7 +143,7 @@ export default function FieldMap({visible}:{visible:boolean}) {
    if(points.length)m.fitBounds(L.latLngBounds(points),{padding:[30,30],maxZoom:14});
    draw();m.on('zoomend',draw);
   }).catch(()=>setError('Não foi possível carregar o mapa.'));
-  return()=>{disposed=true;map.current?.remove();map.current=null};
+  return()=>{disposed=true;resize?.disconnect();map.current?.remove();map.current=null};
  },[visible,data,mode]);
  if(!visible)return null;
  return <section className="field-map" aria-label="Mapa da equipe e programação">
@@ -154,12 +156,11 @@ export default function FieldMap({visible}:{visible:boolean}) {
     <button type="button" aria-pressed={mode==='technicians'} onClick={()=>setMode('technicians')}>Técnicos</button>
     <button type="button" aria-pressed={mode==='orders'} onClick={()=>setMode('orders')}>OSs</button>
    </nav>
-   <div ref={container} style={{height:'min(65vh, 560px)',minHeight:320,borderRadius:12,zIndex:0}}/>
+   <div ref={container} className="field-map-surface"/>
+   {!data&&!error&&<p className="field-map-notice">Carregando posições…</p>}
+   {data&&!data[mode].length&&<p className="field-map-notice">{mode==='orders'?'Nenhuma OS na sua programação.':'Nenhum técnico cadastrado.'}</p>}
   </div>
-  {!data&&!error&&<p>Carregando posições…</p>}
-  {data&&!data[mode].length&&<p>{mode==='orders'?'Nenhuma OS na sua programação.':'Nenhum técnico cadastrado.'}</p>}
 
-  {mode==='orders'&&<ul>{(data?.orders||[]).map((item:any)=><li key={item.id}><strong>{customerMapLabel(item.customer)}</strong> — {labels[item.status]} · {item.address}{(item.latitude==null||item.longitude==null)&&' · Sem coordenadas; posicione a localidade na programação de serviços.'}</li>)}</ul>}
 
  </section>;
 }

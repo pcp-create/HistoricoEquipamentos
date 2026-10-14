@@ -36,3 +36,5 @@
 .field-map-legend {position:absolute;bottom:26px;left:10px;z-index:1;display:flex;flex-wrap:wrap;gap:6px 12px;max-width:calc(100% - 20px);padding:7px 10px;background:#fffffff0;border:1px solid #dbe5ed;border-radius:8px;box-shadow:0 1px 5px #183d5b20;font:12px/1.3 Arial,sans-serif;color:#24445c;pointer-events:none}
 .field-map-legend span {display:inline-flex;align-items:center;gap:5px}
 .field-map-legend i {width:9px;height:9px;flex-shrink:0;border-radius:50%}
+.field-map-surface {position:absolute;inset:0;z-index:0;border-radius:12px 12px 0 0}
+.field-map-notice {position:absolute;top:65px;left:50%;transform:translateX(-50%);z-index:1;margin:0;max-width:80%;padding:8px 12px;background:#fffffff0;border-radius:8px;font-size:12px;text-align:center;pointer-events:none}

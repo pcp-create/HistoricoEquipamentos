@@ -123,7 +123,7 @@ export default function FieldApp() {
   }
   const active = data?.active;
   return (
-    <main className="field-app">
+    <main className={"field-app" + (screen !== "home" && scheduleView === "map" ? " field-app-map" : "")}>
       <header className="field-header">
         <div>
           <small>RJ COMPRESSORES · TÉCNICO</small>
@@ -193,9 +193,6 @@ export default function FieldApp() {
             <button aria-pressed={scheduleView === "calendar"} onClick={() => setScheduleView("calendar")}><CalendarDays size={16}/>Calendário</button>
             <button aria-pressed={scheduleView === "map"} onClick={() => setScheduleView("map")}><MapPin size={16}/>Mapa</button>
           </nav>
-          <FieldMap visible={scheduleView === "map"}/>
-          {scheduleView === "calendar" && <FieldCalendar rows={data?.calendarRows || data?.rows || []} selected={selectedDay} onSelect={setSelectedDay} now={now}/>}
-          {scheduleView === "calendar" && data && groups.size > 0 && !(data.calendarRows || data.rows).some((row: any) => (row.date || "") === selectedDay) && <p className="field-day-empty">Nenhuma OS programada para esta data.</p>}
           {active && (
             <div
               className={
@@ -220,6 +217,9 @@ export default function FieldApp() {
               <small>O registro continua mesmo ao fechar a página.</small>
             </div>
           )}
+          <FieldMap visible={scheduleView === "map"}/>
+          {scheduleView === "calendar" && <FieldCalendar rows={data?.calendarRows || data?.rows || []} selected={selectedDay} onSelect={setSelectedDay} now={now}/>}
+          {scheduleView === "calendar" && data && groups.size > 0 && !(data.calendarRows || data.rows).some((row: any) => (row.date || "") === selectedDay) && <p className="field-day-empty">Nenhuma OS programada para esta data.</p>}
           {scheduleView === "map" ? null : !data ? (
             <p>Carregando programação…</p>
           ) : !groups.size ? (

@@ -686,3 +686,8 @@ dialog.field-report-screen {
 .field-user-summary .field-user {margin:0}
 .field-order-count {font-size:11px;color:#245988;background:#e8f0f7;border-radius:20px;padding:3px 8px;white-space:nowrap}
 @media(max-width:480px){.field-header{gap:8px}.field-header h1{font-size:22px}.field-header small{font-size:9px;letter-spacing:1px}}
+
+.field-app.field-app-map {height:100dvh;min-height:0;display:flex;flex-direction:column;padding-bottom:0}
+.field-app-map > :not(.field-map) {flex-shrink:0}
+.field-app-map > .field-map {flex:1;min-height:160px;display:flex;flex-direction:column}
+.field-app-map .field-map-canvas {flex:1;min-height:0}
