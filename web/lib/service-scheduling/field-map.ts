@@ -50,7 +50,7 @@ export async function fieldMapData(email: string) {
     const a=s.localities.find((a:any)=>a.address_id===s.selectedAddressId);
     const done=operations.length>0 && operations.every(r=>['awaiting_review','reviewed','completed'].includes(r.status));
     const status=done?'done':operations.some(r=>r.status==='executing')?'executing':operations.some(r=>fieldOperationOverdue(r.date,r.status,Date.now()))?'overdue':'planned';
-    return {id:s.id,customerId:operations[0]?.customer_id,customer:operations[0]?.customer || 'Cliente não informado',name:`OS ${operations[0]?.number || s.id} · ${operations[0]?.customer || ''}`,latitude:a?.latitude,longitude:a?.longitude,address:a?localityText(a):s.reason,precision:a?positionLabel(a.precision):'',status};
+    return {id:s.id,number:operations[0]?.number || s.id,customerId:operations[0]?.customer_id,customer:operations[0]?.customer || 'Cliente não informado',name:`OS ${operations[0]?.number || s.id} · ${operations[0]?.customer || ''}`,latitude:a?.latitude,longitude:a?.longitude,address:a?localityText(a):s.reason,precision:a?positionLabel(a.precision):'',status};
   });
   return {technicians,orders:orders.filter((order:any)=>order.status!=='done'),canShare:access.technician};
 }

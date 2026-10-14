@@ -42,7 +42,7 @@ export default function FieldMap({visible}:{visible:boolean}) {
    const m=L.map(container.current).setView([-27,-50],6);map.current=m;
    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',maxZoom:19,referrerPolicy:'origin'}).addTo(m);
    const points:Leaflet.LatLngExpression[]=[];
-   const entries:{point:Leaflet.LatLngExpression;marker:Leaflet.Layer;popup:HTMLElement;name:string;customerId?:string;status:string}[]=[];
+   const entries:{point:Leaflet.LatLngExpression;marker:Leaflet.Layer;popup:HTMLElement;name:string;customerId?:string;status:string;address:string;number:string}[]=[];
    const markers=L.layerGroup().addTo(m);
    for(const item of data?.[mode]||[]){
     if(typeof item.latitude!=='number'||typeof item.longitude!=='number')continue;
@@ -66,9 +66,10 @@ export default function FieldMap({visible}:{visible:boolean}) {
      if(!list.children.length){const p=document.createElement('p');p.textContent='Nenhuma OS pendente enviada ao técnico.';details.append(p)}else details.append(list);
      popup.append(details);
     }else{
+     title.textContent=customerMapLabel(item.customer);
      const icon=document.createElement('span');icon.className='field-technician-avatar';icon.textContent='OS';icon.setAttribute('aria-hidden','true');popup.prepend(icon);
-     line('Status',labels[item.status]||'Programada');
      line('Endereço',item.address||'Não informado');
+     line('OS '+(item.number||item.id),labels[item.status]||'Programada');
      if(item.precision)line('Localização',item.precision);
     }
     let pin:Leaflet.Layer;
@@ -83,7 +84,7 @@ export default function FieldMap({visible}:{visible:boolean}) {
      const customerLabel=document.createElement('span');customerLabel.textContent=customerMapLabel(item.customer);
      pin=L.circleMarker(point,{radius:10,color:'#fff',weight:2,fillColor:colors[item.status],fillOpacity:1}).bindPopup(popup,{maxWidth:360,minWidth:220}).bindTooltip(customerLabel,{permanent:true,direction:'right',offset:[12,0],className:'map-customer-label',opacity:1});
     }
-    entries.push({point,marker:pin,popup,customerId:item.customerId,status:item.status,name:mode==='technicians'?(item.name||'Técnico'):customerMapLabel(item.customer)});
+    entries.push({point,marker:pin,popup,address:item.address||'Não informado',number:String(item.number||item.id),customerId:item.customerId,status:item.status,name:mode==='technicians'?(item.name||'Técnico'):customerMapLabel(item.customer)});
    }
    const draw=()=>{
     markers.clearLayers();
@@ -109,8 +110,18 @@ export default function FieldMap({visible}:{visible:boolean}) {
       if(customer){const label=document.createElement('span');label.textContent=customer;cluster.bindTooltip(label,{permanent:true,direction:'right',offset:[22,0],className:'map-customer-label',opacity:1})}
      }
      const distinct=new Set(group.items.map(e=>m.latLngToLayerPoint(e.point).toString())).size>1;
-     if(distinct&&m.getZoom()<19)cluster.on('click',()=>m.fitBounds(L.latLngBounds(group.items.map(e=>e.point)),{padding:[60,60],maxZoom:Math.min(19,m.getZoom()+3)}));
-     else{
+     if(distinct&&m.getZoom()<19&&(mode!=='orders'||!singleCustomerLabel(group.items.map(e=>({customerId:e.customerId,customer:e.name})))))cluster.on('click',()=>m.fitBounds(L.latLngBounds(group.items.map(e=>e.point)),{padding:[60,60],maxZoom:Math.min(19,m.getZoom()+3)}));
+     else if(mode==='orders'){
+      const list=document.createElement('div');list.className='field-technician-card';
+      const sections=new Map<string,HTMLElement>();
+      for(const entry of group.items){
+       const key=JSON.stringify([entry.customerId||entry.name,entry.address]);
+       let section=sections.get(key);
+       if(!section){section=document.createElement('section');const title=document.createElement('strong');title.textContent=entry.name;const address=document.createElement('p');address.textContent='Endereço: '+entry.address;section.append(title,address);sections.set(key,section);list.append(section)}
+       const row=document.createElement('p');const number=document.createElement('b');number.textContent='OS '+entry.number+' · ';const status=document.createElement('span');status.textContent=labels[entry.status]||'Programada';status.style.color=colors[entry.status];row.append(number,status);section.append(row);
+      }
+      cluster.bindPopup(list,{maxWidth:360,minWidth:220});
+     }else{
       const list=document.createElement('div');list.className='field-cluster-list';
       for(const entry of group.items){const button=document.createElement('button');button.type='button';button.textContent=entry.name;button.addEventListener('click',()=>m.openPopup(entry.popup,entry.point,{maxWidth:360,minWidth:220}));list.append(button)}
       cluster.bindPopup(list);

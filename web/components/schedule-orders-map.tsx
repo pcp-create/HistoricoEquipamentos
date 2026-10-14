@@ -329,11 +329,20 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
             : `OS ${group[0].numero_sequencia || group[0].order_id}`;
         const popup = document.createElement("div");
         popup.className = "schedule-map-popup";
+        const sections = new Map<string, HTMLElement>();
         for (const s of group) {
+          const key=JSON.stringify([s.customer_id||s.cliente_nome,localityText(s.address)]);
+          let section=sections.get(key);
+          if(!section){
+            section=document.createElement("section");
+            const customer=document.createElement("strong");customer.textContent=customerMapLabel(s.cliente_nome);
+            const address=document.createElement("p");address.textContent="Endereço: "+localityText(s.address);
+            section.append(customer,address);sections.set(key,section);popup.append(section);
+          }
           const link = document.createElement("a");
           link.href = "/programacao?id=" + encodeURIComponent(s.id);
-          link.textContent = `OS ${s.numero_sequencia || s.order_id} · ${s.cliente_nome || "Cliente não informado"}`;
-          popup.appendChild(link);
+          link.textContent = `OS ${s.numero_sequencia || s.order_id}`;
+          section.appendChild(link);
           const info = document.createElement("p");
           info.textContent = [
             scheduleStatusNames[s.programming_status] || "Pendente",
@@ -343,11 +352,9 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
                 .join(" · "),
             ),
           ].join("\n");
-          popup.appendChild(info);
+          section.appendChild(info);
           const addr = document.createElement("small");
           addr.textContent =
-            localityText(s.address) +
-            " · " +
             positionLabel(s.address.precision);
           const addressRow = document.createElement("div");
           addressRow.className = "schedule-map-popup-address";
@@ -379,7 +386,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
             edit(s);
           });
           addressRow.appendChild(adjust);
-          popup.appendChild(addressRow);
+          section.appendChild(addressRow);
           if (s.entry?.localities.length > 1) {
             const select = document.createElement("select");
             select.setAttribute("aria-label", `Localidade da OS ${s.numero_sequencia || s.order_id}`);
@@ -396,7 +403,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
               setEditing(null);
               void change({ action: "select", scheduleId: String(s.id), addressId: select.value });
             });
-            popup.appendChild(select);
+            section.appendChild(select);
           }
         }
         const marker = L.marker(center, {
@@ -413,7 +420,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
           customerLabel.textContent=groupCustomer;
           marker.bindTooltip(customerLabel,{permanent:true,direction:"right",offset:[size/2+4,0],className:"map-customer-label",opacity:1});
         }
-        if (distinct)
+        if (distinct && !groupCustomer)
           marker.on("click", () =>
             m.fitBounds(
               group.map(
