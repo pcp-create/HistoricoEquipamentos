@@ -1,4 +1,6 @@
 "use client";
+import { operationNumber } from "@/lib/service-scheduling/operation-number";
+import { displayedScheduleStatus } from "@/lib/service-scheduling/display-status";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Clock3 } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -7,6 +9,7 @@ import "./schedule-orders-calendar.css";
 import "./schedule-status-colors.css";
 
 function Card({ order, day }: {order: any; day: string}) {
+  const programmingStatus = displayedScheduleStatus(order);
   const operations = (order.calendar_operations || []).filter((o: any) => (o.dates || [o.date || ""]).includes(day));
   const people = [...new Set(operations.map((o: any) => o.responsible).filter(Boolean))];
   const starts = operations.map((o:any) => o.allocation?.find((slot:any) => slot.date === day)?.start ||
@@ -18,7 +21,7 @@ function Card({ order, day }: {order: any; day: string}) {
   const hasDuration = operations.length > 0 && dailyMinutes.every((minutes:any) => typeof minutes === "number" && Number.isFinite(minutes));
   const minutes = Math.round(dailyMinutes.reduce((total:number,value:any) => total + (value || 0),0));
   const duration = hasDuration ? (Math.floor(minutes / 60) ? Math.floor(minutes / 60) + " h " : "") + (minutes % 60 || !Math.floor(minutes / 60) ? (minutes % 60) + " min" : "") : "—";
-  return <a className={"schedule-calendar-order operation-status " + order.programming_status} href={"/programacao?id=" + order.id}>
+  return <a className={"schedule-calendar-order operation-status " + programmingStatus} href={"/programacao?id=" + order.id}>
     <div className="schedule-calendar-card-heading">
       <strong>OS {order.numero_sequencia || order.order_id}</strong>
       <span className="schedule-calendar-duration" title="Duração programada neste dia" aria-label={"Duração programada neste dia: " + duration}><Clock3 size={12} aria-hidden="true"/>{duration}</span>
@@ -26,7 +29,7 @@ function Card({ order, day }: {order: any; day: string}) {
     <span className="schedule-calendar-start"><Clock3 size={12} aria-hidden="true"/> Início: {startTime || "Não informado"}</span>
     <span>{people.join(", ") || "Sem responsável"}</span>
     <span>{order.cliente_nome || "Cliente não informado"}</span>
-    <small>{scheduleStatusNames[order.programming_status] || "Pendente"}</small>
+    <small>{scheduleStatusNames[programmingStatus] || "Pendente"}</small>
   </a>;
 }
 export function DayOrders({ orders, day, onClose }: any) {
@@ -55,29 +58,46 @@ function operationTime(operation: any, day: string) {
   return start ? new Date(start).toLocaleTimeString("pt-BR", {timeZone:"America/Sao_Paulo",hour:"2-digit",minute:"2-digit"})
     : operation.date === day ? operation.time || "" : "";
 }
+function ExecutorPhoto({user,name}:{user:any;name:string}) {
+  const [failed,setFailed]=useState(false);
+  if(user?.has_photo && !failed) return <img className="schedule-executor-photo" src={"/api/users/photo?email="+encodeURIComponent(user.email)} alt={"Foto de "+name} width={64} height={64} onError={()=>setFailed(true)}/>;
+  return <span className="schedule-executor-photo schedule-executor-initials" aria-hidden="true">{name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join("")}</span>;
+}
 function DailySchedule({orders,day,users,vehicles}:any) {
   const rows = orders.flatMap((order:any) => dayOperations(order,day).map((operation:any) => ({order,operation})))
     .sort((a:any,b:any) => (operationTime(a.operation,day)||"99:99").localeCompare(operationTime(b.operation,day)||"99:99") ||
       (a.operation.responsible || "").localeCompare(b.operation.responsible || "", "pt-BR"));
   const name = (email:string) => users.find((u:any)=>u.email===email)?.display_name || email;
+  const groups = new Map<string,any[]>();
+  for(const row of rows) {
+    const key = row.operation.responsibleEmail?.trim().toLowerCase() || row.operation.responsible || "unassigned";
+    groups.set(key,[...(groups.get(key)||[]),row]);
+  }
+  const groupedRows = [...groups.entries()].sort(([a],[b])=>{
+    const aName=name(a)||a,bName=name(b)||b;
+    return aName.localeCompare(bName,"pt-BR");
+  });
   return <div className="schedule-daily">
     <p>{orders.length} OSs · {rows.length} operações programadas para {dateLabel(day)}</p>
     {!rows.length ? <p>Nenhum serviço programado para este dia.</p> :
     <div className="schedule-calendar-scroll"><table className="schedule-daily-table">
-      <thead><tr>{["Horário / duração","Executante / apoio","OS / atividade","Cliente / local","Equipamento","Observações internas","Veículo"].map(label=><th key={label}>{label}</th>)}</tr></thead>
-      <tbody>{rows.map(({order,operation}:any,index:number)=>{
+      <thead><tr>{["Executante","Horário / duração","OS / atividade","Cliente / local","Equipamento","Observações internas","Veículo"].map(label=><th key={label}>{label}</th>)}</tr></thead>
+      {groupedRows.map(([key,group])=>{
+        const user=users.find((u:any)=>u.email?.trim().toLowerCase()===key);
+        const executorName=user?.display_name || group[0].operation.responsible || group[0].operation.responsibleEmail || "Sem responsável";
+        return <tbody key={key} className="schedule-executor-group">{group.map(({order,operation}:any,index:number)=>{
         const minutes=operation.allocation?.find((slot:any)=>slot.date===day)?.minutes;
         const vehicle=vehicles.find((v:any)=>v.id===operation.vehicleId)?.name;
         return <tr key={order.id+":"+(operation.id || index)}>
+          {index===0 && <td rowSpan={group.length} className="schedule-executor-cell"><ExecutorPhoto key={user?.email || key} user={user} name={executorName}/><strong>{executorName}</strong><small>{new Set(group.map((row:any)=>row.order.id)).size} OSs · {group.length} operações</small></td>}
           <td><strong>{operationTime(operation,day)||"Sem horário"}</strong><small>{typeof minutes==="number" ? (minutes/60).toLocaleString("pt-BR",{maximumFractionDigits:2})+" h neste dia" : "Duração diária não informada"}</small></td>
-          <td><strong>{operation.responsible || name(operation.responsibleEmail) || "Sem responsável"}</strong>{!!operation.support?.length && <small>Apoio: {operation.support.map(name).join(", ")}</small>}</td>
-          <td><a href={"/programacao?id="+order.id}>OS {order.numero_sequencia || order.order_id}</a><strong>{operation.description || "Atividade não informada"}</strong><span className={"operation-status "+operation.status}>{statusNames[operation.status] || "Pendente"}</span></td>
+          <td><a href={"/programacao?id="+order.id}>OS {order.numero_sequencia || order.order_id}{operation.position != null ? "/" + operationNumber(operation.position) : ""}</a><strong>{operation.description || "Atividade não informada"}</strong>{!!operation.support?.length && <small>Apoio: {operation.support.map(name).join(", ")}</small>}<span className={"operation-status "+operation.status}>{statusNames[operation.status] || "Pendente"}</span></td>
           <td>{order.cliente_nome || "Cliente não informado"}<small>{[order.customer_city,order.customer_state].filter(Boolean).join(" / ") || "Local não informado"}</small></td>
           <td>{order.equipamento || "Não informado"}</td>
           <td className="schedule-daily-note">{operation.internalNote || "—"}</td>
           <td>{vehicle || (operation.vehicleId ? "Veículo não disponível" : "Não definido")}</td>
         </tr>;
-      })}</tbody>
+      })}</tbody>;})}
     </table></div>}
   </div>;
 }

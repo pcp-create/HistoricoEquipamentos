@@ -24,7 +24,7 @@ export async function scheduleMapData(email: string, db: any = database(), field
  c.address_id::text AS choice_id
  FROM web_service_schedules s JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id
  LEFT JOIN web_schedule_map_choices c ON c.schedule_id=s.id AND c.person_id=o.cliente_id
- WHERE s.active ${fieldOnly ? "AND EXISTS (SELECT 1 FROM web_service_operations p WHERE p.schedule_id=s.id AND p.sent_at IS NOT NULL AND (p.document->>'responsible'=$1 OR p.document->'support' ? $1))" : ""}`, fieldOnly ? [email] : [])
+ WHERE s.active AND lower(trim(COALESCE(o.status,''))) NOT IN ('cancelado','cancelada') ${fieldOnly ? "AND EXISTS (SELECT 1 FROM web_service_operations p WHERE p.schedule_id=s.id AND p.sent_at IS NOT NULL AND (p.document->>'responsible'=$1 OR p.document->'support' ? $1))" : ""}`, fieldOnly ? [email] : [])
   ).rows;
   const addresses = (
     await db.query(

@@ -1,0 +1,24 @@
+import {test,expect} from '@playwright/test';
+test('daily schedule groups operations by executor and displays registered photo above name',async({page,context})=>{
+ await page.clock.setFixedTime(new Date('2026-10-15T12:00:00Z'));
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/activity',r=>r.fulfill({json:{}}));
+ await page.route('**/api/users/photo?*',r=>r.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="blue"/></svg>'}));
+ await page.route('**/api/service-scheduling',r=>r.fulfill({json:{users:[{email:'ana@test',display_name:'Ana',has_photo:true},{email:'bruno@test',display_name:'Bruno',has_photo:false}],schedules:[1,2,3].map(n=>({id:String(n),order_id:String(15000+n),expected_delivery_date:'2026-10-15',programming_status:'scheduled',calendar_operations:[{id:'op'+n,position:n,date:'2026-10-15',time:n===2?'07:30':'08:00',responsibleEmail:n===3?'bruno@test':'ana@test',responsible:n===3?'Bruno':'Ana',status:'scheduled',description:'Serviço '+n}]}))}}));
+ await page.goto('/programacao');
+ await page.getByRole('button',{name:'Calendário',exact:true}).click();
+ await page.getByRole('button',{name:'Dia',exact:true}).click();
+ const table=page.locator('.schedule-daily-table');
+ await expect(table.getByRole('columnheader').first()).toHaveText('Executante');
+ const groups=table.locator('tbody');
+ await expect(groups).toHaveCount(2);
+ await expect(groups.first().locator('tr')).toHaveCount(2);
+ await expect(groups.first().locator('.schedule-executor-cell')).toHaveAttribute('rowspan','2');
+ await expect(groups.first().getByRole('img',{name:'Foto de Ana'})).toBeVisible();
+ await expect(groups.first().locator('tr').first()).toContainText('Serviço 2');
+ await expect(groups.first().locator('tr').first().getByRole('link')).toHaveText('OS 15002/02');
+ await expect(groups.last().locator('.schedule-executor-initials')).toHaveText('B');
+ await page.getByLabel('Executante',{exact:true}).selectOption('bruno@test');
+ await expect(groups).toHaveCount(1);
+ await expect(groups.first().locator('.schedule-executor-cell')).toContainText('Bruno');
+});

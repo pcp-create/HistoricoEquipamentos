@@ -232,6 +232,7 @@ export const scheduleStatusNames: Record<string, string> = {
   ...statusNames,
   reviewed: "Revisada",
   completed: "Concluída",
+  cancelled: "Cancelado",
 };
 /** An OS is complete only when all operations are complete; active execution takes precedence. */
 export function scheduleStatus(counts: Record<string, number>): string {

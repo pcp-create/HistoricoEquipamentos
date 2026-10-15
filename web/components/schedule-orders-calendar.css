@@ -56,3 +56,8 @@
 .scheduling-page .schedule-calendar-week-number {border:0;border-radius:0;padding:12px 0;min-width:0;display:block;color:#245988;background:#f3f7fb;font-size:11px;font-weight:600;cursor:pointer;align-content:start}
 .scheduling-page .schedule-calendar-week-number:hover {background:#e1edf8;text-decoration:underline}
 .scheduling-page .schedule-calendar-week-number:focus-visible {outline:2px solid #215e93;outline-offset:-2px}
+
+.schedule-daily-table .schedule-executor-cell {min-width:140px;text-align:center;background:#f3f7fb;vertical-align:top}
+.schedule-executor-photo {display:block;width:64px;height:64px;object-fit:cover;border-radius:50%;margin:0 auto 10px}
+.schedule-executor-initials {display:flex;align-items:center;justify-content:center;background:#dfeaf4;color:#245988;font-size:20px;font-weight:600}
+.schedule-executor-group + .schedule-executor-group {border-top:2px solid #cbdbea}

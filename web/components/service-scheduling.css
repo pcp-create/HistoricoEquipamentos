@@ -698,3 +698,19 @@
 .schedule-overview-totals .schedule-undated-summary.needs-attention strong {color:#806000}
 .scheduling-page .schedule-undated-summary button {align-self:flex-start;padding:6px 10px;font-size:12px;background:white;color:#806000;border:1px solid #d9bd66;border-radius:6px}
 @media(max-width:600px){.schedule-overview-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule-overview-totals .schedule-undated-summary{grid-column:1/-1}}
+
+.schedule-overview-filters {grid-template-columns:2fr 1fr 1fr}
+.schedule-completed-group td {background:#edf8f1}
+.scheduling-page .schedule-completed-group button {display:inline-flex;align-items:center;gap:8px;border:0;background:transparent;color:#197547;font-weight:600;padding:8px 0}
+.schedule-completed-group small {display:block;color:#627d98}
+@media(max-width:760px){.schedule-overview-filters{grid-template-columns:1fr}}
+
+.schedule-delivery-filter {display:flex;align-items:center;gap:8px;margin-top:8px;min-width:0}
+.schedule-delivery-icon {display:flex;align-items:center;justify-content:center;flex:0 0 36px;height:32px;border:1px solid #cbdbea;border-radius:8px;background:white;color:#627d98}
+.scheduling-page .schedule-delivery-filter select {width:auto;min-width:0;height:32px;margin:0;padding:4px 10px;border-radius:8px;background:white}
+.schedule-delivery-filter select:first-of-type {flex:1}
+.schedule-delivery-filter select:last-of-type {flex:0 0 84px}
+
+.scheduling-orders-list td.schedule-delivery-carried {color:#b42318;font-weight:600}
+
+.scheduling-orders-list .schedule-order-value {white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}

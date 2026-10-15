@@ -10,6 +10,7 @@ test('monthly week numbers, weekly services and detailed daily schedule respect 
  }]}));
  await page.route('**/api/service-scheduling',r=>r.fulfill({json:{schedules,users:[{email:'ana@test',display_name:'Ana'},{email:'bruno@test',display_name:'Bruno'},{email:'apoio@test',display_name:'Carlos'}],settings:{document:{vehicles:[{id:'van',name:'Van ABC123'}]}}}}));
  await page.goto('/programacao');
+ await page.getByLabel('Mês da entrega prevista',{exact:true}).selectOption('');
  await page.getByRole('button',{name:'Calendário',exact:true}).click();
  await expect(page.locator('.schedule-calendar-week-number')).toHaveCount(5);
  await expect(page.locator('.schedule-calendar-week-number').first()).toHaveText('40');
@@ -56,6 +57,7 @@ test('undated orders are highlighted beside totals and open from the list',async
  {id:'3',order_id:'15003',operation_count:1,calendar_operations:[{date:'2026-10-15',dates:['2026-10-15']}]}
  ]}}));
  await page.goto('/programacao');
+ await page.getByLabel('Mês da entrega prevista',{exact:true}).selectOption('');
  const summary=page.locator('.schedule-overview-totals .schedule-undated-summary');
  await expect(summary).toHaveClass(/needs-attention/);
  await expect(summary.locator('strong')).toHaveText('2 OSs');

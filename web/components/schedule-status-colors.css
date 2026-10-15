@@ -9,6 +9,7 @@
 .operation-status.overdue {--schedule-status-color:#dc2626;--schedule-status-bg:#fff0f0;--schedule-status-text:#a52626}
 
 .schedule-stage-flow article[data-status] {border-top-color:var(--schedule-status-color)}
+.schedule-list-status.operation-status[class],
 .schedule-calendar-order.operation-status[class],
 .schedule-calendar-legend .operation-status[class],
 .schedule-daily .operation-status[class],
@@ -24,3 +25,5 @@
 .schedule-map .schedule-map-summary .schedule-map-status-dot.operation-status {
   color:var(--schedule-status-color);
 }
+
+.operation-status.cancelled {--schedule-status-color:#b55e68;--schedule-status-bg:#fcecef;--schedule-status-text:#953745}

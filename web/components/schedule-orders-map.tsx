@@ -1,4 +1,6 @@
 "use client";
+import { latestOpenProgramming, latestProgrammingStatus } from "@/lib/service-scheduling/latest-programming";
+import { displayedScheduleStatus } from "@/lib/service-scheduling/display-status";
 import { customerMapLabel, singleCustomerLabel } from "@/lib/service-scheduling/customer-map-label";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
@@ -25,7 +27,8 @@ type MapEntry = {
   reason: string;
 };
 type MapData = { geocodingAvailable: boolean; schedules: MapEntry[] };
-export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
+export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { schedules: any[] }) {
+  const schedules = useMemo(() => sourceSchedules.map(s => ({...s, programming_status: displayedScheduleStatus(s)})), [sourceSchedules]);
   const [showTerritories, setShowTerritories] = useState(false);
   const [territories, setTerritories] = useState<any>(null);
   const [territoryError, setTerritoryError] = useState("");
@@ -117,7 +120,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
       });
     return () => controller.abort();
   }, [ids]);
-  const summaryOrders = useMemo(() => schedules.filter((s) => s.programming_status !== "completed" && (
+  const summaryOrders = useMemo(() => schedules.filter((s) => (
     !day || (s.calendar_operations || []).some((o: any) => (o.dates || [o.date]).includes(day))),
   ), [schedules, day]);
   const visible = useMemo(
@@ -125,7 +128,6 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
       schedules
         .filter(
           (s) =>
-            s.programming_status !== "completed" &&
             (!status || s.programming_status === status) &&
             (!day ||
               (s.calendar_operations || []).some((o: any) =>
@@ -246,6 +248,9 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
       s.programming_status,
       s.cliente_nome,
       s.customer_id,
+      s.tipo_atendimento_nome,
+      s.equipamento,
+      s.status_lancamento_nome,
       s.address,
       s.calendar_operations,
     ]),
@@ -284,7 +289,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
         for (const order of group)
           counts[order.programming_status] =
             (counts[order.programming_status] || 0) + 1;
-        const markerStatus = scheduleStatus(counts);
+        const markerStatus = counts.cancelled === group.length ? "cancelled" : scheduleStatus(counts);
         icon.className = `schedule-map-pin operation-status ${markerStatus}`;
         icon.style.width = icon.style.height = `${size}px`;
         const statuses = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
@@ -325,35 +330,69 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
         const popup = document.createElement("div");
         popup.className = "schedule-map-popup";
         const sections = new Map<string, HTMLElement>();
+        const locationFooters = new Map<string, HTMLElement>();
         for (const s of group) {
           const key=JSON.stringify([s.customer_id||s.cliente_nome,localityText(s.address)]);
           let section=sections.get(key);
           if(!section){
             section=document.createElement("section");
             const customer=document.createElement("strong");customer.textContent=customerMapLabel(s.cliente_nome);
-            const address=document.createElement("p");address.textContent="Endereço: "+localityText(s.address);
-            section.append(customer,address);sections.set(key,section);popup.append(section);
+            section.append(customer);sections.set(key,section);popup.append(section);
+          }
+          if (section.querySelector(".schedule-map-popup-order-heading")) {
+            const divider = document.createElement("hr");
+            divider.className = "schedule-map-popup-order-divider";
+            section.appendChild(divider);
           }
           const link = document.createElement("a");
           link.href = "/programacao?id=" + encodeURIComponent(s.id);
           link.textContent = `OS ${s.numero_sequencia || s.order_id}`;
-          section.appendChild(link);
+          const heading = document.createElement("div");
+          heading.className = "schedule-map-popup-order-heading";
+          const details = document.createElement("div");
+          details.className = "schedule-map-popup-order-details";
+          const attendance = document.createElement("strong");
+          attendance.textContent = s.tipo_atendimento_nome || "Tipo de atendimento não informado";
+          const equipment = document.createElement("span");
+          equipment.textContent = s.equipamento || "Equipamento não informado";
+          equipment.className = "schedule-map-popup-equipment";
+          details.append(attendance);
+          heading.append(link, details);
+          section.append(heading, equipment);
+          const launchStatus = document.createElement("p");
+          launchStatus.className = "schedule-map-popup-launch-status";
+          launchStatus.textContent = "Status do lançamento: " + (s.status_lancamento_nome || "Não informado");
+          section.appendChild(launchStatus);
+          const latest = latestOpenProgramming(s.calendar_operations || []);
+          const programmingStatus = ["completed", "cancelled"].includes(s.programming_status) ? s.programming_status : latest ? latestProgrammingStatus(latest) : s.programming_status;
           const info = document.createElement("p");
-          info.textContent = [
-            scheduleStatusNames[s.programming_status] || "Pendente",
-            ...(s.calendar_operations || []).map((o: any) =>
-              [o.date?.split("-").reverse().join("/"), o.time, o.responsible]
-                .filter(Boolean)
-                .join(" · "),
-            ),
-          ].join("\n");
+          info.className = "schedule-map-popup-programming";
+          info.append("Status Programação: ");
+          const statusBadge = document.createElement("span");
+          statusBadge.className = "operation-status schedule-list-status " + (programmingStatus || "pending");
+          statusBadge.textContent = scheduleStatusNames[programmingStatus] || "Pendente";
+          info.appendChild(statusBadge);
           section.appendChild(info);
+          if (latest) {
+            const responsible = document.createElement("p");
+            responsible.className = "schedule-map-popup-programming";
+            responsible.textContent = "Responsável: " + (latest.responsible || latest.responsibleEmail || "Não definido") +
+              "\nProgramação: " + latest.date.split("-").reverse().join("/") + (latest.time ? " · " + latest.time : "");
+            section.appendChild(responsible);
+          }
+          if (!locationFooters.has(key)) {
+          const address = document.createElement("p");
+          address.className = "schedule-map-popup-location";
+          address.textContent = "Endereço: " + localityText(s.address);
           const addr = document.createElement("small");
           addr.textContent =
             positionLabel(s.address.precision);
           const addressRow = document.createElement("div");
           addressRow.className = "schedule-map-popup-address";
-          addressRow.appendChild(addr);
+          const addressDetails = document.createElement("div");
+          addressDetails.className = "schedule-map-popup-location-details";
+          addressDetails.append(address, addr);
+          addressRow.appendChild(addressDetails);
           const adjust = document.createElement("button");
           adjust.type = "button";
           adjust.className = "schedule-map-adjust-icon";
@@ -381,7 +420,8 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
             edit(s);
           });
           addressRow.appendChild(adjust);
-          section.appendChild(addressRow);
+          locationFooters.set(key, addressRow);
+          }
           if (s.entry?.localities.length > 1) {
             const select = document.createElement("select");
             select.setAttribute("aria-label", `Localidade da OS ${s.numero_sequencia || s.order_id}`);
@@ -401,6 +441,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
             section.appendChild(select);
           }
         }
+        for (const [key, footer] of locationFooters) sections.get(key)?.appendChild(footer);
         const marker = L.marker(center, {
           icon: L.divIcon({
             html: icon,
@@ -425,7 +466,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
               { padding: [60, 60], maxZoom: Math.min(19, m.getZoom() + 3) },
             ),
           );
-        else marker.bindPopup(popup);
+        else marker.bindPopup(popup, { maxWidth: 460, minWidth: Math.min(340, Math.max(180, m.getSize().x - 70)), className: "schedule-order-popup" });
         marker.getElement()?.setAttribute("aria-label", markerLabel);
         marker.getElement()?.setAttribute("title", statuses.map(([status, quantity]) =>
           `${scheduleStatusNames[status] || "Pendente"}: ${quantity}`,
@@ -525,7 +566,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
           Status da OS
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">Todos os status</option>
-            {[...new Set(schedules.filter(s=>s.programming_status!=="completed").map((s) => s.programming_status))].map(
+            {[...new Set(schedules.map((s) => s.programming_status))].map(
               (v) => (
                 <option key={v} value={v}>
                   {scheduleStatusNames[v] || v}
@@ -608,7 +649,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
           <h3>OSs da programação</h3>
           <button type="button" className="schedule-map-summary-total" aria-pressed={!status} onClick={() => setStatus("")}><span>Total</span><strong>{summaryOrders.length}</strong></button>
           <div className="schedule-map-status-filters">
-            {Object.entries(scheduleStatusNames).filter(([key])=>key!=="completed").map(([key, name]) => (
+            {Object.entries(scheduleStatusNames).map(([key, name]) => (
               <button type="button" key={key} aria-pressed={status === key} onClick={() => setStatus(status === key ? "" : key)}>
                 <span><span className={`schedule-map-status-dot operation-status ${key}`} aria-hidden="true" />{name}</span>
                 <strong>{summaryOrders.filter((s) => (s.programming_status || "pending") === key).length}</strong>

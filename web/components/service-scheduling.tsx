@@ -1,4 +1,6 @@
 "use client";
+import { isCarriedDelivery, matchesDeliveryProjection } from "@/lib/service-scheduling/delivery-projection";
+import { displayedScheduleStatus } from "@/lib/service-scheduling/display-status";
 import { includesLaborCost } from "@/lib/service-scheduling/labor-costs";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import {reportStatusLabel,reportSubmission} from "@/lib/service-scheduling/checklists";
@@ -49,14 +51,10 @@ import { sameUnit } from "@/lib/product-values";
 import { isNotApproved } from "@/lib/material-approval";
 import "./service-scheduling.css";
 import "./schedule-status-colors.css";
-function displayedScheduleStatus(s: any): string {
-  if (String(s.order_status || "").trim().toLowerCase() === "processado") return "completed";
-  return s.programming_status === "completed" ? "reviewed" : s.programming_status || "pending";
-}
 const scheduleColumns = [
   ["number", "N° OS"], ["operations", "Operações"], ["customer", "Cliente"],
   ["equipment", "Equipamento"], ["type", "Tipo / atendimento"],
-  ["status", "Status do lançamento"], ["company", "Empresa"],
+  ["status", "Status do lançamento"], ["delivery", "Entrega prevista"], ["value", "Valor da OS"], ["company", "Empresa"],
 ] as const;
 type ScheduleSortKey = typeof scheduleColumns[number][0];
 function scheduleSortValue(s: any, key: ScheduleSortKey): string {
@@ -67,6 +65,8 @@ function scheduleSortValue(s: any, key: ScheduleSortKey): string {
     case "equipment": return s.equipamento || "";
     case "type": return [s.tipo_nome, s.tipo_atendimento_nome].filter(Boolean).join(" ");
     case "status": return s.status_lancamento_nome || "";
+    case "value": return s.order_value || "";
+    case "delivery": return s.expected_delivery_date || "";
     case "company": return companyName(s.company_id);
   }
 }
@@ -132,7 +132,16 @@ export default function ServiceScheduling() {
   const dirtyOperations=useRef(new Set<string>());
   const [overviewView, setOverviewView] = useState("list");
   const [listSort, setListSort] = useState<{key: ScheduleSortKey; descending: boolean} | null>(null);
+  const [deliveryMonth, setDeliveryMonth] = useState(() => {
+    const parts = new Intl.DateTimeFormat("en", {year:"numeric",month:"2-digit",timeZone:"America/Sao_Paulo"}).formatToParts(new Date());
+    return parts.find(part=>part.type==="year")!.value+"-"+parts.find(part=>part.type==="month")!.value;
+  });
+  const [deliveryYear, setDeliveryYear] = useState(() => new Intl.DateTimeFormat("en", {year:"numeric",timeZone:"America/Sao_Paulo"}).format(new Date()));
+  const [completedExpanded, setCompletedExpanded] = useState(false);
   const [executor, setExecutor] = useState("");
+  const deliveryMonths = [...new Set<string>((data?.schedules || [])
+    .map((s:any) => s.expected_delivery_date?.slice(0,7))
+    .filter((month:any) => typeof month === "string" && /^\d{4}-\d{2}$/.test(month)))].sort();
   const executorOptions = new Map<string, string>();
   for (const u of data?.users || []) executorOptions.set(u.email, u.display_name || u.email);
   for (const schedule of data?.schedules || []) for (const operation of schedule.calendar_operations || []) {
@@ -140,17 +149,29 @@ export default function ServiceScheduling() {
     for (const email of operation.support || []) if (!executorOptions.has(email)) executorOptions.set(email, email);
   }
   const filteredSchedules = (data?.schedules || []).filter((s: any) =>
-    `${s.numero_sequencia || s.order_id} ${s.cliente_nome} ${s.equipamento}`.toLowerCase().includes(query.toLowerCase())
+    displayedScheduleStatus(s) !== "cancelled" &&
+    `${s.numero_sequencia || s.order_id} ${s.cliente_nome} ${s.equipamento} ${s.customer_city || ""}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()) &&
+    matchesDeliveryProjection(s, deliveryMonth)
   ).map((s: any) => ({
     ...s,
     calendar_operations: executor ? (s.calendar_operations || []).filter((o: any) =>
       o.responsibleEmail === executor || (o.support || []).includes(executor)
     ) : s.calendar_operations,
   })).filter((s: any) => !executor || s.calendar_operations.length > 0);
-  const sortedSchedules = listSort ? [...filteredSchedules].sort((a, b) =>
-    scheduleSortValue(a, listSort.key).localeCompare(scheduleSortValue(b, listSort.key),
-      "pt-BR", { numeric: true, sensitivity: "base" }) * (listSort.descending ? -1 : 1)
-  ) : filteredSchedules;
+  const sortedSchedules = listSort ? [...filteredSchedules].sort((a, b) => {
+    if (listSort.key === "value") {
+      if (a.order_value == null) return b.order_value == null ? 0 : 1;
+      if (b.order_value == null) return -1;
+      return (Number(a.order_value) - Number(b.order_value)) * (listSort.descending ? -1 : 1);
+    }
+    return scheduleSortValue(a, listSort.key).localeCompare(scheduleSortValue(b, listSort.key),
+      "pt-BR", { numeric: true, sensitivity: "base" }) * (listSort.descending ? -1 : 1);
+  }) : filteredSchedules;
+  const completedSchedules = sortedSchedules.filter((s:any)=>displayedScheduleStatus(s)==="completed");
+  const pendingSchedules = sortedSchedules.filter((s:any)=>displayedScheduleStatus(s)!=="completed");
+  const listEntries = [...pendingSchedules, ...(completedSchedules.length ? [
+    { completedGroup: true, id: "completed-group" }, ...(completedExpanded ? completedSchedules : [])
+  ] : [])];
   async function load() {
     setError("");
     try {
@@ -367,7 +388,7 @@ export default function ServiceScheduling() {
             <ScheduleOverview schedules={filteredSchedules} />
             <div className="schedule-overview-filters">
             <label className="scheduling-search">
-              Pesquisar OS, cliente ou equipamento
+              Pesquisar OS, cliente, equipamento ou cidade
               <input value={query} onChange={(e) => setQuery(e.target.value)} />
             </label>
             <label className="scheduling-search">
@@ -377,6 +398,19 @@ export default function ServiceScheduling() {
                 {[...executorOptions].sort((a,b) => a[1].localeCompare(b[1], "pt-BR")).map(([email,name]) => <option key={email} value={email}>{name}</option>)}
               </select>
             </label>
+            <div className="scheduling-search">
+              <span>Entrega prevista acumulada</span>
+              <div className="schedule-delivery-filter" role="group" aria-label="Filtro de entrega prevista">
+                <span className="schedule-delivery-icon" aria-hidden="true"><CalendarDays size={15}/></span>
+                <select aria-label="Mês da entrega prevista" value={deliveryMonth.slice(5)} onChange={e=>setDeliveryMonth(e.target.value ? deliveryYear+"-"+e.target.value : "")}>
+                  <option value="">Todos os meses</option>
+                  {["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"].map((month,index)=><option key={month} value={String(index+1).padStart(2,"0")}>{month}</option>)}
+                </select>
+                <select aria-label="Ano da entrega prevista" value={deliveryYear} onChange={e=>{setDeliveryYear(e.target.value);if(deliveryMonth)setDeliveryMonth(e.target.value+deliveryMonth.slice(4));}}>
+                  {[...new Set([...deliveryMonths.map(month=>month.slice(0,4)),deliveryYear,String(new Date().getFullYear())])].sort().map(year=><option key={year} value={year}>{year}</option>)}
+                </select>
+              </div>
+            </div>
             </div>
             <p>
               Use “Programar OS” nos detalhes da ordem no Histórico para
@@ -409,8 +443,18 @@ export default function ServiceScheduling() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedSchedules
-                    .map((s: any) => (
+                  {listEntries
+                    .map((s: any) => s.completedGroup ? (
+                      <tr key="completed-group" className="schedule-completed-group">
+                        <td colSpan={scheduleColumns.length+1}>
+                          <button type="button" aria-expanded={completedExpanded} onClick={()=>setCompletedExpanded(v=>!v)}>
+                            <ChevronRight size={16} style={{transform:completedExpanded?"rotate(90deg)":undefined}} aria-hidden="true"/>
+                            OSs concluídas ({completedSchedules.length}) · {completedExpanded?"Recolher":"Expandir"}
+                          </button>
+                          <small>Status Processado no ERP</small>
+                        </td>
+                      </tr>
+                    ) : (
                       <tr key={s.id}>
                         <td>
                           <span className="schedule-order-number">
@@ -456,6 +500,11 @@ export default function ServiceScheduling() {
                         <td>{s.status_lancamento_nome || "—"}
                           {s.linked_status_lancamento_nome && <small className="schedule-client-location" title={"OS vinculada: " + (s.linked_order_number || s.linked_order_id)}>{s.linked_status_lancamento_nome}</small>}
                         </td>
+                        <td className={deliveryMonth && isCarriedDelivery(s, deliveryMonth) ? "schedule-delivery-carried" : undefined}
+                          title={deliveryMonth && isCarriedDelivery(s, deliveryMonth) ? "Entrega pendente de mês anterior, incluída na projeção acumulada" : undefined}>
+                          {s.expected_delivery_date ? s.expected_delivery_date.split("-").reverse().join("/") : "Não informada"}
+                        </td>
+                        <td className="schedule-order-value">{money(s.order_value)}</td>
                         <td><span className="company-tag">{companyName(s.company_id)}</span></td>
                         <td className="schedule-details-cell">
                           <a href={"/programacao?id=" + s.id}>
@@ -794,7 +843,7 @@ function ScheduleOverview({ schedules }: { schedules: any[] }) {
       </div>
       {showUndated && <DayOrders orders={undated} day="" onClose={()=>setShowUndated(false)}/>}
       <ol className="schedule-overview-cards schedule-stage-flow" aria-label="Etapas da programação" tabIndex={0}>
-        {Object.entries(scheduleStatusNames).map(([status, label]) => (
+        {Object.entries(scheduleStatusNames).filter(([status])=>status!=="cancelled").map(([status, label]) => (
           <li key={status}>
           <article data-status={status}>
             <span>{label}</span>
@@ -808,6 +857,7 @@ function ScheduleOverview({ schedules }: { schedules: any[] }) {
           </li>
         ))}
       </ol>
+      {!!orders.cancelled && <p className="schedule-cancelled-total"><span className="operation-status schedule-list-status cancelled">Cancelado: {orders.cancelled} OSs</span></p>}
       <small>
         O status da OS considera a primeira etapa de programação ainda pendente;
         operações em execução têm prioridade. Concluída considera somente OSs

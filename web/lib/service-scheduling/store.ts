@@ -70,7 +70,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
   ).rows[0];
   const users = (
     await db.query(
-      "SELECT email,display_name,job_title,enabled,hourly_cost FROM web_user_access ORDER BY display_name,email",
+      "SELECT u.email,u.display_name,u.job_title,u.enabled,u.hourly_cost,EXISTS(SELECT 1 FROM web_user_photos photo WHERE photo.email=u.email) AS has_photo FROM web_user_access u ORDER BY u.display_name,u.email",
     )
   ).rows;
   const automaticOptions = (await db.query(`SELECT
@@ -89,10 +89,10 @@ export async function schedulingData(scheduleId: string | null, email: string) {
   if (!scheduleId) {
     const schedules = (
       await db.query(
-        `SELECT s.*,customer.payload->>'municipioNome' AS customer_city,customer.payload->>'ufSigla' AS customer_state,o.numero_sequencia,o.cliente_id::text AS customer_id,o.cliente_nome,o.equipamento,o.tipo_nome,o.tipo_atendimento_nome,o.status_lancamento_nome,linked.status_lancamento_nome AS linked_status_lancamento_nome,linked.id_m8 AS linked_order_id,linked.numero_sequencia AS linked_order_number,o.status order_status,(SELECT count(*)::int FROM web_service_operations p WHERE p.schedule_id=s.id) operation_count,
+        `SELECT s.*,customer.payload->>'municipioNome' AS customer_city,customer.payload->>'ufSigla' AS customer_state,o.numero_sequencia,o.cliente_id::text AS customer_id,o.cliente_nome,o.equipamento,o.tipo_nome,o.tipo_atendimento_nome,o.status_lancamento_nome,linked.status_lancamento_nome AS linked_status_lancamento_nome,linked.id_m8 AS linked_order_id,linked.numero_sequencia AS linked_order_number,o.status order_status,o.total_geral::text AS order_value,(o.data_entrega_prevista AT TIME ZONE 'America/Sao_Paulo')::date::text AS expected_delivery_date,(SELECT count(*)::int FROM web_service_operations p WHERE p.schedule_id=s.id) operation_count,
         COALESCE((SELECT jsonb_object_agg(c.status,c.n) FROM (SELECT p.status,count(*)::int n FROM web_service_operations p WHERE p.schedule_id=s.id GROUP BY p.status) c),'{}'::jsonb) operation_status_counts,
         COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'position',p.position,'description',p.document->>'description','internalNote',p.document->>'internalNote','vehicleId',p.document->>'vehicleId','status',p.status,'date',p.document->>'date','time',p.document->>'time','duration',p.document->'duration','calendarId',p.document->>'calendarId','responsibleEmail',p.document->>'responsible','support',COALESCE(p.document->'support','[]'::jsonb),'responsible',COALESCE(NULLIF(u.display_name,''),p.document->>'responsible')) ORDER BY p.document->>'time',p.position) FROM web_service_operations p LEFT JOIN web_user_access u ON u.email=p.document->>'responsible' WHERE p.schedule_id=s.id),'[]'::jsonb) calendar_operations
-        FROM web_service_schedules s LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id LEFT JOIN m8_customer_directory customer ON customer.company_id=o.company_id AND customer.person_id=o.cliente_id LEFT JOIN web_order_links ol ON ol.company_id=s.company_id AND ol.order_id=s.order_id LEFT JOIN m8_ordens_servico linked ON linked.company_id=ol.linked_company_id AND linked.id_m8=ol.linked_order_id WHERE s.active ORDER BY s.created_at DESC,s.id DESC`,
+        FROM web_service_schedules s LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id LEFT JOIN m8_customer_directory customer ON customer.company_id=o.company_id AND customer.person_id=o.cliente_id LEFT JOIN web_order_links ol ON ol.company_id=s.company_id AND ol.order_id=s.order_id LEFT JOIN m8_ordens_servico linked ON linked.company_id=ol.linked_company_id AND linked.id_m8=ol.linked_order_id WHERE s.active AND lower(trim(COALESCE(o.status,''))) NOT IN ('cancelado','cancelada') ORDER BY s.created_at DESC,s.id DESC`,
       )
     ).rows;
     return {

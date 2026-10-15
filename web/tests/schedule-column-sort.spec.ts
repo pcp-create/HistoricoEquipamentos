@@ -7,6 +7,7 @@ test('schedule headers toggle ascending and descending order',async({page,contex
  {id:'b',order_id:'2',company_id:1,cliente_nome:'Água',operation_count:2,equipamento:'Atlas',tipo_nome:'Corretiva',status_lancamento_nome:'Aberto'},
  ]}}));
  await page.goto('/programacao');
+ await page.getByLabel('Mês da entrega prevista',{exact:true}).selectOption('');
  const rows=page.locator('.scheduling-orders-list tbody tr');
  for(const label of ['N° OS','Operações','Cliente','Equipamento','Tipo / atendimento','Status do lançamento','Empresa']){
   const header=page.getByRole('columnheader').filter({has:page.getByRole('button',{name:label,exact:true})});
@@ -28,12 +29,15 @@ test('completed OS summary follows ERP Processado rather than operation completi
  {id:'c',order_id:'12',order_status:'Pendente',programming_status:'executing',operation_count:1,operation_status_counts:{executing:1}},
  ]}}));
  await page.goto('/programacao');
+ await page.getByLabel('Mês da entrega prevista',{exact:true}).selectOption('');
  const flow=page.locator('.schedule-stage-flow');
  await expect(flow.locator('[data-status="completed"] strong')).toHaveText('1 OSs');
  await expect(flow.locator('[data-status="reviewed"] strong')).toHaveText('1 OSs');
  await expect(flow.locator('[data-status="executing"] strong')).toHaveText('1 OSs');
  await expect(flow.locator('[data-status="completed"] small')).toHaveText('1 operações');
  const badges=page.locator('.scheduling-orders-list .schedule-list-status');
- await expect(badges).toHaveText(['Concluída','Revisada','Em Execução']);
- await expect(badges.first()).toHaveClass(/completed/);
+ await expect(badges).toHaveText(['Revisada','Em Execução']);
+ await page.getByRole('button',{name:/OSs concluídas/}).click();
+ await expect(badges).toHaveText(['Revisada','Em Execução','Concluída']);
+ await expect(badges.last()).toHaveClass(/completed/);
 });

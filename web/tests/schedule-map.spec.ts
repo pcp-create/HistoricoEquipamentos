@@ -24,7 +24,10 @@ test("map groups colocated OSs, filters by date and saves a manual point on mobi
     id: String(n),
     order_id: String(14876 + n),
     company_id: 1,
-    cliente_nome: "Cliente " + n,
+    cliente_nome: "Cliente " + (n <= 2 ? 1 : n),
+    tipo_atendimento_nome: "Manutenção preventiva",
+    equipamento: "Compressor teste",
+    status_lancamento_nome: "Material separado",
     operation_count: 1,
     programming_status: "scheduled",
     operation_status_counts: { scheduled: 1 },
@@ -105,6 +108,7 @@ test("map groups colocated OSs, filters by date and saves a manual point on mobi
     ],
   } }); });
   await page.goto("/programacao");
+  await page.getByLabel("Mês da entrega prevista",{exact:true}).selectOption("");
   await page.getByRole("button", { name: "Mapa", exact: true }).click();
   await expect(page.locator(".schedule-map-pin")).toHaveText("2");
   await expect(
@@ -125,7 +129,7 @@ test("map groups colocated OSs, filters by date and saves a manual point on mobi
     width: "32px",
     height: "32px",
     radius: "50%",
-    fill: "rgb(35, 112, 184)",
+    fill: "rgb(229, 181, 43)",
   });
   await expect.poll(() => tileReferers.length).toBeGreaterThan(0);
   expect(
@@ -134,7 +138,15 @@ test("map groups colocated OSs, filters by date and saves a manual point on mobi
   await expect(page.getByText("2 de 3 OSs no mapa")).toBeVisible();
   await page.locator(".schedule-map-pin").click();
   await expect(page.locator(".schedule-map-popup")).toContainText("OS 14877");
+  await expect(page.locator(".schedule-map-popup-order-details").first()).toContainText("Manutenção preventiva");
+  await expect(page.locator(".schedule-map-popup-equipment").first()).toContainText("Compressor teste");
+  await expect(page.locator(".schedule-map-popup-launch-status").first()).toHaveText("Status do lançamento: Material separado");
+  await expect(page.locator(".schedule-map-popup-programming").first()).toContainText("Status Programação:");
+  await expect(page.locator(".schedule-map-popup-location").first()).toContainText("Endereço:");
   await expect(page.locator(".schedule-map-popup")).toContainText("OS 14878");
+  await expect(page.locator(".schedule-map-popup-location")).toHaveCount(1);
+  await expect(page.locator(".schedule-map-popup-address")).toHaveCount(1);
+  await expect(page.locator(".schedule-map-popup section > :last-child")).toHaveClass("schedule-map-popup-address");
   await expect(page.locator(".schedule-map-popup")).toContainText(
     "Aproximada: região do CEP",
   );
@@ -292,6 +304,7 @@ test("opening map only reads saved positions and never geocodes missing addresse
     });
   });
   await page.goto("/programacao");
+  await page.getByLabel("Mês da entrega prevista",{exact:true}).selectOption("");
   await page.getByRole("button", { name: "Mapa", exact: true }).click();
   await expect(page.getByText("0 de 3 OSs no mapa")).toBeVisible();
   await expect(page.getByRole("button", { name: "Atualizar localidades" })).toHaveCount(0);
