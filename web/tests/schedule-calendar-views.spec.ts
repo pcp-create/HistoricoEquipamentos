@@ -54,6 +54,7 @@ test('undated orders are highlighted beside totals and open from the list',async
  await page.route('**/api/service-scheduling',r=>r.fulfill({json:{users:[],schedules:[
  {id:'1',order_id:'15001',operation_count:1,calendar_operations:[{date:'',dates:[''],responsible:'Ana'}]},
  {id:'2',order_id:'15002',operation_count:0,calendar_operations:[]},
+ {id:'4',order_id:'15004',order_status:'Processado',operation_count:0,calendar_operations:[]},
  {id:'3',order_id:'15003',operation_count:1,calendar_operations:[{date:'2026-10-15',dates:['2026-10-15']}]}
  ]}}));
  await page.goto('/programacao');
@@ -66,6 +67,7 @@ test('undated orders are highlighted beside totals and open from the list',async
  await expect(dialog.locator('.schedule-calendar-order')).toHaveCount(2);
  await expect(dialog).toContainText('OS 15001');
  await expect(dialog).toContainText('OS 15002');
+ await expect(dialog).not.toContainText('OS 15004');
  await dialog.getByRole('button',{name:'Fechar OSs do dia'}).click();
  await page.getByRole('button',{name:'Calendário',exact:true}).click();
  await expect(page.locator('.schedule-calendar-undated')).toHaveCount(0);

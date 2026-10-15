@@ -714,3 +714,18 @@
 .scheduling-orders-list td.schedule-delivery-carried {color:#b42318;font-weight:600}
 
 .scheduling-orders-list .schedule-order-value {white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+
+.schedule-overview-totals {max-width:none;grid-template-columns:repeat(5,minmax(0,1fr))}
+.schedule-overview-totals .schedule-value-summary strong {font-size:clamp(18px,1.65vw,26px);overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.schedule-value-summary .schedule-value-completed {color:#197547;font-weight:600}
+.schedule-overview-totals .schedule-value-open {background:#f0f6fc;border-color:#b8d3eb}
+.schedule-stage-value {font-size:13px;color:#245988;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+@media(max-width:1100px){.schedule-overview-totals{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){.schedule-overview-totals{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.schedule-stage-flow article {position:relative}
+.scheduling-page .schedule-stage-flow .schedule-stage-filter-button {position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;border-radius:10px;background:transparent;cursor:pointer;z-index:1}
+.schedule-stage-flow article:hover {box-shadow:0 2px 8px #23466920}
+.schedule-stage-flow article.schedule-stage-selected {box-shadow:inset 0 0 0 2px #215e93}
+.schedule-stage-filter-button:focus-visible {outline:3px solid #215e93;outline-offset:2px}
+.schedule-stage-filter-label {display:flex;align-items:center;gap:8px;font-size:13px}

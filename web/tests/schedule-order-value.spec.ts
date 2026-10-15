@@ -6,6 +6,9 @@ test('order values use BRL and sort numerically including cents and missing amou
  await page.goto('/programacao');
  await page.getByLabel('Mês da entrega prevista',{exact:true}).selectOption('');
  const cells=page.locator('.schedule-order-value');
+ await expect(page.locator('.schedule-value-summary').first().locator('strong')).toHaveText('R$ 5,00');
+ await expect(page.locator('.schedule-value-open strong')).toHaveText('R$ 5,00');
+ await expect(page.locator('.schedule-stage-flow [data-status="pending"] .schedule-stage-value')).toHaveText('R$ 5,00');
  await expect(cells).toHaveText(['R$ 2,90','R$ 2,10','R$ 0,00','Não informado']);
  await page.getByRole('button',{name:'Valor da OS',exact:true}).click();
  await expect(cells).toHaveText(['R$ 0,00','R$ 2,10','R$ 2,90','Não informado']);

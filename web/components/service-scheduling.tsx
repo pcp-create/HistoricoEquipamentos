@@ -1,4 +1,5 @@
 "use client";
+import { scheduleValueSummary } from "@/lib/service-scheduling/value-summary";
 import { isCarriedDelivery, matchesDeliveryProjection } from "@/lib/service-scheduling/delivery-projection";
 import { displayedScheduleStatus } from "@/lib/service-scheduling/display-status";
 import { includesLaborCost } from "@/lib/service-scheduling/labor-costs";
@@ -138,6 +139,7 @@ export default function ServiceScheduling() {
   });
   const [deliveryYear, setDeliveryYear] = useState(() => new Intl.DateTimeFormat("en", {year:"numeric",timeZone:"America/Sao_Paulo"}).format(new Date()));
   const [completedExpanded, setCompletedExpanded] = useState(false);
+  const [stageFilter, setStageFilter] = useState("");
   const [executor, setExecutor] = useState("");
   const deliveryMonths = [...new Set<string>((data?.schedules || [])
     .map((s:any) => s.expected_delivery_date?.slice(0,7))
@@ -158,7 +160,8 @@ export default function ServiceScheduling() {
       o.responsibleEmail === executor || (o.support || []).includes(executor)
     ) : s.calendar_operations,
   })).filter((s: any) => !executor || s.calendar_operations.length > 0);
-  const sortedSchedules = listSort ? [...filteredSchedules].sort((a, b) => {
+  const stageSchedules = filteredSchedules.filter((s:any)=>!stageFilter || displayedScheduleStatus(s)===stageFilter);
+  const sortedSchedules = listSort ? [...stageSchedules].sort((a, b) => {
     if (listSort.key === "value") {
       if (a.order_value == null) return b.order_value == null ? 0 : 1;
       if (b.order_value == null) return -1;
@@ -166,7 +169,7 @@ export default function ServiceScheduling() {
     }
     return scheduleSortValue(a, listSort.key).localeCompare(scheduleSortValue(b, listSort.key),
       "pt-BR", { numeric: true, sensitivity: "base" }) * (listSort.descending ? -1 : 1);
-  }) : filteredSchedules;
+  }) : stageSchedules;
   const completedSchedules = sortedSchedules.filter((s:any)=>displayedScheduleStatus(s)==="completed");
   const pendingSchedules = sortedSchedules.filter((s:any)=>displayedScheduleStatus(s)!=="completed");
   const listEntries = [...pendingSchedules, ...(completedSchedules.length ? [
@@ -385,7 +388,11 @@ export default function ServiceScheduling() {
           />
         ) : !id ? (
           <>
-            <ScheduleOverview schedules={filteredSchedules} />
+            <ScheduleOverview schedules={filteredSchedules} selectedStage={stageFilter} onSelectStage={status=>{
+              const next=stageFilter===status ? "" : status;
+              setStageFilter(next);setOverviewView("list");
+              if(next==="completed")setCompletedExpanded(true);
+            }} />
             <div className="schedule-overview-filters">
             <label className="scheduling-search">
               Pesquisar OS, cliente, equipamento ou cidade
@@ -423,6 +430,7 @@ export default function ServiceScheduling() {
             </nav>
             {overviewView === "map" && <ScheduleOrdersMap schedules={filteredSchedules}/>}
             {overviewView === "calendar" && <ScheduleOrdersCalendar schedules={filteredSchedules} users={data.users || []} vehicles={data.settings?.document?.vehicles || []}/>}
+            {overviewView === "list" && stageFilter && <p className="schedule-stage-filter-label">Etapa: <strong>{scheduleStatusNames[stageFilter]}</strong> <button type="button" onClick={()=>setStageFilter("")}>Limpar etapa</button></p>}
             <div hidden={overviewView !== "list"} className="scheduling-table scheduling-orders-list">
               <table>
                 <thead>
@@ -515,7 +523,7 @@ export default function ServiceScheduling() {
                     ))}
                 </tbody>
               </table>
-              {!filteredSchedules.length && (
+              {!stageSchedules.length && (
                 <p>Nenhuma OS encontrada para os filtros selecionados.</p>
               )}
             </div>
@@ -799,10 +807,12 @@ export default function ServiceScheduling() {
     </>
   );
 }
-function ScheduleOverview({ schedules }: { schedules: any[] }) {
+function ScheduleOverview({ schedules, selectedStage, onSelectStage }: { schedules: any[]; selectedStage:string; onSelectStage:(status:string)=>void }) {
+  const values = scheduleValueSummary(schedules);
   const [showUndated, setShowUndated] = useState(false);
-  const undated = schedules.filter(s => !s.calendar_operations?.length ||
-    s.calendar_operations.some((o:any) => (o.dates || [o.date || ""]).includes("")));
+  const undated = schedules.filter(s => displayedScheduleStatus(s) !== "completed" && (
+    !s.calendar_operations?.length ||
+    s.calendar_operations.some((o:any) => (o.dates || [o.date || ""]).includes(""))));
 
   const operations: Record<string, number> = {};
   const orders: Record<string, number> = {};
@@ -840,12 +850,26 @@ function ScheduleOverview({ schedules }: { schedules: any[] }) {
           <small>{undated.length ? "Atenção: definir as datas dos serviços" : "Nenhuma programação sem data"}</small>
           <button type="button" disabled={!undated.length} onClick={()=>setShowUndated(true)}>Ver OSs sem data programada</button>
         </article>
+        <article className="schedule-value-summary">
+          <span>Valor total da programação</span>
+          <strong>{money(values.total)}</strong>
+          <small className="schedule-value-completed">Concluídas: {money(values.completed)} · {orders.completed || 0} OSs</small>
+          {!!values.missing && <small>{values.missing} OSs sem valor informado</small>}
+        </article>
+        <article className="schedule-value-summary schedule-value-open">
+          <span>Valor das OSs não concluídas</span>
+          <strong>{money(values.open)}</strong>
+          <small>{schedules.length - (orders.completed || 0)} OSs a concluir</small>
+          {!!values.openMissing && <small>{values.openMissing} OSs sem valor informado</small>}
+        </article>
       </div>
       {showUndated && <DayOrders orders={undated} day="" onClose={()=>setShowUndated(false)}/>}
       <ol className="schedule-overview-cards schedule-stage-flow" aria-label="Etapas da programação" tabIndex={0}>
         {Object.entries(scheduleStatusNames).filter(([status])=>status!=="cancelled").map(([status, label]) => (
           <li key={status}>
-          <article data-status={status}>
+          <article data-status={status} className={selectedStage===status ? "schedule-stage-selected" : undefined}>
+            <button type="button" className="schedule-stage-filter-button" aria-label={"Filtrar OSs: "+label} aria-pressed={selectedStage===status} onClick={()=>onSelectStage(status)}/>
+
             <span>{label}</span>
             <strong>
               {(orders[status] || 0).toLocaleString("pt-BR")} <em>OSs</em>
@@ -853,6 +877,8 @@ function ScheduleOverview({ schedules }: { schedules: any[] }) {
             <small>
               {operations[status] || 0} operações
             </small>
+            <b className="schedule-stage-value">{money((values.stages[status]?.cents || 0)/100)}</b>
+            {!!values.stages[status]?.missing && <small>{values.stages[status].missing} OSs sem valor</small>}
           </article>
           </li>
         ))}
