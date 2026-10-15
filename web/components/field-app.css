@@ -688,6 +688,8 @@ dialog.field-report-screen {
 @media(max-width:480px){.field-header{gap:8px}.field-header h1{font-size:22px}.field-header small{font-size:9px;letter-spacing:1px}}
 
 .field-app.field-app-map {height:100dvh;min-height:0;display:flex;flex-direction:column;padding-bottom:0}
+/* Flex layout does not collapse adjacent margins like the list/calendar layout. */
+.field-app-map > .field-user-summary {margin-bottom:0}
 .field-app-map > :not(.field-map) {flex-shrink:0}
 .field-app-map > .field-map {flex:1;min-height:160px;display:flex;flex-direction:column}
 .field-app-map .field-map-canvas {flex:1;min-height:0}
