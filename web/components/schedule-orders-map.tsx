@@ -6,7 +6,6 @@ import { clusterMapPoints } from "@/lib/service-scheduling/map-clusters";
 import { apiFetch } from "@/lib/client-api-cache";
 import {
   positionLabel,
-  addressIdentity,
   localityText,
   validPoint,
   type Locality,
@@ -68,11 +67,6 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
       .finally(() => { if (!controller.signal.aborted) setTerritoryLoading(false); });
     return () => controller.abort();
   }, [showTerritories, territories]);
-  const [refresh, setRefresh] = useState(0);
-  const attempted = useRef(new Set<string>());
-  const autoRequest = useRef<AbortController | null>(null);
-  const [locating, setLocating] = useState(false);
-  useEffect(() => () => autoRequest.current?.abort(), []);
   const [data, setData] = useState<MapData | null>(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -121,7 +115,7 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [ids, refresh]);
+  }, [ids]);
   const summaryOrders = useMemo(() => schedules.filter((s) => s.programming_status !== "completed" && (
     !day || (s.calendar_operations || []).some((o: any) => (o.dates || [o.date]).includes(day))),
   ), [schedules, day]);
@@ -484,33 +478,6 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
       marker.remove();
     };
   }, [editing, latitude, longitude, ready]);
-  useEffect(() => {
-    if (!data?.geocodingAvailable || loading || busy || editing) return;
-    const target = visible.find(
-      (s) =>
-        s.address &&
-        !validPoint(s.address.latitude, s.address.longitude) &&
-        !attempted.current.has(
-          `${s.address.person_id}:${s.address.address_id}:${addressIdentity(s.address)}`,
-        ),
-    );
-    if (!target) return;
-    const key = `${target.address.person_id}:${target.address.address_id}:${addressIdentity(target.address)}`;
-    attempted.current.add(key);
-    const controller = new AbortController();
-    autoRequest.current = controller;
-    setLocating(true);
-    void change(
-      {
-        action: "geocode",
-        scheduleId: String(target.id),
-        addressId: target.address.address_id,
-      },
-      controller.signal,
-    ).finally(() => {
-      if (!controller.signal.aborted) setLocating(false);
-    });
-  }, [data, visible, loading, busy, editing]);
   async function change(body: any, signal?: AbortSignal) {
     setBusy(true);
     if (!signal) setError("");
@@ -578,23 +545,10 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
           {located.length} de {visible.length} OSs no mapa
         </span>
       </div>
-      <button
-        disabled={loading || busy}
-        onClick={() => setRefresh((n) => n + 1)}
-      >
-        Atualizar localidades
-      </button>
       {loading && <p role="status">Carregando localidades…</p>}
-      {locating && <p role="status">Localizando endereços das OSs no mapa…</p>}
       {error && (
         <p role="alert" className="schedule-map-error">
           {error}
-        </p>
-      )}
-      {!loading && data && !data.geocodingAvailable && (
-        <p className="muted">
-          Você pode marcar as localidades no mapa. A busca automática de
-          endereços depende da configuração do serviço de localização.
         </p>
       )}
       {editing && (
@@ -782,21 +736,6 @@ export default function ScheduleOrdersMap({ schedules }: { schedules: any[] }) {
                         Ver no mapa
                       </button>
                     )}
-                    {data?.geocodingAvailable &&
-                      !validPoint(s.address.latitude, s.address.longitude) && (
-                        <button
-                          disabled={busy}
-                          onClick={() =>
-                            change({
-                              action: "geocode",
-                              scheduleId: String(s.id),
-                              addressId: s.address.address_id,
-                            })
-                          }
-                        >
-                          Localizar endereço
-                        </button>
-                      )}
                     <button disabled={busy} onClick={() => edit(s)}>
                       {validPoint(s.address.latitude, s.address.longitude)
                         ? "Ajustar posição"

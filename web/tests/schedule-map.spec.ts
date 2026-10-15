@@ -129,7 +129,7 @@ test("map groups colocated OSs, filters by date and saves a manual point on mobi
   });
   await expect.poll(() => tileReferers.length).toBeGreaterThan(0);
   expect(
-    tileReferers.every((value) => value === "http://localhost:3100/"),
+    tileReferers.every((value) => value === new URL(page.url()).origin + "/"),
   ).toBe(true);
   await expect(page.getByText("2 de 3 OSs no mapa")).toBeVisible();
   await page.locator(".schedule-map-pin").click();
@@ -210,7 +210,7 @@ test("map groups colocated OSs, filters by date and saves a manual point on mobi
   });
 });
 
-test("opening map locates missing addresses once per locality and leaves failed addresses for review", async ({
+test("opening map only reads saved positions and never geocodes missing addresses", async ({
   page,
   context,
 }) => {
@@ -293,16 +293,15 @@ test("opening map locates missing addresses once per locality and leaves failed 
   });
   await page.goto("/programacao");
   await page.getByRole("button", { name: "Mapa", exact: true }).click();
+  await expect(page.getByText("0 de 3 OSs no mapa")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Atualizar localidades" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Localizar endereço", exact: true })).toHaveCount(0);
+  await expect(page.locator(".schedule-map-error")).toHaveCount(0);
+  expect(calls).toEqual([]);
+  // Coordinates saved by the background worker are loaded on the next map visit.
+  data.schedules.filter(s=>s.selectedAddressId==="7").forEach(s=>Object.assign(s.localities[0],{latitude:-27.3,longitude:-49.6}));
+  await page.getByRole("button", { name: "Lista", exact: true }).click();
+  await page.getByRole("button", { name: "Mapa", exact: true }).click();
   await expect(page.getByText("2 de 3 OSs no mapa")).toBeVisible();
-  await expect(page.locator(".schedule-map-error")).toHaveText(
-    "Confira o endereço manualmente.",
-  );
-  await expect(
-    page.getByRole("button", { name: "Atualizar localidades" }),
-  ).toBeEnabled();
-  await page.getByRole("button", { name: "Atualizar localidades" }).click();
-  await expect(
-    page.getByRole("button", { name: "Atualizar localidades" }),
-  ).toBeEnabled();
-  expect(calls).toEqual(["7", "8"]);
+  expect(calls).toEqual([]);
 });
