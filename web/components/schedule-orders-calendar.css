@@ -1,5 +1,7 @@
-.schedule-overview-views {display:flex;gap:8px;margin:16px 0}
-.schedule-overview-views button[aria-pressed="true"] {background:#215e93;color:white;border-color:#215e93}
+.schedule-overview-views {display:flex;gap:8px;margin:12px 0 16px}
+.scheduling-page .schedule-overview-views button {display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:8px 14px;border:1px solid #d6e2ed;border-radius:12px;background:white;color:#245988;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.scheduling-page .schedule-overview-views button:focus-visible {outline:3px solid #4c93db;outline-offset:2px}
+.scheduling-page .schedule-overview-views button[aria-pressed="true"] {background:#215e93;color:white;border-color:#215e93}
 .scheduling-orders-list[hidden] {display:none}
 .schedule-orders-calendar {border:1px solid #d6e2ed;border-radius:12px;background:white;padding:16px}
 .schedule-orders-calendar header,.schedule-calendar-dialog header {display:flex;align-items:center;gap:12px;margin-bottom:16px}

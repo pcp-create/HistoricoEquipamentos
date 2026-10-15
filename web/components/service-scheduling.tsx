@@ -18,6 +18,9 @@ import {
   ChevronRight,
   Trash2,
   ListChecks,
+  ClipboardList,
+  CalendarDays,
+  MapPin,
 } from "lucide-react";
 import SiteHeader from "./site-header";
 import ScheduleAutomaticRules from "./schedule-automatic-rules";
@@ -350,9 +353,9 @@ export default function ServiceScheduling() {
               incluí-la nesta lista.
             </p>
             <nav className="schedule-overview-views" aria-label="Visão da programação">
-              <button aria-pressed={overviewView === "list"} onClick={() => setOverviewView("list")}>Lista</button>
-              <button aria-pressed={overviewView === "calendar"} onClick={() => setOverviewView("calendar")}>Calendário</button>
-              <button aria-pressed={overviewView === "map"} onClick={() => setOverviewView("map")}>Mapa</button>
+              <button aria-pressed={overviewView === "list"} onClick={() => setOverviewView("list")}> <ClipboardList size={16} aria-hidden="true"/>Lista</button>
+              <button aria-pressed={overviewView === "calendar"} onClick={() => setOverviewView("calendar")}> <CalendarDays size={16} aria-hidden="true"/>Calendário</button>
+              <button aria-pressed={overviewView === "map"} onClick={() => setOverviewView("map")}> <MapPin size={16} aria-hidden="true"/>Mapa</button>
             </nav>
             {overviewView === "map" && <ScheduleOrdersMap schedules={filteredSchedules}/>}
             {overviewView === "calendar" && <ScheduleOrdersCalendar schedules={filteredSchedules}/>}
