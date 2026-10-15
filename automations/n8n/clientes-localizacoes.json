@@ -1,0 +1,99 @@
+{
+  "name": "Clientes — localização automática dos endereços",
+  "nodes": [
+    {
+      "id": "manual",
+      "name": "Teste manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "schedule",
+      "name": "A cada minuto",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        180
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "* * * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "positions",
+      "name": "Atualizar localizações dos clientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        280,
+        80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://rjcompressores.app/api/localities/automation",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 60000
+        }
+      }
+    },
+    {
+      "id": "instructions",
+      "name": "Como configurar",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        60,
+        -300
+      ],
+      "parameters": {
+        "width": 620,
+        "height": 240,
+        "content": "## Localização automática dos clientes\n1. No HTTP Request, selecione Header Auth com Name: Authorization e Value: Bearer <TOKEN>. Use TASK_AUTOMATION_TOKEN (ou PREVENTIVE_REPORT_TOKEN se o primeiro não existir).\n2. GEOAPIFY_API_KEY fica somente na Vercel.\n3. Execute Teste manual. A saída traz updated, failed e skipped.\n4. Publique/ative este fluxo para executar a cada minuto.\nProcessa até 3 endereços por execução, prioriza clientes com OSs programadas e não envia mensagens nem sincroniza tarefas."
+      }
+    }
+  ],
+  "connections": {
+    "Teste manual": {
+      "main": [
+        [
+          {
+            "node": "Atualizar localizações dos clientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A cada minuto": {
+      "main": [
+        [
+          {
+            "node": "Atualizar localizações dos clientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  }
+}

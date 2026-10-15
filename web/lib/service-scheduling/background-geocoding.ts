@@ -2,9 +2,10 @@ import 'server-only';
 import { database } from '../db';
 import { geocodeLocality } from './geocode';
 import { geocodePendingLocalities } from './locality-geocoding';
-/** Existing n8n automation drives this job without loading a map or moving the API key. */
+/** Dedicated n8n workflow drives this job using the API key stored on Vercel. */
 export async function processPendingLocalityPositions(deadline: number) {
-  if (!process.env.GEOAPIFY_API_KEY || Date.now() >= deadline - 5000) return;
+  if (!process.env.GEOAPIFY_API_KEY) throw new Error("Geocoding is not configured");
+  if (Date.now() >= deadline - 5000) throw new Error("Geocoding deadline exceeded");
   const c = await database().connect();
   try {
     const result=await geocodePendingLocalities(c, {
@@ -14,7 +15,9 @@ export async function processPendingLocalityPositions(deadline: number) {
         ...init,signal:AbortSignal.any([init?.signal || new AbortController().signal,AbortSignal.timeout(Math.max(1,deadline-Date.now()))]),
       })),
     });
+    if (!result.configured) throw new Error('Geocoding migration is missing');
     console.info('LOCALITY_GEOCODING',result);
-  } catch {console.error('LOCALITY_GEOCODING_DEFERRED');}
+    return result;
+  }
   finally {c.release();}
 }

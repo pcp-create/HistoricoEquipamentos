@@ -1,5 +1,3 @@
-import { after } from "next/server";
-import { processPendingLocalityPositions } from "@/lib/service-scheduling/background-geocoding";
 import { PUBLIC_SYSTEM_URL } from "@/lib/public-url";
 import { claimReminders, acknowledgeReminder } from "@/lib/tasks/reminders";
 import { dailyTaskSummaries } from "@/lib/tasks/daily-summary";
@@ -15,7 +13,6 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 const headers = { "Cache-Control": "private, no-store" };
 export async function POST(req: Request) {
-  const startedAt = Date.now();
   if (
     !reportTokenMatches(
       req.headers.get("authorization"),
@@ -70,7 +67,6 @@ export async function POST(req: Request) {
       );
     }
     if (body.action !== "sync") throw new TaskInputError("Operação inválida.");
-    after(() => processPendingLocalityPositions(startedAt + 50000));
     const result = await syncTasks();
     const notifications =
       body.deliver === true
