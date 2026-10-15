@@ -3,7 +3,7 @@ import { claimReminders, acknowledgeReminder } from "@/lib/tasks/reminders";
 import { dailyTaskSummaries } from "@/lib/tasks/daily-summary";
 import { database } from "@/lib/db";
 import { brazilToday } from "@/lib/equipment-management/planning";
-import { reportTokenMatches } from "@/lib/preventive-reports/access";
+import { automationAuthError, automationAuthCheck } from "@/lib/automation/access";
 import { syncTasks, TaskInputError, TaskConflict } from "@/lib/tasks/store";
 import {
   claimNotifications,
@@ -13,16 +13,8 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 const headers = { "Cache-Control": "private, no-store" };
 export async function POST(req: Request) {
-  if (
-    !reportTokenMatches(
-      req.headers.get("authorization"),
-      process.env.TASK_AUTOMATION_TOKEN || process.env.PREVENTIVE_REPORT_TOKEN,
-    )
-  )
-    return Response.json(
-      { error: "Credencial inválida." },
-      { status: 401, headers },
-    );
+  const authError = automationAuthError(req);
+  if (authError) return authError;
   try {
     const raw = await req.text();
     if (raw.length > 1000) throw new TaskInputError("Dados excedem o limite.");
@@ -93,4 +85,9 @@ export async function POST(req: Request) {
       },
     );
   }
+}
+
+// Read-only credential test: never claims notifications or synchronizes tasks.
+export async function GET(req: Request) {
+  return automationAuthCheck(req);
 }
