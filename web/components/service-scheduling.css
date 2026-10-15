@@ -677,3 +677,24 @@
 .operation-milestone-track > span { position:absolute; left:12px; top:-4px; width:10px; height:10px; border-radius:50%; background:#245e91; box-shadow:0 0 0 4px #eaf3fc; }
 .operation-milestones p { margin:8px 0 0; white-space:pre-wrap; line-height:1.5; }
 .operation-milestone-person { color:#617b93; }
+
+/* Keep the programming stages in one ordered, horizontally scrollable flow. */
+.schedule-overview {min-width:0;max-width:100%}
+.schedule-overview-totals {grid-template-columns:repeat(3,minmax(0,1fr));max-width:960px;margin-bottom:20px}
+.schedule-overview-totals article {padding:14px 18px;gap:6px}
+.schedule-overview-totals strong {font-size:26px}
+.schedule-stage-flow {display:grid;grid-template-columns:repeat(8,minmax(145px,1fr));gap:22px;list-style:none;padding:2px 2px 12px;margin:0 0 8px;overflow-x:auto;overscroll-behavior-x:contain}
+.schedule-stage-flow:focus-visible {outline:2px solid #2867a7;outline-offset:3px;border-radius:10px}
+.schedule-stage-flow > li {position:relative;min-width:0}
+.schedule-stage-flow > li:not(:last-child)::after {content:"›";position:absolute;right:-17px;top:50%;transform:translateY(-50%);font-size:24px;color:#8fa6bc}
+.schedule-stage-flow article {height:100%;padding:14px 12px;gap:10px;border-top:3px solid #9aadc0}
+.schedule-stage-flow article > span {min-height:34px;display:flex;align-items:center;font-size:12px;font-weight:600;color:#345570}
+.scheduling-page .scheduling-orders-list .schedule-column-sort {display:inline-flex;align-items:center;gap:6px;padding:4px 0;border:0;border-radius:3px;background:transparent;color:inherit;font:inherit;font-weight:inherit;text-align:left;cursor:pointer}
+.schedule-column-sort svg {flex-shrink:0}
+.scheduling-orders-list th[aria-sort="ascending"], .scheduling-orders-list th[aria-sort="descending"] {color:#215e93}
+.schedule-column-sort:focus-visible {outline:2px solid #2867a7;outline-offset:4px}
+.schedule-overview-totals .schedule-undated-summary.needs-attention {background:#fff8e6;border-color:#e5b52b;border-left:4px solid #e5b52b}
+.schedule-overview-totals .schedule-undated-summary.needs-attention > span,
+.schedule-overview-totals .schedule-undated-summary.needs-attention strong {color:#806000}
+.scheduling-page .schedule-undated-summary button {align-self:flex-start;padding:6px 10px;font-size:12px;background:white;color:#806000;border:1px solid #d9bd66;border-radius:6px}
+@media(max-width:600px){.schedule-overview-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule-overview-totals .schedule-undated-summary{grid-column:1/-1}}

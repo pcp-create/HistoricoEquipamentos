@@ -6,7 +6,9 @@
 .schedule-orders-calendar {border:1px solid #d6e2ed;border-radius:12px;background:white;padding:16px}
 .schedule-orders-calendar header,.schedule-calendar-dialog header {display:flex;align-items:center;gap:12px;margin-bottom:16px}
 .schedule-orders-calendar h2,.schedule-calendar-dialog h2 {flex:1;font-size:17px;margin:0;text-transform:capitalize}
-.schedule-calendar-legend {display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.schedule-calendar-legend {display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px 16px;margin-top:16px}
+.schedule-calendar-legend > span {display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#526e87}
+.schedule-calendar-legend > span > .schedule-calendar-legend-dot.operation-status {display:inline-block;flex-shrink:0;width:9px;height:9px;padding:0;border-radius:50%;background:var(--schedule-status-color)}
 .schedule-calendar-scroll {overflow-x:auto}
 .schedule-calendar-month {display:grid;grid-template-columns:repeat(7,minmax(0,1fr));min-width:770px;gap:1px;background:#dce5ef;border:1px solid #dce5ef}
 .schedule-calendar-weekday {text-align:center;background:#f3f7fb;padding:8px;font-size:12px}
@@ -32,3 +34,25 @@
 .schedule-calendar-start svg { flex-shrink:0; }
 
 .schedule-calendar-order.operation-status.completed {background:#edf9f1;border-color:#16834a;color:#116d3d}
+
+.schedule-calendar-month {grid-template-columns:36px repeat(7,minmax(0,1fr))}
+.schedule-calendar-week-number {background:#f3f7fb;color:#627d98;font-size:11px;text-align:center;padding-top:12px}
+.schedule-calendar-views {display:flex;gap:6px;margin-bottom:16px}
+.schedule-calendar-views button[aria-pressed="true"] {background:#215e93;color:white;border-color:#215e93}
+.schedule-calendar-week {display:grid;grid-template-columns:repeat(7,minmax(170px,1fr));gap:10px;min-width:1260px}
+.schedule-week-day {display:flex;flex-direction:column;gap:8px;padding:8px;background:#f6f8fb;border:1px solid #dce5ef;border-radius:8px;min-width:0}
+.schedule-week-heading {display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;font-weight:600}
+.schedule-week-heading small {font-size:10px;white-space:nowrap}
+.schedule-daily-table {width:100%;min-width:1050px;border-collapse:collapse;font-size:12px}
+.schedule-daily-table th {background:#eef4fa;text-align:left;padding:12px;color:#345570}
+.schedule-daily-table td {padding:14px 12px;vertical-align:top;border-bottom:1px solid #dce5ef;max-width:280px;overflow-wrap:anywhere}
+.schedule-daily-table td strong,.schedule-daily-table td small {display:block;margin-bottom:6px}
+.schedule-daily-table td small {color:#627d98}
+.schedule-daily-table a {display:block;font-weight:700;margin-bottom:6px}
+.schedule-daily-note {white-space:pre-wrap}
+.schedule-daily-table tbody tr:nth-child(even) {background:#f8fafc}
+@media(max-width:600px){.schedule-orders-calendar header{flex-wrap:wrap;gap:8px}.schedule-orders-calendar h2{font-size:14px;min-width:150px}}
+
+.scheduling-page .schedule-calendar-week-number {border:0;border-radius:0;padding:12px 0;min-width:0;display:block;color:#245988;background:#f3f7fb;font-size:11px;font-weight:600;cursor:pointer;align-content:start}
+.scheduling-page .schedule-calendar-week-number:hover {background:#e1edf8;text-decoration:underline}
+.scheduling-page .schedule-calendar-week-number:focus-visible {outline:2px solid #215e93;outline-offset:-2px}

@@ -16,6 +16,7 @@ import {
 } from "@/lib/service-scheduling/model";
 import "leaflet/dist/leaflet.css";
 import "./schedule-orders-map.css";
+import "./schedule-status-colors.css";
 import "./map-customer-label.css";
 type MapEntry = {
   id: string;

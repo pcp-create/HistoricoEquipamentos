@@ -641,7 +641,7 @@ export default function TasksDashboard() {
     [kanbanView, setKanbanView] = useState("responsible"),
     [tab, setTab] = useState("tasks"),
     [creating, setCreating] = useState(false),
-    [status, setStatus] = useState("all"),
+    [status, setStatus] = useState("active"),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState<string | null>(params.get("task")),
     [month, setMonth] = useState(() =>
@@ -671,7 +671,7 @@ export default function TasksDashboard() {
   }, [creating]);
   const [stageRole,setStageRole]=useState<string | null>(null);
   const [stages,setStages]=useState<any[]>([]),[stagesLoading,setStagesLoading]=useState(false),[newStage,setNewStage]=useState<string|null>(null);
-  useEffect(()=>{if(kanbanView!=="stage"||tab!=="tasks")return;let alive=true;setStagesLoading(true);api('/api/task-stages').then(b=>{if(alive)setStages(b.stages);}).catch(e=>{if(alive)setError(e.message);}).finally(()=>{if(alive)setStagesLoading(false);});return()=>{alive=false;};},[kanbanView,tab]);
+  useEffect(()=>{if(tab!=="tasks")return;let alive=true;setStagesLoading(true);api('/api/task-stages').then(b=>{if(alive)setStages(b.stages);}).catch(e=>{if(alive)setError(e.message);}).finally(()=>{if(alive)setStagesLoading(false);});return()=>{alive=false;};},[tab]);
   const lastCardDrag = useRef(0);
   const [dragging, setDragging] = useState<string | null>(null);
   const optimisticTask = useRef<any>(null);
@@ -1298,7 +1298,7 @@ export default function TasksDashboard() {
                   onChange={(e) => setStatus(e.target.value)}
                 >
                   <option value="active">Em aberto</option>
-                  <option value="all">Todos</option>
+                  <option value="all">Todas</option>
                   {Object.entries(taskColumns).map(([k, v]) => (
                     <option key={k} value={k}>
                       {v}
@@ -1370,7 +1370,7 @@ export default function TasksDashboard() {
                   setQuery("");
                   setResponsible("all");
                   setOriginFilter("all");
-                  setStatus("all");
+                  setStatus("active");
                   setPeriod("all");
                   setMine(false);
                   if (params.get("equipment"))

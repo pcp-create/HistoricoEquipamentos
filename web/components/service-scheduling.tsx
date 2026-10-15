@@ -5,13 +5,16 @@ import {reportStatusLabel,reportSubmission} from "@/lib/service-scheduling/check
 import OrderReportWindow from "./order-report-window";
 import OperationReviewWindow from "./operation-review-window";
 import ScheduleOrdersMap from "./schedule-orders-map";
-import ScheduleOrdersCalendar from "./schedule-orders-calendar";
+import ScheduleOrdersCalendar, { DayOrders } from "./schedule-orders-calendar";
 import SupportPicker from "./support-picker";
 import SchedulePauseReasons from "./schedule-pause-reasons";
 import SaveActionIcon from "./save-action-icon";
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Plus,
   Settings,
   ArrowLeft,
@@ -45,6 +48,28 @@ import { isMaintenancePackage, maintenanceCost } from "@/lib/service-scheduling/
 import { sameUnit } from "@/lib/product-values";
 import { isNotApproved } from "@/lib/material-approval";
 import "./service-scheduling.css";
+import "./schedule-status-colors.css";
+function displayedScheduleStatus(s: any): string {
+  if (String(s.order_status || "").trim().toLowerCase() === "processado") return "completed";
+  return s.programming_status === "completed" ? "reviewed" : s.programming_status || "pending";
+}
+const scheduleColumns = [
+  ["number", "N° OS"], ["operations", "Operações"], ["customer", "Cliente"],
+  ["equipment", "Equipamento"], ["type", "Tipo / atendimento"],
+  ["status", "Status do lançamento"], ["company", "Empresa"],
+] as const;
+type ScheduleSortKey = typeof scheduleColumns[number][0];
+function scheduleSortValue(s: any, key: ScheduleSortKey): string {
+  switch (key) {
+    case "number": return String(s.numero_sequencia || s.order_id || "");
+    case "operations": return String(s.operation_count ?? 0);
+    case "customer": return s.cliente_nome || "";
+    case "equipment": return s.equipamento || "";
+    case "type": return [s.tipo_nome, s.tipo_atendimento_nome].filter(Boolean).join(" ");
+    case "status": return s.status_lancamento_nome || "";
+    case "company": return companyName(s.company_id);
+  }
+}
 const itemIdentity = (i: any) => `${i.item_company ?? ""}:${i.item_order ?? ""}:${i.item_id ?? i.id_m8 ?? i.itemId}`;
 const itemMatches = (a: any,b: any) => String(a.item_id ?? a.id_m8 ?? a.itemId) === String(b.item_id ?? b.id_m8 ?? b.itemId) && (a.item_company == null || b.item_company == null || (String(a.item_company)===String(b.item_company)&&String(a.item_order)===String(b.item_order)));
 function ItemInconsistency({item}: {item:any}) {
@@ -106,6 +131,7 @@ export default function ServiceScheduling() {
   const [orderReportOpen,setOrderReportOpen]=useState(false);
   const dirtyOperations=useRef(new Set<string>());
   const [overviewView, setOverviewView] = useState("list");
+  const [listSort, setListSort] = useState<{key: ScheduleSortKey; descending: boolean} | null>(null);
   const [executor, setExecutor] = useState("");
   const executorOptions = new Map<string, string>();
   for (const u of data?.users || []) executorOptions.set(u.email, u.display_name || u.email);
@@ -121,6 +147,10 @@ export default function ServiceScheduling() {
       o.responsibleEmail === executor || (o.support || []).includes(executor)
     ) : s.calendar_operations,
   })).filter((s: any) => !executor || s.calendar_operations.length > 0);
+  const sortedSchedules = listSort ? [...filteredSchedules].sort((a, b) =>
+    scheduleSortValue(a, listSort.key).localeCompare(scheduleSortValue(b, listSort.key),
+      "pt-BR", { numeric: true, sensitivity: "base" }) * (listSort.descending ? -1 : 1)
+  ) : filteredSchedules;
   async function load() {
     setError("");
     try {
@@ -342,7 +372,7 @@ export default function ServiceScheduling() {
             </label>
             <label className="scheduling-search">
               Executante
-              <select value={executor} onChange={(e) => setExecutor(e.target.value)}>
+              <select aria-label="Executante" value={executor} onChange={(e) => setExecutor(e.target.value)}>
                 <option value="">Todos os executantes</option>
                 {[...executorOptions].sort((a,b) => a[1].localeCompare(b[1], "pt-BR")).map(([email,name]) => <option key={email} value={email}>{name}</option>)}
               </select>
@@ -358,23 +388,28 @@ export default function ServiceScheduling() {
               <button aria-pressed={overviewView === "map"} onClick={() => setOverviewView("map")}> <MapPin size={16} aria-hidden="true"/>Mapa</button>
             </nav>
             {overviewView === "map" && <ScheduleOrdersMap schedules={filteredSchedules}/>}
-            {overviewView === "calendar" && <ScheduleOrdersCalendar schedules={filteredSchedules}/>}
+            {overviewView === "calendar" && <ScheduleOrdersCalendar schedules={filteredSchedules} users={data.users || []} vehicles={data.settings?.document?.vehicles || []}/>}
             <div hidden={overviewView !== "list"} className="scheduling-table scheduling-orders-list">
               <table>
                 <thead>
                   <tr>
-                    <th>N° OS</th>
-                    <th>Operações</th>
-                    <th>Cliente</th>
-                    <th>Equipamento</th>
-                    <th>Tipo / atendimento</th>
-                    <th>Status do lançamento</th>
-                    <th>Empresa</th>
+                    {scheduleColumns.map(([key, label]) => (
+                      <th key={key} aria-sort={listSort?.key === key ? (listSort.descending ? "descending" : "ascending") : "none"}>
+                        <button className="schedule-column-sort" onClick={() => setListSort(current => ({
+                          key, descending: current?.key === key ? !current.descending : false,
+                        }))}>
+                          {label}
+                          {listSort?.key === key
+                            ? (listSort.descending ? <ArrowDown size={13} aria-hidden="true"/> : <ArrowUp size={13} aria-hidden="true"/>)
+                            : <ArrowUpDown size={13} aria-hidden="true"/>}
+                        </button>
+                      </th>
+                    ))}
                     <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSchedules
+                  {sortedSchedules
                     .map((s: any) => (
                       <tr key={s.id}>
                         <td>
@@ -393,10 +428,10 @@ export default function ServiceScheduling() {
                           <span
                             className={
                               "operation-status schedule-list-status " +
-                              s.programming_status
+                              displayedScheduleStatus(s)
                             }
                           >
-                            {scheduleStatusNames[s.programming_status] ||
+                            {scheduleStatusNames[displayedScheduleStatus(s)] ||
                               "Pendente"}
                           </span>
                         </td>
@@ -716,11 +751,15 @@ export default function ServiceScheduling() {
   );
 }
 function ScheduleOverview({ schedules }: { schedules: any[] }) {
+  const [showUndated, setShowUndated] = useState(false);
+  const undated = schedules.filter(s => !s.calendar_operations?.length ||
+    s.calendar_operations.some((o:any) => (o.dates || [o.date || ""]).includes("")));
+
   const operations: Record<string, number> = {};
   const orders: Record<string, number> = {};
   for (const s of schedules) {
-    orders[s.programming_status || "pending"] =
-      (orders[s.programming_status || "pending"] || 0) + 1;
+    const status = displayedScheduleStatus(s);
+    orders[status] = (orders[status] || 0) + 1;
     for (const [status, count] of Object.entries(
       s.operation_status_counts || {},
     ))
@@ -732,7 +771,7 @@ function ScheduleOverview({ schedules }: { schedules: any[] }) {
   );
   return (
     <section className="schedule-overview" aria-label="Resumo da programação">
-      <div className="schedule-overview-cards">
+      <div className="schedule-overview-cards schedule-overview-totals">
         <article>
           <span>Total de OSs</span>
           <strong>{schedules.length.toLocaleString("pt-BR")}</strong>
@@ -746,22 +785,34 @@ function ScheduleOverview({ schedules }: { schedules: any[] }) {
             {totalOperations - (operations.completed || 0)} em aberto
           </small>
         </article>
+        <article className={"schedule-undated-summary" + (undated.length ? " needs-attention" : "")}>
+          <span>Sem data programada</span>
+          <strong>{undated.length.toLocaleString("pt-BR")} <em>OSs</em></strong>
+          <small>{undated.length ? "Atenção: definir as datas dos serviços" : "Nenhuma programação sem data"}</small>
+          <button type="button" disabled={!undated.length} onClick={()=>setShowUndated(true)}>Ver OSs sem data programada</button>
+        </article>
+      </div>
+      {showUndated && <DayOrders orders={undated} day="" onClose={()=>setShowUndated(false)}/>}
+      <ol className="schedule-overview-cards schedule-stage-flow" aria-label="Etapas da programação" tabIndex={0}>
         {Object.entries(scheduleStatusNames).map(([status, label]) => (
-          <article key={status}>
+          <li key={status}>
+          <article data-status={status}>
             <span>{label}</span>
             <strong>
               {(orders[status] || 0).toLocaleString("pt-BR")} <em>OSs</em>
             </strong>
             <small>
-              {operations[status] || 0} operações · {statusNames[status]}
+              {operations[status] || 0} operações
             </small>
           </article>
+          </li>
         ))}
-      </div>
+      </ol>
       <small>
         O status da OS considera a primeira etapa de programação ainda pendente;
-        operações em execução têm prioridade. A OS fica concluída quando todas
-        as operações estão concluídas.
+        operações em execução têm prioridade. Concluída considera somente OSs
+        com status Processado no ERP. Operações finalizadas aguardando esse
+        processamento ficam em Revisada neste resumo.
       </small>
     </section>
   );

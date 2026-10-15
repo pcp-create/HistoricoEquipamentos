@@ -14,3 +14,13 @@ test('Kanban stage columns follow configured order and persist card moves',async
  await page.setViewportSize({width:390,height:844});expect(await page.locator('.task-results-toolbar').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
  await columns.nth(2).getByRole('button',{name:'+ Adicionar tarefa',exact:true}).click();await expect(page.getByText('Etapa inicial: Proposta',{exact:true})).toBeVisible();
 });
+
+test('initial Kanban cards show the current stage without grouping by stage',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/activity',r=>r.fulfill({json:{}}));
+ await page.route('**/api/task-stages',r=>r.fulfill({json:{stages:[{id:'budget',job_title:'Orçamentista',name:'Em Orçamento',sort_order:1}]}}));
+ await page.route('**/api/tasks',r=>r.fulfill({json:{tasks:[{id:'1563',version:1,title:'Preventiva 8.000 horas',source_key:'manual:1563',origin:'Tarefa manual',status:'in_progress',priority:'urgent',stage_id:'budget'}],users:[]}}));
+ await page.goto('/tarefas');
+ await expect(page.locator('.task-kanban-card')).toContainText('Etapa: Em Orçamento');
+ await expect(page.locator('.task-kanban-card')).not.toContainText('Etapa indisponível');
+});

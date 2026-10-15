@@ -1,0 +1,26 @@
+/* Shared palette for the workflow, calendar and map. */
+:is(.operation-status.pending, .schedule-stage-flow [data-status="pending"]) {--schedule-status-color:#9aadc0;--schedule-status-bg:#eef2f6;--schedule-status-text:#52677c}
+:is(.operation-status.planning, .schedule-stage-flow [data-status="planning"]) {--schedule-status-color:#f2d77c;--schedule-status-bg:#fff9e5;--schedule-status-text:#80671c}
+:is(.operation-status.scheduled, .operation-status.awaiting_review, .schedule-stage-flow [data-status="scheduled"], .schedule-stage-flow [data-status="awaiting_review"]) {--schedule-status-color:#e5b52b;--schedule-status-bg:#fff5cc;--schedule-status-text:#806000}
+:is(.operation-status.awaiting_execution, .schedule-stage-flow [data-status="awaiting_execution"]) {--schedule-status-color:#70b5e8;--schedule-status-bg:#edf7ff;--schedule-status-text:#306c99}
+:is(.operation-status.executing, .schedule-stage-flow [data-status="executing"]) {--schedule-status-color:#2879c7;--schedule-status-bg:#e8f2ff;--schedule-status-text:#2166a6}
+:is(.operation-status.reviewed, .schedule-stage-flow [data-status="reviewed"]) {--schedule-status-color:#88c99b;--schedule-status-bg:#eff9ed;--schedule-status-text:#43784c}
+:is(.operation-status.completed, .schedule-stage-flow [data-status="completed"]) {--schedule-status-color:#23945c;--schedule-status-bg:#e7f6ed;--schedule-status-text:#197547}
+.operation-status.overdue {--schedule-status-color:#dc2626;--schedule-status-bg:#fff0f0;--schedule-status-text:#a52626}
+
+.schedule-stage-flow article[data-status] {border-top-color:var(--schedule-status-color)}
+.schedule-calendar-order.operation-status[class],
+.schedule-calendar-legend .operation-status[class],
+.schedule-daily .operation-status[class],
+.schedule-map .operation-status {
+  background:var(--schedule-status-bg);
+  color:var(--schedule-status-text);
+  border-color:var(--schedule-status-color);
+}
+.schedule-calendar-order.operation-status.completed {background:var(--schedule-status-bg);color:var(--schedule-status-text);border-color:var(--schedule-status-color)}
+.schedule-calendar-order.operation-status {border-left:3px solid var(--schedule-status-color)}
+.schedule-map .schedule-map-pin.operation-status,
+.schedule-map .schedule-map-segments .operation-status,
+.schedule-map .schedule-map-summary .schedule-map-status-dot.operation-status {
+  color:var(--schedule-status-color);
+}

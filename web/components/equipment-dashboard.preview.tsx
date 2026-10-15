@@ -1,4 +1,5 @@
 "use client";
+import { orderPreventivePlans, nextPreventivePlanId } from "@/lib/equipment-management/plan-order";
 import { rentalSpecifications, rentalSpecificationRanges, matchesRentalSpecification, type RentalSpecification } from "@/lib/equipment-management/rental-specifications";
 import CopyPreventivePlan from "./copy-preventive-plan";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
@@ -1377,11 +1378,11 @@ export default function EquipmentDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {detail.plans.map((p: any) => (
+                        {orderPreventivePlans(detail.plans).map((p: any) => (
                           <Fragment key={p.id}><tr>
                             <td>
                               <strong>{p.document.name}</strong>
-                              {p.forecast.target != null && !p.forecast.coveredBy && !p.forecast.inconsistent && p.id === [...detail.plans].filter((v: any) => v.forecast.target != null && !v.forecast.coveredBy && !v.forecast.inconsistent).sort((a: any,b: any) => a.forecast.target - b.forecast.target || Number(b.document.hours) - Number(a.document.hours))[0]?.id && <span className="equipment-next-preventive">Próxima Preventiva</span>}
+                              {p.id === nextPreventivePlanId(detail.plans) && <span className="equipment-next-preventive">Próxima Preventiva</span>}
                               <small>{p.document.notes}</small>
                               <small>
                                 {p.document.items?.length || 0} materiais e
