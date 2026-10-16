@@ -7,7 +7,8 @@ export async function POST(req:Request){
   const user=await requireUser();
   if(Number(req.headers.get('content-length')||0)>3300000)return Response.json({error:'Foto limitada a 3 MB.'},{status:413});
   const f=await req.formData(),file=f.get('file');
+  if(f.get('offlineOwner')&&f.get('offlineOwner')!==user.email)throw new Forbidden();
   if(!(file instanceof File))throw new ChecklistPhotoError('Selecione uma foto.');
-  return Response.json(await saveChecklistPhoto(String(f.get('operationId')),String(f.get('stageId')),String(f.get('fieldId')),file,user.email));
+  return Response.json(await saveChecklistPhoto(String(f.get('operationId')),String(f.get('stageId')),String(f.get('fieldId')),file,user.email,String(f.get('requestId')||'')||undefined));
  }catch(e){return Response.json({error:e instanceof ChecklistPhotoError?e.message:'Não foi possível anexar a foto.'},{status:e instanceof Unauthorized?401:e instanceof Forbidden?403:e instanceof ChecklistPhotoError?400:503});}
 }

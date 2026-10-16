@@ -1,0 +1,108 @@
+.field-connection {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 7px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+.field-connection.connected {
+  background: #e5f5eb;
+  color: #187543;
+}
+.field-connection.disconnected {
+  background: #fde9e8;
+  color: #b42318;
+}
+.field-connection.checking {
+  background: #fff6d9;
+  color: #805b00;
+}
+.field-connection span {
+  margin-left: auto;
+}
+.field-sync-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 9px 12px;
+}
+.field-sync-entry small {
+  margin-left: auto;
+}
+.field-offline-hint {
+  font-size: 12px;
+  color: #667c92;
+  margin: 0 0 12px;
+}
+.field-sync-backdrop {
+  position: fixed;
+  inset: 0;
+  background: #12263d66;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+.field-sync-panel {
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 92dvh;
+  overflow: auto;
+}
+.field-sync-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.field-sync-panel h2 {
+  margin: 0 0 14px;
+}
+.field-sync-panel p,
+.field-sync-panel dl {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.field-sync-panel dd {
+  margin: 0 0 8px;
+  color: #64788e;
+}
+.field-sync-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.field-sync-actions button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.field-sync-panel ul {
+  padding: 0;
+  list-style: none;
+}
+.field-sync-panel li {
+  border-top: 1px solid #e2eaf1;
+  padding: 12px 0;
+  font-size: 13px;
+}
+.field-sync-panel li small {
+  display: block;
+  color: #64788e;
+}
+.field-sync-panel li p {
+  color: #b42318;
+}
+.field-report-screen > .field-connection {
+  border-radius: 0;
+  margin: 0;
+}

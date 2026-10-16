@@ -10,8 +10,9 @@ async function permitted(c:any,operationId:string,email:string){
  if(!row?.enabled||(row.role!=='admin'&&row.document.responsible!==email&&!row.document.support?.includes(email)))throw new Forbidden();
  return row;
 }
-export async function saveChecklistPhoto(operationId:string,stageId:string,fieldId:string,file:File,email:string){
+export async function saveChecklistPhoto(operationId:string,stageId:string,fieldId:string,file:File,email:string,requestId?:string){
  if(!/^[0-9a-f-]{36}$/i.test(operationId)||!file||file.size>3*1024*1024||!file.size)throw new ChecklistPhotoError('Envie uma foto de até 3 MB.');
+ if(requestId&&!/^[0-9a-f-]{36}$/i.test(requestId))throw new ChecklistPhotoError('Identificador da foto inválido.');
  const bytes=Buffer.from(await file.arrayBuffer());
  const raster=bytes.subarray(0,3).equals(Buffer.from([0xff,0xd8,0xff])) || bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])) || (bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP');
  if(!raster)throw new ChecklistPhotoError('Use uma foto JPEG, PNG ou WebP.');
@@ -21,6 +22,13 @@ export async function saveChecklistPhoto(operationId:string,stageId:string,field
  try{
   await c.query('BEGIN READ WRITE');await c.query('SELECT pg_advisory_xact_lock(728001)');
   const o=await permitted(c,operationId,email);
+  if(requestId){
+   const existing=(await c.query('SELECT id::text,operation_id,stage_id,field_id,created_by FROM web_service_checklist_photos WHERE client_request_id=$1',[requestId])).rows[0];
+   if(existing){
+    if(existing.operation_id!==operationId||existing.stage_id!==stageId||existing.field_id!==fieldId||existing.created_by!==email)throw new Forbidden();
+    await c.query('COMMIT');return {id:existing.id};
+   }
+  }
   const run=o.document.checklistRun;
   const reviewing=o.role==='admin'&&o.status==='awaiting_review'&&run?.stages[stageId]?.status==='submitted';
   if(!reviewing){try{await requireReportActivity(c,operationId,email);}catch(e){throw new ChecklistPhotoError((e as Error).message)}}
@@ -29,6 +37,7 @@ export async function saveChecklistPhoto(operationId:string,stageId:string,field
   const count=(await c.query('SELECT count(*)::int n FROM web_service_checklist_photos WHERE operation_id=$1 AND stage_id=$2 AND field_id=$3',[operationId,stageId,fieldId])).rows[0].n;
   if(count>=50)throw new ChecklistPhotoError('Limite de anexos deste campo atingido.');
   const result=(await c.query('INSERT INTO web_service_checklist_photos(operation_id,stage_id,field_id,filename,mime,content,created_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id::text',[operationId,stageId,fieldId,(file.name.replace(/\.[^.]+$/,'').slice(0,160)||'foto')+'.jpg','image/jpeg',image,email])).rows[0];
+  if(requestId)await c.query('UPDATE web_service_checklist_photos SET client_request_id=$2 WHERE id=$1',[result.id,requestId]);
   await c.query('COMMIT');return result;
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }

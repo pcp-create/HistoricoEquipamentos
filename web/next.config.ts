@@ -19,6 +19,7 @@ const config: NextConfig = {
   },
   async headers() {
     return [
+      {source:"/field-offline/sw.js",headers:[{key:"Service-Worker-Allowed",value:"/"},{key:"Cache-Control",value:"no-cache"}]},
       {
         source: "/:path*",
         headers: [

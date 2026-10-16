@@ -1,0 +1,32 @@
+plugins { id 'com.android.application' }
+def signingFile = rootProject.file('signing.properties')
+def signing = new Properties()
+if (signingFile.exists()) signingFile.withInputStream { signing.load(it) }
+android {
+    namespace 'app.rjcompressores.tecnico'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'app.rjcompressores.tecnico'
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+    }
+    signingConfigs {
+        if (signingFile.exists()) {
+            release {
+                storeFile rootProject.file(signing['storeFile'])
+                storePassword signing['storePassword']
+                keyAlias signing['keyAlias']
+                keyPassword signing['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (signingFile.exists()) signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
+}
+dependencies { implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.6.2' }

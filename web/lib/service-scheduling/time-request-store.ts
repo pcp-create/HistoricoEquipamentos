@@ -1,3 +1,4 @@
+import {offlineTime} from "./offline-action";
 import { operationNumber } from "./operation-number";
 import "server-only";
 import {timeRequestsAvailable} from "./time-request-availability";
@@ -190,6 +191,7 @@ async function apply(c: any, r: any, reviewer: string) {
   return sessionId;
 }
 export async function changeTimeRequest(b: any, email: string) {
+  if(b?.offline&&b.offline.owner!==email)throw new Forbidden();
   if(!await timeRequestsAvailable(database()))throw new TimeRequestError("As solicitações de ajuste ainda não estão habilitadas. Os apontamentos continuam disponíveis para consulta.");
   const c = await database().connect();
   try {
@@ -351,7 +353,7 @@ export async function changeTimeRequest(b: any, email: string) {
     // Planner corrections don't fabricate GPS: their audit location is explicitly unavailable.
     const location = direct
       ? { source: "planner", unavailable: true }
-      : locationOf(b.location);
+      : locationOf(b.location, b.offline ? Date.parse(offlineTime(b.offline.capturedAt)) : Date.now());
     const employee = (
       await c.query(
         "SELECT managers,display_name FROM web_user_access WHERE email=$1",

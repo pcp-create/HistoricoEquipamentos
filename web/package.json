@@ -12,7 +12,8 @@
     "test:browser": "playwright test",
     "format": "prettier --write app components lib tests scripts *.ts *.json",
     "manual:import": "node --env-file=.env.local --import tsx scripts/import-manufacturer.mts",
-    "preventives:export": "node --env-file=.env.local --conditions=react-server --import tsx scripts/export-preventive-research.mts"
+    "preventives:export": "node --env-file=.env.local --conditions=react-server --import tsx scripts/export-preventive-research.mts",
+    "postbuild": "node scripts/write-field-assets.mjs"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.3.0",

@@ -1,3 +1,4 @@
+import { offlineTime } from "./offline-action";
 import {requireReportActivity} from './report-activity';
 import "server-only";
 import { randomUUID } from "node:crypto";
@@ -231,6 +232,7 @@ export async function fieldAction(b: any, email: string) {
   try {
     await c.query("BEGIN READ WRITE");
     const actor = await user(c, email);
+    if(b?.offline&&b.offline.owner!==email)throw new Forbidden();
     await c.query("SELECT pg_advisory_xact_lock(728001)");
     if (
       !b ||
@@ -238,13 +240,6 @@ export async function fieldAction(b: any, email: string) {
       !/^[0-9a-f-]{36}$/i.test(b.requestId)
     )
       throw new FieldError("Registro inválido. Atualize a tela.");
-    const p = (
-      await c.query(
-        `SELECT p.*,s.company_id,s.order_id FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id WHERE p.id=$2 AND s.active AND p.sent_at IS NOT NULL AND ${assigned} FOR UPDATE OF p`,
-        [email, b.operationId],
-      )
-    ).rows[0];
-    if (!p) throw new Forbidden();
     const duplicate = (
       await c.query(
         "SELECT actor,operation_id FROM web_field_events WHERE request_id=$1",
@@ -252,18 +247,41 @@ export async function fieldAction(b: any, email: string) {
       )
     ).rows[0];
     if (duplicate) {
-      if (duplicate.actor !== email || duplicate.operation_id !== p.id)
+      if (duplicate.actor !== email || duplicate.operation_id !== b.operationId)
         throw new FieldError("Identificador de registro já utilizado.");
       await c.query("COMMIT");
       return { saved: true };
     }
+    const occurredAt = b.offline ? offlineTime(b.offline.capturedAt) : new Date().toISOString();
+    const occurredMs = Date.parse(occurredAt);
+    const p = (
+      await c.query(
+        `SELECT p.*,s.company_id,s.order_id FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id WHERE p.id=$2 AND s.active AND p.sent_at IS NOT NULL AND ${assigned} FOR UPDATE OF p`,
+        [email, b.operationId],
+      )
+    ).rows[0];
+    if (!p) throw new Forbidden();
     if (["awaiting_review", "reviewed", "completed"].includes(p.status))
       throw new FieldError(
         "Esta operação já foi enviada para revisão e não permite novos apontamentos.",
       );
     if (b.action === "finish_partial")
       throw new FieldError("A finalização parcial não está mais disponível. Conclua os módulos para encerrar a operação.");
-    const location = locationOf(b.location);
+    if (b.offline) {
+      let expected = b.offline.baseVersion;
+      if (b.offline.previousRequestId) {
+        const previous = (await c.query("SELECT document FROM web_field_events WHERE request_id=$1 AND actor=$2 AND operation_id=$3", [b.offline.previousRequestId,email,p.id])).rows[0];
+        if (!previous) throw new FieldError("Um registro anterior ainda não foi sincronizado.");
+        expected = previous.document?.resultVersion;
+      }
+      if (!Number.isInteger(expected) || p.version !== expected)
+        throw new FieldError("Conflito: a operação foi alterada no sistema. Os dados offline foram preservados para conferência.");
+      b.version = p.version;
+      const last = (await c.query("SELECT max(created_at) AS at FROM web_field_events WHERE actor=$1", [email])).rows[0]?.at;
+      if (last && occurredMs < new Date(last).getTime())
+        throw new FieldError("Conflito de horários com outro apontamento. Confira os registros antes de sincronizar.");
+    }
+    const location = locationOf(b.location, occurredMs);
     const s = {
       id: p.schedule_id,
       company_id: p.company_id,
@@ -345,7 +363,7 @@ export async function fieldAction(b: any, email: string) {
           quantity: withdrawn,
           by: withdrawn < balance.own && previous ? previous.by : email,
           name: withdrawn < balance.own && previous ? previous.name : actor.display_name || email,
-          at: withdrawn < balance.own && previous ? previous.at : new Date().toISOString() });
+          at: withdrawn < balance.own && previous ? previous.at : occurredAt });
         await c.query(
           `INSERT INTO web_service_item_usage(schedule_id,item_company,item_order,item_id,withdrawn,updated_by,operation_id,allocations) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
      ON CONFLICT(schedule_id,item_company,item_order,item_id) DO UPDATE SET withdrawn=$5,updated_by=$6,operation_id=$7,allocations=$8::jsonb,updated_at=now(),version=web_service_item_usage.version+1`,
@@ -384,9 +402,9 @@ export async function fieldAction(b: any, email: string) {
           "Peça ao planejamento para atribuir o veículo à operação.",
         );
       const start = b.action === "start_travel" ? odometer(b.odometer) : null;
-      const sessionId = randomUUID();
+      const sessionId = b.offline ? b.requestId : randomUUID();
       await c.query(
-        `INSERT INTO web_field_sessions(id,operation_id,actor,kind,state,vehicle_id,odometer_start) VALUES($1,$2,$3,$4,'running',$5,$6)`,
+        `INSERT INTO web_field_sessions(id,operation_id,actor,kind,state,vehicle_id,odometer_start,started_at,segment_at) VALUES($1,$2,$3,$4,'running',$5,$6,$7,$7)`,
         [
           sessionId,
           p.id,
@@ -394,6 +412,7 @@ export async function fieldAction(b: any, email: string) {
           b.action === "start_work" ? "work" : "travel",
           p.document.vehicleId || null,
           start,
+          occurredAt,
         ],
       );
       details = {
@@ -404,13 +423,14 @@ export async function fieldAction(b: any, email: string) {
     } else if (["pause", "resume", "stop", "pause_ack"].includes(b.action)) {
       if (!active || active.operation_id !== p.id || active.id !== b.sessionId)
         throw new FieldError("O apontamento mudou. Atualize a tela.");
-      const totals = sessionTotals(active);
+      if (occurredMs < new Date(active.segment_at).getTime()) throw new FieldError("O horário é anterior ao último apontamento.");
+      const totals = sessionTotals(active, occurredMs);
       if (b.action === "pause_ack") {
         if (active.state !== "paused")
           throw new FieldError("Não há pausa ativa.");
         await c.query(
-          "UPDATE web_field_sessions SET pause_alert_at=now() WHERE id=$1",
-          [active.id],
+          "UPDATE web_field_sessions SET pause_alert_at=$2 WHERE id=$1",
+          [active.id, occurredAt],
         );
       } else if (b.action === "pause") {
         if (active.kind !== "work" || active.state !== "running")
@@ -422,16 +442,16 @@ export async function fieldAction(b: any, email: string) {
         );
         if (!reason) throw new FieldError("Selecione a causa da pausa.");
         await c.query(
-          "UPDATE web_field_sessions SET state='paused',active_seconds=$2,segment_at=now(),pause_reason=$3,pause_alert_at=now() WHERE id=$1",
-          [active.id, totals.active, JSON.stringify(reason)],
+          "UPDATE web_field_sessions SET state='paused',active_seconds=$2,segment_at=$4,pause_reason=$3,pause_alert_at=$4 WHERE id=$1",
+          [active.id, totals.active, JSON.stringify(reason), occurredAt],
         );
         details.reason = reason;
       } else if (b.action === "resume") {
         if (active.state !== "paused")
           throw new FieldError("A atividade não está pausada.");
         await c.query(
-          "UPDATE web_field_sessions SET state='running',pause_seconds=$2,segment_at=now(),pause_reason=NULL,pause_alert_at=NULL WHERE id=$1",
-          [active.id, totals.pause],
+          "UPDATE web_field_sessions SET state='running',pause_seconds=$2,segment_at=$3,pause_reason=NULL,pause_alert_at=NULL WHERE id=$1",
+          [active.id, totals.pause, occurredAt],
         );
       } else {
         const end = active.kind === "travel" ? odometer(b.odometer) : null;
@@ -440,11 +460,11 @@ export async function fieldAction(b: any, email: string) {
             "O odômetro final não pode ser menor que o inicial.",
           );
         await c.query(
-          "UPDATE web_field_sessions SET state='finished',finished_at=now(),active_seconds=$2,pause_seconds=$3,segment_at=now(),odometer_end=$4 WHERE id=$1",
-          [active.id, totals.active, totals.pause, end],
+          "UPDATE web_field_sessions SET state='finished',finished_at=$5,active_seconds=$2,pause_seconds=$3,segment_at=$5,odometer_end=$4 WHERE id=$1",
+          [active.id, totals.active, totals.pause, end, occurredAt],
         );
         await c.query(
-          "INSERT INTO web_service_operation_events(operation_id,action,hours,actor,description) VALUES($1,$2,$3,$4,$5)",
+          "INSERT INTO web_service_operation_events(operation_id,action,hours,actor,description,created_at) VALUES($1,$2,$3,$4,$5,$6)",
           [
             p.id,
             active.kind === "work" ? "work_log" : "travel_log",
@@ -453,6 +473,7 @@ export async function fieldAction(b: any, email: string) {
             active.kind === "work"
               ? "Apontamento pelo técnico (pausas descontadas)"
               : "Deslocamento do técnico",
+            occurredAt,
           ],
         );
         details.odometer = end;
@@ -470,7 +491,7 @@ export async function fieldAction(b: any, email: string) {
       const document={...p.document};
       delete document.checklistRun;
       document.checked=[];
-      document.checklistReturn={at:new Date().toISOString(),by:email,reason,checklistId:p.document.checklistId};
+      document.checklistReturn={at:occurredAt,by:email,reason,checklistId:p.document.checklistId};
       await c.query('DELETE FROM web_service_checklist_photos WHERE operation_id=$1',[p.id]);
       await c.query('UPDATE web_service_operations SET document=$2,status=$3,sent_at=NULL,version=version+1,updated_at=now(),updated_by=$4 WHERE id=$1',[p.id,JSON.stringify(document),planningStatus(document),email]);
       await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[p.id,b.action,email,'Devolvida para ajuste do checklist. Dados do relatório descartados. Motivo: '+reason]);
@@ -499,7 +520,7 @@ export async function fieldAction(b: any, email: string) {
       const partial=b.action==='report_send_partial';
       if(!current.document.checklistRun)throw new FieldError('Preencha e salve o relatório antes do envio.');
       const checklistRun=partial?structuredClone(current.document.checklistRun):prepareChecklistSubmission(current.document.checklistRun,email);
-      const receipt={at:new Date().toISOString(),by:email,name:(await user(c,email)).display_name||email};
+      const receipt={at:occurredAt,by:email,name:(await user(c,email)).display_name||email};
       if(partial)checklistRun.partialSubmission=receipt;
       else checklistRun.submission=receipt;
       await c.query("UPDATE web_service_operations SET document=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1",[p.id,JSON.stringify({...p.document,checklistRun}),email]);
@@ -543,8 +564,10 @@ export async function fieldAction(b: any, email: string) {
         "UPDATE web_service_operations SET status='executing',version=version+1,updated_at=now(),updated_by=$2 WHERE id=$1",
         [p.id, email],
       );
+    const resultVersion = (await c.query("SELECT version FROM web_service_operations WHERE id=$1", [p.id])).rows[0].version;
+    details = {...details, resultVersion, ...(b.offline ? {offline:true,receivedAt:new Date().toISOString()} : {})};
     await c.query(
-      `INSERT INTO web_field_events(request_id,operation_id,actor,action,latitude,longitude,accuracy,located_at,document) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      `INSERT INTO web_field_events(request_id,operation_id,actor,action,latitude,longitude,accuracy,located_at,document,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [
         b.requestId,
         p.id,
@@ -555,6 +578,7 @@ export async function fieldAction(b: any, email: string) {
         location.accuracy,
         location.at,
         JSON.stringify(details),
+        occurredAt,
       ],
     );
     await c.query("COMMIT");

@@ -61,7 +61,7 @@ export function sessionTotals(s: any, now = Date.now()) {
   const elapsed =
     s.state === "finished"
       ? 0
-      : Math.max(0, (now - Date.parse(s.segment_at)) / 1000);
+      : Math.max(0, (now - new Date(s.segment_at).getTime()) / 1000);
   return {
     active: Number(s.active_seconds) + (s.state === "running" ? elapsed : 0),
     pause: Number(s.pause_seconds) + (s.state === "paused" ? elapsed : 0),

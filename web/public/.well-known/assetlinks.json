@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.rjcompressores.tecnico",
+      "sha256_cert_fingerprints": [
+        "BE:E2:62:66:F6:A7:4F:08:DA:D4:D5:62:01:71:31:98:E0:F9:3F:69:91:56:B1:9D:5B:50:D9:9D:80:36:2E:1D"
+      ]
+    }
+  }
+]

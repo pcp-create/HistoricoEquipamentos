@@ -24,3 +24,6 @@ __pycache__/
 # Private maintenance-control workbooks
 /Tabela Controle Manutenções - *.xlsx
 /Divisão Vendedores Comercial.xlsx
+
+# Generated offline asset manifest
+/web/public/field-offline/assets.json

@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useRef,useState,type ReactNode} from 'react';
+import {FieldConnection} from "./field-offline";
 import {createPortal} from 'react-dom';
 import {ArrowLeft} from 'lucide-react';
 
@@ -19,6 +20,7 @@ export default function FieldReportScreen({open,busy,title,onClose,children,head
  },[open,mounted]);
  if(!mounted)return null;
  return createPortal(<dialog ref={dialog} className="field-app field-report-screen" aria-label={heading+' · '+title} onCancel={e=>{if(e.target!==e.currentTarget)return;e.preventDefault();if(!busy)onClose();}}>
+  <FieldConnection/>
   <header className="field-report-header"><button type="button" disabled={busy} onClick={onClose} autoFocus><ArrowLeft size={20}/> Voltar</button><div><strong>{heading}</strong><small title={title}>{title}</small></div></header>
   <div className="field-report-content">{children}</div>
  </dialog>,document.body);

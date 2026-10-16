@@ -1,4 +1,5 @@
 "use client";
+import FieldOffline from "./field-offline";
 import { materialBalance } from "@/lib/service-scheduling/material-balance";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import { useState, useEffect, useId, useRef } from "react";
@@ -135,6 +136,7 @@ export default function FieldApp() {
   const active = data?.active;
   return (
     <main className={"field-app" + (screen !== "home" && scheduleView === "map" ? " field-app-map" : "")}>
+      <FieldOffline onSynced={refresh}/>
       <header className="field-header">
         <div>
           <small>RJ COMPRESSORES · TÉCNICO</small>
@@ -295,7 +297,7 @@ export default function FieldApp() {
           )}
           {scheduleView !== "map" && <p className="field-location">
             <MapPin size={14} /> Os apontamentos registram horário e
-            localização. Mantenha a internet e a localização ativadas.
+            localização. Mantenha a localização ativada. Registros offline serão enviados quando houver conexão.
           </p>}
         </>
       )}
@@ -367,14 +369,14 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     setBusy(true);
     try {
       const location = await position();
-      await api("/api/field", {
+      const result=await api("/api/field", {
         ...body,
         operationId: row.id,
         requestId: crypto.randomUUID(),
         location,
       });
       await Promise.all([body.action!=="report_return"?load():Promise.resolve(),refresh()]);
-      setMessage("Registro salvo.");
+      setMessage(result.queued?"Salvo no dispositivo. Aguardando sincronização.":"Registro salvo.");
       return true;
     } catch (e) {
       setError((e as Error).message);
