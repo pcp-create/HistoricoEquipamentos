@@ -5,5 +5,14 @@ export async function normalizeUserPhoto(input:Buffer) {
  const image=sharp(input,{limitInputPixels:20000000,animated:false});
  const metadata=await image.metadata();
  if(!['jpeg','png','webp'].includes(metadata.format||''))throw Error('Use uma imagem JPG, PNG ou WebP.');
- return image.rotate().resize(256,256,{fit:'cover'}).jpeg({quality:85}).toBuffer();
+ const thumbnail=image.rotate().resize(256,256,{fit:'cover'});
+ return metadata.hasAlpha
+  ? thumbnail.png().toBuffer()
+  : thumbnail.jpeg({quality:85}).toBuffer();
+}
+
+// Legacy photos remain JPEG; new transparent photos are stored as PNG.
+export function userPhotoContentType(image: Buffer) {
+ return image.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))
+  ? 'image/png' : 'image/jpeg';
 }

@@ -1,4 +1,5 @@
 "use client";
+import {prepareReportPhoto} from "@/lib/prepare-report-photo";
 import {useState,useId} from 'react';
 import {fieldOptions,photoLimit} from '@/lib/service-scheduling/checklists';
 import {apiFetch} from '@/lib/client-api-cache';
@@ -17,7 +18,7 @@ export default function ReviewChecklistField({field:f,value,details,disabled,ope
   try{
    if(ids.length+files.length>limit)throw Error(`Este campo permite até ${limit} imagem(ns).`);
    for(const file of files){
-    const form=new FormData();form.set('operationId',operationId);form.set('stageId',stageId);form.set('fieldId',f.id);form.set('file',file);
+    const form=new FormData();form.set('operationId',operationId);form.set('stageId',stageId);form.set('fieldId',f.id);form.set('file',await prepareReportPhoto(file));
     const res=await apiFetch('/api/service-scheduling/photos',{method:'POST',body:form});const result=await res.json();if(!res.ok)throw Error(result.error);
     ids=[...ids,result.id];if(extra)onDetail('photos',ids);else onValue(ids);
    }

@@ -30,7 +30,7 @@ export async function fieldMapData(email: string) {
   const technicians=(await db.query(`SELECT u.email id,u.display_name name,EXISTS(SELECT 1 FROM web_user_photos photo WHERE photo.email=u.email) has_photo,u.phone,u.job_title,u.department,u.last_seen_at,(u.last_seen_at>now()-interval '15 minutes' AND (u.last_logout_at IS NULL OR u.last_seen_at>u.last_logout_at)) IS TRUE online,p.latitude,p.longitude,p.accuracy,p.located_at,p.source
     FROM web_user_access u LEFT JOIN LATERAL (
       SELECT * FROM (
-        SELECT latitude,longitude,accuracy,located_at,'Acesso ao portal' source FROM web_field_locations WHERE actor=u.email
+        SELECT latitude,longitude,accuracy,located_at,'Última localização no sistema' source FROM web_field_locations WHERE actor=u.email
         UNION ALL SELECT latitude,longitude,accuracy,located_at,'Apontamento' source FROM web_field_events WHERE actor=u.email
       ) positions WHERE latitude IS NOT NULL AND longitude IS NOT NULL ORDER BY located_at DESC LIMIT 1
     ) p ON true WHERE u.enabled AND ${technicianSql} ORDER BY u.display_name,u.email`)).rows;

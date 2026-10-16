@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { readActivityLocation } from "@/lib/activity-location";
 import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useState } from "react";
 import Image from "next/image";
@@ -97,10 +98,18 @@ export default function SiteHeader({
   }, [initialAdmin]);
   useEffect(() => {
     let stopped = false;
+    let busy = false;
     const pulse = async () => {
-      if (document.visibilityState !== "visible") return;
+      if (stopped || busy || document.visibilityState !== "visible") return;
+      busy = true;
       try {
-        const r = await apiFetch("/api/activity", { method: "POST" });
+        const location = await readActivityLocation(navigator.geolocation);
+        if (stopped || document.visibilityState !== "visible") return;
+        const r = await apiFetch("/api/activity", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ location }),
+        });
         if (!stopped) {
           if (r.ok) {
             const data = await r.json();
@@ -109,7 +118,7 @@ export default function SiteHeader({
               setDisplayName(data.displayName);
           } else if (r.status === 401) setAdmin(false);
         }
-      } catch {}
+      } catch {} finally { busy = false; }
     };
     void pulse();
     const timer = setInterval(pulse, 60000);

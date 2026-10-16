@@ -1,4 +1,5 @@
 import "server-only";
+import type { ActivityLocation } from "./activity-location";
 import { employeeFields } from "./employees";
 import { database } from "./db";
 import { userDisplayName, type AuthUser } from "./user-display-name";
@@ -15,6 +16,7 @@ export async function accessRecord(email: string) {
 export async function recordActivity(
   user: AuthUser,
   event: "login" | "heartbeat" | "logout",
+  location: ActivityLocation | null = null,
 ) {
   const c = await database().connect();
   try {
@@ -32,6 +34,16 @@ export async function recordActivity(
       await c.query(
         "UPDATE web_user_access SET last_seen_at=now() WHERE email=$1 AND (last_seen_at IS NULL OR last_seen_at<now()-interval '25 seconds')",
         [user.email.toLowerCase()],
+      );
+    if (location && event !== "logout")
+      await c.query(
+        `INSERT INTO web_field_locations(actor,latitude,longitude,accuracy,located_at)
+         VALUES($1,$2,$3,$4,$5)
+         ON CONFLICT(actor) DO UPDATE SET latitude=excluded.latitude,
+           longitude=excluded.longitude,accuracy=excluded.accuracy,
+           located_at=excluded.located_at,updated_at=now()
+         WHERE excluded.located_at>web_field_locations.located_at`,
+        [user.email.toLowerCase(), location.latitude, location.longitude, location.accuracy, location.at],
       );
     if (event === "logout")
       await c.query(

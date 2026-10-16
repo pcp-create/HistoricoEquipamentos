@@ -1,7 +1,7 @@
 import { requireUser, requireAdmin, sameOrigin, Forbidden, Unauthorized } from '@/lib/auth';
 import { database } from '@/lib/db';
 import { mapAccess } from '@/lib/service-scheduling/field-map';
-import { normalizeUserPhoto } from '@/lib/user-photo';
+import { normalizeUserPhoto, userPhotoContentType } from '@/lib/user-photo';
 export const runtime='nodejs';
 const headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'};
 const json=(error:string,status:number)=>Response.json({error},{status,headers});
@@ -12,7 +12,7 @@ export async function GET(req:Request){try{
  if(user.email!==email)await mapAccess(user.email);
  const row=(await database().query('SELECT image FROM web_user_photos WHERE email=$1',[email])).rows[0];
  if(!row)return new Response(null,{status:404,headers});
- return new Response(new Uint8Array(row.image),{headers:{...headers,'Content-Type':'image/jpeg'}});
+ return new Response(new Uint8Array(row.image),{headers:{...headers,'Content-Type':userPhotoContentType(row.image)}});
 }catch(e){return failure(e)}}
 async function change(req:Request,remove:boolean){
  if(!sameOrigin(req))return json('Origem inválida.',403);
