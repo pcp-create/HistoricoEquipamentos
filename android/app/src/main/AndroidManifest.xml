@@ -5,7 +5,7 @@
         android:allowBackup="false" android:supportsRtl="true" android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false">
         <meta-data android:name="asset_statements" android:resource="@string/asset_statements"/>
-        <activity android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+        <activity android:name="app.rjcompressores.tecnico.PortalActivity"
             android:exported="true" android:launchMode="singleTask">
             <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL" android:value="https://rjcompressores.app/tecnico"/>
             <meta-data android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR" android:resource="@color/primary"/>
@@ -16,7 +16,7 @@
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="rjcompressores.app" android:pathPrefix="/tecnico"/>
+                <data android:scheme="https" android:host="rjcompressores.app" android:path="/tecnico"/>
             </intent-filter>
         </activity>
         <service android:name="com.google.androidbrowserhelper.trusted.DelegationService" android:exported="true">

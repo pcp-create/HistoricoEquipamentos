@@ -23,17 +23,6 @@
 .field-connection span {
   margin-left: auto;
 }
-.field-sync-entry {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  margin: 0 0 12px;
-  padding: 9px 12px;
-}
-.field-sync-entry small {
-  margin-left: auto;
-}
 .field-offline-hint {
   font-size: 12px;
   color: #667c92;

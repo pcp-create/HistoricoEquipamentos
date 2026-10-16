@@ -1,8 +1,15 @@
-# RJ Técnico — APK e operação offline
+# Portal Técnico RJ — APK e operação offline
 
 O APK utiliza uma Trusted Web Activity e abre **https://rjcompressores.app/tecnico**.
 A interface é o mesmo componente do portal, incluindo câmera/galeria, assinatura,
 horímetro, materiais, calendário e operações. Não há uma segunda interface para manter.
+
+O aplicativo abre exclusivamente a entrada do Portal Técnico. Sem sessão, apresenta
+a tela própria em /tecnico/entrar; após entrar, permanece em /tecnico.
+O menu do portal não oferece acesso aos módulos do sistema de gestão.
+O ícone de atualização no cabeçalho abre o painel de sincronismo, sem botão separado.
+A versão 1.1.1 usa a mesma chave e identificador, permitindo atualizar a instalação
+anterior sem limpar os registros offline. Publicar o portal atualizado junto com o APK.
 
 ## Publicação necessária antes de instalar
 

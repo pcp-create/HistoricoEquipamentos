@@ -107,7 +107,7 @@ export default function FieldApp() {
   const [screen, setScreen] = useState("home"),
     [data, setData] = useState<any>(null),
     [error, setError] = useState(""),
-    [loading, setLoading] = useState(false),
+    [syncOpen, setSyncOpen] = useState(false),
     [now, setNow] = useState(Date.now());
   const locationMessage = useAutomaticFieldLocation(data?.isTechnician === true);
   async function refresh() {
@@ -136,26 +136,20 @@ export default function FieldApp() {
   const active = data?.active;
   return (
     <main className={"field-app" + (screen !== "home" && scheduleView === "map" ? " field-app-map" : "")}>
-      <FieldOffline onSynced={refresh}/>
+      <FieldOffline onSynced={refresh} open={syncOpen} onClose={() => setSyncOpen(false)}/>
       <header className="field-header">
         <div>
-          <small>RJ COMPRESSORES · TÉCNICO</small>
+          <small>PORTAL TÉCNICO RJ</small>
           <h1>
             {screen === "home"
-              ? "Olá! O que vamos fazer?"
+              ? "Bem-vindo ao Portal Técnico RJ"
               : "Minha programação"}
           </h1>
         </div>
-        {screen !== "home" && (
-          <div className="field-header-actions">
-            <button aria-label="Atualizar" title="Atualizar programação" disabled={loading} onClick={async () => {
-              setLoading(true);
-              await refresh();
-              setLoading(false);
-            }}><RefreshCw size={18}/></button>
-            <button aria-label="Voltar ao menu" title="Voltar ao menu" onClick={() => setScreen("home")}><ArrowLeft size={20}/></button>
+        <div className="field-header-actions">
+            <button aria-label="Sincronismo" title="Sincronismo" aria-haspopup="dialog" onClick={() => setSyncOpen(true)}><RefreshCw size={18}/></button>
+            {screen !== "home" && <button aria-label="Voltar ao menu" title="Voltar ao menu" onClick={() => setScreen("home")}><ArrowLeft size={20}/></button>}
           </div>
-        )}
       </header>
       <div className="field-user-summary">
         <p className="field-user">{data?.displayName || "Técnico"}</p>
@@ -197,7 +191,7 @@ export default function FieldApp() {
               <small>Em breve</small>
             </span>
           </button>
-          <a href="/modulos/assistencia-tecnica">Acessar sistema de gestão</a>
+
         </nav>
       ) : (
         <>

@@ -112,10 +112,9 @@ const date = (value?: string) =>
   value
     ? new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
     : "Ainda não realizada";
-export default function FieldOffline({ onSynced }: { onSynced: () => void }) {
+export default function FieldOffline({ onSynced, open, onClose }: { onSynced: () => void; open: boolean; onClose: () => void }) {
   const status = useSyncState();
-  const [open, setOpen] = useState(false),
-    [busy, setBusy] = useState(false),
+  const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   useEffect(() => {
     if (!("serviceWorker" in navigator)) {
@@ -221,18 +220,6 @@ export default function FieldOffline({ onSynced }: { onSynced: () => void }) {
   return (
     <>
       <FieldConnection />
-      <button className="field-sync-entry" onClick={() => setOpen(true)}>
-        <RefreshCw size={16} />
-        <span>
-          Sincronismo
-          {status.pending
-            ? " · " +
-              status.pending +
-              (status.pending === 1 ? " pendente" : " pendentes")
-            : ""}
-        </span>
-        {busy && <small>Preparando…</small>}
-      </button>
       {!status.prepared && (
         <p className="field-offline-hint">
           {busy
@@ -256,7 +243,7 @@ export default function FieldOffline({ onSynced }: { onSynced: () => void }) {
             <header>
               <h2>Sincronismo</h2>
               <button
-                onClick={() => setOpen(false)}
+                onClick={onClose}
                 aria-label="Fechar sincronismo"
               >
                 <X />
@@ -323,7 +310,7 @@ export default function FieldOffline({ onSynced }: { onSynced: () => void }) {
             {status.queue.some((item) =>
               item.error?.includes("Entre novamente"),
             ) && (
-              <a href="/login?next=%2Ftecnico">
+              <a href="/tecnico/entrar">
                 Entrar novamente para sincronizar
               </a>
             )}

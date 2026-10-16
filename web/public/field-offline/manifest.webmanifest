@@ -1,7 +1,7 @@
 {
   "id": "/tecnico",
-  "name": "RJ Compressores — Portal Técnico",
-  "short_name": "RJ Técnico",
+  "name": "Portal Técnico RJ",
+  "short_name": "Portal Técnico RJ",
   "lang": "pt-BR",
   "start_url": "/tecnico",
   "scope": "/tecnico",

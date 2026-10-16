@@ -1,0 +1,30 @@
+.technician-login {
+  min-height: 100dvh;
+}
+@media (max-width: 760px) {
+  .technician-login {
+    display: flex;
+    flex-direction: column;
+    background: #f4f7fa;
+  }
+  .technician-login .login-story {
+    display: block;
+    padding: 24px;
+  }
+  .technician-login .login-story > div:not(.brand),
+  .technician-login .login-story > small {
+    display: none;
+  }
+  .technician-login .brand {
+    margin: 0;
+  }
+  .technician-login .login-form {
+    padding: 28px 24px;
+    flex: 1;
+  }
+  .technician-login .login-form form {
+    width: 100%;
+    max-width: 420px;
+    margin: auto;
+  }
+}
