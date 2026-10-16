@@ -3,30 +3,33 @@ import { technicianMarkerLayout } from "@/lib/service-scheduling/technician-mark
 import { clusterMapPoints } from "@/lib/service-scheduling/map-clusters";
 import { customerMapLabel, singleCustomerLabel } from "@/lib/service-scheduling/customer-map-label";
 import {useEffect,useRef,useState} from 'react';
+import {nativePortal} from '@/lib/native-portal';
 import type * as Leaflet from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './field-map.css';
 import './map-customer-label.css';
 const labels:Record<string,string>={done:'Executada',executing:'Em execução',overdue:'Em atraso',planned:'Programada'};
 const colors:Record<string,string>={done:'#16834a',executing:'#2563eb',overdue:'#dc2626',planned:'#64748b'};
-const date=(value:string)=>new Date(value).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+const lastSeen=(value:string)=>{const minutes=Math.max(0,Math.floor((Date.now()-Date.parse(value))/60000));return !Number.isFinite(minutes)?"Não registrado":minutes<1?"Agora":minutes<1440?minutes+" min atrás":"desde "+new Date(value).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});};
 export function useAutomaticFieldLocation(enabled:boolean) {
  const [locationMessage,setLocationMessage]=useState('');
  useEffect(()=>{
   if(!enabled)return;
   let disposed=false,busy=false,last=0;
   const update=()=>{
-   if(disposed||busy||document.visibilityState!=='visible'||Date.now()-last<600000)return;
+   if(disposed||busy||document.visibilityState!=='visible'||Date.now()-last<300000)return;
    if(!navigator.geolocation){setLocationMessage('Localização indisponível neste navegador.');return}
-   busy=true;last=Date.now();
-   navigator.geolocation.getCurrentPosition(async p=>{
+   busy=true;
+   const collect=()=>navigator.geolocation.getCurrentPosition(async p=>{
     if(disposed){busy=false;return}
     try{const r=await fetch('/api/field/map',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy,at:new Date(p.timestamp).toISOString()})});if(!r.ok)throw Error('Não foi possível registrar a posição.');last=Date.now();setLocationMessage('')}
     catch(e){setLocationMessage((e as Error).message)}finally{busy=false}
-   },()=>{busy=false;if(!disposed){setLocationMessage('Permita a localização para compartilhar sua posição.')}},{enableHighAccuracy:true,timeout:20000,maximumAge:30000});
+   },()=>{busy=false;if(!disposed){setLocationMessage('Permita a localização para compartilhar sua posição.')}},{enableHighAccuracy:true,timeout:30000,maximumAge:30000});
+   if(nativePortal())void nativePortal()!.connection().then(online=>{if(online)collect();else busy=false}).catch(()=>{busy=false});else if(navigator.onLine)collect();else busy=false;
   };
-  update();const timer=setInterval(update,60000);document.addEventListener('visibilitychange',update);
-  return()=>{disposed=true;clearInterval(timer);document.removeEventListener('visibilitychange',update)};
+  const resume=()=>{last=0;update();};
+  update();const timer=setInterval(update,300000);document.addEventListener('visibilitychange',resume);window.addEventListener('online',resume);window.addEventListener('rj-network-change',resume);
+  return()=>{disposed=true;clearInterval(timer);document.removeEventListener('visibilitychange',resume);window.removeEventListener('online',resume);window.removeEventListener('rj-network-change',resume)};
  },[enabled]);
  return locationMessage;
 }
@@ -34,7 +37,8 @@ export default function FieldMap({visible}:{visible:boolean}) {
  const [data,setData]=useState<any>(null),[mode,setMode]=useState('technicians'),[error,setError]=useState('');
  const container=useRef<HTMLDivElement>(null),map=useRef<Leaflet.Map|null>(null);
  async function refresh(){try{const r=await fetch('/api/field/map',{cache:'no-store'});const b=await r.json();if(!r.ok)throw Error(b.error);setData(b);setError('')}catch(e){setError((e as Error).message)}}
- useEffect(()=>{void refresh();const t=setInterval(()=>{if(document.visibilityState==='visible')void refresh()},60000);return()=>clearInterval(t)},[]);
+ useEffect(()=>{void refresh();const t=setInterval(()=>{if(document.visibilityState==='visible')void refresh()},300000);const resumed=()=>{if(document.visibilityState==='visible')void refresh()};document.addEventListener("visibilitychange",resumed);window.addEventListener("rj-network-change",resumed);return()=>{clearInterval(t);document.removeEventListener("visibilitychange",resumed);window.removeEventListener("rj-network-change",resumed)}},[]);
+ useEffect(()=>{if(visible)void refresh()},[visible]);
  useEffect(()=>{
   if(!visible||!container.current)return;
   let disposed=false;
@@ -61,9 +65,7 @@ export default function FieldMap({visible}:{visible:boolean}) {
      const phone=String(item.phone||'').replace(/[^0-9+]/g,'');
      if(phone){const p=document.createElement('p');p.append('Telefone: ');const a=document.createElement('a');a.href='tel:'+phone;a.textContent=item.phone;p.append(a);popup.append(p)}else line('Telefone','Não cadastrado');
      line('Cargo',item.job_title||'Técnico');if(item.department)line('Setor',item.department);
-     line('Última atividade',item.last_seen_at?date(item.last_seen_at)+' (Brasília)':'Não registrada');
-     line('Última posição',date(item.located_at)+' (Brasília)');
-     line('Origem',item.source);line('Precisão',Math.round(item.accuracy)+' m');
+     line('Visto por último',lastSeen(item.last_seen_at));line('Precisão',Math.round(item.accuracy)+' m');
      const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent=`Mostrar OSs pendentes (${item.pendingOrders?.length||0})`;details.append(summary);
      const list=document.createElement('ul');for(const order of item.pendingOrders||[]){const li=document.createElement('li');li.textContent=`OS ${order.number} · ${order.customer||'Cliente não informado'} · ${order.date?order.date.split('-').reverse().join('/'):'Sem data'}`;list.append(li)}
      if(!list.children.length){const p=document.createElement('p');p.textContent='Nenhuma OS pendente enviada ao técnico.';details.append(p)}else details.append(list);

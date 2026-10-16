@@ -135,9 +135,10 @@ export async function fieldData(email: string, operationId?: string | null) {
         [email],
       )
     ).rows;
+    if(active)active.pause_history_seconds=Number((await c.query("SELECT COALESCE(sum(pause_seconds),0) total FROM web_field_sessions WHERE operation_id=$1 AND id<>$2 AND state='finished'",[active.operation_id,active.id])).rows[0].total);
     return { rows: rows.filter((row:any)=>!["awaiting_review","reviewed","completed"].includes(row.status)).map((row: any) => ({
-      ...row, estimated_end: estimatedEnd(row, settings),
-    })), calendarRows: rows.map((row:any)=>({...row,estimated_end:estimatedEnd(row,settings)})), active, email, isTechnician: ["técnico","tecnico"].includes((profile.job_title || "").trim().toLowerCase()), displayName: profile.display_name };
+      ...row, estimated_end: estimatedEnd(row, settings),calendar_name:settings.calendars?.find((c:any)=>c.id===(row.calendar_id||"standard"))?.name,
+    })), calendarRows: rows.map((row:any)=>({...row,estimated_end:estimatedEnd(row,settings),calendar_name:settings.calendars?.find((c:any)=>c.id===(row.calendar_id||"standard"))?.name})), active, email, isTechnician: ["técnico","tecnico"].includes((profile.job_title || "").trim().toLowerCase()), displayName: profile.display_name };
   }
   if (!/^[0-9a-f-]{36}$/i.test(operationId))
     throw new FieldError("Operação inválida.");
@@ -182,6 +183,8 @@ export async function fieldData(email: string, operationId?: string | null) {
     finishPending: await finishPending(c, p, email, materialData.complete),
     reportSubmission:submission,
     estimated_end: estimatedEnd(p.document, settings),
+    calendar_name:settings.calendars?.find((c:any)=>c.id===(p.document.calendarId||"standard"))?.name,
+    pause_history_seconds:Number((await c.query("SELECT COALESCE(sum(pause_seconds),0) total FROM web_field_sessions WHERE operation_id=$1 AND state='finished'",[p.id])).rows[0].total),
     operation: p,
     active,
     email,
@@ -315,6 +318,7 @@ export async function fieldAction(b: any, email: string) {
       details={internalNote:p.document.internalNote||""};
       operationUpdated=true;
     } else if (b.action === "materials") {
+      if(reportSubmission(p.document.checklistRun))throw new FieldError("Relatório enviado. As peças estão disponíveis somente para consulta.");
       if (b.quantityScope !== "operation")
         throw new FieldError("O controle de retiradas mudou. Atualize a página e reabra a conferência.");
       const current = await materials(c, s);
@@ -484,17 +488,19 @@ export async function fieldAction(b: any, email: string) {
       if(p.document.responsible!==email)throw new FieldError('Somente o responsável pode devolver para ajuste do checklist.');
       if(p.version!==b.version)throw new FieldError('A operação foi alterada. Atualize antes de devolver.');
       if(!p.document.checklistId)throw new FieldError('Esta operação não possui checklist.');
-      if(b.confirmDiscard!==true)throw new FieldError('Confirme o descarte dos dados do relatório.');
+      if(b.confirmReturn!==true&&b.confirmDiscard!==true)throw new FieldError('Confirme a devolução do relatório.');
       const reason=typeof b.reason==='string'?b.reason.trim():'';
       if(!reason||reason.length>2000)throw new FieldError('Informe o motivo da devolução (até 2.000 caracteres).');
       if((await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[p.id])).rows.length)throw new FieldError('Finalize os apontamentos ativos da operação antes de devolver.');
-      const document={...p.document};
-      delete document.checklistRun;
-      document.checked=[];
+      let returned=p;
+      if(b.stages!==undefined){
+        if(!Array.isArray(b.stages)||b.stages.length>100||new Set(b.stages.map((stage:any)=>stage.stageId)).size!==b.stages.length)throw new FieldError("Etapas inválidas.");
+        for(const stage of b.stages)returned=await updateChecklist(c,{...stage,action:"checklist_save"},returned,s,settings,email,false);
+      }
+      const document={...returned.document};
       document.checklistReturn={at:occurredAt,by:email,reason,checklistId:p.document.checklistId};
-      await c.query('DELETE FROM web_service_checklist_photos WHERE operation_id=$1',[p.id]);
       await c.query('UPDATE web_service_operations SET document=$2,status=$3,sent_at=NULL,version=version+1,updated_at=now(),updated_by=$4 WHERE id=$1',[p.id,JSON.stringify(document),planningStatus(document),email]);
-      await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[p.id,b.action,email,'Devolvida para ajuste do checklist. Dados do relatório descartados. Motivo: '+reason]);
+      await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[p.id,b.action,email,'Devolvida para ajuste do checklist. Preenchimento e fotos preservados. Motivo: '+reason]);
       operationUpdated=true;details={reason,checklistId:p.document.checklistId};
     } else if (b.action === "report_save") {
       try{await requireReportActivity(c,p.id,email);}catch(e){throw new FieldError((e as Error).message)}

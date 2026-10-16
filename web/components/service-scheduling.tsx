@@ -942,12 +942,15 @@ function OperationRow({
   useEffect(()=>{if(dirty)dirtyOperations.add(o.id);else dirtyOperations.delete(o.id);return ()=>{dirtyOperations.delete(o.id);};},[dirty,o.id,dirtyOperations]);
   async function persist(next = d) {
     if (locked) return false;
+    const replacing=!!o.document.checklistRun&&next.checklistId!==o.document.checklistId;
+    if(replacing&&!window.confirm("Substituir o checklist apagará todo o preenchimento e as fotos do relatório desta operação. Deseja continuar?"))return false;
     if (JSON.stringify(next) !== JSON.stringify(o.document))
       return await mutate({
         action: "operation",
         operationId: o.id,
         version: o.version,
         document: next,
+        confirmChecklistReplacement: replacing,
       });
     return true;
   }
@@ -1001,7 +1004,7 @@ function OperationRow({
           <div className="operation-checklist-select" title={checklist ? [checklist.prefix, checklist.name].filter(Boolean).join(" - ") : "Sem checklist"}>
           <select
             aria-label={"Checklist " + operationNumber(o.position)}
-            disabled={locked || !!o.document.checklistRun}
+            disabled={locked || (!!o.document.checklistRun && !o.document.checklistReturn)}
             value={d.checklistId}
             onChange={(e) => change("checklistId", e.target.value, true)}
           >

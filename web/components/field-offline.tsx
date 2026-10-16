@@ -1,9 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
-import { CloudOff, RefreshCw, Wifi, X, Download } from "lucide-react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { CloudOff, RefreshCw, Wifi, X, Download, AlertTriangle, LogOut, LoaderCircle } from "lucide-react";
 import "./field-offline.css";
+import { nativePortal } from "@/lib/native-portal";
 type SyncState = {
   connected: boolean | null;
+  serverConnected?: boolean;
   pending: number;
   queue: {
     id: string;
@@ -14,6 +16,8 @@ type SyncState = {
     error?: string;
   }[];
   prepared?: string;
+  syncing?: boolean;
+  syncingId?: string;
   lastSync?: string;
   error?: string;
 };
@@ -24,6 +28,11 @@ const update = (next: Partial<SyncState>) => {
   for (const fn of listeners) fn(state);
 };
 export async function offlineMessage(type: string): Promise<any> {
+  if (nativePortal()) {
+    const result = await nativePortal()!.message(type);
+    if (!result.backup) update(result);
+    return result;
+  }
   const worker = navigator.serviceWorker?.controller;
   if (!worker)
     throw Error(
@@ -60,7 +69,15 @@ function useSyncState() {
   }, []);
   return value;
 }
-export function FieldConnection() {
+export const FieldSessionActions = createContext<{signOut: () => void; signingOut: boolean} | null>(null);
+const localDay=(value:string)=>new Date(value).toLocaleDateString("en-CA",{timeZone:"America/Sao_Paulo"});
+export function FieldSyncIcon(){
+  const status=useSyncState();
+  const stale=!status.prepared||localDay(status.prepared)!==localDay(new Date().toISOString());
+  return <span className="field-sync-icon"><RefreshCw size={18} className={status.syncing?"spin":""}/>{stale&&<AlertTriangle size={12} className="field-sync-warning" aria-label="Atualize a programação baixada"/>}</span>;
+}
+export function FieldConnection({showExit=true}:{showExit?:boolean}={}) {
+  const session = useContext(FieldSessionActions);
   const status = useSyncState();
   return (
     <div
@@ -84,9 +101,10 @@ export function FieldConnection() {
       </strong>
       {status.pending > 0 && (
         <span>
-          {status.pending} pendente{status.pending === 1 ? "" : "s"}
+          {status.syncing&&<RefreshCw size={13} className="spin" aria-label="Sincronizando"/>} {status.pending} pendente{status.pending === 1 ? "" : "s"}
         </span>
       )}
+      {session && showExit && <button type="button" className="field-connection-exit" onClick={session.signOut} disabled={session.signingOut} aria-label={session.signingOut ? "Saindo…" : "Sair"}>{session.signingOut ? <LoaderCircle size={13} className="spin"/> : <LogOut size={13}/>} {session.signingOut ? "Saindo…" : "Sair"}</button>}
     </div>
   );
 }
@@ -112,11 +130,57 @@ const date = (value?: string) =>
   value
     ? new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
     : "Ainda não realizada";
-export default function FieldOffline({ onSynced, open, onClose }: { onSynced: () => void; open: boolean; onClose: () => void }) {
+export default function FieldOffline({
+  onSynced,
+  open,
+  onClose,
+}: {
+  onSynced: () => void;
+  open: boolean;
+  onClose: () => void;
+}) {
   const status = useSyncState();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   useEffect(() => {
+    if (nativePortal()) {
+      const changed = () => {
+        void offlineMessage("FIELD_STATUS").catch(() => {});
+        onSynced();
+      };
+      const sync = async () => {
+        const connected = await nativePortal()!.connection().catch(() => false);
+        update({connected});
+        if (!connected) {
+          update({ connected: false });
+          return;
+        }
+        void offlineMessage(
+          state.prepared ? "FIELD_SYNC" : "FIELD_PREPARE",
+        ).catch(() => {});
+      };
+      window.addEventListener("rj-offline-update", changed);
+      window.addEventListener("rj-network-change", sync);
+      window.addEventListener("online", sync);
+      window.addEventListener("offline", sync);
+      const visibility = () => {
+        if (document.visibilityState === "visible") sync();
+      };
+      document.addEventListener("visibilitychange", visibility);
+      void fetch("/api/field")
+        .then(() => offlineMessage("FIELD_STATUS"))
+        .then(sync)
+        .catch(() => {});
+      const timer = setInterval(sync, 30000);
+      return () => {
+        clearInterval(timer);
+        window.removeEventListener("rj-offline-update", changed);
+        window.removeEventListener("rj-network-change", sync);
+        window.removeEventListener("online", sync);
+        window.removeEventListener("offline", sync);
+        document.removeEventListener("visibilitychange", visibility);
+      };
+    }
     if (!("serviceWorker" in navigator)) {
       setError("Este navegador não oferece armazenamento offline.");
       return;
@@ -189,6 +253,10 @@ export default function FieldOffline({ onSynced, open, onClose }: { onSynced: ()
     try {
       const result = await offlineMessage("FIELD_EXPORT");
       if (!result.ok) throw Error(result.error);
+      if (nativePortal()) {
+        await nativePortal()!.exportBackup(JSON.stringify(result.backup));
+        return;
+      }
       const url = URL.createObjectURL(
         new Blob([JSON.stringify(result.backup)], { type: "application/json" }),
       );
@@ -220,8 +288,10 @@ export default function FieldOffline({ onSynced, open, onClose }: { onSynced: ()
   return (
     <>
       <FieldConnection />
+      {status.connected && status.serverConnected === false && <p className="field-offline-hint">Internet conectada. O sistema ainda não está disponível para sincronizar; seus registros permanecem salvos.</p>}
+      {status.prepared&&localDay(status.prepared)!==localDay(new Date().toISOString())&&<p className="field-download-warning" role="status"><AlertTriangle size={16}/> Programação baixada em {date(status.prepared)}. Atualize a programação de hoje.</p>}
       {!status.prepared && (
-        <p className="field-offline-hint">
+        <p className="field-offline-hint"><AlertTriangle size={16}/>
           {busy
             ? "Baixando a programação para uso offline…"
             : "Prepare este dispositivo com internet antes de trabalhar offline."}
@@ -242,14 +312,11 @@ export default function FieldOffline({ onSynced, open, onClose }: { onSynced: ()
           >
             <header>
               <h2>Sincronismo</h2>
-              <button
-                onClick={onClose}
-                aria-label="Fechar sincronismo"
-              >
+              <button onClick={onClose} aria-label="Fechar sincronismo">
                 <X />
               </button>
             </header>
-            <FieldConnection />
+            <FieldConnection showExit={false}/>
             <p>
               <b>{status.pending}</b>{" "}
               {status.pending === 1
@@ -269,14 +336,14 @@ export default function FieldOffline({ onSynced, open, onClose }: { onSynced: ()
             </p>
             <div className="field-sync-actions">
               <button
-                disabled={busy || status.connected === false}
+                disabled={busy || status.syncing || status.connected === false}
                 onClick={() => void run("FIELD_SYNC")}
               >
                 <RefreshCw size={16} />
                 Sincronizar agora
               </button>
               <button
-                disabled={busy || status.pending > 0}
+                disabled={busy || status.syncing || status.pending > 0 || status.connected === false}
                 onClick={() => void run("FIELD_PREPARE")}
               >
                 <Download size={16} />
@@ -294,7 +361,7 @@ export default function FieldOffline({ onSynced, open, onClose }: { onSynced: ()
             <ul>
               {status.queue.map((item) => (
                 <li key={item.id}>
-                  <b>{names[item.action] || item.action}</b>
+                  <b>{status.syncingId===item.id&&<RefreshCw className="spin" size={15} aria-label="Enviando este registro"/>} {names[item.action] || item.action}</b>
                   <small>
                     {item.operationLabel} · {date(item.at)}
                   </small>
@@ -310,9 +377,7 @@ export default function FieldOffline({ onSynced, open, onClose }: { onSynced: ()
             {status.queue.some((item) =>
               item.error?.includes("Entre novamente"),
             ) && (
-              <a href="/tecnico/entrar">
-                Entrar novamente para sincronizar
-              </a>
+              <a href="/tecnico/entrar">Entrar novamente para sincronizar</a>
             )}
             {status.pending === 0 && (
               <p className="field-success">

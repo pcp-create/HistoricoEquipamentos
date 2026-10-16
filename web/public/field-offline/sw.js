@@ -3,7 +3,7 @@ importScripts("/field-offline/project.js");
 const DB = "rj-field-offline-v1",
   ASSETS = "rj-field-assets-v1";
 let serial = Promise.resolve(),
-  flushing = null;
+  flushing = null, syncingId = null;
 const exclusive = (fn) => {
   const next = serial.then(fn, fn);
   serial = next.catch(() => {});
@@ -27,6 +27,7 @@ function db() {
   });
 }
 async function read(key) {
+  if (self.nativeStorage) return self.nativeStorage.read(key);
   const d = await db();
   return new Promise((resolve, reject) => {
     const t = d.transaction("records"),
@@ -37,6 +38,7 @@ async function read(key) {
   });
 }
 async function write(entries) {
+  if (self.nativeStorage) return self.nativeStorage.write(entries);
   const d = await db();
   return new Promise((resolve, reject) => {
     const t = d.transaction("records", "readwrite"),
@@ -85,6 +87,8 @@ async function status() {
     queue = owner ? (await read(owner + ":queue")) || [] : [];
   return {
     owner,
+    syncing: !!flushing,
+    syncingId,
     connected:
       self.navigator.onLine !== false && (await read("connected")) === true,
     pending: queue.length,
@@ -328,7 +332,7 @@ async function flush() {
   try {
     while (true) {
       const identity = await request("/api/field");
-      await write([["connected", identity.status < 500]]);
+      await write([["connected", identity.ok]]);
       if (!identity.ok)
         throw Error(
           identity.status === 401
@@ -344,6 +348,8 @@ async function flush() {
           throw Error(
             "A conta foi alterada. Entre novamente com a conta das pendências.",
           );
+        syncingId=item.id;
+        await notify();
         const mapping = (await read(owner + ":mapping")) || {};
         let result;
         if (item.type === "photo") {
@@ -393,7 +399,14 @@ async function flush() {
           if (item.type === "photo")
             currentMapping["local-" + item.id] = data.id;
           if (item.type === "action") heads[item.operationId] = item.id;
+          const photoEntries = [];
+          if (item.type === "photo" && data.id) {
+            const localPhoto = await read(owner + ":photo:local-" + item.id);
+            if (localPhoto)
+              photoEntries.push([owner + ":photo:" + data.id, localPhoto]);
+          }
           await write([
+            ...photoEntries,
             [owner + ":queue", queue.filter((q) => q.id !== item.id)],
             [owner + ":heads", heads],
             [owner + ":mapping", currentMapping],
@@ -411,7 +424,7 @@ async function flush() {
       if (latest.email !== owner || (await read("owner")) !== owner)
         throw Error("Conta alterada.");
       const snapshots = [[key(owner, "/api/field"), latest]];
-      for (const row of latest.rows || []) {
+      for (const row of latest.calendarRows || latest.rows || []) {
         const url = "/api/field?operation=" + row.id,
           response = await request(url);
         if (!response.ok)
@@ -463,7 +476,7 @@ async function flush() {
 function sync() {
   if (!flushing)
     flushing = flush().finally(() => {
-      flushing = null;
+      flushing = null, syncingId = null;
     });
   return flushing;
 }
@@ -493,7 +506,7 @@ async function prepare() {
   const home = await homeResponse.json();
   if (home.email !== owner) throw Error("Conta alterada. Reabra o portal.");
   await preparedCache(owner, "/api/field", home);
-  for (const row of home.rows) {
+  for (const row of home.calendarRows || home.rows) {
     const url = "/api/field?operation=" + row.id,
       response = await request(url);
     if (!response.ok)
@@ -525,36 +538,38 @@ async function prepare() {
   }
   for (const url of ["/api/field/time-requests", "/api/field/map"])
     await cacheGet(url);
-  const shell = await request("/tecnico");
-  if (!shell.ok || new URL(shell.url).pathname != "/tecnico")
-    throw Error("Entre novamente antes de preparar o dispositivo.");
-  const html = await shell.clone().text(),
-    assets = await caches.open(ASSETS);
-  await write([[owner + ":shell", html]]);
-  const paths = new Set();
-  for (const match of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
-    const path = match[1].replaceAll("&amp;", "&");
-    if (path.startsWith("/_next/static/") || path.startsWith("/icons/"))
-      paths.add(path);
+  if (!self.nativeStorage) {
+    const shell = await request("/tecnico");
+    if (!shell.ok || new URL(shell.url).pathname != "/tecnico")
+      throw Error("Entre novamente antes de preparar o dispositivo.");
+    const html = await shell.clone().text(),
+      assets = await caches.open(ASSETS);
+    await write([[owner + ":shell", html]]);
+    const paths = new Set();
+    for (const match of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
+      const path = match[1].replaceAll("&amp;", "&");
+      if (path.startsWith("/_next/static/") || path.startsWith("/icons/"))
+        paths.add(path);
+    }
+    // Includes lazy chunks (map, signature inputs) and fonts for a cold offline launch.
+    const manifest = await request("/field-offline/assets.json");
+    if (manifest.ok) {
+      const body = await manifest.json();
+      for (const path of body.files || [])
+        if (path.startsWith("/_next/static/")) paths.add(path);
+    }
+    const pending = [...paths];
+    for (let i = 0; i < pending.length; i += 4)
+      await Promise.all(
+        pending.slice(i, i + 4).map(async (path) => {
+          if (await assets.match(path)) return;
+          const asset = await request(path);
+          if (!asset.ok)
+            throw Error("Falha ao baixar a interface. Tente novamente.");
+          await assets.put(path, asset);
+        }),
+      );
   }
-  // Includes lazy chunks (map, signature inputs) and fonts for a cold offline launch.
-  const manifest = await request("/field-offline/assets.json");
-  if (manifest.ok) {
-    const body = await manifest.json();
-    for (const path of body.files || [])
-      if (path.startsWith("/_next/static/")) paths.add(path);
-  }
-  const pending = [...paths];
-  for (let i = 0; i < pending.length; i += 4)
-    await Promise.all(
-      pending.slice(i, i + 4).map(async (path) => {
-        if (await assets.match(path)) return;
-        const asset = await request(path);
-        if (!asset.ok)
-          throw Error("Falha ao baixar a interface. Tente novamente.");
-        await assets.put(path, asset);
-      }),
-    );
   if ((await read("owner")) !== owner)
     throw Error("Conta alterada. Reabra o portal.");
   await write([
@@ -575,7 +590,7 @@ async function photo(url) {
   }
   try {
     const r = await request(url);
-    if (!r.ok) return r;
+    if (!r.ok) throw Error("Foto indisponível no servidor.");
     const blob = await r.clone().blob();
     await write([[owner + ":photo:" + id, { file: blob }]]);
     return r;

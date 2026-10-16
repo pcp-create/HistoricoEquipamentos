@@ -7,5 +7,6 @@ export async function POST(req:Request){
  if(!sameOrigin(req))return json({error:'Origem inválida.'},403);
  try {const u=await requireUser();const raw=await req.text();if(raw.length>2000)return json({error:'Dados excedem o limite.'},413);
  let body;try{body=JSON.parse(raw)}catch{return json({error:'Dados inválidos.'},400)}
+ if(body.owner&&body.owner!==u.email)throw new Forbidden();
  await saveFieldLocation(u.email,body);return json({saved:true});}catch(e){return fail(e)}
 }

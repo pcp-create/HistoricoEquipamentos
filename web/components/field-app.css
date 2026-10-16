@@ -711,4 +711,32 @@ dialog.field-report-screen {
 .field-app button.field-active.paused {background:#fff0ce;color:#825c00;}
 .field-app button.field-active:hover {filter:brightness(.98);}
 
-.field-app .field-sign-out { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 6px 10px; min-height: 34px; font-size: 12px; flex-shrink: 0; }
+.field-home { gap: 12px; }
+.field-home button { border-radius: 20px; padding: 22px; box-shadow: none; }
+.field-home button:first-child { background: linear-gradient(135deg,#183e65,#2876ab); border: 0; box-shadow: 0 8px 24px #183e651c; min-height: 112px; }
+.field-home button:first-child > svg:first-child { padding: 10px; width: 48px; height: 48px; background: #ffffff1a; border-radius: 14px; }
+.field-home button:disabled { opacity: 1; background: #f8fafc; color: #8192a3; border-color: #e6ecf2; min-height: 80px; }
+.field-home b { font-size: 17px; }
+.field-home small { line-height: 1.5; }
+
+.field-app button.field-active.paused {border:1px solid #d8a435;}
+.field-active.paused small {display:flex;align-items:center;gap:5px;}
+.field-pause-total {display:inline-block;margin-left:14px;font-size:12px;}
+.field-vehicle-info {display:flex;gap:10px;align-items:center;border-top:1px solid #dbe5ed;margin-top:24px;padding-top:16px;}
+.field-vehicle-info small,.field-vehicle-info strong {display:block;}
+.field-note {white-space:pre-wrap;line-height:1.65;overflow-wrap:anywhere;}
+.field-app .field-operation-title[class*="field-operation-status-"] {color:#233f5b;}
+.field-app .field-operation-title.field-operation-status-overdue > span > strong {color:#b42318;}
+.field-app .field-operation-title.field-operation-status-overdue .field-overdue-date {color:#b42318;}
+
+.field-pdf-control {margin:10px 0;}
+.field-pdf-control > button {min-height:34px;padding:7px 12px;font-size:12px;}
+.field-pdf-options {padding:12px;border:1px solid #dbe5ed;background:white;border-radius:12px;font-size:12px;}
+.field-pdf-options > div {display:flex;gap:6px;flex-wrap:wrap;}
+.field-pdf-options button {min-height:36px;padding:7px 12px;font-size:12px;}
+.field-app .field-operation-title.field-operation-status-overdue > span > b {color:#b42318;}
+
+.field-include-closed {display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0 16px;}
+.field-include-closed input {width:16px;height:16px;}
+
+.field-app [hidden] {display:none !important;}

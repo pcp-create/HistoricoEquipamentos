@@ -104,7 +104,7 @@ test("scheduling includes once, versions operations, protects execution and reco
         ),
       );
     await db.exec(
-      "CREATE TABLE m8_ordens_servico(company_id integer,id_m8 bigint);INSERT INTO m8_ordens_servico VALUES(1,100);CREATE TABLE m8_os_produtos(company_id integer,ordem_servico_id bigint,id_m8 bigint,esta_excluido boolean);INSERT INTO m8_os_produtos VALUES(1,100,55,false);INSERT INTO web_user_access(email,display_name,job_title,role,updated_by) VALUES('tech@test.com','Técnico','Técnico','user','test'),('other@test.com','Outro','Técnico','user','test');",
+      "CREATE TABLE m8_order_equipment_links(company_id integer,order_id bigint,equipment_id bigint,stale boolean);CREATE TABLE m8_equipment_catalog(equipment_id bigint,name text,serial text,present boolean);CREATE TABLE web_service_checklist_photos(id bigint,operation_id uuid);CREATE TABLE m8_ordens_servico(company_id integer,id_m8 bigint);INSERT INTO m8_ordens_servico VALUES(1,100);CREATE TABLE m8_os_produtos(company_id integer,ordem_servico_id bigint,id_m8 bigint,esta_excluido boolean);INSERT INTO m8_os_produtos VALUES(1,100,55,false);INSERT INTO web_user_access(email,display_name,job_title,role,updated_by) VALUES('tech@test.com','Técnico','Técnico','user','test'),('other@test.com','Outro','Técnico','user','test');",
     );
     const admin = "guih.waltrick@gmail.com",
       user = "tech@test.com";
@@ -170,9 +170,16 @@ test("scheduling includes once, versions operations, protects execution and reco
     assert.equal(ops[0].status,"awaiting_execution");assert.ok(ops[0].sent_at);
     // A returned operation accepts a replacement template and starts with empty answers.
     const template={id:'replacement',name:'Checklist corrigido',items:[],stages:[{id:'step',name:'Etapa',fields:[{id:'answer',label:'Verificação',type:'text',required:false}]}]};
-    await db.query("UPDATE web_service_schedule_settings SET document=jsonb_set(document,'{checklists}',$1::jsonb)",[JSON.stringify([template])]);
-    await db.query("UPDATE web_service_operations SET sent_at=NULL,status='scheduled',document=(document-'checklistRun')||$2::jsonb WHERE id=$1",[ops[0].id,JSON.stringify({checklistReturn:{reason:'Checklist errado'},checked:[]})]);
-    ops[0]=(await send('operation',{document:{...doc,time:'11:00',checklistId:'replacement',checked:[]}})).operation;
+    await db.query("UPDATE web_service_schedule_settings SET document=jsonb_set(document,'{checklists}',$1::jsonb)",[JSON.stringify([template,{...template,id:"old"}])]);
+    await db.query("UPDATE web_service_operations SET sent_at=NULL,status='scheduled',document=(document-'checklistRun')||$2::jsonb WHERE id=$1",[ops[0].id,JSON.stringify({checklistId:'old',checklistRun:{template:{...template,id:'old'},stages:{step:{status:'released',answers:{answer:'Preservar'}}}},checklistReturn:{reason:'Checklist errado'},checked:[]})]);
+    await db.query("INSERT INTO web_service_checklist_photos VALUES(101,$1)",[ops[0].id]);
+    ops[0]=(await send('operation',{document:{...doc,time:'11:00',checklistId:'old',checked:[]}})).operation;
+    assert.equal(ops[0].document.checklistRun.stages.step.answers.answer,'Preservar');
+    await assert.rejects(send('operation',{document:{...doc,time:'11:00',checklistId:'replacement',checked:[]}}),/Confirme/);
+    assert.equal((await db.query('SELECT * FROM web_service_checklist_photos')).rows.length,1);
+    ops[0]=(await send('operation',{confirmChecklistReplacement:true,document:{...doc,time:'11:00',checklistId:'replacement',checked:[]}})).operation;
+    assert.equal(ops[0].document.checklistRun,undefined);
+    assert.equal((await db.query('SELECT * FROM web_service_checklist_photos')).rows.length,0);
     assert.equal(ops[0].document.checklistReturn.reason,'Checklist errado');
     ops[0]=(await mutateSchedule({action:'dispatch',scheduleId:sid,operationId:ops[0].id,version:ops[0].version},admin)).operation;
     assert.equal(ops[0].document.checklistRun.template.id,'replacement');

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import {fieldReportPdf} from "../lib/service-scheduling/field-report-pdf";
 import { fieldAction, fieldData } from "../lib/service-scheduling/field-store";
 import {
   locationOf,
@@ -348,6 +349,12 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     const { checklistPdf, ChecklistPdfPending } = await import('../lib/service-scheduling/checklist-pdf');
     await assert.rejects(checklistPdf(id, 'planner'), ChecklistPdfPending);
     await db.query("UPDATE web_service_operations SET status='reviewed' WHERE id=$1", [id]);
+    await assert.rejects(fieldReportPdf('outsider',{operationId:id}),e=>(e as Error).constructor.name==='Forbidden');
+    await assert.rejects(fieldReportPdf('outsider',{scheduleId:String(schedule.id)}));
+    const ownPdf=await fieldReportPdf('tech',{operationId:id});
+    assert.ok(ownPdf.bytes.length>0);
+    const osPdf=await fieldReportPdf('tech',{scheduleId:String(schedule.id)});
+    assert.ok(osPdf.bytes.length>0);
     const pdf = await checklistPdf(id, 'planner');
     assert.ok(pdf && pdf.bytes.length > 0);
 
@@ -362,7 +369,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     await act('report_return',{version:beforeReturn.version,reason:'Checklist incorreto',confirmDiscard:true});
     const returnedOperation=(await db.query<any>('SELECT * FROM web_service_operations WHERE id=$1',[id])).rows[0];
     assert.equal(returnedOperation.sent_at,null);
-    assert.equal(returnedOperation.document.checklistRun,undefined);
+    assert.equal(returnedOperation.document.checklistRun.stages.s.answers.f,"discard");
     assert.equal(returnedOperation.document.checklistReturn.reason,'Checklist incorreto');
     assert.equal(returnedOperation.status,'scheduled');
     assert.equal((await db.query<any>('SELECT count(*) AS count FROM web_field_sessions WHERE operation_id=$1',[id])).rows[0].count,sessionsBefore);

@@ -501,10 +501,11 @@ export async function mutateSchedule(b: any, email: string) {
         await c.query("SELECT email,job_title,enabled FROM web_user_access")
       ).rows;
       try {
-        if (operation.document.checklistRun && b.document.checklistId !== operation.document.checklistId)
-          throw Error("O checklist já foi iniciado e não pode ser substituído.");
+        const replacing=!!operation.document.checklistRun && b.document.checklistId !== operation.document.checklistId;
+        if(replacing && (!operation.document.checklistReturn || operation.sent_at))throw Error("Devolva a operação ao planejamento antes de substituir o checklist.");
+        if(replacing && b.confirmChecklistReplacement!==true)throw Error("A substituição apagará o preenchimento e as fotos do relatório. Confirme para continuar.");
         if(operation.sent_at && (b.document.responsible!==operation.document.responsible || JSON.stringify(b.document.support)!==JSON.stringify(operation.document.support) || b.document.vehicleId!==operation.document.vehicleId) && (await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[operation.id])).rows.length)throw Error("Finalize os apontamentos ativos antes de alterar a equipe ou o veículo.");
-        const checked = validateOperation({...b.document, checklistRun: operation.document.checklistRun}, config.document, users);
+        const checked = validateOperation({...b.document, checklistRun: replacing ? undefined : operation.document.checklistRun}, config.document, users);
         const equipmentId=checked.document.equipmentId;
         if((operation.sent_at || operation.document.equipmentLocked || operation.document.checklistRun?.equipmentId) && equipmentId!==(operation.document.equipmentId||''))
           throw Error('O equipamento não pode ser alterado após o envio ao técnico ou registro de leitura.');
@@ -514,6 +515,7 @@ export async function mutateSchedule(b: any, email: string) {
           if(!equipment)throw Error('Selecione um equipamento ativo cadastrado.');
           checked.document.equipment={...equipment,...(equipmentId===operation.document.equipmentId && operation.document.equipment?.label?{label:operation.document.equipment.label}:{})};
         }
+        if(replacing)await c.query("DELETE FROM web_service_checklist_photos WHERE operation_id=$1",[operation.id]);
         document = {...checked.document,...(operation.document.checklistReturn?{checklistReturn:operation.document.checklistReturn}:{})};
         ends = checked.ends_at;
       } catch (e) {

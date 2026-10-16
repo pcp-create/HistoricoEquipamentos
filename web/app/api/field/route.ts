@@ -1,3 +1,4 @@
+import {recordActivity} from "@/lib/admin-store";
 import { requireUser, sameOrigin, Forbidden, Unauthorized } from "@/lib/auth";
 import {
   fieldData,
@@ -36,6 +37,7 @@ function failure(e: unknown) {
 export async function GET(req: Request) {
   try {
     const user = await requireUser();
+    await recordActivity(user,"heartbeat");
     return json(
       await fieldData(
         user.email,

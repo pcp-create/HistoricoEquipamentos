@@ -77,6 +77,7 @@ function projectField(home, detail, body) {
       segment_at: at,
       active_seconds: 0,
       pause_seconds: 0,
+      pause_history_seconds: Number(detail.pause_history_seconds||0),
       odometer_start: body.odometer,
     };
   }
@@ -107,6 +108,7 @@ function projectField(home, detail, body) {
       }
       if (action === "stop") {
         detail.progress = { ...detail.progress, [active.kind]: true };
+        detail.pause_history_seconds=Number(detail.pause_history_seconds||0)+Number(active.pause_seconds||0);
         closed = {
           ...active,
           state: "finished",
@@ -120,13 +122,14 @@ function projectField(home, detail, body) {
   if (
     [
       "report_save",
+      "report_return",
       "report_send",
       "report_send_partial",
       "checklist_save",
       "checklist_submit",
     ].includes(action)
   ) {
-    if (!same || active.kind !== "work" || active.state !== "running")
+    if (action!=="report_return"&&(!same || active.kind !== "work" || active.state !== "running"))
       throw Error("Inicie ou retome a atividade para preencher o relatório.");
     const run = op.document.checklistRun;
     if (!run) throw Error("Baixe o checklist antes de ficar sem internet.");

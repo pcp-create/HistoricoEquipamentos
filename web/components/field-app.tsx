@@ -1,12 +1,14 @@
 "use client";
-import FieldOffline from "./field-offline";
+import { nativePortal } from "@/lib/native-portal";
+import FieldPdfButton from "./field-pdf-button";
+import FieldOffline, {FieldSessionActions,FieldSyncIcon} from "./field-offline";
 import { clearApiCache } from "@/lib/client-api-cache";
 import { materialBalance } from "@/lib/service-scheduling/material-balance";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import { useState, useEffect, useId, useRef } from "react";
 import {
   ArrowLeft,
-  LogOut,
+  Settings,
   LoaderCircle,
   CalendarDays,
   Wallet,
@@ -76,10 +78,10 @@ async function capturePosition() {
           accuracy: p.coords.accuracy,
           at: new Date(p.timestamp).toISOString(),
         }),
-      () =>
+      (error) =>
         reject(
           Error(
-            "Permita a localização do aparelho e tente novamente. O registro ainda não foi salvo.",
+            nativePortal() ? error.message : error.code === 1 ? "Permita a localização do aparelho e tente novamente. O registro ainda não foi salvo." : "Não foi possível obter uma posição recente. Verifique o sinal GPS e tente novamente. O registro ainda não foi salvo.",
           ),
         ),
       { enableHighAccuracy: true, timeout: 20000, maximumAge: 30000 },
@@ -125,7 +127,13 @@ export default function FieldApp() {
     }
   }
   const [openOperation, setOpenOperation] = useState<string | null>(null);
+  useEffect(() => {
+    const open = () => { nativePortal()?.launchOperation().then(id => { if(id){setScreen("schedule");setScheduleView("list");setOpenOperation(id);} }).catch(() => {}); };
+    open();window.addEventListener("rj-open-operation",open);
+    return () => window.removeEventListener("rj-open-operation",open);
+  }, []);
   const [scheduleView, setScheduleView] = useState("list");
+  const [includeClosed,setIncludeClosed]=useState(false);
   const [selectedDay, setSelectedDay] = useState(() => fieldToday(Date.now()));
   const [screen, setScreen] = useState("home"),
     [data, setData] = useState<any>(null),
@@ -151,32 +159,32 @@ export default function FieldApp() {
     };
   }, []);
   const groups = new Map<string, any[]>();
-  for (const row of (scheduleView === "calendar" ? data?.calendarRows || data?.rows : data?.rows) || []) {
+  for (const row of ((scheduleView === "calendar" || includeClosed) ? data?.calendarRows || data?.rows : data?.rows) || []) {
     const k = String(row.schedule_id);
     groups.set(k, [...(groups.get(k) || []), row]);
   }
   for (const rows of groups.values()) rows.sort((a,b)=>Number(a.position)-Number(b.position));
   const active = data?.active;
   return (
-    <main className={"field-app" + (screen !== "home" && scheduleView === "map" ? " field-app-map" : "")}>
+    <FieldSessionActions.Provider value={{signOut: () => void signOut(), signingOut}}><main className={"field-app" + (screen !== "home" && scheduleView === "map" ? " field-app-map" : "")}>
       <FieldOffline onSynced={refresh} open={syncOpen} onClose={() => setSyncOpen(false)}/>
       <header className="field-header">
         <div>
           <small>PORTAL TÉCNICO RJ</small>
           <h1>
             {screen === "home"
-              ? "Bem-vindo ao Portal Técnico RJ"
+              ? "Seu dia em campo"
               : "Minha programação"}
           </h1>
         </div>
         <div className="field-header-actions">
-            <button aria-label="Sincronismo" title="Sincronismo" aria-haspopup="dialog" onClick={() => setSyncOpen(true)}><RefreshCw size={18}/></button>
+            {nativePortal() && <button aria-label="Permissões do aplicativo" title="Permissões do aplicativo" onClick={() => nativePortal()?.permissions()}><Settings size={18}/></button>}
+            <button aria-label="Sincronismo" title="Sincronismo" aria-haspopup="dialog" onClick={() => setSyncOpen(true)}><FieldSyncIcon/></button>
             {screen !== "home" && <button aria-label="Voltar ao menu" title="Voltar ao menu" onClick={() => setScreen("home")}><ArrowLeft size={20}/></button>}
           </div>
       </header>
       <div className="field-user-summary">
         <p className="field-user">{data?.displayName || "Técnico"}</p>
-        <button className="field-sign-out" onClick={() => void signOut()} disabled={signingOut}><LogOut size={16} aria-hidden="true"/>{signingOut ? "Saindo…" : "Sair"}</button>
         {screen !== "home" && <span className="field-order-count">{groups.size} {groups.size === 1 ? "OS enviada" : "OSs enviadas"}</span>}
       </div>
       {locationMessage && <p className="field-user" role="status">{locationMessage}</p>}
@@ -191,13 +199,41 @@ export default function FieldApp() {
           active.pause_reason.minutes * 60000 && (
           <PauseReminder session={active} refresh={refresh} />
         )}
+          {active && (
+            <button
+              type="button"
+              onClick={()=>{setScreen('schedule');setScheduleView('list');setOpenOperation(active.operation_id);}}
+              aria-label="Abrir operação com apontamento em andamento"
+              className={
+                "field-active " + (active.state === "paused" ? "paused" : "")
+              }
+            >
+              <b>
+                {active.kind === "travel"
+                  ? "Deslocamento em andamento"
+                  : active.state === "paused"
+                    ? "Atividade em pausa"
+                    : "Atividade em andamento"}
+              </b>
+              <span>
+                {elapsed(
+                  active.state === "paused"
+                    ? Math.max(0,(now-Date.parse(active.segment_at))/1000)
+                    : sessionTotals(active, now).active,
+                )}
+              </span>
+              {active.state==="paused"&&<small><Pause size={15}/> {active.pause_reason?.name||"Pausa"} · Total de pausas: {elapsed(Number(active.pause_history_seconds||0)+sessionTotals(active,now).pause)}</small>}
+              <small>Abrir operação <ChevronRight size={14} aria-hidden="true"/></small>
+              <small>O registro continua mesmo ao fechar a página.</small>
+            </button>
+          )}
       {screen === "home" ? (
-        <nav className="field-home">
+        <nav className="field-home" aria-label="Serviços do portal">
           <button onClick={() => setScreen("schedule")}>
             <CalendarDays />
             <span>
               <b>Programação</b>
-              <small>OSs, peças e apontamentos</small>
+              <small>Sua agenda, operações e relatórios</small>
             </span>
             <ChevronDown />
           </button>
@@ -224,33 +260,7 @@ export default function FieldApp() {
             <button aria-pressed={scheduleView === "calendar"} onClick={() => setScheduleView("calendar")}><CalendarDays size={16}/>Calendário</button>
             <button aria-pressed={scheduleView === "map"} onClick={() => setScheduleView("map")}><MapPin size={16}/>Mapa</button>
           </nav>
-          {active && (
-            <button
-              type="button"
-              onClick={()=>{setScheduleView('list');setOpenOperation(active.operation_id);}}
-              aria-label="Abrir operação com apontamento em andamento"
-              className={
-                "field-active " + (active.state === "paused" ? "paused" : "")
-              }
-            >
-              <b>
-                {active.kind === "travel"
-                  ? "Deslocamento em andamento"
-                  : active.state === "paused"
-                    ? "Atividade em pausa"
-                    : "Atividade em andamento"}
-              </b>
-              <span>
-                {elapsed(
-                  active.state === "paused"
-                    ? sessionTotals(active, now).pause
-                    : sessionTotals(active, now).active,
-                )}
-              </span>
-              <small>Abrir operação <ChevronRight size={14} aria-hidden="true"/></small>
-              <small>O registro continua mesmo ao fechar a página.</small>
-            </button>
-          )}
+          {scheduleView==="list"&&<label className="field-include-closed"><input type="checkbox" checked={includeClosed} onChange={e=>setIncludeClosed(e.target.checked)}/> Mostrar também operações encerradas</label>}
           <FieldMap visible={scheduleView === "map"}/>
           {scheduleView === "calendar" && <FieldCalendar rows={data?.calendarRows || data?.rows || []} selected={selectedDay} onSelect={setSelectedDay} now={now}/>}
           {scheduleView === "calendar" && data && groups.size > 0 && !(data.calendarRows || data.rows).some((row: any) => (row.date || "") === selectedDay) && <p className="field-day-empty">Nenhuma OS programada para esta data.</p>}
@@ -297,6 +307,7 @@ export default function FieldApp() {
                     <ChevronDown size={20} />
                   </summary>
                   <div className="field-operations">
+                    <FieldPdfButton scheduleId={String(first.schedule_id)}/>
                     {rows.map((row) => (
                       <div key={row.id} hidden={scheduleView === "calendar" && (row.date || "") !== selectedDay}><FieldOperation
                         key={row.id}
@@ -319,7 +330,7 @@ export default function FieldApp() {
           </p>}
         </>
       )}
-    </main>
+    </main></FieldSessionActions.Provider>
   );
 }
 function MenuLight({status}:{status:string}) {
@@ -483,12 +494,14 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
             {fieldOperationOverdue(row.date, operation?.status || row.status, now) && " · Em atraso"}
           </small>
           <small className="field-planned-duration"><Clock3 size={14} aria-hidden="true" /> Duração programada: {plannedDuration(operation ? operation.document.duration : row.duration)}</small>
+          <small>Calendário: {data?.calendar_name||row.calendar_name||"da operação"}</small>
           <small className="field-planned-duration"><Clock3 size={14} aria-hidden="true" /> Término estimado: {estimatedEnd ? new Date(estimatedEnd).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }) : "Não informado"}</small>
         </span>
         <ChevronDown size={18} />
       </button>
       {open && (
         <FieldReportScreen open={open} busy={busy} heading={`OP${operationNumber(row.position)} · ${row.description||'Sem descrição'}`} title={`OS ${row.number} · ${row.customer||'Cliente não informado'}`} onClose={()=>{if(view){setView('');setError('');setMessage('');}else onToggle();}}>
+        <FieldPdfButton operationId={row.id}/>
         <p className="field-operation-screen-equipment">{row.operation_equipment||operation?.document.equipment?.label||operation?.document.equipment?.name||row.equipment||'Equipamento não informado'}</p>
         <div className="field-operation-body">
           {!data ? (
@@ -507,6 +520,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                     dirty={false}
                     mutate={act}
                     renderActions={(save:()=>Promise<any>,getDrafts:()=>any[])=><div className="field-report-footer">
+                      <FieldPdfButton operationId={row.id}/>
                       {busy&&<p role="status">Obtendo localização e salvando…</p>}
                       {error&&<p className="field-error" role="alert">{error}</p>}
                       {message&&<p className="field-success" role="status">{message}</p>}
@@ -517,8 +531,8 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                           <button type="button" disabled={busy||reportLoading||locked||!!checklistRun?.partialSubmission||operation.document.responsible!==data.email} onClick={async()=>{
                             const reason=window.prompt('Informe ao planejador por que o checklist precisa ser corrigido:');
                             if(!reason?.trim())return;
-                            if(!window.confirm('Devolver para ajuste do checklist? Todos os dados preenchidos e fotos deste relatório serão descartados, incluindo o preenchimento da equipe. A operação sairá do portal até o planejador corrigir e reenviar. Apontamentos e retiradas de peças serão preservados.'))return;
-                            if(await act({action:'report_return',version:operation.version,reason,confirmDiscard:true}))setView('');
+                            if(!window.confirm('Devolver ao planejamento? O preenchimento e as fotos serão preservados. Os dados só serão apagados se o planejador confirmar a substituição do checklist.'))return;
+                            if(await act({action:'report_return',version:operation.version,reason,confirmReturn:true,stages:getDrafts()}))setView('');
                           }}><ArrowLeft size={18}/> Devolver</button>
                           <button disabled={!ready||reportLoading||!reportActivityRunning||operation.document.responsible!==data.email} onClick={async()=>{if(await act({action:'report_send',version:operation.version,stages:getDrafts()}))setView('');}}><Flag size={18}/> Enviar</button>
                         </div>
@@ -545,7 +559,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                   <MenuLight status={data.infoRead?"complete":"empty"}/><span>Informações</span>
                 </button>
                 <button
-                  disabled={busy || locked || !data.infoRead}
+                  disabled={busy || (!locked && !data.infoRead)}
                   onClick={() => void show("parts")}
                 >
                   <Package />
@@ -672,10 +686,11 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                   <b>
                     {elapsed(
                       session.state === "paused"
-                        ? sessionTotals(session, now).pause
+                        ? Math.max(0,(now-Date.parse(session.segment_at))/1000)
                         : sessionTotals(session, now).active,
                     )}
                   </b>
+                  {session.state==="paused"&&<span className="field-pause-total">Total de pausas: {elapsed(Number(data.pause_history_seconds||0)+sessionTotals(session,now).pause)}</span>}
                   {session.kind === "travel" && (
                     <small>Odômetro inicial: {session.odometer_start} km</small>
                   )}
@@ -689,11 +704,11 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                     {operation.document.internalNote ||
                       "Nenhuma observação interna."}
                   </p>
-                  <small>Veículo: {vehicle?.name || "Não atribuído"}</small>
+                  <div className="field-vehicle-info"><Car size={18}/><div><small>Veículo programado</small><strong>{vehicle?.name || "Não atribuído"}</strong></div></div>
                   {data.infoRead ? <p className="field-checked"><CheckCircle2 size={16}/> Leitura confirmada</p> : <button disabled={busy||locked} onClick={async()=>{if(await act({action:'info_read'}))setView('');}}>Li e compreendi as informações</button>}
                 </section>
               )}
-              {view === "parts" && <Parts data={data} busy={busy} save={async (body: any) => {
+              {view === "parts" && <Parts data={data} readOnly={locked||!!data.reportSubmission} busy={busy} save={async (body: any) => {
                 if (await act(body)) setView("");
               }} />}
               {view === "send" && (
@@ -832,7 +847,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
               {error}
             </p>
           )}
-          {message && (
+          {message && view !== "report" && (
             <p className="field-success" role="status">
               {message}
             </p>
@@ -843,7 +858,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     </section>
   );
 }
-function Parts({ data, busy, save }: any) {
+function Parts({ data, busy, save, readOnly=false }: any) {
   const [values, setValues] = useState<Record<string, string>>({}),
     [confirmed, setConfirmed] = useState(false);
   const items = data.materials.items;
@@ -860,7 +875,7 @@ function Parts({ data, busy, save }: any) {
     <section className="field-panel">
       <h3>Conferência de peças da OS</h3>
       <p>
-        Informe a retirada desta operação. Devoluções liberam saldo para outras operações.
+        {readOnly ? "Peças desta operação · somente visualização." : "Informe a retirada desta operação. Devoluções liberam saldo para outras operações."}
       </p>
       {!data.materials.complete && (
         <p className="field-error">
@@ -897,7 +912,7 @@ function Parts({ data, busy, save }: any) {
           <label>
             Retirado nesta operação
             <input
-              disabled={busy || Boolean(blocked)}
+              disabled={readOnly || busy || Boolean(blocked)}
               type="number"
               min="0"
               max={balance.maximum}
@@ -909,7 +924,7 @@ function Parts({ data, busy, save }: any) {
               }
             />
           </label>
-          {canReturn && <button className="field-part-return" type="button" disabled={busy || values[key(i)] === "0"} onClick={() => {
+          {canReturn && !readOnly && <button className="field-part-return" type="button" disabled={busy || values[key(i)] === "0"} onClick={() => {
             setValues({ ...values, [key(i)]: "0" });
             setConfirmed(false);
           }}>Devolver peça</button>}
@@ -926,17 +941,18 @@ function Parts({ data, busy, save }: any) {
           {canReturn && values[key(i)] === "0" && <small>Devolução pendente. Confirme a conferência para liberar esta peça.</small>}
         </div>
       );})}
-      <label className="field-confirm">
+      <label className="field-confirm" hidden={readOnly}>
         <input
           type="checkbox"
+          disabled={readOnly}
           checked={confirmed}
           onChange={(e) => setConfirmed(e.target.checked)}
         />
         <span>Conferi as peças e confirmo as quantidades, inclusive quando não houve
         retirada.</span>
       </label>
-      <button
-        disabled={busy || !confirmed || !data.materials.complete || items.some((item: any) => {
+      <button hidden={readOnly}
+        disabled={readOnly || busy || !confirmed || !data.materials.complete || items.some((item: any) => {
           const value = Number(values[key(item)] || 0);
           return !Number.isFinite(value) || value < 0 || value > materialBalance(item, data.operation.id).maximum;
         })}

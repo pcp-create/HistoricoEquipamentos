@@ -22,6 +22,7 @@ export async function saveFieldLocation(email: string, raw: unknown) {
     await c.query(`INSERT INTO web_field_locations(actor,latitude,longitude,accuracy,located_at) VALUES($1,$2,$3,$4,$5)
       ON CONFLICT(actor) DO UPDATE SET latitude=excluded.latitude,longitude=excluded.longitude,accuracy=excluded.accuracy,located_at=excluded.located_at,updated_at=now()
       WHERE excluded.located_at>web_field_locations.located_at`, [email,p.latitude,p.longitude,p.accuracy,p.at]);
+    await c.query("UPDATE web_user_access SET last_seen_at=now() WHERE email=$1",[email]);
     await c.query('COMMIT');
   } catch(e) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
 }

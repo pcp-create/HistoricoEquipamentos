@@ -1,109 +1,127 @@
-# Portal Técnico RJ — APK e operação offline
+# Portal Técnico RJ — APK 2.2.0
 
-O APK utiliza uma Trusted Web Activity e abre **https://rjcompressores.app/tecnico**.
-A interface é o mesmo componente do portal, incluindo câmera/galeria, assinatura,
-horímetro, materiais, calendário e operações. Não há uma segunda interface para manter.
+A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
+empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
+remota para carregar a interface e não depende do cache do Chrome para guardar trabalho.
+O servidor de autenticação e sincronização continua sendo https://rjcompressores.app.
 
-O aplicativo abre exclusivamente a entrada do Portal Técnico. Sem sessão, apresenta
-a tela própria em /tecnico/entrar; após entrar, permanece em /tecnico.
-O menu do portal não oferece acesso aos módulos do sistema de gestão.
-O ícone de atualização no cabeçalho abre o painel de sincronismo, sem botão separado.
-O botão Sair encerra a sessão com internet e retorna à entrada do Portal Técnico RJ,
-preservando os registros pendentes no dispositivo para a mesma conta.
-A versão 1.1.2 usa a mesma chave e identificador, permitindo atualizar a instalação
-anterior sem limpar os registros offline. Publicar o portal atualizado junto com o APK.
+## Funcionamento
 
-## Publicação necessária antes de instalar
+- A interface operacional é compilada a partir dos mesmos componentes React do portal.
+  HTML, JavaScript, CSS, fontes e imagens da interface são incluídos no APK.
+- A entrada é uma tela Android com marca, e-mail, senha e indicador de conexão.
+- **Localização precisa autorizada e localização do aparelho ligada são obrigatórias.**
+  Sem elas, uma tela nativa impede o acesso e oferece atalhos para permissão e configurações.
+  A condição é reavaliada ao retornar ao app e ao alterar a configuração de localização.
+  GPS não é inventado quando não há sinal; os apontamentos continuam validando a coleta.
+- Fotos, assinaturas, relatórios salvos, programação baixada e fila são guardados em SQLite.
+  Fotos são deduplicadas por SHA-256 e as gravações usam transações: dados, projeções e
+  fila são confirmados juntos. Registros grandes são divididos em linhas pequenas para
+  evitar o limite do CursorWindow do Android. Uma falha de gravação não confirma sucesso.
+- Os horários originais, IDs idempotentes e regras de conflito da sincronização são mantidos.
+- O ícone de sincronismo abre as pendências. O ícone Sair fica ao lado e encerra a sessão
+  online, preservando a fila vinculada à conta. A cópia das pendências é exportada pelo
+  seletor nativo de documentos. Câmera e galeria utilizam os seletores do Android.
+- O aplicativo abre a interface instalada mesmo com o servidor suspenso (HTTP 402/503).
+  Dados previamente baixados permitem continuar o trabalho; novas autenticações e novos
+  serviços ainda não baixados precisam do servidor disponível.
+- A fila é enviada automaticamente ao voltar a conexão, ao retomar o app e a cada 30
+  segundos com o aplicativo aberto. **Não há serviço permanente de sincronização em
+  segundo plano nesta versão.** Se o Android suspender ou encerrar o processo, os dados
+  permanecem no SQLite e o envio continua ao reabrir. Manter o app aberto até zerar a fila.
+- Mapas de ruas remotos, PDFs gerados no servidor e serviços externos de voz exigem rede.
+- Atualizações da interface instalada agora exigem um novo APK.
 
-1. Aplicar web/sql/051_offline_photo_requests.sql ao banco. Em web, executar:
-   node --env-file=.env.local --conditions=react-server --import tsx scripts/setup-field-offline.mts
-2. Publicar o backend e o portal deste commit. O build em web também gera
-   public/field-offline/assets.json; esse arquivo e .well-known/assetlinks.json
-   devem ser incluídos na publicação.
-3. Confirmar HTTPS no domínio e resposta 200, sem redirecionamento, em
-   /.well-known/assetlinks.json. O certificado listado deve coincidir com o APK.
-4. Instalar o APK assinado. Manter Chrome (ou navegador compatível com TWA) atualizado.
-   Sem a associação de domínio validada, o navegador mostra sua barra de endereço.
-5. Fazer login com internet e esperar a confirmação de “Programação baixada”.
-   A primeira entrada e a preparação do dispositivo exigem internet.
+## Atualização da versão 1.x
 
-## Uso do técnico
+A assinatura e o identificador `app.rjcompressores.tecnico` são mantidos, permitindo
+instalar por cima da versão anterior. **Antes, sincronizar todas as pendências da 1.x**
+e, se necessário, exportar sua cópia no painel Sincronismo. Os registros antigos ficam
+no armazenamento do navegador e não são transferidos automaticamente para o SQLite.
+Não limpar os dados do Chrome: se houver pendências antigas, abrir /tecnico no mesmo
+Chrome e na mesma conta para sincronizá-las após o servidor retornar.
 
-- O topo mostra Conectado (verde) ou Sem internet (vermelho), com pendências.
-- A preparação baixa as operações enviadas, os checklists, fotos existentes,
-  referência do horímetro e a interface necessária para reabrir sem internet.
-- Os apontamentos são gravados primeiro no dispositivo. Fotos e assinaturas
-  são comprimidas pelo mesmo processo do portal e entram na fila.
-- **Salvar** o relatório persiste as respostas e inclui o relatório na fila.
-  Texto ainda não salvo continua sendo rascunho da tela.
-- Ao recuperar conexão, a fila envia fotos e ações na ordem em que ocorreram.
-  A tela Sincronismo permite tentar novamente, atualizar a programação e baixar
-  uma cópia de segurança das pendências com as fotos.
-- Registros só saem da fila depois da confirmação do servidor. Falha de rede,
-  sessão expirada e conflito não apagam o trabalho.
-- A sincronização usa Background Sync quando disponível, e também ocorre ao
-  abrir/retomar o aplicativo, ao voltar a conexão e a cada 30 segundos com ele aberto.
-  Android/Chrome podem adiar execução em segundo plano por economia de bateria ou
-  encerramento forçado. Para confirmação imediata, manter o app aberto até zerar a fila.
-- Não limpar os dados do navegador/aplicativo com registros pendentes.
+Na primeira entrada na versão 2.0, autorizar localização, ligar a localização, fazer
+login com internet e aguardar a programação ser baixada. As credenciais de sessão
+ficam nos cookies privados do WebView; a senha só é salva quando o usuário marca “Lembrar-me”, com AES-GCM e chave privada do Android Keystore. Desmarcar remove as credenciais lembradas.
 
-## Integridade e limites
+Não desinstalar nem limpar os dados do aplicativo com pendências: isso apaga o banco
+local. Backups automáticos Android estão desabilitados. Usar a exportação de pendências
+quando necessário. Guardar o aparelho com bloqueio de tela.
 
-O servidor mantém todas as verificações de usuário, operação enviada, peças,
-atividade em andamento e validação do checklist. Horários originais são preservados
-nos apontamentos; a localização continua sendo obtida do GPS. Não se fabrica GPS
-quando o aparelho não fornece uma posição.
+## Publicação do servidor
 
-IDs de requisição tornam ações e fotos idempotentes. Uma sequência offline referencia
-a versão anterior confirmada pelo servidor. Alterações feitas por outro usuário ou
-aparelho interrompem a fila para conferência; não há sobrescrita automática. O técnico
-pode exportar as pendências para apoio do planejamento. Horários mais de 5 minutos
-no futuro ou anteriores a 30 dias são recusados para revisão.
+O servidor deve conter os endpoints offline e a migração web/sql/051_offline_photo_requests.sql.
+Em web, executar o script com o ambiente de produção autorizado:
 
-O primeiro acesso, autenticação renovada, novas operações ainda não baixadas,
-mapas de ruas remotos, consulta em tempo real de outros técnicos, PDF gerado no
-servidor e serviços externos de reconhecimento de voz precisam de conexão.
-O calendário e os dados de programação baixados continuam disponíveis.
-GPS depende da permissão e do sinal do aparelho, inclusive sem internet.
+~~~sh
+node --env-file=.env.local --conditions=react-server --import tsx scripts/setup-field-offline.mts
+~~~
 
-Os dados offline ficam separados por conta. Logout/login suspende o acesso à conta
-local anterior. Pendências antigas somente são enviadas após autenticar a mesma conta.
+A associação assetlinks.json não é necessária para a versão 2.0 (não é TWA).
+Pode permanecer publicada para as instalações antigas. Se a hospedagem estiver suspensa,
+restabelecer o servidor para permitir login, download inicial e sincronização.
 
-## Compilar novamente
+## Compilar e verificar
 
-Requisitos: JDK 17 ou 21, Android SDK API 36 e Build Tools 35.0.0/36.0.0.
+Requisitos: Node 22+, dependências de web instaladas, JDK 17/21 e Android SDK API 36.
+Configurar ANDROID_HOME ou android/local.properties. O Gradle gera automaticamente
+os assets locais via web/scripts/build-native.mjs antes de compilar o APK.
 
 ~~~sh
 cd android
-# Configure ANDROID_HOME ou local.properties (sdk.dir=...).
-./gradlew assembleRelease
+./gradlew testDebugUnitTest assembleRelease
 ~~~
 
-O resultado fica em app/build/outputs/apk/release/app-release.apk.
-Sem signing.properties, o build release não será assinado.
+O APK fica em app/build/outputs/apk/release/app-release.apk. Os assets gerados ficam em
+app/build/generated/portalAssets e não precisam ser versionados.
 
-A chave desta instalação é privada e fica em android/rj-tecnico.jks, com a
-configuração em android/signing.properties. Ambos estão ignorados pelo Git.
-**Guardar uma cópia segura desses dois arquivos:** atualizações do mesmo aplicativo
-precisam da mesma chave. Não gerar uma nova chave para uma atualização.
+A chave privada está em android/rj-tecnico.jks e a configuração em signing.properties.
+Ambos são ignorados pelo Git. Guardar cópia segura: atualizações precisam da mesma chave.
+Não gerar uma chave nova para atualizar a instalação existente.
 
-Para um aplicativo novo, em uma cópia sem chave/certificado existente:
-python3 scripts/create-signing.py cria a chave e o arquivo público de associação.
-Ao publicar pela Play Store com Play App Signing, acrescentar o fingerprint do
-certificado de assinatura da Play ao assetlinks.json.
+## Segurança e testes
 
-Referências:
-- https://developer.android.com/develop/ui/views/layout/webapps/trusted-web-activities
-- https://developer.chrome.com/docs/android/trusted-web-activity/offline-first
-- https://developer.chrome.com/docs/workbox/retrying-requests-when-back-online
+Somente a interface instalada é carregada no WebView. A ponte para SQLite usa mensagens
+restritas à origem HTTPS e ao frame principal. Navegação remota não recebe acesso à ponte;
+iframes, conteúdo misto e acesso file:// ficam bloqueados. Permissões do servidor continuam
+valendo, e fotos em cache são consultadas apenas para a conta local ativa.
 
-## Validação desta implementação
+Os testes cobrem SQLite real no Android (Robolectric), persistência de fotos grandes,
+rollback de transações e isolamento por conta. A interface empacotada é testada com uma
+ponte para SQLite, simulando servidor suspenso, reabertura, fotos, relatório e sincronização.
+Também são executados os testes de regressão offline do portal web.
+A validação final de câmera, localização e ciclo de vida em Android físico continua necessária.
 
-APK release compilado e assinatura verificada com apksigner. Build de produção
-do portal e TypeScript aprovados. Testes automatizados cobrem captura offline,
-fechar/reabrir, fotos, relatório, horários originais, reenvio após perda da resposta,
-conflitos, separação por conta e fluxo da interface em viewport móvel.
-A reabertura offline também foi validada com o build de produção do portal.
-O envio de fotos não bloqueia a gravação de novos apontamentos no dispositivo.
-A instalação e o comportamento em um Android físico ainda precisam ser validados
-após a publicação do backend/portal e a associação de domínio.
+### Versão 2.1.0 — localização e notificações nativas
+
+- Os apontamentos obtêm posição pelo LocationManager do Android, inclusive offline, sem depender da autorização de geolocalização da WebView. Apenas posições recentes são aceitas; falta de sinal GPS é diferenciada de permissão negada.
+- O ícone de configurações ao lado do sincronismo abre as permissões, com botão para solicitar os acessos necessários e teste de localização. O Android exige confirmações individuais. Se uma permissão foi negada permanentemente, use “Configurações do aplicativo”.
+- Alertas do relatório usam diálogo nativo “Portal Técnico RJ”.
+- Apontamento ativo ou pausado aparece em notificação contínua, com cronômetro e acesso à operação. A tela de bloqueio depende das preferências do aparelho.
+- O limite de pausa é agendado pelo AlarmManager a partir do estado salvo em SQLite; funciona sem internet e sem depender de temporizadores JavaScript. Retomar/finalizar cancela o aviso. Reiniciar o aparelho e atualizar o APK reconstituem o agendamento.
+- Autorize notificações e “Alarmes e lembretes” para avisos pontuais. Sem autorização de alarmes exatos o Android pode atrasar a entrega. Som e vibração respeitam o canal “Limite de pausa”, modo silencioso e Não Perturbe. Forçar parada do aplicativo impede alarmes até reabri-lo.
+- A partir da versão 2.2.0, a localização também é atualizada em segundo plano conforme descrito abaixo. A sincronização dos registros permanece ao abrir/retomar o aplicativo.
+
+### Versão 2.1.1 — conexão e entrada
+- Login e portal consultam a rede validada pelo Android. NetworkCallback atualiza o indicador ao perder, recuperar ou trocar a rede, e dispara sincronização ao reconectar.
+- Falha do servidor não significa “Sem internet”: a faixa mostra a conexão real e um aviso separado informa indisponibilidade da sincronização.
+- Login nativo com marca RJ arredondada, ícones de conexão e opção “Lembrar-me”, desmarcada inicialmente. E-mail/senha são lembrados somente após autenticação bem-sucedida, criptografados com AES-GCM e chave não exportável do Android Keystore. Não são copiados para SQLite ou para backup de pendências.
+- Sair encerra a sessão, mas preserva as credenciais se o usuário escolheu lembrar. Para removê-las, desmarcar “Lembrar-me” no login.
+
+### Versão 2.1.2 — identidade visual
+Logo Portal Técnico / RJ Compressores no login nativo e no ícone adaptativo Android. Fonte e instruções de geração em branding/README.md.
+
+### Versão 2.1.3 — mapa
+Corrige a política de imagens da WebView para autorizar o host exato https://tile.openstreetmap.org utilizado pelo Leaflet. O teste da interface empacotada aplica a mesma CSP do APK e verifica o carregamento das imagens do mapa. As imagens das ruas continuam exigindo internet.
+
+### Versão 2.2.0 — programação e acompanhamento
+
+- Serviço Android de localização iniciado com o portal aberto e mantido em segundo plano/tela bloqueada, com notificação permanente. Atualiza a posição a cada cinco minutos quando conectado e encerra ao sair da conta. Economia de bateria, ausência de sinal GPS e parada forçada podem atrasar ou impedir atualizações; reabrir o aplicativo retoma o serviço.
+- Mapa mostra “Visto por último”, sem origem e datas redundantes. A abertura do portal atualiza a presença.
+- Pausas mostram motivo, tempo atual e acumulado da operação; peças ficam disponíveis somente para consulta após envio do relatório. Operações encerradas podem ser exibidas na lista.
+- Devolver relatório preserva respostas e fotos. Substituir o checklist exige confirmação do planejador e reinicia seu preenchimento.
+- Sincronismo identifica o item em envio e alerta sobre programação não baixada no dia. Barra de conexão ocupa o topo, sem botão Sair duplicado na janela de sincronismo.
+- PDFs completos/resumidos usam o mesmo gerador do sistema principal e abrem em visualizador Android. Exigem conexão, registros sincronizados e publicação do endpoint /api/field/report. Relatórios ainda não revisados são identificados como prévia.
+- Término estimado respeita o calendário exibido na operação, incluindo intervalos e exceções. O calendário padrão atualmente não possui expediente na sexta-feira à tarde.
+- Publicar também as alterações do servidor para preservar devoluções, confirmar substituições, atualizar presença e gerar PDFs.
