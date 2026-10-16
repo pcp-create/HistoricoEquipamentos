@@ -1,10 +1,12 @@
 "use client";
 import FieldOffline from "./field-offline";
+import { clearApiCache } from "@/lib/client-api-cache";
 import { materialBalance } from "@/lib/service-scheduling/material-balance";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import { useState, useEffect, useId, useRef } from "react";
 import {
   ArrowLeft,
+  LogOut,
   LoaderCircle,
   CalendarDays,
   Wallet,
@@ -101,6 +103,27 @@ const elapsed = (seconds: number) => {
 };
 export default function FieldApp() {
   const orderAccordionName = useId();
+  const [signingOut, setSigningOut] = useState(false);
+  async function signOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    setError("");
+    try {
+      if (!navigator.onLine) throw Error("Conecte à internet para sair da sua conta. Seus registros pendentes continuam salvos neste dispositivo.");
+      const response = await fetch("/api/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "logout" }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) throw Error("Não foi possível sair. Tente novamente.");
+      clearApiCache();
+      window.location.replace("/tecnico/entrar");
+    } catch (e) {
+      setError(e instanceof Error && e.name === "Error" ? e.message : "Não foi possível sair. Verifique a conexão e tente novamente.");
+      setSigningOut(false);
+    }
+  }
   const [openOperation, setOpenOperation] = useState<string | null>(null);
   const [scheduleView, setScheduleView] = useState("list");
   const [selectedDay, setSelectedDay] = useState(() => fieldToday(Date.now()));
@@ -153,6 +176,7 @@ export default function FieldApp() {
       </header>
       <div className="field-user-summary">
         <p className="field-user">{data?.displayName || "Técnico"}</p>
+        <button className="field-sign-out" onClick={() => void signOut()} disabled={signingOut}><LogOut size={16} aria-hidden="true"/>{signingOut ? "Saindo…" : "Sair"}</button>
         {screen !== "home" && <span className="field-order-count">{groups.size} {groups.size === 1 ? "OS enviada" : "OSs enviadas"}</span>}
       </div>
       {locationMessage && <p className="field-user" role="status">{locationMessage}</p>}

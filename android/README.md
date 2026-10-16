@@ -8,7 +8,9 @@ O aplicativo abre exclusivamente a entrada do Portal Técnico. Sem sessão, apre
 a tela própria em /tecnico/entrar; após entrar, permanece em /tecnico.
 O menu do portal não oferece acesso aos módulos do sistema de gestão.
 O ícone de atualização no cabeçalho abre o painel de sincronismo, sem botão separado.
-A versão 1.1.1 usa a mesma chave e identificador, permitindo atualizar a instalação
+O botão Sair encerra a sessão com internet e retorna à entrada do Portal Técnico RJ,
+preservando os registros pendentes no dispositivo para a mesma conta.
+A versão 1.1.2 usa a mesma chave e identificador, permitindo atualizar a instalação
 anterior sem limpar os registros offline. Publicar o portal atualizado junto com o APK.
 
 ## Publicação necessária antes de instalar

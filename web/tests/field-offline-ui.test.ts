@@ -67,7 +67,16 @@ test("existing mobile portal starts activity and saves a report offline with a v
     finishPending: ["Atividade pendente"],
     detail: { order: {}, equipment_links: [] },
   };
+  let logoutRequested = false;
   const server = createServer(async (req, res) => {
+    if (req.url === "/api/session" && req.method === "POST") {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      logoutRequested = JSON.parse(Buffer.concat(chunks).toString()).action === "logout";
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
     const url = new URL(req.url!, "http://localhost");
     res.setHeader("Content-Type", "application/json");
     if (
@@ -230,6 +239,14 @@ test("existing mobile portal starts activity and saves a report offline with a v
       path: "test-results/field-offline-sync.png",
       fullPage: true,
     });
+    await sync.getByRole("button", { name: "Fechar sincronismo" }).click();
+    await page.getByRole("button", { name: "Sair", exact: true }).click();
+    await expect(page.getByText(/Conecte à internet para sair/)).toBeVisible();
+    assert.equal(logoutRequested, false);
+    await context.setOffline(false);
+    await page.getByRole("button", { name: "Sair", exact: true }).click();
+    await page.waitForURL("**/tecnico/entrar");
+    assert.equal(logoutRequested, true);
   } finally {
     await browser.close();
     await new Promise<void>((r) => server.close(() => r()));

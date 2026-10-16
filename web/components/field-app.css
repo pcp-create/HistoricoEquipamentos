@@ -710,3 +710,5 @@ dialog.field-report-screen {
 .field-app button.field-active small {display:flex;align-items:center;gap:4px;width:100%;}
 .field-app button.field-active.paused {background:#fff0ce;color:#825c00;}
 .field-app button.field-active:hover {filter:brightness(.98);}
+
+.field-app .field-sign-out { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 6px 10px; min-height: 34px; font-size: 12px; flex-shrink: 0; }
