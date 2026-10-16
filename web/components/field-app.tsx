@@ -444,20 +444,15 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
         <ChevronDown size={18} />
       </button>
       {open && (
-        <FieldReportScreen open={open} busy={busy} heading={`OP${operationNumber(row.position)} · ${row.description||'Sem descrição'}`} title={`OS ${row.number} · ${row.customer||'Cliente não informado'}`} onClose={()=>{setView('');onToggle();}}>
+        <FieldReportScreen open={open} busy={busy} heading={`OP${operationNumber(row.position)} · ${row.description||'Sem descrição'}`} title={`OS ${row.number} · ${row.customer||'Cliente não informado'}`} onClose={()=>{if(view){setView('');setError('');setMessage('');}else onToggle();}}>
         <p className="field-operation-screen-equipment">{row.operation_equipment||operation?.document.equipment?.label||operation?.document.equipment?.name||row.equipment||'Equipamento não informado'}</p>
         <div className="field-operation-body">
           {!data ? (
             <p>Carregando operação…</p>
           ) : (
             <>
-              {view && view!=="report" && (
-                <button className={view === "logs" ? "field-logs-back" : undefined} type="button" disabled={busy} onClick={() => { setView(""); setError(""); setMessage(""); }}>
-                  <ArrowLeft size={18} /> Voltar ao menu
-                </button>
-              )}
               {reportVisited && data.checked && (
-                <FieldReportScreen open={view==='report'} busy={busy} title={`OS ${row.number}/${operationNumber(row.position)} · ${row.customer || "Cliente não informado"}`} onClose={()=>setView('')}>
+                <section className="field-inline-report" aria-label="Relatório técnico da operação" hidden={view!=='report'}>
                   {!data.reportSubmission&&!reportActivityRunning&&<p className="field-error" role="status">Inicie ou retome a atividade desta operação para preencher o relatório técnico e anexar fotos.</p>}
                   <ScheduleChecklistRun
                     compact
@@ -487,7 +482,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                     </div>}
                   />
 
-                </FieldReportScreen>
+                </section>
               )}
               {view === "logs" && <FieldTimeLogs operationId={row.id} />}
               {!view && <>

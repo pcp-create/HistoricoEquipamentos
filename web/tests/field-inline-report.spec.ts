@@ -1,0 +1,31 @@
+import {test,expect} from '@playwright/test';
+test('report stays inside operation screen and retains draft when returning to menu',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await context.grantPermissions(['geolocation']);await context.setGeolocation({latitude:-27,longitude:-49});
+ await page.setViewportSize({width:390,height:844});
+ const template={id:'ccp',name:'Corretiva Compressor Parafuso',prefix:'CCP',items:[],stages:[{id:'stage',name:'01. Inspeções',groups:[{id:'group',name:'Condições do equipamento',fields:[{id:'status',label:'Avaliar todos os componentes do compressor',type:'flag',required:true,options:['OK','NOK','NA'],comment:true},{id:'date',label:'Data da leitura',type:'date'},{id:'note',label:'Relatório técnico',type:'textarea'}]}]}]};
+ template.stages[0].groups.push({id:'other',name:'Outras verificações',fields:[]} as any);
+ const row={id:'op1',schedule_id:1,number:14849,position:1,description:'Inspeção do compressor',date:'2026-09-29',time:'08:00',status:'executing',customer:'Cliente de teste'};
+ const operation:any={...row,version:1,document:{responsible:'tech',support:[],checklistId:'ccp',checklistRun:{template,stages:{stage:{status:'released',answers:{}}}}}};
+ const detail:any={operation,checked:true,infoRead:true,email:'tech',settings:{document:{checklists:[template],vehicles:[]}},detail:{order:{equipamento:'1795 - COMPRESSOR DE PARAFUSO - TPE 25 - SÉRIE 55533'},equipment_links:[]},materials:{items:[],complete:true},history:[]};
+ let saved:any;
+ await page.route('**/api/activity',r=>r.fulfill({json:{admin:true}}));
+ await page.route('**/api/field*',async r=>{if(r.request().method()==='POST'){saved=r.request().postDataJSON();for(const stage of saved.stages||[])operation.document.checklistRun.stages[stage.stageId]={...stage,status:'released'};if(saved.action==='report_send_partial')operation.document.checklistRun.partialSubmission={at:new Date().toISOString(),name:'Técnico',by:'tech'};
+if(saved.action==='report_send'){detail.reportSubmission={at:new Date().toISOString(),name:'Técnico',by:'tech'};operation.document.checklistRun.submission=detail.reportSubmission;for(const stage of Object.values(operation.document.checklistRun.stages) as any[])stage.status='submitted';}
+operation.version++;await r.fulfill({json:{saved:true}});}else await r.fulfill({json:r.request().url().includes('?')?detail:{email:'tech',displayName:'Técnico',rows:[row],active:{id:'session',operation_id:'op1',kind:'work',state:'running',segment_at:new Date().toISOString(),active_seconds:0,pause_seconds:0}}});});
+ await page.goto('/tecnico');await page.getByRole('button',{name:'Programação'}).click();await page.getByText('OS 14849',{exact:true}).click();await page.getByRole('button',{name:/OP01/}).click();await page.getByRole('button',{name:'Relatório',exact:true}).click();
+
+ const report=page.getByRole('region',{name:'Relatório técnico da operação'});
+ await expect(report).toBeVisible();
+ await expect(report.locator('.checklist-report-equipment')).toHaveCount(0);
+ await expect(page.getByRole('dialog').getByRole('button',{name:'Voltar',exact:true})).toHaveCount(1);
+ await expect(page.getByRole('dialog')).toHaveCount(1);
+ await report.locator('.checklist-stage-response > summary').click();
+ await report.locator('.checklist-response-group > summary').first().click();
+ await report.getByLabel('Relatório técnico',{exact:true}).fill('Rascunho preservado');
+ await page.getByRole('dialog').getByRole('button',{name:'Voltar',exact:true}).click();
+ await expect(report).toBeHidden();
+ await page.getByRole('button',{name:'Relatório',exact:true}).click();
+ await expect(report.getByLabel('Relatório técnico',{exact:true})).toHaveValue('Rascunho preservado');
+ await expect(page.getByRole('dialog')).toHaveCount(1);
+});
