@@ -27,7 +27,7 @@ export async function checklistPdf(operationId:string,email:string,mode:ReportMo
  const report=technicalReport({id:operationId,document:row.document},row.order_record||{},users.rows,sessions.rows,events.rows,operationEvents.rows,mode);
  const ids=[...new Set(report.flatMap(s=>s.groups.flatMap(g=>g.fields.flatMap(f=>f.photos))))];
  const photos=ids.length?(await db.query('SELECT id::text,content FROM web_service_checklist_photos WHERE operation_id=$1 AND id=ANY($2::bigint[])',[operationId,ids])).rows:[];
- return {bytes:await renderChecklistPdf({title:run.template.name,order:String(row.numero_sequencia||row.order_id),client:row.cliente_nome||'',equipment:row.equipamento||'',position:row.position,report,photos,mode}),filename:`Checklist-OS-${row.numero_sequencia||row.order_id}-${mode}.pdf`};
+ return {bytes:await renderChecklistPdf({title:run.template.name,order:String(row.numero_sequencia||row.order_id),client:row.cliente_nome||'',equipment:row.document.equipment?.name||row.equipamento||'',position:row.position,report,photos,mode}),filename:`Checklist-OS-${row.numero_sequencia||row.order_id}-${mode}.pdf`};
 }
 export async function renderChecklistPdf(data:{title:string;order:string;client:string;equipment:string;position?:number;report:ReturnType<typeof checklistReport>;photos:any[];mode?:ReportMode;chapters?:{title:string;position:number;report:ReturnType<typeof checklistReport>}[]}){
  const pdf=await PDFDocument.create();

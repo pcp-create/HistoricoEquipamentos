@@ -21,6 +21,7 @@ export const blankOperation = () => ({
   internalNote: "",
   vehicleId: "",
   checklistId: "",
+  equipmentId: "",
   responsible: "",
   support: [] as string[],
   date: "",
@@ -158,12 +159,15 @@ export function validateOperation(raw: any, settings: any, users: any[]) {
     "internalNote",
     "vehicleId",
     "checklistId",
+    "equipmentId",
     "responsible",
     "date",
     "time",
     "calendarId",
   ])
     if (typeof d[k] !== "string") throw Error("Campos da operação inválidos.");
+  if(d.equipmentId&&!/^\d{1,18}$/.test(d.equipmentId))throw Error("Equipamento inválido.");
+  delete d.equipment;
   if (
     d.vehicleId &&
     !(settings.vehicles || []).some((v: any) => v.id === d.vehicleId)

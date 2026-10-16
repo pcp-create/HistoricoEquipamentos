@@ -336,6 +336,14 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     }
   }, [open, row.version]);
 
+  useEffect(() => {
+    if (!open || !data || !(data.reportSubmission || ["awaiting_review", "reviewed", "completed"].includes(data.operation.status))) return;
+    const refreshLocked = () => { if (document.visibilityState === 'visible') void load(); };
+    const timer = setInterval(refreshLocked, 10000);
+    window.addEventListener('focus', refreshLocked);
+    return () => { clearInterval(timer); window.removeEventListener('focus', refreshLocked); };
+  }, [open, data?.reportSubmission?.at, data?.operation.status]);
+
   async function act(body: any) {
     setError("");
     setMessage("");
@@ -375,6 +383,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
   const partsStatus=!data?.checked?'empty':data?.materials?.complete?'complete':'partial';
   const reportStatus=data?.reportSubmission?'complete':reportFields.length?checklistProgress(reportFields,reportAnswers):'empty';
   const workStatus=session?.kind==='work'?'partial':data?.progress?.work?'complete':'empty';
+  const reportActivityRunning = session?.kind === 'work' && session?.state === 'running';
   const ready = data?.infoRead && data?.checked && !locked && !busy;
   const finishPending: string[] = data?.finishPending ?? ["Atualize a operação para verificar as pendências."];
   const canFinish = ready && finishPending.length === 0 && operation?.document.responsible === data?.email;
@@ -421,8 +430,9 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
       >
         <span>
           <b>
-            Operação {operationNumber(row.position)} · {row.description || "Sem descrição"}
+            OP{operationNumber(row.position)} · {row.description || "Sem descrição"}
           </b>
+          <small className="field-operation-equipment">{row.operation_equipment||operation?.document.equipment?.label||operation?.document.equipment?.name||row.equipment||'Equipamento não informado'}</small>
           <small className={fieldOperationOverdue(row.date, operation?.status || row.status, now) ? "field-overdue-date" : undefined}>
             {when(row.date, row.time)} ·{" "}
             {statusNames[operation?.status || row.status]}
@@ -434,6 +444,8 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
         <ChevronDown size={18} />
       </button>
       {open && (
+        <FieldReportScreen open={open} busy={busy} heading={`OP${operationNumber(row.position)} · ${row.description||'Sem descrição'}`} title={`OS ${row.number} · ${row.customer||'Cliente não informado'}`} onClose={()=>{setView('');onToggle();}}>
+        <p className="field-operation-screen-equipment">{row.operation_equipment||operation?.document.equipment?.label||operation?.document.equipment?.name||row.equipment||'Equipamento não informado'}</p>
         <div className="field-operation-body">
           {!data ? (
             <p>Carregando operação…</p>
@@ -446,9 +458,10 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
               )}
               {reportVisited && data.checked && (
                 <FieldReportScreen open={view==='report'} busy={busy} title={`OS ${row.number}/${operationNumber(row.position)} · ${row.customer || "Cliente não informado"}`} onClose={()=>setView('')}>
+                  {!data.reportSubmission&&!reportActivityRunning&&<p className="field-error" role="status">Inicie ou retome a atividade desta operação para preencher o relatório técnico e anexar fotos.</p>}
                   <ScheduleChecklistRun
                     compact
-                    readOnly={!!data.reportSubmission}
+                    readOnly={!!data.reportSubmission||!reportActivityRunning}
                     operation={operation}
                     data={data}
                     busy={busy}
@@ -461,14 +474,14 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                       {data.reportSubmission?<p className="field-success" role="status">Relatório enviado completo em {new Date(data.reportSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {data.reportSubmission.name||data.reportSubmission.by}.<br/>O planejador pode devolver o relatório para edição.</p>:<>
                         {checklistRun?.partialSubmission&&<p className="field-success">Enviado parcial em {new Date(checklistRun.partialSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {checklistRun.partialSubmission.name||checklistRun.partialSubmission.by}. Você pode continuar editando.</p>}
                         <div className="field-report-actions">
-                          <button disabled={!ready} onClick={()=>void save()}><SaveActionIcon/> Salvar</button>
+                          <button disabled={!ready||!reportActivityRunning} onClick={()=>void save()}><SaveActionIcon/> Salvar</button>
                           <button type="button" disabled={busy||locked||!!checklistRun?.partialSubmission||operation.document.responsible!==data.email} onClick={async()=>{
                             const reason=window.prompt('Informe ao planejador por que o checklist precisa ser corrigido:');
                             if(!reason?.trim())return;
                             if(!window.confirm('Devolver para ajuste do checklist? Todos os dados preenchidos e fotos deste relatório serão descartados, incluindo o preenchimento da equipe. A operação sairá do portal até o planejador corrigir e reenviar. Apontamentos e retiradas de peças serão preservados.'))return;
                             if(await act({action:'report_return',version:operation.version,reason,confirmDiscard:true}))setView('');
                           }}><ArrowLeft size={18}/> Devolver</button>
-                          <button disabled={!ready||operation.document.responsible!==data.email} onClick={async()=>{if(await act({action:'report_send',version:operation.version,stages:getDrafts()}))setView('');}}><Flag size={18}/> Enviar</button>
+                          <button disabled={!ready||!reportActivityRunning||operation.document.responsible!==data.email} onClick={async()=>{if(await act({action:'report_send',version:operation.version,stages:getDrafts()}))setView('');}}><Flag size={18}/> Enviar</button>
                         </div>
                       </>}
                     </div>}
@@ -786,6 +799,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
             </p>
           )}
         </div>
+        </FieldReportScreen>
       )}
     </section>
   );

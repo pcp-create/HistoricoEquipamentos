@@ -1,4 +1,6 @@
 "use client";
+import {operationEquipmentLabel} from "@/lib/service-scheduling/equipment-label";
+import OperationEquipmentSelect from "./operation-equipment-select";
 import { scheduleValueSummary } from "@/lib/service-scheduling/value-summary";
 import { isCarriedDelivery, matchesDeliveryProjection } from "@/lib/service-scheduling/delivery-projection";
 import { displayedScheduleStatus } from "@/lib/service-scheduling/display-status";
@@ -629,6 +631,7 @@ export default function ServiceScheduling() {
                           "Operação",
                           "Tipo Serviço",
                           "Descrição da Operação",
+                          "Equipamento",
                           "Checklist",
                           "Responsável",
                           "Equipe de Apoio",
@@ -921,10 +924,11 @@ function OperationRow({
       (u: any) =>
         u.enabled || u.email === d.responsible || d.support.includes(u.email),
     );
-  function change(k: string, v: any, save = false) {
+  function change(k: string, v: any, save = false, equipment?: any) {
     const next = {
       ...d,
       [k]: v,
+      ...(k === "equipmentId" ? { equipment: equipment || undefined } : {}),
       ...(k === "responsible"
         ? { support: d.support.filter((e: string) => e !== v), jobTitle: data.users.find((u: any) => u.email === v)?.job_title || "" }
         : {}),
@@ -992,6 +996,7 @@ function OperationRow({
             {d.description.length}/40
           </small>
         </td>
+        <td><OperationEquipmentSelect scheduleId={data.schedule.id} displayLabel={operationEquipmentLabel(d,data.detail?.order)} value={d.equipmentId||''} label={d.equipment?.name||''} orderLabel={data.detail?.order?.equipamento||data.detail?.equipment_links?.map((e:any)=>e.name).filter(Boolean).join(' · ')||''} disabled={locked||!!o.sent_at||!!o.document.equipmentLocked||!!o.document.checklistRun?.equipmentId} onChange={(id,equipment)=>change('equipmentId',id,false,equipment)}/></td>
         <td>
           <div className="operation-checklist-select" title={checklist ? [checklist.prefix, checklist.name].filter(Boolean).join(" - ") : "Sem checklist"}>
           <select

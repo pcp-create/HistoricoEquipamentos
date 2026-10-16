@@ -3,7 +3,7 @@ import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {createPortal} from 'react-dom';
 import {ArrowLeft} from 'lucide-react';
 
-export default function FieldReportScreen({open,busy,title,onClose,children}:{open:boolean;busy:boolean;title:string;onClose:()=>void;children:ReactNode}){
+export default function FieldReportScreen({open,busy,title,onClose,children,heading='Relatório'}:{open:boolean;busy:boolean;title:string;onClose:()=>void;children:ReactNode;heading?:string}){
  const dialog=useRef<HTMLDialogElement>(null);
  const [mounted,setMounted]=useState(false);
  useEffect(()=>setMounted(true),[]);
@@ -18,8 +18,8 @@ export default function FieldReportScreen({open,busy,title,onClose,children}:{op
   return()=>{element.close();document.body.style.overflow=previousOverflow;};
  },[open,mounted]);
  if(!mounted)return null;
- return createPortal(<dialog ref={dialog} className="field-app field-report-screen" aria-label={'Relatório · '+title} onCancel={e=>{e.preventDefault();if(!busy)onClose();}}>
-  <header className="field-report-header"><button type="button" disabled={busy} onClick={onClose} autoFocus><ArrowLeft size={20}/> Voltar</button><div><strong>Relatório</strong><small title={title}>{title}</small></div></header>
+ return createPortal(<dialog ref={dialog} className="field-app field-report-screen" aria-label={heading+' · '+title} onCancel={e=>{e.preventDefault();if(!busy)onClose();}}>
+  <header className="field-report-header"><button type="button" disabled={busy} onClick={onClose} autoFocus><ArrowLeft size={20}/> Voltar</button><div><strong>{heading}</strong><small title={title}>{title}</small></div></header>
   <div className="field-report-content">{children}</div>
  </dialog>,document.body);
 }

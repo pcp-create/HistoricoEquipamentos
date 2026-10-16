@@ -1,4 +1,5 @@
 import 'server-only';
+import {requireReportActivity} from './report-activity';
 import {database} from '../db';
 import {Forbidden} from '../auth';
 import {stagesOf,photoLimit} from './checklists';
@@ -22,6 +23,7 @@ export async function saveChecklistPhoto(operationId:string,stageId:string,field
   const o=await permitted(c,operationId,email);
   const run=o.document.checklistRun;
   const reviewing=o.role==='admin'&&o.status==='awaiting_review'&&run?.stages[stageId]?.status==='submitted';
+  if(!reviewing){try{await requireReportActivity(c,operationId,email);}catch(e){throw new ChecklistPhotoError((e as Error).message)}}
   if(!reviewing&&(['completed','reviewed','awaiting_review'].includes(o.status)||!run||run.stages[stageId]?.status!=='released'))throw new ChecklistPhotoError('A etapa não está aberta para preenchimento.');
   if(!stagesOf(run.template).find(s=>s.id===stageId)?.fields.some(f=>f.id===fieldId&&(f.type==='photo'||f.type==='signature'||photoLimit(f)>0)))throw new ChecklistPhotoError('Campo de fotos inválido.');
   const count=(await c.query('SELECT count(*)::int n FROM web_service_checklist_photos WHERE operation_id=$1 AND stage_id=$2 AND field_id=$3',[operationId,stageId,fieldId])).rows[0].n;

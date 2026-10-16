@@ -17,7 +17,11 @@ test('stale equipment links use explicit current OS IDs and retain isolation and
   assert.equal(await linked('8'),false);
   assert.equal(await linked('7',2),false);
   assert.equal(await linked('7',1,101),false);
+  assert.equal(await isChecklistEquipmentLinked(db,'8',1,100,'8'),true);
+  assert.equal(await isChecklistEquipmentLinked(db,'7',1,100,'8'),false);
+  assert.equal(await isChecklistEquipmentLinked(db,'999',1,100,'999'),false);
   await db.exec('UPDATE m8_equipment_catalog SET present=false WHERE equipment_id=7');
+  assert.equal(await isChecklistEquipmentLinked(db,'7',1,100,'7'),false);
   assert.equal(await linked(),false);
   await db.exec('UPDATE m8_equipment_catalog SET present=true');
   await db.exec('UPDATE m8_ordens_servico SET produto_equipamento_id=8');

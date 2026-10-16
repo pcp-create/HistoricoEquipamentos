@@ -443,14 +443,18 @@ dialog.field-report-screen {
 .field-report-screen .checklist-report-context summary { cursor:pointer; min-height:32px; }
 .field-report-screen .checklist-stage-response { padding:12px; margin:12px 0; }
 .field-report-screen .checklist-response-group { padding:12px 0 0; border:0; border-top:1px solid #dce5ee; border-radius:0; margin-top:14px; }
-.field-report-screen .checklist-answers { gap:18px; }
+.field-report-screen .checklist-answers { gap:8px; }
+.field-report-screen .checklist-answers > div { padding-bottom:8px; }
+.field-report-screen .checklist-answers > div:last-child { padding-bottom:0; }
+.field-report-screen .checklist-answers label { margin:4px 0; }
+.field-report-screen .checklist-field-extra { margin-top:6px; }
 .field-report-screen .checklist-summary-title { display:inline; }
 .field-report-screen .checklist-stage-status { display:block; margin:5px 0 0 16px; font-size:11px; }
 .field-report-screen input:not([type=checkbox]):not([type=radio]),.field-report-screen select,.field-report-screen textarea { width:100%; min-width:0; max-width:100%; box-sizing:border-box; font-family:inherit; }
 .field-report-screen input[type=date],.field-report-screen input[type=time] { display:block; -webkit-appearance:none; appearance:none; }
 .field-report-screen input::-webkit-date-and-time-value { text-align:left; min-height:1.4em; }
 .field-report-screen .checklist-status-field { display:block; }
-.field-report-screen .checklist-status-field > .checklist-status-options { display:flex; max-width:none; justify-content:flex-start; margin-top:10px; gap:8px; }
+.field-report-screen .checklist-status-field > .checklist-status-options { display:flex; max-width:none; justify-content:flex-start; margin-top:6px; gap:8px; }
 .field-report-screen .checklist-status-option { flex:1 1 70px; justify-content:center; font-size:14px; padding:10px; }
 .field-report-footer { position:sticky; bottom:0; z-index:2; background:#fff; border-top:1px solid #dce5ee; margin:18px -12px 0; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); }
 .field-report-footer .field-report-actions { margin:0; }
@@ -693,3 +697,6 @@ dialog.field-report-screen {
 .field-app-map > :not(.field-map) {flex-shrink:0}
 .field-app-map > .field-map {flex:1;min-height:160px;display:flex;flex-direction:column}
 .field-app-map .field-map-canvas {flex:1;min-height:0}
+
+.field-operation-equipment {margin:6px 0;font-weight:500;line-height:1.45;}
+.field-operation-screen-equipment {margin:0 0 16px;padding:12px 14px;background:#edf4fa;border:1px solid #dce5ee;border-radius:10px;color:#315e7f;line-height:1.5;}

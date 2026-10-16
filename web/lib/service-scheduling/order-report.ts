@@ -224,7 +224,7 @@ export function orderReport(
       events,
       history,
       mode,
-    ).filter((s) => !["asset", "location", "client"].includes(s.id)),
+    ).filter((s) => !(op.document.equipmentId ? ["location", "client"] : ["asset", "location", "client"]).includes(s.id)),
   }));
   return {
     order: String(order.numero_sequencia || data.schedule.order_id),

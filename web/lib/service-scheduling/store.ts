@@ -1,3 +1,4 @@
+import {defaultOperation} from "./default-operation";
 import { operationNumber } from "./operation-number";
 import { operationCalendarAllocation } from "./calendar";
 import {timeRequestsAvailable} from "./time-request-availability";
@@ -12,7 +13,6 @@ import { database } from "../db";
 import { orderDetail } from "../history";
 import { Forbidden } from "../auth";
 import {
-  blankOperation,
   scheduleStatus,
   planningStatus,
   effectiveOperationStatus,
@@ -283,7 +283,7 @@ export async function mutateSchedule(b: any, email: string) {
               randomUUID(),
               schedule.id,
               position,
-              JSON.stringify(blankOperation()),
+              JSON.stringify(await defaultOperation(c,company,b.orderId)),
               email,
             ],
           );
@@ -313,7 +313,7 @@ export async function mutateSchedule(b: any, email: string) {
       const result = (
         await c.query(
           "INSERT INTO web_service_operations(id,schedule_id,position,document,updated_by) SELECT $1,$2,coalesce(max(position),0)+1,$3,$4 FROM web_service_operations WHERE schedule_id=$2 RETURNING *",
-          [randomUUID(), schedule.id, JSON.stringify(blankOperation()), email],
+          [randomUUID(), schedule.id, JSON.stringify(await defaultOperation(c,schedule.company_id,schedule.order_id)), email],
         )
       ).rows[0];
       await audit(c, email, "service_operation_created", {
@@ -471,6 +471,11 @@ export async function mutateSchedule(b: any, email: string) {
       if(status!=="scheduled" || !document.responsible || !document.date || !document.time) throw new ScheduleInputError("Salve a data, a hora e o responsável antes de enviar a operação.");
       const enabled=(await c.query("SELECT email FROM web_user_access WHERE enabled AND email=$1",[document.responsible])).rows.length;
       if(!enabled)throw new ScheduleInputError("O responsável precisa estar ativo.");
+      if(!document.equipmentId&&!document.equipmentLocked){
+        const initial=await defaultOperation(c,schedule.company_id,schedule.order_id);
+        if(initial.equipmentId)document={...document,equipmentId:initial.equipmentId,equipment:initial.equipment};
+      }
+      document={...document,equipmentLocked:true};
       if(document.checklistReturn&&!document.checklistId)throw new ScheduleInputError("Selecione o checklist corrigido antes de reenviar.");
       if(document.checklistId&&!document.checklistRun){
         const template=config.document.checklists.find((v:any)=>v.id===document.checklistId);
@@ -487,6 +492,9 @@ export async function mutateSchedule(b: any, email: string) {
       document={...document};delete document.checklistReturn;
       status="awaiting_execution";
     } else if (b.action === "operation") {
+      if((operation.sent_at||operation.document.equipmentLocked) &&
+        (b.document?.equipmentId||'')!==(operation.document.equipmentId||''))
+        throw new ScheduleInputError('O equipamento não pode ser alterado após o envio ao técnico.');
       if (["awaiting_review", "reviewed"].includes(status))
         throw new ScheduleInputError("A operação está em revisão.");
       const users = (
@@ -497,6 +505,15 @@ export async function mutateSchedule(b: any, email: string) {
           throw Error("O checklist já foi iniciado e não pode ser substituído.");
         if(operation.sent_at && (b.document.responsible!==operation.document.responsible || JSON.stringify(b.document.support)!==JSON.stringify(operation.document.support) || b.document.vehicleId!==operation.document.vehicleId) && (await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[operation.id])).rows.length)throw Error("Finalize os apontamentos ativos antes de alterar a equipe ou o veículo.");
         const checked = validateOperation({...b.document, checklistRun: operation.document.checklistRun}, config.document, users);
+        const equipmentId=checked.document.equipmentId;
+        if((operation.sent_at || operation.document.equipmentLocked || operation.document.checklistRun?.equipmentId) && equipmentId!==(operation.document.equipmentId||''))
+          throw Error('O equipamento não pode ser alterado após o envio ao técnico ou registro de leitura.');
+        checked.document.equipmentLocked=!!(operation.sent_at||operation.document.equipmentLocked);
+        if(equipmentId){
+          const equipment=(await c.query('SELECT equipment_id::text,name,serial FROM m8_equipment_catalog WHERE equipment_id=$1 AND present FOR SHARE',[equipmentId])).rows[0];
+          if(!equipment)throw Error('Selecione um equipamento ativo cadastrado.');
+          checked.document.equipment={...equipment,...(equipmentId===operation.document.equipmentId && operation.document.equipment?.label?{label:operation.document.equipment.label}:{})};
+        }
         document = {...checked.document,...(operation.document.checklistReturn?{checklistReturn:operation.document.checklistReturn}:{})};
         ends = checked.ends_at;
       } catch (e) {

@@ -18,7 +18,7 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
       ["Profissional responsável", users.find(user => user.email === operation.document.responsible)?.display_name || receipt?.name || operation.document.responsible],
     ]),
     section("asset", "Identificação do ativo", [
-      ["Ativo", order.equipamento], ["Número de série", order.numero_serie || order.serie], ["Modelo", order.modelo_equipamento],
+      ["Ativo", operation.document.equipment?.name || order.equipamento], ["Número de série", operation.document.equipment?.serial || (operation.document.equipmentId ? null : order.numero_serie || order.serie)], ["Modelo", operation.document.equipmentId ? null : order.modelo_equipamento],
     ]),
     section("location", "Identificação da localidade", [["Local de atendimento", order.endereco_entrega_nome]]),
     section("client", "Identificação do cliente", [

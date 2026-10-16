@@ -81,7 +81,13 @@ test("mobile technician confirms pieces before starting work with location", asy
   await expect(page.getByText("outubro de 2026", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Lista", exact: true }).click();
   await page.getByText("OS 14830", { exact: true }).click();
-  await page.getByRole("button", { name: /Operação 01/ }).click();
+  await page.getByRole("button", { name: /OP01/ }).click();
+  const operationScreen=page.getByRole('dialog',{name:/OP01.*OS 14830/});
+  await expect(operationScreen).toBeVisible();
+  await expect(operationScreen.locator('.field-operation-screen-equipment')).toHaveText('Compressor GA110');
+  const screenBounds=await operationScreen.boundingBox();
+  expect(screenBounds?.width).toBeGreaterThanOrEqual(389);
+
   await expect(
     page.getByRole("button", { name: "Iniciar atividade" }),
   ).toBeDisabled();
@@ -128,7 +134,7 @@ test('report fills the phone viewport, keeps drafts when returning and saves all
  await page.route('**/api/field*',async r=>{if(r.request().method()==='POST'){saved=r.request().postDataJSON();for(const stage of saved.stages||[])operation.document.checklistRun.stages[stage.stageId]={...stage,status:'released'};if(saved.action==='report_send_partial')operation.document.checklistRun.partialSubmission={at:new Date().toISOString(),name:'Técnico',by:'tech'};
 if(saved.action==='report_send'){detail.reportSubmission={at:new Date().toISOString(),name:'Técnico',by:'tech'};operation.document.checklistRun.submission=detail.reportSubmission;for(const stage of Object.values(operation.document.checklistRun.stages) as any[])stage.status='submitted';}
 operation.version++;await r.fulfill({json:{saved:true}});}else await r.fulfill({json:r.request().url().includes('?')?detail:{email:'tech',displayName:'Técnico',rows:[row],active:null}});});
- await page.goto('/tecnico');await page.getByRole('button',{name:'Programação'}).click();await page.getByText('OS 14849',{exact:true}).click();await page.getByRole('button',{name:/Operação 01/}).click();await page.getByRole('button',{name:'Relatório',exact:true}).click();
+ await page.goto('/tecnico');await page.getByRole('button',{name:'Programação'}).click();await page.getByText('OS 14849',{exact:true}).click();await page.getByRole('button',{name:/OP01/}).click();await page.getByRole('button',{name:'Relatório',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Relatório · OS 14849/01 · Cliente de teste'});
  await expect(dialog).toBeVisible();expect(await dialog.boundingBox()).toEqual({x:0,y:0,width:390,height:844});
  await dialog.locator('.checklist-stage-response > summary').click();await dialog.locator('.checklist-response-group > summary').first().click();
@@ -212,7 +218,7 @@ test("orders and operations open one at a time and scroll to their heading", asy
   };
   await firstOrder.locator("summary").click();
   await nearTop(firstOrder);
-  const firstOperation = firstOrder.getByRole("button", { name: /Operação 01/ });
+  const firstOperation = firstOrder.getByRole("button", { name: /OP01/ });
   const secondOperation = firstOrder.getByRole("button", { name: /Operação 02/ });
   await firstOperation.click();
   await expect(firstOperation).toHaveAttribute("aria-expanded", "true");
@@ -302,7 +308,7 @@ test("operation completion requires all modules and confirms material returns", 
   await page.goto("/tecnico");
   await page.getByRole("button", { name: "Programação" }).click();
   await page.getByText("OS 100", { exact: true }).click();
-  const operation = page.getByRole("button", { name: /Operação 01/ });
+  const operation = page.getByRole("button", { name: /OP01/ });
   await operation.click();
   await page.getByRole("button", { name: "Finalizar Operação", exact: true }).click();
   const finish = page.getByRole("button", { name: "Finalizar operação · enviar para revisão", exact: true });

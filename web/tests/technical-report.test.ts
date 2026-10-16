@@ -56,3 +56,13 @@ test('summary groups all professionals into exactly three operation totals, incl
  const empty=technicalReport(op,{},[],[],[],[],'summary').find(s=>s.id==='events')!;
  assert.deepEqual(empty.groups[0].fields.map(f=>f.value),['00:00:00','00:00:00','00:00:00']);
 });
+
+test('each operation identifies its own equipment in the report',()=>{
+ const order={equipamento:'Equipamento da OS',numero_serie:'OS-SERIAL'};
+ for(const id of ['7','8']){
+  const report=technicalReport({id,document:{equipmentId:id,equipment:{name:'Máquina '+id,serial:'S'+id},checklistRun:{template:{stages:[]},stages:{}}}},order);
+  const asset=report.find(s=>s.id==='asset')!;
+  assert.equal(asset.groups[0].fields[0].value,'Máquina '+id);
+  assert.equal(asset.groups[0].fields[1].value,'S'+id);
+ }
+});

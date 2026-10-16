@@ -1,4 +1,5 @@
 import 'server-only';
+import {requireReportActivity} from './report-activity';
 import {isChecklistEquipmentLinked} from './checklist-equipment';
 import {reportSubmission,stagesOf,validateAnswers,validateFieldDetails} from './checklists';
 export async function updateChecklist(c:any,b:any,operation:any,schedule:any,settings:any,email:string,admin:boolean){
@@ -27,6 +28,7 @@ export async function updateChecklist(c:any,b:any,operation:any,schedule:any,set
   delete run.submission;
   run.stages[stage.id]={...previous,submittedAt:undefined,submittedBy:undefined,status:'released',reopenedAt:new Date().toISOString(),reopenedBy:email};
  }else if(['checklist_save','checklist_submit','checklist_review_save'].includes(b.action)){
+  if(!reviewing&&operation.sent_at)await requireReportActivity(c,operation.id,email);
   if(previous.status!=='released'&&!(reviewing&&previous.status==='submitted'))throw Error('A etapa precisa estar liberada para preenchimento.');
   const answers=validateAnswers(stage,b.answers,b.action==='checklist_submit'||reviewing);
   const details=validateFieldDetails(stage,b.details??previous.details??{});
@@ -40,7 +42,7 @@ export async function updateChecklist(c:any,b:any,operation:any,schedule:any,set
    if(typeof b.equipmentId!=='string'||!/^\d{1,18}$/.test(b.equipmentId))throw Error('Selecione o equipamento vinculado à OS.');
    if(typeof b.meterDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(b.meterDate)||!Number.isFinite(Date.parse(b.meterDate))||new Date(b.meterDate).toISOString().slice(0,10)!==b.meterDate||b.meterDate>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}))throw Error('Informe uma data válida para a leitura, sem data futura.');
    if(run.equipmentId&&run.equipmentId!==b.equipmentId)throw Error('O equipamento desta leitura já foi definido.');
-   const linked=await isChecklistEquipmentLinked(c,b.equipmentId,schedule.company_id,schedule.order_id);
+   const linked=await isChecklistEquipmentLinked(c,b.equipmentId,schedule.company_id,schedule.order_id,operation.document.equipmentId);
    if(!linked)throw Error('O equipamento selecionado não está vinculado à OS.');
    run.equipmentId=b.equipmentId;run.meterDate=b.meterDate;
   }

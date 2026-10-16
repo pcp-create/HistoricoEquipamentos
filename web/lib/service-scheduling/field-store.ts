@@ -1,3 +1,4 @@
+import {requireReportActivity} from './report-activity';
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { database } from "../db";
@@ -124,7 +125,7 @@ export async function fieldData(email: string, operationId?: string | null) {
     const rows = (
       await c.query(
         `SELECT p.id,p.schedule_id,p.position,p.status,p.version,p.document->>'description' description,p.document->>'date' date,p.document->>'time' time,p.document->'duration' duration,p.document->>'calendarId' calendar_id,
-   o.id_m8::text AS order_id,COALESCE(o.numero_sequencia,o.id_m8)::text AS number,o.cliente_nome customer,o.equipamento equipment,c.payload->>'municipioNome' city,c.payload->>'ufSigla' state,
+   o.id_m8::text AS order_id,COALESCE(o.numero_sequencia,o.id_m8)::text AS number,o.cliente_nome customer,o.equipamento equipment,COALESCE(NULLIF(p.document->'equipment'->>'label',''),NULLIF(p.document->'equipment'->>'name',''),o.equipamento) operation_equipment,c.payload->>'municipioNome' city,c.payload->>'ufSigla' state,
    EXISTS(SELECT 1 FROM web_field_material_checks k WHERE k.operation_id=p.id AND k.actor=$1) checked
    FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id
    LEFT JOIN m8_customer_directory c ON c.company_id=o.company_id AND c.person_id=o.cliente_id
@@ -200,7 +201,8 @@ export async function fieldData(email: string, operationId?: string | null) {
         vehicles: settings.vehicles || [],
       },
     },
-    detail: { order, equipment_links },
+    detail: { order, equipment_links: p.document.equipmentId && p.document.equipment
+      ? [p.document.equipment] : equipment_links },
   };
 }
 async function finishPending(c: any, p: any, email: string, materialsComplete: boolean) {
@@ -474,6 +476,7 @@ export async function fieldAction(b: any, email: string) {
       await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[p.id,b.action,email,'Devolvida para ajuste do checklist. Dados do relatório descartados. Motivo: '+reason]);
       operationUpdated=true;details={reason,checklistId:p.document.checklistId};
     } else if (b.action === "report_save") {
+      try{await requireReportActivity(c,p.id,email);}catch(e){throw new FieldError((e as Error).message)}
       if(reportSubmission(p.document.checklistRun))throw new FieldError("Relatório enviado. O planejador precisa reabrir a edição.");
       if(p.version!==b.version)throw new FieldError('O relatório foi atualizado. Reabra para carregar a versão atual.');
       if(!Array.isArray(b.stages)||b.stages.length>100||new Set(b.stages.map((s:any)=>s.stageId)).size!==b.stages.length)throw new FieldError('Etapas inválidas.');

@@ -63,6 +63,9 @@ test('stages freeze templates, restrict technicians, validate photos and update 
   const buffer=await sharp({create:{width:2,height:2,channels:3,background:'#ffffff'}}).png().toBuffer();
   const file=new File([new Uint8Array(buffer)],'photo.png',{type:'image/png'});
   await assert.rejects(saveChecklistPhoto(op.id,photos.id,photo.id,file,'outsider'));
+  await db.exec('CREATE TABLE web_field_sessions(id integer,operation_id uuid,actor text,kind text,state text)');
+  await assert.rejects(saveChecklistPhoto(op.id,photos.id,photo.id,file,'tech'),/Inicie ou retome/);
+  await db.query("INSERT INTO web_field_sessions VALUES(1,$1,'tech','work','running')",[op.id]);
   const uploaded=await saveChecklistPhoto(op.id,photos.id,photo.id,file,'tech');
   assert.equal((await getChecklistPhoto(uploaded.id,'tech')).mime,'image/jpeg');
   await assert.rejects(getChecklistPhoto(uploaded.id,'outsider'));
