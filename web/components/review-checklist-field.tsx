@@ -1,4 +1,6 @@
 "use client";
+import AutoResizeTextarea from "./auto-resize-textarea";
+import ReportPhotoPicker from "./report-photo-picker";
 import EquipmentMeterReference from "./equipment-meter-reference";
 import {prepareReportPhoto} from "@/lib/prepare-report-photo";
 import {useState,useId} from 'react';
@@ -25,17 +27,17 @@ export default function ReviewChecklistField({field:f,value,details,disabled,ope
    }
   }catch(e){setError((e as Error).message);}finally{setUploading(false);onUploading(false);}
  }
- const photos=(extra=false)=>{const ids=extra?details.photos||[]:value||[];return <div className="review-edit-photos"><input type="file" aria-label={'Fotos — '+f.label} accept="image/jpeg,image/png,image/webp" multiple={f.type!=='signature'} disabled={locked} onChange={e=>{void upload(Array.from(e.target.files||[]),extra);e.target.value='';}}/>{f.type!=='signature'&&<label>Tirar foto<input type="file" accept="image/*" capture="environment" disabled={locked} onChange={e=>{void upload(Array.from(e.target.files||[]),extra);e.target.value='';}}/></label>}{ids.map((id:string)=><div key={id}><a href={'/api/service-scheduling/photos/'+id} target="_blank" rel="noreferrer"><img src={'/api/service-scheduling/photos/'+id} alt={f.label}/></a><button type="button" disabled={locked} onClick={()=>extra?onDetail('photos',ids.filter((v:string)=>v!==id)):onValue(ids.filter((v:string)=>v!==id))}>Remover imagem</button></div>)}</div>;};
+ const photos=(extra=false)=>{const ids=extra?details.photos||[]:value||[];return <div className="review-edit-photos"><ReportPhotoPicker label={f.label} requiredMissing={!extra&&f.type==='photo'&&f.required&&ids.length===0} multiple={f.type!=='signature'} disabled={locked} onSelect={files=>void upload(files,extra)}/>{ids.map((id:string)=><div key={id}><a href={'/api/service-scheduling/photos/'+id} target="_blank" rel="noreferrer"><img src={'/api/service-scheduling/photos/'+id} alt={f.label}/></a><button type="button" disabled={locked} onClick={()=>extra?onDetail('photos',ids.filter((v:string)=>v!==id)):onValue(ids.filter((v:string)=>v!==id))}>Remover imagem</button></div>)}</div>;};
  return <div className="review-edit-field">
  {['flag','select'].includes(f.type)?<ReviewFlags label={f.label} options={fieldOptions(f)} value={value} disabled={locked} onChange={onValue}/>:
  ['photo','signature'].includes(f.type)?photos():
- f.type==='textarea'?<textarea aria-label={f.label} value={value??''} disabled={locked} onChange={e=>onValue(e.target.value)}/>:
+ f.type==='textarea'?<AutoResizeTextarea aria-label={f.label} value={value??''} disabled={locked} onChange={e=>onValue(e.target.value)}/>:
  <input aria-label={f.label} type={['number','meter'].includes(f.type)?'number':['date','time'].includes(f.type)?f.type:'text'} step="any" min={f.type==='meter'?0:undefined} value={value??''} disabled={locked} onChange={e=>onValue(['number','meter'].includes(f.type)?e.target.value===''?null:Number(e.target.value):e.target.value)}/>}
  {f.type==='meter'&&<EquipmentMeterReference equipmentId={equipmentId}/>}
  {f.type==='meter'&&<label>Data da leitura<input type="date" aria-label={'Data da leitura — '+f.label} value={meterDate||''} disabled={locked} onChange={e=>onMeterDate(e.target.value)}/></label>}
  {!['photo','signature'].includes(f.type)&&photoLimit(f)>0&&photos(true)}
- {f.comment&&<label>Comentário<textarea aria-label={'Comentário — '+f.label} value={details.comment||''} disabled={locked} onChange={e=>onDetail('comment',e.target.value)}/></label>}
- {f.internalNote&&<label>Observação interna<textarea aria-label={'Observação interna — '+f.label} value={details.internalNote||''} disabled={locked} onChange={e=>onDetail('internalNote',e.target.value)}/></label>}
+ {f.comment&&<label>Comentário<AutoResizeTextarea aria-label={'Comentário — '+f.label} value={details.comment||''} disabled={locked} onChange={e=>onDetail('comment',e.target.value)}/></label>}
+ {f.internalNote&&<label>Observação interna<AutoResizeTextarea aria-label={'Observação interna — '+f.label} value={details.internalNote||''} disabled={locked} onChange={e=>onDetail('internalNote',e.target.value)}/></label>}
  {error&&<p role="alert">{error}</p>}
  </div>;
 }

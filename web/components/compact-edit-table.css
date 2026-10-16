@@ -64,3 +64,14 @@
 .compact-edit-table tfoot td {
   padding: 8px;
 }
+
+.compact-edit-table input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  vertical-align: middle;
+  accent-color: #246397;
+}

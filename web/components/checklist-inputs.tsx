@@ -1,4 +1,5 @@
 "use client";
+import AutoResizeTextarea from "./auto-resize-textarea";
 import {Mic} from "lucide-react";
 import {useEffect,useRef,useState} from 'react';
 let activeRecognition:any=null;
@@ -18,7 +19,7 @@ export function DictationText({value,onChange,disabled,label}: {value:string;onC
   r.onerror=(e:any)=>{setListening(false);setMessage(e.error==='not-allowed'?'Permita o acesso ao microfone no navegador.':e.error==='aborted'?'':'Não foi possível transcrever. Tente novamente ou digite o texto.');};
   try{r.start();}catch{setMessage('Não foi possível iniciar o microfone.');}
  }
- return <div className="checklist-dictation"><textarea aria-label={label} value={value} maxLength={30000} disabled={disabled} onChange={e=>onChange(e.target.value)}/><button type="button" disabled={disabled||!available} aria-pressed={listening} aria-label={listening?'Parar microfone':'Ditar texto'} title={!available?'Ditado indisponível neste navegador':listening?'Parar microfone':'Ditar texto'} onClick={toggle}><Mic size={20}/></button>{listening&&<small role="status">Ouvindo…</small>}{message&&<small role="status">{message}</small>}</div>;
+ return <div className="checklist-dictation"><AutoResizeTextarea aria-label={label} value={value} maxLength={30000} disabled={disabled} onChange={e=>onChange(e.target.value)}/><button type="button" disabled={disabled||!available} aria-pressed={listening} aria-label={listening?'Parar microfone':'Ditar texto'} title={!available?'Ditado indisponível neste navegador':listening?'Parar microfone':'Ditar texto'} onClick={toggle}><Mic size={20}/></button>{listening&&<small role="status">Ouvindo…</small>}{message&&<small role="status">{message}</small>}</div>;
 }
 export function SignatureInput({ids,onUpload,onClear,disabled,label}:{ids:string[];onUpload:(file:File)=>Promise<void>;onClear:()=>void;disabled:boolean;label:string}){
  const canvas=useRef<HTMLCanvasElement>(null),drawing=useRef(false),hasInk=useRef(false);

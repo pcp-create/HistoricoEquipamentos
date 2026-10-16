@@ -699,4 +699,14 @@ dialog.field-report-screen {
 .field-app-map .field-map-canvas {flex:1;min-height:0}
 
 .field-operation-equipment {margin:6px 0;font-weight:500;line-height:1.45;}
-.field-operation-screen-equipment {margin:0 0 16px;padding:12px 14px;background:#edf4fa;border:1px solid #dce5ee;border-radius:10px;color:#315e7f;line-height:1.5;}
+.field-operation-screen-equipment {margin:0 0 16px;padding:0 0 14px;background:transparent;border:0;border-bottom:1px solid #dce5ee;border-radius:0;color:#526b80;line-height:1.5;}
+
+.field-report-loading {position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgb(245 248 251 / 70%);color:#245e89;cursor:progress;}
+.field-report-loading svg {animation:field-report-spin .9s linear infinite;flex-shrink:0;}
+@keyframes field-report-spin {to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.field-report-loading svg{animation:none;}}
+
+.field-app button.field-active {width:100%;margin:4px 0 18px;text-align:left;background:#e0f3ea;border:1px solid #a6d8bd;color:#245c45;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:14px;}
+.field-app button.field-active small {display:flex;align-items:center;gap:4px;width:100%;}
+.field-app button.field-active.paused {background:#fff0ce;color:#825c00;}
+.field-app button.field-active:hover {filter:brightness(.98);}

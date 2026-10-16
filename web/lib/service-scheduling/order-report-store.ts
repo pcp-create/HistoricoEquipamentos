@@ -102,6 +102,7 @@ export async function loadOrderReport(body: any, email: string) {
         detail: { order: schedule.order_record || {} },
         operations,
         users,
+        settings:{document:(await c.query('SELECT document FROM web_service_schedule_settings WHERE id=1')).rows[0]?.document||{}},
         fieldSessions: sessions,
         fieldEvents: events,
         events: history,

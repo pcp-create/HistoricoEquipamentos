@@ -26,6 +26,7 @@ export default function SchedulePauseReasons({
             <tr>
               <th>Causa da pausa</th>
               <th>Limite (minutos)</th>
+              <th>Exibir no relatório resumido</th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -70,6 +71,7 @@ export default function SchedulePauseReasons({
                     }
                   />
                 </td>
+                <td><input type="checkbox" aria-label={`Exibir ${r.name||'causa '+(i+1)} no relatório resumido`} checked={r.showInSummary===true} disabled={busy} onChange={e=>change(rows.map((v:any)=>v.id===r.id?{...v,showInSummary:e.target.checked}:v))}/></td>
                 <td>
                   <button
                     type="button"
@@ -86,13 +88,13 @@ export default function SchedulePauseReasons({
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={3}>
+              <td colSpan={4}>
                 <button
                   type="button"
                   onClick={() =>
                     change([
                       ...rows,
-                      { id: crypto.randomUUID(), name: "", minutes: null },
+                      { id: crypto.randomUUID(), name: "", minutes: null, showInSummary:false },
                     ])
                   }
                 >

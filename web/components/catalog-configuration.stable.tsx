@@ -1,4 +1,5 @@
 "use client";
+import RequiredMarker from "./required-marker";
 import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useState } from "react";
 import { Pencil, Save, X, Plus, ArrowLeft } from "lucide-react";
@@ -455,7 +456,7 @@ export default function CatalogConfiguration() {
         <section className="manual-card">
           <h2>Adicionar item manualmente</h2>
           <p>
-            Campos com * são obrigatórios. Use o mesmo fabricante, modelo e
+            Campos com <RequiredMarker/> são obrigatórios. Use o mesmo fabricante, modelo e
             versão e condições para agrupar peças da mesma máquina. Informe a
             referência genuína ou o código M8.
           </p>
@@ -477,7 +478,7 @@ export default function CatalogConfiguration() {
                   {required &&
                   !(key === "reference" && form.internalCode) &&
                   !(key === "interval" && form.intervalUnknown === "Sim")
-                    ? " *"
+                    ? <> <RequiredMarker/></>
                     : ""}
                   {key === "observation" ? (
                     <textarea

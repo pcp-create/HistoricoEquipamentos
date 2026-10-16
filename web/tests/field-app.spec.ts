@@ -107,6 +107,11 @@ test("mobile technician confirms pieces before starting work with location", asy
     page.getByRole("button", { name: "Pausar atividade" }),
   ).toBeVisible();
   expect(actions.map((x) => x.action)).toEqual(["info_read", "materials", "start_work"]);
+  await page.getByRole('dialog').getByRole('button',{name:'Voltar',exact:true}).click();
+  await page.getByRole('button',{name:'Abrir operação com apontamento em andamento',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:/OP01.*OS 14830/})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Pausar atividade',exact:true})).toBeVisible();
+
   expect(actions[1].location.latitude).toBe(-27);
   expect(
     await page.evaluate(

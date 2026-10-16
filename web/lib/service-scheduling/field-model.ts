@@ -27,7 +27,8 @@ export function validatePauseReasons(raw: any) {
       throw Error(
         "Limite da pausa: 1 a 1.440 minutos, ou vazio para não alertar.",
       );
-    return { id: r.id, name: r.name.trim(), minutes };
+    if(r.showInSummary!==undefined&&typeof r.showInSummary!=='boolean')throw Error('Informe se a pausa aparece no relatório resumido.');
+    return { id: r.id, name: r.name.trim(), minutes,showInSummary:r.showInSummary===true };
   });
 }
 export function locationOf(raw: any, now = Date.now()) {

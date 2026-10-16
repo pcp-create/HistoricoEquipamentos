@@ -17,6 +17,7 @@ test("unified export validates selection, scopes data to the OS, and checks curr
   try {
     await db.exec(`CREATE TABLE web_user_access(email text,role text,enabled boolean,display_name text);
    INSERT INTO web_user_access VALUES('admin','admin',true,'Planejador'),('tech','user',true,'Técnico'),('disabled','admin',false,'Desativado');
+   CREATE TABLE web_service_schedule_settings(id integer,document jsonb);
    CREATE TABLE web_service_schedules(id bigint,company_id integer,order_id bigint);
    INSERT INTO web_service_schedules VALUES(1,1,100),(2,2,100);
    CREATE TABLE m8_ordens_servico(company_id integer,id_m8 bigint,numero_sequencia bigint,cliente_nome text);

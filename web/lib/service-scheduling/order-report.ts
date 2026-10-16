@@ -224,6 +224,7 @@ export function orderReport(
       events,
       history,
       mode,
+      data.settings?.document?.pauseReasons,
     ).filter((s) => !(op.document.equipmentId ? ["location", "client"] : ["asset", "location", "client"]).includes(s.id)),
   }));
   return {

@@ -18,7 +18,7 @@ export default function FieldReportScreen({open,busy,title,onClose,children,head
   return()=>{element.close();document.body.style.overflow=previousOverflow;};
  },[open,mounted]);
  if(!mounted)return null;
- return createPortal(<dialog ref={dialog} className="field-app field-report-screen" aria-label={heading+' · '+title} onCancel={e=>{e.preventDefault();if(!busy)onClose();}}>
+ return createPortal(<dialog ref={dialog} className="field-app field-report-screen" aria-label={heading+' · '+title} onCancel={e=>{if(e.target!==e.currentTarget)return;e.preventDefault();if(!busy)onClose();}}>
   <header className="field-report-header"><button type="button" disabled={busy} onClick={onClose} autoFocus><ArrowLeft size={20}/> Voltar</button><div><strong>{heading}</strong><small title={title}>{title}</small></div></header>
   <div className="field-report-content">{children}</div>
  </dialog>,document.body);

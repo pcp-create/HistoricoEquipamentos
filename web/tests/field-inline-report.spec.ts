@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 test('report stays inside operation screen and retains draft when returning to menu',async({page,context})=>{
+ await page.clock.install();
  await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
  await context.grantPermissions(['geolocation']);await context.setGeolocation({latitude:-27,longitude:-49});
  await page.setViewportSize({width:390,height:844});
@@ -8,13 +9,14 @@ test('report stays inside operation screen and retains draft when returning to m
  const row={id:'op1',schedule_id:1,number:14849,position:1,description:'Inspeção do compressor',date:'2026-09-29',time:'08:00',status:'executing',customer:'Cliente de teste'};
  const operation:any={...row,version:1,document:{responsible:'tech',support:[],checklistId:'ccp',checklistRun:{template,stages:{stage:{status:'released',answers:{}}}}}};
  const detail:any={operation,checked:true,infoRead:true,email:'tech',settings:{document:{checklists:[template],vehicles:[]}},detail:{order:{equipamento:'1795 - COMPRESSOR DE PARAFUSO - TPE 25 - SÉRIE 55533'},equipment_links:[]},materials:{items:[],complete:true},history:[]};
- let saved:any;
+ let saved:any;let detailRequests=0;
  await page.route('**/api/activity',r=>r.fulfill({json:{admin:true}}));
  await page.route('**/api/field*',async r=>{if(r.request().method()==='POST'){saved=r.request().postDataJSON();for(const stage of saved.stages||[])operation.document.checklistRun.stages[stage.stageId]={...stage,status:'released'};if(saved.action==='report_send_partial')operation.document.checklistRun.partialSubmission={at:new Date().toISOString(),name:'Técnico',by:'tech'};
 if(saved.action==='report_send'){detail.reportSubmission={at:new Date().toISOString(),name:'Técnico',by:'tech'};operation.document.checklistRun.submission=detail.reportSubmission;for(const stage of Object.values(operation.document.checklistRun.stages) as any[])stage.status='submitted';}
-operation.version++;await r.fulfill({json:{saved:true}});}else await r.fulfill({json:r.request().url().includes('?')?detail:{email:'tech',displayName:'Técnico',rows:[row],active:{id:'session',operation_id:'op1',kind:'work',state:'running',segment_at:new Date().toISOString(),active_seconds:0,pause_seconds:0}}});});
+operation.version++;await r.fulfill({json:{saved:true}});}else {if(r.request().url().includes('?'))detailRequests++;await r.fulfill({json:r.request().url().includes('?')?detail:{email:'tech',displayName:'Técnico',rows:[row],active:{id:'session',operation_id:'op1',kind:'work',state:'running',segment_at:new Date().toISOString(),active_seconds:0,pause_seconds:0}}});}});
  await page.goto('/tecnico');await page.getByRole('button',{name:'Programação'}).click();await page.getByText('OS 14849',{exact:true}).click();await page.getByRole('button',{name:/OP01/}).click();await page.getByRole('button',{name:'Relatório',exact:true}).click();
 
+ expect(detailRequests).toBe(1);
  const report=page.getByRole('region',{name:'Relatório técnico da operação'});
  await expect(report).toBeVisible();
  await expect(report.locator('.checklist-report-equipment')).toHaveCount(0);
@@ -28,4 +30,20 @@ operation.version++;await r.fulfill({json:{saved:true}});}else await r.fulfill({
  await page.getByRole('button',{name:'Relatório',exact:true}).click();
  await expect(report.getByLabel('Relatório técnico',{exact:true})).toHaveValue('Rascunho preservado');
  await expect(page.getByRole('dialog')).toHaveCount(1);
+ await page.getByRole('dialog').getByRole('button',{name:'Voltar',exact:true}).click();
+ await page.clock.fastForward(16000);
+ let release!:()=>void;
+ const wait=new Promise<void>(r=>{release=r});
+ let refreshes=0;
+ await page.route('**/api/field?operation=*',async r=>{refreshes++;await wait;await r.fulfill({json:detail})});
+ await page.getByRole('button',{name:'Relatório',exact:true}).click();
+ await expect(page.getByRole('status',{name:'Carregando relatório',exact:true})).toBeVisible();
+ const spinner=await page.getByRole('status',{name:'Carregando relatório',exact:true}).locator('svg').boundingBox();
+ expect(Math.abs(spinner!.x+spinner!.width/2-195)).toBeLessThan(2);
+ expect(Math.abs(spinner!.y+spinner!.height/2-422)).toBeLessThan(2);
+ await expect(report.getByLabel('Relatório técnico',{exact:true})).toBeDisabled();
+ expect(refreshes).toBe(1);
+ release();
+ await expect(page.getByRole('status',{name:'Carregando relatório',exact:true})).toBeHidden();
+ await expect(report.getByLabel('Relatório técnico',{exact:true})).toBeEnabled();
 });

@@ -1,0 +1,15 @@
+.report-photo-picker {position:relative;margin:6px 0 8px;}
+.report-photo-picker .report-photo-native {display:none!important;}
+.report-photo-picker .report-photo-add {display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:46px;padding:10px 14px;border:1px solid #bad2e8;border-radius:10px;background:#f5faff;color:#245e89;font:inherit;font-size:14px;cursor:pointer;}
+.report-photo-picker .report-photo-add:hover:not(:disabled) {background:#eaf3fc;border-color:#71a2ca;}
+.report-photo-picker button:disabled {opacity:.5;cursor:default;}
+.report-photo-picker button:focus-visible {outline:2px solid #2879c7;outline-offset:2px;}
+.report-photo-choices {display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;margin-top:6px;border:1px solid #d5e3ef;border-radius:12px;background:#fff;box-shadow:0 4px 12px #26486612;}
+.report-photo-choices button {display:flex;align-items:center;gap:10px;text-align:left;padding:12px;min-height:62px;border:0;border-radius:8px;background:#f3f7fb;color:#245e89;font:inherit;font-size:13px;cursor:pointer;}
+.report-photo-choices button:hover {background:#e6f0f9;}
+.report-photo-choices svg {flex-shrink:0;}
+.report-photo-choices small {display:block;margin-top:3px;color:#70869b;font-size:11px;}
+@media(max-width:420px){.report-photo-choices{grid-template-columns:1fr;}}
+
+.report-photo-picker .report-photo-add.report-photo-required {background:#fff1f0;border-color:#e59b98;color:#b42318;}
+.report-photo-picker .report-photo-add.report-photo-required:hover:not(:disabled) {background:#ffe3e0;border-color:#d76059;}

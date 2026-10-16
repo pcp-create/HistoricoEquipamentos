@@ -4,6 +4,7 @@ import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import { useState, useEffect, useId, useRef } from "react";
 import {
   ArrowLeft,
+  LoaderCircle,
   CalendarDays,
   Wallet,
   Handshake,
@@ -17,6 +18,7 @@ import {
   Square,
   Wrench,
   ChevronDown,
+  ChevronRight,
   CheckCircle2,
   RefreshCw,
   MapPin,
@@ -49,7 +51,15 @@ async function api(url = "/api/field", body?: any) {
   if (!r.ok) throw Error(data.error || "Não foi possível salvar.");
   return data;
 }
-async function position() {
+let recentPosition:any=null;
+let pendingPosition:Promise<any>|null=null;
+function position():Promise<any> {
+  if(recentPosition&&Date.now()-Date.parse(recentPosition.at)<30000)return Promise.resolve(recentPosition);
+  if(pendingPosition)return pendingPosition;
+  pendingPosition=capturePosition().then(value=>{recentPosition=value;return value}).finally(()=>{pendingPosition=null});
+  return pendingPosition;
+}
+async function capturePosition() {
   if (!navigator.geolocation)
     throw Error(
       "Este navegador não oferece localização. Use um navegador atualizado.",
@@ -121,6 +131,7 @@ export default function FieldApp() {
     const k = String(row.schedule_id);
     groups.set(k, [...(groups.get(k) || []), row]);
   }
+  for (const rows of groups.values()) rows.sort((a,b)=>Number(a.position)-Number(b.position));
   const active = data?.active;
   return (
     <main className={"field-app" + (screen !== "home" && scheduleView === "map" ? " field-app-map" : "")}>
@@ -194,11 +205,13 @@ export default function FieldApp() {
             <button aria-pressed={scheduleView === "map"} onClick={() => setScheduleView("map")}><MapPin size={16}/>Mapa</button>
           </nav>
           {active && (
-            <div
+            <button
+              type="button"
+              onClick={()=>{setScheduleView('list');setOpenOperation(active.operation_id);}}
+              aria-label="Abrir operação com apontamento em andamento"
               className={
                 "field-active " + (active.state === "paused" ? "paused" : "")
               }
-              role="status"
             >
               <b>
                 {active.kind === "travel"
@@ -214,8 +227,9 @@ export default function FieldApp() {
                     : sessionTotals(active, now).active,
                 )}
               </span>
+              <small>Abrir operação <ChevronRight size={14} aria-hidden="true"/></small>
               <small>O registro continua mesmo ao fechar a página.</small>
-            </div>
+            </button>
           )}
           <FieldMap visible={scheduleView === "map"}/>
           {scheduleView === "calendar" && <FieldCalendar rows={data?.calendarRows || data?.rows || []} selected={selectedDay} onSelect={setSelectedDay} now={now}/>}
@@ -308,6 +322,8 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     const frame = requestAnimationFrame(() => section.current?.scrollIntoView({ block: "start", behavior: "smooth" }));
     return () => cancelAnimationFrame(frame);
   }, [open]);
+  const lastLoadedAt=useRef(0),reportOpening=useRef(false);
+  const [reportLoading,setReportLoading]=useState(false);
   const [data, setData] = useState<any>(null),
     [view, setView] = useState(""),
     [reportVisited,setReportVisited]=useState(false),
@@ -319,13 +335,14 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
   async function load() {
     try {
       setData(await api("/api/field?operation=" + row.id));
+      lastLoadedAt.current=Date.now();
       setError("");
     } catch (e) {
       setError((e as Error).message);
     }
   }
   useEffect(() => {
-    if (open) void load();
+    if (open) {void load();void position().catch(()=>{});}
   }, [open]);
   useEffect(() => {
     // Refresh a locked report when the planner returns it, including an open dialog.
@@ -356,8 +373,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
         requestId: crypto.randomUUID(),
         location,
       });
-      if(body.action!=="report_return")await load();
-      await refresh();
+      await Promise.all([body.action!=="report_return"?load():Promise.resolve(),refresh()]);
       setMessage("Registro salvo.");
       return true;
     } catch (e) {
@@ -399,8 +415,16 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     if (which === "send" && !canFinish) return;
     if (which === "logs" && !data?.infoRead) return;
     if(which==='report') {
-      await load();
+      if(reportOpening.current)return;
+      if(!data?.reportSubmission&&!reportActivityRunning)window.alert('Inicie ou retome a atividade para editar o relatório e anexar fotos.');
       setReportVisited(true);
+      setView('report');
+      setError('');setMessage('');
+      // The operation detail already includes the report. Reuse a recent response.
+      if(data && Date.now()-lastLoadedAt.current<15000 && Number(row.version||0)<=Number(data.operation.version||0))return;
+      reportOpening.current=true;setReportLoading(true);
+      try{await load();}finally{reportOpening.current=false;setReportLoading(false);}
+      return;
     }
     if(which==="travel")setReading("");
     setView(which);
@@ -453,10 +477,10 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
             <>
               {reportVisited && data.checked && (
                 <section className="field-inline-report" aria-label="Relatório técnico da operação" hidden={view!=='report'}>
-                  {!data.reportSubmission&&!reportActivityRunning&&<p className="field-error" role="status">Inicie ou retome a atividade desta operação para preencher o relatório técnico e anexar fotos.</p>}
+                  {reportLoading&&<div className="field-report-loading" role="status" aria-label="Carregando relatório"><LoaderCircle size={48} aria-hidden="true"/></div>}
                   <ScheduleChecklistRun
                     compact
-                    readOnly={!!data.reportSubmission||!reportActivityRunning}
+                    readOnly={!!data.reportSubmission||!reportActivityRunning||reportLoading}
                     operation={operation}
                     data={data}
                     busy={busy}
@@ -469,14 +493,14 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                       {data.reportSubmission?<p className="field-success" role="status">Relatório enviado completo em {new Date(data.reportSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {data.reportSubmission.name||data.reportSubmission.by}.<br/>O planejador pode devolver o relatório para edição.</p>:<>
                         {checklistRun?.partialSubmission&&<p className="field-success">Enviado parcial em {new Date(checklistRun.partialSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {checklistRun.partialSubmission.name||checklistRun.partialSubmission.by}. Você pode continuar editando.</p>}
                         <div className="field-report-actions">
-                          <button disabled={!ready||!reportActivityRunning} onClick={()=>void save()}><SaveActionIcon/> Salvar</button>
-                          <button type="button" disabled={busy||locked||!!checklistRun?.partialSubmission||operation.document.responsible!==data.email} onClick={async()=>{
+                          <button disabled={!ready||!reportActivityRunning||reportLoading} onClick={()=>void save()}><SaveActionIcon/> Salvar</button>
+                          <button type="button" disabled={busy||reportLoading||locked||!!checklistRun?.partialSubmission||operation.document.responsible!==data.email} onClick={async()=>{
                             const reason=window.prompt('Informe ao planejador por que o checklist precisa ser corrigido:');
                             if(!reason?.trim())return;
                             if(!window.confirm('Devolver para ajuste do checklist? Todos os dados preenchidos e fotos deste relatório serão descartados, incluindo o preenchimento da equipe. A operação sairá do portal até o planejador corrigir e reenviar. Apontamentos e retiradas de peças serão preservados.'))return;
                             if(await act({action:'report_return',version:operation.version,reason,confirmDiscard:true}))setView('');
                           }}><ArrowLeft size={18}/> Devolver</button>
-                          <button disabled={!ready||!reportActivityRunning||operation.document.responsible!==data.email} onClick={async()=>{if(await act({action:'report_send',version:operation.version,stages:getDrafts()}))setView('');}}><Flag size={18}/> Enviar</button>
+                          <button disabled={!ready||reportLoading||!reportActivityRunning||operation.document.responsible!==data.email} onClick={async()=>{if(await act({action:'report_send',version:operation.version,stages:getDrafts()}))setView('');}}><Flag size={18}/> Enviar</button>
                         </div>
                       </>}
                     </div>}

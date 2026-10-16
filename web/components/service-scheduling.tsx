@@ -1533,7 +1533,7 @@ function ScheduleSettings({ data, onSaved }: any) {
         </>}
         {tab === "types" && <>
           <p>Edite os tipos de serviço diretamente na tabela. Salve a linha com Enter ou no botão Salvar.</p>
-          <CompactNameTable extraColumn={{title:"Considerar mão de obra",render:item => <input type="checkbox" aria-label={`Considerar mão de obra: ${item.name}`} checked={includesLaborCost(d,item.name)} disabled={busy} onChange={e => void save({...d,serviceTypeLaborCosts:{...d.serviceTypeLaborCosts,[item.name]:e.target.checked}})} />}} label="Tipo de serviço" items={d.serviceTypes.map((name:string,i:number)=>({id:name,name}))} maxLength={80} busy={busy}
+          <CompactNameTable extraColumn={{title:"Considerar no calculo de custo de mão de obra",render:item => <input type="checkbox" aria-label={`Considerar no calculo de custo de mão de obra: ${item.name}`} checked={includesLaborCost(d,item.name)} disabled={busy} onChange={e => void save({...d,serviceTypeLaborCosts:{...d.serviceTypeLaborCosts,[item.name]:e.target.checked}})} />}} label="Tipo de serviço" items={d.serviceTypes.map((name:string,i:number)=>({id:name,name}))} maxLength={80} busy={busy}
             onSave={(id,name)=>save({...d,serviceTypes:d.serviceTypes.map((v:string,i:number)=>v===id?name:v),serviceTypeLaborCosts:{...d.serviceTypeLaborCosts,[name]:includesLaborCost(d,id)}})}
             onRemove={id=>save({...d,serviceTypes:d.serviceTypes.filter((v:string)=>v!==id)})}
             onAdd={name=>save({...d,serviceTypes:[...d.serviceTypes,name]})}/>

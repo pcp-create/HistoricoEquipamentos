@@ -3,7 +3,7 @@ import { reportSubmission } from "./checklists";
 import { timeLogs, elapsedTime } from "./time-logs";
 
 /** One report structure for the on-screen review and the exported document. */
-export function technicalReport(operation: any, order: any, users: any[] = [], sessions: any[] = [], events: any[] = [], operationEvents: any[] = [], mode: ReportMode = "complete") {
+export function technicalReport(operation: any, order: any, users: any[] = [], sessions: any[] = [], events: any[] = [], operationEvents: any[] = [], mode: ReportMode = "complete",pauseReasons?:any[]) {
   const run = operation.document.checklistRun;
   const receipt = reportSubmission(run);
   const timestamp = (value: any) => value ? new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }) : "Não informado";
@@ -57,6 +57,17 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
       field("Tempo de deslocamento",elapsedTime(logs.summary.travel),1),
       field("Tempo total",elapsedTime(logs.summary.work + logs.summary.travel),2),
     ]}];
+    const pauses=new Map<string,number>();
+    for(const row of logs.rows)for(const pause of row.pauses){
+      const recorded=pause.startLocation?.document?.reason;
+      const configured=recorded?.id?pauseReasons?.find(r=>r.id===recorded.id):pauseReasons?.find(r=>r.name===pause.reason);
+      const enabled=pauseReasons!==undefined?configured?.showInSummary===true:recorded?.showInSummary===true;
+      if(enabled&&Number.isFinite(pause.seconds)&&pause.seconds>0){
+        const name=configured?.name||pause.reason;
+        pauses.set(name,(pauses.get(name)||0)+pause.seconds);
+      }
+    }
+    if(pauses.size)fieldEvents.groups.push({name:'Pausas informadas ao cliente',fields:[...pauses].map(([name,seconds],index)=>field(name,elapsedTime(seconds),index))});
   }
   sections.push(fieldEvents);
   return filterReport([...sections, ...checklistReport(run, mode)],mode).map((stage, index) => ({ ...stage, name: stage.name.replace(/^\s*\d+[.\-–]?\s*/, ""), number: String(index + 1).padStart(2, "0") }));

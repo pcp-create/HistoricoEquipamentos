@@ -27,8 +27,10 @@ test("location, pause limits and running/paused totals reject invalid inputs", (
   );
   assert.deepEqual(
     validatePauseReasons([{ id: "a", name: "Pausa", minutes: 15 }]),
-    [{ id: "a", name: "Pausa", minutes: 15 }],
+    [{ id: "a", name: "Pausa", minutes: 15, showInSummary: false }],
   );
+  assert.equal(validatePauseReasons([{id:"a",name:"Portaria",minutes:15,showInSummary:true}])[0].showInSummary,true);
+  assert.throws(()=>validatePauseReasons([{id:"a",name:"Portaria",minutes:15,showInSummary:"true"}]));
   const session = {
     state: "paused",
     segment_at: "2026-01-01T10:00:00Z",
