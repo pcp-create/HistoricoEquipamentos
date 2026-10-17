@@ -280,7 +280,8 @@ export async function fieldAction(b: any, email: string) {
       if (!Number.isInteger(expected) || p.version !== expected)
         throw new FieldError("Conflito: a operação foi alterada no sistema. Os dados offline foram preservados para conferência.");
       b.version = p.version;
-      const last = (await c.query("SELECT max(created_at) AS at FROM web_field_events WHERE actor=$1", [email])).rows[0]?.at;
+      const timerAction=["start_work","start_travel","pause","resume","stop"].includes(b.action);
+      const last = timerAction?(await c.query("SELECT max(created_at) AS at FROM web_field_events WHERE actor=$1 AND action IN ('start_work','start_travel','pause','resume','stop')", [email])).rows[0]?.at:null;
       if (last && occurredMs < new Date(last).getTime())
         throw new FieldError("Conflito de horários com outro apontamento. Confira os registros antes de sincronizar.");
     }
@@ -495,7 +496,7 @@ export async function fieldAction(b: any, email: string) {
       let returned=p;
       if(b.stages!==undefined){
         if(!Array.isArray(b.stages)||b.stages.length>100||new Set(b.stages.map((stage:any)=>stage.stageId)).size!==b.stages.length)throw new FieldError("Etapas inválidas.");
-        for(const stage of b.stages)returned=await updateChecklist(c,{...stage,action:"checklist_save"},returned,s,settings,email,false);
+        for(const stage of b.stages)returned=await updateChecklist(c,{...stage,action:"checklist_save"},returned,s,settings,email,false,{returning:true});
       }
       const document={...returned.document};
       document.checklistReturn={at:occurredAt,by:email,reason,checklistId:p.document.checklistId};

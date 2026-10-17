@@ -148,7 +148,10 @@ function projectField(home, detail, body) {
       detail.reportSubmission = run.submission;
     }
   }
-  if (action === "report_return") op.status = "planning";
+  if (action === "report_return") {
+    if(same&&active)throw Error("Finalize o apontamento antes de devolver o relatório.");
+    op.status = "planning";
+  }
   else if (action === "finish_full") op.status = "awaiting_review";
   else if (action !== "info_read") op.status = "executing";
   // The server resolves exact versions through the preceding request receipt.

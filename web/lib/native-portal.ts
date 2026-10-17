@@ -1,4 +1,5 @@
 type NativePortal = {
+  version?: string;
   openPdf: (url:string) => Promise<void>;
   connection: () => Promise<boolean>;
   permissions: () => Promise<void>;

@@ -72,6 +72,21 @@ test("unified export validates selection, scopes data to the OS, and checks curr
       loadOrderReport({ ...body, operationIds: [one, two] }, "admin"),
       /somente operações desta OS/,
     );
+    await db.exec("ALTER TABLE web_service_operations ADD COLUMN sent_at timestamptz DEFAULT now()");
+    const third="30000000-0000-4000-8000-000000000003";
+    await db.query("INSERT INTO web_service_operations(id,schedule_id,position,status,document) VALUES($1,1,2,'executing',$2)",[third,JSON.stringify({responsible:'another-tech',description:'Outro técnico, sem checklist'})]);
+    const fourth="40000000-0000-4000-8000-000000000004";
+    await db.query("INSERT INTO web_service_operations(id,schedule_id,position,status,document) VALUES($1,1,3,'executing',$2)",[fourth,JSON.stringify({responsible:'another-tech',description:'Relatório do outro técnico',checklistRun:{template:{name:'Teste',stages:[{id:'s',name:'Serviço',fields:[{id:'text',label:'Descrição',type:'text'}]}]},stages:{s:{status:'released',answers:{text:'Manutenção realizada por outro técnico'}}}}})]);
+    const portal=await loadOrderReport({scheduleId:'1',mode:'complete'},'tech',true);
+    assert.equal(portal.model.chapters.length,3);
+    assert.ok(JSON.stringify(portal.model).includes("Manutenção realizada por outro técnico"));
+    assert.ok(portal.model.chapters.some(c=>c.id===third));
+    assert.ok(!portal.model.chapters.some(c=>c.id===two));
+    assert.ok(portal.model.report.some(s=>s.id==='timeline'));
+    assert.match(portal.model.title,/PRÉVIA/);
+    await assert.rejects(loadOrderReport({scheduleId:'1',mode:'budget'},'tech',true));
+    await assert.rejects(loadOrderReport({scheduleId:'1'},'unknown',true));
+    await db.query("DELETE FROM web_service_operations WHERE id=ANY($1::uuid[])",[[third,fourth]]);
     const result = await loadOrderReport(body, "admin");
     assert.equal(result.model.order, "14877");
     assert.equal(result.photos.length, 1);

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { chromium } from "@playwright/test";
-const op = "10000000-0000-4000-8000-000000000001";
+const op = "10000000-0000-4000-8000-000000000001",otherOp="20000000-0000-4000-8000-000000000002";
 test("durable offline queue preserves photos and reports across reload, then replays in order without duplicates", async () => {
   let blocked = false,
     conflict = false,
@@ -19,12 +19,12 @@ test("durable offline queue preserves photos and reports across reload, then rep
   const home = () => ({
     email: owner,
     displayName: "Técnico",
-    rows: [{ id: op, version: 1, status: "awaiting_execution" }],
+    rows: [op,otherOp].map(id=>({id,version:1,status:"awaiting_execution"})),
     active: null,
   });
-  const detail = () => ({
+  const detail = (id=op) => ({
     operation: {
-      id: op,
+      id,
       version: 1,
       document: {
         responsible: "tech",
@@ -92,7 +92,7 @@ test("durable offline queue preserves photos and reports across reload, then rep
         return;
       }
       const body = JSON.parse(Buffer.concat(chunks).toString());
-      if (conflict) {
+      if (conflict && body.operationId===op) {
         res.statusCode = 400;
         res.end(JSON.stringify({ error: "Conflito: operação alterada." }));
         return;
@@ -123,7 +123,7 @@ test("durable offline queue preserves photos and reports across reload, then rep
     }
     res.end(
       JSON.stringify(
-        url.search ? detail() : url.pathname === "/api/field" ? home() : {},
+        url.search ? detail(url.searchParams.get("operation")||op) : url.pathname === "/api/field" ? home() : {},
       ),
     );
   });
@@ -169,7 +169,7 @@ test("durable offline queue preserves photos and reports across reload, then rep
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...body,
-            operationId: "10000000-0000-4000-8000-000000000001",
+            operationId: body.operationId || "10000000-0000-4000-8000-000000000001",
             requestId: body.requestId || crypto.randomUUID(),
             location: {
               latitude: -27,
@@ -300,6 +300,14 @@ test("durable offline queue preserves photos and reports across reload, then rep
     assert.match(state.queue[0].error, /Conflito/);
     await page.reload();
     assert.equal((await message("FIELD_STATUS")).pending, 1);
+    // A failed operation must not block independent work, but its own chain stays pending.
+    await action({action:"info_read"});
+    await action({action:"info_read",operationId:otherOp});
+    await message("FIELD_SYNC");
+    state=await message("FIELD_STATUS");
+    assert.equal(state.pending,2);
+    assert.equal(actions.at(-1).operationId,otherOp);
+    assert.equal(actions.at(-1).action,"info_read");
     // Logging into another account must not replay the previous user's data.
     await page.evaluate(() =>
       fetch("/api/session", { method: "POST", body: "{}" }),
@@ -309,7 +317,7 @@ test("durable offline queue preserves photos and reports across reload, then rep
     state = await message("FIELD_STATUS");
     assert.equal(state.owner, "other");
     assert.equal(state.pending, 0);
-    assert.equal(actions.length, 5);
+    assert.equal(actions.length, 6);
   } finally {
     releasePhoto();
     await browser.close();

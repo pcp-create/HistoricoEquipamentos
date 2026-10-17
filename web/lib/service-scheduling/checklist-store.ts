@@ -2,7 +2,7 @@ import 'server-only';
 import {requireReportActivity} from './report-activity';
 import {isChecklistEquipmentLinked} from './checklist-equipment';
 import {reportSubmission,stagesOf,validateAnswers,validateFieldDetails} from './checklists';
-export async function updateChecklist(c:any,b:any,operation:any,schedule:any,settings:any,email:string,admin:boolean){
+export async function updateChecklist(c:any,b:any,operation:any,schedule:any,settings:any,email:string,admin:boolean,options:{returning?:boolean}={}){
  const reviewing=b.action==='checklist_review_save';
  if(reviewing&&(!admin||operation.status!=='awaiting_review'))throw Error('Somente o planejador pode corrigir o checklist enquanto aguarda revisão.');
  if(['completed','reviewed'].includes(operation.status)||operation.status==='awaiting_review'&&!reviewing)throw Error('A operação está concluída ou em revisão.');
@@ -28,7 +28,7 @@ export async function updateChecklist(c:any,b:any,operation:any,schedule:any,set
   delete run.submission;
   run.stages[stage.id]={...previous,submittedAt:undefined,submittedBy:undefined,status:'released',reopenedAt:new Date().toISOString(),reopenedBy:email};
  }else if(['checklist_save','checklist_submit','checklist_review_save'].includes(b.action)){
-  if(!reviewing&&operation.sent_at)await requireReportActivity(c,operation.id,email);
+  if(!reviewing&&operation.sent_at&&!(options.returning&&b.action==='checklist_save'))await requireReportActivity(c,operation.id,email);
   if(previous.status!=='released'&&!(reviewing&&previous.status==='submitted'))throw Error('A etapa precisa estar liberada para preenchimento.');
   const answers=validateAnswers(stage,b.answers,b.action==='checklist_submit'||reviewing);
   const details=validateFieldDetails(stage,b.details??previous.details??{});

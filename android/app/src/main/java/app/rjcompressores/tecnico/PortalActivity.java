@@ -183,6 +183,7 @@ public class PortalActivity extends Activity {
         });
         p.addView(button("Permissões do aplicativo",this::showPermissions));
         p.addView(text("Use sua conta cadastrada. Após baixar a programação, os registros ficam salvos neste aparelho até a sincronização.",14));
+        try{p.addView(new View(this),new LinearLayout.LayoutParams(-1,0,1f));TextView version=text("Versão "+getPackageManager().getPackageInfo(getPackageName(),0).versionName,12);version.setGravity(Gravity.CENTER);p.addView(version);}catch(android.content.pm.PackageManager.NameNotFoundException ignored){}
     }
     private static String readStream(InputStream in)throws IOException{
         if(in==null)return "";try(InputStream source=in;ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] b=new byte[8192];int n;while((n=source.read(b))!=-1)out.write(b,0,n);return out.toString("UTF-8");}
@@ -289,7 +290,7 @@ public class PortalActivity extends Activity {
         permissionRow(content,"Localização do aparelho","Mantenha o GPS ligado para obter sua posição.",lm.isProviderEnabled(LocationManager.GPS_PROVIDER)||lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER));
         permissionRow(content,"Notificações","Atividade em andamento e avisos de pausa.",androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled());
         permissionRow(content,"Alarmes de pausa","Permite avisar no horário do limite configurado.",PortalNotifications.exactAllowed(this));
-        content.addView(text("A localização também será atualizada em segundo plano, a cada 5 minutos enquanto você estiver conectado. O Android mostra uma notificação permanente.",13));
+        content.addView(text("A localização continua ativa com o aplicativo minimizado. Ao fechar pelo botão Fechar ou remover da lista de aplicativos recentes, o envio é interrompido.",13));
         ScrollView scroll=new ScrollView(this);scroll.addView(content);
         AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Permissões do aplicativo").setView(scroll).setPositiveButton("Fechar",null).create();
         content.addView(button("Liberar acessos necessários",()->{dialog.dismiss();requestAccess();}));
@@ -316,5 +317,5 @@ public class PortalActivity extends Activity {
     @Override protected void onResume(){super.onResume();resumed=true;if(root!=null)checkLocation();if(web!=null)web.onResume();networkChanged();if(database!=null)io.execute(()->{updatePresenceService();try{PortalNotifications.update(this,database,true);}catch(Exception ignored){}});}
     @Override protected void onPause(){resumed=false;if(web!=null)web.onPause();super.onPause();}
     @Override public void onBackPressed(){if(web!=null&&!loginVisible&&!gated){new AlertDialog.Builder(this).setTitle("Fechar Portal Técnico RJ?").setMessage("Os registros salvos permanecem no aparelho. A sincronização continuará quando você retornar ao aplicativo.").setPositiveButton("Fechar",(d,w)->finish()).setNegativeButton("Continuar",null).show();}else super.onBackPressed();}
-    @Override protected void onDestroy(){destroyed=true;if(networkCallback!=null)((ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE)).unregisterNetworkCallback(networkCallback);if(nativeLocation!=null)nativeLocation.close();try{unregisterReceiver(locationChanged);}catch(Exception ignored){}if(fileCallback!=null)fileCallback.onReceiveValue(null);if(web!=null)web.destroy();io.execute(()->database.close());io.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){if(isFinishing())stopService(new Intent(this,PortalLocationService.class));destroyed=true;if(networkCallback!=null)((ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE)).unregisterNetworkCallback(networkCallback);if(nativeLocation!=null)nativeLocation.close();try{unregisterReceiver(locationChanged);}catch(Exception ignored){}if(fileCallback!=null)fileCallback.onReceiveValue(null);if(web!=null)web.destroy();io.execute(()->database.close());io.shutdown();super.onDestroy();}
 }

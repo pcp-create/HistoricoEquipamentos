@@ -1,4 +1,5 @@
 "use client";
+import {lastSeen} from "@/lib/last-seen";
 import { technicianMarkerLayout } from "@/lib/service-scheduling/technician-marker-layout";
 import { clusterMapPoints } from "@/lib/service-scheduling/map-clusters";
 import { customerMapLabel, singleCustomerLabel } from "@/lib/service-scheduling/customer-map-label";
@@ -10,7 +11,7 @@ import './field-map.css';
 import './map-customer-label.css';
 const labels:Record<string,string>={done:'Executada',executing:'Em execução',overdue:'Em atraso',planned:'Programada'};
 const colors:Record<string,string>={done:'#16834a',executing:'#2563eb',overdue:'#dc2626',planned:'#64748b'};
-const lastSeen=(value:string)=>{const minutes=Math.max(0,Math.floor((Date.now()-Date.parse(value))/60000));return !Number.isFinite(minutes)?"Não registrado":minutes<1?"Agora":minutes<1440?minutes+" min atrás":"desde "+new Date(value).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});};
+
 export function useAutomaticFieldLocation(enabled:boolean) {
  const [locationMessage,setLocationMessage]=useState('');
  useEffect(()=>{

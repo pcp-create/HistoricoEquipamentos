@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.0
+# Portal Técnico RJ — APK 2.2.2
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -125,3 +125,19 @@ Corrige a política de imagens da WebView para autorizar o host exato https://ti
 - PDFs completos/resumidos usam o mesmo gerador do sistema principal e abrem em visualizador Android. Exigem conexão, registros sincronizados e publicação do endpoint /api/field/report. Relatórios ainda não revisados são identificados como prévia.
 - Término estimado respeita o calendário exibido na operação, incluindo intervalos e exceções. O calendário padrão atualmente não possui expediente na sexta-feira à tarde.
 - Publicar também as alterações do servidor para preservar devoluções, confirmar substituições, atualizar presença e gerar PDFs.
+
+### Versão 2.2.1 — relatórios e sincronização
+
+- Localização permanece ativa com o aplicativo minimizado ou a tela bloqueada. Fechar pelo botão Fechar ou remover a tarefa da lista de recentes encerra o serviço. A notificação exigida pelo Android é silenciosa e não informa o intervalo de atualização.
+- PDF no portal web funciona também sem o modo offline instalado. A aba é reservada no clique para evitar bloqueio de pop-up.
+- PDF da operação contém somente seu relatório. PDF da OS utiliza o relatório unificado com linha do tempo e todas as operações daquela OS, inclusive de outros profissionais e sem checklist. O servidor verifica se o técnico tem uma operação enviada na OS; acesso a outras OSs continua negado.
+- Cabeçalho do relatório permanece inteiro na rolagem, sem botão de configurações. PDF fica no rodapé junto de Salvar, Devolver e Enviar.
+- Devolução com rascunho é aceita após encerrar o apontamento; respostas/fotos são preservadas. Conflitos reais de versão continuam protegidos.
+- Falhas individuais não interrompem registros independentes da fila. Ações dependentes da operação com erro e apontamentos dependentes de um cronômetro anterior aguardam correção; fotos independentes podem continuar.
+- Visto por último mostra minutos, horas, dias, meses e anos conforme o tempo decorrido.
+
+### Versão 2.2.2 — identificação e portal web
+
+- Versão do APK no rodapé da entrada nativa e da tela inicial do portal, derivada da configuração do pacote.
+- Botão da OS identificado como “Gerar Relatório OS”; utiliza o gerador unificado do painel, incluindo todas as operações e a linha do tempo.
+- Publicação conjunta das correções da versão 2.2.1 no portal web, incluindo Visto por último em horas/dias e a fila de sincronização.

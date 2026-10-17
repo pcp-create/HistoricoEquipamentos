@@ -228,7 +228,7 @@ export default function FieldApp() {
             </button>
           )}
       {screen === "home" ? (
-        <nav className="field-home" aria-label="Serviços do portal">
+        <><nav className="field-home" aria-label="Serviços do portal">
           <button onClick={() => setScreen("schedule")}>
             <CalendarDays />
             <span>
@@ -253,6 +253,8 @@ export default function FieldApp() {
           </button>
 
         </nav>
+        {nativePortal()?.version&&<footer className="field-app-version">Portal Técnico RJ · Versão {nativePortal()!.version}</footer>}
+        </>
       ) : (
         <>
           <nav className="field-view-switch" aria-label="Visualização da programação">
@@ -501,7 +503,6 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
       </button>
       {open && (
         <FieldReportScreen open={open} busy={busy} heading={`OP${operationNumber(row.position)} · ${row.description||'Sem descrição'}`} title={`OS ${row.number} · ${row.customer||'Cliente não informado'}`} onClose={()=>{if(view){setView('');setError('');setMessage('');}else onToggle();}}>
-        <FieldPdfButton operationId={row.id}/>
         <p className="field-operation-screen-equipment">{row.operation_equipment||operation?.document.equipment?.label||operation?.document.equipment?.name||row.equipment||'Equipamento não informado'}</p>
         <div className="field-operation-body">
           {!data ? (
@@ -520,13 +521,13 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                     dirty={false}
                     mutate={act}
                     renderActions={(save:()=>Promise<any>,getDrafts:()=>any[])=><div className="field-report-footer">
-                      <FieldPdfButton operationId={row.id}/>
                       {busy&&<p role="status">Obtendo localização e salvando…</p>}
                       {error&&<p className="field-error" role="alert">{error}</p>}
                       {message&&<p className="field-success" role="status">{message}</p>}
-                      {data.reportSubmission?<p className="field-success" role="status">Relatório enviado completo em {new Date(data.reportSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {data.reportSubmission.name||data.reportSubmission.by}.<br/>O planejador pode devolver o relatório para edição.</p>:<>
+                      {data.reportSubmission?<><FieldPdfButton operationId={row.id}/><p className="field-success" role="status">Relatório enviado completo em {new Date(data.reportSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {data.reportSubmission.name||data.reportSubmission.by}.<br/>O planejador pode devolver o relatório para edição.</p></>:<>
                         {checklistRun?.partialSubmission&&<p className="field-success">Enviado parcial em {new Date(checklistRun.partialSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {checklistRun.partialSubmission.name||checklistRun.partialSubmission.by}. Você pode continuar editando.</p>}
                         <div className="field-report-actions">
+                          <FieldPdfButton operationId={row.id}/>
                           <button disabled={!ready||!reportActivityRunning||reportLoading} onClick={()=>void save()}><SaveActionIcon/> Salvar</button>
                           <button type="button" disabled={busy||reportLoading||locked||!!checklistRun?.partialSubmission||operation.document.responsible!==data.email} onClick={async()=>{
                             const reason=window.prompt('Informe ao planejador por que o checklist precisa ser corrigido:');

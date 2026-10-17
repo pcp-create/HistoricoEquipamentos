@@ -366,10 +366,10 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     await assert.rejects(act('report_return',{version:beforeReturn.version,reason:'Checklist incorreto'}),/Confirme/);
     await assert.rejects(act('report_return',{version:beforeReturn.version-1,reason:'Checklist incorreto',confirmDiscard:true}),/alterada/);
     const sessionsBefore=(await db.query<any>('SELECT count(*) AS count FROM web_field_sessions WHERE operation_id=$1',[id])).rows[0].count;
-    await act('report_return',{version:beforeReturn.version,reason:'Checklist incorreto',confirmDiscard:true});
+    await act('report_return',{version:beforeReturn.version,reason:'Checklist incorreto',confirmReturn:true,stages:[{stageId:'s',answers:{f:'Preservar rascunho ao devolver'}}],offline:{owner:'tech',capturedAt:new Date().toISOString(),baseVersion:beforeReturn.version}});
     const returnedOperation=(await db.query<any>('SELECT * FROM web_service_operations WHERE id=$1',[id])).rows[0];
     assert.equal(returnedOperation.sent_at,null);
-    assert.equal(returnedOperation.document.checklistRun.stages.s.answers.f,"discard");
+    assert.equal(returnedOperation.document.checklistRun.stages.s.answers.f,"Preservar rascunho ao devolver");
     assert.equal(returnedOperation.document.checklistReturn.reason,'Checklist incorreto');
     assert.equal(returnedOperation.status,'scheduled');
     assert.equal((await db.query<any>('SELECT count(*) AS count FROM web_field_sessions WHERE operation_id=$1',[id])).rows[0].count,sessionsBefore);

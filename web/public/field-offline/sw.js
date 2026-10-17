@@ -329,6 +329,12 @@ async function enqueue(req) {
 async function flush() {
   const owner = await read("owner");
   if (!owner) return;
+  const attempted=new Set(),failedOperations=new Set();
+  let failedTimer=false;
+  const timer=item=>item.type==="action"&&["start_work","start_travel","pause","resume","stop"].includes(item.body.action);
+  async function nextItem(){
+    return ((await read(owner+":queue"))||[]).find(item=>!attempted.has(item.id)&&!(item.type!=="photo"&&failedOperations.has(item.operationId))&&!(failedTimer&&timer(item)));
+  }
   try {
     while (true) {
       const identity = await request("/api/field");
@@ -342,16 +348,18 @@ async function flush() {
       const home = await identity.json();
       if (home.email !== owner || (await read("owner")) !== owner)
         throw Error("Entre com a conta que criou os registros pendentes.");
-      let item = ((await read(owner + ":queue")) || [])[0];
+      let item = await nextItem();
       while (item) {
         if ((await read("owner")) !== owner)
           throw Error(
             "A conta foi alterada. Entre novamente com a conta das pendências.",
           );
+        attempted.add(item.id);
         syncingId=item.id;
         await notify();
         const mapping = (await read(owner + ":mapping")) || {};
         let result;
+        try {
         if (item.type === "photo") {
           const form = new FormData();
           form.set("file", item.file, item.name);
@@ -375,8 +383,13 @@ async function flush() {
               body: JSON.stringify(replaceIds(item.body, mapping)),
             },
           );
-        const data = await result.json();
-        if (!result.ok) {
+        }catch(error){
+          if(error.name!=="TimeoutError")throw error;
+          result=json({error:"O envio excedeu o tempo de espera. O registro permanece salvo para nova tentativa."},504);
+        }
+        const parsed = await result.json().catch(()=>null);
+        const data=parsed||{error:"O servidor não conseguiu processar este registro. Tente sincronizar novamente."};
+        if (!result.ok || !parsed || (item.type==="photo"&&!/^\d+$/.test(String(data.id)))) {
           await exclusive(async () => {
             const queue = (await read(owner + ":queue")) || [];
             const pending = queue.find((q) => q.id === item.id);
@@ -384,11 +397,11 @@ async function flush() {
             await write([[owner + ":queue", queue]]);
           });
           await notify();
-          if (result.status >= 500) {
-            await write([["connected", false]]);
-            throw Error(data.error || "Sistema indisponível.");
-          }
-          return;
+          if(result.status===401)return;
+          failedOperations.add(item.operationId);
+          if(timer(item))failedTimer=true;
+          item=await nextItem();
+          continue;
         }
         // Merge acknowledgements into the CURRENT queue, never the pre-upload snapshot.
         // A technician may have saved more work while a large photo was uploading.
@@ -414,8 +427,10 @@ async function flush() {
           ]);
         });
         await notify();
-        item = ((await read(owner + ":queue")) || [])[0];
+        item = await nextItem();
       }
+      // Preserve projections while failed/dependent records remain pending.
+      if(((await read(owner+":queue"))||[]).length)return;
       // Fetch a coherent replacement while local edits remain available.
       const latestResponse = await request("/api/field");
       if (!latestResponse.ok)
@@ -462,7 +477,7 @@ async function flush() {
     await exclusive(async () => {
       const queue = (await read(owner + ":queue")) || [];
       if (queue.length) {
-        queue[0].error = networkError
+        (queue.find(item=>item.id===syncingId)||queue[0]).error = networkError
           ? "Sem conexão. O envio será retomado automaticamente."
           : e.message;
         await write([[owner + ":queue", queue]]);
@@ -475,8 +490,8 @@ async function flush() {
 }
 function sync() {
   if (!flushing)
-    flushing = flush().finally(() => {
-      flushing = null, syncingId = null;
+    flushing = flush().finally(async () => {
+      flushing = null; syncingId = null;await notify();
     });
   return flushing;
 }

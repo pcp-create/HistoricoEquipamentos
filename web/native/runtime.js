@@ -122,6 +122,7 @@ window.fetch = (input, init) => {
   return response || networkFetch(req);
 };
 window.RJOffline = {
+  version: "__RJ_APP_VERSION__",
   openPdf: (url) => nativeCall("openPdf", {url}),
   connection: () => nativeCall("network", {}),
   permissions: () => nativeCall("permissions", {}),

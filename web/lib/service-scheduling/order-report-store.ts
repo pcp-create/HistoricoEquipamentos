@@ -41,8 +41,10 @@ export function validateOrderReportSelection(body: any): {
 }
 
 /** Read one consistent snapshot, rechecking permissions and operation ownership server-side. */
-export async function loadOrderReport(body: any, email: string) {
-  const { scheduleId, operationIds, mode } = validateOrderReportSelection(body);
+export async function loadOrderReport(body: any, email: string, portal = false) {
+  const selection = portal ? {scheduleId:body.scheduleId,operationIds:[] as string[],mode:body.mode||"complete"} : validateOrderReportSelection(body);
+  if(portal&&(!/^\d{1,18}$/.test(selection.scheduleId||"")||!["complete","summary"].includes(selection.mode)))throw new OrderReportInputError("Programação ou tipo de relatório inválido.");
+  let { scheduleId, operationIds, mode } = selection;
   const c = await database().connect();
   try {
     await c.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
@@ -51,7 +53,8 @@ export async function loadOrderReport(body: any, email: string) {
         email,
       ])
     ).rows[0];
-    if (!user?.enabled || user.role !== "admin") throw new Forbidden();
+    if (!user?.enabled || (!portal && user.role !== "admin")) throw new Forbidden();
+    if(portal&&!(await c.query("SELECT 1 FROM web_service_operations WHERE schedule_id=$1 AND sent_at IS NOT NULL AND (document->>'responsible'=$2 OR document->'support' ? $2) LIMIT 1",[scheduleId,email])).rows.length)throw new Forbidden();
     const schedule = (
       await c.query(
         `SELECT s.*,to_jsonb(o) AS order_record FROM web_service_schedules s
@@ -63,15 +66,16 @@ export async function loadOrderReport(body: any, email: string) {
       throw new OrderReportInputError("Programação não encontrada.");
     const operations = (
       await c.query(
-        "SELECT * FROM web_service_operations WHERE schedule_id=$1 AND id=ANY($2::uuid[])",
-        [scheduleId, operationIds],
+        portal ? "SELECT * FROM web_service_operations WHERE schedule_id=$1 ORDER BY position,id" : "SELECT * FROM web_service_operations WHERE schedule_id=$1 AND id=ANY($2::uuid[])",
+        portal ? [scheduleId] : [scheduleId, operationIds],
       )
     ).rows;
+    if(portal)operationIds=operations.map(op=>op.id);
     if (operations.length !== operationIds.length)
       throw new OrderReportInputError(
         "Selecione somente operações desta OS. Atualize a programação e tente novamente.",
       );
-    if (operations.some((op) => !canIncludeInOrderReport(op)))
+    if (!portal && operations.some((op) => !canIncludeInOrderReport(op)))
       throw new OrderReportConflict(
         "Uma operação selecionada ainda não foi revisada ou não possui relatório. Atualize a programação e confira a seleção.",
       );
@@ -109,6 +113,7 @@ export async function loadOrderReport(body: any, email: string) {
       },
       operationIds,
       mode,
+      portal,
     );
     const photos: any[] = [];
     for (const chapter of model.chapters) {
@@ -142,8 +147,8 @@ export async function loadOrderReport(body: any, email: string) {
     c.release();
   }
 }
-export async function orderReportPdf(body: any, email: string) {
-  const { model, photos } = await loadOrderReport(body, email);
+export async function orderReportPdf(body: any, email: string, portal = false) {
+  const { model, photos } = await loadOrderReport(body, email, portal);
   return {
     bytes: await renderChecklistPdf({
       ...model,

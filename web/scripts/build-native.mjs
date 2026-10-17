@@ -3,6 +3,9 @@ import { readFile, writeFile, mkdir, rm, copyFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const androidConfig=await readFile(path.resolve(root,"../android/app/build.gradle"),"utf8");
+const appVersion=androidConfig.match(/versionName\s+['"]([^'"]+)['"]/)?.[1];
+if(!appVersion)throw Error("Versão do APK não encontrada.");
 const out = path.resolve(root, "../android/app/build/generated/portalAssets");
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
@@ -15,7 +18,7 @@ const project = await readFile(
 );
 const runtime = (
   await readFile(path.join(root, "native/runtime.js"), "utf8")
-).replace("/* INSERT_OFFLINE_CORE */", project + "\n" + core);
+).replace("/* INSERT_OFFLINE_CORE */", project + "\n" + core).replace('"__RJ_APP_VERSION__"',JSON.stringify(appVersion));
 await build({
   stdin: { contents: runtime, loader: "js", resolveDir: root },
   outfile: path.join(out, "runtime.js"),

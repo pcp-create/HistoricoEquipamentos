@@ -23,20 +23,20 @@ public final class PortalLocationService extends Service {
     private ConnectivityManager.NetworkCallback network;
     private boolean busy=false,closed=false,started=false;
     private long lastSuccess=0;
-    private final Runnable tick=new Runnable(){public void run(){collect();main.postDelayed(this,INTERVAL);}};
+    private final Runnable tick=new Runnable(){public void run(){if(closed)return;collect();if(!closed)main.postDelayed(this,INTERVAL);}};
     static boolean eligible(JSONObject home){return home!=null&&home.optBoolean("isTechnician",false);}
     @Override public void onCreate(){
         super.onCreate();location=new NativeLocation(this);
         if(Build.VERSION.SDK_INT>=26){NotificationChannel channel=new NotificationChannel(CHANNEL,"Localização em segundo plano",NotificationManager.IMPORTANCE_LOW);channel.setSound(null,null);getSystemService(NotificationManager.class).createNotificationChannel(channel);}
         PendingIntent open=PendingIntent.getActivity(this,2103,new Intent(this,PortalActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
-        Notification n=new NotificationCompat.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_notification).setContentTitle("Localização ativa").setContentText("Portal Técnico RJ · atualização a cada 5 minutos").setOngoing(true).setContentIntent(open).setPriority(NotificationCompat.PRIORITY_LOW).build();
+        Notification n=new NotificationCompat.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_notification).setContentTitle("Portal Técnico RJ").setContentText("Serviço de localização ativo").setOngoing(true).setOnlyAlertOnce(true).setSilent(true).setContentIntent(open).setPriority(NotificationCompat.PRIORITY_LOW).build();
         try{ServiceCompat.startForeground(this,2103,n,Build.VERSION.SDK_INT>=29?ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION:0);}catch(SecurityException e){stopSelf();return;}
         started=true;
         network=new ConnectivityManager.NetworkCallback(){@Override public void onCapabilitiesChanged(Network n,NetworkCapabilities c){if(c.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))main.post(()->collect());}};
         getSystemService(ConnectivityManager.class).registerDefaultNetworkCallback(network);
         main.post(tick);
     }
-    @Override public int onStartCommand(Intent intent,int flags,int id){collect();return START_STICKY;}
+    @Override public int onStartCommand(Intent intent,int flags,int id){collect();return START_NOT_STICKY;}
     private boolean connected(){ConnectivityManager c=getSystemService(ConnectivityManager.class);NetworkCapabilities n=c.getNetworkCapabilities(c.getActiveNetwork());return n!=null&&n.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);}
     private void collect(){
         if(!started||closed||busy||!connected()||SystemClock.elapsedRealtime()-lastSuccess<INTERVAL&&lastSuccess>0)return;
@@ -69,10 +69,11 @@ public final class PortalLocationService extends Service {
             int code=request.getResponseCode();
             for(java.util.Map.Entry<String,java.util.List<String>> header:request.getHeaderFields().entrySet())if("Set-Cookie".equalsIgnoreCase(header.getKey()))for(String value:header.getValue())CookieManager.getInstance().setCookie(PortalActivity.ORIGIN,value);
             CookieManager.getInstance().flush();
-            if(code>=200&&code<300)main.post(()->{lastSuccess=SystemClock.elapsedRealtime();main.removeCallbacks(tick);main.postDelayed(tick,INTERVAL);});
+            if(code>=200&&code<300)main.post(()->{if(closed)return;lastSuccess=SystemClock.elapsedRealtime();main.removeCallbacks(tick);main.postDelayed(tick,INTERVAL);});
             else if(code==401||code==403)main.post(this::stopSelf);
         }catch(Exception ignored){}finally{if(request!=null)request.disconnect();main.post(()->busy=false);}
     }
+    @Override public void onTaskRemoved(Intent intent){stopSelf();super.onTaskRemoved(intent);}
     @Override public IBinder onBind(Intent intent){return null;}
     @Override public void onDestroy(){closed=true;main.removeCallbacksAndMessages(null);if(location!=null)location.close();if(network!=null)getSystemService(ConnectivityManager.class).unregisterNetworkCallback(network);io.shutdown();super.onDestroy();}
 }

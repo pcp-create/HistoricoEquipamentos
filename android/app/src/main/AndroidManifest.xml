@@ -19,7 +19,7 @@
             android:configChanges="orientation|screenSize|keyboardHidden" android:windowSoftInputMode="adjustResize">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
         </activity>
-        <service android:name=".PortalLocationService" android:exported="false" android:foregroundServiceType="location"/>
+        <service android:name=".PortalLocationService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="location"/>
         <activity android:name=".PortalPdfActivity" android:exported="false"/>
         <receiver android:name=".PauseAlarmReceiver" android:exported="false">
             <intent-filter>

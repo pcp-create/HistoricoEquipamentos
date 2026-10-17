@@ -22,6 +22,11 @@ public class LocationRequirementTest {
         if(view instanceof ViewGroup)for(int i=0;i<((ViewGroup)view).getChildCount();i++)if(contains(((ViewGroup)view).getChildAt(i),text))return true;
         return false;
     }
+    private String content(View view){
+        String value=view instanceof TextView?((TextView)view).getText().toString()+" | ":"";
+        if(view instanceof ViewGroup)for(int i=0;i<((ViewGroup)view).getChildCount();i++)value+=content(((ViewGroup)view).getChildAt(i));
+        return value;
+    }
     @Test public void requiresPermissionAndEnabledLocationBeforePortalAccess(){
         try(org.robolectric.android.controller.ActivityController<PortalActivity> controller=Robolectric.buildActivity(PortalActivity.class).create().start().resume()){
             PortalActivity activity=controller.get();
@@ -48,7 +53,7 @@ public class LocationRequirementTest {
                 org.robolectric.shadows.ShadowLooper.idleMainLooper();Thread.sleep(10);
             }
             assertTrue(contains(activity.getWindow().getDecorView(),"Portal Técnico RJ"));
-            assertTrue(contains(activity.getWindow().getDecorView(),"E-mail"));
+            assertTrue(content(activity.getWindow().getDecorView()),contains(activity.getWindow().getDecorView(),"E-mail"));
             assertTrue(contains(activity.getWindow().getDecorView(),"Senha"));
             assertTrue(contains(activity.getWindow().getDecorView(),"Entrar"));
         }

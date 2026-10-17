@@ -192,6 +192,7 @@ test("packaged interface persists to SQLite and opens with suspended server", as
     const page = await context.newPage();
     page.on("pageerror", (error) => console.log("NATIVE PAGE", error.message));
     await page.goto(origin + "/tecnico");
+    await expect(page.getByText("Portal Técnico RJ · Versão 2.2.2",{exact:true})).toBeVisible();
     await expect
       .poll(
         () =>

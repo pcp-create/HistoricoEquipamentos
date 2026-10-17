@@ -214,6 +214,17 @@ test("existing mobile portal starts activity and saves a report offline with a v
     await dialog
       .getByRole("textbox", { name: "Serviço realizado" })
       .fill("Inspeção concluída sem conexão.");
+    const header=dialog.locator('.field-report-header');
+    const before=(await header.boundingBox())!;
+    await dialog.evaluate(el=>{const filler=document.createElement('div');filler.id='scroll-test';filler.style.height='1500px';el.querySelector('.field-report-content')!.append(filler);el.scrollTop=500;});
+    const after=(await header.boundingBox())!;
+    assert.ok(Math.abs(before.y-after.y)<1,'Header must remain fully visible while scrolling');
+    const connection=(await dialog.locator('.field-connection').boundingBox())!;
+    assert.ok(after.y>=connection.y+connection.height-1,'Header must not hide behind connection bar');
+    assert.equal(await dialog.getByRole('button',{name:'Permissões do aplicativo'}).count(),0);
+    assert.equal(await dialog.locator('.field-report-actions > button, .field-report-actions > .field-pdf-control').count(),4);
+    await dialog.evaluate(el=>{el.querySelector('#scroll-test')?.remove();el.scrollTop=0;});
+    await page.screenshot({path:"test-results/portal-report-layout.png",fullPage:true});
     await dialog.getByRole("button", { name: "Salvar", exact: true }).click();
     await expect(
       dialog

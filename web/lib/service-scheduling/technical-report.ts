@@ -70,5 +70,5 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
     if(pauses.size)fieldEvents.groups.push({name:'Pausas informadas ao cliente',fields:[...pauses].map(([name,seconds],index)=>field(name,elapsedTime(seconds),index))});
   }
   sections.push(fieldEvents);
-  return filterReport([...sections, ...checklistReport(run, mode)],mode).map((stage, index) => ({ ...stage, name: stage.name.replace(/^\s*\d+[.\-–]?\s*/, ""), number: String(index + 1).padStart(2, "0") }));
+  return filterReport([...sections, ...(run?checklistReport(run, mode):[])],mode).map((stage, index) => ({ ...stage, name: stage.name.replace(/^\s*\d+[.\-–]?\s*/, ""), number: String(index + 1).padStart(2, "0") }));
 }

@@ -16,6 +16,7 @@ export function orderReport(
   data: any,
   operationIds: string[],
   mode: ReportMode = "complete",
+  preview = false,
 ) {
   const ids = new Set(operationIds);
   const users: any[] = data.users || [],
@@ -55,7 +56,7 @@ export function orderReport(
   });
   const source: any[] = data.operations || [];
   const operations = source
-    .filter((op: any) => ids.has(op.id) && canIncludeInOrderReport(op))
+    .filter((op: any) => ids.has(op.id) && (preview || canIncludeInOrderReport(op)))
     .map((op: any) => {
       const logs = timeLogs(
         sessions.filter((s) => s.operation_id === op.id),
@@ -160,7 +161,7 @@ export function orderReport(
       "Operações selecionadas",
       operations.map(({ op, name, start, end }: any) => [
         `Operação ${operationNumber(op.position)}`,
-        `${op.document.description || op.document.checklistRun.template.name}\nResponsável: ${name}\n${start ? `${timestamp(start)} a ${timestamp(end)}` : "Sem apontamentos com data"}\nChecklist: ${op.document.checklistRun.template.name}`,
+        `${op.document.description || (op.document.checklistRun?.template?.name || "Sem checklist")}\nResponsável: ${name}\n${start ? `${timestamp(start)} a ${timestamp(end)}` : "Sem apontamentos com data"}\nChecklist: ${(op.document.checklistRun?.template?.name || "Sem checklist")}`,
       ]),
     ),
   );
@@ -174,7 +175,7 @@ export function orderReport(
           })
         : "Data não registrada",
       operation: `Operação ${operationNumber(op.position)}`,
-      value: op.document.description || op.document.checklistRun.template.name,
+      value: op.document.description || (op.document.checklistRun?.template?.name || "Sem checklist"),
       responsible: executors || "Execução não registrada",
       type: "operation-milestone",
       photos: [],
@@ -215,7 +216,7 @@ export function orderReport(
   const chapters = operations.map(({ op }: any) => ({
     id: op.id,
     position: op.position,
-    title: `Operação ${operationNumber(op.position)} · ${op.document.description || op.document.checklistRun.template.name}`,
+    title: `Operação ${operationNumber(op.position)} · ${op.document.description || (op.document.checklistRun?.template?.name || "Sem checklist")}`,
     report: technicalReport(
       op,
       order,
@@ -230,7 +231,7 @@ export function orderReport(
   return {
     order: String(order.numero_sequencia || data.schedule.order_id),
     mode,
-    title: "Relatório unificado da OS",
+    title: (preview && operations.some(({op})=>!["reviewed","completed"].includes(op.status))?"PRÉVIA · ":"")+"Relatório unificado da OS",
     report: filterReport(overview, mode),
     chapters,
   };
