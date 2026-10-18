@@ -7,6 +7,7 @@ test('failed photo retains dependent report but allows other photos and operatio
   {id:'photo1',type:'photo',operationId:'a',stageId:'s',fieldId:'f',name:'1.jpg',file:new Blob(['one'])},
   {id:'photo2',type:'photo',operationId:'a',stageId:'s',fieldId:'f',name:'2.jpg',file:new Blob(['two'])},
   {id:'report',type:'action',operationId:'a',body:{action:'report_save',photos:['local-photo1','local-photo2']}},
+  {id:'same-op-independent',type:'action',operationId:'a',body:{action:'materials'}},
   {id:'independent',type:'action',operationId:'b',body:{action:'info_read'}}
  ]]]);
  let failure='http';const sent:string[]=[];let report:any;
@@ -19,7 +20,7 @@ test('failed photo retains dependent report but allows other photos and operatio
   }});
  runInContext(readFileSync(new URL('../public/field-offline/sw.js',import.meta.url),'utf8'),context);
  await runInContext('sync()',context);
- assert.deepEqual(sent,['photo1','photo2','info_read']);
+ assert.deepEqual(sent,['photo1','photo2','materials','info_read']);
  assert.deepEqual(records.get('tech:queue').map((i:any)=>i.id),['photo1','report']);
  failure='malformed';await runInContext('sync()',context);
  assert.equal(records.get('tech:queue').length,2);

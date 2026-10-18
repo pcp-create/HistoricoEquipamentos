@@ -76,11 +76,27 @@ test('summary discloses only configured pauses with actual duration, including c
   {id:2,operation_id:'one',action:'resume',created_at:'2026-10-16T10:25:00Z',document:{sessionId:'s'}}
  ];
  const config=[{...reason,showInSummary:true}];
- const pauses=(sessions:any[],settings:any[])=>technicalReport(op,{},[],sessions,events,[],'summary',settings).find(s=>s.id==='events')!.groups.find(g=>g.name==='Pausas informadas ao cliente');
+ const pauses=(sessions:any[],settings:any[])=>technicalReport(op,{},[],sessions,events,[],'summary',settings).find(s=>s.id==='events')!.groups.find(g=>g.name==='Tempo de paradas');
  assert.deepEqual(pauses([session],config)?.fields.map(f=>[f.label,f.value]),[['Aguardando em Portaria','00:25:00']]);
  assert.equal(pauses([session],[reason]),undefined);
  assert.equal(pauses([session],[]),undefined);
  const corrected={...session,correction:{active_seconds:600,pause_seconds:1800,pauses:[{reason:reason.name,seconds:1800}]}};
  assert.equal(pauses([corrected],config)?.fields[0].value,'00:30:00');
  assert.equal(pauses([{...session,operation_id:'another'}],config),undefined);
+});
+
+test('complete reports use the operation equipment label and show only configured customer pause durations',()=>{
+ const op={id:'one',document:{equipmentId:'7',equipment:{name:'Compressor',label:'2171 – Compressor – Série A'}}};
+ const session={id:'s',operation_id:'one',actor:'tech',kind:'work',state:'finished',active_seconds:600,pause_seconds:1500,started_at:'2026-10-16T10:00:00Z',finished_at:'2026-10-16T10:35:00Z'};
+ const events=[
+  {id:1,operation_id:'one',action:'pause',created_at:'2026-10-16T10:00:00Z',document:{sessionId:'s',reason:{id:'gate',name:'Portaria'}}},
+  {id:2,operation_id:'one',action:'resume',created_at:'2026-10-16T10:25:00Z',document:{sessionId:'s'}}
+ ];
+ for(const enabled of [true,false]){
+  const report=technicalReport(op,{equipamento:'Outro equipamento'},[],[session],events,[],'complete',[{id:'gate',name:'Portaria',showInSummary:enabled}]);
+  assert.equal(report.find(s=>s.id==='asset')!.groups[0].fields[0].value,'2171 – Compressor – Série A');
+  const totals=report.find(s=>s.id==='events')!.groups;
+  assert.equal(!!totals.find(g=>g.name==='Tempo de paradas'),enabled);
+  assert.equal(totals.flatMap(g=>g.fields).find(f=>f.label==='Tempo de paradas')?.value,enabled?'00:25:00':'00:00:00');
+ }
 });

@@ -49,9 +49,13 @@ public class LocationRequirementTest {
         Shadows.shadowOf(manager).setProviderEnabled(LocationManager.GPS_PROVIDER,true);
         try(org.robolectric.android.controller.ActivityController<PortalActivity> controller=Robolectric.buildActivity(PortalActivity.class).create().start().resume()){
             PortalActivity activity=controller.get();
-            for(int i=0;i<1000&&!contains(activity.getWindow().getDecorView(),"E-mail");i++){
-                org.robolectric.shadows.ShadowLooper.idleMainLooper();Thread.sleep(10);
-            }
+            // Wait for the actual local-database task instead of racing a cold
+            // Robolectric SQLite initialization against a ten-second polling loop.
+            java.lang.reflect.Field ioField=PortalActivity.class.getDeclaredField("io");
+            ioField.setAccessible(true);
+            java.util.concurrent.ExecutorService io=(java.util.concurrent.ExecutorService)ioField.get(activity);
+            io.submit(()->{}).get(30,java.util.concurrent.TimeUnit.SECONDS);
+            org.robolectric.shadows.ShadowLooper.idleMainLooper();
             assertTrue(contains(activity.getWindow().getDecorView(),"Portal Técnico RJ"));
             assertTrue(content(activity.getWindow().getDecorView()),contains(activity.getWindow().getDecorView(),"E-mail"));
             assertTrue(contains(activity.getWindow().getDecorView(),"Senha"));

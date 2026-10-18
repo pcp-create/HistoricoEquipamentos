@@ -2,6 +2,24 @@ import { checklistReport, filterReport, type ReportMode, type ReportField } from
 import { reportSubmission } from "./checklists";
 import { timeLogs, elapsedTime } from "./time-logs";
 
+export function reportEquipment(operation: any, order: any) {
+  const equipment = operation.document?.equipment;
+  return equipment?.label || equipment?.name || (operation.document?.equipmentId ? "Equipamento " + operation.document.equipmentId : order.equipamento) || "Não informado";
+}
+export function customerPauses(rows: any[], reasons?: any[]) {
+  const pauses = new Map<string, number>();
+  for (const row of rows) for (const pause of row.pauses) {
+    const recorded = pause.startLocation?.document?.reason;
+    const configured = recorded?.id ? reasons?.find(r => r.id === recorded.id) : reasons?.find(r => r.name === pause.reason);
+    const enabled = reasons !== undefined ? configured?.showInSummary === true : recorded?.showInSummary === true;
+    if (enabled && Number.isFinite(pause.seconds) && pause.seconds > 0) {
+      const name = configured?.name || pause.reason;
+      pauses.set(name, (pauses.get(name) || 0) + pause.seconds);
+    }
+  }
+  return pauses;
+}
+
 /** One report structure for the on-screen review and the exported document. */
 export function technicalReport(operation: any, order: any, users: any[] = [], sessions: any[] = [], events: any[] = [], operationEvents: any[] = [], mode: ReportMode = "complete",pauseReasons?:any[]) {
   const run = operation.document.checklistRun;
@@ -18,7 +36,7 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
       ["Profissional responsável", users.find(user => user.email === operation.document.responsible)?.display_name || receipt?.name || operation.document.responsible],
     ]),
     section("asset", "Identificação do ativo", [
-      ["Ativo", operation.document.equipment?.name || order.equipamento], ["Número de série", operation.document.equipment?.serial || (operation.document.equipmentId ? null : order.numero_serie || order.serie)], ["Modelo", operation.document.equipmentId ? null : order.modelo_equipamento],
+      ["Ativo", reportEquipment(operation, order)], ["Número de série", operation.document.equipment?.serial || (operation.document.equipmentId ? null : order.numero_serie || order.serie)], ["Modelo", operation.document.equipmentId ? null : order.modelo_equipamento],
     ]),
     section("location", "Identificação da localidade", [["Local de atendimento", order.endereco_entrega_nome]]),
     section("client", "Identificação do cliente", [
@@ -35,13 +53,13 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
     if (row.started_at) timeline.push({ at: row.started_at, label: `Início de ${kind}`, responsible: name });
     if (row.finished_at) timeline.push({ at: row.finished_at, label: `Término de ${kind}`, responsible: name });
     if (!row.started_at && row.recorded_at) timeline.push({ at: row.recorded_at, label: `Registro de ${kind} · ${elapsedTime(row.active)}`, responsible: name });
-    for (const pause of mode === 'complete' ? row.pauses : []) {
+    for (const pause of mode === 'complete' ? row.pauses.filter((p: any) => pauseReasons === undefined || customerPauses([{pauses:[p]}],pauseReasons).size > 0) : []) {
       if (pause.start) timeline.push({ at: pause.start, label: "Início de pausa", responsible: name });
       if (pause.end) timeline.push({ at: pause.end, label: "Fim de pausa", responsible: name });
     }
     const person = people.get(row.actor) || { name, work: 0, travel: 0, pause: 0 };
     person[row.kind === "travel" ? "travel" : "work"] += row.active;
-    person.pause += row.pause; people.set(row.actor, person);
+    person.pause += pauseReasons === undefined ? row.pause : [...customerPauses([row],pauseReasons).values()].reduce((a,b)=>a+b,0); people.set(row.actor, person);
   }
   timeline.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const fieldEvents = section("events", "APONTAMENTOS", []);
@@ -57,17 +75,10 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
       field("Tempo de deslocamento",elapsedTime(logs.summary.travel),1),
       field("Tempo total",elapsedTime(logs.summary.work + logs.summary.travel),2),
     ]}];
-    const pauses=new Map<string,number>();
-    for(const row of logs.rows)for(const pause of row.pauses){
-      const recorded=pause.startLocation?.document?.reason;
-      const configured=recorded?.id?pauseReasons?.find(r=>r.id===recorded.id):pauseReasons?.find(r=>r.name===pause.reason);
-      const enabled=pauseReasons!==undefined?configured?.showInSummary===true:recorded?.showInSummary===true;
-      if(enabled&&Number.isFinite(pause.seconds)&&pause.seconds>0){
-        const name=configured?.name||pause.reason;
-        pauses.set(name,(pauses.get(name)||0)+pause.seconds);
-      }
-    }
-    if(pauses.size)fieldEvents.groups.push({name:'Pausas informadas ao cliente',fields:[...pauses].map(([name,seconds],index)=>field(name,elapsedTime(seconds),index))});
+  }
+  if (mode === "summary" || mode === "complete") {
+    const pauses = customerPauses(logs.rows, pauseReasons);
+    if (pauses.size) fieldEvents.groups.push({name: "Tempo de paradas", fields: [...pauses].map(([name,seconds],index) => field(name,elapsedTime(seconds),index))});
   }
   sections.push(fieldEvents);
   return filterReport([...sections, ...(run?checklistReport(run, mode):[])],mode).map((stage, index) => ({ ...stage, name: stage.name.replace(/^\s*\d+[.\-–]?\s*/, ""), number: String(index + 1).padStart(2, "0") }));

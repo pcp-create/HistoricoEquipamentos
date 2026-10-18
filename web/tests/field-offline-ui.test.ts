@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { build } from "esbuild";
 import { chromium, expect } from "@playwright/test";
-test("existing mobile portal starts activity and saves a report offline with a visible sync queue", async () => {
+test("web portal is online-only and displays connectivity without preparing offline storage", async () => {
   const compiled = await build({
     stdin: {
       contents:
@@ -172,85 +172,17 @@ test("existing mobile portal starts activity and saves a report offline with a v
     });
     const page = await context.newPage();
     await page.goto(origin + "/tecnico");
-    await expect
-      .poll(
-        () =>
-          page.evaluate(async () => {
-            const worker = navigator.serviceWorker.controller;
-            if (!worker) return false;
-            return new Promise<boolean>((r) => {
-              const c = new MessageChannel();
-              c.port1.onmessage = (e) => r(!!e.data.prepared);
-              worker.postMessage({ type: "FIELD_STATUS" }, [c.port2]);
-            });
-          }),
-        { timeout: 20000 },
-      )
-      .toBe(true);
+    await expect(page.getByText("Conectado", {exact:true})).toBeVisible();
+    assert.equal(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length), 0);
+    await expect(page.getByText(/Prepare este dispositivo/)).toHaveCount(0);
     await context.setOffline(true);
     await expect(page.getByText("Sem internet", { exact: true })).toBeVisible();
-    await page
-      .getByRole("button", { name: "Programação", exact: false })
-      .click();
-    await page.getByText("OS 15025", { exact: true }).click();
-    await page.getByRole("button", { name: /OP01/ }).click();
-    const dialog = page.getByRole("dialog", { name: /OP01/ });
-    await expect(
-      dialog.getByText("Sem internet", { exact: true }),
-    ).toBeVisible();
-    await dialog
-      .getByRole("button", { name: "Iniciar atividade", exact: false })
-      .click({ timeout: 5000 });
-    await expect(
-      dialog.getByRole("button", {
-        name: "Finalizar apontamento",
-        exact: false,
-      }),
-    ).toBeVisible();
-    await dialog
-      .getByRole("button", { name: "Relatório", exact: true })
-      .click();
-    await dialog.getByText("01. Relatório técnico", { exact: false }).click();
-    await dialog
-      .getByRole("textbox", { name: "Serviço realizado" })
-      .fill("Inspeção concluída sem conexão.");
-    const header=dialog.locator('.field-report-header');
-    const before=(await header.boundingBox())!;
-    await dialog.evaluate(el=>{const filler=document.createElement('div');filler.id='scroll-test';filler.style.height='1500px';el.querySelector('.field-report-content')!.append(filler);el.scrollTop=500;});
-    const after=(await header.boundingBox())!;
-    assert.ok(Math.abs(before.y-after.y)<1,'Header must remain fully visible while scrolling');
-    const connection=(await dialog.locator('.field-connection').boundingBox())!;
-    assert.ok(after.y>=connection.y+connection.height-1,'Header must not hide behind connection bar');
-    assert.equal(await dialog.getByRole('button',{name:'Permissões do aplicativo'}).count(),0);
-    assert.equal(await dialog.locator('.field-report-actions > button, .field-report-actions > .field-pdf-control').count(),4);
-    await dialog.evaluate(el=>{el.querySelector('#scroll-test')?.remove();el.scrollTop=0;});
-    await page.screenshot({path:"test-results/portal-report-layout.png",fullPage:true});
-    await dialog.getByRole("button", { name: "Salvar", exact: true }).click();
-    await expect(
-      dialog
-        .getByText("Salvo no dispositivo. Aguardando sincronização.")
-        .first(),
-    ).toBeVisible();
-    await page.reload();
-    await page.getByRole("button", { name: /Sincronismo/ }).click();
-    const sync = page.getByRole("dialog", { name: "Sincronismo", exact: true });
-    await expect(
-      sync.getByText("Relatório salvo", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      sync.getByText("Início de atividade", { exact: true }),
-    ).toBeVisible();
-    const colors = await sync.locator(".field-connection").evaluate((e) => ({
-      color: getComputedStyle(e).color,
-      background: getComputedStyle(e).backgroundColor,
-    }));
-    assert.equal(colors.color, "rgb(180, 35, 24)");
-    assert.equal(colors.background, "rgb(253, 233, 232)");
-    await page.screenshot({
-      path: "test-results/field-offline-sync.png",
-      fullPage: true,
-    });
-    await sync.getByRole("button", { name: "Fechar sincronismo" }).click();
+    await expect(page.getByText(/O portal web funciona somente online/)).toBeVisible();
+    await page.getByRole("button", {name:"Sincronismo",exact:true}).click();
+    const sync = page.getByRole("dialog", {name:"Sincronismo",exact:true});
+    await expect(sync.getByText("Conexão e pendências anteriores")).toBeVisible();
+    await expect(sync.getByRole("button",{name:"Baixar programação"})).toHaveCount(0);
+    await sync.getByRole("button",{name:"Fechar sincronismo"}).click();
     await page.getByRole("button", { name: "Sair", exact: true }).click();
     await expect(page.getByText(/Conecte à internet para sair/)).toBeVisible();
     assert.equal(logoutRequested, false);

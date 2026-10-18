@@ -3,7 +3,7 @@ import {
   type ReportMode,
   type ReportStage,
 } from "./checklist-report";
-import { technicalReport } from "./technical-report";
+import { technicalReport, reportEquipment, customerPauses } from "./technical-report";
 import { timeLogs, elapsedTime } from "./time-logs";
 import { reportSubmission } from "./checklists";
 import { operationNumber } from "./operation-number";
@@ -130,7 +130,7 @@ export function orderReport(
         pause: 0,
       };
       person[row.kind === "travel" ? "travel" : "work"] += row.active;
-      person.pause += row.pause;
+      person.pause += data.settings?.document?.pauseReasons === undefined ? row.pause : [...customerPauses([row],data.settings.document.pauseReasons).values()].reduce((a,b)=>a+b,0);
       people.set(row.actor, person);
     }
   }
@@ -161,7 +161,7 @@ export function orderReport(
       "Operações selecionadas",
       operations.map(({ op, name, start, end }: any) => [
         `Operação ${operationNumber(op.position)}`,
-        `${op.document.description || (op.document.checklistRun?.template?.name || "Sem checklist")}\nResponsável: ${name}\n${start ? `${timestamp(start)} a ${timestamp(end)}` : "Sem apontamentos com data"}\nChecklist: ${(op.document.checklistRun?.template?.name || "Sem checklist")}`,
+        `${op.document.description || (op.document.checklistRun?.template?.name || "Sem checklist")}\nEquipamento: ${reportEquipment(op, order)}\nResponsável: ${name}\n${start ? `${timestamp(start)} a ${timestamp(end)}` : "Sem apontamentos com data"}\nChecklist: ${(op.document.checklistRun?.template?.name || "Sem checklist")}`,
       ]),
     ),
   );
@@ -213,6 +213,10 @@ export function orderReport(
     totalFields(work, travel, pause),
   ).groups[0];
   if (people.size) overview.push(totals);
+  if (mode === "summary" || mode === "complete") {
+    const pauses = customerPauses(operations.flatMap(({logs}) => logs.rows), data.settings?.document?.pauseReasons);
+    if (pauses.size) overview.push(section("customer-pauses", "Tempo de paradas", [...pauses].map(([name, seconds]) => [name, elapsedTime(seconds)])));
+  }
   const chapters = operations.map(({ op }: any) => ({
     id: op.id,
     position: op.position,
@@ -226,7 +230,7 @@ export function orderReport(
       history,
       mode,
       data.settings?.document?.pauseReasons,
-    ).filter((s) => !(op.document.equipmentId ? ["location", "client"] : ["asset", "location", "client"]).includes(s.id)),
+    ).filter((s) => !["location", "client"].includes(s.id)),
   }));
   return {
     order: String(order.numero_sequencia || data.schedule.order_id),

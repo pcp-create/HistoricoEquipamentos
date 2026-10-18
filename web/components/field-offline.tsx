@@ -73,7 +73,7 @@ export const FieldSessionActions = createContext<{signOut: () => void; signingOu
 const localDay=(value:string)=>new Date(value).toLocaleDateString("en-CA",{timeZone:"America/Sao_Paulo"});
 export function FieldSyncIcon(){
   const status=useSyncState();
-  const stale=!status.prepared||localDay(status.prepared)!==localDay(new Date().toISOString());
+  const stale=!!nativePortal()&&(!status.prepared||localDay(status.prepared)!==localDay(new Date().toISOString()));
   return <span className="field-sync-icon"><RefreshCw size={18} className={status.syncing?"spin":""}/>{stale&&<AlertTriangle size={12} className="field-sync-warning" aria-label="Atualize a programação baixada"/>}</span>;
 }
 export function FieldConnection({showExit=true}:{showExit?:boolean}={}) {
@@ -181,72 +181,46 @@ export default function FieldOffline({
         document.removeEventListener("visibilitychange", visibility);
       };
     }
-    if (!("serviceWorker" in navigator)) {
-      setError("Este navegador não oferece armazenamento offline.");
-      return;
-    }
     let disposed = false;
-    const refresh = () => {
-      void offlineMessage("FIELD_STATUS").catch(() => {});
-    };
-    const sync = () => {
-      if (navigator.onLine)
-        void offlineMessage(
-          state.prepared ? "FIELD_SYNC" : "FIELD_PREPARE",
-        ).catch(() => {});
-      else update({ connected: false });
+    const sync = async () => {
+      update({ connected: navigator.onLine });
+      if (navigator.serviceWorker?.controller && navigator.onLine) {
+        try { await offlineMessage("FIELD_WEB_INIT"); } catch { return; }
+        // Legacy records remain recoverable; never download or queue new web work.
+        if (navigator.onLine && state.pending > 0) await offlineMessage("FIELD_SYNC").catch(() => {});
+      }
+      update({ connected: navigator.onLine });
     };
     const changed = (event: MessageEvent) => {
       if (event.data?.type === "field-offline-update") {
-        refresh();
+        void offlineMessage("FIELD_STATUS").then(() => update({connected:navigator.onLine})).catch(() => {});
         onSynced();
       }
     };
     const init = async () => {
-      await navigator.serviceWorker.register("/field-offline/sw.js", {
-        scope: "/",
-      });
-      await navigator.serviceWorker.ready;
-      if (!navigator.serviceWorker.controller)
-        await new Promise<void>((resolve) =>
-          navigator.serviceWorker.addEventListener(
-            "controllerchange",
-            () => resolve(),
-            { once: true },
-          ),
-        );
-      if (disposed) return;
-      await fetch("/api/field", { cache: "no-store" });
-      await navigator.storage?.persist?.();
-      await offlineMessage("FIELD_STATUS");
-      if (navigator.onLine) {
-        setBusy(true);
-        const result = await offlineMessage("FIELD_PREPARE");
-        if (!result.ok) setError(result.error);
-        setBusy(false);
-      } else sync();
-    };
-    void init().catch((e) => {
-      if (!disposed) {
-        setError(e.message);
-        setBusy(false);
+      // Upgrade existing installations so their old worker stops intercepting
+      // submissions. Do not install offline support for new web users.
+      if ("serviceWorker" in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          if (registration.active?.scriptURL.endsWith("/field-offline/sw.js")) await registration.update();
+        }
       }
-    });
-    navigator.serviceWorker.addEventListener("message", changed);
+      if (!disposed) await sync();
+    };
+    void init().catch(() => update({connected:navigator.onLine}));
+    navigator.serviceWorker?.addEventListener("message", changed);
+    navigator.serviceWorker?.addEventListener("controllerchange", sync);
     window.addEventListener("online", sync);
     window.addEventListener("offline", sync);
-    const visibility = () => {
-      if (document.visibilityState === "visible") sync();
-    };
-    document.addEventListener("visibilitychange", visibility);
     const timer = setInterval(sync, 30000);
     return () => {
       disposed = true;
       clearInterval(timer);
-      navigator.serviceWorker.removeEventListener("message", changed);
+      navigator.serviceWorker?.removeEventListener("message", changed);
+      navigator.serviceWorker?.removeEventListener("controllerchange", sync);
       window.removeEventListener("online", sync);
       window.removeEventListener("offline", sync);
-      document.removeEventListener("visibilitychange", visibility);
     };
   }, []);
   async function exportPending() {
@@ -288,15 +262,16 @@ export default function FieldOffline({
   return (
     <>
       <FieldConnection />
-      {status.connected && status.serverConnected === false && <p className="field-offline-hint">Internet conectada. O sistema ainda não está disponível para sincronizar; seus registros permanecem salvos.</p>}
-      {status.prepared&&localDay(status.prepared)!==localDay(new Date().toISOString())&&<p className="field-download-warning" role="status"><AlertTriangle size={16}/> Programação baixada em {date(status.prepared)}. Atualize a programação de hoje.</p>}
-      {!status.prepared && (
+      {nativePortal() && status.connected && status.serverConnected === false && <p className="field-offline-hint">Internet conectada. O sistema ainda não está disponível para sincronizar; seus registros permanecem salvos.</p>}
+      {nativePortal()&&status.prepared&&localDay(status.prepared)!==localDay(new Date().toISOString())&&<p className="field-download-warning" role="status"><AlertTriangle size={16}/> Programação baixada em {date(status.prepared)}. Atualize a programação de hoje.</p>}
+      {nativePortal() && !status.prepared && (
         <p className="field-offline-hint"><AlertTriangle size={16}/>
           {busy
             ? "Baixando a programação para uso offline…"
             : "Prepare este dispositivo com internet antes de trabalhar offline."}
         </p>
       )}
+      {!nativePortal() && status.connected === false && <p className="field-error" role="alert">O portal web funciona somente online. Reconecte à internet para salvar ou enviar informações.</p>}
       {error && !open && (
         <p className="field-error" role="alert">
           {error}
@@ -311,7 +286,7 @@ export default function FieldOffline({
             aria-label="Sincronismo"
           >
             <header>
-              <h2>Sincronismo</h2>
+              <h2>{nativePortal() ? "Sincronismo" : "Conexão e pendências anteriores"}</h2>
               <button onClick={onClose} aria-label="Fechar sincronismo">
                 <X />
               </button>
@@ -324,31 +299,30 @@ export default function FieldOffline({
                 : "registros aguardando"}{" "}
               envio
             </p>
-            <dl>
+            {nativePortal() && <dl>
               <dt>Programação baixada</dt>
               <dd>{date(status.prepared)}</dd>
               <dt>Último envio confirmado</dt>
               <dd>{date(status.lastSync)}</dd>
-            </dl>
+            </dl>}
             <p>
-              Os registros ficam neste dispositivo até o sistema confirmar o
-              recebimento. Salve o relatório para incluí-lo na fila.
+              {nativePortal() ? "Os registros ficam neste dispositivo até o sistema confirmar o recebimento. Salve o relatório para incluí-lo na fila." : "O portal web funciona somente online. Pendências de versões anteriores permanecem disponíveis para envio ou cópia de segurança."}
             </p>
             <div className="field-sync-actions">
               <button
                 disabled={busy || status.syncing || status.connected === false}
-                onClick={() => void run("FIELD_SYNC")}
+                onClick={() => { if (!nativePortal() && !status.pending) { onSynced(); onClose(); } else void run("FIELD_SYNC"); }}
               >
                 <RefreshCw size={16} />
-                Sincronizar agora
+                {nativePortal() || status.pending ? "Sincronizar agora" : "Atualizar programação"}
               </button>
-              <button
+              {nativePortal() && <button
                 disabled={busy || status.syncing || status.pending > 0 || status.connected === false}
                 onClick={() => void run("FIELD_PREPARE")}
               >
                 <Download size={16} />
                 Baixar programação
-              </button>
+              </button>}
             </div>
             {busy && (
               <p role="status">Sincronizando… Mantenha o aplicativo aberto.</p>

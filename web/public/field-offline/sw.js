@@ -61,7 +61,7 @@ async function request(url, init = {}) {
     ...init,
     cache: "no-store",
     credentials: "same-origin",
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(init.body instanceof FormData ? 90000 : 15000),
   });
 }
 async function notify() {
@@ -121,6 +121,7 @@ async function cacheGet(url) {
     if (!response.ok) throw Error("Servidor indisponível.");
     const body = await response.clone().json();
     const identity = url === "/api/field" ? body.email : owner;
+    if (url === "/api/field" && body.email) await write([[body.email + ":server-home", body]]);
     if (identity) {
       const pending = (await read(identity + ":queue")) || [];
       if (url === "/api/field" && pending.length) {
@@ -329,11 +330,25 @@ async function enqueue(req) {
 async function flush() {
   const owner = await read("owner");
   if (!owner) return;
-  const attempted=new Set(),failedOperations=new Set();
+  const attempted=new Set();
   let failedTimer=false;
   const timer=item=>item.type==="action"&&["start_work","start_travel","pause","resume","stop"].includes(item.body.action);
   async function nextItem(){
-    return ((await read(owner+":queue"))||[]).find(item=>!attempted.has(item.id)&&!(item.type!=="photo"&&failedOperations.has(item.operationId))&&!(failedTimer&&timer(item)));
+    const queue = (await read(owner+":queue")) || [];
+    const mapping = (await read(owner+":mapping")) || {};
+    const pendingIds = new Set(queue.map(item => item.id));
+    function unresolved(value) {
+      if (typeof value === "string") return value.startsWith("local-") && !mapping[value];
+      if (value && typeof value === "object") return Object.values(value).some(unresolved);
+      return false;
+    }
+    return queue.find(item => !attempted.has(item.id)
+      && !pendingIds.has(item.body?.offline?.previousRequestId)
+      && !unresolved(item.body)
+      && !(failedTimer && timer(item))
+      && !(item.type === "action" && ["pause","stop","report_send","report_send_partial","report_return","finish_full"].includes(item.body.action)
+        && queue.slice(0, queue.indexOf(item)).some(previous => previous.type === "photo" && previous.operationId === item.operationId)));
+
   }
   try {
     while (true) {
@@ -348,6 +363,7 @@ async function flush() {
       const home = await identity.json();
       if (home.email !== owner || (await read("owner")) !== owner)
         throw Error("Entre com a conta que criou os registros pendentes.");
+      await write([[owner + ":server-home", home]]);
       let item = await nextItem();
       while (item) {
         if ((await read("owner")) !== owner)
@@ -384,8 +400,7 @@ async function flush() {
             },
           );
         }catch(error){
-          if(error.name!=="TimeoutError")throw error;
-          result=json({error:"O envio excedeu o tempo de espera. O registro permanece salvo para nova tentativa."},504);
+          result=json({error: error.name === "TimeoutError" ? "O envio excedeu o tempo de espera. O registro permanece salvo para nova tentativa." : "Não foi possível enviar este registro. Ele permanece salvo para nova tentativa."},504);
         }
         const parsed = await result.json().catch(()=>null);
         const data=parsed||{error:"O servidor não conseguiu processar este registro. Tente sincronizar novamente."};
@@ -398,7 +413,6 @@ async function flush() {
           });
           await notify();
           if(result.status===401)return;
-          failedOperations.add(item.operationId);
           if(timer(item))failedTimer=true;
           item=await nextItem();
           continue;
@@ -630,7 +644,18 @@ self.addEventListener("message", (event) => {
   event.waitUntil(
     (async () => {
       try {
-        if (type === "FIELD_PREPARE") {
+        if (type === "FIELD_WEB_INIT" && !self.nativeStorage) {
+          const response = await request("/api/field");
+          if (!response.ok) {
+            await write([["owner", undefined]]);
+            throw Error("Entre novamente para recuperar suas pendências.");
+          }
+          const home = await response.json();
+          if (typeof home.email !== "string" || !home.email) throw Error("Conta não identificada.");
+          // Switch only the active account pointer. Other users' queues remain intact.
+          await write([["owner", home.email]]);
+        }
+        if (type === "FIELD_PREPARE" && self.nativeStorage) {
           await sync();
           await prepare();
         }
@@ -696,6 +721,9 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
+  // Browser: online-only. Keep the old queue available for explicit recovery,
+  // but never intercept new submissions or serve cached/offline pages.
+  if (!self.nativeStorage) return;
   if (req.mode === "navigate" && url.pathname === "/tecnico") {
     event.respondWith(
       (async () => {

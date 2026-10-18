@@ -1,4 +1,6 @@
 "use client";
+import {uploadReportPhoto} from "@/lib/upload-report-photo";
+import {nativePortal} from "@/lib/native-portal";
 import RequiredMarker from "./required-marker";
 import ReportPhotoPicker from "./report-photo-picker";
 import EquipmentMeterReference from "./equipment-meter-reference";
@@ -66,7 +68,15 @@ function Stage({stageAccordionName,stage,operation,data,mutate,locked,readOnly,c
  async function upload(f:ChecklistField,files:File[],extra=false){if(!files.length)return;setError('');setBusy(true);let ids=[...((extra?details[f.id]?.photos:answers[f.id])||[])];try{
   const limit=!extra&&f.type==='signature'?1:photoLimit(f);
   if(ids.length+files.length>limit)throw Error(`Este campo permite até ${limit} ${f.type==='signature'&&!extra?'assinatura':'fotos'}.`);
-  for(const file of files){const form=new FormData();form.set('file',await prepareReportPhoto(file));form.set('operationId',operation.id);form.set('stageId',stage.id);form.set('fieldId',f.id);const res=await apiFetch('/api/service-scheduling/photos',{method:'POST',body:form});const b=await res.json();if(!res.ok)throw Error(b.error);ids.push(b.id);if(extra)detail(f.id,'photos',[...ids]);else answer(f.id,[...ids]);}
+  const failures:string[]=[];
+  for(const file of files){
+   try{
+    const form=new FormData();form.set('file',await prepareReportPhoto(file));form.set('operationId',operation.id);form.set('stageId',stage.id);form.set('fieldId',f.id);
+    ids.push(await uploadReportPhoto(form,apiFetch,!nativePortal()));
+    if(extra)detail(f.id,'photos',[...ids]);else answer(f.id,[...ids]);
+   }catch(e){failures.push(`${file.name}: ${(e as Error).message}`);}
+  }
+  if(failures.length)throw Error(failures.join(' '));
  }catch(e){setError((e as Error).message);}finally{setBusy(false);}}
  function photos(f:ChecklistField,extra=false){const ids=extra?details[f.id]?.photos||[]:answers[f.id]||[];return <div className="checklist-photo-input"><ReportPhotoPicker label={f.label} requiredMissing={!extra&&f.type==='photo'&&f.required&&ids.length===0} disabled={disabled} onSelect={files=>void upload(f,files,extra)}/><small>Selecione várias fotos de uma vez · {ids.length}/{photoLimit(f)}</small><div className="checklist-photos">{ids.map((id:string)=><div key={id}><a target="_blank" rel="noreferrer" href={'/api/service-scheduling/photos/'+id}><img src={'/api/service-scheduling/photos/'+id} alt={f.label}/></a><button type="button" className="checklist-photo-remove" aria-label="Remover foto" title="Remover foto" onClick={()=>extra?detail(f.id,'photos',ids.filter((x:string)=>x!==id)):answer(f.id,ids.filter((x:string)=>x!==id))}><span aria-hidden="true">×</span></button></div>)}</div></div>;}
  const groups=groupsOf(stage);

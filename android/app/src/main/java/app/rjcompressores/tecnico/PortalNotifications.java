@@ -13,7 +13,7 @@ import java.util.Locale;
 
 /** OS-rendered chronometer and persisted AlarmManager deadline; no JS timer dependency. */
 final class PortalNotifications {
-    static final String ACTIVE_CHANNEL="portal_activity", PAUSE_CHANNEL="portal_pause_limit";
+    static final String ACTIVE_CHANNEL="portal_activity", PAUSE_CHANNEL="portal_pause_limit", SCHEDULE_CHANNEL="portal_schedule";
     static final int ACTIVE_ID=2101, PAUSE_ID=2102;
     static void channels(Context context){
         if(Build.VERSION.SDK_INT<26)return;
@@ -24,6 +24,7 @@ final class PortalNotifications {
         pause.setDescription("Aviso quando a pausa atinge o limite cadastrado.");pause.enableVibration(true);pause.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
         pause.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());
         manager.createNotificationChannel(active);manager.createNotificationChannel(pause);
+        manager.createNotificationChannel(new NotificationChannel(SCHEDULE_CHANNEL,"Alterações na programação",NotificationManager.IMPORTANCE_DEFAULT));
     }
     static long time(String value){
         if(value==null||value.isEmpty())return 0;
@@ -33,12 +34,12 @@ final class PortalNotifications {
     static JSONObject home(PortalDatabase db)throws Exception{Object owner=db.read("owner");if(!(owner instanceof String))return null;Object home=db.read(owner+":cache:/api/field");return home instanceof JSONObject?(JSONObject)home:null;}
     static long deadline(JSONObject active){if(active==null||!"paused".equals(active.optString("state")))return 0;JSONObject reason=active.optJSONObject("pause_reason");int minutes=reason==null?0:reason.optInt("minutes",0);long start=time(active.optString("pause_alert_at",active.optString("segment_at")));return minutes>0&&start>0?start+minutes*60000L:0;}
     static String alertKey(JSONObject home){JSONObject active=home==null?null:home.optJSONObject("active");long due=deadline(active);return due==0?"":home.optString("email")+":"+active.optString("id")+":"+due;}
-    static String label(JSONObject home,JSONObject active){JSONArray rows=home.optJSONArray("rows");if(rows!=null)for(int i=0;i<rows.length();i++){JSONObject row=rows.optJSONObject(i);if(row!=null&&row.optString("id").equals(active.optString("operation_id")))return "OS "+row.optString("number")+" / OP"+String.format(Locale.US,"%02d",row.optInt("position",1));}return "Portal Técnico RJ";}
-    static PendingIntent open(Context context,JSONObject active){Intent intent=new Intent(context,PortalActivity.class).putExtra("operationId",active.optString("operation_id")).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);return PendingIntent.getActivity(context,2100,intent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
+    static String label(JSONObject home,JSONObject active){JSONArray rows=home.optJSONArray("rows");if(rows!=null)for(int i=0;i<rows.length();i++){JSONObject row=rows.optJSONObject(i);if(row!=null&&row.optString("id").equals(active.optString("operation_id")))return "OS "+row.optString("number")+" / OP"+String.format(Locale.US,"%02d",row.optInt("position",1))+(row.optString("customer").isEmpty()?"":" · "+row.optString("customer"));}return "Portal Técnico RJ";}
+    static PendingIntent open(Context context,JSONObject active){Intent intent=new Intent(context,PortalActivity.class).putExtra("operationId",active.optString("operation_id")).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);return PendingIntent.getActivity(context,active.optString("operation_id").hashCode(),intent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
     static PendingIntent alarm(Context context,String key){Intent intent=new Intent(context,PauseAlarmReceiver.class).setAction("app.rjcompressores.tecnico.PAUSE_LIMIT").putExtra("key",key);return PendingIntent.getBroadcast(context,2100,intent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
     static boolean exactAllowed(Context c){return Build.VERSION.SDK_INT<31||c.getSystemService(AlarmManager.class).canScheduleExactAlarms();}
     static synchronized void update(Context context,PortalDatabase db,boolean force)throws Exception{
-        channels(context);JSONObject home=home(db),active=home==null?null:home.optJSONObject("active");
+        channels(context);scheduleChanges(context,db);JSONObject home=home(db),active=home==null?null:home.optJSONObject("active");
         NotificationManagerCompat notifications=NotificationManagerCompat.from(context);AlarmManager alarms=context.getSystemService(AlarmManager.class);
         SharedPreferences prefs=context.getSharedPreferences("portal-notifications",Context.MODE_PRIVATE);
         if(active==null||"finished".equals(active.optString("state"))){notifications.cancel(ACTIVE_ID);notifications.cancel(PAUSE_ID);alarms.cancel(alarm(context,""));prefs.edit().remove("signature").remove("delivered").apply();return;}
@@ -56,6 +57,43 @@ final class PortalNotifications {
             else {PendingIntent pending=alarm(context,key);try{if(exactAllowed(context))alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,due,pending);else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,due,pending);}catch(SecurityException e){alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,due,pending);}}
         }
         prefs.edit().putString("signature",signature).apply();
+    }
+    static JSONObject orders(JSONObject home) throws JSONException {
+        JSONObject orders=new JSONObject();
+        JSONArray rows=home.optJSONArray("calendarRows");if(rows==null)rows=home.optJSONArray("rows");
+        if(rows!=null)for(int i=0;i<rows.length();i++){
+            JSONObject row=rows.optJSONObject(i);
+            if(row!=null&&!row.optString("schedule_id").isEmpty())orders.put(row.optString("schedule_id"),row);
+        }
+        return orders;
+    }
+    static void scheduleChanges(Context context,PortalDatabase db)throws Exception{
+        Object owner=db.read("owner");if(!(owner instanceof String))return;
+        Object snapshot=db.read(owner+":server-home");if(!(snapshot instanceof JSONObject))return;
+        JSONObject home=(JSONObject)snapshot;
+        if(!owner.equals(home.optString("email")))return;
+        SharedPreferences prefs=context.getSharedPreferences("portal-schedule-notifications",Context.MODE_PRIVATE);
+        String key="orders:"+owner;JSONObject current=orders(home);
+        String saved=prefs.getString(key,null);
+        if(saved!=null){
+            JSONObject previous=new JSONObject(saved);
+            for(int direction=0;direction<2;direction++){
+                JSONObject source=direction==0?current:previous,other=direction==0?previous:current;
+                java.util.Iterator<String> ids=source.keys();
+                while(ids.hasNext()){
+                    String id=ids.next();if(other.has(id))continue;
+                    JSONObject row=source.getJSONObject(id);
+                    String text="OS "+row.optString("number")+" · "+row.optString("customer");
+                    JSONObject target=new JSONObject().put("operation_id",direction==0?row.optString("id"):"");
+                    Notification notification=new NotificationCompat.Builder(context,SCHEDULE_CHANNEL)
+                        .setSmallIcon(R.drawable.ic_notification).setContentTitle(direction==0?"OS incluída na programação":"OS removida da programação")
+                        .setContentText(text).setStyle(new NotificationCompat.BigTextStyle().bigText(text))
+                        .setContentIntent(open(context,target)).setAutoCancel(true).build();
+                    try{NotificationManagerCompat.from(context).notify("schedule:"+id,2103,notification);}catch(SecurityException ignored){}
+                }
+            }
+        }
+        prefs.edit().putString(key,current.toString()).apply();
     }
     static synchronized void deliver(Context context,PortalDatabase db,String expected)throws Exception{
         JSONObject home=home(db);String key=alertKey(home);if(key.isEmpty()||!key.equals(expected))return;

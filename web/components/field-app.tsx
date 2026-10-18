@@ -141,9 +141,24 @@ export default function FieldApp() {
     [syncOpen, setSyncOpen] = useState(false),
     [now, setNow] = useState(Date.now());
   const locationMessage = useAutomaticFieldLocation(data?.isTechnician === true);
+  const previousSchedule = useRef<{email:string; orders:Map<string,any>} | null>(null);
+  const [scheduleNotice, setScheduleNotice] = useState("");
   async function refresh() {
     try {
-      setData(await api());
+      const next = await api();
+      if (!nativePortal()) {
+        const orders = new Map<string,any>((next.calendarRows || next.rows || []).map((row:any) => [String(row.schedule_id), row]));
+        const previous = previousSchedule.current;
+        if (previous && previous.email === next.email) {
+          const changes = [
+            ...[...orders].filter(([id]) => !previous.orders.has(id)).map(([,row]) => `OS ${row.number} · ${row.customer || ""}: incluída na programação`),
+            ...[...previous.orders].filter(([id]) => !orders.has(id)).map(([,row]) => `OS ${row.number} · ${row.customer || ""}: removida da programação`),
+          ];
+          if (changes.length) setScheduleNotice(changes.join(". "));
+        }
+        previousSchedule.current = {email:next.email, orders};
+      }
+      setData(next);
       setError("");
     } catch (e) {
       setError((e as Error).message);
@@ -168,6 +183,7 @@ export default function FieldApp() {
   return (
     <FieldSessionActions.Provider value={{signOut: () => void signOut(), signingOut}}><main className={"field-app" + (screen !== "home" && scheduleView === "map" ? " field-app-map" : "")}>
       <FieldOffline onSynced={refresh} open={syncOpen} onClose={() => setSyncOpen(false)}/>
+      {scheduleNotice && <div className="field-success" role="status">{scheduleNotice} <button type="button" onClick={() => setScheduleNotice("")}>Fechar aviso</button></div>}
       <header className="field-header">
         <div>
           <small>PORTAL TÉCNICO RJ</small>
@@ -328,7 +344,7 @@ export default function FieldApp() {
           )}
           {scheduleView !== "map" && <p className="field-location">
             <MapPin size={14} /> Os apontamentos registram horário e
-            localização. Mantenha a localização ativada. Registros offline serão enviados quando houver conexão.
+            localização. Mantenha a localização ativada. {nativePortal() ? "Registros offline serão enviados quando houver conexão." : "É necessário estar conectado para salvar e enviar informações."}
           </p>}
         </>
       )}

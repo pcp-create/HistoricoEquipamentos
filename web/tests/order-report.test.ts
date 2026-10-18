@@ -137,7 +137,7 @@ test("unified report orders by actual dates, keeps readings separate, and scopes
   assert.ok(
     report.chapters.every(
       (c) =>
-        !c.report.some((s) => ["asset", "client", "location"].includes(s.id)),
+        c.report.some((s) => s.id === "asset") && !c.report.some((s) => ["client", "location"].includes(s.id)),
     ),
   );
 });

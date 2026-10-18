@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.2
+# Portal Técnico RJ — APK 2.2.3
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -141,3 +141,11 @@ Corrige a política de imagens da WebView para autorizar o host exato https://ti
 - Versão do APK no rodapé da entrada nativa e da tela inicial do portal, derivada da configuração do pacote.
 - Botão da OS identificado como “Gerar Relatório OS”; utiliza o gerador unificado do painel, incluindo todas as operações e a linha do tempo.
 - Publicação conjunta das correções da versão 2.2.1 no portal web, incluindo Visto por último em horas/dias e a fila de sincronização.
+
+### Versão 2.2.3 — relatórios, fotos e portal web online
+
+- Relatórios da operação e da OS identificam o equipamento de cada operação. A seção **Tempo de paradas** considera as causas habilitadas para o relatório do cliente.
+- A fila tenta todos os registros independentes; apenas dependências reais (foto usada no relatório, versão anterior ou sequência do apontamento) aguardam. Falhas de uma foto não interrompem o envio das demais.
+- Notificações do apontamento incluem o cliente. Inclusões e remoções de OS são avisadas após atualizar a programação, sem avisar novamente as mesmas mudanças ou todas as OSs no primeiro acesso.
+- Localização continua com o aplicativo minimizado, com a notificação silenciosa obrigatória do Android. Encerra ao fechar o aplicativo.
+- Portal web funciona somente online. Registros antigos do navegador são preservados para sincronização ou exportação; novos registros e fotos vão diretamente ao servidor. O APK mantém SQLite e trabalho offline.

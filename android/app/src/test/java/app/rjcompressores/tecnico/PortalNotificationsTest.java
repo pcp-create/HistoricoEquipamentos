@@ -41,5 +41,22 @@ public class PortalNotificationsTest {
         home.put("active",JSONObject.NULL);save(db,home);PortalNotifications.update(c,db,false);
         assertNull(Shadows.shadowOf(nm).getNotification(PortalNotifications.ACTIVE_ID));db.close();
     }
+    @Test public void notificationShowsCustomerAndOrderChangesAreNotRepeated()throws Exception{
+        Context c=RuntimeEnvironment.getApplication();PortalDatabase db=new PortalDatabase(c);
+        JSONObject row=new JSONObject().put("id","op").put("schedule_id","s").put("number","15025").put("position",3).put("customer","Cliente teste");
+        JSONObject home=new JSONObject().put("email","tech").put("rows",new JSONArray().put(row)).put("calendarRows",new JSONArray().put(row));
+        assertEquals("OS 15025 / OP03 · Cliente teste",PortalNotifications.label(home,new JSONObject().put("operation_id","op")));
+        save(db,home);db.write(new JSONArray().put(new JSONArray().put("tech:server-home").put(home)));
+        PortalNotifications.update(c,db,false);
+        NotificationManager nm=c.getSystemService(NotificationManager.class);
+        assertEquals(0,Shadows.shadowOf(nm).getAllNotifications().size());
+        home.put("calendarRows",new JSONArray());db.write(new JSONArray().put(new JSONArray().put("tech:server-home").put(home)));
+        PortalNotifications.update(c,db,false);
+        assertEquals(1,Shadows.shadowOf(nm).getAllNotifications().size());
+        assertEquals("OS removida da programação",Shadows.shadowOf(nm).getAllNotifications().get(0).extras.getString(Notification.EXTRA_TITLE));
+        nm.cancelAll();PortalNotifications.update(c,db,false);
+        assertEquals(0,Shadows.shadowOf(nm).getAllNotifications().size());
+        db.close();
+    }
     private void save(PortalDatabase db,JSONObject home)throws Exception{db.write(new JSONArray().put(new JSONArray().put("owner").put("tech")).put(new JSONArray().put("tech:cache:/api/field").put(home)));}
 }
