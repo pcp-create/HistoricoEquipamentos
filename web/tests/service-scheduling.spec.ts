@@ -1,3 +1,4 @@
+import ccp from "../lib/service-scheduling/templates/ccp.json";
 import { test, expect } from "@playwright/test";
 import {
   blankOperation,
@@ -27,7 +28,7 @@ test("operations save explicitly, keep support distinct, show order-wide items a
       document: {
         serviceTypes: ["Interno", "Externo", "Terceirizado"],
         vehicles: [{id:"van",name:"Van / ABC1D23"}],
-        checklists: [],
+        checklists: [structuredClone(ccp)],
         calendars: [
           {
             id: "standard",
@@ -228,7 +229,8 @@ test("operations save explicitly, keep support distinct, show order-wide items a
   await page.getByLabel("Novo veículo",{exact:true}).press("Enter");
   await expect(page.getByLabel("Veículo Caminhonete / XYZ1A23",{exact:true})).toBeVisible();
   await page.getByRole("button",{name:"Checklists",exact:true}).click();
-  await page.getByRole("button",{name:"Usar modelo CCP",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Usar modelo CCP",exact:true})).toHaveCount(0);
+  await page.getByRole("button",{name:/Editar checklist/}).click();
   await expect(page.getByLabel("Prefixo",{exact:true})).toHaveValue("CCP");
   await page.getByLabel("Identificador M8",{exact:true}).selectOption("Interno");
   await expect(page.locator(".checklist-stage-editor")).toHaveCount(6);
