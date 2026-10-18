@@ -251,6 +251,8 @@ public class PortalActivity extends Activity {
             web.setWebChromeClient(new WebChromeClient(){
                 @Override public void onGeolocationPermissionsShowPrompt(String origin,GeolocationPermissions.Callback callback){callback.invoke(origin,trustedOrigin(Uri.parse(origin))&&locationReady(),false);if(!locationReady())checkLocation();}
                 @Override public boolean onJsAlert(WebView view,String url,String message,JsResult result){new AlertDialog.Builder(PortalActivity.this).setTitle("Portal Técnico RJ").setMessage(message).setPositiveButton("Entendi",(d,w)->result.confirm()).setOnCancelListener(d->result.cancel()).show();return true;}
+                @Override public boolean onJsPrompt(WebView view,String url,String message,String defaultValue,JsPromptResult result){PortalDialogs.prompt(PortalActivity.this,message,defaultValue,result::confirm,result::cancel);return true;}
+                @Override public boolean onJsConfirm(WebView view,String url,String message,JsResult result){PortalDialogs.confirm(PortalActivity.this,message,result::confirm,result::cancel);return true;}
                 @Override public boolean onShowFileChooser(WebView v,ValueCallback<Uri[]> callback,FileChooserParams params){
                     if(fileCallback!=null)fileCallback.onReceiveValue(null);fileCallback=callback;
                     Intent pick=new Intent(Intent.ACTION_GET_CONTENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_ALLOW_MULTIPLE,params.getMode()==FileChooserParams.MODE_OPEN_MULTIPLE);

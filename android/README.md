@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.3
+# Portal Técnico RJ — APK 2.2.4
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -149,3 +149,8 @@ Corrige a política de imagens da WebView para autorizar o host exato https://ti
 - Notificações do apontamento incluem o cliente. Inclusões e remoções de OS são avisadas após atualizar a programação, sem avisar novamente as mesmas mudanças ou todas as OSs no primeiro acesso.
 - Localização continua com o aplicativo minimizado, com a notificação silenciosa obrigatória do Android. Encerra ao fechar o aplicativo.
 - Portal web funciona somente online. Registros antigos do navegador são preservados para sincronização ou exportação; novos registros e fotos vão diretamente ao servidor. O APK mantém SQLite e trabalho offline.
+
+### Versão 2.2.4 — devolução do checklist
+
+- Solicitação do motivo e confirmação da devolução usam diálogos nativos Android com título Portal Técnico RJ, sem o cabeçalho de página de internet.
+- Texto: “Informe o motivo da devolução do checklist”.

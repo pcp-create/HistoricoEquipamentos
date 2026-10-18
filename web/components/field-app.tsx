@@ -546,7 +546,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                           <FieldPdfButton operationId={row.id}/>
                           <button disabled={!ready||!reportActivityRunning||reportLoading} onClick={()=>void save()}><SaveActionIcon/> Salvar</button>
                           <button type="button" disabled={busy||reportLoading||locked||!!checklistRun?.partialSubmission||operation.document.responsible!==data.email} onClick={async()=>{
-                            const reason=window.prompt('Informe ao planejador por que o checklist precisa ser corrigido:');
+                            const reason=window.prompt('Informe o motivo da devolução do checklist');
                             if(!reason?.trim())return;
                             if(!window.confirm('Devolver ao planejamento? O preenchimento e as fotos serão preservados. Os dados só serão apagados se o planejador confirmar a substituição do checklist.'))return;
                             if(await act({action:'report_return',version:operation.version,reason,confirmReturn:true,stages:getDrafts()}))setView('');
