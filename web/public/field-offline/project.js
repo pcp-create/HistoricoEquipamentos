@@ -3,6 +3,9 @@ function projectField(home, detail, body) {
   const at = body.offline.capturedAt,
     op = detail.operation,
     action = body.action;
+  if (op.document.responsible !== home.email &&
+      (/^(report_|checklist_|finish_)/.test(action)))
+    throw new Error("Somente o técnico responsável pode acessar o relatório ou finalizar a operação.");
   let active = home.active,
     closed = null;
   const same = active?.operation_id === op.id;

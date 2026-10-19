@@ -54,7 +54,7 @@ export async function loadOrderReport(body: any, email: string, portal = false) 
       ])
     ).rows[0];
     if (!user?.enabled || (!portal && user.role !== "admin")) throw new Forbidden();
-    if(portal&&!(await c.query("SELECT 1 FROM web_service_operations WHERE schedule_id=$1 AND sent_at IS NOT NULL AND (document->>'responsible'=$2 OR document->'support' ? $2) LIMIT 1",[scheduleId,email])).rows.length)throw new Forbidden();
+    if(portal&&!(await c.query("SELECT 1 FROM web_service_operations WHERE schedule_id=$1 AND sent_at IS NOT NULL AND document->>'responsible'=$2 LIMIT 1",[scheduleId,email])).rows.length)throw new Forbidden();
     const schedule = (
       await c.query(
         `SELECT s.*,to_jsonb(o) AS order_record FROM web_service_schedules s

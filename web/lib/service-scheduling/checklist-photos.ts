@@ -7,7 +7,7 @@ import sharp from 'sharp';
 export class ChecklistPhotoError extends Error {}
 async function permitted(c:any,operationId:string,email:string){
  const row=(await c.query(`SELECT o.*,u.role,u.enabled FROM web_service_operations o JOIN web_user_access u ON u.email=$2 WHERE o.id=$1`,[operationId,email])).rows[0];
- if(!row?.enabled||(row.role!=='admin'&&row.document.responsible!==email&&!row.document.support?.includes(email)))throw new Forbidden();
+ if(!row?.enabled||(row.role!=='admin'&&row.document.responsible!==email))throw new Forbidden();
  return row;
 }
 export async function saveChecklistPhoto(operationId:string,stageId:string,fieldId:string,file:File,email:string,requestId?:string){

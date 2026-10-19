@@ -325,7 +325,7 @@ export default function FieldApp() {
                     <ChevronDown size={20} />
                   </summary>
                   <div className="field-operations">
-                    <FieldPdfButton scheduleId={String(first.schedule_id)}/>
+                    {rows.some(row=>row.can_report !== false) && <FieldPdfButton scheduleId={String(first.schedule_id)}/>}
                     {rows.map((row) => (
                       <div key={row.id} hidden={scheduleView === "calendar" && (row.date || "") !== selectedDay}><FieldOperation
                         key={row.id}
@@ -451,6 +451,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
   const reportActivityRunning = session?.kind === 'work' && session?.state === 'running';
   const ready = data?.infoRead && data?.checked && !locked && !busy;
   const finishPending: string[] = data?.finishPending ?? ["Atualize a operação para verificar as pendências."];
+  const canAccessReport = !!data?.email && operation?.document.responsible === data.email;
   const canFinish = ready && finishPending.length === 0 && operation?.document.responsible === data?.email;
   const limit = session?.state === "paused" && session.pause_reason?.minutes;
   const alert =
@@ -464,7 +465,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     if (which === "send" && !canFinish) return;
     if (which === "logs" && !data?.infoRead) return;
     if(which==='report') {
-      if(reportOpening.current)return;
+      if(!canAccessReport || reportOpening.current)return;
       if(!data?.reportSubmission&&!reportActivityRunning)window.alert('Inicie ou retome a atividade para editar o relatório e anexar fotos.');
       setReportVisited(true);
       setView('report');
@@ -525,7 +526,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
             <p>Carregando operação…</p>
           ) : (
             <>
-              {reportVisited && data.checked && (
+              {canAccessReport && reportVisited && data.checked && (
                 <section className="field-inline-report" aria-label="Relatório técnico da operação" hidden={view!=='report'}>
                   {reportLoading&&<div className="field-report-loading" role="status" aria-label="Carregando relatório"><LoaderCircle size={48} aria-hidden="true"/></div>}
                   <ScheduleChecklistRun
@@ -669,7 +670,8 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                   <span>Apontamentos</span>
                 </button>
                 <button
-                  disabled={busy || !data.infoRead || !data.checked || !operation.document.checklistId}
+                  disabled={!canAccessReport || busy || !data.infoRead || !data.checked || !operation.document.checklistId}
+                  title={!canAccessReport ? "Relatório disponível somente para o técnico responsável." : undefined}
                   onClick={() => void show("report")}
                 >
                   <ClipboardList />

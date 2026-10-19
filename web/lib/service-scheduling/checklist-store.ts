@@ -6,8 +6,8 @@ export async function updateChecklist(c:any,b:any,operation:any,schedule:any,set
  const reviewing=b.action==='checklist_review_save';
  if(reviewing&&(!admin||operation.status!=='awaiting_review'))throw Error('Somente o planejador pode corrigir o checklist enquanto aguarda revisão.');
  if(['completed','reviewed'].includes(operation.status)||operation.status==='awaiting_review'&&!reviewing)throw Error('A operação está concluída ou em revisão.');
- const assigned=operation.document.responsible===email||operation.document.support?.includes(email);
- if(!admin&&!assigned)throw Error('Somente a equipe atribuída pode preencher o checklist.');
+ const assigned=operation.document.responsible===email;
+ if(!admin&&!assigned)throw Error('Somente o técnico responsável pode preencher o checklist.');
  let run=structuredClone(operation.document.checklistRun);
  if(!run){
   const template=settings.checklists.find((t:any)=>t.id===operation.document.checklistId);

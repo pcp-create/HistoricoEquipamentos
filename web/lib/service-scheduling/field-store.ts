@@ -125,7 +125,7 @@ export async function fieldData(email: string, operationId?: string | null) {
   if (!operationId) {
     const rows = (
       await c.query(
-        `SELECT p.id,p.schedule_id,p.position,p.status,p.version,p.document->>'description' description,p.document->>'date' date,p.document->>'time' time,p.document->'duration' duration,p.document->>'calendarId' calendar_id,
+        `SELECT p.id,p.schedule_id,p.position,p.status,p.version,(p.document->>'responsible'=$1) can_report,p.document->>'description' description,p.document->>'date' date,p.document->>'time' time,p.document->'duration' duration,p.document->>'calendarId' calendar_id,
    o.id_m8::text AS order_id,COALESCE(o.numero_sequencia,o.id_m8)::text AS number,o.cliente_nome customer,o.equipamento equipment,COALESCE(NULLIF(p.document->'equipment'->>'label',''),NULLIF(p.document->'equipment'->>'name',''),o.equipamento) operation_equipment,c.payload->>'municipioNome' city,c.payload->>'ufSigla' state,
    EXISTS(SELECT 1 FROM web_field_material_checks k WHERE k.operation_id=p.id AND k.actor=$1) checked
    FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id
@@ -185,7 +185,7 @@ export async function fieldData(email: string, operationId?: string | null) {
     estimated_end: estimatedEnd(p.document, settings),
     calendar_name:settings.calendars?.find((c:any)=>c.id===(p.document.calendarId||"standard"))?.name,
     pause_history_seconds:Number((await c.query("SELECT COALESCE(sum(pause_seconds),0) total FROM web_field_sessions WHERE operation_id=$1 AND state='finished'",[p.id])).rows[0].total),
-    operation: p,
+    operation: p.document.responsible === email ? p : {...p, document: {...p.document, checklistRun: undefined}},
     active,
     email,
     checked,
@@ -200,7 +200,7 @@ export async function fieldData(email: string, operationId?: string | null) {
     canEditSettings: false,
     settings: {
       document: {
-        checklists: settings.checklists,
+        checklists: p.document.responsible === email ? settings.checklists : [],
         pauseReasons: settings.pauseReasons || [],
         vehicles: settings.vehicles || [],
       },
@@ -264,6 +264,10 @@ export async function fieldAction(b: any, email: string) {
       )
     ).rows[0];
     if (!p) throw new Forbidden();
+    if (p.document.responsible !== email &&
+        (b.action.startsWith("report_") || b.action.startsWith("checklist_") || b.action.startsWith("finish_")))
+      throw new FieldError("Somente o técnico responsável pode acessar o relatório ou finalizar a operação.");
+
     if (["awaiting_review", "reviewed", "completed"].includes(p.status))
       throw new FieldError(
         "Esta operação já foi enviada para revisão e não permite novos apontamentos.",

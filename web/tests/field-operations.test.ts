@@ -134,6 +134,12 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     );
     await db.exec("UPDATE web_service_operations SET sent_at=now()");
     assert.equal((await fieldData("tech")).rows?.length, 2);
+    assert.equal((await fieldData("helper")).rows?.length, 2);
+    for (const action of ["report_save","report_return","report_send","checklist_save","finish_full"]) {
+      await assert.rejects(act(action, {}, "helper"), /Somente o técnico responsável/);
+    }
+    await assert.rejects(fieldReportPdf("helper",{operationId:id}), e=>(e as Error).constructor.name==="Forbidden");
+    await assert.rejects(fieldReportPdf("helper",{scheduleId:String(schedule.id)}), e=>(e as Error).constructor.name==="Forbidden");
     const listed = (await fieldData("tech")).rows?.find((row:any) => row.id === id);
     const opened: any = await fieldData("tech",id);
     assert.ok(listed.estimated_end);
@@ -234,6 +240,8 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
 
     await assert.rejects(reopenReport(db,{...latest.operation,status:'reviewed'},'planner',true),/revisados/);
     let detail: any = await fieldData("helper", id);
+    assert.equal(detail.operation.document.checklistRun, undefined);
+    assert.deepEqual(detail.settings.document.checklists, []);
     assert.equal(detail.checked, false);
     assert.equal(detail.materials.items[0].usage.position, 1);
     assert.equal(Number(detail.materials.items[0].usage.withdrawn), 1);
