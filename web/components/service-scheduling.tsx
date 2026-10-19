@@ -49,6 +49,7 @@ import {
   totalHours,
   validateSettings,
 } from "@/lib/service-scheduling/model";
+import { completedOperationHours } from "@/lib/service-scheduling/time-logs";
 import { estimatedProfit } from "@/lib/order-profit";
 import { isMaintenancePackage, maintenanceCost, primaryOrderRevenue } from "@/lib/service-scheduling/service-costs";
 import { sameUnit } from "@/lib/product-values";
@@ -1086,8 +1087,8 @@ function OperationRow({
                 maximumFractionDigits: 3,
               })}
         </td>
-        <td aria-label={"Apontamento total da operação " + operationNumber(o.position)}>
-          {(data.events || []).filter((event: any) => String(event.operation_id) === String(o.id) && event.action === "work_log").reduce((total: number, event: any) => total + Number(event.hours || 0), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}
+        <td aria-label={"Apontamento total da operação " + operationNumber(o.position)} title="Tempo dos apontamentos finalizados de toda a equipe: atividade, deslocamento e pausas. Independente do envio do relatório.">
+          {completedOperationHours(o.id, data.fieldSessions || [], data.fieldEvents || [], data.events || []).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}
         </td>
         <td>
           <select

@@ -122,3 +122,11 @@ export function elapsedTime(seconds: number) {
     .map((v) => String(v).padStart(2, "0"))
     .join(":");
 }
+
+
+// Completed time is available independently of checklist submission or operation status.
+export function completedOperationHours(operationId: string, sessions: any[], events: any[], operationEvents: any[]) {
+  const belongs = (row: any) => String(row.operation_id) === String(operationId);
+  const {rows} = timeLogs(sessions.filter(belongs), events.filter(belongs), operationEvents.filter(belongs));
+  return rows.filter(row => row.state === "finished").reduce((total, row) => total + row.total, 0) / 3600;
+}
