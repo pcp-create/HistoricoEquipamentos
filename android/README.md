@@ -154,3 +154,9 @@ Corrige a política de imagens da WebView para autorizar o host exato https://ti
 
 - Solicitação do motivo e confirmação da devolução usam diálogos nativos Android com título Portal Técnico RJ, sem o cabeçalho de página de internet.
 - Texto: “Informe o motivo da devolução do checklist”.
+
+### Versão 2.2.5 — permissões e campos obrigatórios
+
+- Técnicos adicionais recebem as operações e podem registrar horas, mas não acessar o relatório nem finalizar a operação.
+- Validação dos campos obrigatórios antes do envio, inclusive offline. Um relatório incompleto não é marcado localmente como enviado.
+- Preserva os dados locais ao instalar como atualização com a mesma assinatura. Não desinstalar o aplicativo para atualizar.
