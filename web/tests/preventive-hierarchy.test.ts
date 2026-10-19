@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {predictPlans,preventiveCycle} from '../lib/equipment-management/preventive-hierarchy';
-import {emptyOperating, type Plan} from '../lib/equipment-management/planning';
+import {emptyOperating, cascadeIntervention, addMonths, type Plan} from '../lib/equipment-management/planning';
 const p=(hours:number,lastMeter=0):Plan & {id:string}=>({id:String(hours),name:`Preventiva ${hours}`,hours,months:null,lastDate:'2026-01-01',lastMeter,lastOrder:'1',notes:''});
 const operating={...emptyOperating,meterDate:'2026-01-01',hoursDay:8,daysYear:365};
 test('larger revisions cover smaller at 4000,8000,12000; gaps retain 2000',()=>{
@@ -26,9 +26,9 @@ test('4000-hour target skips the scheduled 8000-hour revision without rewriting 
  const plans=[{...p(8000,124910),months:5,lastDate:'2026-05-19'}, {...p(4000,128910),months:5,lastDate:'2026-05-19'}];
  const rows=predictPlans(plans,{...operating,meter:131944.5,meterDate:'2026-09-30'},'2026-09-30');
  assert.equal(rows[0].forecast.target,132910);
- assert.equal(rows[1].forecast.target,136910);
+ assert.equal(rows[1].forecast.target,136096.5);
  assert.equal(rows[1].lastMeter,128910);
- assert.equal(rows[1].forecast.monthDate,rows[0].forecast.monthDate);
+ assert.equal(rows[1].forecast.monthDate,addMonths(rows[0].forecast.due!,5));
  assert.ok(rows[1].forecast.hoursDate! > rows[0].forecast.hoursDate!);
 });
 test('skips consecutive larger scheduled revisions, but keeps unrelated and unknown targets',()=>{
@@ -60,4 +60,24 @@ test('earlier larger target resets projected smaller target without changing int
  assert.equal(rows[1].forecast.target,21059);
  assert.equal(rows[2].forecast.target,17059);
  assert.equal(rows[1].lastMeter,13515);
+});
+
+test('monthly overlap projects the next own revision then recalculates from actual intervention',()=>{
+ const large={...p(8000),lastDate:'2026-03-10',months:12};
+ const small={...p(4000),lastDate:'2026-09-10',months:6};
+ const settings={...emptyOperating,meter:null,meterDate:''};
+ const rows=predictPlans([large,small],settings,'2026-10-19');
+ assert.equal(rows[0].forecast.monthDate,'2027-03-10');
+ assert.equal(rows[1].forecast.monthDate,'2027-09-10');
+ assert.equal(rows[1].lastDate,'2026-09-10');
+ assert.equal(rows[1].lastMeter,0);
+ const actual={...large,lastDate:'2027-03-15',lastMeter:8234,lastOrder:'99'};
+ const cascaded=cascadeIntervention(small,actual)!;
+ const after=predictPlans([actual,cascaded],{...settings,meter:8234,meterDate:'2027-03-15'},'2027-03-15');
+ assert.equal(after[1].forecast.monthDate,'2027-09-15');
+ assert.equal(after[1].forecast.target,12234);
+});
+test('smaller revision due before larger remains independent',()=>{
+ const rows=predictPlans([{...p(8000),months:12},{...p(4000),months:6}],emptyOperating,'2026-02-01');
+ assert.equal(rows[1].forecast.monthDate,'2026-07-01');
 });

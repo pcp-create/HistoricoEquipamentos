@@ -91,6 +91,7 @@ function Forecast({ value }: { value: any }) {
       <small>
         {value.due ? date(value.due) : "Preencha os dados do plano"}
       </small>
+      {value.projectedAfter && <small>Próxima revisão própria após {value.projectedAfter.name}, prevista para {date(value.projectedAfter.date)}. Será recalculada na realização.</small>}
       {value.days != null && (
         <small>
           {value.days < 0

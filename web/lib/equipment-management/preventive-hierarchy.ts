@@ -48,6 +48,25 @@ export function predictPlans<T extends Plan & { id?: string }>(
       coveredBy: null as null | { id?: string; name: string },
     };
   });
+  // Project both deadlines after a future larger revision, preserving actual history.
+  for (const row of rows) {
+    if (!row.hours || !row.months || !row.forecast.due || row.forecast.due <= today || row.forecast.inconsistent) continue;
+    const milestones = plans.map((plan, index) => ({plan, forecast: forecasts[index]}))
+      .filter(({plan, forecast}) => plan.hours != null && plan.hours > row.hours!
+        && plan.hours % row.hours! === 0 && forecast.due && forecast.due > today
+        && !forecast.inconsistent)
+      .sort((a,b) => a.forecast.due!.localeCompare(b.forecast.due!) || b.plan.hours! - a.plan.hours!);
+    let lastMilestone = "";
+    for (const {plan, forecast} of milestones) {
+      const milestone = forecast.due!;
+      if (milestone <= lastMilestone || milestone > row.forecast.due!) continue;
+      const projectedMeter = forecast.hoursDate === milestone ? forecast.target
+        : estimateCurrentMeter({...operating, ...readings[0]}, milestone, usage);
+      row.forecast = predict({...row, lastDate: milestone, lastMeter: projectedMeter}, operating, today, usage);
+      Object.assign(row.forecast, {projectedAfter: {id: plan.id, name: plan.name, date: milestone}});
+      lastMilestone = milestone;
+    }
+  }
   for (const row of rows) row.forecast.estimatedMeter = estimatedMeter;
   const candidates = rows.filter(
     (p) =>
