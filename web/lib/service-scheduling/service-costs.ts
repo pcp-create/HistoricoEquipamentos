@@ -10,3 +10,10 @@ export function maintenanceCost(service: any, services: any[], labor: number | n
   const cents=Math.round(labor*100),share=Math.floor(cents/items.length);
   return (share+(index<cents%items.length?1:0))/100;
 }
+
+
+// Linked orders contribute costs, but their sales are not revenue of the main order.
+export function primaryOrderRevenue(items: any[]): number {
+  return items.filter(item => !item.source_linked)
+    .reduce((total, item) => total + Number(item.valor_total || 0), 0);
+}

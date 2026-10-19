@@ -50,7 +50,7 @@ import {
   validateSettings,
 } from "@/lib/service-scheduling/model";
 import { estimatedProfit } from "@/lib/order-profit";
-import { isMaintenancePackage, maintenanceCost } from "@/lib/service-scheduling/service-costs";
+import { isMaintenancePackage, maintenanceCost, primaryOrderRevenue } from "@/lib/service-scheduling/service-costs";
 import { sameUnit } from "@/lib/product-values";
 import { isNotApproved } from "@/lib/material-approval";
 import "./service-scheduling.css";
@@ -1242,10 +1242,7 @@ function ScheduleCosts({ data, materials, services, busy, mutate }: any) {
       else row.cost += Number(d.duration || 0) * Number(u.hourly_cost);
     }
   }
-  const serviceRevenue = services.reduce(
-    (sum: number, s: any) => sum + Number(s.valor_total || 0),
-    0,
-  );
+  const serviceRevenue = primaryOrderRevenue(services);
   const productCost = (m: any) =>
     m.current_average_cost != null &&
     Number.isFinite(Number(m.current_average_cost)) &&
@@ -1270,9 +1267,7 @@ function ScheduleCosts({ data, materials, services, busy, mutate }: any) {
   const servicesTotal = sumKnown(services.map(serviceCost));
   const additionalServicesTotal = sumKnown(services.filter((s: any) => !isMaintenancePackage(s)).map(serviceCost));
   const total = sumKnown([productsTotal, laborTotal, additionalServicesTotal]);
-  const revenue =
-    serviceRevenue +
-    materials.reduce((a: number, m: any) => a + Number(m.valor_total || 0), 0);
+  const revenue = serviceRevenue + primaryOrderRevenue(materials);
   return (
     <div className="schedule-costs">
       <div className="schedule-summary">
@@ -1293,7 +1288,8 @@ function ScheduleCosts({ data, materials, services, busy, mutate }: any) {
         ))}
       </div>
       <p>
-        Valores previstos. Totais dependem dos custos informados. A mão de obra
+        Valores previstos. A venda considera somente a OS principal; os custos incluem
+        os itens da OS principal e da OS vinculada. Totais dependem dos custos informados. A mão de obra
         atribuída ao serviço de manutenção PCT é contabilizada uma única vez no custo total.
       </p>
       <section>
@@ -1365,9 +1361,9 @@ function ScheduleCosts({ data, materials, services, busy, mutate }: any) {
                       {money(cost == null ? null : m.current_average_cost)}
                     </td>
                     <td>{money(cost)}</td>
-                    <td>{money(m.valor_total)}</td>
-                    <td>{margin(m.valor_total, cost)}</td>
-                    <td>{markup(m.valor_total, cost)}</td>
+                    <td>{m.source_linked ? <span title="Venda da OS vinculada não considerada no lucro">Não considerada</span> : money(m.valor_total)}</td>
+                    <td>{m.source_linked ? "—" : margin(m.valor_total, cost)}</td>
+                    <td>{m.source_linked ? "—" : markup(m.valor_total, cost)}</td>
                   </tr>
                 );
               })}
@@ -1416,7 +1412,7 @@ function ScheduleCosts({ data, materials, services, busy, mutate }: any) {
                 return (
                   <tr key={itemIdentity(s)} className={s.source_linked ? "schedule-linked-item" : undefined}>
                     <td>{s.servico_nome}</td>
-                    <td>{money(s.valor_total)}</td>
+                    <td>{s.source_linked ? <span title="Venda da OS vinculada não considerada no lucro">Não considerada</span> : money(s.valor_total)}</td>
                     <td>
                       {isMaintenancePackage(s) ? <span>{money(cost)}</span> : <input
                         key={c?.version || 0}
@@ -1435,8 +1431,8 @@ function ScheduleCosts({ data, materials, services, busy, mutate }: any) {
                         }}
                       />}
                     </td>
-                    <td>{margin(s.valor_total, cost)}</td>
-                    <td>{markup(s.valor_total, cost)}</td>
+                    <td>{s.source_linked ? "—" : margin(s.valor_total, cost)}</td>
+                    <td>{s.source_linked ? "—" : markup(s.valor_total, cost)}</td>
                     <td>
                       {isMaintenancePackage(s) ? <small>Mão de obra interna · automático{services.filter(isMaintenancePackage).length > 1 ? " (rateada entre os itens PCT)" : ""}</small> : <button
                         disabled={
