@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-test('date view is shared by list calendar and map and calendar navigation updates the scheduled month',async({page,context})=>{
+test('calendar always shows scheduled operations while list and map follow the selected date view',async({page,context})=>{
  await page.clock.setFixedTime(new Date('2026-10-19T12:00:00Z'));
  await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
  await page.route('**/api/activity',r=>r.fulfill({json:{admin:true}}));
@@ -11,6 +11,12 @@ test('date view is shared by list calendar and map and calendar navigation updat
  await page.route('**/api/service-scheduling/map**',r=>r.fulfill({json:{schedules:[],territories:[],sellers:[]}}));
  await page.goto('/programacao');const list=page.locator('.scheduling-orders-list');
  await expect(list).toContainText('Entrega anterior');await expect(list).not.toContainText('Entrega futura');
+ await page.getByRole('button',{name:'Calendário',exact:true}).click();
+ await expect(page.locator('.schedule-calendar-order')).toContainText(['OS 15002']);
+ await page.getByLabel('Mês da entrega prevista').selectOption('11');
+ await expect(page.locator('.schedule-calendar-order')).toContainText(['OS 15001']);
+ await page.getByLabel('Mês da entrega prevista').selectOption('10');
+ await page.getByRole('button',{name:'Lista',exact:true}).click();
  await page.getByLabel('Visão por data',{exact:true}).selectOption('operation');
  await expect(list).toContainText('Entrega futura');await expect(list).not.toContainText('Entrega anterior');
  await expect(page.getByLabel('Mês da operação programada')).toHaveValue('10');

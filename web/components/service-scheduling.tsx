@@ -154,10 +154,13 @@ export default function ServiceScheduling() {
     if (operation.responsibleEmail) executorOptions.set(operation.responsibleEmail, operation.responsible || operation.responsibleEmail);
     for (const email of operation.support || []) if (!executorOptions.has(email)) executorOptions.set(email, email);
   }
-  const filteredSchedules = (data?.schedules || []).filter((s: any) =>
+  const searchedSchedules = (data?.schedules || []).filter((s: any) =>
     displayedScheduleStatus(s) !== "cancelled" &&
     `${s.numero_sequencia || s.order_id} ${s.cliente_nome} ${s.equipamento} ${s.customer_city || ""}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase())
-  ).map((s:any) => filterScheduleDateView(s,dateView,deliveryMonth,executor)).filter(Boolean);
+  );
+  const filteredSchedules = searchedSchedules.map((s:any) => filterScheduleDateView(s,dateView,deliveryMonth,executor)).filter(Boolean);
+  // The calendar uses operation dates and its own navigation, never delivery projections.
+  const calendarSchedules = searchedSchedules.map((s:any) => filterScheduleDateView(s,"operation","",executor)).filter(Boolean);
   const stageSchedules = filteredSchedules.filter((s:any)=>!stageFilter || displayedScheduleStatus(s)===stageFilter);
   const sortedSchedules = listSort ? [...stageSchedules].sort((a, b) => {
     if (listSort.key === "value") {
@@ -434,7 +437,7 @@ export default function ServiceScheduling() {
               <button aria-pressed={overviewView === "map"} onClick={() => setOverviewView("map")}> <MapPin size={16} aria-hidden="true"/>Mapa</button>
             </nav>
             {overviewView === "map" && <ScheduleOrdersMap schedules={filteredSchedules}/>}
-            {overviewView === "calendar" && <ScheduleOrdersCalendar filterMonth={deliveryMonth} onMonthChange={dateView === "operation" && deliveryMonth ? month=>{setDeliveryMonth(month);setDeliveryYear(month.slice(0,4));} : undefined} schedules={filteredSchedules} users={data.users || []} vehicles={data.settings?.document?.vehicles || []}/>}
+            {overviewView === "calendar" && <ScheduleOrdersCalendar filterMonth={deliveryMonth} onMonthChange={dateView === "operation" && deliveryMonth ? month=>{setDeliveryMonth(month);setDeliveryYear(month.slice(0,4));} : undefined} schedules={calendarSchedules} users={data.users || []} vehicles={data.settings?.document?.vehicles || []}/>}
             {overviewView === "list" && stageFilter && <p className="schedule-stage-filter-label">Etapa: <strong>{scheduleStatusNames[stageFilter]}</strong> <button type="button" onClick={()=>setStageFilter("")}>Limpar etapa</button></p>}
             <div hidden={overviewView !== "list"} className="scheduling-table scheduling-orders-list">
               <table>
