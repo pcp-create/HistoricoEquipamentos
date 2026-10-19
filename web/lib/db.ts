@@ -1,4 +1,5 @@
 import "server-only";
+import { pooledDatabaseUrl } from "./database-connection";
 import { Pool } from "pg";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -14,7 +15,7 @@ export function database() {
       throw new Error("Configure TLS pelo certificado");
   }
   globalDb.historyPool = new Pool({
-    connectionString,
+    connectionString: pooledDatabaseUrl(connectionString),
     max: 3,
     idleTimeoutMillis: 10000,
     connectionTimeoutMillis: 10000,

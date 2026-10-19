@@ -24,6 +24,10 @@ function failure(e: unknown) {
           : e instanceof ScheduleConflict
             ? 409
             : 503;
+  if (status === 503) console.error("SERVICE_SCHEDULING_FAILED", {
+    code: e && typeof e === "object" && "code" in e ? String(e.code) : "unknown",
+    type: e instanceof Error ? e.name : "unknown",
+  });
   return json(
     {
       error:
