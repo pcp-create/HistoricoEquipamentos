@@ -101,9 +101,10 @@ function DailySchedule({orders,day,users,vehicles}:any) {
     </table></div>}
   </div>;
 }
-export default function ScheduleOrdersCalendar({ schedules, users=[], vehicles=[] }: {schedules: any[]; users?:any[]; vehicles?:any[]}) {
+export default function ScheduleOrdersCalendar({ schedules, users=[], vehicles=[], filterMonth="", onMonthChange }: {schedules: any[]; users?:any[]; vehicles?:any[]; filterMonth?:string; onMonthChange?:(month:string)=>void}) {
   const today = new Intl.DateTimeFormat("en-CA", {timeZone:"America/Sao_Paulo", year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
-  const [selected,setSelected]=useState(today);
+  const [selected,setSelected]=useState(filterMonth && filterMonth !== today.slice(0,7) ? filterMonth+"-01" : today);
+  useEffect(()=>{if(filterMonth)setSelected(day=>day.startsWith(filterMonth+"-") ? day : filterMonth+"-01");},[filterMonth]);
   const [view,setView]=useState<"month"|"week"|"day">("month");
   const [opened, setOpened] = useState<string | null>(null);
   const month=selected.slice(0,7);
@@ -118,10 +119,14 @@ export default function ScheduleOrdersCalendar({ schedules, users=[], vehicles=[
     const days = new Set<string>((s.calendar_operations?.length ? s.calendar_operations : [{date:""}]).flatMap((o:any) => o.dates || [o.date || ""]));
     for (const day of days) byDay.set(day,[...(byDay.get(day)||[]),s]);
   }
-  function move(delta:number) {
-    setSelected(view==="month" ? new Date(Date.UTC(year,number-1+delta,1)).toISOString().slice(0,10) : shiftDay(selected,delta*(view==="week"?7:1)));
+  function selectDay(day:string) {
+    setSelected(day);
+    if(day.slice(0,7)!==filterMonth)onMonthChange?.(day.slice(0,7));
   }
-  function openDay(day:string) {setSelected(day);setView("day");}
+  function move(delta:number) {
+    selectDay(view==="month" ? new Date(Date.UTC(year,number-1+delta,1)).toISOString().slice(0,10) : shiftDay(selected,delta*(view==="week"?7:1)));
+  }
+  function openDay(day:string) {selectDay(day);setView("day");}
   const heading=view==="month" ? new Date(Date.UTC(year,number-1,1)).toLocaleDateString("pt-BR",{month:"long",year:"numeric",timeZone:"UTC"})
     : view==="week" ? dateLabel(weekStart)+" a "+dateLabel(weekDays[6]) : "Programação de "+dateLabel(selected);
   return <section className="schedule-orders-calendar" aria-label="Calendário de OSs">
@@ -129,7 +134,7 @@ export default function ScheduleOrdersCalendar({ schedules, users=[], vehicles=[
     <header><button onClick={()=>move(-1)} aria-label={view==="month"?"Mês anterior":view==="week"?"Semana anterior":"Dia anterior"}>‹</button>
       <h2 aria-live="polite">{heading}</h2>
       <button onClick={()=>move(1)} aria-label={view==="month"?"Próximo mês":view==="week"?"Próxima semana":"Próximo dia"}>›</button>
-      <button onClick={()=>setSelected(today)}>Hoje</button>
+      <button onClick={()=>selectDay(today)}>Hoje</button>
     </header>
     {view==="month" && <div className="schedule-calendar-scroll"><div className="schedule-calendar-month">
       <strong className="schedule-calendar-weekday" title="Número ISO da semana (segunda a domingo)">Sem.</strong>
@@ -140,7 +145,7 @@ export default function ScheduleOrdersCalendar({ schedules, users=[], vehicles=[
           <button type="button" className="schedule-calendar-week-number"
             title={"Abrir semana de "+dateLabel(rowStart)+" a "+dateLabel(shiftDay(rowStart,6))}
             aria-label={"Ver semana de "+dateLabel(rowStart)+" a "+dateLabel(shiftDay(rowStart,6))}
-            onClick={()=>{setSelected(rowStart);setView("week");}}>
+            onClick={()=>{selectDay(rowStart < first ? first : rowStart);setView("week");}}>
             {weekNumber(shiftDay(rowStart,1))}
           </button>
           {Array.from({length:7},(_,column)=>{

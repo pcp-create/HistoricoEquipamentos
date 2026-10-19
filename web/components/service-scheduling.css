@@ -699,7 +699,7 @@
 .scheduling-page .schedule-undated-summary button {align-self:flex-start;padding:6px 10px;font-size:12px;background:white;color:#806000;border:1px solid #d9bd66;border-radius:6px}
 @media(max-width:600px){.schedule-overview-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule-overview-totals .schedule-undated-summary{grid-column:1/-1}}
 
-.schedule-overview-filters {grid-template-columns:2fr 1fr 1fr}
+.schedule-overview-filters {grid-template-columns:2fr 1fr 1fr 1.2fr}
 .schedule-completed-group td {background:#edf8f1}
 .scheduling-page .schedule-completed-group button {display:inline-flex;align-items:center;gap:8px;border:0;background:transparent;color:#197547;font-weight:600;padding:8px 0}
 .schedule-completed-group small {display:block;color:#627d98}

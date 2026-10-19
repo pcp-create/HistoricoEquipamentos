@@ -1,8 +1,9 @@
 "use client";
+import {filterScheduleDateView, operationDates, type ScheduleDateView} from "@/lib/service-scheduling/date-view";
 import {operationEquipmentLabel} from "@/lib/service-scheduling/equipment-label";
 import OperationEquipmentSelect from "./operation-equipment-select";
 import { scheduleValueSummary } from "@/lib/service-scheduling/value-summary";
-import { isCarriedDelivery, matchesDeliveryProjection } from "@/lib/service-scheduling/delivery-projection";
+import { isCarriedDelivery } from "@/lib/service-scheduling/delivery-projection";
 import { displayedScheduleStatus } from "@/lib/service-scheduling/display-status";
 import { includesLaborCost } from "@/lib/service-scheduling/labor-costs";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
@@ -135,6 +136,7 @@ export default function ServiceScheduling() {
   const dirtyOperations=useRef(new Set<string>());
   const [overviewView, setOverviewView] = useState("list");
   const [listSort, setListSort] = useState<{key: ScheduleSortKey; descending: boolean} | null>(null);
+  const [dateView, setDateView] = useState<ScheduleDateView>("delivery");
   const [deliveryMonth, setDeliveryMonth] = useState(() => {
     const parts = new Intl.DateTimeFormat("en", {year:"numeric",month:"2-digit",timeZone:"America/Sao_Paulo"}).formatToParts(new Date());
     return parts.find(part=>part.type==="year")!.value+"-"+parts.find(part=>part.type==="month")!.value;
@@ -144,7 +146,7 @@ export default function ServiceScheduling() {
   const [stageFilter, setStageFilter] = useState("");
   const [executor, setExecutor] = useState("");
   const deliveryMonths = [...new Set<string>((data?.schedules || [])
-    .map((s:any) => s.expected_delivery_date?.slice(0,7))
+    .flatMap((s:any) => dateView === "delivery" ? [s.expected_delivery_date?.slice(0,7)] : (s.calendar_operations || []).flatMap((o:any) => operationDates(o).map(date=>date.slice(0,7))))
     .filter((month:any) => typeof month === "string" && /^\d{4}-\d{2}$/.test(month)))].sort();
   const executorOptions = new Map<string, string>();
   for (const u of data?.users || []) executorOptions.set(u.email, u.display_name || u.email);
@@ -154,14 +156,8 @@ export default function ServiceScheduling() {
   }
   const filteredSchedules = (data?.schedules || []).filter((s: any) =>
     displayedScheduleStatus(s) !== "cancelled" &&
-    `${s.numero_sequencia || s.order_id} ${s.cliente_nome} ${s.equipamento} ${s.customer_city || ""}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()) &&
-    matchesDeliveryProjection(s, deliveryMonth)
-  ).map((s: any) => ({
-    ...s,
-    calendar_operations: executor ? (s.calendar_operations || []).filter((o: any) =>
-      o.responsibleEmail === executor || (o.support || []).includes(executor)
-    ) : s.calendar_operations,
-  })).filter((s: any) => !executor || s.calendar_operations.length > 0);
+    `${s.numero_sequencia || s.order_id} ${s.cliente_nome} ${s.equipamento} ${s.customer_city || ""}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase())
+  ).map((s:any) => filterScheduleDateView(s,dateView,deliveryMonth,executor)).filter(Boolean);
   const stageSchedules = filteredSchedules.filter((s:any)=>!stageFilter || displayedScheduleStatus(s)===stageFilter);
   const sortedSchedules = listSort ? [...stageSchedules].sort((a, b) => {
     if (listSort.key === "value") {
@@ -407,15 +403,22 @@ export default function ServiceScheduling() {
                 {[...executorOptions].sort((a,b) => a[1].localeCompare(b[1], "pt-BR")).map(([email,name]) => <option key={email} value={email}>{name}</option>)}
               </select>
             </label>
+            <label className="scheduling-search">
+              Visão por data
+              <select aria-label="Visão por data" value={dateView} onChange={e=>setDateView(e.target.value as ScheduleDateView)}>
+                <option value="delivery">Data prevista acumulada</option>
+                <option value="operation">Data operação programada</option>
+              </select>
+            </label>
             <div className="scheduling-search">
-              <span>Entrega prevista acumulada</span>
-              <div className="schedule-delivery-filter" role="group" aria-label="Filtro de entrega prevista">
+              <span>{dateView === "delivery" ? "Entrega prevista acumulada" : "Operação programada"}</span>
+              <div className="schedule-delivery-filter" role="group" aria-label={dateView === "delivery" ? "Filtro de entrega prevista" : "Filtro de operação programada"}>
                 <span className="schedule-delivery-icon" aria-hidden="true"><CalendarDays size={15}/></span>
-                <select aria-label="Mês da entrega prevista" value={deliveryMonth.slice(5)} onChange={e=>setDeliveryMonth(e.target.value ? deliveryYear+"-"+e.target.value : "")}>
+                <select aria-label={dateView === "delivery" ? "Mês da entrega prevista" : "Mês da operação programada"} value={deliveryMonth.slice(5)} onChange={e=>setDeliveryMonth(e.target.value ? deliveryYear+"-"+e.target.value : "")}>
                   <option value="">Todos os meses</option>
                   {["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"].map((month,index)=><option key={month} value={String(index+1).padStart(2,"0")}>{month}</option>)}
                 </select>
-                <select aria-label="Ano da entrega prevista" value={deliveryYear} onChange={e=>{setDeliveryYear(e.target.value);if(deliveryMonth)setDeliveryMonth(e.target.value+deliveryMonth.slice(4));}}>
+                <select aria-label={dateView === "delivery" ? "Ano da entrega prevista" : "Ano da operação programada"} value={deliveryYear} onChange={e=>{setDeliveryYear(e.target.value);if(deliveryMonth)setDeliveryMonth(e.target.value+deliveryMonth.slice(4));}}>
                   {[...new Set([...deliveryMonths.map(month=>month.slice(0,4)),deliveryYear,String(new Date().getFullYear())])].sort().map(year=><option key={year} value={year}>{year}</option>)}
                 </select>
               </div>
@@ -431,7 +434,7 @@ export default function ServiceScheduling() {
               <button aria-pressed={overviewView === "map"} onClick={() => setOverviewView("map")}> <MapPin size={16} aria-hidden="true"/>Mapa</button>
             </nav>
             {overviewView === "map" && <ScheduleOrdersMap schedules={filteredSchedules}/>}
-            {overviewView === "calendar" && <ScheduleOrdersCalendar schedules={filteredSchedules} users={data.users || []} vehicles={data.settings?.document?.vehicles || []}/>}
+            {overviewView === "calendar" && <ScheduleOrdersCalendar filterMonth={deliveryMonth} onMonthChange={dateView === "operation" && deliveryMonth ? month=>{setDeliveryMonth(month);setDeliveryYear(month.slice(0,4));} : undefined} schedules={filteredSchedules} users={data.users || []} vehicles={data.settings?.document?.vehicles || []}/>}
             {overviewView === "list" && stageFilter && <p className="schedule-stage-filter-label">Etapa: <strong>{scheduleStatusNames[stageFilter]}</strong> <button type="button" onClick={()=>setStageFilter("")}>Limpar etapa</button></p>}
             <div hidden={overviewView !== "list"} className="scheduling-table scheduling-orders-list">
               <table>
@@ -510,8 +513,8 @@ export default function ServiceScheduling() {
                         <td>{s.status_lancamento_nome || "—"}
                           {s.linked_status_lancamento_nome && <small className="schedule-client-location" title={"OS vinculada: " + (s.linked_order_number || s.linked_order_id)}>{s.linked_status_lancamento_nome}</small>}
                         </td>
-                        <td className={deliveryMonth && isCarriedDelivery(s, deliveryMonth) ? "schedule-delivery-carried" : undefined}
-                          title={deliveryMonth && isCarriedDelivery(s, deliveryMonth) ? "Entrega pendente de mês anterior, incluída na projeção acumulada" : undefined}>
+                        <td className={dateView === "delivery" && deliveryMonth && isCarriedDelivery(s, deliveryMonth) ? "schedule-delivery-carried" : undefined}
+                          title={dateView === "delivery" && deliveryMonth && isCarriedDelivery(s, deliveryMonth) ? "Entrega pendente de mês anterior, incluída na projeção acumulada" : undefined}>
                           {s.expected_delivery_date ? s.expected_delivery_date.split("-").reverse().join("/") : "Não informada"}
                         </td>
                         <td className="schedule-order-value">{money(s.order_value)}</td>
