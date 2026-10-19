@@ -57,7 +57,7 @@ export function validateAnswers(stage:ChecklistStage,raw:any,complete:boolean){
  const out:Record<string,any>={};
  for(const f of stage.fields){
   const v=raw[f.id];
-  if(v==null||v===''||(Array.isArray(v)&&!v.length)){if(complete&&f.required)throw Error(`Preencha: ${f.label}.`);continue;}
+  if(v==null||(typeof v==='string'&&!v.trim())||(Array.isArray(v)&&!v.length)){if(complete&&f.required)throw Error(`Preencha: ${f.label}.`);continue;}
   if(f.type==='number'||f.type==='meter') {if(typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)>1e9||(f.type==='meter'&&v<0))throw Error(`Número inválido: ${f.label}.`);}
   else if(f.type==='photo'||f.type==='signature'){if(!Array.isArray(v)||v.length>(f.type==='signature'?1:photoLimit(f))||v.some((id:any)=>typeof id!=='string'||!/^\d{1,18}$/.test(id))||new Set(v).size!==v.length)throw Error('Anexos inválidos.');}
   else {if(typeof v!=='string'||v.length>(f.type==='textarea'?30000:2000))throw Error(`Texto inválido: ${f.label}.`);

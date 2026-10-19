@@ -6,6 +6,20 @@ function projectField(home, detail, body) {
   if (op.document.responsible !== home.email &&
       (/^(report_|checklist_|finish_)/.test(action)))
     throw new Error("Somente o técnico responsável pode acessar o relatório ou finalizar a operação.");
+  if (action === "report_send") {
+    const run = op.document.checklistRun;
+    if (!run?.template) throw Error("Baixe o checklist antes de enviar o relatório.");
+    for (const stage of run.template.stages || []) {
+      const draft = (body.stages || []).find(item => item.stageId === stage.id);
+      const answers = draft?.answers || run.stages?.[stage.id]?.answers || {};
+      const fields = [...(stage.fields || []), ...(stage.groups || []).flatMap(group => group.fields || [])];
+      for (const field of fields) {
+        const value = answers[field.id];
+        if (field.required && (value == null || typeof value === "string" && !value.trim() || Array.isArray(value) && !value.length))
+          throw Error("Preencha: " + field.label + ".");
+      }
+    }
+  }
   let active = home.active,
     closed = null;
   const same = active?.operation_id === op.id;

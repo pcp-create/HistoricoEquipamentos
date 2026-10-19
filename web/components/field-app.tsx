@@ -415,6 +415,19 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     setMessage("");
     setBusy(true);
     try {
+      if (body.action === "report_send") {
+        const run = data?.operation.document.checklistRun;
+        const template = run?.template || data?.settings.document.checklists.find((item:any)=>item.id===data.operation.document.checklistId);
+        if (!template) throw Error("Carregue o checklist antes de enviar o relatório.");
+        for (const stage of stagesOf(template)) {
+          const answers = body.stages?.find((draft:any)=>draft.stageId===stage.id)?.answers || run?.stages?.[stage.id]?.answers || {};
+          for (const field of stage.fields) {
+            const value = answers[field.id];
+            if (field.required && (value == null || typeof value === "string" && !value.trim() || Array.isArray(value) && !value.length))
+              throw Error("Preencha: " + field.label + ".");
+          }
+        }
+      }
       const location = await position();
       const result=await api("/api/field", {
         ...body,
