@@ -14,11 +14,13 @@ export async function integrationItems(params:URLSearchParams) {
  if(!Number.isSafeInteger(page)||page<1||page>100000) throw new AdminInputError('Página inválida.');
  const query=(params.get('q') || '').trim();
  if(query.length>200) throw new AdminInputError('Use até 200 caracteres na pesquisa.');
+ const orderNumber=kind==='orders' ? (params.get('orderNumber') || '').trim() : '';
+ if(orderNumber && !/^[0-9]{1,18}$/.test(orderNumber)) throw new AdminInputError('Informe somente o número da OS, com até 18 dígitos.');
  const terms=query.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().split(/\s+/).filter(Boolean);
- const rows=(await database().query(`SELECT * FROM (${sources[kind as keyof typeof sources]}) items WHERE NOT EXISTS (
+ const rows=(await database().query(`SELECT * FROM (${sources[kind as keyof typeof sources]}) items WHERE ($3::text='' OR code::numeric=NULLIF($3,'')::numeric) AND NOT EXISTS (
  SELECT 1 FROM unnest($2::text[]) term
  WHERE strpos(translate(lower(concat_ws(' ',id,code,name,detail)),
  'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc'),term)=0
- ) ORDER BY updated_at DESC NULLS LAST,id::bigint DESC,company_id LIMIT 51 OFFSET $1`,[(page-1)*50,terms])).rows;
+ ) ORDER BY ${kind==='orders' ? 'code::bigint DESC,company_id,id::bigint DESC' : 'updated_at DESC NULLS LAST,id::bigint DESC,company_id'} LIMIT 51 OFFSET $1`,[(page-1)*50,terms,orderNumber])).rows;
  return {rows:rows.slice(0,50),hasNext:rows.length>50,page};
 }

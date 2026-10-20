@@ -4265,6 +4265,7 @@ body.admin-preview :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar,
 
 .integration-search { display:flex; align-items:flex-end; flex-wrap:wrap; gap:12px; margin:16px 0; }
 .integration-search label { display:grid; gap:8px; flex:1 1 320px; }
+.integration-search label.integration-order-number { flex:0 1 160px; }
 .integration-search input { width:100%; }
 
 .material-inline-details { padding: 16px; background: #f7faff; border: 1px solid #dce6f2; border-radius: 10px; white-space: normal; }
