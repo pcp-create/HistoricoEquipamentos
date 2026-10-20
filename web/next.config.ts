@@ -19,9 +19,10 @@ const config: NextConfig = {
   },
   async headers() {
     return [
+      { source: "/tools/:path*", headers: [{key:"X-Frame-Options",value:"SAMEORIGIN"},{key:"X-Content-Type-Options",value:"nosniff"},{key:"Referrer-Policy",value:"same-origin"}] },
       {source:"/field-offline/sw.js",headers:[{key:"Service-Worker-Allowed",value:"/"},{key:"Cache-Control",value:"no-cache"}]},
       {
-        source: "/:path*",
+        source: "/:path((?!tools/).*)",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },

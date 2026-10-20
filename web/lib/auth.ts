@@ -108,6 +108,15 @@ export function sameOrigin(request: Request) {
       request.headers.get("host") ||
       new URL(request.url).host;
     const source = new URL(origin);
+    // The Codespaces tunnel may replace both host headers with its local target.
+    // Trust only this workspace's HTTPS address, and only in development.
+    const codespace = process.env.CODESPACE_NAME;
+    const forwardingDomain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN || "app.github.dev";
+    if (
+      process.env.NODE_ENV === "development" &&
+      codespace &&
+      source.origin === `https://${codespace}-3000.${forwardingDomain}`
+    ) return true;
     return (
       source.host === expectedHost &&
       (source.protocol === "https:" ||

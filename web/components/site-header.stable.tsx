@@ -16,6 +16,8 @@ const moduleNames: Record<string, string> = {
   equipamentos: "Equipamentos",
 };
 const screens: Record<string, { label: string; modules: string[] }> = {
+  leakage: { label: "Gerar Relatório Caça Vazamento", modules: ["assistencia-tecnica"] },
+  vibration: { label: "Gerar Relatório Análise de Vibração", modules: ["assistencia-tecnica"] },
   scheduling: { label: "Programação de OSs", modules: ["assistencia-tecnica"] },
   tasks: { label: "Acompanhamento de tarefas", modules: ["tarefas"] },
   history: {
@@ -45,6 +47,8 @@ export default function SiteHeader({
   moduleId,
 }: {
   active:
+    | "leakage"
+    | "vibration"
     | "scheduling"
     | "tasks"
     | "home"

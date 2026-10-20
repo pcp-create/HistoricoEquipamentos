@@ -34,6 +34,8 @@ const modules = [
       ["Consulta de histórico / OS", "/historico"],
       ["Programação de OSs", "/programacao"],
       ["Portal do técnico", "/tecnico"],
+      ["Gerar Relatório Análise de Vibração", "/analise-vibracao"],
+      ["Gerar Relatório Caça Vazamento", "/caca-vazamento"],
       ["Catálogo do fabricante", "/fabricante"],
       ["Equipamentos e planos preventivos", "/equipamentos"],
     ],

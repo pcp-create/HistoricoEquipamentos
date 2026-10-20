@@ -1,0 +1,1976 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Relatório Caça Vazamento - RJ Compressores</title>
+    <style>
+      :root {
+        --azul-rj: #19549b;
+        --azul-escuro: #003b73;
+        --azul-claro: #eaf4ff;
+        --cinza-fundo: #f4f6f8;
+        --cinza-texto: #5f6673;
+        --borda: #dde4ee;
+        --verde: #128a4a;
+        --laranja: #d66b22;
+        --vermelho: #c93333;
+        --branco: #ffffff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: var(--cinza-fundo);
+        color: #1f2933;
+      }
+
+      .topbar {
+        background: linear-gradient(135deg, var(--azul-rj), var(--azul-escuro));
+        color: white;
+        padding: 18px 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        box-shadow: 0 3px 14px rgba(0, 0, 0, 0.18);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .brand img {
+        height: 54px;
+        max-width: 150px;
+        object-fit: contain;
+      }
+      .brand h1 {
+        font-size: 25px;
+        margin: 0;
+        font-weight: 700;
+      }
+      .brand small {
+        display: block;
+        font-weight: 400;
+        opacity: 0.9;
+        margin-top: 3px;
+      }
+
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .btn {
+        border: 0;
+        background: white;
+        color: var(--azul-rj);
+        font-weight: 700;
+        border-radius: 10px;
+        padding: 11px 16px;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      }
+
+      .btn.primary {
+        background: var(--azul-rj);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+      }
+      .btn.secondary {
+        background: var(--azul-claro);
+        color: var(--azul-escuro);
+        border: 1px solid #cfe2f7;
+        box-shadow: none;
+      }
+
+      .container {
+        max-width: 1180px;
+        margin: 24px auto;
+        padding: 0 18px;
+      }
+
+      .upload-panel,
+      .settings-panel {
+        background: white;
+        border: 1px solid var(--borda);
+        border-radius: 16px;
+        padding: 22px;
+        box-shadow: 0 5px 18px rgba(20, 50, 90, 0.08);
+        margin-bottom: 22px;
+      }
+
+      .upload-panel h2,
+      .settings-panel h2 {
+        margin: 0 0 8px;
+        color: var(--azul-escuro);
+        font-size: 22px;
+      }
+      .upload-panel p,
+      .settings-panel p {
+        margin: 0 0 18px;
+        color: var(--cinza-texto);
+        line-height: 1.45;
+      }
+
+      .inputs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .inputs-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+      }
+      .input-box {
+        border: 1px dashed #afc5e2;
+        border-radius: 14px;
+        padding: 16px;
+        background: #fafcff;
+      }
+      .input-box label,
+      .field-input label {
+        display: block;
+        font-weight: 700;
+        color: var(--azul-escuro);
+        margin-bottom: 8px;
+      }
+      .input-box input,
+      .field-input input,
+      .field-input textarea {
+        width: 100%;
+        border: 1px solid #d6dee9;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 14px;
+        background: white;
+      }
+      .field-input textarea {
+        min-height: 86px;
+        resize: vertical;
+        line-height: 1.35;
+      }
+      .helper {
+        font-size: 12px;
+        color: var(--cinza-texto);
+        margin-top: 8px;
+        line-height: 1.4;
+      }
+
+      .settings-panel {
+        display: none;
+      }
+      .settings-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .settings-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+
+      .report {
+        display: none;
+      }
+
+      .page {
+        background: white;
+        border: 1px solid var(--borda);
+        border-radius: 14px;
+        padding: 28px;
+        box-shadow: 0 5px 18px rgba(20, 50, 90, 0.08);
+        margin-bottom: 20px;
+      }
+
+      .cover-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        border-bottom: 4px solid var(--azul-rj);
+        padding-bottom: 18px;
+        margin-bottom: 22px;
+      }
+
+      .cover-header img {
+        height: 68px;
+        object-fit: contain;
+      }
+      .cover-title {
+        text-align: right;
+      }
+      .cover-title h2 {
+        margin: 0;
+        color: var(--azul-escuro);
+        font-size: 28px;
+      }
+      .cover-title p {
+        margin: 7px 0 0;
+        color: var(--cinza-texto);
+        font-size: 14px;
+      }
+
+      .section-title {
+        color: var(--azul-escuro);
+        border-left: 6px solid var(--azul-rj);
+        padding-left: 12px;
+        margin: 18px 0 14px;
+        font-size: 18px;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 16px;
+      }
+      .grid-info {
+        display: grid;
+        grid-template-columns: 1fr 1.35fr;
+        gap: 16px;
+      }
+      .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+      .info-card {
+        border: 1px solid var(--borda);
+        border-radius: 12px;
+        padding: 16px;
+        background: #fbfcfe;
+      }
+      .info-card h3 {
+        margin: 0 0 12px;
+        color: var(--azul-rj);
+        font-size: 16px;
+      }
+
+      .client-card {
+        display: grid;
+        grid-template-columns: 110px minmax(0, 1fr);
+        gap: 18px;
+        align-items: center;
+      }
+      .client-logo-box {
+        border: 1px solid var(--borda);
+        border-radius: 12px;
+        width: 110px;
+        height: 110px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: white;
+        color: #8a94a6;
+        text-align: center;
+        font-size: 12px;
+        padding: 10px;
+        overflow: hidden;
+      }
+      .client-logo-box img {
+        max-width: 100%;
+        max-height: 100px;
+        object-fit: contain;
+      }
+
+      .line {
+        display: grid;
+        grid-template-columns: 145px minmax(0, 1fr);
+        gap: 12px;
+        margin: 7px 0;
+        font-size: 14px;
+        align-items: start;
+      }
+      .client-card .line {
+        grid-template-columns: 92px minmax(0, 1fr);
+      }
+      .inspection-card .line {
+        grid-template-columns: 190px minmax(0, 1fr);
+      }
+      .meta-card .line {
+        grid-template-columns: 125px minmax(0, 1fr);
+      }
+      .line strong {
+        color: #25364a;
+      }
+      .line span {
+        color: #30363d;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      .metric {
+        background: var(--azul-claro);
+        border: 1px solid #cfe2f7;
+        border-radius: 14px;
+        min-height: 88px;
+        padding: 14px 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .metric .value {
+        font-size: 24px;
+        font-weight: 800;
+        color: var(--azul-rj);
+        display: block;
+      }
+      .metric .label {
+        font-size: 12px;
+        color: var(--cinza-texto);
+        margin-top: 4px;
+      }
+
+      .leak-pages {
+        display: grid;
+        gap: 20px;
+      }
+      .leak-page-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 12px;
+      }
+      .leak-page-title h3 {
+        margin: 0;
+        color: var(--azul-escuro);
+        font-size: 18px;
+        border-left: 6px solid var(--azul-rj);
+        padding-left: 12px;
+      }
+      .leak-page-title span {
+        color: var(--cinza-texto);
+        font-size: 12px;
+      }
+      .leak-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .leak-card {
+        background: white;
+        border: 1px solid var(--borda);
+        border-radius: 14px;
+        overflow: hidden;
+        page-break-inside: avoid;
+      }
+
+      .leak-head {
+        background: #f7fafe;
+        border-bottom: 1px solid var(--borda);
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .tag {
+        font-weight: 800;
+        color: var(--azul-escuro);
+        font-size: 17px;
+      }
+      .status {
+        font-size: 12px;
+        font-weight: 700;
+        background: #fff4e8;
+        color: #9a4a00;
+        border: 1px solid #ffd4a8;
+        padding: 6px 9px;
+        border-radius: 999px;
+      }
+
+      .leak-body {
+        display: grid;
+        grid-template-columns: 1.25fr 235px;
+        gap: 16px;
+        padding: 14px;
+      }
+
+      .leak-data {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px 16px;
+      }
+
+      .field {
+        font-size: 12.5px;
+        display: grid;
+        grid-template-columns: 124px 1fr;
+        gap: 8px;
+        border-bottom: 1px solid #eef2f6;
+        padding-bottom: 5px;
+      }
+      .field strong {
+        color: #334155;
+      }
+      .field span {
+        color: #111827;
+      }
+
+      .highlight {
+        font-weight: 800;
+        color: var(--azul-rj) !important;
+      }
+
+      .image-box {
+        min-height: 178px;
+        border: 1px solid var(--borda);
+        border-radius: 12px;
+        background: #f8fafc;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        color: #8a94a6;
+        text-align: center;
+        font-size: 13px;
+        padding: 8px;
+      }
+
+      .image-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        border-radius: 8px;
+      }
+
+      .comments {
+        grid-column: 1/-1;
+        margin-top: 6px;
+        border-top: 1px solid #eef2f6;
+        padding-top: 8px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        font-size: 12.5px;
+        color: #475569;
+      }
+
+      .footer-note {
+        margin-top: 18px;
+        text-align: center;
+        color: #7b8494;
+        font-size: 12px;
+      }
+
+      .chart-card {
+        border: 1px solid var(--borda);
+        border-radius: 14px;
+        background: #fbfcfe;
+        padding: 16px;
+        margin-top: 14px;
+        page-break-inside: avoid;
+      }
+
+      .chart-card h4 {
+        margin: 0 0 6px;
+        color: var(--azul-escuro);
+        font-size: 16px;
+      }
+
+      .chart-card p {
+        margin: 0 0 12px;
+        color: var(--cinza-texto);
+        font-size: 12px;
+      }
+
+      .chart-row {
+        display: grid;
+        grid-template-columns: 82px 1fr 104px;
+        align-items: center;
+        gap: 10px;
+        margin: 8px 0;
+        font-size: 12px;
+      }
+
+      .chart-label {
+        font-weight: 700;
+        color: #334155;
+      }
+      .chart-track {
+        height: 16px;
+        background: #e8eef6;
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .chart-bar {
+        height: 100%;
+        background: linear-gradient(90deg, var(--azul-rj), var(--azul-escuro));
+        border-radius: 999px;
+      }
+      .chart-value {
+        text-align: right;
+        color: #111827;
+        font-weight: 700;
+      }
+      .chart-empty {
+        color: #7b8494;
+        font-size: 13px;
+        padding: 10px 0;
+      }
+
+      @media (max-width: 900px) {
+        .topbar {
+          padding: 14px 16px;
+          align-items: flex-start;
+        }
+        .brand h1 {
+          font-size: 18px;
+        }
+        .brand img {
+          height: 42px;
+        }
+        .inputs,
+        .inputs-3,
+        .grid-2,
+        .grid-3,
+        .grid-info,
+        .meta-grid,
+        .metrics,
+        .settings-grid {
+          grid-template-columns: 1fr;
+        }
+        .cover-header {
+          align-items: flex-start;
+        }
+        .cover-title {
+          text-align: left;
+        }
+        .client-card {
+          grid-template-columns: 1fr;
+        }
+        .leak-body {
+          grid-template-columns: 1fr;
+        }
+        .leak-data {
+          grid-template-columns: 1fr;
+        }
+        .comments {
+          grid-template-columns: 1fr;
+        }
+        .field {
+          grid-template-columns: 115px 1fr;
+        }
+      }
+
+      @media print {
+        @page {
+          size: A4 landscape;
+          margin: 9mm;
+        }
+        body {
+          background: white;
+        }
+        .topbar,
+        .upload-panel,
+        .settings-panel,
+        .actions {
+          display: none !important;
+        }
+        .container {
+          max-width: none;
+          margin: 0;
+          padding: 0;
+        }
+        .page {
+          box-shadow: none;
+          border: 0;
+          border-radius: 0;
+          margin: 0;
+          padding: 0;
+          page-break-after: always;
+        }
+        .leak-card {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        .cover-header {
+          margin-bottom: 16px;
+          padding-bottom: 14px;
+        }
+        .grid-2 {
+          gap: 14px;
+        }
+        .info-card {
+          padding: 14px;
+        }
+        .metrics {
+          gap: 10px;
+        }
+        .metric {
+          min-height: 78px;
+          padding: 10px;
+        }
+        .metric .value {
+          font-size: 22px;
+        }
+        .leak-list {
+          display: grid;
+          grid-template-rows: 1fr 1fr;
+          gap: 6mm;
+          height: 168mm;
+        }
+        .leak-card {
+          min-height: 0;
+          max-height: 81mm;
+          overflow: hidden;
+        }
+        .leak-pages {
+          display: block;
+        }
+        .report {
+          display: block !important;
+        }
+        .leak-body {
+          grid-template-columns: 1.4fr 190px;
+          padding: 8px;
+          gap: 10px;
+        }
+        .leak-data {
+          grid-template-columns: 1fr 1fr;
+        }
+        .field {
+          font-size: 9.3px;
+          grid-template-columns: 96px 1fr;
+          padding-bottom: 2px;
+          gap: 5px;
+        }
+        .tag {
+          font-size: 13px;
+        }
+        .status {
+          font-size: 10px;
+          padding: 4px 7px;
+        }
+        .leak-head {
+          padding: 6px 10px;
+        }
+        .comments {
+          font-size: 9.5px;
+          padding-top: 4px;
+          gap: 8px;
+        }
+        .image-box {
+          min-height: 118px;
+        }
+        .leak-card {
+          margin-bottom: 0;
+        }
+        .metrics {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+        .grid-2 {
+          grid-template-columns: 1fr 1fr;
+        }
+        .grid-info {
+          grid-template-columns: 1fr 1.35fr;
+        }
+        .meta-grid {
+          grid-template-columns: repeat(3, 1fr);
+        }
+        .grid-3 {
+          grid-template-columns: 1fr 1fr 1fr;
+        }
+        .client-card {
+          grid-template-columns: 115px 1fr;
+        }
+
+        /* Primeira página: distribuição equilibrada em A4 paisagem */
+        .summary-page {
+          page-break-after: always;
+          break-after: page;
+          height: auto;
+          min-height: 0;
+          overflow: visible;
+        }
+
+        .summary-page .cover-header {
+          margin-bottom: 12px;
+          padding-bottom: 10px;
+        }
+
+        .summary-page .cover-header img {
+          height: 58px;
+        }
+        .summary-page .cover-title h2 {
+          font-size: 24px;
+        }
+        .summary-page .cover-title p {
+          font-size: 11px;
+          margin-top: 4px;
+        }
+
+        /* Linha superior: cliente menor e inspeção maior */
+        .summary-page .grid-info {
+          grid-template-columns: 44% 56%;
+          gap: 14px;
+          align-items: stretch;
+        }
+
+        .summary-page .info-card {
+          padding: 14px 16px;
+          min-height: 132px;
+        }
+
+        .summary-page .info-card h3 {
+          font-size: 14px;
+          margin-bottom: 9px;
+        }
+
+        .summary-page .client-card {
+          grid-template-columns: 96px minmax(0, 1fr);
+          gap: 16px;
+          align-items: center;
+        }
+
+        .summary-page .client-logo-box {
+          width: 96px;
+          height: 96px;
+          border-radius: 10px;
+        }
+
+        .summary-page .client-logo-box img {
+          max-height: 84px;
+        }
+
+        .summary-page .line {
+          margin: 4px 0;
+          gap: 8px;
+          font-size: 11px;
+          line-height: 1.25;
+        }
+
+        .summary-page .client-card .line {
+          grid-template-columns: 82px minmax(0, 1fr);
+        }
+
+        .summary-page .inspection-card .line {
+          grid-template-columns: 165px minmax(0, 1fr);
+        }
+
+        /* Títulos das seções */
+        .summary-page .section-title {
+          font-size: 15px;
+          margin: 12px 0 8px;
+          padding-left: 9px;
+          border-left-width: 4px;
+        }
+
+        /* Informações do relatório: três cards iguais */
+        .summary-page .meta-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 14px;
+        }
+
+        .summary-page .meta-card {
+          min-height: 58px;
+          padding: 11px 14px;
+        }
+
+        .summary-page .meta-card h3 {
+          margin-bottom: 6px;
+        }
+
+        .summary-page .meta-card .line {
+          grid-template-columns: 84px minmax(0, 1fr);
+          margin: 2px 0;
+        }
+
+        /* Resultados com altura média e padronizada */
+        .summary-page .metrics {
+          gap: 14px;
+          margin-top: 0;
+        }
+
+        .summary-page .metric {
+          min-height: 66px;
+          padding: 10px 12px;
+          border-radius: 10px;
+        }
+
+        .summary-page .metric .value {
+          font-size: 21px;
+          line-height: 1.1;
+        }
+
+        .summary-page .metric .label {
+          font-size: 10px;
+          margin-top: 4px;
+        }
+
+        /* Gráfico aproveita a largura, mas com mais respiro */
+        .summary-page .chart-card {
+          margin-top: 0;
+          padding: 13px 16px;
+          border-radius: 10px;
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+
+        .summary-page .chart-card h4 {
+          font-size: 13px;
+          margin-bottom: 4px;
+        }
+
+        .summary-page .chart-card p {
+          font-size: 9.5px;
+          margin-bottom: 8px;
+        }
+
+        .summary-page .chart-row {
+          grid-template-columns: 72px 1fr 100px;
+          gap: 10px;
+          margin: 5px 0;
+          font-size: 9.5px;
+        }
+
+        .summary-page .chart-track {
+          height: 11px;
+        }
+
+        .summary-page .chart-value {
+          font-size: 9.5px;
+        }
+      }
+
+      /* Cards de fuga: menos espaços vazios e foto maior */
+      .leak-body {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 300px !important;
+        gap: 18px !important;
+        align-items: stretch !important;
+      }
+      .leak-col {
+        min-width: 0;
+      }
+      .image-box {
+        width: 300px !important;
+        min-width: 300px !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        padding: 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+      .image-box img {
+        width: 100% !important;
+        height: 100% !important;
+        max-height: none !important;
+        object-fit: contain !important;
+        object-position: center center !important;
+      }
+      @media print {
+        .leak-body {
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 250px !important;
+          gap: 12px !important;
+        }
+        .image-box {
+          width: 250px !important;
+          min-width: 250px !important;
+          height: 100% !important;
+          min-height: 0 !important;
+          padding: 6px !important;
+        }
+      }
+
+      /* Ajuste final dos pontos: devolve espaço às informações e amplia a foto na altura */
+      .leak-body {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 360px !important;
+        gap: 28px !important;
+        align-items: stretch !important;
+      }
+
+      .leak-col {
+        min-width: 0;
+      }
+
+      .image-box {
+        width: 360px !important;
+        min-width: 360px !important;
+        height: 100% !important;
+        min-height: 390px !important;
+        padding: 8px !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        align-self: stretch !important;
+      }
+
+      .image-box img {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
+        object-fit: contain !important;
+        object-position: center center !important;
+        display: block !important;
+      }
+
+      @media print {
+        .leak-body {
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 310px !important;
+          gap: 20px !important;
+          align-items: stretch !important;
+        }
+
+        .image-box {
+          width: 310px !important;
+          min-width: 310px !important;
+          min-height: 300px !important;
+          height: 100% !important;
+          padding: 6px !important;
+        }
+
+        .image-box img {
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: contain !important;
+        }
+      }
+
+      /* Correção final: dados à esquerda + foto grande à direita */
+      .leak-body {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) 430px !important;
+        gap: 24px !important;
+        padding: 16px !important;
+        align-items: stretch !important;
+      }
+
+      .leak-data {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 8px 18px !important;
+        min-width: 0 !important;
+      }
+
+      .field {
+        grid-template-columns: 130px minmax(0, 1fr) !important;
+        gap: 10px !important;
+        font-size: 12.5px !important;
+        line-height: 1.25 !important;
+      }
+
+      .image-box {
+        width: auto !important;
+        min-width: 0 !important;
+        height: auto !important;
+        min-height: 360px !important;
+        padding: 8px !important;
+        margin: 0 !important;
+        align-self: stretch !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: #f8fafc !important;
+      }
+
+      .image-box img {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
+        object-fit: contain !important;
+        object-position: center center !important;
+        display: block !important;
+      }
+
+      @media print {
+        .leak-body {
+          grid-template-columns: minmax(0, 1fr) 300px !important;
+          gap: 14px !important;
+          padding: 10px 12px !important;
+        }
+
+        .leak-data {
+          grid-template-columns: 1fr 1fr !important;
+          gap: 6px 12px !important;
+        }
+
+        .field {
+          grid-template-columns: 112px minmax(0, 1fr) !important;
+          font-size: 10.2px !important;
+          gap: 6px !important;
+        }
+
+        .image-box {
+          width: auto !important;
+          min-width: 0 !important;
+          min-height: 245px !important;
+          height: auto !important;
+          padding: 5px !important;
+        }
+
+        .image-box img {
+          object-fit: contain !important;
+        }
+      }
+
+      /* Padrão visual dos geradores da Assistência Técnica. */
+      :root {
+        --azul-rj: #246194;
+        --azul-escuro: #294b68;
+        --azul-claro: #edf4fa;
+        --cinza-fundo: #f4f6fa;
+        --borda: #d7e3f0;
+      }
+      body {
+        font-family: "Segoe UI", Arial, sans-serif;
+        color: #294b68;
+      }
+      .topbar {
+        background: transparent;
+        padding: 8px 24px;
+        max-width: 1480px;
+        margin: auto;
+        box-shadow: none;
+        justify-content: flex-end;
+      }
+      .topbar .brand {
+        display: none;
+      }
+      .container {
+        max-width: 1480px;
+        margin: 12px auto;
+        padding: 0 24px 32px;
+      }
+      .upload-panel,
+      .settings-panel {
+        border-radius: 14px;
+        box-shadow: none;
+        padding: 24px;
+      }
+      .btn {
+        box-shadow: none;
+        border: 1px solid #c8daf0;
+        border-radius: 9px;
+        font-size: 13px;
+        font-weight: 600;
+        min-height: 40px;
+      }
+      .btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .btn.primary,
+      #btnPrint {
+        background: #246194;
+        color: white;
+      }
+      .btn:hover:not(:disabled) {
+        filter: brightness(0.96);
+      }
+      input,
+      textarea,
+      select {
+        font: inherit;
+        color: #294b68;
+        border-radius: 8px !important;
+        border-color: #d7e3f0 !important;
+        max-width: 100%;
+      }
+      input:focus,
+      textarea:focus,
+      button:focus-visible {
+        outline: 2px solid #70a5d1;
+        outline-offset: 2px;
+      }
+      input[type="file"]::file-selector-button {
+        background: #246194;
+        color: white;
+        border: 0;
+        border-radius: 7px;
+        padding: 10px 14px;
+        margin-right: 10px;
+        cursor: pointer;
+      }
+      .upload-panel h2,
+      .settings-panel h2 {
+        font-size: 19px;
+      }
+      .page {
+        border: 1px solid #d7e3f0;
+        box-shadow: none;
+        border-radius: 14px;
+      }
+      .cover-header img {
+        object-fit: contain;
+        width: 130px;
+        height: auto;
+      }
+      .cover-title h2 {
+        color: #294b68;
+      }
+      .metric {
+        border-radius: 10px;
+      }
+      .leak-card {
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .leak-head {
+        background: #edf4fa;
+        color: #294b68;
+      }
+      .footer-note {
+        border-top: 1px solid #d7e3f0;
+        padding-top: 12px;
+      }
+      .inputs > *,
+      .inputs-3 > *,
+      .settings-grid > *,
+      .grid-info > *,
+      .grid-2 > *,
+      .meta-grid > * {
+        min-width: 0;
+      }
+      .field span,
+      .line span {
+        overflow-wrap: anywhere;
+      }
+      .import-feedback {
+        font-size: 13px;
+        margin-top: 16px;
+        color: #617e99;
+      }
+      .import-feedback.error {
+        color: #b63131;
+      }
+      @media screen and (max-width: 760px) {
+        .container {
+          padding: 0 8px 24px;
+        }
+        .topbar {
+          padding: 8px;
+          justify-content: stretch;
+        }
+        .actions {
+          width: 100%;
+        }
+        .actions .btn {
+          flex: 1;
+        }
+        .upload-panel,
+        .settings-panel,
+        .page {
+          padding: 16px !important;
+        }
+        .inputs,
+        .inputs-3,
+        .settings-grid,
+        .grid-info,
+        .grid-2,
+        .grid-3,
+        .meta-grid,
+        .client-card {
+          grid-template-columns: minmax(0, 1fr) !important;
+        }
+        .metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+        .leak-body {
+          grid-template-columns: minmax(0, 1fr) !important;
+          gap: 16px !important;
+        }
+        .leak-data {
+          grid-template-columns: minmax(0, 1fr) !important;
+        }
+        .image-box {
+          width: 100% !important;
+          min-width: 0 !important;
+          height: 240px !important;
+        }
+        .cover-header {
+          flex-wrap: wrap;
+        }
+        .cover-title h2 {
+          font-size: 22px;
+        }
+        .line,
+        .field {
+          grid-template-columns: minmax(0, 1fr) !important;
+        }
+        .chart-row {
+          grid-template-columns: 55px minmax(0, 1fr) 90px;
+        }
+        .leak-head {
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+      }
+      @media print {
+        .topbar,
+        .import-feedback {
+          display: none !important;
+        }
+        .page {
+          border: 0;
+          border-radius: 0;
+          box-shadow: none;
+        }
+        .cover-header {
+          border-bottom: 3px solid #246194;
+        }
+        .leak-head,
+        .metric,
+        .chart-bar {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .summary-page .grid-info {
+          grid-template-columns: minmax(0, 44fr) minmax(0, 56fr);
+        }
+        .footer-note {
+          font-size: 10px;
+        }
+      }
+    /* A marca original é branca e precisa de contraste também no PDF. */
+.cover-header img { background: #246194; padding: 12px; border-radius: 10px; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+/* Cabeçalho técnico comum aos relatórios RJ. */
+.reportTitle,.cover-header{display:flex;align-items:center;flex-wrap:nowrap;gap:22px;background:#0c3d5d;color:#fff;border:0!important;padding:20px!important;margin-bottom:20px;break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.reportTitle img,.cover-header img,.summary-page .cover-header img{width:136px;height:90px;flex:0 0 136px;background:transparent;padding:0 20px 0 0;border-radius:0;border-right:1px solid #9cb7ca;object-fit:contain}
+.reportTitle>div:first-of-type,.cover-title{flex:1;min-width:0}
+.reportTitle h1,.reportTitle h2,.cover-title h2,.summary-page .cover-title h2{color:#fff;margin:0 0 7px;overflow-wrap:anywhere}
+.reportTitle h1,.cover-title h2{font-size:24px}.reportTitle h2{font-size:15px;font-weight:500}
+.reportTitle .muted,.cover-title p{color:#d6e6f3;font-size:12px;margin:0}
+.report-os{flex:0 0 160px;border-left:1px solid #9cb7ca;padding-left:22px;min-width:0}.report-os span{display:block;font-size:12px;margin-bottom:8px}.report-os strong{display:block;font-size:25px;line-height:1.2;overflow-wrap:anywhere}.report-os[hidden]{display:none}
+@media screen and (max-width:600px){.reportTitle,.cover-header{flex-wrap:wrap;gap:14px;padding:16px!important}.reportTitle img,.cover-header img{width:95px;flex-basis:95px;height:70px;padding-right:12px}.reportTitle h1,.cover-title h2{font-size:19px}.report-os{flex-basis:100%;border-left:0;border-top:1px solid #9cb7ca;padding:12px 0 0}.report-os strong{font-size:22px}}
+@media print{.reportTitle,.cover-header{flex-wrap:nowrap!important}.report-os{flex-basis:125px;padding-left:16px}.report-os strong{font-size:22px}.reportTitle img,.cover-header img,.summary-page .cover-header img{width:110px;flex-basis:110px;height:75px}}
+
+/* Remove o recuo externo da capa sem retirar o respiro do conteúdo. */
+.summary-page{padding:0!important;overflow:visible}
+.summary-page>.cover-header{margin:0 0 18px!important;width:100%;border-radius:0}
+.summary-page> :not(.cover-header){margin-left:16px!important;margin-right:16px!important}
+@media print{@page{size:A4 landscape;margin:9mm 0}@page :first{margin-top:0}.summary-page{padding-top:0!important}.summary-page>.cover-header{margin-top:0!important}}
+@media print{
+.page:not(.summary-page){padding-left:9mm!important;padding-right:9mm!important}
+.summary-page > :not(.cover-header){margin-left:9mm!important;margin-right:9mm!important}
+.summary-page > .cover-header{width:100%!important;margin-left:0!important;margin-right:0!important}
+}
+</style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img src="/logo-rj.png" alt="RJ Compressores" />
+        <div>
+          <h1>Relatório Caça Vazamento</h1>
+          <small>Visualizador XML no padrão RJ Compressores</small>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="btnToggleSettings">Ajustes do relatório</button>
+        <button class="btn" id="btnPrint" disabled>Imprimir / PDF</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="upload-panel">
+        <h2>Importar XML do equipamento</h2>
+        <p>
+          Selecione o arquivo XML do LeakReporter. Opcionalmente, selecione
+          também as imagens JPG exportadas junto com o XML e a logo do cliente.
+        </p>
+        <div class="inputs">
+          <div class="input-box">
+            <label for="xmlInput">Arquivo XML</label>
+            <input type="file" id="xmlInput" accept=".xml,text/xml" />
+            <div class="helper">Exemplo: Jnl_260706093836_260707103744.xml</div>
+          </div>
+          <div class="input-box">
+            <label for="imgInput">Imagens dos pontos</label>
+            <input type="file" id="imgInput" accept="image/*" multiple />
+            <div class="helper">
+              Selecione os arquivos BM_00000.jpg, BM_00001.jpg etc. para exibir
+              as fotos nos cards.
+            </div>
+          </div>
+        </div>
+        <div id="importFeedback" class="import-feedback" role="status">
+          Importe um XML para visualizar e gerar o relatório.
+        </div>
+      </section>
+
+      <section class="settings-panel" id="settingsPanel">
+        <h2>Ajustes e correções do relatório</h2>
+        <p>
+          Use estes campos para corrigir informações do XML antes de imprimir ou
+          gerar o PDF. Os campos em branco mantêm o valor original do XML.
+        </p>
+
+        <div class="inputs-3"><div class="field-input"><label for="serviceOrderInput">Nº da OS (opcional)</label><input id="serviceOrderInput" maxlength="40" placeholder="Ex.: 14948 ou 14948/01" /></div>
+          <div class="field-input">
+            <label for="inspetorInput">Nome do Inspetor</label>
+            <input
+              type="text"
+              id="inspetorInput"
+              placeholder="Ex.: Iago Rian"
+            />
+          </div>
+          <div class="field-input">
+            <label for="clienteLogoInput">Logo do Cliente</label>
+            <input type="file" id="clienteLogoInput" accept="image/*" />
+          </div>
+          <div class="field-input">
+            <label for="statusInput">Status dos pontos</label>
+            <input type="text" id="statusInput" value="Em progresso" />
+          </div>
+        </div>
+
+        <h3 class="section-title">Dados do Cliente</h3>
+        <div class="inputs-3">
+          <div class="field-input">
+            <label for="empresaInput">Empresa</label>
+            <input
+              type="text"
+              id="empresaInput"
+              placeholder="Ex.: Berneck S.A. Painéis e Serrados"
+            />
+          </div>
+          <div class="field-input">
+            <label for="localizacaoInput">Localização</label>
+            <input
+              type="text"
+              id="localizacaoInput"
+              placeholder="Ex.: SERRARIA"
+            />
+          </div>
+          <div class="field-input">
+            <label for="areaInput">Área</label>
+            <input type="text" id="areaInput" placeholder="Ex.: GERAL" />
+          </div>
+        </div>
+
+        <h3 class="section-title">Correções de texto</h3>
+        <div class="settings-grid">
+          <div class="field-input">
+            <label for="falhouMapInput">Correções do campo “Falhou”</label>
+            <textarea
+              id="falhouMapInput"
+              placeholder="Digite uma correção por linha. Ex.:&#10;uniao = União&#10;conexao galv = Conexão Galvanizada"
+            ></textarea>
+            <div class="helper">Formato: texto original = texto corrigido.</div>
+          </div>
+          <div class="field-input">
+            <label for="medidaMapInput">Correções do campo “Medida”</label>
+            <textarea
+              id="medidaMapInput"
+              placeholder="Ex.:&#10;vedacao = Vedação&#10;Substituir componente = Substituir componente"
+            ></textarea>
+            <div class="helper">Formato: texto original = texto corrigido.</div>
+          </div>
+        </div>
+
+        <div class="settings-grid" style="margin-top: 16px">
+          <div class="field-input">
+            <label for="edificioLocalInput"
+              >Edifício / Local padrão dos pontos</label
+            >
+            <input
+              type="text"
+              id="edificioLocalInput"
+              placeholder="Ex.: SERRARIA GERAL"
+            />
+            <div class="helper">
+              Se preenchido, substitui o “Edifício / Local” mostrado em todos os
+              pontos.
+            </div>
+          </div>
+          <div class="field-input">
+            <label for="responsavelInput">Responsável pelo relatório</label>
+            <input type="text" id="responsavelInput" value="RJ Compressores" />
+          </div>
+        </div>
+
+        <div class="settings-actions">
+          <button class="btn primary" id="btnApplySettings">
+            Aplicar ajustes
+          </button>
+          <button class="btn secondary" id="btnClearSettings">
+            Limpar ajustes
+          </button>
+        </div>
+      </section>
+
+      <section class="report" id="report">
+        <div class="page summary-page">
+          <div class="cover-header">
+            <img src="/logo-rj.png" alt="RJ Compressores" />
+            <div class="cover-title">
+              <h2>Relatório Caça Vazamento</h2>
+              <p id="periodo">Período: -</p>
+            </div><div id="reportOs" class="report-os" hidden><span>OS Nº</span><strong id="reportOsValue"></strong></div>
+          </div>
+
+          <div class="grid-info">
+            <div class="info-card client-card">
+              <div class="client-logo-box" id="clienteLogoBox">
+                Logo<br />Cliente
+              </div>
+              <div>
+                <h3>Detalhes do Cliente</h3>
+                <div class="line">
+                  <strong>Empresa:</strong><span id="empresa">-</span>
+                </div>
+                <div class="line">
+                  <strong>Localização:</strong><span id="localizacao">-</span>
+                </div>
+                <div class="line">
+                  <strong>Área:</strong><span id="area">-</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="info-card inspection-card">
+              <h3>Dados da Inspeção</h3>
+              <div class="line">
+                <strong>Quantidade CO₂:</strong
+                ><span id="quantidadeCo2">-</span>
+              </div>
+              <div class="line">
+                <strong>Base de cálculo dos custos:</strong
+                ><span id="baseCalculoCustos">-</span>
+              </div>
+              <div class="line">
+                <strong>Potência específica:</strong
+                ><span id="potenciaEspecifica">-</span>
+              </div>
+              <div class="line">
+                <strong>Custo de ar comprimido:</strong
+                ><span id="custoAr">-</span>
+              </div>
+              <div class="line">
+                <strong>Preço da eletricidade:</strong
+                ><span id="energiaEletrica">-</span>
+              </div>
+              <div class="line">
+                <strong>Horas de trabalho anuais:</strong
+                ><span id="horasAno">-</span>
+              </div>
+            </div>
+          </div>
+
+          <h3 class="section-title">Informações do Relatório</h3>
+          <div class="meta-grid">
+            <div class="info-card meta-card">
+              <h3>Equipamento</h3>
+              <div class="line">
+                <strong>Utilizado:</strong><span id="equipamento">-</span>
+              </div>
+            </div>
+            <div class="info-card meta-card">
+              <h3>Inspetor</h3>
+              <div class="line">
+                <strong>Nome:</strong><span id="inspetor">-</span>
+              </div>
+            </div>
+            <div class="info-card meta-card">
+              <h3>Responsável</h3>
+              <div class="line">
+                <strong>Empresa:</strong
+                ><span id="responsavelRelatorio">RJ Compressores</span>
+              </div>
+            </div>
+          </div>
+
+          <h3 class="section-title">Resultados Gerais</h3>
+          <div class="metrics">
+            <div class="metric">
+              <span class="value" id="qtdFugas">0</span
+              ><span class="label">Nº de Fugas</span>
+            </div>
+            <div class="metric">
+              <span class="value" id="vazamentoTotal">0</span
+              ><span class="label">Vazamento total ltr/min</span>
+            </div>
+            <div class="metric">
+              <span class="value" id="custoTotal">R$ 0,00</span
+              ><span class="label">Custo por ano</span>
+            </div>
+            <div class="metric">
+              <span class="value" id="co2Total">0</span
+              ><span class="label">CO₂ ton/ano</span>
+            </div>
+          </div>
+
+          <h3 class="section-title">Análise Gráfica</h3>
+          <div class="chart-card">
+            <h4>Maiores custos anuais por ponto de fuga</h4>
+            <p>
+              Ranking dos principais pontos identificados, ordenados pelo custo
+              anual estimado.
+            </p>
+            <div id="rankingChart"></div>
+          </div>
+        </div>
+
+        <div class="leak-pages" id="leakPages"></div>
+      </section>
+    </main>
+
+    <script>
+      const xmlInput = document.getElementById("xmlInput");
+      const imgInput = document.getElementById("imgInput");
+      const imageMap = new Map();
+      let ultimoXml = null;
+      let clienteLogoUrl = "";
+
+      document
+        .getElementById("btnPrint")
+        .addEventListener("click", () => window.print());
+      document
+        .getElementById("btnToggleSettings")
+        .addEventListener("click", () => {
+          const panel = document.getElementById("settingsPanel");
+          panel.style.display =
+            panel.style.display === "block" ? "none" : "block";
+        });
+      document
+        .getElementById("btnApplySettings")
+        .addEventListener("click", () => {
+          if (ultimoXml) renderXml(ultimoXml);
+        });
+      document
+        .getElementById("btnClearSettings")
+        .addEventListener("click", () => {
+          [
+            "inspetorInput",
+            "serviceOrderInput",
+            "empresaInput",
+            "localizacaoInput",
+            "areaInput",
+            "edificioLocalInput",
+            "falhouMapInput",
+            "medidaMapInput",
+          ].forEach((id) => (document.getElementById(id).value = ""));
+          document.getElementById("statusInput").value = "Em progresso";
+          document.getElementById("responsavelInput").value = "RJ Compressores";
+          clienteLogoUrl = "";
+          document.getElementById("clienteLogoInput").value = "";
+          if (ultimoXml) renderXml(ultimoXml);
+        });
+
+      imgInput.addEventListener("change", () => {
+        imageMap.forEach((url) => URL.revokeObjectURL(url));
+        imageMap.clear();
+        Array.from(imgInput.files).forEach((file) => {
+          imageMap.set(file.name, URL.createObjectURL(file));
+        });
+        if (ultimoXml) renderXml(ultimoXml);
+      });
+
+      document
+        .getElementById("clienteLogoInput")
+        .addEventListener("change", (event) => {
+          const file = event.target.files[0];
+          if (clienteLogoUrl) URL.revokeObjectURL(clienteLogoUrl);
+          clienteLogoUrl = file ? URL.createObjectURL(file) : "";
+          if (ultimoXml) renderXml(ultimoXml);
+        });
+
+      xmlInput.addEventListener("change", (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          ultimoXml = e.target.result;
+          renderXml(ultimoXml);
+        };
+        reader.readAsText(file);
+      });
+
+      const escapeHtml = (value) =>
+        String(value ?? "").replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      function attr(node, name, fallback = "") {
+        return node ? node.getAttribute(name) || fallback : fallback;
+      }
+
+      function num(value) {
+        const parsed = Number(String(value || "0").replace(",", "."));
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+
+      function moedaBR(value) {
+        return value.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        });
+      }
+
+      function numeroBR(value, casas = 2) {
+        return value.toLocaleString("pt-BR", {
+          minimumFractionDigits: casas,
+          maximumFractionDigits: casas,
+        });
+      }
+
+      function titleCase(text) {
+        if (!text) return "";
+        return text
+          .toLowerCase()
+          .replace(/(^|\s|\-|\/)([a-záéíóúâêôãõç])/g, (m) => m.toUpperCase());
+      }
+
+      function cleanKey(text) {
+        return String(text || "")
+          .trim()
+          .toLowerCase();
+      }
+
+      function parseMap(text) {
+        const map = new Map();
+        String(text || "")
+          .split("\n")
+          .forEach((line) => {
+            const parts = line.split("=");
+            if (parts.length >= 2) {
+              const key = cleanKey(parts.shift());
+              const value = parts.join("=").trim();
+              if (key && value) map.set(key, value);
+            }
+          });
+        return map;
+      }
+
+      function applyMap(value, map) {
+        const key = cleanKey(value);
+        if (map.has(key)) return map.get(key);
+        return titleCase(value) || "-";
+      }
+
+      function getSettings() {
+        return {
+          inspetor: document.getElementById("inspetorInput").value.trim(),
+          empresa: document.getElementById("empresaInput").value.trim(),
+          localizacao: document.getElementById("localizacaoInput").value.trim(),
+          area: document.getElementById("areaInput").value.trim(),
+          edificioLocal: document
+            .getElementById("edificioLocalInput")
+            .value.trim(),
+          status:
+            document.getElementById("statusInput").value.trim() ||
+            "Em progresso",
+          responsavel:
+            document.getElementById("responsavelInput").value.trim() ||
+            "RJ Compressores",
+          falhouMap: parseMap(document.getElementById("falhouMapInput").value),
+          medidaMap: parseMap(document.getElementById("medidaMapInput").value),
+        };
+      }
+
+      function createLeakCard(raw) {
+        const data = Object.fromEntries(
+          Object.entries(raw).map(([key, value]) => [
+            key,
+            typeof value === "string" ? escapeHtml(value) : value,
+          ]),
+        );
+        const card = document.createElement("article");
+        card.className = "leak-card";
+        card.innerHTML = `
+        <div class="leak-head">
+          <div class="tag">Etiqueta de fuga: ${data.tag}</div>
+          <div class="status">${data.status}</div>
+        </div>
+        <div class="leak-body">
+          <div class="leak-data">
+            <div class="field"><strong>Edifício / Local:</strong><span>${data.edificioLocal}</span></div>
+            <div class="field"><strong>Reparar sob pressão?</strong><span>✕</span></div>
+            <div class="field"><strong>Data/Hora:</strong><span>${data.data} ${data.hora}</span></div>
+            <div class="field"><strong>Falhou:</strong><span>${data.componente}</span></div>
+            <div class="field"><strong>Taxa de fuga:</strong><span class="highlight">${data.leakageSign} ${numeroBR(data.leakage, 2)} ${data.unitLeak}</span></div>
+            <div class="field"><strong>Peças reposição:</strong><span>${data.reposicao}</span></div>
+            <div class="field"><strong>Consumo energia:</strong><span>${numeroBR(data.energy, 3)} kWh</span></div>
+            <div class="field"><strong>Medida:</strong><span>${data.medida}</span></div>
+            <div class="field"><strong>Volume por ano:</strong><span>${numeroBR(data.volumeAno, 3)} m³</span></div>
+            <div class="field"><strong>Nível:</strong><span>${data.nivel}</span></div>
+            <div class="field"><strong>Custo por ano:</strong><span class="highlight">${moedaBR(data.cost)}</span></div>
+            <div class="field"><strong>Pressão:</strong><span>${data.pressao}</span></div>
+            <div class="field"><strong>CO₂ por ano:</strong><span>${numeroBR(data.co2, 3)} toneladas</span></div>
+            <div class="field"><strong>Distância:</strong><span>${data.distancia}</span></div>
+            <div class="comments">
+              <div><strong>Comentários:</strong><br><span>&nbsp;</span></div>
+              <div><strong>Nota:</strong><br><span>&nbsp;</span></div>
+            </div>
+          </div>
+          <div class="image-box">
+            ${data.imageUrl ? `<img src="${data.imageUrl}" alt="Imagem da fuga ${data.tag}">` : `<div>Imagem<br><strong>${data.imageName || "-"}</strong><br><small>Selecione as imagens para visualizar.</small></div>`}
+          </div>
+        </div>
+      `;
+        return card;
+      }
+
+      function renderRankingChart(leaks) {
+        const container = document.getElementById("rankingChart");
+        if (!container) return;
+
+        const top = leaks
+          .slice()
+          .sort((a, b) => b.cost - a.cost)
+          .slice(0, 8);
+
+        if (!top.length) {
+          container.innerHTML =
+            '<div class="chart-empty">Nenhum ponto de fuga carregado.</div>';
+          return;
+        }
+
+        const maxCost = Math.max(...top.map((item) => item.cost)) || 1;
+
+        container.innerHTML = top
+          .map((item) => {
+            const percent = Math.max((item.cost / maxCost) * 100, 3);
+            return `
+          <div class="chart-row">
+            <div class="chart-label">Tag ${escapeHtml(item.tag)}</div>
+            <div class="chart-track">
+              <div class="chart-bar" style="width:${percent}%"></div>
+            </div>
+            <div class="chart-value">${moedaBR(item.cost)}</div>
+          </div>
+        `;
+          })
+          .join("");
+      }
+
+      function renderXml(xmlText) {
+        const settings = getSettings();
+        const serviceOrder = document.getElementById("serviceOrderInput").value.trim();
+        document.getElementById("reportOs").hidden = !serviceOrder;
+        document.getElementById("reportOsValue").textContent = serviceOrder;
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(xmlText, "text/xml");
+        const registros = Array.from(xml.querySelectorAll("JNL"));
+        const feedback = document.getElementById("importFeedback");
+        if (xml.querySelector("parsererror") || !registros.length) {
+          feedback.textContent =
+            "Arquivo inválido ou sem pontos. Selecione um XML exportado pelo LeakReporter.";
+          feedback.classList.add("error");
+          document.getElementById("report").style.display = "none";
+          document.getElementById("btnPrint").disabled = true;
+          return;
+        }
+        feedback.classList.remove("error");
+        feedback.textContent =
+          registros.length +
+          " ponto(s) importado(s). Confira as informações antes de gerar o PDF.";
+        document.getElementById("btnPrint").disabled = false;
+        const leakPages = document.getElementById("leakPages");
+        leakPages.innerHTML = "";
+
+        let totalLeak = 0;
+        let totalCost = 0;
+        let totalEnergy = 0;
+        let empresa = "-";
+        let local = "-";
+        let area = "-";
+        let dataInicio = "";
+        let dataFim = "";
+        let horaInicio = "";
+        let horaFim = "";
+        let custoAr = "-";
+        let energiaEletrica = "-";
+        let horasAno = "-";
+        let quantidadeCo2 = "0,527 kg / kWh";
+        let baseCalculoCustos = "Custo de energia [70%]";
+        let potenciaEspecifica = "-";
+        let equipamento = "-";
+        const leakData = [];
+
+        registros.forEach((jnl, index) => {
+          const infoData = jnl.querySelector("INFO[Date]");
+          const infoCliente = jnl.querySelector("INFO[Company]");
+          const infoComponente = jnl.querySelector("INFO[CommF]");
+          const infoTag = jnl.querySelector("INFO[LeakTag]");
+          const dataNode = jnl.querySelector("DATA[Level]");
+          const pressNode = jnl.querySelector("DATA[Pressure]");
+          const costBaseNode = jnl.querySelector("COST[Base]");
+          const costElecNode = jnl.querySelector("COST[ElPr]");
+          const costSpecificNode = jnl.querySelector("COST[SpPw]");
+          const resNode = jnl.querySelector("RES");
+          const bmpNode = jnl.querySelector("BMP");
+          const toolNode = jnl.querySelector("DATA[ToolName]");
+
+          const data = attr(infoData, "Date");
+          const hora = attr(infoData, "Time");
+          if (index === 0) {
+            dataInicio = data;
+            horaInicio = hora;
+          }
+          dataFim = data;
+          horaFim = hora;
+
+          empresa = attr(infoCliente, "Company", empresa);
+          local = attr(infoCliente, "Location", local);
+          area = attr(infoCliente, "Place", area);
+          equipamento = attr(toolNode, "ToolName", equipamento);
+
+          custoAr = `${numeroBR(num(attr(costBaseNode, "Base")), 2)} ${attr(costBaseNode, "UnitC", "R$")} / 1000 ${attr(costBaseNode, "UnitV", "m³")}`;
+          energiaEletrica = `${numeroBR(num(attr(costElecNode, "ElPr")), 2)} R$ / kWh`;
+          potenciaEspecifica = `${numeroBR(num(attr(costSpecificNode, "SpPw")), 3)} kWh / m³`;
+          horasAno = `${attr(costBaseNode, "Time", "-")} h`;
+
+          const tag = attr(infoTag, "LeakTag");
+          const componente = applyMap(
+            attr(infoComponente, "CommF"),
+            settings.falhouMap,
+          );
+          const medida = applyMap(
+            attr(infoComponente, "CommM"),
+            settings.medidaMap,
+          );
+          const reposicao = attr(infoComponente, "CommR") || "-";
+          const nivel = `${attr(dataNode, "Sign") || ""}${attr(dataNode, "Level")} dB`;
+          const pressao = `${attr(pressNode, "Pressure")} ${attr(pressNode, "UnitP")}`;
+          const distancia = `${attr(pressNode, "Distance")} ${attr(pressNode, "UnitD")}`;
+          const leakage = num(attr(resNode, "Leakage"));
+          const leakageSign = attr(resNode, "Sign");
+          const unitLeak = attr(resNode, "UnitL", "ltr/min");
+          const cost = num(attr(resNode, "Cost"));
+          const energy = cost / 0.6;
+          const volumeAno = (leakage * 60 * 8500) / 1000;
+          const co2 = (energy * 0.527) / 1000;
+          const imageName = attr(bmpNode, "Name");
+          const imageUrl = imageMap.get(imageName);
+          const edificioLocal =
+            settings.edificioLocal ||
+            `${settings.localizacao || titleCase(local)} ${settings.area || titleCase(area)}`.trim();
+
+          totalLeak += leakage;
+          totalCost += cost;
+          totalEnergy += energy;
+
+          leakData.push({
+            tag,
+            status: settings.status,
+            edificioLocal,
+            data,
+            hora,
+            componente,
+            medida,
+            reposicao,
+            nivel,
+            pressao,
+            distancia,
+            leakage,
+            leakageSign,
+            unitLeak,
+            cost,
+            energy,
+            volumeAno,
+            co2,
+            imageName,
+            imageUrl,
+          });
+        });
+
+        for (let i = 0; i < leakData.length; i += 2) {
+          const page = document.createElement("div");
+          page.className = "page";
+          const start = i + 1;
+          const end = Math.min(i + 2, leakData.length);
+          page.innerHTML = `
+          <div class="leak-page-title">
+            <h3>Lista de Fugas Identificadas</h3>
+            <span>Pontos ${start} a ${end} de ${leakData.length}</span>
+          </div>
+          <div class="leak-list"></div>
+          <div class="footer-note">Assistência Técnica · RJ Compressores · Relatório Caça Vazamento</div>
+        `;
+          const list = page.querySelector(".leak-list");
+          leakData
+            .slice(i, i + 2)
+            .forEach((item) => list.appendChild(createLeakCard(item)));
+          leakPages.appendChild(page);
+        }
+
+        renderRankingChart(leakData);
+
+        const totalCo2 = (totalEnergy * 0.527) / 1000;
+        document.getElementById("empresa").textContent =
+          settings.empresa || titleCase(empresa);
+        document.getElementById("localizacao").textContent =
+          settings.localizacao || titleCase(local);
+        document.getElementById("area").textContent =
+          settings.area || titleCase(area);
+        document.getElementById("inspetor").textContent =
+          settings.inspetor || "-";
+        document.getElementById("equipamento").textContent = equipamento || "-";
+        document.getElementById("periodo").textContent =
+          `Início: ${dataInicio} ${horaInicio}  |  Fim: ${dataFim} ${horaFim}`;
+        document.getElementById("quantidadeCo2").textContent = quantidadeCo2;
+        document.getElementById("baseCalculoCustos").textContent =
+          baseCalculoCustos;
+        document.getElementById("potenciaEspecifica").textContent =
+          potenciaEspecifica;
+        document.getElementById("custoAr").textContent = custoAr;
+        document.getElementById("energiaEletrica").textContent =
+          energiaEletrica;
+        document.getElementById("horasAno").textContent = horasAno;
+        document.getElementById("qtdFugas").textContent = registros.length;
+        document.getElementById("vazamentoTotal").textContent = numeroBR(
+          totalLeak,
+          2,
+        );
+        document.getElementById("custoTotal").textContent = moedaBR(totalCost);
+        document.getElementById("co2Total").textContent = numeroBR(totalCo2, 3);
+        document.getElementById("responsavelRelatorio").textContent =
+          settings.responsavel;
+
+        const clienteLogoBox = document.getElementById("clienteLogoBox");
+        clienteLogoBox.innerHTML = clienteLogoUrl
+          ? `<img src="${clienteLogoUrl}" alt="Logo do cliente">`
+          : "Logo<br>Cliente";
+
+        document.getElementById("report").style.display = "block";
+      }
+      new ResizeObserver(() =>
+        parent.postMessage(
+          {
+            type: "rj-leak-height",
+            height: Math.ceil(document.body.getBoundingClientRect().height),
+          },
+          location.origin,
+        ),
+      ).observe(document.body);
+    </script>
+  </body>
+</html>
