@@ -6,8 +6,10 @@ import { useState, type FormEvent } from "react";
 import { ArrowRight, ShieldCheck, LoaderCircle, Layers3 } from "lucide-react";
 export default function Login({
   technician = false,
+  sales = false,
 }: {
   technician?: boolean;
+  sales?: boolean;
 }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -28,11 +30,13 @@ export default function Login({
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
       window.location.assign(
-        technician
-          ? "/tecnico"
-          : planReturnPath(
-              new URLSearchParams(window.location.search).get("next"),
-            ),
+        sales
+          ? "/visitas"
+          : technician
+            ? "/tecnico"
+            : planReturnPath(
+                new URLSearchParams(window.location.search).get("next"),
+              ),
       );
     } catch (error) {
       setError(
@@ -42,7 +46,7 @@ export default function Login({
     }
   }
   return (
-    <main className={technician ? "login technician-login" : "login"}>
+    <main className={technician || sales ? "login technician-login" : "login"}>
       <section className="login-story">
         <div className="brand">
           <Image
@@ -54,13 +58,25 @@ export default function Login({
             unoptimized
           />
           <span>
-            {technician ? "Portal Técnico RJ" : "Gestão Integrada"}
+            {sales
+              ? "Portal Vendas RJ"
+              : technician
+                ? "Portal Técnico RJ"
+                : "Gestão Integrada"}
             <span className="brand-small">RJ COMPRESSORES</span>
           </span>
         </div>
         <div>
           <span className="eyebrow">INFORMAÇÃO QUE CONECTA</span>
-          {technician ? (
+          {sales ? (
+            <h1>
+              Sua carteira.
+              <br />
+              Suas visitas.
+              <br />
+              <em>Relacionamentos mais próximos.</em>
+            </h1>
+          ) : technician ? (
             <h1>
               Sua programação.
               <br />
@@ -78,27 +94,35 @@ export default function Login({
             </h1>
           )}
           <p>
-            {technician
-              ? "Ordens de serviço, apontamentos, fotos e relatórios técnicos."
-              : "CRM, assistência técnica, suprimentos e equipamentos."}
+            {sales
+              ? "Clientes, agendamentos e registros de visitas comerciais."
+              : technician
+                ? "Ordens de serviço, apontamentos, fotos e relatórios técnicos."
+                : "CRM, assistência técnica, suprimentos e equipamentos."}
             <br />
-            {technician
-              ? "Prepare sua programação conectado e continue em campo offline."
-              : "Informações e ferramentas para toda a operação."}
+            {sales
+              ? "Sua carteira organizada para atender melhor a cada cliente."
+              : technician
+                ? "Prepare sua programação conectado e continue em campo offline."
+                : "Informações e ferramentas para toda a operação."}
           </p>
           <div className="login-feature">
             <Layers3 size={22} />
             <span>
-              {technician
-                ? "Seu trabalho salvo e sincronizado ao reconectar."
-                : "Uma base integrada. Várias equipes conectadas."}
+              {sales
+                ? "Planeje suas visitas e acompanhe seus resultados."
+                : technician
+                  ? "Seu trabalho salvo e sincronizado ao reconectar."
+                  : "Uma base integrada. Várias equipes conectadas."}
             </span>
           </div>
         </div>
         <small>
-          {technician
-            ? "Portal Técnico RJ · Acesso do técnico"
-            : "Gestão Integrada · Acesso da equipe"}
+          {sales
+            ? "Portal Vendas RJ · Acesso do vendedor"
+            : technician
+              ? "Portal Técnico RJ · Acesso do técnico"
+              : "Gestão Integrada · Acesso da equipe"}
         </small>
       </section>
       <section className="login-form">
@@ -108,9 +132,11 @@ export default function Login({
           </span>
           <h2>Bem-vindo de volta</h2>
           <p>
-            {technician
-              ? "Entre com sua conta para acessar o Portal Técnico RJ."
-              : "Entre com sua conta para acessar a Gestão Integrada."}
+            {sales
+              ? "Entre com sua conta para acessar o Portal Vendas RJ."
+              : technician
+                ? "Entre com sua conta para acessar o Portal Técnico RJ."
+                : "Entre com sua conta para acessar a Gestão Integrada."}
           </p>
           <label>
             E-mail
@@ -144,7 +170,11 @@ export default function Login({
               <LoaderCircle className="spin" size={18} />
             ) : (
               <>
-                {technician ? "Entrar no Portal Técnico" : "Entrar no sistema"}
+                {sales
+                  ? "Entrar no Portal Vendas"
+                  : technician
+                    ? "Entrar no Portal Técnico"
+                    : "Entrar no sistema"}
                 <ArrowRight size={18} />
               </>
             )}

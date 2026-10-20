@@ -22,6 +22,7 @@ test("territory CRUD and automatic assignment require unambiguous city/state, pr
       "015_task_origin_rules",
       "013_task_territories",
       "014_task_territory_columns",
+      "052_sales_visits",
     ])
       await db.exec(
         readFileSync(

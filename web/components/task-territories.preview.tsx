@@ -11,6 +11,7 @@ const empty = {
   mesoregion: "",
   microregion: "",
   seller: "",
+  seller_user: "",
   uf: "SC",
   assignee: "",
 };
@@ -80,16 +81,18 @@ export default function TaskTerritories() {
       .toLowerCase();
   const rows = (data?.rules || []).filter((r: any) =>
     fold(
-      `${r.city} ${r.mesoregion || ""} ${r.microregion || ""} ${r.seller || ""} ${r.uf} ${r.display_name || ""}`,
+      `${r.city} ${r.mesoregion || ""} ${r.microregion || ""} ${r.seller || ""} ${data?.users.find((u: any) => u.email === r.seller_user)?.display_name || ""} ${r.uf} ${r.display_name || ""}`,
     ).includes(fold(query)),
   );
   return (
     <section className="manual-card">
       <h2>Divisão comercial por cidade e UF</h2>
       <p>
-        Define o orçamentista das novas tarefas de Preventiva de Equipamento de
-        Cliente. Alterações não redistribuem tarefas existentes. Edite na linha
-        e pressione Enter ou Salvar.
+        Vincule o vendedor para definir sua carteira de visitas. Nomes em
+        amarelo ainda precisam de vínculo. Define também o orçamentista das
+        novas tarefas de Preventiva de Equipamento de Cliente. Alterações não
+        redistribuem tarefas existentes. Edite na linha e pressione Enter ou
+        Salvar.
       </p>
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
@@ -179,6 +182,7 @@ function TerritoryRow({ row, users, busy, save, cancel }: any) {
     mesoregion: r.mesoregion || "",
     microregion: r.microregion || "",
     seller: r.seller || "",
+    seller_user: r.seller_user || "",
   });
   const [d, setD] = useState(() => normalize(row));
   useEffect(() => setD(normalize(row)), [row.version]);
@@ -187,6 +191,7 @@ function TerritoryRow({ row, users, busy, save, cancel }: any) {
     "mesoregion",
     "microregion",
     "seller",
+    "seller_user",
     "uf",
     "assignee",
   ];
@@ -209,7 +214,7 @@ function TerritoryRow({ row, users, busy, save, cancel }: any) {
         }
       }}
     >
-      {["city", "mesoregion", "microregion", "seller"].map((key, i) => (
+      {["city", "mesoregion", "microregion"].map((key, i) => (
         <td key={key}>
           <input
             aria-label={`${["Cidade", "Mesorregião", "Microrregião", "Vendedor"][i]} ${row.city || "nova regra"}`}
@@ -221,6 +226,42 @@ function TerritoryRow({ row, users, busy, save, cancel }: any) {
           {i === 0 && dirty && <small>Alterações não salvas</small>}
         </td>
       ))}
+      <td>
+        <select
+          aria-label={`Vendedor ${row.city || "nova regra"}`}
+          value={d.seller_user}
+          disabled={busy}
+          style={
+            !d.seller_user && d.seller
+              ? { background: "#fff5ce", color: "#8b6315" }
+              : undefined
+          }
+          onChange={(e) => setD({ ...d, seller_user: e.target.value })}
+        >
+          <option value="">
+            {d.seller
+              ? `${d.seller} — vincular usuário`
+              : "Selecione o vendedor"}
+          </option>
+          {d.seller_user &&
+            !users.some(
+              (u: any) =>
+                u.email === d.seller_user &&
+                /^vendedor(a)?$/i.test(u.job_title?.trim()),
+            ) && (
+              <option value={d.seller_user}>
+                Vínculo anterior — selecione vendedor ativo
+              </option>
+            )}
+          {users
+            .filter((u: any) => /^vendedor(a)?$/i.test(u.job_title?.trim()))
+            .map((u: any) => (
+              <option key={u.email} value={u.email}>
+                {u.display_name || u.email}
+              </option>
+            ))}
+        </select>
+      </td>
       <td>
         <select
           aria-label={`Estado ${row.city || "nova regra"}`}
@@ -259,7 +300,11 @@ function TerritoryRow({ row, users, busy, save, cancel }: any) {
         <button
           disabled={busy || !dirty || !d.city.trim() || !d.assignee}
           onClick={persist}
-         aria-label="Salvar" title="Salvar"><SaveActionIcon /></button>
+          aria-label="Salvar"
+          title="Salvar"
+        >
+          <SaveActionIcon />
+        </button>
         {dirty && (
           <button
             disabled={busy}

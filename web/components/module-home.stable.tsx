@@ -11,8 +11,10 @@ import {
   ClipboardList,
 } from "lucide-react";
 import SiteHeader from "./site-header";
+import { useSessionAccess } from "./session-access";
 
 const modules = [
+  {id:"visitas",title:"Visitas",icon:Users,description:"Carteira de clientes, agenda e acompanhamento de visitas comerciais.",links:[["Portal Vendas RJ", "/visitas"],["Gestão de Visitas", "/visitas/gestao"]],next:"Planeje visitas e acompanhe o relacionamento com seus clientes."},
   {
     id: "crm",
     title: "CRM",
@@ -71,6 +73,7 @@ const modules = [
 ];
 
 export default function ModuleHome({ moduleId }: { moduleId?: string }) {
+  const { admin } = useSessionAccess();
   const selected = modules.find((module) => module.id === moduleId);
   return (
     <div className="module-home">
@@ -95,7 +98,7 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
             className="module-menu-grid"
             aria-label={"Menus de " + selected.title}
           >
-            {selected.links.map(([label, href]) => (
+            {selected.links.filter(([, href]) => href !== "/visitas/gestao" || admin).map(([label, href]) => (
               <Link
                 prefetch={false}
                 className="module-menu-item"

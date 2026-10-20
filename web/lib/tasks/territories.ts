@@ -23,7 +23,7 @@ export async function territoryList() {
     ).rows,
     users: (
       await database().query(
-        "SELECT email,display_name FROM web_user_access WHERE enabled ORDER BY display_name,email",
+        "SELECT email,display_name,job_title FROM web_user_access WHERE enabled ORDER BY display_name,email",
       )
     ).rows,
   };
@@ -84,9 +84,30 @@ export async function saveTerritory(b: any, email: string) {
         )
       ).rows[0];
       if (!u?.enabled) throw new AdminInputError("Selecione um usuário ativo.");
+      const sellerUser =
+        b.seller_user === undefined
+          ? old?.seller_user || null
+          : b.seller_user || null;
+      if (sellerUser !== null) {
+        if (typeof sellerUser !== "string" || sellerUser.length > 254)
+          throw new AdminInputError("Vendedor inválido.");
+        const seller = (
+          await c.query(
+            "SELECT enabled,job_title FROM web_user_access WHERE email=$1",
+            [sellerUser],
+          )
+        ).rows[0];
+        if (
+          !seller?.enabled ||
+          !/^vendedor(a)?$/i.test(seller.job_title.trim())
+        )
+          throw new AdminInputError(
+            "Selecione um usuário ativo com cargo Vendedor.",
+          );
+      }
       if (b.id)
         await c.query(
-          "UPDATE web_task_territories SET city=$2,city_key=$3,uf=$4,assignee=$5,version=version+1,updated_at=now(),updated_by=$6,mesoregion=coalesce($7,mesoregion),microregion=coalesce($8,microregion),seller=coalesce($9,seller) WHERE id=$1",
+          "UPDATE web_task_territories SET city=$2,city_key=$3,uf=$4,assignee=$5,version=version+1,updated_at=now(),updated_by=$6,mesoregion=coalesce($7,mesoregion),microregion=coalesce($8,microregion),seller=coalesce($9,seller),seller_user=$10 WHERE id=$1",
           [
             b.id,
             city,
@@ -97,11 +118,12 @@ export async function saveTerritory(b: any, email: string) {
             details.mesoregion,
             details.microregion,
             details.seller,
+            sellerUser,
           ],
         );
       else
         await c.query(
-          "INSERT INTO web_task_territories(city,city_key,uf,assignee,updated_by,mesoregion,microregion,seller) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+          "INSERT INTO web_task_territories(city,city_key,uf,assignee,updated_by,mesoregion,microregion,seller,seller_user) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
           [
             city,
             cityKey(city),
@@ -111,6 +133,7 @@ export async function saveTerritory(b: any, email: string) {
             details.mesoregion ?? "",
             details.microregion ?? "",
             details.seller ?? "",
+            sellerUser,
           ],
         );
     }
@@ -122,7 +145,9 @@ export async function saveTerritory(b: any, email: string) {
           action: b.action,
           before: old,
           after:
-            b.action === "delete" ? null : { city, uf, assignee, ...details },
+            b.action === "delete"
+              ? null
+              : { city, uf, assignee, seller_user: b.seller_user, ...details },
         }),
       ],
     );

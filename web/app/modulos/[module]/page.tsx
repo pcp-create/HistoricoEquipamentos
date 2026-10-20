@@ -13,6 +13,7 @@ export default async function Page({
   if (module === "tarefas") redirect("/tarefas");
   if (
     ![
+      "visitas",
       "tarefas",
       "crm",
       "assistencia-tecnica",

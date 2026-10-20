@@ -4,7 +4,7 @@ import { database } from "../db";
 import { cityKey } from "../tasks/territories";
 const codes: Record<string, number> = { RO:11,AC:12,AM:13,RR:14,PA:15,AP:16,TO:17,MA:21,PI:22,CE:23,RN:24,PB:25,PE:26,AL:27,SE:28,BA:29,MG:31,ES:32,RJ:33,SP:35,PR:41,SC:42,RS:43,MS:50,MT:51,GO:52,DF:53 };
 export async function commercialMap() {
-  const { rows } = await database().query("SELECT id::text,version,city,uf,seller FROM web_task_territories ORDER BY uf,city");
+  const { rows } = await database().query("SELECT t.id::text,t.version,t.city,t.uf,t.seller,COALESCE(NULLIF(trim(u.display_name),''),u.email,NULLIF(trim(t.seller),''),'Sem vendedor') AS seller_name FROM web_task_territories t LEFT JOIN web_user_access u ON u.email=t.seller_user ORDER BY t.uf,t.city");
   const features: any[] = [], missing: string[] = [];
   const results = await Promise.allSettled([...new Set(rows.map(r => r.uf as string))].map(async uf => {
     if (!codes[uf]) throw Error("UF inválida");
@@ -24,7 +24,7 @@ export async function commercialMap() {
   for (const rule of rows) {
     const feature = meshes.get(rule.uf)?.features.find((f: any) => cityKey(f.properties?.name || "") === (aliases[`${rule.uf}:${cityKey(rule.city)}`] || cityKey(rule.city)));
     if (!feature) { missing.push(`${rule.city}/${rule.uf}`); continue; }
-    features.push({ type: "Feature", geometry: feature.geometry, properties: { id: rule.id, version: rule.version, city: rule.city, uf: rule.uf, seller: rule.seller?.trim() || "Sem vendedor" } });
+    features.push({ type: "Feature", geometry: feature.geometry, properties: { id: rule.id, version: rule.version, city: rule.city, uf: rule.uf, seller: rule.seller?.trim() || "Sem vendedor", seller_name: rule.seller_name } });
   }
   return { type: "FeatureCollection", features, missing, sellers: [...new Set(rows.map(r => r.seller?.trim() || "Sem vendedor"))].sort() };
 }

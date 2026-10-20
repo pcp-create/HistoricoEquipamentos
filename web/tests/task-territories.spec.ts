@@ -9,7 +9,7 @@ test("administrator can create, edit, search and remove a city assignment", asyn
     (await request.post("/api/task-territories", { data: {} })).status(),
   ).toBe(403);
   await context.addCookies([
-    { name: "m8-access", value: "test", domain: "localhost", path: "/" },
+    { name: "m8-refresh", value: "test", domain: "localhost", path: "/" },
   ]);
   await page.route("**/api/activity", (r) =>
     r.fulfill({ json: { admin: true } }),
@@ -51,6 +51,11 @@ test("administrator can create, edit, search and remove a city assignment", asyn
         users: [
           { email: "a@example.com", display_name: "Pessoa A" },
           { email: "b@example.com", display_name: "Pessoa B" },
+          {
+            email: "seller@example.com",
+            display_name: "Bruno",
+            job_title: "Vendedor",
+          },
         ],
       },
     });
@@ -67,7 +72,9 @@ test("administrator can create, edit, search and remove a city assignment", asyn
   await page
     .getByLabel("Microrregião nova regra", { exact: true })
     .fill("Florianópolis");
-  await page.getByLabel("Vendedor nova regra", { exact: true }).fill("Bruno");
+  await page
+    .getByLabel("Vendedor nova regra", { exact: true })
+    .selectOption("seller@example.com");
   await page
     .getByLabel("Orçamentista nova regra", { exact: true })
     .selectOption("a@example.com");
