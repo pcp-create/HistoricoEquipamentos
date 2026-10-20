@@ -29,7 +29,8 @@
     "sync:equipment": "tsx src/scripts/syncEquipment.ts",
     "sync:equipment:status": "tsx src/scripts/equipmentStatus.ts",
     "sync:services": "tsx src/scripts/syncServices.ts",
-    "sync:localities": "tsx src/scripts/syncLocalities.ts"
+    "sync:localities": "tsx src/scripts/syncLocalities.ts",
+    "sync:new-orders": "tsx src/scripts/syncNewOrders.ts"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

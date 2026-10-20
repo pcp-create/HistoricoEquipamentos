@@ -71,3 +71,34 @@ Cabeçalho existente no banco não implica que os filhos já foram importados. A
 - Produtos excluídos são consultados explicitamente, persistidos com `esta_excluido=true` e omitidos das views operacionais.
 
 Logs não contêm senhas, tokens ou dados de clientes. Configure rotação/retenção de logs no runner para evitar crescimento contínuo. O JSON de auditoria no banco mantém o último estado disponível; não é um versionamento completo de todas as alterações. Na consolidação de cabeçalhos duplicados, a única divergência aceita é documentoFiscalId, preservada na tabela associada. Outras divergências bloqueiam a ingestão para análise.
+
+## Descoberta rápida de novas OSs
+
+A partir desta alteração, o ciclo completo continua no agendamento existente e uma
+rotina independente consulta apenas os cabeçalhos a cada 30 segundos.
+Ela insere somente OSs ainda ausentes e coloca seus detalhes na fila normal.
+Não altera cabeçalhos existentes, não apaga registros e não espera o lock do ciclo
+completo. A OS aparece na lista antes de produtos, serviços e anexos terminarem a coleta.
+
+Meta: aparecer em até um minuto em condições normais. Não é garantia quando o M8,
+a rede ou o banco estão indisponíveis/lentos. A consulta resumida medida em 19/10/2026
+levou aproximadamente 16 s, 5 s e 3 s para as empresas 1, 2 e 27404.
+A rotina consulta as empresas em paralelo e usa uma única conexão de banco.
+
+No servidor, depois de atualizar o código e compilar:
+```bash
+cd /opt/m8-integrador
+npm ci
+npm run build
+sudo install -m 644 deploy/systemd/m8-novas-os.service /etc/systemd/system/
+sudo install -m 644 deploy/systemd/m8-novas-os.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now m8-novas-os.timer
+sudo systemctl start m8-novas-os.service
+sudo journalctl -u m8-novas-os.service -n 30 --no-pager
+sudo systemctl list-timers m8-novas-os.timer --no-pager
+```
+
+Não substituir a configuração privada `.env`. O ciclo completo em execução não
+precisa ser interrompido. Os logs NOVAS_OS informam quantidade de novas OSs e duração.
+Para desativar apenas a coleta rápida: `sudo systemctl disable --now m8-novas-os.timer`.

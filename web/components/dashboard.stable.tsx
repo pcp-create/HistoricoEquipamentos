@@ -1,4 +1,5 @@
 "use client";
+import {formatOrderDetailDate} from "@/lib/order-detail-dates";
 import CreateLinkedTask from "./create-linked-task";
 import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
 import { companyName } from "@/lib/company-names";
@@ -984,7 +985,7 @@ function FieldList({ fields }: { fields: Record<string, unknown> }) {
               {/^(data_|emissao|sincronizado_em|created_at|updated_at)/.test(
                 key,
               )
-                ? date(value, true)
+                ? formatOrderDetailDate(key, value)
                 : shown(value)}
             </dd>
           </div>

@@ -2,6 +2,7 @@ import { approvedMaterialSql } from "./material-approval";
 import { linkedOrder, linkedSerial } from "./equipment";
 import { currentProducts } from "./product-current";
 import "server-only";
+import {m8UpdateInstant} from "./order-detail-dates";
 import { database } from "./db";
 import { escapeLike, fold, type Filters } from "./filters";
 
@@ -158,7 +159,7 @@ export async function orderDetail(company: string, id: string) {
   if (!["1", "2", "27404"].includes(company) || !/^[1-9]\d{0,17}$/.test(id))
     return null;
   const result = await database().query(
-    `SELECT to_jsonb(o)-'payload' AS "order",
+    `SELECT to_jsonb(o)-'payload' AS "order",o.payload->>'dataAtualizacao' AS source_updated_at,
     (SELECT COALESCE(jsonb_agg(to_jsonb(p)-'payload' ORDER BY p.id_m8),'[]'::jsonb) FROM public.m8_os_produtos p WHERE ${productLink}) AS materials,
     (SELECT COALESCE(jsonb_agg(to_jsonb(s)-'payload' ORDER BY s.id_m8),'[]'::jsonb) FROM public.m8_os_servicos s WHERE s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8) AS services,
     (SELECT COALESCE(jsonb_agg(to_jsonb(e)-'payload' ORDER BY e.id_m8),'[]'::jsonb) FROM public.m8_equipamentos e WHERE ${equipmentLink}) AS equipment,
@@ -169,6 +170,8 @@ export async function orderDetail(company: string, id: string) {
   );
   const detail = result.rows[0];
   if (!detail) return null;
+  detail.order.data_atualizacao = m8UpdateInstant(detail.source_updated_at) || detail.order.data_atualizacao;
+  delete detail.source_updated_at;
   const current = await currentProducts(
     detail.materials.map((p: { produto_id: string }) => ({
       company_id: Number(company),
