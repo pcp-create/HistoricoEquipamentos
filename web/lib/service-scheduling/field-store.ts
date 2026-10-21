@@ -1,3 +1,4 @@
+import {beginTeam,syncTeam,teamController,teamSessionsAvailable} from "./team-sessions";
 import {validateRunAlertComments} from './checklists';
 import { offlineTime } from "./offline-action";
 import {requireReportActivity} from './report-activity';
@@ -123,6 +124,10 @@ export async function fieldData(email: string, operationId?: string | null) {
         [email],
       )
     ).rows[0] || null;
+  if(active){
+    active.teamController=await teamController(c,active.id);
+    if(await teamSessionsAvailable(c))active.teamMembers=(await c.query("SELECT l.actor AS email,u.display_name FROM web_field_session_links l LEFT JOIN web_user_access u ON u.email=l.actor WHERE l.source_session_id=$1 AND l.mode='live'",[active.id])).rows;
+  }
   if (!operationId) {
     const rows = (
       await c.query(
@@ -181,6 +186,8 @@ export async function fieldData(email: string, operationId?: string | null) {
   }
   const materialData = await materials(c, { ...p, id: p.schedule_id });
   return {
+    teamAvailable:await teamSessionsAvailable(c),
+    supportMembers:(await c.query("SELECT email,display_name FROM web_user_access WHERE email=ANY($1::text[]) AND enabled",[p.document.support || []])).rows,
     finishPending: await finishPending(c, p, email, materialData.complete),
     reportSubmission:submission,
     estimated_end: estimatedEnd(p.document, settings),
@@ -411,6 +418,7 @@ export async function fieldAction(b: any, email: string) {
         throw new FieldError(
           "Peça ao planejamento para atribuir o veículo à operação.",
         );
+      if(b.teamMembers && (b.action!=="start_work" || b.offline))throw new FieldError("Inicie a atividade em equipe com conexão à internet.");
       const start = b.action === "start_travel" ? odometer(b.odometer) : null;
       const sessionId = b.offline ? b.requestId : randomUUID();
       await c.query(
@@ -425,6 +433,7 @@ export async function fieldAction(b: any, email: string) {
           occurredAt,
         ],
       );
+      if(b.teamMembers)await beginTeam(c,p,sessionId,email,b.teamMembers);
       details = {
         sessionId,
         odometer: start,
@@ -434,6 +443,7 @@ export async function fieldAction(b: any, email: string) {
       if (!active || active.operation_id !== p.id || active.id !== b.sessionId)
         throw new FieldError("O apontamento mudou. Atualize a tela.");
       if (occurredMs < new Date(active.segment_at).getTime()) throw new FieldError("O horário é anterior ao último apontamento.");
+      if(await teamController(c,active.id))throw new FieldError("Este apontamento é controlado por quem iniciou a atividade em equipe.");
       const totals = sessionTotals(active, occurredMs);
       if (b.action === "pause_ack") {
         if (active.state !== "paused")
@@ -594,6 +604,8 @@ export async function fieldAction(b: any, email: string) {
         occurredAt,
       ],
     );
+    if(details.sessionId && ["start_work","start_travel","pause","resume","stop","pause_ack"].includes(b.action))
+      await syncTeam(c,details.sessionId,b.action,details,location,occurredAt,email);
     await c.query("COMMIT");
     return { saved: true };
   } catch (e) {

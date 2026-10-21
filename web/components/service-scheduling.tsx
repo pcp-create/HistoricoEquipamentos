@@ -1,4 +1,6 @@
 "use client";
+import {needsRescheduling} from "@/lib/service-scheduling/rescheduling";
+import {ReschedulingHistory,ReschedulingConfirmation} from "./operation-rescheduling";
 import { scheduleUrl } from "@/lib/service-scheduling/schedule-url";
 import {filterScheduleDateView, operationDates, type ScheduleDateView} from "@/lib/service-scheduling/date-view";
 import {operationEquipmentLabel} from "@/lib/service-scheduling/equipment-label";
@@ -11,6 +13,8 @@ import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import {reportStatusLabel,reportSubmission} from "@/lib/service-scheduling/checklists";
 import OrderOperationsReview from "./order-operations-review";
 import OrderReportWindow from "./order-report-window";
+import OrderTaskLinks from "./order-task-links";
+import OrderTaskWindow from "./order-task-window";
 import OperationReviewWindow from "./operation-review-window";
 import ScheduleOrdersMap from "./schedule-orders-map";
 import ScheduleOrdersCalendar, { DayOrders } from "./schedule-orders-calendar";
@@ -34,6 +38,7 @@ import {
   Trash2,
   ListChecks,
   ClipboardList,
+  ClipboardPlus,
   CalendarDays,
   MapPin,
 } from "lucide-react";
@@ -140,6 +145,7 @@ export default function ServiceScheduling() {
     [tab, setTab] = useState("operations"),
     [query, setQuery] = useState("");
   const [orderReportOpen,setOrderReportOpen]=useState(false);
+  const [orderTaskOpen,setOrderTaskOpen]=useState(false);
   const [orderReviewOpen,setOrderReviewOpen]=useState(false);
   const dirtyOperations=useRef(new Set<string>());
   const [overviewView, setOverviewView] = useState("list");
@@ -611,8 +617,10 @@ export default function ServiceScheduling() {
                 Ver detalhes da OS
               </OrderDetailLink>
             </section>
-            {data.canEditSettings && <div className="scheduling-actions order-report-launch"><button type="button" disabled={busy} onClick={()=>setOrderReportOpen(true)}>Gerar relatório da OS</button><button type="button" disabled={busy||!data.operations?.length} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações das operações antes de iniciar a revisão da OS.");return;}setOrderReviewOpen(true);}}><ListChecks size={18}/>Revisar operações da OS</button></div>}
+            <OrderTaskLinks company={String(data.schedule.company_id)} orderId={String(data.schedule.order_id)} revision={(data.operations||[]).map((o:any)=>`${o.id}:${o.version}`).join(",")}/>
+            {data.canEditSettings && <div className="scheduling-actions order-report-launch"><button type="button" disabled={busy} onClick={()=>setOrderReportOpen(true)}>Gerar relatório da OS</button><button type="button" disabled={busy||!data.operations?.length} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações das operações antes de iniciar a revisão da OS.");return;}setOrderReviewOpen(true);}}><ListChecks size={18}/>Revisar operações da OS</button><button type="button" disabled={busy} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações antes de gerar a tarefa da OS.");return;}setOrderTaskOpen(true);}}><ClipboardPlus size={18} aria-hidden="true"/>Gerar tarefa da OS</button></div>}
             {orderReviewOpen && <OrderOperationsReview key={data.schedule.id} data={data} busy={busy} error={error} mutate={mutate} dirtyOperations={dirtyOperations.current} onClose={()=>setOrderReviewOpen(false)}/>}
+            {orderTaskOpen && <OrderTaskWindow data={data} onClose={()=>setOrderTaskOpen(false)}/>}
             {orderReportOpen && <OrderReportWindow key={data.schedule.id} data={data} onClose={()=>setOrderReportOpen(false)}/>}
             <nav className="app-section-tabs" aria-label="Abas da programação">
               {[
@@ -927,6 +935,7 @@ function OperationRow({
   mutate: (b: any) => Promise<boolean>;
 }) {
   useEffect(()=>()=>{dirtyOperations.delete(o.id+":review");},[o.id,dirtyOperations]);
+  const [rescheduleDraft,setRescheduleDraft]=useState<any>(null);
   const noteDialog = useRef<HTMLDialogElement>(null);
   const [noteError, setNoteError] = useState("");
   const noteBeforeEditing = useRef("");
@@ -955,8 +964,9 @@ function OperationRow({
   }
   const dirty = JSON.stringify(d) !== JSON.stringify(o.document);
   useEffect(()=>{if(dirty)dirtyOperations.add(o.id);else dirtyOperations.delete(o.id);return ()=>{dirtyOperations.delete(o.id);};},[dirty,o.id,dirtyOperations]);
-  async function persist(next = d) {
+  async function persist(next = d, rescheduling?: {confirmed:true;reason:string}) {
     if (locked) return false;
+    if(needsRescheduling(o,next) && !rescheduling){setRescheduleDraft(next);return false;}
     const replacing=!!o.document.checklistRun&&next.checklistId!==o.document.checklistId;
     if(replacing&&!window.confirm("Substituir o checklist apagará todo o preenchimento e as fotos do relatório desta operação. Deseja continuar?"))return false;
     if (JSON.stringify(next) !== JSON.stringify(o.document))
@@ -966,6 +976,7 @@ function OperationRow({
         version: o.version,
         document: next,
         confirmChecklistReplacement: replacing,
+        rescheduling,
       });
     return true;
   }
@@ -975,6 +986,7 @@ function OperationRow({
       <tr
         className={dirty ? "operation-unsaved" : undefined}
         onKeyDown={(e) => {
+          if((e.target as HTMLElement).closest("dialog"))return;
           if (
             e.key === "Enter" &&
             !e.nativeEvent.isComposing &&
@@ -987,6 +999,7 @@ function OperationRow({
       >
         <td>
           <strong>{operationNumber(o.position)}</strong>
+          <ReschedulingHistory entries={o.document.reschedulingHistory || []} users={data.users}/>
           {dirty && <small className="operation-draft-label">Não salvo</small>}
         </td>
         <td>
@@ -1065,6 +1078,9 @@ function OperationRow({
             value={d.date}
             onChange={(e) => change("date", e.target.value)}
           />
+          {rescheduleDraft && <ReschedulingConfirmation previous={o.document} next={rescheduleDraft} busy={busy} error={error}
+            onCancel={()=>{setRescheduleDraft(null);setD((current:any)=>({...current,date:o.document.date,time:o.document.time}));}}
+            onConfirm={async reason=>{if(await persist(rescheduleDraft,{confirmed:true,reason}))setRescheduleDraft(null);}}/>}
         </td>
         <td>
           <input

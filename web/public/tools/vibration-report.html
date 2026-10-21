@@ -648,7 +648,7 @@
 .inspection-conditions{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}.inspection-condition{--condition-color:#617e99;background:#fff;border:1px solid #d7e3f0;border-top:3px solid var(--condition-color);border-radius:7px;padding:10px 12px}.condition-label{display:flex;align-items:center;gap:6px;font-size:11px;color:#294b68;white-space:nowrap}.condition-label i{width:6px;height:6px;border-radius:50%;background:var(--condition-color);flex-shrink:0}.inspection-condition>strong{display:block;font-size:23px;line-height:1.2;margin-top:6px;color:var(--condition-color)}.condition-normal{--condition-color:#23805a}.condition-attention{--condition-color:#a77913}.condition-alert{--condition-color:#bf681e}.condition-critical{--condition-color:#bd3d43}.condition-unrated{--condition-color:#61758a}.condition-empty{border-top-color:#cbd5df}.condition-empty>strong{color:#8b9bab}.inspection-summary-note{font-size:10px;color:#71859a;margin-top:10px}
 @media screen and (max-width:600px){.inspection-summary-heading{align-items:flex-start;flex-direction:column;gap:6px}.inspection-conditions{grid-template-columns:repeat(2,minmax(0,1fr))}.inspection-totals{flex-wrap:wrap;gap:12px}}
 @media print{.inspection-summary,.inspection-condition{-webkit-print-color-adjust:exact;print-color-adjust:exact}.inspection-conditions{grid-template-columns:repeat(5,minmax(0,1fr))}.inspection-condition{padding:9px}.inspection-summary-heading{break-after:auto}}
-.spectrum-editor-row>td{padding:0 10px 12px!important}.spectrum-editor{background:#f3f8fc;border:1px solid #d9e5ef;border-radius:8px;padding:12px}.spectrum-editor summary{cursor:pointer;color:#205a86;font-weight:600}.spectrum-editor summary small{margin-left:12px;font-weight:400}.spectrum-editor p{font-size:12px;color:#657d92}.spectrum-inputs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.spectrum-input{display:flex;flex-direction:column;gap:9px;padding:12px;background:white;border:1px solid #d9e5ef;border-radius:7px;min-width:0}.spectrum-input small{overflow-wrap:anywhere}.spectrum-file{font-size:12px}.spectrum-file input{width:100%;font-size:11px}.spectrum-thumb{border:0;padding:0;background:white;cursor:zoom-in}.spectrum-thumb img{width:100%;height:100px;object-fit:contain}#spectrumZoom{max-width:95vw;border:1px solid #d9e5ef;border-radius:12px}#spectrumZoom::backdrop{background:#12364bc9}#spectrumZoom img{max-width:85vw;max-height:75vh}#spectrumZoom button{float:right}
+.spectrum-editor-row>td{padding:0 10px 12px!important}.spectrum-editor{background:#f3f8fc;border:1px solid #d9e5ef;border-radius:8px;padding:12px}.spectrum-editor summary{cursor:pointer;color:#205a86;font-weight:600}.spectrum-editor summary small{margin-left:12px;font-weight:400}.spectrum-editor p{font-size:12px;color:#657d92}.spectrum-inputs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.spectrum-input{display:flex;flex-direction:column;gap:9px;padding:12px;background:white;border:1px solid #d9e5ef;border-radius:7px;min-width:0}.spectrum-input.drag-over,.spectrum-input:focus-visible{border-color:#2476b8;outline:2px solid #2476b8;outline-offset:2px;background:#edf6ff}.spectrum-drop-hint{padding:14px 8px;border:1px dashed #9dbad2;border-radius:6px;text-align:center;font-size:12px;color:#456b8a}.spectrum-input small{overflow-wrap:anywhere}.spectrum-file{font-size:12px}.spectrum-file input{width:100%;font-size:11px}.spectrum-thumb{border:0;padding:0;background:white;cursor:zoom-in}.spectrum-thumb img{width:100%;height:100px;object-fit:contain}#spectrumZoom{max-width:95vw;border:1px solid #d9e5ef;border-radius:12px}#spectrumZoom::backdrop{background:#12364bc9}#spectrumZoom img{max-width:85vw;max-height:75vh}#spectrumZoom button{float:right}
 .report.vibration-pages{max-width:none!important;width:1123px;margin:0 auto!important;background:white;color:#173b53}
 .report.vibration-pages>.v-page{margin:0!important;padding:24px 38px 16px;min-height:794px;box-sizing:border-box;display:flex;flex-direction:column;break-after:page;page-break-after:always}
 .report.vibration-pages>.v-page:last-child{break-after:auto;page-break-after:auto}
@@ -1018,9 +1018,9 @@
       const spectrumData = value => typeof value === 'string' && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value) && value.length <= 15 * 1024 * 1024;
       function spectrumEditor(p,i,j,k) {
         const count = spectrumTypes.filter(([type]) => spectrumData(p.spectra?.[type]?.data)).length;
-        return `<tr data-spectrum-row="${i}-${j}-${k}" class="spectrum-editor-row"><td colspan="5"><details class="spectrum-editor"><summary>Espectros de ${escapeHtml(p.name)} <small>${count}/3 anexados</small></summary><p>Selecione uma imagem por tipo. PNG, JPEG ou WebP, até 10 MB. Os anexos serão incluídos no projeto salvo.</p><div class="spectrum-inputs">${spectrumTypes.map(([type,label])=>{
+        return `<tr data-spectrum-row="${i}-${j}-${k}" class="spectrum-editor-row"><td colspan="5"><details class="spectrum-editor"><summary>Espectros de ${escapeHtml(p.name)} <small>${count}/3 anexados</small></summary><p>Arraste uma imagem para o tipo desejado ou clique na área e cole com Ctrl+V (⌘+V no Mac). Também é possível escolher um arquivo. PNG, JPEG ou WebP, até 10 MB. Os anexos serão incluídos no projeto salvo.</p><div class="spectrum-inputs">${spectrumTypes.map(([type,label])=>{
           const image=p.spectra?.[type],has=spectrumData(image?.data);
-          return `<div class="spectrum-input"><strong>${label}</strong>${has?`<button type="button" class="spectrum-thumb" onclick="showSpectrum(${i},${j},${k},'${type}')" aria-label="Ampliar ${label} de ${escapeHtml(p.name)}"><img src="${image.data}" alt="Espectro de ${label}"></button><small>${escapeHtml(image.name)}</small>`:''}<label class="spectrum-file">${has?'Substituir imagem':'Anexar imagem'}<input type="file" accept="image/png,image/jpeg,image/webp" aria-label="Anexar ${label} de ${escapeHtml(p.name)}" onchange="attachSpectrum(${i},${j},${k},'${type}',this)"></label>${has?`<button type="button" class="btn danger" onclick="removeSpectrum(${i},${j},${k},'${type}')">Remover ${label}</button>`:''}</div>`;
+          return `<div class="spectrum-input" tabindex="0" role="group" aria-label="Imagem de ${label} de ${escapeHtml(p.name)}" ondragover="event.preventDefault();event.dataTransfer.dropEffect='copy';this.classList.add('drag-over')" ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('drag-over')" ondrop="receiveSpectrum(event,${i},${j},${k},'${type}')" onpaste="receiveSpectrum(event,${i},${j},${k},'${type}')"><strong>${label}</strong><span class="spectrum-drop-hint">Arraste a imagem aqui ou clique e cole</span>${has?`<button type="button" class="spectrum-thumb" onclick="showSpectrum(${i},${j},${k},'${type}')" aria-label="Ampliar ${label} de ${escapeHtml(p.name)}"><img src="${image.data}" alt="Espectro de ${label}"></button><small>${escapeHtml(image.name)}</small>`:''}<label class="spectrum-file">${has?'Substituir imagem':'Anexar imagem'}<input type="file" accept="image/png,image/jpeg,image/webp" aria-label="Anexar ${label} de ${escapeHtml(p.name)}" onchange="attachSpectrum(${i},${j},${k},'${type}',this)"></label>${has?`<button type="button" class="btn danger" onclick="removeSpectrum(${i},${j},${k},'${type}')">Remover ${label}</button>`:''}</div>`;
         }).join('')}</div></details></td></tr>`;
       }
       function refreshSpectrumEditor(point,i,j,k) {
@@ -1029,7 +1029,11 @@
         if(row){const holder=document.createElement('tbody');holder.innerHTML=spectrumEditor(point,i,j,k);const next=holder.firstElementChild;next.dataset.spectrumRow=`${i}-${j}-${k}`;row.replaceWith(next);next.querySelector('details').open=true;}
       }
       window.attachSpectrum=async(i,j,k,type,input)=>{
-        const file=input.files[0],point=equipments[i]?.components[j]?.points[k];
+        const file=input.files[0];
+        return saveSpectrumFile(i,j,k,type,file,input);
+      };
+      async function saveSpectrumFile(i,j,k,type,file,input){
+        const point=equipments[i]?.components[j]?.points[k];
         if(!file||!point)return;
         input.disabled=true;pendingSpectrumUploads++;
         try{
@@ -1042,6 +1046,40 @@
           refreshSpectrumEditor(point,i,j,k);
         }catch(error){alert(error.message||'Não foi possível anexar a imagem.');}
         finally{pendingSpectrumUploads--;input.disabled=false;input.value='';}
+      };
+      window.receiveSpectrum=async(event,i,j,k,type)=>{
+        event.preventDefault();event.stopPropagation();
+        const area=event.currentTarget;area.classList.remove('drag-over');
+        const transfer=event.clipboardData||event.dataTransfer;
+        const files=Array.from(transfer?.files||[]);
+        if(!files.length){
+          for(const item of Array.from(transfer?.items||[])){
+            if(item.kind==='file'){const file=item.getAsFile();if(file)files.push(file);}
+          }
+        }
+        if(files.length>1){alert('Anexe apenas uma imagem por tipo de espectro.');return;}
+        let file=files[0];
+        if(!file){
+          // Accept embedded image data only; Word can also supply inaccessible local file URLs.
+          const html=transfer?.getData('text/html')||'';
+          if(html.length<=16*1024*1024){
+            const doc=new DOMParser().parseFromString(html,'text/html');
+            const images=Array.from(doc.querySelectorAll('img'));
+            if(images.length===1){
+              const data=images[0].getAttribute('src');
+              if(spectrumData(data)){
+                const [header,encoded]=data.split(',');
+                const bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
+                const mime=header.slice(5,header.indexOf(';'));
+                file=new File([bytes],'Espectro.'+mime.split('/')[1],{type:mime});
+              }
+            }
+          }
+        }
+        if(!file){alert('O Word não disponibilizou a imagem neste arraste. Copie a imagem no Word, clique nesta área e cole com Ctrl+V (⌘+V no Mac), ou salve a imagem e escolha o arquivo.');return;}
+        const input=area.querySelector('input[type="file"]');
+        if(input.disabled)return;
+        await saveSpectrumFile(i,j,k,type,file,input);
       };
       window.removeSpectrum=(i,j,k,type)=>{
         const p=equipments[i].components[j].points[k];delete p.spectra[type];refreshSpectrumEditor(p,i,j,k);

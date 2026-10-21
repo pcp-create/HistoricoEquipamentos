@@ -1,4 +1,6 @@
 "use client";
+import {Plus,FilePenLine,Copy} from "lucide-react";
+import TeamMemberPicker from "./team-member-picker";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import TimeAdjustmentForm from "./time-adjustment-form";
 import TimeRequestList from "./time-request-list";
@@ -16,6 +18,8 @@ export default function ScheduleTimeLogs({
   onRefresh,
 }: any) {
   const [editing, setEditing] = useState<any>(null);
+  const [replicating,setReplicating]=useState<any>(null);
+  const [replicationMessage,setReplicationMessage]=useState("");
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -40,11 +44,20 @@ export default function ScheduleTimeLogs({
       {technician && (
         <div className="time-log-toolbar">
           {data.timeAdjustmentsAvailable !== false && (
-            <button onClick={() => setEditing({})}>Incluir apontamento manual</button>
+            <button className="time-log-primary-action" onClick={() => setEditing({})}><Plus size={17}/>Incluir apontamento manual</button>
           )}
           {onRefresh && <button onClick={onRefresh}>Atualizar</button>}
         </div>
       )}
+      {replicationMessage && <p role="status">{replicationMessage}</p>}
+      {replicating && <TeamMemberPicker title="Replicar apontamento" description="Os horários e as pausas deste apontamento serão copiados para os integrantes selecionados. Cada pessoa terá seu próprio registro." confirmLabel="Replicar apontamento"
+        members={(data.users || []).filter((user:any)=>user.email!==data.email && replicating.support.includes(user.email))}
+        onClose={()=>setReplicating(null)} onConfirm={async members=>{
+          const response=await fetch("/api/field/replicate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:replicating.row.id,members})});
+          const result=await response.json();if(!response.ok)throw Error(result.error);
+          setReplicationMessage(result.copied ? "Apontamento replicado para "+result.copied+" integrante(s)." : "Este apontamento já foi replicado para os integrantes selecionados.");
+          await onChanged?.();
+        }}/>}
       {editing && (
         <TimeAdjustmentForm
           row={editing.id ? editing : null}
@@ -112,6 +125,8 @@ export default function ScheduleTimeLogs({
                       technician={technician}
                       canAdjust={data.timeAdjustmentsAvailable !== false}
                       onEdit={() => setEditing(r)}
+                      canReplicate={technician && (operation.document?.support || []).some((email:string)=>email!==data.email)}
+                      onReplicate={()=>setReplicating({row:r,support:operation.document?.support || []})}
                       pending={data.requests?.some(
                         (q: any) =>
                           (q.session_id === r.id ||
@@ -130,7 +145,7 @@ export default function ScheduleTimeLogs({
     </section>
   );
 }
-function LogRows({ row: r, technician, onEdit, pending, canAdjust }: any) {
+function LogRows({ row: r, technician, onEdit, pending, canAdjust,canReplicate,onReplicate }: any) {
   return (
     <>
       <tr>
@@ -144,6 +159,7 @@ function LogRows({ row: r, technician, onEdit, pending, canAdjust }: any) {
                 ? "Em andamento"
                 : "Finalizado"}
           </span>
+          {r.replicatedBy && <small>Replicado por {r.replicatedBy}</small>}
           {r.manual && (
             <small>
               Registro manual em {date(r.recorded_at)}. Início e fim não
@@ -199,9 +215,9 @@ function LogRows({ row: r, technician, onEdit, pending, canAdjust }: any) {
             />
           )}
         </td>}
-        <td data-label="Ações">
+        <td data-label="Ações"><div className="time-log-row-actions">
           {canAdjust && r.state === "finished" && (
-            <button disabled={pending} onClick={onEdit}>
+            <button className="time-log-action" disabled={pending} onClick={onEdit}><FilePenLine size={16}/>
               {pending
                 ? "Aguardando aprovação"
                 : technician
@@ -209,6 +225,8 @@ function LogRows({ row: r, technician, onEdit, pending, canAdjust }: any) {
                   : "Ajustar horas"}
             </button>
           )}
+          {canReplicate && r.state==="finished" && <button className="time-log-action" disabled={pending || !!r.legacyEventId || r.manual} title={r.legacyEventId || r.manual ? "Disponível para apontamentos com início e fim registrados" : "Replicar para a equipe de apoio"} onClick={onReplicate}><Copy size={16}/>Replicar apontamento</button>}
+          </div>
         </td>
       </tr>
       {r.pauses.map((p: any, i: number) => (
@@ -238,6 +256,7 @@ function Coordinates({ label, value }: any) {
   return (
     <small>
       {label}:{" "}
+      {value?.document?.replicatedBy && <span>Local registrado por {value.document.replicatedBy} · </span>}
       {value?.latitude != null && value?.longitude != null ? (
         <>
           <span>Lat. {Number(value.latitude).toFixed(6)}</span>

@@ -9,3 +9,9 @@ test('OS visible code is not replaced by the database equipment ID',()=>{
  assert.equal(operationEquipmentLabel({...selected,equipmentId:'8',equipment:{name:'Outro equipamento'}},order),'8 · Outro equipamento');
  assert.equal(selected.equipmentId,'22599');
 });
+
+test('calendar labels use each assigned operation equipment and leave unassigned operations empty',()=>{
+ assert.equal(operationEquipmentLabel({equipmentId:'10',equipment:{label:'Compressor A · Série 123'}},null),'Compressor A · Série 123');
+ assert.equal(operationEquipmentLabel({equipmentId:'20',equipment:{name:'Secador B'}},null),'20 · Secador B');
+ assert.equal(operationEquipmentLabel({},null),'');
+});

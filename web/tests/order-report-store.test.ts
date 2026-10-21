@@ -66,8 +66,9 @@ test("unified export validates selection, scopes data to the OS, and checks curr
         validateOrderReportSelection({ ...body, operationIds: ["invalid"] }),
       /Selecione/,
     );
-    for (const user of ["tech", "disabled", "unknown"])
+    for (const user of ["disabled", "unknown"])
       await assert.rejects(loadOrderReport(body, user));
+    assert.ok((await loadOrderReport(body, "tech")).model);
     await assert.rejects(
       loadOrderReport({ ...body, operationIds: [one, two] }, "admin"),
       /somente operações desta OS/,

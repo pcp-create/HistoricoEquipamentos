@@ -552,6 +552,7 @@ export function TaskDrawer({
               {data.attachments.map((a: any) => (
                 <p key={a.id}>
                   <a
+                    className="task-attachment-link"
                     href={"/api/tasks/attachments/" + a.id}
                     target="_blank"
                     rel="noopener noreferrer"

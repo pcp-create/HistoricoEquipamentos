@@ -10,7 +10,11 @@ test('spectra belong to each point, survive project export/import and print in t
  await page.locator('.spectrum-editor summary').first().click();
  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aHfsAAAAASUVORK5CYII=','base64');
  for(const type of ['Velocidade','Envelope','Aceleração']){
-  await page.getByLabel('Anexar '+type+' de 01H',{exact:true}).setInputFiles({name:type+'.png',mimeType:'image/png',buffer:png});
+  if(type==='Velocidade')await page.getByLabel('Anexar '+type+' de 01H',{exact:true}).setInputFiles({name:type+'.png',mimeType:'image/png',buffer:png});
+  else await page.getByRole('group',{name:'Imagem de '+type+' de 01H',exact:true}).evaluate((area,{name,bytes,eventType})=>{
+   const transfer=new DataTransfer();transfer.items.add(new File([Uint8Array.from(bytes)],name+'.png',{type:'image/png'}));
+   area.dispatchEvent(eventType==='drop'?new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}):new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:transfer}));
+  },{name:type,bytes:[...png],eventType:type==='Envelope'?'drop':'paste'});
   await expect(page.getByRole('button',{name:'Remover '+type,exact:true})).toBeVisible();
  }
  await page.locator('.spectrum-editor summary').nth(1).click();

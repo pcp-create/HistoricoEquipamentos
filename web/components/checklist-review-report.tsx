@@ -1,11 +1,15 @@
 "use client";
+import ReportWritingReview from "./report-writing-review";
+import {WritingSuggestion} from "@/lib/service-scheduling/review-writing";
+import {createPortal} from "react-dom";
 import {useState,useEffect,useRef} from 'react';
 import {stagesOf} from '@/lib/service-scheduling/checklists';
 import ReviewChecklistField,{ReviewFlags} from './review-checklist-field';
 import { reportFieldValue } from "@/lib/service-scheduling/checklist-report";
 import { technicalReport } from "@/lib/service-scheduling/technical-report";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
-export default function ChecklistReviewReport({ operation, data, busy=false, disabled=false, mutate, onDirtyChange }: any) {
+export default function ChecklistReviewReport({ operation, data, busy=false, disabled=false, mutate, onDirtyChange, saveTarget }: any) {
+  const [aiFields,setAiFields]=useState<WritingSuggestion[]>([]);
   const savedRun=operation.document.checklistRun;
   const [draft,setDraft]=useState<any>(null),[uploads,setUploads]=useState(0);
   const draftRef=useRef<any>(null),uploadCount=useRef(0);
@@ -28,7 +32,9 @@ export default function ChecklistReviewReport({ operation, data, busy=false, dis
   if (!run) return <p>O relatório desta operação ainda não foi preenchido.</p>;
   const report = technicalReport({...operation,document:{...operation.document,checklistRun:run}}, data.detail?.order || {}, data.users || [], data.fieldSessions || [], data.fieldEvents || [], data.events || []);
   return <article className="checklist-review-report">
-    {editable&&<div className="review-edit-toolbar"><span>{edited?'Alterações não salvas':'Corrija os campos abaixo e salve antes de concluir a revisão.'}</span><button type="button" disabled={busy||disabled||!edited||uploads>0} onClick={()=>void save()}>Salvar correções</button>{edited&&<button type="button" disabled={busy||uploads>0} onClick={()=>{setDraft(null);draftRef.current=null;onDirtyChange?.(false);}}>Descartar alterações</button>}</div>}
+    {editable&&<div className="review-edit-toolbar"><span>{edited?'Alterações não salvas':'Corrija os campos abaixo e salve antes de concluir a revisão.'}</span>{edited&&<button type="button" disabled={busy||uploads>0} onClick={()=>{setDraft(null);draftRef.current=null;onDirtyChange?.(false);}}>Descartar alterações</button>}</div>}
+    {editable&&edited&&(saveTarget?createPortal(<button type="button" className="review-save-pending" disabled={busy||disabled||uploads>0} onClick={()=>void save()}>Salvar ajustes</button>,saveTarget):<button type="button" disabled={busy||disabled||uploads>0} onClick={()=>void save()}>Salvar ajustes</button>)}
+    {editable&&<ReportWritingReview operation={operation} run={run} disabled={busy||disabled||uploads>0} onHighlight={setAiFields} onApply={(s:WritingSuggestion)=>change(s.stageId,s.fieldId,s.key,s.suggested)}/>}
     <header className="technical-report-banner">
       <img src="/logo-rj.png" alt="RJ Compressores"/>
       <div><h3>RELATÓRIO TÉCNICO</h3><p>{run.template.name}</p></div>
@@ -43,8 +49,8 @@ export default function ChecklistReviewReport({ operation, data, busy=false, dis
           <tbody>{group.fields.map(field=><tr key={field.id}><td>{field.label}</td><td>{reportFieldValue(field)}</td><td>{field.responsible||'—'}</td></tr>)}</tbody>
         </table> : <dl>{group.fields.map(field => {
           const definition=stagesOf(run.template).find(s=>s.id===stage.id)?.fields.find(f=>f.id===field.id);
-          return <div key={field.id} className="review-report-row">
-          <dt>{field.label}</dt>
+          return <div key={field.id} className={`review-report-row ${aiFields.some(s=>s.stageId===stage.id&&s.fieldId===field.id)?"review-report-ai-field":""}`}>
+          <dt>{field.label}{aiFields.some(s=>s.stageId===stage.id&&s.fieldId===field.id)&&<small className="report-writing-tag">Revisão de escrita · IA</small>}</dt>
           <dd>{editable&&definition?<ReviewChecklistField field={definition} value={run.stages[stage.id]?.answers?.[field.id]} details={run.stages[stage.id]?.details?.[field.id]||{}} disabled={busy||disabled} operationId={operation.id} stageId={stage.id} meterDate={run.meterDate} equipmentId={run.equipmentId||operation.document.equipmentId} onUploading={uploading} onValue={(v:any)=>change(stage.id,field.id,'value',v)} onDetail={(key:string,v:any)=>change(stage.id,field.id,key,v)} onMeterDate={(v:string)=>change(stage.id,field.id,'meterDate',v)}/>:<>
             {field.options?<ReviewFlags label={field.label} options={field.options} alertOptions={field.alertOptions} value={field.value}/>:<span>{reportFieldValue(field)}</span>}
             {field.comment && <p className="review-report-comment"><strong>Comentário:</strong> {field.comment}</p>}

@@ -259,5 +259,5 @@
 .checklist-alert-options legend { font-size: 12px; color: #9a3844; padding: 0 6px; }
 .checklist-alert-options label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
 .checklist-alert-options input[type="checkbox"] { width: 16px; height: 16px; accent-color: #c43848; }
-.checklist-status-option.status-alert-selected { background: #fff0f1; border-color: #c43848; color: #b5293b; }
-.status-alert-selected input[type="radio"] { accent-color: #c43848; }
+.checklist-run .checklist-status-option.selected.status-alert-selected { background: #fff0f1; border-color: #c43848; color: #b5293b; }
+.checklist-run .checklist-status-option.status-alert-selected input[type="radio"] { accent-color: #c43848; }

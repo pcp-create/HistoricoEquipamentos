@@ -752,3 +752,5 @@ dialog.field-report-screen {
 
 .field-app:has(> .field-app-version) {display:flex;flex-direction:column;}
 .field-app-version {margin-top:auto;padding-top:24px;text-align:center;font-size:12px;color:#6b8298;}
+
+.field-timer-team { display: block; margin-top: 6px; font-size: 13px; line-height: 1.5; font-variant-numeric: normal; }

@@ -1,8 +1,9 @@
 "use client";
+import { operationEquipmentLabel } from "@/lib/service-scheduling/equipment-label";
 import { scheduleUrl } from "@/lib/service-scheduling/schedule-url";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import { displayedScheduleStatus } from "@/lib/service-scheduling/display-status";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { Clock3 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { scheduleStatusNames, statusNames } from "@/lib/service-scheduling/model";
@@ -64,6 +65,25 @@ function ExecutorPhoto({user,name}:{user:any;name:string}) {
   if(user?.has_photo && !failed) return <img className="schedule-executor-photo" src={"/api/users/photo?email="+encodeURIComponent(user.email)} alt={"Foto de "+name} width={64} height={64} onError={()=>setFailed(true)}/>;
   return <span className="schedule-executor-photo schedule-executor-initials" aria-hidden="true">{name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join("")}</span>;
 }
+function InternalNote({text}: {text?: string}) {
+  const [expanded,setExpanded]=useState(false);
+  const [truncated,setTruncated]=useState(false);
+  const preview=useRef<HTMLSpanElement>(null);
+  const id=useId();
+  useEffect(()=>{
+    const element=preview.current;
+    if(!element || expanded)return;
+    const measure=()=>setTruncated(element.scrollHeight>element.clientHeight || element.scrollWidth>element.clientWidth);
+    measure();
+    const observer=new ResizeObserver(measure);
+    observer.observe(element);
+    return ()=>observer.disconnect();
+  },[text,expanded]);
+  return <div className="schedule-note">
+    <span ref={preview} id={id} className={"schedule-daily-note-preview"+(expanded?" is-expanded":"")} title={expanded?undefined:text}>{text || "—"}</span>
+    {!!text && (truncated || expanded) && <button type="button" className="schedule-note-toggle" aria-expanded={expanded} aria-controls={id} onClick={()=>setExpanded(value=>!value)}>{expanded?"Ver menos":"Ver mais"}</button>}
+  </div>;
+}
 function DailySchedule({orders,day,users,vehicles}:any) {
   const rows = orders.flatMap((order:any) => dayOperations(order,day).map((operation:any) => ({order,operation})))
     .sort((a:any,b:any) => (operationTime(a.operation,day)||"99:99").localeCompare(operationTime(b.operation,day)||"99:99") ||
@@ -82,23 +102,28 @@ function DailySchedule({orders,day,users,vehicles}:any) {
     <p>{orders.length} OSs · {rows.length} operações programadas para {dateLabel(day)}</p>
     {!rows.length ? <p>Nenhum serviço programado para este dia.</p> :
     <div className="schedule-calendar-scroll"><table className="schedule-daily-table">
-      <thead><tr>{["Executante","Horário / duração","OS / atividade","Cliente / local","Equipamento","Observações internas","Veículo"].map(label=><th key={label}>{label}</th>)}</tr></thead>
+      <thead><tr>{["Executante","OS · Cliente / local","Horário / duração","Operação / atividade","Equipamento","Observações internas","Veículo"].map(label=><th key={label}>{label}</th>)}</tr></thead>
       {groupedRows.map(([key,group])=>{
         const user=users.find((u:any)=>u.email?.trim().toLowerCase()===key);
         const executorName=user?.display_name || group[0].operation.responsible || group[0].operation.responsibleEmail || "Sem responsável";
-        return <tbody key={key} className="schedule-executor-group">{group.map(({order,operation}:any,index:number)=>{
+        const orderGroups = new Map<string,any[]>();
+        for (const row of group) {
+          const orderKey = String(row.order.id);
+          orderGroups.set(orderKey, [...(orderGroups.get(orderKey) || []), row]);
+        }
+        return <tbody key={key} className="schedule-executor-group">{[...orderGroups.values()].map((orderRows,orderIndex)=>orderRows.map(({order,operation}:any,index:number)=>{
         const minutes=operation.allocation?.find((slot:any)=>slot.date===day)?.minutes;
         const vehicle=vehicles.find((v:any)=>v.id===operation.vehicleId)?.name;
-        return <tr key={order.id+":"+(operation.id || index)}>
-          {index===0 && <td rowSpan={group.length} className="schedule-executor-cell"><ExecutorPhoto key={user?.email || key} user={user} name={executorName}/><strong>{executorName}</strong><small>{new Set(group.map((row:any)=>row.order.id)).size} OSs · {group.length} operações</small></td>}
+        return <tr key={order.id+":"+(operation.id || index)} className={(index===0 ? "schedule-order-start " : "")+(orderIndex%2 ? "schedule-order-alternate" : "schedule-order-primary")}>
+          {orderIndex===0 && index===0 && <td rowSpan={group.length} className="schedule-executor-cell"><ExecutorPhoto key={user?.email || key} user={user} name={executorName}/><strong>{executorName}</strong><small>{new Set(group.map((row:any)=>row.order.id)).size} OSs · {group.length} operações</small></td>}
+          <>{index===0 && <td rowSpan={orderRows.length} className="schedule-order-cell"><a href={scheduleUrl(order)}>OS {order.numero_sequencia || order.order_id}</a><strong>{order.cliente_nome || "Cliente não informado"}</strong><small>{[order.customer_city,order.customer_state].filter(Boolean).join(" / ") || "Local não informado"}</small><small>{orderRows.length} {orderRows.length===1 ? "operação" : "operações"}</small></td>}</>
           <td><strong>{operationTime(operation,day)||"Sem horário"}</strong><small>{typeof minutes==="number" ? (minutes/60).toLocaleString("pt-BR",{maximumFractionDigits:2})+" h neste dia" : "Duração diária não informada"}</small></td>
-          <td><a href={scheduleUrl(order)}>OS {order.numero_sequencia || order.order_id}{operation.position != null ? "/" + operationNumber(operation.position) : ""}</a><strong>{operation.description || "Atividade não informada"}</strong>{!!operation.support?.length && <small>Apoio: {operation.support.map(name).join(", ")}</small>}<span className={"operation-status "+operation.status}>{statusNames[operation.status] || "Pendente"}</span></td>
-          <td>{order.cliente_nome || "Cliente não informado"}<small>{[order.customer_city,order.customer_state].filter(Boolean).join(" / ") || "Local não informado"}</small></td>
-          <td>{order.equipamento || "Não informado"}</td>
-          <td className="schedule-daily-note">{operation.internalNote || "—"}</td>
+          <td><div className="schedule-operation-heading"><span className="schedule-operation-number">{operation.position != null ? operationNumber(operation.position) : "—"}</span><strong>{operation.description || "Atividade não informada"}</strong></div><div className="schedule-operation-meta">{operation.rescheduleCount>0 && <span className="rescheduling-badge" title="Quantidade de reprogramações">Reprogramada ×{operation.rescheduleCount}</span>}<span className={"operation-status "+operation.status}>{statusNames[operation.status] || "Pendente"}</span>{!!operation.support?.length && <small>Apoio: {operation.support.map(name).join(", ")}</small>}</div></td>
+          <td>{operationEquipmentLabel(operation, null) || "Não informado"}</td>
+          <td className="schedule-daily-note"><InternalNote key={operation.internalNote || ""} text={operation.internalNote}/></td>
           <td>{vehicle || (operation.vehicleId ? "Veículo não disponível" : "Não definido")}</td>
         </tr>;
-      })}</tbody>;})}
+      }))}</tbody>;})}
     </table></div>}
   </div>;
 }

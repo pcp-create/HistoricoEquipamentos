@@ -202,10 +202,10 @@ test("requests require managers, stay pending, approve once, retain originals an
       proposed: { ...proposed, finished_at: "2026-01-01T11:00:00Z" },
     };
     await assert.rejects(
-      changeTimeRequest(direct, "tech"),
+      changeTimeRequest(direct, "missing"),
       (e: any) => e.constructor.name === "Forbidden",
     );
-    await changeTimeRequest(direct, "manager");
+    await changeTimeRequest(direct, "tech");
     assert.equal(
       (
         await db.query<any>(

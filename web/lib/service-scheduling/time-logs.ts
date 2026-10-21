@@ -50,6 +50,7 @@ export function timeLogs(
     const sessionEvents = events.filter((e) => e.document?.sessionId === s.id);
     return {
       ...s,
+      replicatedBy:s.replicatedBy || sessionEvents.find(e=>e.document?.replicatedBy)?.document.replicatedBy,
       active: totals.active,
       pause: totals.pause,
       total: totals.active + totals.pause,

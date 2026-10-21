@@ -170,6 +170,24 @@ async function enqueue(req) {
     );
   const queue = (await read(owner + ":queue")) || [];
   const url = new URL(req.url);
+  // Reserve every participant online before starting a shared timer.
+  if (url.pathname === "/api/field") {
+    const body = await req.clone().json();
+    if (body.teamMembers?.length) {
+      if (queue.length) return json({error:"Sincronize os apontamentos pendentes antes de iniciar com a equipe."},409);
+      try {
+        const response = await fetch(req);
+        if (response.ok) {
+          const currentHeads = (await read(owner + ":heads")) || {};
+          delete currentHeads[body.operationId];
+          await write([[owner + ":heads", currentHeads]]);
+        }
+        return response;
+      } catch {
+        return json({error:"Conecte-se à internet para iniciar com a equipe."},503);
+      }
+    }
+  }
   const heads =
     queue.length || (await read(owner + ":unrefreshed"))
       ? (await read(owner + ":heads")) || {}

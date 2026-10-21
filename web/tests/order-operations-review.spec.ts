@@ -100,8 +100,11 @@ test("planner reviews operations together and navigates in numeric order", async
   await page.route("**/api/service-scheduling**", async r => {
     if(r.request().method()==='POST') {
       const body=r.request().postDataJSON();
-      expect(body.action).toBe('review');expect(body.operationId).toBe(operations[2].id);
-      operations[2].status='reviewed';operations[2].version++;
+      expect(body.operationId).toBe(operations[2].id);
+      if(body.action==='checklist_review_save'){
+        for(const stage of body.stages)Object.assign(operations[2].document.checklistRun.stages.s,{answers:stage.answers,details:stage.details});
+      }else{expect(body.action).toBe('review');operations[2].status='reviewed';}
+      operations[2].version++;
       return r.fulfill({json:{operation:operations[2]}});
     }
     return r.fulfill({json:data});
@@ -111,28 +114,37 @@ test("planner reviews operations together and navigates in numeric order", async
   let dialog=page.getByRole('dialog');
   await expect(dialog).toHaveCount(1);
   await expect(dialog.getByText('3 operações · 1 aguardando revisão · 2 revisadas')).toBeVisible();
-  await expect(dialog.getByRole('heading',{name:/14877\/03/})).toBeVisible();
+  await expect(dialog.locator('.order-review-operation')).toHaveCount(3);
+  const headings=await dialog.locator('.operation-review-section h2').allTextContents();
+  expect(headings.map(h=>h.match(/14877\/(\d+)/)?.[1])).toEqual(['01','02','03']);
+  const third=dialog.getByRole('region',{name:'Revisão da operação 03',exact:true});
+  await dialog.getByLabel('Ir para operação').selectOption(operations[2].id);
+  await expect(third.getByRole('heading',{name:/14877\/03/})).toBeVisible();
   await expect(dialog.getByRole('button',{name:'Concluir revisão',exact:true})).toBeDisabled();
   // Legacy operations have no alertOptions snapshot: NOK must still look negative.
-  const condition=dialog.getByRole('radiogroup',{name:'Condição',exact:true});
+  const condition=third.getByRole('radiogroup',{name:'Condição',exact:true});
   const nok=condition.getByRole('radio',{name:'NOK',exact:true});
   await nok.check();
   await expect(nok).toHaveCSS('background-color','rgb(188, 46, 64)');
   await expect(nok).toHaveCSS('border-top-color','rgb(188, 46, 64)');
   await condition.getByRole('radio',{name:'NA',exact:true}).check();
   await expect(condition.locator('.status-alert-selected')).toHaveCount(0);
-  await condition.getByRole('radio',{name:'OK',exact:true}).check();
-  await expect(condition.getByRole('radio',{name:'OK',exact:true})).toHaveCSS('background-color','rgb(57, 125, 218)');
-  await dialog.getByLabel('Conferi o relatório, as peças e os apontamentos desta operação.').check();
+  const save=third.getByRole('button',{name:'Salvar ajustes',exact:true});
+  await expect(save).toBeVisible();
+  await expect(third.locator('.operation-review-footer').getByRole('button',{name:'Salvar ajustes'})).toBeVisible();
+  await expect(third.getByRole('button',{name:'Concluir revisão',exact:true})).toBeDisabled();
+  await dialog.getByLabel('Ir para operação').selectOption(operations[0].id);
+  await dialog.getByLabel('Ir para operação').selectOption(operations[2].id);
+  await expect(condition.getByRole('radio',{name:'NA',exact:true})).toBeChecked();
+  await save.click();
+  await expect(save).toHaveCount(0);
+  await third.getByLabel('Conferi o relatório, as peças e os apontamentos desta operação.').check();
   await dialog.getByRole('button',{name:'Concluir revisão',exact:true}).click();
   await expect(dialog.getByText('3 operações · 0 aguardando revisão · 3 revisadas')).toBeVisible();
-  await dialog.getByRole('button',{name:'Anterior',exact:true}).click();
-  await expect(dialog.getByRole('heading',{name:/14877\/02/})).toBeVisible();
-  await dialog.getByRole('button',{name:'Anterior',exact:true}).click();
+  await dialog.getByLabel('Ir para operação').selectOption(operations[0].id);
   await expect(dialog.getByRole('heading',{name:/14877\/01/})).toBeVisible();
-  await expect(dialog.getByRole('button',{name:'Anterior',exact:true})).toBeDisabled();
-  await dialog.getByRole('button',{name:'Próxima',exact:true}).click();
-  await expect(dialog.getByRole('heading',{name:/14877\/02/})).toBeVisible();
+  await dialog.locator('.order-review-operation').nth(1).evaluate(el=>el.scrollIntoView({block:'start'}));
+  await expect(dialog.getByLabel('Ir para operação')).toHaveValue(operations[1].id);
   await dialog.getByRole('button',{name:'Fechar revisão',exact:true}).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });

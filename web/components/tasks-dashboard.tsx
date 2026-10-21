@@ -18,3 +18,7 @@ export function EquipmentTaskLinks(props:ComponentProps<typeof Preview.Equipment
  const Component=(Preview.EquipmentTaskLinks) as ComponentType<any>;
  return <Component {...(props as any)}/>;
 }
+
+export function OrderPendingTaskLinks(props:ComponentProps<typeof Preview.OrderPendingTaskLinks>) {
+ return <Preview.OrderPendingTaskLinks {...props}/>;
+}

@@ -1,4 +1,5 @@
 import "server-only";
+import type {PoolClient} from "pg";
 import { database } from "../db";
 import { Forbidden } from "../auth";
 import { canIncludeInOrderReport, orderReport } from "./order-report";
@@ -41,13 +42,13 @@ export function validateOrderReportSelection(body: any): {
 }
 
 /** Read one consistent snapshot, rechecking permissions and operation ownership server-side. */
-export async function loadOrderReport(body: any, email: string, portal = false) {
+export async function loadOrderReport(body: any, email: string, portal = false, transaction?: PoolClient) {
   const selection = portal ? {scheduleId:body.scheduleId,operationIds:[] as string[],mode:body.mode||"complete"} : validateOrderReportSelection(body);
   if(portal&&(!/^\d{1,18}$/.test(selection.scheduleId||"")||!["complete","summary"].includes(selection.mode)))throw new OrderReportInputError("Programação ou tipo de relatório inválido.");
   let { scheduleId, operationIds, mode } = selection;
-  const c = await database().connect();
+  const c = transaction || await database().connect();
   try {
-    await c.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    if(!transaction)await c.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const user = (
       await c.query("SELECT role,enabled FROM web_user_access WHERE email=$1", [
         email,
@@ -138,17 +139,17 @@ export async function loadOrderReport(body: any, email: string, portal = false) 
         photos.push(...own);
       }
     }
-    await c.query("COMMIT");
+    if(!transaction)await c.query("COMMIT");
     return { model, photos };
   } catch (error) {
-    await c.query("ROLLBACK");
+    if(!transaction)await c.query("ROLLBACK");
     throw error;
   } finally {
-    c.release();
+    if(!transaction)c.release();
   }
 }
-export async function orderReportPdf(body: any, email: string, portal = false) {
-  const { model, photos } = await loadOrderReport(body, email, portal);
+export async function orderReportPdf(body: any, email: string, portal = false, transaction?: PoolClient) {
+  const { model, photos } = await loadOrderReport(body, email, portal, transaction);
   return {
     bytes: await renderChecklistPdf({
       ...model,

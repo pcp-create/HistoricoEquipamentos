@@ -1,4 +1,5 @@
 "use client";
+import TeamMemberPicker from "./team-member-picker";
 import { nativePortal } from "@/lib/native-portal";
 import FieldPdfButton from "./field-pdf-button";
 import FieldOffline, {FieldSessionActions,FieldSyncIcon} from "./field-offline";
@@ -7,6 +8,7 @@ import { materialBalance } from "@/lib/service-scheduling/material-balance";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import { useState, useEffect, useId, useRef } from "react";
 import {
+  Users,
   ArrowLeft,
   Settings,
   LoaderCircle,
@@ -209,7 +211,7 @@ export default function FieldApp() {
           {error}
         </p>
       )}
-      {active?.state === "paused" &&
+      {active?.state === "paused" && !active?.teamController &&
         active.pause_reason?.minutes &&
         now - Date.parse(active.pause_alert_at || active.segment_at) >=
           active.pause_reason.minutes * 60000 && (
@@ -372,6 +374,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     return () => cancelAnimationFrame(frame);
   }, [open]);
   const lastLoadedAt=useRef(0),reportOpening=useRef(false);
+  const [teamPicker,setTeamPicker]=useState(false);
   const [reportLoading,setReportLoading]=useState(false);
   const [data, setData] = useState<any>(null),
     [view, setView] = useState(""),
@@ -440,6 +443,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
       return true;
     } catch (e) {
       setError((e as Error).message);
+      if(body.teamMembers)throw e;
       return false;
     } finally {
       setBusy(false);
@@ -462,11 +466,11 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
   const reportStatus=data?.reportSubmission?'complete':reportFields.length?checklistProgress(reportFields,reportAnswers):'empty';
   const workStatus=session?.kind==='work'?'partial':data?.progress?.work?'complete':'empty';
   const reportActivityRunning = session?.kind === 'work' && session?.state === 'running';
-  const ready = data?.infoRead && data?.checked && !locked && !busy;
+  const ready = data?.infoRead && data?.checked && !locked && !busy && !session?.teamController;
   const finishPending: string[] = data?.finishPending ?? ["Atualize a operação para verificar as pendências."];
   const canAccessReport = !!data?.email && operation?.document.responsible === data.email;
   const canFinish = ready && finishPending.length === 0 && operation?.document.responsible === data?.email;
-  const limit = session?.state === "paused" && session.pause_reason?.minutes;
+  const limit = session?.state === "paused" && !session?.teamController && session.pause_reason?.minutes;
   const alert =
     limit &&
     now - Date.parse(session.pause_alert_at || session.segment_at) >=
@@ -678,6 +682,8 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                     </button>
                   </>
                 )}
+                {data.teamAvailable && data.supportMembers?.some((member:any)=>member.email!==data.email) && (!session || session.kind!=="work") && <button disabled={!ready || !!active} onClick={()=>setTeamPicker(true)}><span className="field-icon-pair"><Users/><Play size={15}/></span><span>Iniciar com equipe</span></button>}
+                {teamPicker && <TeamMemberPicker title="Iniciar com equipe" description="Início, pausas, retomadas e encerramento desta atividade serão registrados também para os integrantes selecionados." confirmLabel="Iniciar com equipe" members={(data.supportMembers || []).filter((member:any)=>member.email!==data.email)} onClose={()=>setTeamPicker(false)} onConfirm={async members=>{if(!navigator.onLine)throw Error("Conecte-se à internet para iniciar com a equipe.");const saved=await act({action:"start_work",teamMembers:members});if(!saved)throw Error("Não foi possível iniciar. Confira a mensagem da operação e tente novamente.");return true;}}/>}
                 <button disabled={busy || !data.infoRead} onClick={() => void show("logs")}>
                   <Clock3 />
                   <span>Apontamentos</span>
@@ -722,6 +728,8 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                         : sessionTotals(session, now).active,
                     )}
                   </b>
+                {!!session?.teamMembers?.length && <span className="field-timer-team">Atividade em conjunto com {session.teamMembers.map((member:any)=>member.display_name || member.email).join(", ")}. Seus apontamentos serão replicados para esta equipe.</span>}
+                {session?.teamController && <span className="field-timer-team">Atividade em conjunto. Os apontamentos são controlados por {session.teamController}.</span>}
                   {session.state==="paused"&&<span className="field-pause-total">Total de pausas: {elapsed(Number(data.pause_history_seconds||0)+sessionTotals(session,now).pause)}</span>}
                   {session.kind === "travel" && (
                     <small>Odômetro inicial: {session.odometer_start} km</small>
@@ -873,7 +881,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
               )}
             </>
           )}
-          {busy && <p role="status">Obtendo localização e salvando…</p>}
+          {busy && view !== "report" && <p role="status">Obtendo localização e salvando…</p>}
           {error && (
             <p className="field-error" role="alert">
               {error}

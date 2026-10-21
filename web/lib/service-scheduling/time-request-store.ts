@@ -1,3 +1,4 @@
+import {teamSessionsAvailable} from "./team-sessions";
 import {offlineTime} from "./offline-action";
 import { operationNumber } from "./operation-number";
 import "server-only";
@@ -48,8 +49,13 @@ export async function personalTimeLogs(email: string) {
       ),
     ]);
   return {
+    email,
+    users:(await db.query("SELECT email,display_name FROM web_user_access WHERE enabled")).rows,
     timeAdjustmentsAvailable,
-    fieldSessions: sessions.rows,
+    fieldSessions: await teamSessionsAvailable(db) ? await (async()=>{
+      const links=(await db.query("SELECT target_session_id,controller,mode FROM web_field_session_links WHERE actor=$1",[email])).rows;
+      return sessions.rows.map(session=>({...session,replicatedBy:links.find(link=>link.target_session_id===session.id)?.controller}));
+    })() : sessions.rows,
     fieldEvents: events.rows,
     requests: requests.rows,
     operations: operations.rows,

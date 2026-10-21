@@ -167,6 +167,19 @@ test("scheduling includes once, versions operations, protects execution and reco
     assert.equal(ops[0].status, "scheduled");
     ops[0]=(await send("dispatch")).operation;
     assert.equal(ops[0].status,"awaiting_execution");assert.ok(ops[0].sent_at);
+    const originalDate=ops[0].document.date;
+    const originalVersion=ops[0].version;
+    const changedDate={...ops[0].document,date:"2026-10-05"};
+    await assert.rejects(send("operation",{document:changedDate}),/Confirme a reprogramação/);
+    await assert.rejects(send("operation",{document:changedDate,rescheduling:{confirmed:true,reason:" "}}),/justificativa/);
+    assert.equal((await db.query<any>("SELECT version FROM web_service_operations WHERE id=$1",[ops[0].id])).rows[0].version,originalVersion);
+    ops[0]=(await send("operation",{document:changedDate,rescheduling:{confirmed:true,reason:"Técnico indisponível"}})).operation;
+    assert.equal(ops[0].status,"awaiting_execution");
+    assert.equal(ops[0].document.reschedulingHistory.length,1);
+    assert.equal(ops[0].document.reschedulingHistory[0].fromDate,originalDate);
+    ops[0]=(await send("operation",{document:{...ops[0].document,date:originalDate,reschedulingHistory:[]},rescheduling:{confirmed:true,reason:"Cliente antecipou o atendimento"}})).operation;
+    assert.equal(ops[0].document.reschedulingHistory.length,2);
+    await assert.rejects(send("operation",{version:originalVersion,document:changedDate,rescheduling:{confirmed:true,reason:"Duplicada"}}),/alterada/);
     // A returned operation accepts a replacement template and starts with empty answers.
     const template={id:'replacement',name:'Checklist corrigido',items:[],stages:[{id:'step',name:'Etapa',fields:[{id:'answer',label:'Verificação',type:'text',required:false}]}]};
     await db.query("UPDATE web_service_schedule_settings SET document=jsonb_set(document,'{checklists}',$1::jsonb)",[JSON.stringify([template,{...template,id:"old"}])]);

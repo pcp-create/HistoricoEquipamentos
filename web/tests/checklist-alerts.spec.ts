@@ -98,58 +98,64 @@ test("review alerts show red flags and require task details before completion", 
     })),
   };
 
-  await page.route("**/api/service-scheduling**", async r => {
-    if(r.request().method()==='POST') {
-      const body=r.request().postDataJSON();
-      expect(body.alertTask).toEqual({assignedTo:'tech',description:'Corrigir vazamento',reportMode:'summary'});
-      expect(body.action).toBe('review');expect(body.operationId).toBe(operations[2].id);
-      operations[2].status='reviewed';operations[2].version++;
+
+  for(const [id,label,comment] of [['g','Filtro','Filtro obstruído'],['h','Dreno','Dreno travado']]){
+    template.stages[0].fields.push({...template.stages[0].fields[2],id,label} as any);
+    for(const operation of operations){(operation.document.checklistRun.stages.s.answers as any)[id]='NOK';(operation.document.checklistRun.stages.s.details as any)[id]={comment};}
+  }
+  data.users.push({email:'other',display_name:'Outro responsável',enabled:true});
+  let saved:any;
+  await page.route('**/api/service-scheduling**',r=>{
+    if(r.request().method()==='POST'){
+      saved=r.request().postDataJSON();
+      expect(saved.operationId).toBe(operations[2].id);
+      expect(saved.action).toBe('review');operations[2].status='reviewed';
+      operations[2].version++;
       return r.fulfill({json:{operation:operations[2]}});
     }
     return r.fulfill({json:data});
   });
   await page.goto('/programacao?id=1');
   await page.getByRole('button',{name:'Revisar operações da OS',exact:true}).click();
-  let dialog=page.getByRole('dialog');
-  await expect(dialog).toHaveCount(1);
-  await expect(dialog.getByText('3 operações · 1 aguardando revisão · 2 revisadas')).toBeVisible();
-  await expect(dialog.getByRole('heading',{name:/14877\/03/})).toBeVisible();
-  await expect(dialog.getByRole('button',{name:'Concluir revisão',exact:true})).toBeDisabled();
-  await dialog.getByLabel('Conferi o relatório, as peças e os apontamentos desta operação.').check();
-  await expect(dialog.getByRole('button',{name:'Concluir revisão',exact:true})).toBeDisabled();
-  await expect(dialog.getByRole('region',{name:'Alertas do checklist'})).toContainText('Condição: NOK');
-  await expect(dialog.locator('.review-flags .status-alert-selected').first()).toHaveCSS('color','rgb(188, 46, 64)');
-  await dialog.getByLabel('Responsável pela tarefa dos alertas').selectOption('tech');
-  await dialog.getByLabel('Descrição da tarefa dos alertas').fill('Corrigir vazamento');
-  await dialog.getByLabel('Relatório anexo à tarefa dos alertas').selectOption('summary');
-  page.once('dialog',d=>d.dismiss());
-  await dialog.getByRole('button',{name:'Anterior',exact:true}).click();
-  await expect(dialog.getByRole('heading',{name:/14877\/03/})).toBeVisible();
-  await dialog.getByRole('button',{name:'Concluir revisão',exact:true}).click();
+  const dialog=page.getByRole('dialog');
+  await dialog.getByLabel('Ir para operação').selectOption(operations[2].id);
+  const review=dialog.getByRole('region',{name:'Revisão da operação 03',exact:true});
+  await review.getByRole('tab',{name:'Alertas (3)',exact:true}).click();
+  await expect(review.locator('.alert-comment').filter({hasText:'Vazamento identificado'})).toBeVisible();
+  await expect(review.locator('.alert-comment').filter({hasText:'Filtro obstruído'})).toBeVisible();
+  const groupButton=review.getByRole('button',{name:'Agrupar selecionados em uma tarefa'});
+  await expect(groupButton).toBeDisabled();
+  await review.getByRole('checkbox',{name:/Selecionar alerta:/}).first().check();
+  await expect(groupButton).toBeDisabled();
+  await expect(review.getByRole('button',{name:'Criar uma tarefa por alerta'})).toBeEnabled();
+  await review.getByLabel('Selecionar todos os alertas disponíveis').check();
+  await expect(groupButton).toBeEnabled();
+  await review.getByRole('button',{name:'Criar uma tarefa por alerta'}).click();
+  await expect(review.locator('.alert-task-card')).toHaveCount(3);
+  // Removing drafts releases their alerts for regrouping.
+  await review.getByRole('button',{name:'Remover tarefa 3',exact:true}).click();
+  await review.getByRole('button',{name:'Remover tarefa 2',exact:true}).click();
+  await review.getByLabel('Selecionar todos os alertas disponíveis').check();
+  await review.getByRole('button',{name:'Agrupar selecionados em uma tarefa'}).click();
+  await expect(review.locator('.alert-task-card')).toHaveCount(2);
+  await expect(review.getByRole('button',{name:'Concluir revisão'})).toBeDisabled();
+  const first=review.getByRole('region',{name:'Tarefa dos alertas 1',exact:true});
+  const second=review.getByRole('region',{name:'Tarefa dos alertas 2',exact:true});
+  await first.getByLabel('Responsável pela tarefa').selectOption('tech');
+  await first.getByLabel('Descrição da tarefa').fill('Corrigir vazamento');
+  await first.getByLabel('Relatório anexo').selectOption('summary');
+  await second.getByLabel('Responsável pela tarefa').selectOption('other');
+  await second.getByLabel('Descrição da tarefa').fill('Revisar filtro e dreno');
+  await review.getByRole('tab',{name:'Relatório',exact:true}).click();
+  await review.getByRole('tab',{name:'Alertas (3)',exact:true}).click();
+  await expect(second.getByLabel('Descrição da tarefa')).toHaveValue('Revisar filtro e dreno');
+  expect(saved).toBeUndefined();
+  await review.getByLabel('Conferi o relatório, as peças e os apontamentos desta operação.').check();
+  await review.getByRole('button',{name:'Concluir revisão',exact:true}).click();
   await expect(dialog.getByText('3 operações · 0 aguardando revisão · 3 revisadas')).toBeVisible();
-  await dialog.getByRole('button',{name:'Anterior',exact:true}).click();
-  await expect(dialog.getByRole('heading',{name:/14877\/02/})).toBeVisible();
-  await dialog.getByRole('button',{name:'Anterior',exact:true}).click();
-  await expect(dialog.getByRole('heading',{name:/14877\/01/})).toBeVisible();
-  await expect(dialog.getByRole('button',{name:'Anterior',exact:true})).toBeDisabled();
-  await dialog.getByRole('button',{name:'Próxima',exact:true}).click();
-  await expect(dialog.getByRole('heading',{name:/14877\/02/})).toBeVisible();
-  await dialog.getByRole('button',{name:'Fechar revisão',exact:true}).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.getByRole('button',{name:'Configurações',exact:true}).click();
-  await page.getByRole('button',{name:'Checklists',exact:true}).click();
-  await page.getByRole('button',{name:'Editar checklist Corretiva'}).click();
-  const type=page.getByLabel('Tipo do campo 3 da etapa 1');
-  await expect(type).toHaveValue('flag2');
-  await expect(page.getByRole('textbox',{name:'Opções do campo 3 da etapa 1',exact:true})).toHaveCount(0);
-  await expect(page.getByLabel('Gerar alerta: Condição — NOK')).toBeChecked();
-  await type.selectOption('flag3');
-  await expect(page.getByLabel('Gerar alerta: Condição — Sim')).toBeVisible();
-  await expect(page.getByLabel('Gerar alerta: Condição — Não')).toBeVisible();
-  await page.getByLabel('Gerar alerta: Condição — Não').check();
-  await type.selectOption('flag4');
-  await expect(page.getByLabel('Gerar alerta: Condição — Operando normalmente')).toBeVisible();
-  await expect(page.getByLabel('Gerar alerta: Condição — Desligado / Desenergizado')).toBeVisible();
-  await page.getByLabel('Gerar alerta: Condição — Bloqueado').check();
-  await expect(page.getByLabel('Gerar alerta: Condição — Bloqueado')).toBeChecked();
+  expect(saved.alertTasks).toHaveLength(2);
+  expect(saved.alertTasks[0].assignedTo).toBe('tech');
+  expect(saved.alertTasks[0].alertKeys).toHaveLength(1);
+  expect(saved.alertTasks[1].assignedTo).toBe('other');
+
 });

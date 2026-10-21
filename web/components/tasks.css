@@ -814,3 +814,7 @@
 .task-followers { display: grid; gap: 10px; margin: 12px 0 20px; }
 .task-followers small { color: #6983a0; }
 .task-followers > button { justify-self: start; }
+
+.task-card .task-attachment-link { display: inline-block; max-width: 100%; margin: 6px 0 4px; color: #1766b1; text-decoration: underline; text-underline-offset: 3px; font-weight: 600; overflow-wrap: anywhere; }
+.task-card .task-attachment-link:hover { color: #104a82; text-decoration-thickness: 2px; }
+.task-card .task-attachment-link:focus-visible { outline: 2px solid #2878bd; outline-offset: 3px; border-radius: 2px; }

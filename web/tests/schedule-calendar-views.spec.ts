@@ -4,7 +4,7 @@ test('monthly week numbers, weekly services and detailed daily schedule respect 
  await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
  await page.route('**/api/activity',r=>r.fulfill({json:{admin:true}}));
  const schedules=[1,2].map(n=>({id:String(n),order_id:String(15000+n),cliente_nome:'Cliente '+n,equipamento:'Compressor '+n,customer_city:'Rio do Sul',customer_state:'SC',programming_status:'scheduled',operation_count:1,operation_status_counts:{scheduled:1},calendar_operations:[{
- id:'op'+n,position:1,status:'scheduled',description:'Manutenção '+n,internalNote:'Levar ferramentas',vehicleId:'van',
+ id:'op'+n,equipmentId:n===1?'10':null,equipment:n===1?{label:'Equipamento da operação 10'}:null,position:1,status:'scheduled',description:'Manutenção '+n,internalNote:'Levar ferramentas',vehicleId:'van',
  responsible:n===1?'Ana':'Bruno',responsibleEmail:n===1?'ana@test':'bruno@test',support:n===1?['apoio@test']:[],date:'2026-10-15',time:n===1?'08:00':'09:00',
  dates:['2026-10-15','2026-10-16'],allocation:[{date:'2026-10-15',start:'2026-10-15T08:00:00-03:00',minutes:120},{date:'2026-10-16',start:'2026-10-16T07:30:00-03:00',minutes:60}]
  }]}));
@@ -30,6 +30,8 @@ test('monthly week numbers, weekly services and detailed daily schedule respect 
  await page.getByRole('button',{name:'Ver programação de 15/10/2026',exact:true}).click();
  await expect(page.locator('.schedule-daily-table tbody tr')).toHaveCount(2);
  const first=page.locator('.schedule-daily-table tbody tr').first();
+ await expect(first.locator('td').nth(4)).toHaveText('Equipamento da operação 10');
+ await expect(page.locator('.schedule-daily-table tbody tr').nth(1).locator('td').nth(4)).toHaveText('Não informado');
  for(const text of ['Ana','Carlos','Manutenção 1','Levar ferramentas','Van ABC123','2 h neste dia']) await expect(first).toContainText(text);
  await page.getByRole('button',{name:'Próximo dia',exact:true}).click();
  await expect(first).toContainText('1 h neste dia');
@@ -73,4 +75,29 @@ test('undated orders are highlighted beside totals and open from the list',async
  await expect(page.locator('.schedule-calendar-undated')).toHaveCount(0);
  await summary.getByRole('button').click();
  await expect(dialog).toBeVisible();
+});
+
+test('daily view groups interleaved operations by OS within each executor',async({page,context})=>{
+ await page.clock.setFixedTime(new Date('2026-10-15T12:00:00Z'));
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/activity',r=>r.fulfill({json:{admin:true}}));
+ const operation=(id:string,time:string,position:number)=>({id,position,status:'scheduled',description:'Inspeção '+id,responsible:'Ana',responsibleEmail:'ana@test',date:'2026-10-15',dates:['2026-10-15'],time,equipmentId:id,equipment:{label:'Equipamento '+id}});
+ const schedules=[
+ {id:'1',order_id:'15070',cliente_nome:'Cliente agrupado',operation_count:2,calendar_operations:[operation('A','08:00',1),operation('B','10:00',2)]},
+ {id:'2',order_id:'15071',cliente_nome:'Outro cliente',operation_count:1,calendar_operations:[operation('C','09:00',1)]}
+ ];
+ await page.route('**/api/service-scheduling',r=>r.fulfill({json:{schedules,users:[{email:'ana@test',display_name:'Ana'}],settings:{document:{vehicles:[]}}}}));
+ await page.goto('/programacao');
+ await page.getByLabel('Mês da entrega prevista',{exact:true}).selectOption('');
+ await page.getByRole('button',{name:'Calendário',exact:true}).click();
+ await page.getByRole('button',{name:'Dia',exact:true}).click();
+ const rows=page.locator('.schedule-daily-table tbody tr');
+ await expect(rows).toHaveCount(3);
+ await expect(rows.nth(0)).toContainText('Equipamento A');
+ await expect(rows.nth(1)).toContainText('Equipamento B');
+ await expect(rows.nth(2)).toContainText('Equipamento C');
+ await expect(page.locator('.schedule-order-cell').first()).toHaveAttribute('rowspan','2');
+ await expect(page.locator('.schedule-order-cell').filter({hasText:'Cliente agrupado'})).toHaveCount(1);
+ await expect(page.locator('.schedule-executor-cell')).toHaveAttribute('rowspan','3');
+ await expect(page.getByRole('link',{name:'OS 15070',exact:true})).toHaveAttribute('href','/programacao?OS=15070');
 });

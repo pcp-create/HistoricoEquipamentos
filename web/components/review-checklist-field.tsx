@@ -1,4 +1,5 @@
 "use client";
+import RequiredMarker from "./required-marker";
 import AutoResizeTextarea from "./auto-resize-textarea";
 import ReportPhotoPicker from "./report-photo-picker";
 import EquipmentMeterReference from "./equipment-meter-reference";
@@ -36,7 +37,7 @@ export default function ReviewChecklistField({field:f,value,details,disabled,ope
  {f.type==='meter'&&<EquipmentMeterReference equipmentId={equipmentId}/>}
  {f.type==='meter'&&<label>Data da leitura<input type="date" aria-label={'Data da leitura — '+f.label} value={meterDate||''} disabled={locked} onChange={e=>onMeterDate(e.target.value)}/></label>}
  {!['photo','signature'].includes(f.type)&&photoLimit(f)>0&&photos(true)}
- {(f.comment||hasAlertComment(f))&&<label>Comentário{requiresAlertComment(f,value)&&" — obrigatório para este alerta"}<AutoResizeTextarea required={requiresAlertComment(f,value)} aria-label={'Comentário — '+f.label} value={details.comment||''} disabled={locked} onChange={e=>onDetail('comment',e.target.value)}/></label>}
+ {(f.comment||hasAlertComment(f))&&<label><span>Comentário{requiresAlertComment(f,value)&&<> <RequiredMarker/></>}</span><AutoResizeTextarea required={requiresAlertComment(f,value)} aria-invalid={requiresAlertComment(f,value)&&!details.comment?.trim()} placeholder={requiresAlertComment(f,value)?"Preenchimento obrigatório":undefined} className={requiresAlertComment(f,value)&&!details.comment?.trim()?"alert-comment-empty":undefined} aria-label={'Comentário — '+f.label} value={details.comment||''} disabled={locked} onChange={e=>onDetail('comment',e.target.value)}/></label>}
  {f.internalNote&&<label>Observação interna<AutoResizeTextarea aria-label={'Observação interna — '+f.label} value={details.internalNote||''} disabled={locked} onChange={e=>onDetail('internalNote',e.target.value)}/></label>}
  {error&&<p role="alert">{error}</p>}
  </div>;

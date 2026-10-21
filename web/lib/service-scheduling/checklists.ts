@@ -75,8 +75,10 @@ export function validateAnswers(stage:ChecklistStage,raw:any,complete:boolean){
  return out;
 }
 
-export const hasAlertComment = (f:ChecklistField) => isStatusField(f.type) && !!f.alertOptions?.length;
-export const requiresAlertComment = (f:ChecklistField,value:any) => hasAlertComment(f) && fieldOptions(f).includes(value) && !!f.alertOptions?.includes(value);
+// Older checklist snapshots predate configurable alerts. Preserve explicit configurations.
+export const effectiveAlertOptions = (f:ChecklistField):string[] => !isStatusField(f.type)?[]:f.alertOptions ?? fieldOptions(f).filter(option=>option.trim().toUpperCase()==='NOK');
+export const hasAlertComment = (f:ChecklistField) => effectiveAlertOptions(f).length>0;
+export const requiresAlertComment = (f:ChecklistField,value:any) => hasAlertComment(f) && fieldOptions(f).includes(value) && effectiveAlertOptions(f).includes(value);
 export function validateAlertComments(stage:ChecklistStage,answers:any,details:any){
  for(const f of normalizeStage(stage).fields){
   if(requiresAlertComment(f,answers?.[f.id]) && (typeof details?.[f.id]?.comment!=='string'||!details[f.id].comment.trim()))

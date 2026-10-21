@@ -1,0 +1,30 @@
+import {test} from "node:test";
+import assert from "node:assert/strict";
+import {needsRescheduling,withRescheduling} from "../lib/service-scheduling/rescheduling";
+const base={status:"awaiting_execution",sent_at:"2026-10-20T10:00:00Z",document:{date:"2026-10-20",time:"08:00"}};
+const next={date:"2026-10-21",time:"09:00"};
+test("only date changes after dispatch count as rescheduling",()=>{
+ assert.equal(needsRescheduling(base,next),true);
+ assert.equal(needsRescheduling({...base,status:"executing"},next),true);
+ assert.equal(needsRescheduling({...base,sent_at:null,status:"scheduled"},next),false);
+ assert.equal(needsRescheduling(base,{...base.document,time:"10:00"}),false);
+ assert.equal(needsRescheduling({...base,status:"reviewed"},next),false);
+ assert.equal(withRescheduling({...base,sent_at:null,status:"scheduled"},next,null,"planner").reschedulingHistory.length,0);
+});
+test("confirmation and justification are mandatory, history survives edits and cannot be forged",()=>{
+ assert.throws(()=>withRescheduling(base,next,null,"planner"),/Confirme/);
+ assert.throws(()=>withRescheduling(base,next,{confirmed:true,reason:"  "},"planner"),/justificativa/);
+ assert.throws(()=>withRescheduling(base,{...next,date:""},{confirmed:true,reason:"motivo"},"planner"),/nova data/);
+ const first=withRescheduling(base,next,{confirmed:true,reason:" Técnico indisponível "},"planner","2026-10-20T15:00:00Z");
+ assert.equal(first.reschedulingHistory.length,1);
+ assert.deepEqual(first.reschedulingHistory[0],{at:"2026-10-20T15:00:00Z",by:"planner",fromDate:"2026-10-20",fromTime:"08:00",toDate:"2026-10-21",toTime:"09:00",reason:"Técnico indisponível"});
+ const operation={...base,document:first};
+ const unchanged=withRescheduling(operation,{...first,reschedulingHistory:[],firstSentAt:null},null,"other");
+ assert.deepEqual(unchanged.reschedulingHistory,first.reschedulingHistory);
+ assert.equal(unchanged.firstSentAt,base.sent_at);
+ const second=withRescheduling(operation,{...first,date:"2026-10-22",reschedulingHistory:[]},{confirmed:true,reason:"Cliente solicitou outra data"},"other");
+ assert.equal(second.reschedulingHistory.length,2);
+ assert.equal(first.reschedulingHistory.length,1);
+ assert.equal(second.reschedulingHistory[1].fromDate,"2026-10-21");
+ assert.equal(needsRescheduling({...operation,sent_at:null,status:"scheduled"},{...first,date:"2026-10-22"}),true);
+});

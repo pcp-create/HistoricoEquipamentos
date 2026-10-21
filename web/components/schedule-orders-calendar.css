@@ -49,7 +49,19 @@
 .schedule-daily-table td strong,.schedule-daily-table td small {display:block;margin-bottom:6px}
 .schedule-daily-table td small {color:#627d98}
 .schedule-daily-table a {display:block;font-weight:700;margin-bottom:6px}
-.schedule-daily-note {white-space:pre-wrap}
+.schedule-daily-note {white-space:normal}
+.schedule-daily-note-preview {
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:3;
+  width:clamp(120px,14vw,240px);
+  max-width:100%;
+  overflow:hidden;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  text-overflow:ellipsis;
+  line-height:1.4;
+}
 .schedule-daily-table tbody tr:nth-child(even) {background:#f8fafc}
 @media(max-width:600px){.schedule-orders-calendar header{flex-wrap:wrap;gap:8px}.schedule-orders-calendar h2{font-size:14px;min-width:150px}}
 
@@ -61,3 +73,38 @@
 .schedule-executor-photo {display:block;width:64px;height:64px;object-fit:cover;border-radius:50%;margin:0 auto 10px}
 .schedule-executor-initials {display:flex;align-items:center;justify-content:center;background:#dfeaf4;color:#245988;font-size:20px;font-weight:600}
 .schedule-executor-group + .schedule-executor-group {border-top:2px solid #cbdbea}
+
+/* Keep operations of the same OS together, with shared customer information. */
+.schedule-daily-table td {padding:8px 10px}
+.schedule-daily-table td strong,.schedule-daily-table td small,.schedule-daily-table a {margin-bottom:3px}
+.schedule-daily-table tbody tr.schedule-order-primary {background:#fff}
+.schedule-daily-table tbody tr.schedule-order-alternate {background:#f6f9fc}
+.schedule-daily-table .schedule-order-start:not(:first-child) td {border-top:2px solid #cbdbea}
+.schedule-daily-table .schedule-order-cell {min-width:180px;border-left:1px solid #e4ecf4}
+.schedule-operation-heading {display:flex;align-items:baseline;gap:7px}
+.schedule-operation-number {flex-shrink:0;font-size:11px;font-weight:700;color:#286193;background:#eaf2fa;border-radius:4px;padding:2px 5px}
+.schedule-daily-table .schedule-operation-heading strong {margin:0;line-height:1.35}
+.schedule-operation-meta {display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:4px}
+.schedule-daily-table .schedule-operation-meta small {margin:0}
+.schedule-operation-meta .operation-status {font-size:10px;padding:2px 6px}
+
+.schedule-daily-note-preview.is-expanded {display:block;-webkit-line-clamp:unset;white-space:pre-wrap;overflow:visible;overflow-wrap:anywhere}
+.scheduling-page .schedule-note-toggle {
+  display:inline;
+  min-width:0;
+  min-height:0;
+  margin:3px 0 0;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  color:#24649a;
+  font:inherit;
+  font-weight:500;
+  text-decoration:underline;
+  text-underline-offset:2px;
+  cursor:pointer;
+}
+.scheduling-page .schedule-note-toggle:hover {background:transparent;color:#153e64}
+.scheduling-page .schedule-note-toggle:focus-visible {outline:2px solid #24649a;outline-offset:3px}

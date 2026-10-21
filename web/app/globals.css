@@ -4271,3 +4271,18 @@ body.operational-ui :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar
 .material-inline-details { padding: 16px; background: #f7faff; border: 1px solid #dce6f2; border-radius: 10px; white-space: normal; }
 
 .required-marker {color:#b42318;font-weight:700;}
+
+.rescheduling-badge {display:inline-block;margin-top:4px;padding:3px 7px;border:1px solid #efd49a;border-radius:5px;background:#fff7e7;color:#825815;font-size:11px;white-space:nowrap}
+.rescheduling-dialog {width:min(560px,calc(100vw - 32px));max-height:85vh;overflow:auto;border:1px solid #cdddea;border-radius:14px;padding:24px;color:#244763;text-align:left;white-space:normal;box-sizing:border-box}
+.rescheduling-dialog::backdrop {background:rgb(16 37 60 / 40%)}
+.rescheduling-dialog h3 {margin:0 0 14px}
+.rescheduling-dialog p {margin:12px 0;line-height:1.5}
+.rescheduling-dialog label {display:grid;gap:8px}
+.rescheduling-dialog textarea {width:100%;min-height:100px;box-sizing:border-box}
+.rescheduling-actions {display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.rescheduling-dialog ol {padding-left:22px}
+.rescheduling-dialog li {padding:12px 0;border-bottom:1px solid #e1e9f2}
+.rescheduling-dialog .rescheduling-reason {white-space:pre-wrap;overflow-wrap:anywhere}
+
+textarea.alert-comment-empty { border-color: #c43848 !important; }
+textarea.alert-comment-empty:focus { outline-color: #c43848; }

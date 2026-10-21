@@ -1,6 +1,7 @@
 "use client";
 import {formatOrderDetailDate} from "@/lib/order-detail-dates";
 import OrderLinkCaption from "./order-link-caption";
+import {OrderPendingTaskLinks} from "./tasks-dashboard";
 import CreateLinkedTask from "./create-linked-task";
 import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
 import { companyName } from "@/lib/company-names";
@@ -654,6 +655,7 @@ export default function Dashboard() {
                   ) : (
                     <th className="numeric">Materiais</th>
                   )}
+                  <th>Tarefas pendentes</th>
                   <th>Status</th>
                   <th>Empresa</th>
                   <th>
@@ -666,7 +668,7 @@ export default function Dashboard() {
                   ? Array.from({ length: 6 }, (_, i) => (
                       <tr key={i} className="skeleton-row">
                         {Array.from(
-                          { length: view === "materials" ? 13 : 9 },
+                          { length: view === "materials" ? 14 : 10 },
                           (_, j) => (
                             <td key={j}>
                               <span className="skeleton" />
@@ -817,6 +819,7 @@ export default function Dashboard() {
                             )}
                           </td>
                         )}
+                        <td><OrderPendingTaskLinks company={row.company_id} orderId={row.id}/></td>
                         <td>
                           <Badge status={row.status} />
                         </td>
@@ -1127,6 +1130,7 @@ export function OrderDetails({
           </div>
         ) : (
           <div className="drawer-body">
+            <section aria-label="Tarefas pendentes"><h3>Tarefas pendentes da OS</h3><OrderPendingTaskLinks company={selection.company_id} orderId={selection.id}/></section>
             <div className="detail-summary">
               <Badge status={String(detail.order.status || "")} />
               <span>

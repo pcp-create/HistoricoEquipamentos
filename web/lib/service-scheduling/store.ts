@@ -1,3 +1,4 @@
+import {withRescheduling} from "./rescheduling";
 import {createChecklistAlertTask} from "./checklist-alert-task";
 import {defaultOperation} from "./default-operation";
 import { operationNumber } from "./operation-number";
@@ -104,7 +105,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
       await db.query(
         `SELECT s.*,customer.payload->>'municipioNome' AS customer_city,customer.payload->>'ufSigla' AS customer_state,o.numero_sequencia,o.cliente_id::text AS customer_id,o.cliente_nome,o.equipamento,o.tipo_nome,o.tipo_atendimento_nome,o.status_lancamento_nome,linked.status_lancamento_nome AS linked_status_lancamento_nome,linked.id_m8 AS linked_order_id,linked.numero_sequencia AS linked_order_number,o.status order_status,o.total_geral::text AS order_value,(o.data_entrega_prevista AT TIME ZONE 'America/Sao_Paulo')::date::text AS expected_delivery_date,(SELECT count(*)::int FROM web_service_operations p WHERE p.schedule_id=s.id) operation_count,
         COALESCE((SELECT jsonb_object_agg(c.status,c.n) FROM (SELECT p.status,count(*)::int n FROM web_service_operations p WHERE p.schedule_id=s.id GROUP BY p.status) c),'{}'::jsonb) operation_status_counts,
-        COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'position',p.position,'description',p.document->>'description','internalNote',p.document->>'internalNote','vehicleId',p.document->>'vehicleId','status',p.status,'date',p.document->>'date','time',p.document->>'time','duration',p.document->'duration','calendarId',p.document->>'calendarId','responsibleEmail',p.document->>'responsible','support',COALESCE(p.document->'support','[]'::jsonb),'responsible',COALESCE(NULLIF(u.display_name,''),p.document->>'responsible')) ORDER BY p.document->>'time',p.position) FROM web_service_operations p LEFT JOIN web_user_access u ON u.email=p.document->>'responsible' WHERE p.schedule_id=s.id),'[]'::jsonb) calendar_operations
+        COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'position',p.position,'description',p.document->>'description','internalNote',p.document->>'internalNote','vehicleId',p.document->>'vehicleId','equipmentId',p.document->>'equipmentId','equipment',p.document->'equipment','rescheduleCount',jsonb_array_length(COALESCE(p.document->'reschedulingHistory','[]'::jsonb)),'status',p.status,'date',p.document->>'date','time',p.document->>'time','duration',p.document->'duration','calendarId',p.document->>'calendarId','responsibleEmail',p.document->>'responsible','support',COALESCE(p.document->'support','[]'::jsonb),'responsible',COALESCE(NULLIF(u.display_name,''),p.document->>'responsible')) ORDER BY p.document->>'time',p.position) FROM web_service_operations p LEFT JOIN web_user_access u ON u.email=p.document->>'responsible' WHERE p.schedule_id=s.id),'[]'::jsonb) calendar_operations
         FROM web_service_schedules s LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id LEFT JOIN m8_customer_directory customer ON customer.company_id=o.company_id AND customer.person_id=o.cliente_id LEFT JOIN web_order_links ol ON ol.company_id=s.company_id AND ol.order_id=s.order_id LEFT JOIN m8_ordens_servico linked ON linked.company_id=ol.linked_company_id AND linked.id_m8=ol.linked_order_id WHERE s.active AND lower(trim(COALESCE(o.status,''))) NOT IN ('cancelado','cancelada') ORDER BY s.created_at DESC,s.id DESC`,
       )
     ).rows;
@@ -489,7 +490,7 @@ export async function mutateSchedule(b: any, email: string) {
         const initial=await defaultOperation(c,schedule.company_id,schedule.order_id);
         if(initial.equipmentId)document={...document,equipmentId:initial.equipmentId,equipment:initial.equipment};
       }
-      document={...document,equipmentLocked:true};
+      document={...document,equipmentLocked:true,firstSentAt:document.firstSentAt || operation.sent_at || new Date().toISOString()};
       if(document.checklistReturn&&!document.checklistId)throw new ScheduleInputError("Selecione o checklist corrigido antes de reenviar.");
       if(document.checklistId&&!document.checklistRun){
         const template=config.document.checklists.find((v:any)=>v.id===document.checklistId);
@@ -530,7 +531,7 @@ export async function mutateSchedule(b: any, email: string) {
           checked.document.equipment={...equipment,...(equipmentId===operation.document.equipmentId && operation.document.equipment?.label?{label:operation.document.equipment.label}:{})};
         }
         if(replacing)await c.query("DELETE FROM web_service_checklist_photos WHERE operation_id=$1",[operation.id]);
-        document = {...checked.document,...(operation.document.checklistReturn?{checklistReturn:operation.document.checklistReturn}:{})};
+        document = withRescheduling(operation, {...checked.document,...(operation.document.checklistReturn?{checklistReturn:operation.document.checklistReturn}:{})}, b.rescheduling, email);
         ends = checked.ends_at;
       } catch (e) {
         throw new ScheduleInputError((e as Error).message);
@@ -577,7 +578,7 @@ export async function mutateSchedule(b: any, email: string) {
           throw new ScheduleInputError("Analise as solicitações de apontamento pendentes antes de concluir a revisão.");
       }
       try { document=await reviewChecklist(c,operation,schedule,config.document,email);
-        document=await createChecklistAlertTask(c,operation,schedule,document,config.document,email,b.alertTask); }
+        document=await createChecklistAlertTask(c,operation,schedule,document,config.document,email,b.alertTasks??b.alertTask); }
       catch(e){throw new ScheduleInputError((e as Error).message);}
       status = "reviewed";
     } else if (b.action === "complete") {
