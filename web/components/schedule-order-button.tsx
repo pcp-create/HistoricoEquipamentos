@@ -1,4 +1,5 @@
 "use client";
+import { scheduleUrl } from "@/lib/service-scheduling/schedule-url";
 import { useState, useEffect } from "react";
 import { CalendarPlus, CalendarMinus } from "lucide-react";
 import { apiFetch } from "@/lib/client-api-cache";
@@ -41,7 +42,7 @@ export default function ScheduleOrderButton({
             const b = await r.json();
             if (!r.ok) throw Error(b.error);
             window.dispatchEvent(new Event("service-schedule-updated"));
-            if (!removing) window.location.assign("/programacao?id=" + b.schedule.id);
+            if (!removing) window.location.assign(scheduleUrl(b.schedule));
           } catch (e) {
             setScheduled(removing);
             setError((e as Error).message);

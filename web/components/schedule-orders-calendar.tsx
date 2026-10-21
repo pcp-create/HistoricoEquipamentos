@@ -1,4 +1,5 @@
 "use client";
+import { scheduleUrl } from "@/lib/service-scheduling/schedule-url";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import { displayedScheduleStatus } from "@/lib/service-scheduling/display-status";
 import { Fragment, useEffect, useRef, useState } from "react";
@@ -21,7 +22,7 @@ function Card({ order, day }: {order: any; day: string}) {
   const hasDuration = operations.length > 0 && dailyMinutes.every((minutes:any) => typeof minutes === "number" && Number.isFinite(minutes));
   const minutes = Math.round(dailyMinutes.reduce((total:number,value:any) => total + (value || 0),0));
   const duration = hasDuration ? (Math.floor(minutes / 60) ? Math.floor(minutes / 60) + " h " : "") + (minutes % 60 || !Math.floor(minutes / 60) ? (minutes % 60) + " min" : "") : "—";
-  return <a className={"schedule-calendar-order operation-status " + programmingStatus} href={"/programacao?id=" + order.id}>
+  return <a className={"schedule-calendar-order operation-status " + programmingStatus} href={scheduleUrl(order)}>
     <div className="schedule-calendar-card-heading">
       <strong>OS {order.numero_sequencia || order.order_id}</strong>
       <span className="schedule-calendar-duration" title="Duração programada neste dia" aria-label={"Duração programada neste dia: " + duration}><Clock3 size={12} aria-hidden="true"/>{duration}</span>
@@ -91,7 +92,7 @@ function DailySchedule({orders,day,users,vehicles}:any) {
         return <tr key={order.id+":"+(operation.id || index)}>
           {index===0 && <td rowSpan={group.length} className="schedule-executor-cell"><ExecutorPhoto key={user?.email || key} user={user} name={executorName}/><strong>{executorName}</strong><small>{new Set(group.map((row:any)=>row.order.id)).size} OSs · {group.length} operações</small></td>}
           <td><strong>{operationTime(operation,day)||"Sem horário"}</strong><small>{typeof minutes==="number" ? (minutes/60).toLocaleString("pt-BR",{maximumFractionDigits:2})+" h neste dia" : "Duração diária não informada"}</small></td>
-          <td><a href={"/programacao?id="+order.id}>OS {order.numero_sequencia || order.order_id}{operation.position != null ? "/" + operationNumber(operation.position) : ""}</a><strong>{operation.description || "Atividade não informada"}</strong>{!!operation.support?.length && <small>Apoio: {operation.support.map(name).join(", ")}</small>}<span className={"operation-status "+operation.status}>{statusNames[operation.status] || "Pendente"}</span></td>
+          <td><a href={scheduleUrl(order)}>OS {order.numero_sequencia || order.order_id}{operation.position != null ? "/" + operationNumber(operation.position) : ""}</a><strong>{operation.description || "Atividade não informada"}</strong>{!!operation.support?.length && <small>Apoio: {operation.support.map(name).join(", ")}</small>}<span className={"operation-status "+operation.status}>{statusNames[operation.status] || "Pendente"}</span></td>
           <td>{order.cliente_nome || "Cliente não informado"}<small>{[order.customer_city,order.customer_state].filter(Boolean).join(" / ") || "Local não informado"}</small></td>
           <td>{order.equipamento || "Não informado"}</td>
           <td className="schedule-daily-note">{operation.internalNote || "—"}</td>

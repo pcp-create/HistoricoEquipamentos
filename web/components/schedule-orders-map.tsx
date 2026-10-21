@@ -1,4 +1,5 @@
 "use client";
+import { scheduleUrl } from "@/lib/service-scheduling/schedule-url";
 import { latestOpenProgramming, latestProgrammingStatus } from "@/lib/service-scheduling/latest-programming";
 import { displayedScheduleStatus } from "@/lib/service-scheduling/display-status";
 import { customerMapLabel, singleCustomerLabel } from "@/lib/service-scheduling/customer-map-label";
@@ -345,7 +346,7 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
             section.appendChild(divider);
           }
           const link = document.createElement("a");
-          link.href = "/programacao?id=" + encodeURIComponent(s.id);
+          link.href = scheduleUrl(s);
           link.textContent = `OS ${s.numero_sequencia || s.order_id}`;
           const heading = document.createElement("div");
           heading.className = "schedule-map-popup-order-heading";
@@ -702,7 +703,7 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
           )}
           {visible.filter((s) => !s.address || !validPoint(s.address.latitude, s.address.longitude)).map((s) => (
             <article key={s.id} className="schedule-map-card">
-              <a href={"/programacao?id=" + s.id}>
+              <a href={scheduleUrl(s)}>
                 <strong>OS {s.numero_sequencia || s.order_id}</strong>
               </a>
               <span>{s.cliente_nome || "Cliente não informado"}</span>

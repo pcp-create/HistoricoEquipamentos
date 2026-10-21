@@ -59,6 +59,17 @@ async function audit(c: any, email: string, event: string, details: any) {
     [event, email, JSON.stringify(details)],
   );
 }
+export async function scheduleIdForNumber(number: string) {
+  if (!/^[1-9]\d{0,17}$/.test(number))
+    throw new ScheduleInputError("Número da OS inválido.");
+  const rows = (await database().query(
+    "SELECT s.id::text FROM web_service_schedules s JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id WHERE COALESCE(o.numero_sequencia,o.id_m8)=$1 LIMIT 2",
+    [number],
+  )).rows;
+  if (!rows.length) throw new ScheduleInputError("Programação não encontrada para esta OS.");
+  if (rows.length > 1) throw new ScheduleInputError("Mais de uma programação encontrada para esta OS.");
+  return rows[0].id as string;
+}
 export async function schedulingData(scheduleId: string | null, email: string) {
   const db = database();
   const user = (
@@ -301,8 +312,9 @@ export async function mutateSchedule(b: any, email: string) {
         schedule = (await c.query("UPDATE web_service_schedules SET active=true WHERE id=$1 RETURNING *",[schedule.id])).rows[0];
         await audit(c,email,"service_schedule_restored",{schedule});
       }
+      const order = (await c.query("SELECT to_jsonb(o)->>'numero_sequencia' AS numero_sequencia FROM m8_ordens_servico o WHERE company_id=$1 AND id_m8=$2", [company,b.orderId])).rows[0];
       await c.query("COMMIT");
-      return { schedule };
+      return { schedule: {...schedule, numero_sequencia: order?.numero_sequencia} };
     }
     const schedule = (
       await c.query(

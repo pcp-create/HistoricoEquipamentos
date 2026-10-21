@@ -1,4 +1,5 @@
 "use client";
+import { scheduleUrl } from "@/lib/service-scheduling/schedule-url";
 import {filterScheduleDateView, operationDates, type ScheduleDateView} from "@/lib/service-scheduling/date-view";
 import {operationEquipmentLabel} from "@/lib/service-scheduling/equipment-label";
 import OperationEquipmentSelect from "./operation-equipment-select";
@@ -116,7 +117,7 @@ const margin = (sale: any, cost: any) => {
 };
 async function request(body?: any, id?: string | null) {
   const r = await apiFetch(
-    "/api/service-scheduling" + (!body && id ? "?id=" + id : ""),
+    "/api/service-scheduling" + (!body && id ? "?" + id : ""),
     body
       ? {
           method: "POST",
@@ -131,7 +132,7 @@ async function request(body?: any, id?: string | null) {
 }
 export default function ServiceScheduling() {
   const params = useSearchParams(),
-    id = params.get("id");
+    id = params.has("OS") ? new URLSearchParams({OS: params.get("OS")!}).toString() : params.get("id") ? "id=" + encodeURIComponent(params.get("id")!) : null;
   const [data, setData] = useState<any>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -212,7 +213,7 @@ export default function ServiceScheduling() {
       try{
         clearApiCache();
         const fresh=await request(undefined,id);
-        if(canRefresh())setData(fresh);
+        if(canRefresh()){setData(fresh);setError("");}
       }catch{ /* Keep the last successful view when a background refresh fails. */ }
       finally{inFlight=false;}
     };
@@ -292,7 +293,7 @@ export default function ServiceScheduling() {
         ),
       });
     try {
-      const result = await request({ ...body, scheduleId: id });
+      const result = await request({ ...body, scheduleId: data.schedule.id });
       if (result.operation)
         setData((d: any) => ({
           ...d,
@@ -530,7 +531,7 @@ export default function ServiceScheduling() {
                         <td className="schedule-order-value">{money(s.order_value)}</td>
                         <td><span className="company-tag">{companyName(s.company_id)}</span></td>
                         <td className="schedule-details-cell">
-                          <a href={"/programacao?id=" + s.id}>
+                          <a href={scheduleUrl(s)}>
                             Detalhes <ChevronRight size={14} />
                           </a>
                         </td>

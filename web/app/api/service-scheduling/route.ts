@@ -2,6 +2,7 @@ import {syncTasks} from "@/lib/tasks/store";
 import { requireUser, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import {
   schedulingData,
+  scheduleIdForNumber,
   scheduleForOrder,
   mutateSchedule,
   ScheduleInputError,
@@ -48,7 +49,7 @@ export async function GET(req: Request) {
     const params = new URL(req.url).searchParams;
     if (params.has("orderId")) return json(await scheduleForOrder(params.get("company") || "", params.get("orderId") || ""));
     return json(
-      await schedulingData(new URL(req.url).searchParams.get("id"), user.email),
+      await schedulingData(params.has("OS") ? await scheduleIdForNumber(params.get("OS")!) : params.get("id"), user.email),
     );
   } catch (e) {
     return failure(e);
