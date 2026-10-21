@@ -665,3 +665,31 @@
 .sales-territory-legend > span { display: inline-flex; gap: 7px; align-items: center; }
 .sales-territory-legend i { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
 .sales-territory-legend details { width: 100%; }
+
+.sales-customer-picker-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:16px; align-items:end; margin:12px 0; }
+.sales-customer-picker-row .sales-customer-select { min-width:0; margin:0; }
+.sales-dialog label.sales-customer-scope { display:flex; flex-direction:row; white-space:nowrap; align-items:center; gap:8px; margin:0; min-height:43px; font-size:12px; line-height:1.4; cursor:pointer; }
+.sales-dialog .sales-customer-scope input[type="checkbox"] { width:16px; height:16px; min-height:16px; margin:0; padding:0; flex:0 0 16px; accent-color:#246194; }
+@media(max-width:600px) { .sales-customer-picker-row { grid-template-columns:minmax(0,1fr); gap:8px; } .sales-dialog label.sales-customer-scope { min-height:32px; } }
+
+.sales-location-search-actions { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; align-items:center; }
+.sales-dialog .sales-location-search-actions button { display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+
+.sales-lead-address { grid-column:1 / -1; border:1px solid #d6e2ed; border-radius:10px; padding:14px 16px; background:#f7fafe; }
+.sales-lead-address-heading { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; }
+.sales-lead-address-heading strong { font-size:13px; }
+.sales-dialog .sales-lead-address-heading button { display:inline-flex; align-items:center; gap:6px; min-height:30px; padding:5px 9px; font-size:12px; }
+.sales-lead-address > p { margin:8px 0; font-size:11px; }
+.sales-lead-address dl { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:12px 0 0; }
+.sales-lead-address dt { color:#71899e; font-size:11px; margin-bottom:4px; }
+.sales-lead-address dd { margin:0; font-size:13px; color:#294b68; overflow-wrap:anywhere; }
+.sales-lead-address .sales-form-grid { margin-bottom:0; }
+@media(max-width:600px){.sales-lead-address dl { grid-template-columns:1fr; gap:12px; }}
+
+.sales-customer-location > .sales-lead-address { padding:14px 0 0; margin-top:14px; border:0; border-top:1px solid #d7e3ef; border-radius:0; background:transparent; }
+.sales-lead-address-actions { display:flex; margin-top:12px; }
+.sales-dialog .sales-lead-address-actions button { display:inline-flex; align-items:center; gap:6px; min-height:32px; padding:6px 10px; font-size:12px; }
+
+.sales-location-map-frame { position:relative; isolation:isolate; }
+.sales-location-center { position:absolute; left:50%; top:50%; width:24px; height:24px; transform:translate(-50%,-100%); z-index:500; pointer-events:none; }
+.sales-location-center .sales-location-pin { display:block; }

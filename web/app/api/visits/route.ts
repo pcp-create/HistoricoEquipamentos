@@ -19,7 +19,7 @@ function fail(e: unknown) {
           : e instanceof Unauthorized
             ? "Sessão expirada."
             : e instanceof Forbidden
-              ? "Acesso permitido somente ao vendedor da carteira. Confira o cargo e a divisão comercial."
+              ? "Acesso não permitido. Confira se o usuário está ativo e se a visita pertence a ele."
               : "Não foi possível carregar as visitas.",
     },
     e instanceof EquipmentConflict ? 409 : (e instanceof AdminInputError || e instanceof EquipmentInputError)

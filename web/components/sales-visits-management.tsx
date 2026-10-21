@@ -1,18 +1,19 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import SiteHeader from "./site-header";
 import {
-  ArrowLeft,
   BarChart3,
   Users,
   List,
   CalendarDays,
   MapPin,
-  RefreshCw,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
   SlidersHorizontal,
+  Settings,
+  Plus,
   X,
 } from "lucide-react";
 import {
@@ -23,6 +24,7 @@ import {
   type VisitsData,
 } from "@/lib/visits/model";
 import { lastSeen } from "@/lib/last-seen";
+import SalesVisits from "./sales-visits";
 import SalesVisitsMap from "./sales-visits-map";
 import "./field-app.css";
 import "./sales-visits.css";
@@ -71,6 +73,7 @@ export default function SalesVisitsManagement() {
   const [meterDate, setMeterDate] = useState("");
   const [meterError,setMeterError]=useState("");
   const [meterBusy,setMeterBusy]=useState(false);
+  const [scheduling,setScheduling]=useState(false);
   const [message,setMessage]=useState("");
   const selectEquipment=useCallback((customer:VisitCustomer,equipment:NonNullable<VisitCustomer["equipment"]>[number])=>{
     setMeterForm({customer,equipment}); setMeterDate(brazilDay(new Date()));setMeterValue("");setMeterError("");setMessage("");
@@ -228,6 +231,7 @@ export default function SalesVisitsManagement() {
       <p>
         {v.contact} · {v.phone}
       </p>
+      {v.purpose_name && <p>Finalidade: {v.purpose_name}</p>}
       {v.description && <p className="sales-long">{v.description}</p>}
       {v.completed_at && <p>Realizada em {dateTime(v.completed_at)}</p>}
       {v.outcome && (
@@ -246,22 +250,16 @@ export default function SalesVisitsManagement() {
     .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
   return (
     <div className="sales-shell">
+      <SiteHeader active="visitsManagement" moduleId="visitas" />
       <main className="field-app sales-app sales-management">
         <header className="sales-management-header">
           <div>
-            <p className="sales-muted">PORTAL VENDAS RJ · GESTÃO</p>
             <h1>Gestão de Visitas</h1>
             <p>Acompanhe a carteira e as visitas de todos os vendedores.</p>
           </div>
           <div className="sales-actions">
-            <Link href="/visitas">
-              <ArrowLeft size={17} />
-              Portal de visitas
-            </Link>
-            <button onClick={() => void reload()} disabled={loading}>
-              <RefreshCw size={17} />
-              {loading ? "Atualizando…" : "Atualizar"}
-            </button>
+            <button className="sales-primary" onClick={()=>setScheduling(true)}><Plus size={18}/>Agendar visita</button>
+            <Link href="/visitas/gestao/configuracoes" title="Configurações de Visitas" aria-label="Configurações de Visitas"><Settings size={20}/></Link>
           </div>
         </header>
         {error && (
@@ -786,6 +784,7 @@ export default function SalesVisitsManagement() {
           </div>
         )}
       </main>
+      {scheduling && <SalesVisits scheduleOnly onClose={()=>setScheduling(false)} onScheduled={async()=>{setScheduling(false);setMessage("Visita agendada.");await reload();}}/>}
     </div>
   );
 }

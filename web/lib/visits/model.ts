@@ -49,6 +49,8 @@ export type VisitCustomer = {
   health: VisitHealth;
 };
 export type SalesVisit = {
+  purpose_id?: string;
+  purpose_name?: string;
   seller?: string;
   id: string;
   customer_key: string;
@@ -65,7 +67,9 @@ export type VisitSellerLocation = {
   id: string; name: string; enabled?: boolean; latitude: number | null; longitude: number | null;
   located_at: string | null; last_seen_at: string | null; online: boolean;
 };
+export type VisitPurpose = {id:string;name:string;description:string;active:boolean;version:number};
 export type VisitsData = {
+  purposes?: VisitPurpose[];
   canManage?: boolean;
   sellers?: VisitSellerLocation[];
   name: string;

@@ -5,6 +5,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { addMonths, visitHealth } from "../lib/visits/model";
 import { visitsData, saveVisit, saveCustomerLocation } from "../lib/visits/store";
 import { saveVisitMeter } from "../lib/visits/equipment";
+import { saveVisitPurpose,visitSettings } from "../lib/visits/settings";
 import { saveTerritory } from "../lib/tasks/territories";
 test("visit recurrence uses calendar months, month ends and Brazil dates", () => {
   assert.equal(visitHealth(null, "2026-10-20"), "overdue");
@@ -29,6 +30,7 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
       "046_field_locations",
       "052_sales_visits",
       "053_sales_customer_locations",
+      "054_sales_visit_purposes",
     ]) {
       if (file === "046_field_locations") await db.exec("CREATE TABLE web_field_events(actor text,located_at timestamptz)");
       if (file === "040_schedule_map") {
@@ -92,13 +94,13 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     await saveCustomerLocation({customer_key:"m8:1",latitude:-27.5,longitude:-50.5,version:0},"a@test.com");
     assert.equal((await visitsData("a@test.com")).customers[0].latitude,-27.5);
     await assert.rejects(()=>saveCustomerLocation({customer_key:"m8:1",latitude:-28,longitude:-51,version:0},"a@test.com"),/alterada/);
-    await assert.rejects(()=>saveCustomerLocation({customer_key:"m8:1",latitude:-28,longitude:-51,version:1},"b@test.com"));
+    await saveCustomerLocation({customer_key:"m8:1",latitude:-28,longitude:-51,version:1},"b@test.com");
     await assert.rejects(()=>saveCustomerLocation({customer_key:"m8:1",latitude:90,longitude:-51,version:1},"a@test.com"),/válida/);
 
     await db.exec(`INSERT INTO web_equipment_settings VALUES(100,'{"meter":1234,"meterDate":"2026-01-01"}',1)`);
     assert.equal((await visitsData("a@test.com")).customers[0].equipment?.[0].meter,1234);
     const meterUser = {email:"a@test.com"} as any;
-    await assert.rejects(() => saveVisitMeter({customer_key:"m8:2",equipment:"102",version:null,meter:2000},meterUser,true));
+    await assert.rejects(() => saveVisitMeter({customer_key:"m8:1",equipment:"100",version:1,meter:1200},meterUser,true),/menor/);
     await assert.rejects(() => saveVisitMeter({customer_key:"m8:1",equipment:"100",version:1,meter:1200},{email:"admin@test.com"} as any,true),/menor/);
 
     await assert.rejects(() => saveVisitMeter({customer_key:"m8:2",equipment:"102",version:null,meter:2000},meterUser));
@@ -110,8 +112,9 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
       (await visitsData("a@test.com")).customers[0].health,
       "overdue",
     );
-    await assert.rejects(() => visitsData("tech@test.com"));
+    assert.equal((await visitsData("tech@test.com")).customers.length,0);
     const body = {
+      purpose_id: "1",
       action: "schedule",
       id: "11111111-1111-4111-8111-111111111111",
       customer_key: "m8:1",
@@ -120,9 +123,9 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
       phone: "49999999999",
       description: "Teste",
     };
-    await assert.rejects(() => saveVisit({...body,customer_key:"m8:5"}, "a@test.com"));
-    await assert.rejects(() => saveVisit({...body,customer_key:"m8:4"}, "a@test.com"));
-    await assert.rejects(() => saveVisit(body, "b@test.com"));
+    await assert.rejects(() => saveVisit({...body,customer_key:"m8:999"}, "a@test.com"));
+    await assert.rejects(() => saveVisit({...body,purpose_id:"999"}, "a@test.com"));
+    await assert.rejects(() => saveVisit({...body,purpose_id:""}, "a@test.com"));
     await saveVisit(body, "a@test.com");
     await saveVisit(body, "a@test.com");
     let d = await visitsData("a@test.com");
@@ -173,14 +176,15 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     assert.equal((await visitsData("a@test.com")).customers.find(c=>c.lead)?.latitude,-27.8);
     assert.equal((await visitsData("a@test.com")).customers.length, 2);
     assert.equal((await visitsData("b@test.com")).customers.length, 1);
-    await assert.rejects(()=>visitsData("a@test.com",undefined,true));
+    assert.equal((await visitsData("a@test.com",undefined,true)).visits.length, 2);
     await db.exec(`INSERT INTO web_sales_visits(id,seller,customer_key,scheduled_at,contact,phone,description,status)
       VALUES('99999999-9999-4999-8999-999999999999','b@test.com','m8:2',now(),'Contato','49999999999','Visita B','scheduled')`);
     let management = await visitsData("admin@test.com",undefined,true);
     assert.equal(management.visits.length,3);
     assert.equal(management.customers.find(c=>c.key==='m8:2')?.seller_ids?.[0],'b@test.com');
     await db.exec("UPDATE web_user_access SET enabled=false WHERE email='b@test.com'; DELETE FROM web_task_territories WHERE seller_user='b@test.com'; UPDATE m8_person_equipment SET present=false WHERE person_id=2");
-    management = await visitsData("admin@test.com",undefined,true);
+    await assert.rejects(()=>visitsData("b@test.com",undefined,true));
+    management = await visitsData("a@test.com",undefined,true);
     assert.ok(management.visits.some((v:any)=>v.seller==='b@test.com'));
     assert.ok(management.customers.some(c=>c.key==='m8:2'));
     assert.equal(management.sellers.find((v:any)=>v.id==='b@test.com').enabled,false);
@@ -200,6 +204,22 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
       ).rows[0].seller,
       "Texto antigo",
     );
+    const purposes=await visitSettings("tech@test.com");
+    assert.equal(purposes.length,10);
+    await saveVisitPurpose({...purposes[0],name:"Prospecção atualizada",active:false},"tech@test.com");
+    await assert.rejects(()=>saveVisitPurpose({...purposes[0],name:"Conflito"},"tech@test.com"),/alterado/);
+    await assert.rejects(()=>saveVisit({...body,id:"77777777-7777-4777-8777-777777777777",customer_key:"m8:5"},"tech@test.com"),/ativa/);
+    await assert.rejects(()=>saveVisitPurpose({purposes:[{...purposes[1],name:"Não deve salvar"},{...purposes[0],name:"Conflito antigo"}]},"tech@test.com"),/alterado/);
+    assert.equal((await visitSettings("tech@test.com"))[1].name,purposes[1].name);
+    const external={...body,id:"88888888-8888-4888-8888-888888888888",purpose_id:"2",customer_key:"m8:5"};
+    await saveVisit(external,"tech@test.com");
+    const tech=await visitsData("tech@test.com");
+    assert.equal(tech.visits.length,1);
+    assert.equal(tech.visits[0].purpose_name,"Apresentação Comercial");
+    assert.equal(tech.customers[0].key,"m8:5");
+    assert.equal(tech.customers[0].in_portfolio,false);
+    await assert.rejects(()=>saveVisit({action:"cancel",id:external.id,version:1},"a@test.com"));
+    await saveVisit({action:"cancel",id:external.id,version:1},"tech@test.com");
   } finally {
     g.historyPool = old;
     await db.close();

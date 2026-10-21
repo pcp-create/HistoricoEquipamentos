@@ -1,12 +1,12 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart3,
   List,
   CalendarDays,
   MapPin,
   Plus,
+  Pencil,
   RefreshCw,
   LogOut,
   CheckCircle2,
@@ -63,6 +63,7 @@ type Form = {
   mode: "schedule" | "history" | "complete";
   id: string;
   version?: number;
+  purpose_id: string;
   customer_key: string;
   lead: boolean;
   leadId: string;
@@ -77,7 +78,7 @@ type Form = {
   description: string;
   outcome: string;
 };
-export default function SalesVisits() {
+export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{scheduleOnly?:boolean;onClose?:()=>void;onScheduled?:()=>void|Promise<void>} = {}) {
   const [home, setHome] = useState(true);
   const [data, setData] = useState<VisitsData | null>(null),
     [error, setError] = useState(""),
@@ -92,6 +93,33 @@ export default function SalesVisits() {
     [month, setMonth] = useState(() => brazilDay(new Date()).slice(0, 7)),
     [selectedDay, setSelectedDay] = useState(""),
     [form, setForm] = useState<Form | null>(null);
+  const [allCustomers,setAllCustomers] = useState<VisitCustomer[]>([]);
+  const [outsidePortfolio,setOutsidePortfolio] = useState(false);
+  const [customerLoading,setCustomerLoading] = useState(false);
+  async function loadAllCustomers(){setCustomerLoading(true);try{const r=await fetch('/api/visits/customers',{cache:'no-store'});const b=await r.json();if(!r.ok)throw Error(b.error);setAllCustomers(b.customers)}catch(e){setError((e as Error).message)}finally{setCustomerLoading(false)}}
+  const leadAddressRequest=useRef<AbortController | null>(null);
+  const [editingLeadAddress,setEditingLeadAddress]=useState(false);
+  const [leadAddressStatus,setLeadAddressStatus]=useState("");
+  useEffect(()=>()=>leadAddressRequest.current?.abort(),[]);
+  async function selectLeadPoint(leadPoint:[number,number]){
+    if(!form)return;
+    const original=form;
+    leadAddressRequest.current?.abort();
+    const controller=new AbortController();leadAddressRequest.current=controller;
+    setForm(current=>current?{...current,leadPoint}:current);
+    setEditingLeadAddress(false);
+    setLeadAddressStatus("Preenchendo endereço da localização…");
+    try{
+      const r=await fetch('/api/visits/location-search',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({action:'reverse',latitude:leadPoint[0],longitude:leadPoint[1]})});
+      const b=await r.json();if(!r.ok)throw Error();if(controller.signal.aborted)return;
+      if(!b.address || (!b.address.city && !b.address.uf && !b.address.address)){setLeadAddressStatus("Endereço não encontrado. Preencha os campos manualmente.");return;}
+      setForm(current=>{
+        if(!current?.lead || current.leadId!==original.leadId || current.leadPoint?.[0]!==leadPoint[0] || current.leadPoint?.[1]!==leadPoint[1])return current;
+        return {...current,...Object.fromEntries((["city","uf","address"] as const).filter(key=>b.address[key] && current[key]===original[key]).map(key=>[key,b.address[key]]))};
+      });
+      setLeadAddressStatus("Localização identificada. Confira os dados abaixo.");
+    }catch{if(!controller.signal.aborted)setLeadAddressStatus("Não foi possível consultar o endereço. A posição foi mantida; preencha os campos manualmente.");}
+  }
   const [detail, setDetail] = useState<VisitCustomer | null>(null);
   const [meterForm, setMeterForm] = useState<{customer: VisitCustomer; equipment: NonNullable<VisitCustomer["equipment"]>[number]} | null>(null);
   const [meterValue, setMeterValue] = useState("");
@@ -127,6 +155,7 @@ export default function SalesVisits() {
     };
   }, [reload]);
   useEffect(() => {
+    if(scheduleOnly) return;
     let stopped = false, busy = false;
     async function pulse() {
       if (busy || !navigator.onLine || document.visibilityState !== "visible") return;
@@ -147,7 +176,7 @@ export default function SalesVisits() {
     document.addEventListener("visibilitychange", pulse);
     window.addEventListener("online", pulse);
     return () => { stopped = true; clearInterval(timer); document.removeEventListener("visibilitychange", pulse); window.removeEventListener("online", pulse); };
-  }, [reload]);
+  }, [reload,scheduleOnly]);
   const customers = data?.customers || [],
     visits = data?.visits || [];
   const matches = (c: VisitCustomer) =>
@@ -162,10 +191,11 @@ export default function SalesVisits() {
   });
   const completed = visits.filter((v) => v.status === "completed"),
     planned = visits.filter((v) => v.status === "scheduled");
+  const portfolio = customers.filter(c=>c.in_portfolio !== false);
   const counts = {
-    current: customers.filter((c) => c.health === "current").length,
-    due: customers.filter((c) => c.health === "due").length,
-    overdue: customers.filter((c) => c.health === "overdue").length,
+    current: portfolio.filter((c) => c.health === "current").length,
+    due: portfolio.filter((c) => c.health === "due").length,
+    overdue: portfolio.filter((c) => c.health === "overdue").length,
   };
   const today = brazilDay(new Date()),
     doneMonth = completed.filter(
@@ -193,7 +223,10 @@ export default function SalesVisits() {
     (mode: Form["mode"], c?: VisitCustomer, v?: SalesVisit) => {
       setError("");
       setMessage("");
+      setEditingLeadAddress(false);setLeadAddressStatus("");leadAddressRequest.current?.abort();
+      setOutsidePortfolio(false);
       setForm({
+        purpose_id: v?.purpose_id || "",
         mode,
         id: v?.id || crypto.randomUUID(),
         version: v?.version,
@@ -218,10 +251,13 @@ export default function SalesVisits() {
     },
     [selectedDay],
   );
+  useEffect(()=>{if(scheduleOnly)openForm("schedule")},[scheduleOnly,openForm]);
+  const formCustomer = customers.find(c=>c.key===form?.customer_key) || allCustomers.find(c=>c.key===form?.customer_key);
   const selectMap = useCallback((c: VisitCustomer) => setDetail(c), []);
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!form || busy) return;
+    if(form.lead && !form.city.trim()){setEditingLeadAddress(true);setError("Informe a cidade do Lead ou selecione uma localização no mapa.");return;}
     if (!form.lead && !form.customer_key) { setError("Selecione o cliente."); return; }
     setBusy(true);
     setError("");
@@ -231,6 +267,7 @@ export default function SalesVisits() {
         action: form.mode === "complete" ? "complete" : form.mode,
         id: form.id,
         version: form.version,
+        purpose_id: form.purpose_id,
         customer_key: form.customer_key,
         scheduled_at: date,
         completed_at: date,
@@ -264,6 +301,7 @@ export default function SalesVisits() {
         setQuery("");
         setFilter("all");
       }
+      if(scheduleOnly){await onScheduled?.();return;}
       setForm(null);
       setMessage(
         form.mode === "schedule"
@@ -335,6 +373,7 @@ export default function SalesVisits() {
     <article className="sales-visit" key={v.id}>
       <div className="sales-between">
         <strong>{customerMap.get(v.customer_key)?.name}</strong>
+        {v.purpose_name && <p>Finalidade: {v.purpose_name}</p>}
         <span
           className={
             "sales-badge " +
@@ -388,7 +427,8 @@ export default function SalesVisits() {
     </article>
   );
   return (
-    <div className="sales-shell">
+    <div className={scheduleOnly ? "sales-schedule-modal" : "sales-shell"}>
+      {!scheduleOnly && <>
       <div className={"sales-connection " + (online ? "online" : "offline")}>
         <span>
           {online ? <Wifi size={16} /> : <WifiOff size={16} />}{" "}
@@ -488,7 +528,7 @@ export default function SalesVisits() {
                   na divisão comercial. Os clientes das cidades vinculadas
                   aparecerão automaticamente.
                 </p>
-                <p>Você também pode agendar uma visita para um novo Lead.</p>
+                <p>Mesmo sem carteira, você pode agendar uma visita buscando em toda a base de clientes ou cadastrar um novo Lead.</p>
               </section>
             )}
             {tab === "summary" && (
@@ -496,7 +536,7 @@ export default function SalesVisits() {
                 <div className="sales-kpis">
                   {(
                     [
-                      ["all", "Clientes na carteira", customers.length, Users],
+                      ["all", "Clientes na carteira", portfolio.length, Users],
                       ["leads", "Leads na carteira", customers.filter(c => c.lead).length, UserPlus],
                       [
                         "current",
@@ -539,8 +579,8 @@ export default function SalesVisits() {
                           <i
                             className={key}
                             style={{
-                              width: customers.length
-                                ? `${(counts[key] / customers.length) * 100}%`
+                              width: portfolio.length
+                                ? `${(counts[key] / portfolio.length) * 100}%`
                                 : "0%",
                             }}
                           />
@@ -576,9 +616,9 @@ export default function SalesVisits() {
                       </div>
                       <div>
                         <b>
-                          {customers.length
+                          {portfolio.length
                             ? Math.round(
-                                (counts.current / customers.length) * 100,
+                                (counts.current / portfolio.length) * 100,
                               )
                             : 0}
                           %
@@ -799,11 +839,11 @@ export default function SalesVisits() {
           </>
         )}
         </>}
-        {data?.canManage && <Link className="sales-management-link" href="/visitas/gestao"><BarChart3 size={18} />Gestão de Visitas</Link>}
         <footer className="sales-footer">
           Portal Vendedor RJ · Horários de Brasília · Acesso on-line
         </footer>
       </main>
+      </>}
       {meterForm && (
         <div className="sales-overlay">
           <section className="sales-dialog" role="dialog" aria-modal="true" aria-label="Registrar horímetro">
@@ -894,7 +934,7 @@ export default function SalesVisits() {
                 disabled={busy}
                 aria-label="Fechar formulário"
                 onClick={() => {
-                  if (confirm("Fechar sem salvar?")) setForm(null);
+                  if (confirm("Fechar sem salvar?")) {setForm(null);if(scheduleOnly)onClose?.();}
                 }}
               >
                 <X />
@@ -905,6 +945,8 @@ export default function SalesVisits() {
                 {error}
               </p>
             )}
+            {scheduleOnly && <p className="sales-muted">A visita será registrada em seu nome.</p>}
+            {loading && <p role="status">Carregando dados do agendamento…</p>}
             {form.mode !== "complete" ? (
               <>
                 <label className="sales-check">
@@ -937,7 +979,11 @@ export default function SalesVisits() {
                     </label>
                     <SalesCustomerLocation key={form.leadId} draft onSaved={reload}
                       customer={{key:form.leadId,name:form.leadName,document:"",city:form.city,uf:form.uf,address:"",lead:true,latitude:null,longitude:null,lastVisit:null,health:"overdue"}}
-                      onPoint={leadPoint=>setForm(current=>current ? {...current,leadPoint}:current)} />
+                      onPoint={leadPoint=>void selectLeadPoint(leadPoint)}>
+                    <section className="sales-lead-address" aria-label="Endereço do Lead">
+                      <div className="sales-lead-address-heading"><strong>Endereço do Lead</strong></div>
+                      {leadAddressStatus && <p className="sales-muted" role="status">{leadAddressStatus}</p>}
+                      {!editingLeadAddress ? <dl><div><dt>Cidade / UF</dt><dd>{form.city ? `${form.city} / ${form.uf}` : "Localização ainda não definida"}</dd></div><div><dt>Endereço</dt><dd>{form.address || "Não identificado"}</dd></div></dl> : <div className="sales-form-grid">
                     <label>
                       Cidade
                       <input
@@ -952,6 +998,7 @@ export default function SalesVisits() {
                     <label>
                       UF
                       <select
+                        aria-label="UF"
                         value={form.uf}
                         onChange={(e) =>
                           setForm({ ...form, uf: e.target.value })
@@ -974,10 +1021,20 @@ export default function SalesVisits() {
                         }
                       />
                     </label>
+                      </div>}
+                    <div className="sales-lead-address-actions"><button type="button" onClick={()=>setEditingLeadAddress(!editingLeadAddress)}><Pencil size={14}/>{editingLeadAddress ? "Concluir edição" : "Editar endereço"}</button></div>
+                    </section>
+                    </SalesCustomerLocation>
                   </div>
                 ) : (
-                  <SalesCustomerSelect customers={customers} value={form.customer_key}
-                    onChange={customer_key => setForm({ ...form, customer_key })} />
+                  <>
+                    <div className="sales-customer-picker-row">
+                      <SalesCustomerSelect customers={outsidePortfolio ? allCustomers : customers} value={form.customer_key}
+                        onChange={customer_key => setForm({ ...form, customer_key })} />
+                      <label className="sales-customer-scope"><input type="checkbox" checked={outsidePortfolio} onChange={e=>{setOutsidePortfolio(e.target.checked);setForm({...form,customer_key:""});if(e.target.checked)void loadAllCustomers();}}/><span>Base completa de clientes</span></label>
+                    </div>
+                    {customerLoading && <p role="status">Carregando clientes…</p>}
+                  </>
                 )}
               </>
             ) : (
@@ -985,8 +1042,8 @@ export default function SalesVisits() {
                 <strong>{customerMap.get(form.customer_key)?.name}</strong>
               </p>
             )}
-            {!form.lead && customerMap.has(form.customer_key) && (
-              <SalesCustomerLocation key={form.customer_key} customer={customerMap.get(form.customer_key)!} onSaved={reload} />
+            {!form.lead && formCustomer && (
+              <SalesCustomerLocation key={form.customer_key} customer={formCustomer!} onSaved={async()=>{await reload();if(outsidePortfolio)await loadAllCustomers()}} />
             )}
             <div className="sales-form-grid">
               <label>
@@ -1003,6 +1060,13 @@ export default function SalesVisits() {
                   }
                 />
               </label>
+              {form.mode !== "complete" && <label>Finalidade da Visita
+                <select aria-label="Finalidade da Visita" required value={form.purpose_id} onChange={e=>setForm({...form,purpose_id:e.target.value})}>
+                  <option value="">Selecione a finalidade</option>
+                  {(data?.purposes || []).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <small>{data?.purposes?.find(p=>p.id===form.purpose_id)?.description}</small>
+              </label>}
               {form.mode !== "complete" && (
                 <>
                   <label>
@@ -1066,7 +1130,7 @@ export default function SalesVisits() {
             <button
               type="submit"
               className="sales-primary"
-              disabled={busy || !online}
+              disabled={busy || !online || loading || !data}
             >
               {busy
                 ? "Salvando…"

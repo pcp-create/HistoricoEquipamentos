@@ -5,25 +5,20 @@ import { Forbidden } from "../auth";
 import { cityKey } from "../tasks/territories";
 import { visitHealth, type VisitCustomer } from "./model";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-async function identity(db: any, email: string) {
+export async function visitIdentity(db: any, email: string) {
   const u = (
     await db.query(
       "SELECT enabled,role,job_title,display_name FROM web_user_access WHERE email=$1",
       [email],
     )
   ).rows[0];
-  if (
-    !u?.enabled ||
-    (u.role !== "admin" && !/^vendedor(a)?$/i.test(u.job_title.trim()))
-  )
-    throw new Forbidden();
+  if (!u?.enabled) throw new Forbidden();
   return u;
 }
 export async function visitsData(email: string, db: any = database(), management = false) {
   email = email.toLowerCase();
-  const user = await identity(db, email);
-  if (management && user.role !== "admin") throw new Forbidden();
-  const historical = management ? (await db.query("SELECT DISTINCT customer_key FROM web_sales_visits")).rows.map((r:any)=>r.customer_key) : [];
+  const user = await visitIdentity(db, email);
+  const historical = (await db.query("SELECT DISTINCT customer_key FROM web_sales_visits WHERE $2::boolean OR seller=$1",[email,management])).rows.map((r:any)=>r.customer_key);
   const rules = (
     await db.query(
       "SELECT city_key,uf,seller_user FROM web_task_territories WHERE ($2::boolean OR seller_user=$1)",
@@ -42,7 +37,7 @@ export async function visitsData(email: string, db: any = database(), management
     )
   ).rows;
   const mine = source.filter((r: any) =>
-    management || territories.has(
+    management || historical.includes(`m8:${r.person_id}`) || territories.has(
       cityKey(r.payload?.municipioNome || "") +
         ":" +
         String(r.payload?.ufSigla || "").toUpperCase(),
@@ -107,7 +102,7 @@ export async function visitsData(email: string, db: any = database(), management
           .filter(Boolean)
           .join(", "),
         seller_ids: rules.filter((rule:any)=>rule.city_key === cityKey(r.payload?.municipioNome || "") && rule.uf === String(r.payload?.ufSigla || "").toUpperCase()).map((rule:any)=>rule.seller_user).filter(Boolean),
-        in_portfolio: r.has_equipment,
+        in_portfolio: r.has_equipment && (management || territories.has(cityKey(r.payload?.municipioNome || "") + ":" + String(r.payload?.ufSigla || "").toUpperCase())),
         lead: false,
         equipment: equipmentMap.get(r.person_id) || [],
         latitude: p?.latitude ?? null,
@@ -137,7 +132,7 @@ export async function visitsData(email: string, db: any = database(), management
   customers.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   const visits = (
     await db.query(
-      "SELECT * FROM web_sales_visits WHERE $3::boolean OR (seller=$1 AND customer_key=ANY($2::text[])) ORDER BY scheduled_at DESC",
+      "SELECT v.*,p.name AS purpose_name FROM web_sales_visits v LEFT JOIN web_sales_visit_purposes p ON p.id=v.purpose_id WHERE $3::boolean OR (seller=$1 AND customer_key=ANY($2::text[])) ORDER BY scheduled_at DESC",
       [email, keys, management],
     )
   ).rows;
@@ -149,8 +144,9 @@ export async function visitsData(email: string, db: any = database(), management
     FROM web_user_access u LEFT JOIN web_field_locations p ON p.actor=u.email
     WHERE ((u.enabled AND lower(trim(u.job_title)) IN ('vendedor','vendedora')) OR ($3::boolean AND (EXISTS(SELECT 1 FROM web_sales_visits v WHERE v.seller=u.email) OR EXISTS(SELECT 1 FROM web_task_territories t WHERE t.seller_user=u.email) OR EXISTS(SELECT 1 FROM web_sales_leads l WHERE l.owner=u.email))))
       AND ($2::boolean OR u.email=$1)
-    ORDER BY u.display_name,u.email`, [email,user.role === "admin",management])).rows;
-  return { name: user.display_name || email, customers, visits, sellers, canManage: user.role === "admin" };
+    ORDER BY u.display_name,u.email`, [email,management || user.role === "admin",management])).rows;
+  const purposes = (await db.query("SELECT id::text,name,description,active,version FROM web_sales_visit_purposes WHERE active ORDER BY id")).rows;
+  return { purposes, name: user.display_name || email, customers, visits, sellers, canManage: true };
 }
 function text(b: any, key: string, max: number, required = false) {
   const value = b?.[key];
@@ -182,7 +178,7 @@ export async function saveVisit(b: any, email: string) {
   const c = await database().connect();
   try {
     await c.query("BEGIN READ WRITE");
-    await identity(c, email);
+    await visitIdentity(c, email);
     await c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
       "visits:" + email,
     ]);
@@ -221,8 +217,12 @@ export async function saveVisit(b: any, email: string) {
             ON CONFLICT(customer_key) DO NOTHING`,[key,latitude,longitude,email]);
         }
 
-      } else if (!data.customers.some((x) => x.key === key))
-        throw new Forbidden();
+      } else if (!data.customers.some((x) => x.key === key)) {
+        if (!/^m8:\d+$/.test(key) || !(await c.query("SELECT 1 FROM m8_customer_directory WHERE person_id=$1 LIMIT 1",[key.slice(3)])).rows.length) throw new Forbidden();
+      }
+      const purpose = b.purpose_id;
+      if (!/^\d+$/.test(String(purpose || "")) || !(await c.query("SELECT 1 FROM web_sales_visit_purposes WHERE id=$1 AND active FOR SHARE",[purpose])).rows.length)
+        throw new AdminInputError("Selecione uma finalidade da visita ativa.");
       const at = instant(b.scheduled_at),
         contact = text(b, "contact", 160, true),
         phone = text(b, "phone", 40, true),
@@ -236,7 +236,7 @@ export async function saveVisit(b: any, email: string) {
           "Uma visita realizada não pode ter data futura.",
         );
       await c.query(
-        `INSERT INTO web_sales_visits(id,seller,customer_key,scheduled_at,contact,phone,description,status,completed_at,outcome) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(id) DO NOTHING`,
+        `INSERT INTO web_sales_visits(id,seller,customer_key,scheduled_at,contact,phone,description,status,completed_at,outcome,purpose_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(id) DO NOTHING`,
         [
           b.id,
           email,
@@ -248,6 +248,7 @@ export async function saveVisit(b: any, email: string) {
           completed ? "completed" : "scheduled",
           completed ? at : null,
           outcome,
+          purpose,
         ],
       );
       const owner = (
@@ -296,7 +297,7 @@ export async function saveCustomerLocation(body: any, email: string) {
   try {
     await c.query("BEGIN READ WRITE");
     const data = await visitsData(email,c);
-    if (!data.customers.some(customer => customer.key === body.customer_key)) throw new Forbidden();
+    if (!data.customers.some(customer => customer.key === body.customer_key) && (!/^m8:\d+$/.test(body.customer_key || "") || !(await c.query("SELECT 1 FROM m8_customer_directory WHERE person_id=$1 LIMIT 1",[body.customer_key.slice(3)])).rows.length)) throw new Forbidden();
     const result = body.version === 0
       ? await c.query(`INSERT INTO web_sales_customer_locations(customer_key,latitude,longitude,updated_by)
         VALUES($1,$2,$3,$4) ON CONFLICT(customer_key) DO NOTHING RETURNING version`,[body.customer_key,body.latitude,body.longitude,email])

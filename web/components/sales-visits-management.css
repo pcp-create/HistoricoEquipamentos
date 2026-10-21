@@ -249,3 +249,32 @@
 .sales-profile-status.online { background: #dff3e8; color: #1d704e; }
 .sales-profile-status.offline { background: #e2e8ef; color: #546779; }
 .sales-profile-status i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.sales-purpose-settings table { width:100%; min-width:680px; }
+.sales-purpose-settings td:nth-child(1) { width:28%; }
+.sales-purpose-settings td:nth-child(2) { width:52%; }
+.sales-purpose-settings input:not([type="checkbox"]), .sales-purpose-settings textarea { width:100%; }
+.sales-purpose-settings input[type="checkbox"] { width:18px; height:18px; min-height:0; }
+
+/* Keep visit settings aligned with the scheduling configuration panels. */
+.sales-purpose-settings { padding:20px; }
+.sales-purpose-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; }
+.sales-purpose-heading h1 { font-size:20px; margin:0; font-weight:600; }
+.sales-purpose-heading a { display:inline-flex; align-items:center; gap:6px; font-size:12px; text-decoration:none; color:#245988; }
+.sales-purpose-tabs { display:flex; border-bottom:1px solid #d6e2ed; }
+.sales-purpose-settings .sales-purpose-tabs button { border:0; border-bottom:3px solid #2879c6; border-radius:6px 6px 0 0; background:#edf4fc; padding:14px 18px; min-height:48px; font-size:13px; color:#1763a5; }
+.sales-purpose-help { margin:20px 2px 18px; font-size:12px; }
+.sales-purpose-table-wrap { overflow-x:auto; }
+.sales-purpose-settings .sales-management-table th { background:#f4f7fb; font-size:10px; padding:12px 8px; font-weight:500; }
+.sales-purpose-settings .sales-management-table td { padding:14px 8px; }
+.sales-purpose-settings .sales-management-table td:first-child { width:35%; }
+.sales-purpose-settings .sales-management-table td:nth-child(2) { width:55%; }
+.sales-purpose-settings .sales-management-table input:not([type="checkbox"]) { min-height:40px; border-radius:6px; font-size:12px; padding:9px 11px; }
+.sales-purpose-settings button:not([role="tab"]) { min-height:36px; padding:8px 11px; border-radius:6px; font-size:12px; font-weight:400; }
+.sales-purpose-settings .sales-purpose-add { margin:18px 8px 16px; }
+.sales-purpose-footer { border-top:1px solid #dce6f0; padding-top:4px; }
+.sales-purpose-footer p { margin:0 0 4px; font-size:12px; }
+@media(max-width:600px) { .sales-purpose-settings { padding:14px; } .sales-purpose-heading h1 { font-size:18px; } }
+
+.sales-purpose-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:18px 8px 16px; }
+.sales-purpose-settings .sales-purpose-actions .sales-purpose-add { margin:0; }
