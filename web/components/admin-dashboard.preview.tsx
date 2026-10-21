@@ -5,9 +5,10 @@ import SupportPicker from "./support-picker";
 import SaveActionIcon from "./save-action-icon";
 import { userTaskColor } from "@/lib/tasks/user-color";
 import TaskTerritories from "./task-territories";
-import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
+import { apiFetch } from "@/lib/client-api-cache";
 import "./admin-dashboard.css";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import {Search, UserPlus} from "lucide-react";
 import SiteHeader from "./site-header";
 import { companyName } from "@/lib/company-names";
 const emptyEmployee = {
@@ -50,6 +51,10 @@ export default function AdminDashboard() {
   const [editing, setEditing] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [tab, setTab] = useState("users");
+  const [userSearch,setUserSearch] = useState("");
+  const normalizeSearch=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
+  const searchTerms=normalizeSearch(userSearch.trim()).split(/\s+/).filter(Boolean);
+  const filteredUsers=(data?.users||[]).filter((u:any)=>{const text=normalizeSearch([u.display_name,u.email,u.department,u.job_title,u.phone].filter(Boolean).join(' '));return searchTerms.every(term=>text.includes(term));});
   const hasLogin = Boolean(data?.users?.find((u: any) => u.email === form.email)?.user_id);
   async function load() {
     try {
@@ -141,77 +146,7 @@ export default function AdminDashboard() {
       setBusy(false);
     }
   }
-  return (
-    <>
-      <SiteHeader active="admin" email={data?.email} />
-      <main className="catalog-settings admin-page">
-        <section className="manual-card">
-          <h1>Administração</h1>
-          <p>Acessos da equipe e acompanhamento das integrações.</p>
-          <button
-            disabled={busy}
-            onClick={() => {
-              clearApiCache();
-              void load();
-            }}
-          >
-            Atualizar registros
-          </button>
-        </section>
-        {error && (
-          <p role="alert" className="catalog-settings-error">
-            {error}
-          </p>
-        )}
-        {message && <p role="status">{message}</p>}
-        {!data && !error && <p>Carregando administração…</p>}
-        {data && !denied && (
-          <>
-            <nav
-              className="admin-tabs app-section-tabs"
-              aria-label="Seções da administração"
-            >
-              {[
-                ["users", "Usuários"],
-                ["integrations", "Integrações"],
-                ["territories", "Divisão comercial"],
-                ["logs", "Logs de acesso"],
-              ].map(([key, label]) => (
-                <button
-                  type="button"
-                  key={key}
-                  aria-pressed={tab === key}
-                  onClick={() => setTab(key)}
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
-            {tab === "territories" && <TaskTerritories />}
-            <div hidden={tab !== "users"}>
-              <section className="manual-card">
-                <h2>Funcionários e acessos</h2>
-                <p className="muted">
-                  Administrador gerencia acessos e visualiza esta tela. Usuário
-                  mantém as funções operacionais do sistema. O e-mail identifica
-                  o funcionário e seu login. Funcionários bloqueados não recebem
-                  alertas.
-                </p>
-                {!formOpen && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setForm(emptyEmployee);
-                      setEditing(false);
-                      setError("");
-                      setMessage("");
-                      setFormOpen(true);
-                    }}
-                  >
-                    Novo funcionário
-                  </button>
-                )}
-                {formOpen && (
+  const employeeEditor = formOpen && data ? (
                   <>
                     <form onSubmit={save} autoComplete="off">
                       <fieldset disabled={busy}>
@@ -394,7 +329,74 @@ export default function AdminDashboard() {
                       </fieldset>
                     )}
                   </>
+  ) : null;
+  return (
+    <>
+      <SiteHeader active="admin" email={data?.email} />
+      <main className="catalog-settings admin-page">
+        <header className="admin-page-heading">
+          <h1>Administração</h1>
+          <p>Acessos da equipe e acompanhamento das integrações.</p>
+        </header>
+        {error && (
+          <p role="alert" className="catalog-settings-error">
+            {error}
+          </p>
+        )}
+        {message && <p role="status">{message}</p>}
+        {!data && !error && <p>Carregando administração…</p>}
+        {data && !denied && (
+          <section className="admin-workspace">
+            <nav
+              className="admin-tabs app-section-tabs"
+              aria-label="Seções da administração"
+            >
+              {[
+                ["users", "Usuários"],
+                ["integrations", "Integrações"],
+                ["territories", "Divisão comercial"],
+                ["logs", "Logs de acesso"],
+              ].map(([key, label]) => (
+                <button
+                  type="button"
+                  key={key}
+                  aria-pressed={tab === key}
+                  onClick={() => setTab(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+            {tab === "territories" && <TaskTerritories />}
+            <div hidden={tab !== "users"}>
+              <section className="manual-card">
+                <h2>Funcionários e acessos</h2>
+                <p className="muted">
+                  Gerencie os cadastros, as permissões e os acessos da equipe.
+                </p>
+                <div className="admin-users-toolbar">
+                  <label className="admin-user-search">
+                    <span>Pesquisar usuários</span>
+                    <div><Search size={18} aria-hidden="true"/><input type="search" placeholder="Nome, e-mail, cargo ou setor" value={userSearch} onChange={e=>setUserSearch(e.target.value)}/></div>
+                  </label>
+                {!formOpen && (
+                  <button
+                    className="admin-new-user"
+                    type="button"
+                    onClick={() => {
+                      setForm(emptyEmployee);
+                      setEditing(false);
+                      setError("");
+                      setMessage("");
+                      setFormOpen(true);
+                    }}
+                  >
+                    <UserPlus size={18} aria-hidden="true"/> Novo funcionário
+                  </button>
                 )}
+                </div>
+                <p className="admin-user-count" role="status">{filteredUsers.length} de {data.users.length} usuário(s)</p>
+                {formOpen && !editing && employeeEditor}
                 <div className="admin-table">
                   <table>
                     <thead>
@@ -405,8 +407,9 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.users.map((u: any) => (
-                        <tr key={u.email}>
+                      {filteredUsers.map((u: any) => (
+                        <Fragment key={u.email}>
+                        <tr className={formOpen && editing && form.email===u.email ? "admin-user-editing" : undefined}>
                           <td>
                             {u.display_name || "Nome ainda não registrado"}
                             <small>{u.email}</small>
@@ -434,6 +437,9 @@ export default function AdminDashboard() {
 
                           <td>
                             <button
+                              type="button"
+                              disabled={busy}
+                              aria-expanded={formOpen && editing && form.email===u.email}
                               onClick={() => {
                                 setForm({
                                   ...emptyEmployee,
@@ -457,7 +463,10 @@ export default function AdminDashboard() {
                             </button>
                           </td>
                         </tr>
+                        {formOpen && editing && form.email===u.email && <tr className="admin-user-editor-row"><td colSpan={3}><div className="admin-user-inline-editor">{employeeEditor}</div></td></tr>}
+                        </Fragment>
                       ))}
+                      {!filteredUsers.length && <tr><td colSpan={3} className="admin-users-empty">{userSearch.trim()?"Nenhum usuário encontrado. Tente outro nome, e-mail ou cargo.":"Nenhum usuário cadastrado."}</td></tr>}
                     </tbody>
                   </table>
                 </div>
@@ -679,7 +688,7 @@ export default function AdminDashboard() {
                 </div>
               </section>
             </div>
-          </>
+          </section>
         )}
       </main>
     </>

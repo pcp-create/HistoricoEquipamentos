@@ -208,3 +208,33 @@
 }
 
 .user-photo-editor {display:grid;gap:10px;margin:12px 0;padding:16px;border:1px solid #dbe5ed;border-radius:12px}.user-photo-editor h3,.user-photo-editor p {margin:0}.user-photo-editor button {justify-self:start}
+
+.admin-page .admin-page-heading { margin-bottom: 0; padding: 0; }
+.admin-page .admin-page-heading h1 { margin: 0 0 6px; font-size: 28px; line-height: 1.25; }
+.admin-page .admin-page-heading p { margin: 0; color: #72849a; font-size: 13px; }
+.admin-page .admin-workspace { padding: 22px; border: 1px solid #d6e2ee; border-radius: 14px; background: #fff; min-width: 0; }
+.admin-page .admin-workspace > .admin-tabs { margin: 0 0 24px; }
+.admin-page .admin-workspace > div > .manual-card { padding: 0; border: 0; border-radius: 0; box-shadow: none; margin: 0; }
+.admin-page .admin-users-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 22px 0 10px; }
+.admin-page .admin-user-search { display: grid; gap: 7px; margin: 0; width: min(100%,520px); font-size: 13px; color: #375d85; }
+.admin-page .admin-user-search > div { position: relative; }
+.admin-page .admin-user-search svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: #72849a; pointer-events: none; }
+.admin-page .admin-user-search input { width: 100%; height: 42px; padding: 10px 12px 10px 40px; border: 1px solid #d1dfec; border-radius: 8px; font: inherit; background: #fff; }
+.admin-page button.admin-new-user { flex-shrink: 0; height: 42px; padding: 0 18px; background: #246397; color: #fff; border-color: #246397; font-size: 13px; font-weight: 600; border-radius: 8px; }
+.admin-page button.admin-new-user:hover { background: #1c527e; }
+.admin-page .admin-user-count { margin: 0 0 14px; font-size: 12px; color: #72849a; }
+.admin-page .admin-users-empty { padding: 30px 16px; text-align: center; color: #72849a; }
+@media(max-width:640px) {
+ .admin-page .admin-workspace { padding: 14px; }
+ .admin-page .admin-users-toolbar { align-items: stretch; flex-direction: column; gap: 12px; }
+ .admin-page .admin-user-search { width: 100%; }
+ .admin-page .admin-page-heading h1 { font-size: 24px; }
+ .admin-page .admin-workspace > .admin-tabs { flex-wrap: nowrap; overflow-x: auto; }
+ .admin-page .admin-workspace > .admin-tabs > button { white-space: nowrap; }
+}
+
+.admin-page .admin-user-editing > td { background: #edf5fc; border-bottom-color: #c5d9ed; }
+.admin-page .admin-user-editor-row > td { padding: 0 16px 20px; background: #f7faff; }
+.admin-page .admin-user-inline-editor { padding: 8px 16px 16px; border: 1px solid #d6e2ee; border-top: 0; border-radius: 0 0 10px 10px; background: #fff; white-space: normal; }
+.admin-page .admin-user-inline-editor fieldset { margin-top: 16px; }
+@media(max-width:640px) { .admin-page .admin-user-editor-row > td { padding: 0 8px 12px; } .admin-page .admin-user-inline-editor { padding: 4px 10px 12px; } }
