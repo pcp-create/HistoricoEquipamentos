@@ -1,7 +1,7 @@
 import 'server-only';
 import {requireReportActivity} from './report-activity';
 import {isChecklistEquipmentLinked} from './checklist-equipment';
-import {reportSubmission,stagesOf,validateAnswers,validateFieldDetails} from './checklists';
+import {validateAlertComments,reportSubmission,stagesOf,validateAnswers,validateFieldDetails} from './checklists';
 export async function updateChecklist(c:any,b:any,operation:any,schedule:any,settings:any,email:string,admin:boolean,options:{returning?:boolean}={}){
  const reviewing=b.action==='checklist_review_save';
  if(reviewing&&(!admin||operation.status!=='awaiting_review'))throw Error('Somente o planejador pode corrigir o checklist enquanto aguarda revisão.');
@@ -32,6 +32,7 @@ export async function updateChecklist(c:any,b:any,operation:any,schedule:any,set
   if(previous.status!=='released'&&!(reviewing&&previous.status==='submitted'))throw Error('A etapa precisa estar liberada para preenchimento.');
   const answers=validateAnswers(stage,b.answers,b.action==='checklist_submit'||reviewing);
   const details=validateFieldDetails(stage,b.details??previous.details??{});
+  if(reviewing||b.action==='checklist_submit')validateAlertComments(stage,answers,details);
   for(const f of stage.fields){
    const ids=[...((f.type==='photo'||f.type==='signature')?answers[f.id]||[]:[]),...(details[f.id]?.photos||[])];
    if(ids.length){const found=(await c.query('SELECT id FROM web_service_checklist_photos WHERE operation_id=$1 AND stage_id=$2 AND field_id=$3 AND id=ANY($4::bigint[])',[operation.id,stage.id,f.id,ids])).rows;
@@ -67,6 +68,7 @@ export function prepareChecklistSubmission(run:any,email:string){
   if(!saved||saved.status==='pending')throw Error(`Preencha e salve a etapa ${stage.name} antes do envio completo.`);
   validateAnswers(stage,saved.answers,true);
   validateFieldDetails(stage,saved.details||{});
+  validateAlertComments(stage,saved.answers,saved.details);
   next.stages[stage.id]={...saved,status:'submitted',submittedBy:saved.submittedBy||email,submittedAt:saved.submittedAt||new Date().toISOString()};
  }
  return next;

@@ -1,3 +1,4 @@
+import {validateRunAlertComments} from './checklists';
 import 'server-only';
 import type {PoolClient} from 'pg';
 import {createTask} from '../tasks/store';
@@ -9,6 +10,7 @@ import {operationNumber} from './operation-number';
 
 /** Runs inside the locked operation review transaction: task, PDF and review commit together. */
 export async function createChecklistAlertTask(c:PoolClient,operation:any,schedule:any,document:any,settings:any,email:string,input:any){
+ validateRunAlertComments(document.checklistRun);
  const alerts=checklistAlerts(document.checklistRun);
  if(!alerts.length)return document;
  const previous=existingAlertTask(document,alerts);

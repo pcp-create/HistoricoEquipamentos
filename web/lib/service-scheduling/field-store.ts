@@ -1,3 +1,4 @@
+import {validateRunAlertComments} from './checklists';
 import { offlineTime } from "./offline-action";
 import {requireReportActivity} from './report-activity';
 import "server-only";
@@ -531,6 +532,7 @@ export async function fieldAction(b: any, email: string) {
       const partial=b.action==='report_send_partial';
       if(!current.document.checklistRun)throw new FieldError('Preencha e salve o relatório antes do envio.');
       const checklistRun=partial?structuredClone(current.document.checklistRun):prepareChecklistSubmission(current.document.checklistRun,email);
+      validateRunAlertComments(checklistRun);
       const receipt={at:occurredAt,by:email,name:(await user(c,email)).display_name||email};
       if(partial)checklistRun.partialSubmission=receipt;
       else checklistRun.submission=receipt;

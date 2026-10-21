@@ -648,6 +648,73 @@
 .inspection-conditions{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}.inspection-condition{--condition-color:#617e99;background:#fff;border:1px solid #d7e3f0;border-top:3px solid var(--condition-color);border-radius:7px;padding:10px 12px}.condition-label{display:flex;align-items:center;gap:6px;font-size:11px;color:#294b68;white-space:nowrap}.condition-label i{width:6px;height:6px;border-radius:50%;background:var(--condition-color);flex-shrink:0}.inspection-condition>strong{display:block;font-size:23px;line-height:1.2;margin-top:6px;color:var(--condition-color)}.condition-normal{--condition-color:#23805a}.condition-attention{--condition-color:#a77913}.condition-alert{--condition-color:#bf681e}.condition-critical{--condition-color:#bd3d43}.condition-unrated{--condition-color:#61758a}.condition-empty{border-top-color:#cbd5df}.condition-empty>strong{color:#8b9bab}.inspection-summary-note{font-size:10px;color:#71859a;margin-top:10px}
 @media screen and (max-width:600px){.inspection-summary-heading{align-items:flex-start;flex-direction:column;gap:6px}.inspection-conditions{grid-template-columns:repeat(2,minmax(0,1fr))}.inspection-totals{flex-wrap:wrap;gap:12px}}
 @media print{.inspection-summary,.inspection-condition{-webkit-print-color-adjust:exact;print-color-adjust:exact}.inspection-conditions{grid-template-columns:repeat(5,minmax(0,1fr))}.inspection-condition{padding:9px}.inspection-summary-heading{break-after:auto}}
+.spectrum-editor-row>td{padding:0 10px 12px!important}.spectrum-editor{background:#f3f8fc;border:1px solid #d9e5ef;border-radius:8px;padding:12px}.spectrum-editor summary{cursor:pointer;color:#205a86;font-weight:600}.spectrum-editor summary small{margin-left:12px;font-weight:400}.spectrum-editor p{font-size:12px;color:#657d92}.spectrum-inputs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.spectrum-input{display:flex;flex-direction:column;gap:9px;padding:12px;background:white;border:1px solid #d9e5ef;border-radius:7px;min-width:0}.spectrum-input small{overflow-wrap:anywhere}.spectrum-file{font-size:12px}.spectrum-file input{width:100%;font-size:11px}.spectrum-thumb{border:0;padding:0;background:white;cursor:zoom-in}.spectrum-thumb img{width:100%;height:100px;object-fit:contain}#spectrumZoom{max-width:95vw;border:1px solid #d9e5ef;border-radius:12px}#spectrumZoom::backdrop{background:#12364bc9}#spectrumZoom img{max-width:85vw;max-height:75vh}#spectrumZoom button{float:right}
+.report.vibration-pages{max-width:none!important;width:1123px;margin:0 auto!important;background:white;color:#173b53}
+.report.vibration-pages>.v-page{margin:0!important;padding:24px 38px 16px;min-height:794px;box-sizing:border-box;display:flex;flex-direction:column;break-after:page;page-break-after:always}
+.report.vibration-pages>.v-page:last-child{break-after:auto;page-break-after:auto}
+.v-header{line-height:1.3;display:flex;align-items:center;gap:20px;background:#0c3d5d;color:white;padding:12px 22px;border-radius:8px;margin-bottom:12px;min-height:96px;break-inside:avoid}
+.v-header img{width:95px;height:68px;object-fit:contain;padding-right:18px;border-right:1px solid #9cb7ca}
+.v-header .v-heading{flex:1;min-width:0}.v-header h1{font-family:"RJ Manrope",Arial,sans-serif;color:white;font-size:23px;line-height:1.3;margin:0 0 8px;overflow-wrap:anywhere}.v-header h2{font-size:13px;font-weight:400;color:#d6e6f3;margin:0;line-height:1.4}
+.v-cover-header{min-height:154px;border-radius:0}.v-cover-header img{width:150px;height:104px}.v-cover-header h1{font-size:32px;font-weight:800;margin-bottom:14px}.v-cover-header h2{font-size:20px;margin-bottom:12px;color:white}.v-cover-header p{font-size:16px;color:#d6e6f3;margin:0}
+.v-os{border-left:1px solid #9cb7ca;padding-left:22px;min-width:110px;font-size:14px}.v-os strong{display:block;font-size:29px;margin-top:7px}
+.v-metrics{display:flex;gap:14px;margin:12px 0 18px}.v-metrics>div{flex:1;border:1px solid #d9e5ef;border-top:3px solid #2475a2;border-radius:8px;padding:16px;font-size:12px}.v-metrics b{display:block;font-size:27px;margin-bottom:6px}
+.v-page>h2{font-size:18px;margin:12px 0}.v-page>p{font-size:12px;margin:8px 0 16px}.v-table{display:table!important;border-collapse:collapse;width:100%;font-size:11px}.v-table th{background:#e7f1f8;padding:10px;text-align:left}.v-table td{padding:10px;border-bottom:1px solid #dfe8ef}.report .v-measure td{padding:3px 10px;font-size:10px;line-height:1.4}.report .v-table{margin-bottom:0}.v-group td{background:#edf4fa;font-weight:600}.v-table tr{break-inside:avoid}
+.v-identification{background:#f4f8fb;border:1px solid #d9e5ef;border-radius:8px;margin-top:20px;padding:16px;font-size:12px}.v-identification h3{font-size:14px;margin:0 0 10px}.v-identification p{margin:8px 0}
+.v-assessment{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:18px 0;font-size:12px}.v-assessment>div{border-left:3px solid #c5ddeb;padding:0 12px;break-inside:avoid}.v-assessment h3{margin:0 0 8px;font-size:14px}.v-assessment p,.v-final{white-space:pre-wrap;overflow-wrap:anywhere}
+.v-point{height:190px;flex-shrink:0;border:1px solid #d9e5ef;border-radius:6px;margin-bottom:6px;break-inside:avoid;overflow:hidden}
+.v-point-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#edf4fa;padding:7px 10px;min-height:36px;font-size:10px}.v-point-heading b{font-size:11px}.v-point-heading span{margin-left:12px;color:#6a8192;font-size:9px}
+.v-graphs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:7px 10px}.v-graphs figure{margin:0;min-width:0}.v-graphs figcaption{font-size:10px;margin-bottom:4px}.v-graphs img{display:block;width:100%;height:125px;object-fit:contain}
+.v-footer{margin-top:auto;padding-top:10px;border-top:1px solid #d9e5ef;color:#738997;font-size:9px;line-height:1.6}
+@media screen and (max-width:700px){.spectrum-inputs{grid-template-columns:1fr}}
+@media print{@page{size:A4 landscape;margin:6mm 10mm}@page :first{margin:6mm 10mm}.report.vibration-pages{width:277mm!important}.report.vibration-pages>.v-page{margin:0!important;min-height:198mm;padding:0!important}.v-header,.v-point-heading,.v-table th,.v-group td{-webkit-print-color-adjust:exact;print-color-adjust:exact}#spectrumZoom{display:none!important}}
+
+
+/* Accessible condition labels, preserved in printed reports. */
+.v-condition,.v-condition-select{--status-bg:#edf1f5;--status-text:#536579;--status-border:#cdd7e1;background:var(--status-bg);color:var(--status-text);border:1px solid var(--status-border);font-weight:600}
+.v-condition{display:inline-flex;align-items:center;gap:6px;padding:0;background:transparent;border:0;font-size:11px;font-weight:500;line-height:1.4;white-space:nowrap}
+.v-condition svg{width:15px;height:15px;flex:0 0 15px;vertical-align:middle}
+.v-condition-normal{--status-bg:#e7f5ed;--status-text:#17613e;--status-border:#acd7bf}
+.v-condition-attention{--status-bg:#fff7d6;--status-text:#795900;--status-border:#e8cf71}
+.v-condition-alert{--status-bg:#fff0e2;--status-text:#984509;--status-border:#edbd90}
+.v-condition-critical{--status-bg:#fdebec;--status-text:#ac2538;--status-border:#e9aab4}
+.v-condition-select option{background:white;color:#173b53}
+@media print{.v-condition{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+
+
+.v-storage-tabs{display:flex;gap:8px;border-bottom:1px solid #cbddea;margin-bottom:18px}
+.v-storage-tabs button{border:0;border-bottom:3px solid transparent;background:transparent;color:#617e99;padding:14px 20px;font:inherit;cursor:pointer}
+.v-storage-tabs button[aria-selected=true]{color:#155d97;background:#eaf3fc;border-bottom-color:#246194;font-weight:600;border-radius:7px 7px 0 0}
+#vibrationEditor[hidden],#vibrationSaved[hidden]{display:none!important}
+.v-customer-field{margin:16px 0 22px}.v-customer-field>label{display:block;margin-bottom:7px;font-weight:600}.v-customer-field>small{display:block;margin-top:7px;color:#617e99}
+#vCustomerPicker{border:1px solid #c8daf0;border-radius:8px;background:white}
+#vCustomerPicker summary{padding:12px 14px;cursor:pointer;color:#163d60}
+#vCustomerPicker[open]{padding-bottom:10px}#vCustomerSearch{width:calc(100% - 24px);margin:0 12px}
+#vCustomerStatus{font-size:12px;color:#617e99;padding:0 12px}
+#vCustomerResults{max-height:260px;overflow:auto}
+#vCustomerResults button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #edf2f7;background:white;color:#163d60;padding:12px 16px;cursor:pointer}
+#vCustomerResults button:hover,#vCustomerResults button:focus-visible{background:#edf5fc}
+#vCustomerResults small{display:block;margin-top:5px;color:#617e99}
+
+#vibrationSaved .v-saved-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px}
+#vibrationSaved .v-saved-heading h2{margin:0}
+#vibrationSaved .v-action{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 16px;white-space:nowrap;border-radius:8px;transition:background .15s,border-color .15s}
+#vibrationSaved .v-action svg{flex-shrink:0}
+#vibrationSaved .v-action-primary{background:#246194;border-color:#246194;color:white}
+#vibrationSaved .v-action-primary:hover{background:#1a4d79;border-color:#1a4d79}
+#vibrationSaved .v-action.secondary:hover{background:#eef5fb;border-color:#88afd0}
+#vibrationSaved .v-action-pdf{background:#edf5fc;border-color:#bad2e6;color:#205e90}
+#vibrationSaved button:focus-visible{outline:2px solid #246194;outline-offset:3px}
+#vibrationSaved .v-saved-search{display:flex;align-items:flex-end;gap:12px}
+#vibrationSaved .v-saved-search label{display:grid;gap:7px;flex:1;min-width:0;margin:0}
+#vibrationSaved .v-saved-search input{height:42px;margin:0}
+#vibrationSaved #storedListStatus{margin:16px 0;color:#617e99;font-size:12px}
+#vibrationSaved .v-row-actions{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+#vibrationSaved .v-actions-cell{width:1%;white-space:nowrap;padding:12px}
+#vibrationSaved #storedReports td{vertical-align:middle;padding-top:14px;padding-bottom:14px}
+#vibrationSaved .v-row-actions .v-action{height:38px;padding:0 12px}
+#vibrationSaved .v-saved-pagination{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid #e4edf5}
+@media(max-width:600px){#vibrationSaved .v-saved-heading{align-items:flex-start;flex-direction:column;gap:12px}#vibrationSaved .v-saved-search{flex-wrap:wrap}#vibrationSaved .v-saved-search label{flex-basis:100%}#vibrationSaved #searchStoredReports{width:100%}}
+.v-page>p.v-condition-line{display:flex;align-items:center;gap:6px;font-size:11px;line-height:1.4}.v-condition-line .v-condition{font-size:inherit;line-height:inherit}
 </style>
   </head>
   <body>
@@ -740,8 +807,10 @@
       </section>
     </main>
     <div id="report" class="report"></div>
+    <dialog id="spectrumZoom"><button type="button" class="btn" onclick="this.closest('dialog').close()">Fechar ×</button><p></p><img alt="Espectro ampliado"></dialog>
     <script>
       const $ = (id) => document.getElementById(id);
+      let reportCustomer = null;
       let equipments = [],
         warnings = [],
         reportMode = "combined",
@@ -930,8 +999,88 @@
           }
         }
       }
+      let pendingSpectrumUploads = 0;
+      function conditionTone(status){
+        return ({Normal:'normal',Atenção:'attention',Alerta:'alert',Crítico:'critical'})[status] || 'unrated';
+      }
+      function conditionBadge(status){
+        const tone=conditionTone(status);
+        const icons={
+          normal:'<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
+          attention:'<path d="m12 3 10 18H2Z"/><path d="M12 9v4m0 4h.01"/>',
+          alert:'<circle cx="12" cy="12" r="9"/><path d="M12 7v6m0 4h.01"/>',
+          critical:'<path d="m8 3-5 5v8l5 5h8l5-5V8l-5-5Z"/><path d="m9 9 6 6m0-6-6 6"/>',
+          unrated:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4m0 4h.01"/>'
+        };
+        return `<span class="v-condition v-condition-${tone}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${icons[tone]}</svg>${escapeHtml(status || 'Não avaliado')}</span>`;
+      }
+      const spectrumTypes = [['velocity','Velocidade'],['envelope','Envelope'],['acceleration','Aceleração']];
+      const spectrumData = value => typeof value === 'string' && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value) && value.length <= 15 * 1024 * 1024;
+      function spectrumEditor(p,i,j,k) {
+        const count = spectrumTypes.filter(([type]) => spectrumData(p.spectra?.[type]?.data)).length;
+        return `<tr data-spectrum-row="${i}-${j}-${k}" class="spectrum-editor-row"><td colspan="5"><details class="spectrum-editor"><summary>Espectros de ${escapeHtml(p.name)} <small>${count}/3 anexados</small></summary><p>Selecione uma imagem por tipo. PNG, JPEG ou WebP, até 10 MB. Os anexos serão incluídos no projeto salvo.</p><div class="spectrum-inputs">${spectrumTypes.map(([type,label])=>{
+          const image=p.spectra?.[type],has=spectrumData(image?.data);
+          return `<div class="spectrum-input"><strong>${label}</strong>${has?`<button type="button" class="spectrum-thumb" onclick="showSpectrum(${i},${j},${k},'${type}')" aria-label="Ampliar ${label} de ${escapeHtml(p.name)}"><img src="${image.data}" alt="Espectro de ${label}"></button><small>${escapeHtml(image.name)}</small>`:''}<label class="spectrum-file">${has?'Substituir imagem':'Anexar imagem'}<input type="file" accept="image/png,image/jpeg,image/webp" aria-label="Anexar ${label} de ${escapeHtml(p.name)}" onchange="attachSpectrum(${i},${j},${k},'${type}',this)"></label>${has?`<button type="button" class="btn danger" onclick="removeSpectrum(${i},${j},${k},'${type}')">Remover ${label}</button>`:''}</div>`;
+        }).join('')}</div></details></td></tr>`;
+      }
+      function refreshSpectrumEditor(point,i,j,k) {
+        if(equipments[i]?.components[j]?.points[k]!==point)return;
+        const row=document.querySelector(`[data-spectrum-row="${i}-${j}-${k}"]`);
+        if(row){const holder=document.createElement('tbody');holder.innerHTML=spectrumEditor(point,i,j,k);const next=holder.firstElementChild;next.dataset.spectrumRow=`${i}-${j}-${k}`;row.replaceWith(next);next.querySelector('details').open=true;}
+      }
+      window.attachSpectrum=async(i,j,k,type,input)=>{
+        const file=input.files[0],point=equipments[i]?.components[j]?.points[k];
+        if(!file||!point)return;
+        input.disabled=true;pendingSpectrumUploads++;
+        try{
+          if(!['image/png','image/jpeg','image/webp'].includes(file.type))throw Error('Use uma imagem PNG, JPEG ou WebP.');
+          if(file.size>10*1024*1024)throw Error('A imagem deve ter no máximo 10 MB.');
+          const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('Não foi possível ler a imagem.'));reader.readAsDataURL(file);});
+          const image=new Image();image.src=data;await image.decode();
+          if(!spectrumData(data)||!image.naturalWidth||!image.naturalHeight)throw Error('Imagem inválida.');
+          point.spectra={...point.spectra,[type]:{name:file.name,data}};
+          refreshSpectrumEditor(point,i,j,k);
+        }catch(error){alert(error.message||'Não foi possível anexar a imagem.');}
+        finally{pendingSpectrumUploads--;input.disabled=false;input.value='';}
+      };
+      window.removeSpectrum=(i,j,k,type)=>{
+        const p=equipments[i].components[j].points[k];delete p.spectra[type];refreshSpectrumEditor(p,i,j,k);
+      };
+      window.showSpectrum=(i,j,k,type)=>{
+        const p=equipments[i].components[j].points[k],dialog=$('spectrumZoom');
+        dialog.querySelector('img').src=p.spectra[type].data;
+        dialog.querySelector('p').textContent=p.name+' · '+spectrumTypes.find(t=>t[0]===type)[1];
+        dialog.showModal();
+      };
+      function reportHeader(title,subtitle,cover=false){
+        return `<div class="v-header ${cover?'v-cover-header':''}"><img src="/logo-rj.png" alt="RJ Compressores"><div class="v-heading"><h1>${escapeHtml(title)}</h1><h2>${escapeHtml(subtitle)}</h2>${cover?'<p>Assistência Técnica · RJ Compressores</p>':''}</div>${$('serviceOrder').value.trim()?`<div class="v-os">OS Nº<strong>${escapeHtml($('serviceOrder').value)}</strong></div>`:''}</div>`;
+      }
+      function buildReport(items) {
+        const pages=[],total=items.reduce((n,e)=>n+e.components.reduce((m,c)=>m+c.points.length,0),0);
+        const clients=[...new Set(items.map(e=>e.client))].join(' · ');
+        const add=(html)=>pages.push(html);
+        add(reportHeader('ANÁLISE DE VIBRAÇÃO',$('title').value||'Relatório Técnico de Análise de Vibrações',true)+
+          `<div class="v-metrics"><div><b>${items.length}</b>Equipamentos</div><div><b>${total}</b>Pontos medidos</div><div><b>${escapeHtml(printDate($('issued').value))}</b>Emissão</div></div>
+          <h2>Resumo da inspeção</h2><p><b>Cliente(s):</b> ${escapeHtml(clients)}</p>
+          <table class="v-table"><thead><tr><th>Equipamento</th><th>Data da coleta</th><th>Pontos</th><th>Condição</th></tr></thead><tbody>${items.map(e=>`<tr><td>${escapeHtml(e.machine)}</td><td>${escapeHtml(e.date||'Não informada')}</td><td>${e.components.reduce((n,c)=>n+c.points.length,0)}</td><td>${conditionBadge(e.status)}</td></tr>`).join('')}</tbody></table>
+          <div class="v-identification"><h3>Identificação e rastreabilidade</h3><p><b>Responsável pela coleta de dados:</b> ${escapeHtml($('collector').value||'Não informado')}</p><p><b>Responsável pela análise técnica:</b> ${escapeHtml($('technician').value||'Não informado')}</p></div>`);
+        for(const e of items){
+          add(reportHeader(e.machine,e.client+' · Coleta: '+(e.date||'Não informada'))+
+            `<h2>Valores globais por ponto</h2><p class="v-condition-line"><span>Condição:</span>${conditionBadge(e.status)}</p><table class="v-table v-measure"><thead><tr><th>Ponto de medição</th><th>mm/s (RMS)</th><th>g (PP)</th><th>m/s² (Pk)</th></tr></thead><tbody>${e.components.map(c=>`<tr class="v-group"><td colspan="4">${escapeHtml(c.name)} · ${escapeHtml(c.date)}</td></tr>${c.points.map(p=>`<tr><td>${escapeHtml(p.name)}</td><td>${format(p.velocity)}</td><td>${format(p.acceleration)}</td><td>${format(p.peak)}</td></tr>`).join('')}`).join('')}</tbody></table><div class="v-assessment"><div><h3>Diagnóstico técnico</h3><p>${escapeHtml(e.diagnosis||'Não preenchido.')}</p></div><div><h3>Recomendações</h3><p>${escapeHtml(e.recommendation||'Não preenchidas.')}</p></div></div>`);
+          const points=e.components.flatMap(c=>c.points.map(p=>({p,c}))).filter(({p})=>spectrumTypes.some(([t])=>spectrumData(p.spectra?.[t]?.data)));
+          for(let start=0;start<points.length;start+=3){
+            add(reportHeader('Espectros · '+e.machine,e.client+' · Coleta: '+(e.date||'Não informada')+' · Prancha '+(start/3+1)+' de '+Math.ceil(points.length/3))+
+              points.slice(start,start+3).map(({p,c})=>`<article class="v-point"><div class="v-point-heading"><div><b>${escapeHtml(p.name)}</b><span>${escapeHtml(c.name)}</span></div><div>Vel. <b>${format(p.velocity)}</b> mm/s RMS · Env. <b>${format(p.acceleration)}</b> g PP · Acel. <b>${format(p.peak)}</b> m/s² Pk</div></div><div class="v-graphs">${spectrumTypes.filter(([t])=>spectrumData(p.spectra?.[t]?.data)).map(([t,label])=>`<figure><figcaption>${label}</figcaption><img src="${p.spectra[t].data}" alt="${escapeHtml(p.name)} · ${label}"></figure>`).join('')}</div></article>`).join(''));
+          }
+        }
+        if($('general').value.trim())add(reportHeader('Considerações finais',clients)+`<p class="v-final">${escapeHtml($('general').value)}</p>`);
+        $('report').className='report vibration-pages';
+        $('report').innerHTML=pages.map(body=>`<section class="v-page">${body}<div class="v-footer">RJ Compressores · ${escapeHtml(clients)} · OS ${escapeHtml($('serviceOrder').value||'Não informada')}<br>Classificações informadas pelo responsável técnico. Valores ausentes não representam medição zero.</div></section>`).join('');
+      }
+
       let activeEquipment = 0;
       function render() {
+        if(reportCustomer)for(const e of equipments)e.client=reportCustomer.name;
         let total = equipments.reduce(
           (n, e) => n + e.components.reduce((m, c) => m + c.points.length, 0),
           0,
@@ -952,7 +1101,7 @@
           ? equipments
               .map(
                 (e, i) =>
-                  `<div class="equip" style="${i === activeEquipment ? "" : "display:none"}"><div class="equipHead"><div class="flex"><input type="checkbox" ${e.selected ? "checked" : ""} onchange="setVal(${i},'selected',this.checked)"><strong>Equipamento ${i + 1}</strong><span class="muted">${escapeHtml(e.components.length)} componente(s)</span></div><button class="btn danger" onclick="removeEq(${i})">Remover</button></div><div class="equipBody"><div class="grid"><label>Cliente<input value="${escapeHtml(e.client)}" onchange="setVal(${i},'client',this.value)"></label><label>Equipamento<input value="${escapeHtml(e.machine)}" onchange="setVal(${i},'machine',this.value)"></label><label>Data da coleta<input value="${escapeHtml(e.date)}" onchange="setVal(${i},'date',this.value)"></label></div>${e.components.map((c, j) => `<div class="component"><div class="flex between"><label style="flex:1">Componente<input value="${escapeHtml(c.name)}" onchange="setComp(${i},${j},'name',this.value)"></label><label>Data da medição<input value="${escapeHtml(c.date)}" onchange="setComp(${i},${j},'date',this.value)"></label></div><div style="overflow:auto"><table><thead><tr><th>Ponto</th><th>mm/s (RMS)</th><th>g (PP)</th><th>m/s² (Pk)</th><th></th></tr></thead><tbody>${c.points.map((p, k) => `<tr><td><input value="${escapeHtml(p.name)}" onchange="setPoint(${i},${j},${k},'name',this.value)"></td>${["velocity", "acceleration", "peak"].map((t) => `<td><input type="number" step="any" value="${escapeHtml(p[t])}" onchange="setPoint(${i},${j},${k},'${t}',this.value)"></td>`).join("")}<td><button class="btn danger" onclick="removePoint(${i},${j},${k})">×</button></td></tr>`).join("")}</tbody></table></div><button class="btn secondary" onclick="addPoint(${i},${j})">+ Ponto</button></div>`).join("")}<div class="grid"><label>Condição<select onchange="setVal(${i},'status',this.value)">${["Não avaliado", "Normal", "Atenção", "Alerta", "Crítico"].map((s) => `<option ${e.status === s ? "selected" : ""}>${s}</option>`).join("")}</select></label></div><div class="grid" style="grid-template-columns:1fr 1fr;margin-top:12px"><label>Diagnóstico<textarea onchange="setVal(${i},'diagnosis',this.value)">${escapeHtml(e.diagnosis)}</textarea></label><label>Recomendações<textarea onchange="setVal(${i},'recommendation',this.value)">${escapeHtml(e.recommendation)}</textarea></label></div></div></div>`,
+                  `<div class="equip" style="${i === activeEquipment ? "" : "display:none"}"><div class="equipHead"><div class="flex"><input type="checkbox" ${e.selected ? "checked" : ""} onchange="setVal(${i},'selected',this.checked)"><strong>Equipamento ${i + 1}</strong><span class="muted">${escapeHtml(e.components.length)} componente(s)</span></div><button class="btn danger" onclick="removeEq(${i})">Remover</button></div><div class="equipBody"><div class="grid"><label>Cliente<input ${reportCustomer?'readonly aria-label="Cliente vinculado"':''} value="${escapeHtml(e.client)}" onchange="setVal(${i},'client',this.value)"></label><label>Equipamento<input value="${escapeHtml(e.machine)}" onchange="setVal(${i},'machine',this.value)"></label><label>Data da coleta<input value="${escapeHtml(e.date)}" onchange="setVal(${i},'date',this.value)"></label></div>${e.components.map((c, j) => `<div class="component"><div class="flex between"><label style="flex:1">Componente<input value="${escapeHtml(c.name)}" onchange="setComp(${i},${j},'name',this.value)"></label><label>Data da medição<input value="${escapeHtml(c.date)}" onchange="setComp(${i},${j},'date',this.value)"></label></div><div style="overflow:auto"><table><thead><tr><th>Ponto</th><th>mm/s (RMS)</th><th>g (PP)</th><th>m/s² (Pk)</th><th></th></tr></thead><tbody>${c.points.map((p, k) => `<tr><td><input value="${escapeHtml(p.name)}" onchange="setPoint(${i},${j},${k},'name',this.value)"></td>${["velocity", "acceleration", "peak"].map((t) => `<td><input type="number" step="any" value="${escapeHtml(p[t])}" onchange="setPoint(${i},${j},${k},'${t}',this.value)"></td>`).join("")}<td><button class="btn danger" onclick="removePoint(${i},${j},${k})">×</button></td></tr>${spectrumEditor(p,i,j,k)}`).join("")}</tbody></table></div><button class="btn secondary" onclick="addPoint(${i},${j})">+ Ponto</button></div>`).join("")}<div class="grid"><label>Condição<select class="v-condition-select v-condition-${conditionTone(e.status)}" onchange="setVal(${i},'status',this.value);this.className='v-condition-select v-condition-'+conditionTone(this.value)">${["Não avaliado", "Normal", "Atenção", "Alerta", "Crítico"].map((s) => `<option ${e.status === s ? "selected" : ""}>${s}</option>`).join("")}</select></label></div><div class="grid" style="grid-template-columns:1fr 1fr;margin-top:12px"><label>Diagnóstico<textarea onchange="setVal(${i},'diagnosis',this.value)">${escapeHtml(e.diagnosis)}</textarea></label><label>Recomendações<textarea onchange="setVal(${i},'recommendation',this.value)">${escapeHtml(e.recommendation)}</textarea></label></div></div></div>`,
               )
               .join("")
           : "Nenhum equipamento importado.";
@@ -1024,7 +1173,8 @@
       $("issued").value = new Date().toLocaleDateString("en-CA");
       $("saveProject").onclick = () => {
         const data = {
-          version: 2,
+          version: 3,
+          customer: reportCustomer,
           serviceOrder: $("serviceOrder").value,
           equipments,
           title: $("title").value,
@@ -1048,6 +1198,18 @@
         try {
           const data = JSON.parse(await ev.target.files[0].text());
           if (!Array.isArray(data.equipments)) throw Error("Projeto inválido");
+          for(const equipment of data.equipments){
+            if(!Array.isArray(equipment.components))throw Error('Componentes inválidos.');
+            for(const component of equipment.components){
+              if(!Array.isArray(component.points))throw Error('Pontos inválidos.');
+              for(const point of component.points){
+                if(!point.spectra)continue;
+                point.spectra=Object.fromEntries(spectrumTypes.filter(([type])=>spectrumData(point.spectra[type]?.data)).map(([type])=>[type,{name:String(point.spectra[type].name||'Imagem'),data:point.spectra[type].data}]));
+              }
+            }
+          }
+          reportCustomer=data.customer&&Number.isSafeInteger(data.customer.companyId)&&typeof data.customer.personId==='string'?data.customer:null;
+          window.dispatchEvent(new Event('vibration-customer-changed'));
           equipments = data.equipments;
           $("title").value = data.title || "";
           $("serviceOrder").value = data.serviceOrder || "";
@@ -1076,14 +1238,25 @@
               maximumFractionDigits: 2,
             });
       }
-      function buildReport(items) {
-        let total = items.reduce(
-          (n, e) => n + e.components.reduce((m, c) => m + c.points.length, 0),
-          0,
-        );
-        let clients = [...new Set(items.map((e) => e.client))].join(" · ");
-        $("report").innerHTML =
-          `<div class="reportTitle"><img src="/logo-rj.png" alt="RJ Compressores"><div><h1>ANÁLISE DE VIBRAÇÃO</h1><h2>${escapeHtml($("title").value)}</h2><div class="muted">Assistência Técnica · RJ Compressores</div></div>${$("serviceOrder").value.trim() ? `<div class="report-os"><span>OS Nº</span><strong>${escapeHtml($("serviceOrder").value.trim())}</strong></div>` : ""}</div><div class="reportMeta"><div><b>Cliente(s):</b> ${escapeHtml(clients)}</div><div><b>Emissão:</b> ${escapeHtml(printDate($("issued").value))}</div><div><b>Responsável pela coleta de dados:</b> ${escapeHtml($("collector").value.trim() || "Não informado")}</div><div><b>Responsável pela análise técnica:</b> ${escapeHtml($("technician").value.trim() || "Não informado")}</div><div><b>Equipamentos:</b> ${items.length}</div></div><section class="summary inspection-summary"><div class="inspection-summary-heading"><h2>Resumo da inspeção</h2><div class="inspection-totals"><span><strong>${items.length}</strong> ${items.length === 1 ? "equipamento" : "equipamentos"}</span><span><strong>${total}</strong> ${total === 1 ? "ponto de medição" : "pontos de medição"}</span></div></div><div class="inspection-conditions">${[{label:"Normal",tone:"normal"},{label:"Atenção",tone:"attention"},{label:"Alerta",tone:"alert"},{label:"Crítico",tone:"critical"},{label:"Não avaliado",tone:"unrated"}].map(({label,tone})=>{const count=items.filter(e=>e.status===label).length;return `<div class="inspection-condition condition-${tone}${count===0 ? " condition-empty" : ""}"><span class="condition-label"><i aria-hidden="true"></i>${label}</span><strong>${count}</strong></div>`}).join("")}</div><div class="inspection-summary-note">Condições informadas pelo responsável técnico.</div></section>${items.map((e, i) => `<section class="reportEquipment"><h2 style="color:#07527e">${i + 1}. ${escapeHtml(e.machine)}</h2><p><b>Cliente:</b> ${escapeHtml(e.client)} &nbsp; <b>Data:</b> ${escapeHtml(e.date || "Não informada")} &nbsp; <b>Condição:</b> ${escapeHtml(e.status)}</p>${e.components.map((c) => `<div class="reportSection"><h3>${escapeHtml(c.name)} <small style="font-weight:400">${escapeHtml(c.date)}</small></h3><table><thead><tr><th>Ponto</th><th>mm/s (RMS)</th><th>g (PP)</th><th>m/s² (Pk)</th></tr></thead><tbody>${c.points.map((p) => `<tr><td>${escapeHtml(p.name)}</td><td>${format(p.velocity)}</td><td>${format(p.acceleration)}</td><td>${format(p.peak)}</td></tr>`).join("")}</tbody></table></div>`).join("")}<div class="reportSection reportAssessment"><div><h3>Diagnóstico técnico</h3><p>${escapeHtml(e.diagnosis || "Não preenchido.")}</p></div><div><h3>Recomendações</h3><p>${escapeHtml(e.recommendation || "Não preenchidas.")}</p></div></div></section>`).join("")}<div class="reportSection"><h2>Considerações finais</h2><p>${escapeHtml($("general").value || "Não preenchidas.")}</p><div class="footer">Relatório elaborado com base nos valores importados do SDAV. Classificações informadas manualmente pelo responsável técnico. Valores ausentes não representam medição zero.</div></div>`;
+      function reportFilename(items) {
+        const dates=items.flatMap(e=>[e.date,...e.components.map(c=>c.date)]).filter(Boolean).map(value=>{
+          const date=String(value).trim();
+          const match=date.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/);
+          if(match)return match[3]+'-'+match[2]+'-'+match[1];
+          return /^\d{4}-\d{2}-\d{2}$/.test(date)?date:null;
+        }).filter(Boolean).sort();
+        const date=dates.length?dates[0].split('-').reverse().join('-'):'Sem_data_coleta';
+        const client=reportCustomer?.name||[...new Set(items.map(e=>e.client).filter(Boolean))].join(' e ')||'Cliente_nao_informado';
+        const safe=String(client).replace(/[<>:"/\\|?*\u0000-\u001f]/g,'-').replace(/\s+/g,' ').trim().replace(/[. ]+$/g,'').slice(0,150);
+        return date+'-Relatorio_Vibracao-'+safe;
+      }
+      function printNamedReport(items){
+        const docs=[document];try{if(parent!==window)docs.push(parent.document);}catch{}
+        const names=docs.map(d=>d.title);
+        const restore=()=>docs.forEach((d,i)=>{d.title=names[i];});
+        docs.forEach(d=>{d.title=reportFilename(items);});
+        window.addEventListener('afterprint',restore,{once:true});
+        try{window.print();}catch(error){restore();throw error;}
       }
       async function run(mode) {
         let items = equipments.filter((e) => e.selected);
@@ -1101,9 +1274,9 @@
               break;
             }
             w.document
-              .write(`<html><head><meta charset="utf-8"><title>${escapeHtml(item.machine)}</title><style>${document.querySelector("style").innerHTML}body{background:white}.report{display:block!important;max-width:900px;margin:auto}.layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:18px;margin-top:16px}.equipmentNav{display:flex;flex-direction:column;gap:8px;max-height:650px;overflow:auto}.navItem{text-align:left;border:1px solid #d8e2ec;border-radius:9px;background:#f8fbfd;padding:12px;cursor:pointer;color:#163d60}.navItem b{display:block;font-size:12px;overflow-wrap:anywhere}.navItem small{display:block;margin-top:5px;color:#64748b}.navActive{background:#e6f3fc;border-color:#1179b1;box-shadow:inset 4px 0 #1179b1}@media(max-width:850px){.layout{grid-template-columns:1fr}.equipmentNav{flex-direction:row;overflow:auto}.navItem{min-width:210px}}@media print{.equipmentNav{display:none}}
+              .write(`<html><head><meta charset="utf-8"><title>${escapeHtml(reportFilename([item]))}</title><style>${document.querySelector("style").innerHTML}body{background:white}.report{display:block!important;max-width:900px;margin:auto}.layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:18px;margin-top:16px}.equipmentNav{display:flex;flex-direction:column;gap:8px;max-height:650px;overflow:auto}.navItem{text-align:left;border:1px solid #d8e2ec;border-radius:9px;background:#f8fbfd;padding:12px;cursor:pointer;color:#163d60}.navItem b{display:block;font-size:12px;overflow-wrap:anywhere}.navItem small{display:block;margin-top:5px;color:#64748b}.navActive{background:#e6f3fc;border-color:#1179b1;box-shadow:inset 4px 0 #1179b1}@media(max-width:850px){.layout{grid-template-columns:1fr}.equipmentNav{flex-direction:row;overflow:auto}.navItem{min-width:210px}}@media print{.equipmentNav{display:none}}
 .reportAssessment{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:16px}.reportAssessment>div{background:#f4f8fb;border:1px solid #dce8f0;border-radius:9px;padding:12px;min-width:0}.reportAssessment h3{margin-top:0;color:#07527e}.reportAssessment p{overflow-wrap:anywhere}@media(max-width:760px){.reportAssessment{grid-template-columns:1fr}}@media print{.reportAssessment{grid-template-columns:1fr 1fr!important}.reportEquipment{border-top:2px solid #0b7bab;break-before:auto!important;page-break-before:auto!important}.reportAssessment>div{break-inside:avoid}}
-</style></head><body><div class="screen" style="text-align:right;padding:16px"><button class="btn" onclick="document.fonts.ready.then(() => window.print())">Imprimir / Salvar PDF</button></div>${$("report").outerHTML}</body></html>`);
+</style></head><body><div class="screen" style="text-align:right;padding:16px"><button class="btn" onclick="Promise.all([document.fonts.ready,...Array.from(document.images).map(i=>i.decode().catch(()=>{}))]).then(() => window.print())">Imprimir / Salvar PDF</button></div>${$("report").outerHTML}</body></html>`);
             w.document.close();
           }
           return;
@@ -1117,11 +1290,11 @@
           }
           let css = document.querySelector("style").innerHTML;
           win.document
-            .write(`<html><head><meta charset="utf-8"><title>Pré-visualização RJ</title><style>${css}body{background:white}.report{display:block!important;margin:0 auto;max-width:900px}.layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:18px;margin-top:16px}.equipmentNav{display:flex;flex-direction:column;gap:8px;max-height:650px;overflow:auto}.navItem{text-align:left;border:1px solid #d8e2ec;border-radius:9px;background:#f8fbfd;padding:12px;cursor:pointer;color:#163d60}.navItem b{display:block;font-size:12px;overflow-wrap:anywhere}.navItem small{display:block;margin-top:5px;color:#64748b}.navActive{background:#e6f3fc;border-color:#1179b1;box-shadow:inset 4px 0 #1179b1}@media(max-width:850px){.layout{grid-template-columns:1fr}.equipmentNav{flex-direction:row;overflow:auto}.navItem{min-width:210px}}@media print{.equipmentNav{display:none}}
+            .write(`<html><head><meta charset="utf-8"><title>${escapeHtml(reportFilename(items))}</title><style>${css}body{background:white}.report{display:block!important;margin:0 auto;max-width:900px}.layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:18px;margin-top:16px}.equipmentNav{display:flex;flex-direction:column;gap:8px;max-height:650px;overflow:auto}.navItem{text-align:left;border:1px solid #d8e2ec;border-radius:9px;background:#f8fbfd;padding:12px;cursor:pointer;color:#163d60}.navItem b{display:block;font-size:12px;overflow-wrap:anywhere}.navItem small{display:block;margin-top:5px;color:#64748b}.navActive{background:#e6f3fc;border-color:#1179b1;box-shadow:inset 4px 0 #1179b1}@media(max-width:850px){.layout{grid-template-columns:1fr}.equipmentNav{flex-direction:row;overflow:auto}.navItem{min-width:210px}}@media print{.equipmentNav{display:none}}
 .reportAssessment{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:16px}.reportAssessment>div{background:#f4f8fb;border:1px solid #dce8f0;border-radius:9px;padding:12px;min-width:0}.reportAssessment h3{margin-top:0;color:#07527e}.reportAssessment p{overflow-wrap:anywhere}@media(max-width:760px){.reportAssessment{grid-template-columns:1fr}}@media print{.reportAssessment{grid-template-columns:1fr 1fr!important}.reportEquipment{border-top:2px solid #0b7bab;break-before:auto!important;page-break-before:auto!important}.reportAssessment>div{break-inside:avoid}}
-</style></head><body><div class="screen" style="text-align:right;padding:16px"><button class="btn" onclick="document.fonts.ready.then(() => window.print())">Imprimir / Salvar PDF</button></div>${$("report").outerHTML}</body></html>`);
+</style></head><body><div class="screen" style="text-align:right;padding:16px"><button class="btn" onclick="Promise.all([document.fonts.ready,...Array.from(document.images).map(i=>i.decode().catch(()=>{}))]).then(() => window.print())">Imprimir / Salvar PDF</button></div>${$("report").outerHTML}</body></html>`);
           win.document.close();
-        } else { await document.fonts.ready; window.print(); }
+        } else { await Promise.all([document.fonts.ready,...Array.from($("report").querySelectorAll("img")).map(i=>i.decode().catch(()=>{}))]); printNamedReport(items); }
       }
       $("combined").onclick = () => run("combined");
       $("individual").onclick = () => run("individual");
@@ -1137,5 +1310,6 @@
         ),
       ).observe(document.body);
     </script>
+    <script src="/tools/vibration-storage.js"></script>
   </body>
 </html>

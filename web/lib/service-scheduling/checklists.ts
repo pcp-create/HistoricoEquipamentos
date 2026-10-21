@@ -75,6 +75,17 @@ export function validateAnswers(stage:ChecklistStage,raw:any,complete:boolean){
  return out;
 }
 
+export const hasAlertComment = (f:ChecklistField) => isStatusField(f.type) && !!f.alertOptions?.length;
+export const requiresAlertComment = (f:ChecklistField,value:any) => hasAlertComment(f) && fieldOptions(f).includes(value) && !!f.alertOptions?.includes(value);
+export function validateAlertComments(stage:ChecklistStage,answers:any,details:any){
+ for(const f of normalizeStage(stage).fields){
+  if(requiresAlertComment(f,answers?.[f.id]) && (typeof details?.[f.id]?.comment!=='string'||!details[f.id].comment.trim()))
+   throw Error(`Informe um comentário para o alerta: ${f.label} (${answers[f.id]}).`);
+ }
+}
+export function validateRunAlertComments(run:any){
+ if(run?.template)for(const stage of stagesOf(run.template))validateAlertComments(stage,run.stages?.[stage.id]?.answers,run.stages?.[stage.id]?.details);
+}
 export function validateFieldDetails(stage:ChecklistStage,raw:any={}){
  stage=normalizeStage(stage);
  if(!raw||typeof raw!=='object'||Array.isArray(raw)||Object.keys(raw).some(k=>!stage.fields.some(f=>f.id===k)))throw Error('Complementos de campos inválidos.');
@@ -82,7 +93,7 @@ export function validateFieldDetails(stage:ChecklistStage,raw:any={}){
  for(const f of stage.fields){const d=raw[f.id];if(d===undefined)continue;
   if(!d||typeof d!=='object'||Array.isArray(d)||Object.keys(d).some(k=>!['photos','comment','internalNote'].includes(k)))throw Error('Complementos inválidos.');
   const next:Record<string,any>={};
-  for(const key of ['comment','internalNote'] as const){if(d[key]!==undefined){if(!f[key]||typeof d[key]!=='string'||d[key].length>30000)throw Error(`Complemento não permitido: ${f.label}.`);next[key]=d[key];}}
+  for(const key of ['comment','internalNote'] as const){if(d[key]!==undefined){if(!(f[key]||(key==='comment'&&hasAlertComment(f)))||typeof d[key]!=='string'||d[key].length>30000)throw Error(`Complemento não permitido: ${f.label}.`);next[key]=d[key];}}
   if(d.photos!==undefined){if(f.type==='photo'||photoLimit(f)===0||!Array.isArray(d.photos)||d.photos.length>photoLimit(f)||d.photos.some((id:any)=>typeof id!=='string'||!/^\d{1,18}$/.test(id))||new Set(d.photos).size!==d.photos.length)throw Error(`Limite de fotos inválido: ${f.label}.`);next.photos=d.photos;}
   result[f.id]=next;
  }

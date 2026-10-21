@@ -44,6 +44,11 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  await query("INSERT INTO web_service_operations(id,schedule_id,position,status,document,updated_by) VALUES($1,1,1,'awaiting_review',$2,'test')",[operationId,JSON.stringify({description:'Inspeção',responsible:'assignee@test.com',checklistRun:run})]);
  const body={action:'review',scheduleId:'1',operationId,version:1};
  const admin='guih.waltrick@gmail.com';
+ await assert.rejects(mutateSchedule(body,admin),/Informe um comentário/);
+ assert.equal((await query('SELECT status FROM web_service_operations')).rows[0].status,'awaiting_review');
+ assert.equal((await query('SELECT * FROM web_tasks')).rows.length,0);
+ await query("UPDATE web_service_operations SET document=jsonb_set(document,'{checklistRun,stages,s,details}',$1::jsonb)",[JSON.stringify({status:{comment:'Vazamento identificado'}})]);
+
  await assert.rejects(mutateSchedule(body,admin),/responsável/);
  assert.equal((await query('SELECT status FROM web_service_operations')).rows[0].status,'awaiting_review');
  assert.equal((await query('SELECT * FROM web_tasks')).rows.length,0);

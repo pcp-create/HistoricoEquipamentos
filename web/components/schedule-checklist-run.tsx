@@ -9,7 +9,7 @@ import {checklistProgress,progressLabels,checklistCounts} from '@/lib/service-sc
 import { ChevronRight, Plus, Minus } from "lucide-react";
 import SaveActionIcon from "./save-action-icon";
 import {useState,useEffect,useRef,useId} from 'react';
-import {stagesOf,groupsOf,photoLimit,isStatusField,fieldOptions,type ChecklistField} from '@/lib/service-scheduling/checklists';
+import {hasAlertComment,requiresAlertComment,stagesOf,groupsOf,photoLimit,isStatusField,fieldOptions,type ChecklistField} from '@/lib/service-scheduling/checklists';
 import {apiFetch} from '@/lib/client-api-cache';
 import {DictationText,SignatureInput} from './checklist-inputs';
 import './schedule-checklists.css';
@@ -101,7 +101,7 @@ function Stage({stageAccordionName,stage,operation,data,mutate,locked,readOnly,c
  <small className="checklist-meter-note">A atualização do equipamento e da preventiva ocorre após a revisão do relatório.</small>
  </>}
  {f.type!=='photo'&&photoLimit(f)>0&&photos(f,true)}
- {f.comment&&<div className="checklist-field-extra"><span>Comentário</span><DictationText label={'Comentário — '+f.label} value={details[f.id]?.comment||''} disabled={disabled} onChange={s=>detail(f.id,'comment',s)}/></div>}
+ {(f.comment||hasAlertComment(f))&&<div className="checklist-field-extra"><span>Comentário{requiresAlertComment(f,v)&&" — obrigatório para este alerta"}</span><DictationText label={'Comentário — '+f.label} value={details[f.id]?.comment||''} disabled={disabled} onChange={s=>detail(f.id,'comment',s)}/></div>}
  {f.internalNote&&<div className="checklist-field-extra"><span>Observação interna · Somente no relatório de orçamento</span><DictationText label={'Observação interna — '+f.label} value={details[f.id]?.internalNote||''} disabled={disabled} onChange={s=>detail(f.id,'internalNote',s)}/></div>}
  </div>;
  })}</fieldset></Container>;})}

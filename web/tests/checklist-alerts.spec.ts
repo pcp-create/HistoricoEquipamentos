@@ -49,7 +49,7 @@ test("review alerts show red flags and require task details before completion", 
           s: {
             status: "submitted",
             answers: { meter: n * 1000, f: "NOK" },
-            details: { f: { internalNote: "Nota para orçamento" } },
+            details: { f: { comment: "Vazamento identificado", internalNote: "Nota para orçamento" } },
           },
         },
         submission: { at: "2026-09-30T12:00:00Z", by: "tech" },

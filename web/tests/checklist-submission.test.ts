@@ -25,3 +25,19 @@ test('report status distinguishes saved drafts, partial sends, full sends and re
  run.reportReturnedAt='2026-01-01T11:00:00Z';
  assert.equal(reportStatusLabel(run),'Devolvido para edição');
 });
+
+import {validateAlertComments,validateFieldDetails} from '../lib/service-scheduling/checklists';
+import {checklistReport} from '../lib/service-scheduling/checklist-report';
+test('configured alerts require meaningful comments even when optional comments are disabled',()=>{
+ const field={id:'f',label:'Condição',type:'flag2',required:false,alertOptions:['NOK'],comment:false};
+ const stage={id:'s',name:'Inspeção',fields:[field]};
+ const run={template:{id:'t',name:'Checklist',items:[],stages:[stage]},stages:{s:{status:'released',answers:{f:'NOK'},details:{f:{comment:'   '}}}}};
+ assert.throws(()=>prepareChecklistSubmission(run,'tech'),/Informe um comentário.*Condição/);
+ assert.throws(()=>validateAlertComments(stage,{f:'NOK'},{}),/comentário/);
+ assert.doesNotThrow(()=>validateAlertComments(stage,{f:'OK'},{}));
+ assert.doesNotThrow(()=>validateAlertComments({...stage,fields:[{...field,alertOptions:[]}]},{f:'NOK'},{}));
+ run.stages.s.details.f.comment='Vazamento na conexão';
+ assert.doesNotThrow(()=>validateFieldDetails(stage,run.stages.s.details));
+ assert.doesNotThrow(()=>prepareChecklistSubmission(run,'tech'));
+ assert.equal(checklistReport(run)[0].groups[0].fields[0].comment,'Vazamento na conexão');
+});
