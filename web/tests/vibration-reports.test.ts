@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {PGlite} from '@electric-sql/pglite';
-import {saveReport,reportDetail,reportsList,saveImage,reportImage,ReportConflict,validateProject} from '../lib/vibration-reports/store';
+import {reportCustomers,saveReport,reportDetail,reportsList,saveImage,reportImage,ReportConflict,validateProject} from '../lib/vibration-reports/store';
 test('saved reports retain spectra, support search and reopening, and reject stale writes atomically',async()=>{
  const db=new PGlite(),g=globalThis as any,old=g.historyPool;
  const query=db.query.bind(db);g.historyPool={query,connect:async()=>({query,release(){}})};
@@ -39,5 +39,25 @@ test('saved reports retain spectra, support search and reopening, and reject sta
   assert.equal((await reportDetail(saved.id)).version,2);
   assert.throws(()=>validateProject({equipments:[]}),/equipamentos/);
   await assert.rejects(saveImage(new File(['bad'],'fake.png',{type:'image/png'}),'tech@test.com'),/inválida/);
+ }finally{g.historyPool=old;await db.close();}
+});
+
+test('customer picker uses the single main company registry without cross-company duplicates',async()=>{
+ const db=new PGlite(),g=globalThis as any,old=g.historyPool;
+ g.historyPool={query:db.query.bind(db)};
+ try{
+  await db.exec(`CREATE TABLE m8_customer_directory(company_id integer,person_id bigint,name text,document text,payload jsonb,PRIMARY KEY(company_id,person_id));
+   INSERT INTO m8_customer_directory VALUES
+    (1,42,'ITUTEX','123456','{"municipioNome":"Indaial","ufSigla":"SC"}'),
+    (2,42,'ITUTEX','123456','{}'),
+    (27404,42,'ITUTEX','123456','{}'),
+    (1,43,'ITUTEX','654321','{}');`);
+  const result=await reportCustomers('ITUTEX');
+  assert.equal(result.customers.length,2);
+  assert.ok(result.customers.every(c=>c.companyId===1));
+  assert.equal(result.hasMore,false);
+  assert.equal((await reportCustomers('123456')).customers.length,1);
+  assert.equal((await reportCustomers('Indaial')).customers[0].personId,'42');
+  assert.equal((await reportCustomers('inexistente')).customers.length,0);
  }finally{g.historyPool=old;await db.close();}
 });

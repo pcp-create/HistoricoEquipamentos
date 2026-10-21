@@ -1,7 +1,9 @@
+import {TaskListInputError,TaskListConflict} from "@/lib/service-scheduling/task-lists";
 import {syncTasks} from "@/lib/tasks/store";
 import { requireUser, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import {
   schedulingData,
+  scheduleTaskLists,
   scheduleIdForNumber,
   scheduleForOrder,
   mutateSchedule,
@@ -20,9 +22,9 @@ function failure(e: unknown) {
       ? 401
       : e instanceof Forbidden
         ? 403
-        : e instanceof ScheduleInputError
+        : (e instanceof ScheduleInputError || e instanceof TaskListInputError)
           ? 400
-          : e instanceof ScheduleConflict
+          : (e instanceof ScheduleConflict || e instanceof TaskListConflict)
             ? 409
             : 503;
   if (status === 503) console.error("SERVICE_SCHEDULING_FAILED", {
@@ -47,6 +49,7 @@ export async function GET(req: Request) {
   try {
     const user = await requireUser();
     const params = new URL(req.url).searchParams;
+    if (params.has("taskLists")) return json(await scheduleTaskLists(user.email));
     if (params.has("orderId")) return json(await scheduleForOrder(params.get("company") || "", params.get("orderId") || ""));
     return json(
       await schedulingData(params.has("OS") ? await scheduleIdForNumber(params.get("OS")!) : params.get("id"), user.email),
@@ -66,6 +69,7 @@ export async function POST(req: Request) {
     } catch {
       return json({ error: "Dados inválidos." }, 400);
     }
+    if(b.action?.startsWith("task_list_")&&raw.length>2000000)return json({error:"Lista muito grande."},413);
     const result=await mutateSchedule(b, user.email);
     if(b.action==="review") {try {await syncTasks();} catch {console.error("TASK_SYNC_AFTER_CHECKLIST_REVIEW_FAILED");}}
     return json(result);

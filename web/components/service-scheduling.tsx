@@ -1,4 +1,5 @@
 "use client";
+import {ScheduleTaskLists,TaskListActions} from "./schedule-task-lists";
 import {needsRescheduling} from "@/lib/service-scheduling/rescheduling";
 import {ReschedulingHistory,ReschedulingConfirmation} from "./operation-rescheduling";
 import { scheduleUrl } from "@/lib/service-scheduling/schedule-url";
@@ -689,13 +690,13 @@ export default function ServiceScheduling() {
                     </tbody>
                   </table>
                 </div>
-                <button
+                <div className="schedule-operation-actions"><button
                   disabled={busy}
                   onClick={() => void mutate({ action: "add_operation" })}
                 >
                   <Plus size={16} />
                   Adicionar operação
-                </button>
+                </button><TaskListActions data={data} disabled={busy} hasDirty={()=>dirtyOperations.current.size>0} onApplied={()=>{clearApiCache();void load();}}/></div>
               </>
             )}
             {["products", "services", "costs"].includes(tab) && (materials.some((m: any) => m.source_linked) || services.some((s: any) => s.source_linked)) && <p className="schedule-linked-legend">Linhas amarelas: itens da OS vinculada.</p>}
@@ -1546,6 +1547,7 @@ function ScheduleSettings({ data, onSaved }: any) {
           ["pauses", "Causas de pausa"],
           ["calendars", "Calendários"],
           ["rules", "Entrada automática"],
+          ["taskLists", "Listas de Tarefas"],
         ].map(([k, n]) => (
           <button key={k} aria-pressed={tab === k} onClick={() => setTab(k)}>
             {n}
@@ -1560,6 +1562,7 @@ function ScheduleSettings({ data, onSaved }: any) {
         <p>Seu acesso não permite alterar as configurações.</p>
       )}
       <fieldset disabled={busy || !data.canEditSettings}>
+        {tab === "taskLists" && <ScheduleTaskLists data={{...data,settings:{...data.settings,document:d}}}/>}
         {tab === "vehicles" && <>
           <p>Informe o nome e, se desejar, a placa. Salve a linha com Enter ou no botão Salvar.</p>
           <CompactNameTable label="Veículo" items={d.vehicles || []} maxLength={160} busy={busy}

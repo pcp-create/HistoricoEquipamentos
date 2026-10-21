@@ -1,3 +1,4 @@
+import {readTaskLists,mutateTaskList} from "./task-lists";
 import {withRescheduling} from "./rescheduling";
 import {createChecklistAlertTask} from "./checklist-alert-task";
 import {defaultOperation} from "./default-operation";
@@ -191,6 +192,9 @@ export async function scheduleForOrder(company: string, orderId: string) {
   id(orderId);
   return { schedule: (await database().query("SELECT id,active FROM web_service_schedules WHERE company_id=$1 AND order_id=$2", [company,orderId])).rows[0] || null };
 }
+export async function scheduleTaskLists(email:string){
+ const db=database();await access(db,email);return readTaskLists(db);
+}
 export async function mutateSchedule(b: any, email: string) {
   if (!b || typeof b.action !== "string")
     throw new ScheduleInputError("Ação inválida.");
@@ -203,6 +207,10 @@ export async function mutateSchedule(b: any, email: string) {
     const config = (
       await c.query("SELECT * FROM web_service_schedule_settings WHERE id=1")
     ).rows[0];
+    if (["task_list_save","task_list_delete","task_list_apply"].includes(b.action)) {
+      const result=await mutateTaskList(c,b,email,config.document);
+      await c.query("COMMIT");return result;
+    }
     if (b.action === "automatic_preview") {
       if(!admin) throw new Forbidden();
       let rules;

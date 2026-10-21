@@ -1,0 +1,255 @@
+.schedule-operation-actions,
+.task-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+.schedule-operation-actions > button,
+.task-list-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.task-list-notice {
+  flex-basis: 100%;
+  margin: 0;
+}
+.task-list-dialog {
+  width: min(1050px, calc(100vw - 32px));
+  max-height: 90vh;
+  overflow: auto;
+  border: 1px solid #cbdcec;
+  border-radius: 12px;
+  padding: 24px;
+  color: #244764;
+  background: white;
+}
+.task-list-dialog::backdrop {
+  background: #14365199;
+}
+.task-list-editor fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.task-list-editor .task-list-field-options {
+  padding: 16px;
+  border: 1px solid #d6e2ed;
+  border-radius: 9px;
+  margin: 18px 0;
+}
+.task-list-field-options legend {
+  font-weight: 600;
+}
+.task-list-editor .task-list-field-options label,
+.task-list-editor .task-list-confirm {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+  gap: 10px;
+  margin: 0;
+  min-height: 36px;
+  cursor: pointer;
+}
+.task-list-editor .task-list-field-options input[type="checkbox"],
+.task-list-confirm input {
+  width: 17px;
+  min-height: 0;
+  height: 17px;
+  flex-shrink: 0;
+  margin: 0;
+}
+.task-list-field-options > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 24px;
+  margin: 14px 0;
+}
+.task-list-field-options small {
+  display: block;
+  line-height: 1.5;
+  color: #617b94;
+}
+.task-list-name {
+  display: grid;
+  gap: 6px;
+}
+.task-list-editor input:not([type="checkbox"]),
+.task-list-editor select,
+.task-list-editor textarea,
+.schedule-task-lists input:not([type="checkbox"]) {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #c8daec;
+  border-radius: 7px;
+  font: inherit;
+  color: inherit;
+  background: white;
+  min-height: 40px;
+}
+.task-list-operation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.task-list-operation-grid > label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.task-list-preview article {
+  border: 1px solid #d6e2ed;
+  border-radius: 9px;
+  padding: 16px;
+  margin: 12px 0;
+  background: #fff;
+}
+.task-list-catalog article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.task-list-operation h4 {
+  margin: 0;
+}
+.task-list-catalog article {
+  border-bottom: 1px solid #d6e2ed;
+  padding: 12px 0;
+}
+.task-list-catalog h3 {
+  margin: 0;
+}
+.task-list-catalog p {
+  margin: 6px 0;
+  color: #617b94;
+}
+.task-list-preview {
+  max-height: 40vh;
+  overflow: auto;
+}
+.task-list-preview dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 0;
+}
+.task-list-preview dt {
+  font-size: 12px;
+  color: #617b94;
+}
+.task-list-preview dd {
+  margin: 3px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.task-list-confirm {
+  margin: 18px 0;
+}
+.task-list-error {
+  color: #b42336;
+}
+.task-list-actions .task-list-primary {
+  background: #245e91;
+  color: white;
+  border-color: #245e91;
+}
+.task-list-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.task-list-editor footer {
+  justify-content: flex-end;
+  padding-top: 14px;
+  border-top: 1px solid #d6e2ed;
+}
+@media (max-width: 600px) {
+  .task-list-operation-grid,
+  .task-list-preview dl {
+    grid-template-columns: 1fr;
+  }
+  .task-list-dialog {
+    padding: 16px;
+  }
+  .task-list-catalog article {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+.task-list-editor .task-list-field-options > label {
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e0e8f0;
+  font-weight: 600;
+}
+@media (max-width: 800px) {
+  .task-list-field-options > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 500px) {
+  .task-list-field-options > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.task-list-operations-scroll {
+  margin: 16px 0;
+  overflow-x: auto;
+}
+.task-list-operations-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.task-list-operations-table th {
+  white-space: nowrap;
+  text-align: left;
+}
+.task-list-operations-table td {
+  vertical-align: top;
+}
+.task-list-operations-table td:first-child {
+  min-width: 60px;
+  padding-top: 20px;
+}
+.task-list-operations-table td[data-field] {
+  min-width: 160px;
+}
+.task-list-operations-table td[data-field="description"],
+.task-list-operations-table td[data-field="support"],
+.task-list-operations-table td[data-field="internalNote"] {
+  min-width: 240px;
+}
+.task-list-operations-table td[data-field="equipmentId"] {
+  min-width: 330px;
+}
+.task-list-operations-table td[data-field="checklistId"] {
+  min-width: 240px;
+}
+.task-list-operations-table td[data-field="duration"] {
+  min-width: 110px;
+}
+.task-list-operations-table td > label {
+  display: block;
+  margin: 0;
+}
+.task-list-operations-table td[data-field="equipmentId"] button {
+  width: 100%;
+  text-align: left;
+  justify-content: flex-start;
+}
+.task-list-operations-table textarea {
+  resize: vertical;
+}
+.task-list-operations-table .task-list-actions {
+  flex-wrap: nowrap;
+  margin: 0;
+  gap: 6px;
+}

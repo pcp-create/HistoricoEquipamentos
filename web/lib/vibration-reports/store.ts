@@ -74,7 +74,7 @@ export async function reportImage(id:string){return (await database().query('SEL
 
 export async function reportCustomers(search:string){
  const rows=(await database().query(`SELECT company_id,person_id::text,name,document,payload->>'municipioNome' city,payload->>'ufSigla' uf
- FROM m8_customer_directory WHERE concat_ws(' ',name,document,person_id::text,payload->>'municipioNome') ILIKE $1
+ FROM m8_customer_directory WHERE company_id=1 AND concat_ws(' ',name,document,person_id::text,payload->>'municipioNome') ILIKE $1
  ORDER BY name NULLS LAST,company_id,person_id LIMIT 51`,['%'+search.slice(0,200)+'%'])).rows;
  return {customers:rows.slice(0,50).map(r=>({companyId:r.company_id,personId:r.person_id,name:r.name||'Cliente sem nome',document:r.document||'',city:r.city||'',uf:r.uf||''})),hasMore:rows.length>50};
 }
