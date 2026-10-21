@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
+import { requireUser, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import {
   orderLinks,
   saveOrderLink,
@@ -25,7 +25,7 @@ function failure(e: unknown) {
 }
 export async function GET(req: Request, ctx: Context) {
   try {
-    await requireAdmin();
+    await requireUser();
     const { company, id } = await ctx.params;
     const u = new URL(req.url);
     return json(
@@ -43,7 +43,7 @@ export async function GET(req: Request, ctx: Context) {
 export async function POST(req: Request, ctx: Context) {
   if (!sameOrigin(req)) return json({ error: "Origem inválida." }, 403);
   try {
-    const user = await requireAdmin();
+    const user = await requireUser();
     const { company, id } = await ctx.params;
     let b;
     try {

@@ -28,7 +28,6 @@ import { OrderDetails } from "./dashboard";
 import MaterialPhoto from "./material-photo";
 import { EquipmentTaskProvider, EquipmentTaskLinks } from "./tasks-dashboard";
 import SiteHeader from "./site-header";
-import { useSessionAccess } from "./session-access";
 import {
   emptyOperating,
   estimateCurrentMeter,
@@ -199,7 +198,6 @@ function OrderLink({id,company,equipment}:{id:string;company?:number;equipment?:
   return <OrderDetailLink id={String(id)} company={company} equipment={equipment}/>;
 }
 export default function EquipmentDashboard() {
-  const { admin } = useSessionAccess();
   const [previewEquipment, setPreviewEquipment] = useState("");
   const [equipmentView, setEquipmentView] = useState("list");
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
@@ -752,7 +750,7 @@ export default function EquipmentDashboard() {
       <main className="equipment-page catalog-settings">
         <section className="manual-card">
           <h1>Equipamentos</h1>
-          {admin && (
+          {(
             <div className="catalog-editor-actions">
               <a
                 className="button"

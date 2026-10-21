@@ -35,7 +35,7 @@ export async function GET(req: Request) {
   try {
     const user = await requireUser(),
       p = new URL(req.url).searchParams;
-    if(p.has("id")){const access=await accessRecord(user.email);const detail=await taskDetail(p.get("id")!,user);if(detail.task.source_key.startsWith("time-request:")&&access?.role!=="admin")throw new Forbidden();return json({...detail,canDeleteNotes:!!access?.enabled&&access.role==="admin"});}
+    if(p.has("id")){const access=await accessRecord(user.email);const detail=await taskDetail(p.get("id")!,user);return json({...detail,canDeleteNotes:!!access?.enabled});}
     return json(await listTasks(p,user));
   } catch (e) {
     return failure(e);

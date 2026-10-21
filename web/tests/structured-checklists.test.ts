@@ -68,7 +68,10 @@ test('stages freeze templates, restrict technicians, validate photos and update 
   await db.query("INSERT INTO web_field_sessions VALUES(1,$1,'tech','work','running')",[op.id]);
   const uploaded=await saveChecklistPhoto(op.id,photos.id,photo.id,file,'tech');
   assert.equal((await getChecklistPhoto(uploaded.id,'tech')).mime,'image/jpeg');
+  assert.equal((await getChecklistPhoto(uploaded.id,'outsider')).mime,'image/jpeg');
+  await db.query("UPDATE web_user_access SET enabled=false WHERE email='outsider'");
   await assert.rejects(getChecklistPhoto(uploaded.id,'outsider'));
+  await assert.rejects(getChecklistPhoto(uploaded.id,'unknown'));
   await assert.rejects(act('checklist_save',{stageId:photos.id,answers:{[photo.id]:['999']}}),/Foto não pertence/);
   await act('checklist_save',{stageId:photos.id,answers:{[photo.id]:[uploaded.id]}});
   await assert.rejects(act('checklist_submit',{stageId:photos.id,answers:{[photo.id]:[uploaded.id]}}),/Identificação/);

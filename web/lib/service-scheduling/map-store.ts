@@ -123,7 +123,7 @@ export async function changeScheduleMap(body: any, email: string) {
         [email],
       )
     ).rows[0];
-    if (!allowed?.enabled || allowed.role !== "admin") throw new Forbidden();
+    if (!allowed?.enabled) throw new Forbidden();
     const current = (
       await c.query(
         `SELECT l.* FROM web_service_schedules s JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id

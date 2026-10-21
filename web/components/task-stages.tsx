@@ -241,7 +241,7 @@ export default function TaskStages() {
           Atualizar lista
         </button>
       </div>
-      {!data.canEdit && <p>Somente administradores podem editar as etapas.</p>}
+      {!data.canEdit && <p>Seu acesso não permite editar as etapas.</p>}
       <datalist id="task-stage-roles">
         {[
           ...new Set<string>([

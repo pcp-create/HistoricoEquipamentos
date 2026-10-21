@@ -1,5 +1,4 @@
 import {
-  requireAdmin,
   requireUser,
   sameOrigin,
   Unauthorized,
@@ -26,7 +25,7 @@ function failure(e: unknown) {
           : e instanceof Unauthorized
             ? "Sessão expirada."
             : e instanceof Forbidden
-              ? "Acesso exclusivo de administradores."
+              ? "Acesso não autorizado."
               : "Não foi possível atualizar a configuração de tarefas.",
     },
     e instanceof AdminInputError
@@ -44,7 +43,7 @@ export async function GET() {
     const access = await accessRecord(user.email);
     return json({
       ...(await taskStages()),
-      canEdit: access?.enabled && access.role === "admin",
+      canEdit: !!access?.enabled,
     });
   } catch (e) {
     return failure(e);
@@ -53,7 +52,7 @@ export async function GET() {
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return json({ error: "Origem inválida." }, 403);
   try {
-    const user = await requireAdmin();
+    const user = await requireUser();
     const raw = await req.text();
     if (raw.length > 1000000)
       return json({ error: "Dados excedem o limite." }, 413);

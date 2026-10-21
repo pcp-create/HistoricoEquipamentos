@@ -43,7 +43,7 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  const operationId='10000000-0000-4000-8000-000000000001';
  await query("INSERT INTO web_service_operations(id,schedule_id,position,status,document,updated_by) VALUES($1,1,1,'awaiting_review',$2,'test')",[operationId,JSON.stringify({description:'Inspeção',responsible:'assignee@test.com',checklistRun:run})]);
  const body={action:'review',scheduleId:'1',operationId,version:1};
- const admin='guih.waltrick@gmail.com';
+ const admin='assignee@test.com'; // Authenticated non-admin planners can review operations.
  await assert.rejects(mutateSchedule(body,admin),/Informe um comentário/);
  assert.equal((await query('SELECT status FROM web_service_operations')).rows[0].status,'awaiting_review');
  assert.equal((await query('SELECT * FROM web_tasks')).rows.length,0);
@@ -53,7 +53,10 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  assert.equal((await query('SELECT status FROM web_service_operations')).rows[0].status,'awaiting_review');
  assert.equal((await query('SELECT * FROM web_tasks')).rows.length,0);
  const alertTask={assignedTo:'assignee@test.com',description:'Corrigir a falha indicada.',reportMode:'summary'};
- await assert.rejects(mutateSchedule({...body,alertTask},'assignee@test.com'));
+ await assert.rejects(mutateSchedule({...body,alertTask},'missing@test.com'));
+ await query("UPDATE web_user_access SET enabled=false WHERE email=$1",[admin]);
+ await assert.rejects(mutateSchedule({...body,alertTask},admin));
+ await query("UPDATE web_user_access SET enabled=true WHERE email=$1",[admin]);
  await assert.rejects(mutateSchedule({...body,alertTask:{...alertTask,assignedTo:'missing@test.com'}},admin),/ativo/);
  // Force attachment failure after task insertion: both task and review must roll back.
  await db.exec('ALTER TABLE web_task_attachments ADD CONSTRAINT reject_test CHECK (octet_length(content)<1)');

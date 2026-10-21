@@ -221,12 +221,12 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     await assert.rejects(()=>saveVisit({action:"cancel",id:external.id,version:1},"a@test.com"));
     await saveVisit({action:"cancel",id:external.id,version:1},"tech@test.com");
     const edit={...external,action:"admin_edit",version:2,contact:"Contato corrigido"};
-    await assert.rejects(()=>administerVisit(edit,"tech@test.com"));
-    await assert.rejects(()=>administerVisit({...edit,action:"admin_delete"},"tech@test.com"));
-    await administerVisit(edit,"admin@test.com");
+    await assert.rejects(()=>administerVisit(edit,"missing@test.com"));
+    await assert.rejects(()=>administerVisit({...edit,action:"admin_delete"},"missing@test.com"));
+    await administerVisit(edit,"tech@test.com");
     assert.equal((await visitsData("tech@test.com")).visits[0].contact,"Contato corrigido");
     await assert.rejects(()=>administerVisit({...edit,action:"admin_delete"},"admin@test.com"),/alterada/);
-    await administerVisit({...edit,version:3,action:"admin_delete"},"admin@test.com");
+    await administerVisit({...edit,version:3,action:"admin_delete"},"tech@test.com");
     assert.equal((await visitsData("tech@test.com")).visits.length,0);
     assert.equal((await db.query("SELECT * FROM web_access_events WHERE event='sales_visit_admin'")).rows.length,2);
 

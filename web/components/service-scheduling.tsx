@@ -1540,7 +1540,7 @@ function ScheduleSettings({ data, onSaved }: any) {
         {busy ? "Salvando…" : ""}
       </span>
       {!data.canEditSettings && (
-        <p>Somente administradores podem alterar as configurações.</p>
+        <p>Seu acesso não permite alterar as configurações.</p>
       )}
       <fieldset disabled={busy || !data.canEditSettings}>
         {tab === "vehicles" && <>

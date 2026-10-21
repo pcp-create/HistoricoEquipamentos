@@ -50,7 +50,8 @@ async function access(c: any, email: string) {
     )
   ).rows[0];
   if (!a?.enabled) throw new Forbidden();
-  return a.role === "admin";
+  // Operational planning is available to every enabled, authenticated user.
+  return true;
 }
 async function audit(c: any, email: string, event: string, details: any) {
   await c.query(
@@ -84,7 +85,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
     settings,
     automaticOptions,
     users,
-    canEditSettings: user.role === "admin",
+    canEditSettings: true,
     email,
   };
   if (!scheduleId) {

@@ -165,8 +165,7 @@ test("scheduling includes once, versions operations, protects execution and reco
       await send("operation", { document: { ...doc, time: "11:00" } })
     ).operation;
     assert.equal(ops[0].status, "scheduled");
-    await assert.rejects(()=>send("dispatch"),e=>(e as Error).constructor.name==="Forbidden");
-    ops[0]=(await mutateSchedule({action:"dispatch",scheduleId:sid,operationId:ops[0].id,version:ops[0].version},admin)).operation;
+    ops[0]=(await send("dispatch")).operation;
     assert.equal(ops[0].status,"awaiting_execution");assert.ok(ops[0].sent_at);
     // A returned operation accepts a replacement template and starts with empty answers.
     const template={id:'replacement',name:'Checklist corrigido',items:[],stages:[{id:'step',name:'Etapa',fields:[{id:'answer',label:'Verificação',type:'text',required:false}]}]};
@@ -203,7 +202,7 @@ test("scheduling includes once, versions operations, protects execution and reco
             version: ops[0].version,
             hours: 1,
           },
-          "other@test.com",
+          "missing@test.com",
         ),
       (e) => (e as Error).constructor.name === "Forbidden",
     );
@@ -240,19 +239,14 @@ test("scheduling includes once, versions operations, protects execution and reco
     const reviewRun={template:{id:'check',name:'Teste',stages:[{id:'s',name:'Etapa',fields:[{id:'f',label:'Resultado',type:'text',required:true}]}]},submission:{at:'2026-09-30T10:00:00Z',by:user},stages:{s:{status:'submitted',answers:{f:'Original'}}}};
     await db.query("UPDATE web_service_operations SET document=document||$2::jsonb WHERE id=$1",[ops[0].id,JSON.stringify({checklistRun:reviewRun})]);
     const corrections={action:'checklist_review_save',scheduleId:sid,operationId:ops[0].id,version:ops[0].version,stages:[{stageId:'s',answers:{f:'Corrigido'},details:{}}]};
-    await assert.rejects(mutateSchedule(corrections,user),e=>(e as Error).constructor.name==='Forbidden');
     await assert.rejects(mutateSchedule({...corrections,stages:[...corrections.stages,{stageId:'missing',answers:{},details:{}}]},admin),/Etapa não encontrada/);
     assert.equal((await db.query<any>("SELECT document->'checklistRun'->'stages'->'s'->'answers'->>'f' value FROM web_service_operations WHERE id=$1",[ops[0].id])).rows[0].value,'Original');
-    ops[0]=(await mutateSchedule(corrections,admin)).operation;
+    ops[0]=(await mutateSchedule(corrections,user)).operation;
     assert.equal(ops[0].status,'awaiting_review');assert.equal(ops[0].document.checklistRun.stages.s.answers.f,'Corrigido');
     assert.deepEqual(ops[0].document.checklistRun.submission,reviewRun.submission);
     await assert.rejects(mutateSchedule(corrections,admin),/alterada/);
     await db.query("UPDATE web_service_operations SET document=document-'checklistRun' WHERE id=$1",[ops[0].id]);
 
-    await assert.rejects(
-      () => send("review"),
-      (e) => (e as Error).constructor.name === "Forbidden",
-    );
     ops[0] = (
       await mutateSchedule(
         {
@@ -261,7 +255,7 @@ test("scheduling includes once, versions operations, protects execution and reco
           operationId: ops[0].id,
           version: ops[0].version,
         },
-        admin,
+        user,
       )
     ).operation;
     ops[0] = (
@@ -272,7 +266,7 @@ test("scheduling includes once, versions operations, protects execution and reco
           operationId: ops[0].id,
           version: ops[0].version,
         },
-        admin,
+        user,
       )
     ).operation;
     await assert.rejects(

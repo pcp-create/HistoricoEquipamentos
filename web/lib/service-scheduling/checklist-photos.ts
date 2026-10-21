@@ -7,7 +7,7 @@ import sharp from 'sharp';
 export class ChecklistPhotoError extends Error {}
 async function permitted(c:any,operationId:string,email:string){
  const row=(await c.query(`SELECT o.*,u.role,u.enabled FROM web_service_operations o JOIN web_user_access u ON u.email=$2 WHERE o.id=$1`,[operationId,email])).rows[0];
- if(!row?.enabled||(row.role!=='admin'&&row.document.responsible!==email))throw new Forbidden();
+ if(!row?.enabled)throw new Forbidden();
  return row;
 }
 export async function saveChecklistPhoto(operationId:string,stageId:string,fieldId:string,file:File,email:string,requestId?:string){
@@ -30,7 +30,7 @@ export async function saveChecklistPhoto(operationId:string,stageId:string,field
    }
   }
   const run=o.document.checklistRun;
-  const reviewing=o.role==='admin'&&o.status==='awaiting_review'&&run?.stages[stageId]?.status==='submitted';
+  const reviewing=o.enabled&&o.status==='awaiting_review'&&run?.stages[stageId]?.status==='submitted';
   if(!reviewing){try{await requireReportActivity(c,operationId,email);}catch(e){throw new ChecklistPhotoError((e as Error).message)}}
   if(!reviewing&&(['completed','reviewed','awaiting_review'].includes(o.status)||!run||run.stages[stageId]?.status!=='released'))throw new ChecklistPhotoError('A etapa não está aberta para preenchimento.');
   if(!stagesOf(run.template).find(s=>s.id===stageId)?.fields.some(f=>f.id===fieldId&&(f.type==='photo'||f.type==='signature'||photoLimit(f)>0)))throw new ChecklistPhotoError('Campo de fotos inválido.');

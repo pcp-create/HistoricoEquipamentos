@@ -15,9 +15,9 @@ export async function checklistPdf(operationId:string,email:string,mode:ReportMo
  if(!/^[0-9a-f-]{36}$/i.test(operationId))return null;
  const db=database();
  const row=(await db.query(`SELECT p.document,p.status,p.position,to_jsonb(o) AS order_record,s.order_id,o.numero_sequencia,o.cliente_nome,o.equipamento,u.role,u.enabled FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id JOIN web_user_access u ON u.email=$2 WHERE p.id=$1`,[operationId,email])).rows[0];
- if(!row?.enabled||(row.role!=='admin'&&row.document.responsible!==email))throw new Forbidden();
+ if(!row?.enabled)throw new Forbidden();
  if(!preview&&!['reviewed','completed'].includes(row.status))throw new ChecklistPdfPending('Conclua a revisão da operação antes de gerar o PDF.');
- if(mode==='budget'&&row.role!=='admin')throw new Forbidden();
+
  const run=row.document.checklistRun;if(!run)return null;
  const [sessions,events,operationEvents,users]=await Promise.all([
   db.query('SELECT f.*,u.display_name FROM web_field_sessions f LEFT JOIN web_user_access u ON u.email=f.actor WHERE f.operation_id=$1',[operationId]),

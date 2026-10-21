@@ -6,9 +6,11 @@ import {
   assignmentLocked,
   assignmentLockReason,
 } from "@/lib/tasks/assignment-policy";
+import { useSessionAccess } from "./session-access";
 import TaskTerritories from "./task-territories";
 import TaskStages from "./task-stages";
 export default function TaskSettings() {
+  const { admin } = useSessionAccess();
   const [tab, setTab] = useState("rules");
   const [data, setData] = useState<any>(null),
     [error, setError] = useState(""),
@@ -59,7 +61,7 @@ export default function TaskSettings() {
           ["territories", "Divisão comercial"],
           ["stages", "Etapas da tarefa"],
         ]
-          .filter(([key]) => key !== "territories" || data?.canEdit)
+          .filter(([key]) => key !== "territories" || admin)
           .map(([key, label]) => (
             <button
               type="button"
@@ -72,7 +74,7 @@ export default function TaskSettings() {
           ))}
       </nav>
       {tab === "stages" && <TaskStages />}
-      {tab === "territories" && data?.canEdit && <TaskTerritories />}
+      {tab === "territories" && admin && <TaskTerritories />}
       <div hidden={tab !== "rules"}>
         <p>
           Origens automáticas, regras de vencimento e atribuição de
@@ -95,7 +97,7 @@ export default function TaskSettings() {
         ) : (
           <>
             {!data.canEdit && (
-              <p>Somente administradores podem editar as configurações.</p>
+              <p>Seu acesso não permite editar as configurações.</p>
             )}
             <div className="task-table-wrap">
               <table className="task-settings-table">

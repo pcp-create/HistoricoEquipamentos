@@ -146,7 +146,7 @@ export async function visitsData(email: string, db: any = database(), management
       AND ($2::boolean OR u.email=$1)
     ORDER BY u.display_name,u.email`, [email,management || user.role === "admin",management])).rows;
   const purposes = (await db.query("SELECT id::text,name,description,active,version FROM web_sales_visit_purposes WHERE active ORDER BY id")).rows;
-  return { canEditVisits:user.role === "admin", purposes, name: user.display_name || email, customers, visits, sellers, canManage: true };
+  return { canEditVisits:true, purposes, name: user.display_name || email, customers, visits, sellers, canManage: true };
 }
 function text(b: any, key: string, max: number, required = false) {
   const value = b?.[key];
@@ -316,7 +316,7 @@ export async function administerVisit(b:any,email:string) {
   try {
     await c.query('BEGIN READ WRITE');
     const user=await visitIdentity(c,email.toLowerCase());
-    if(user.role!=='admin')throw new Forbidden();
+
     const old=(await c.query('SELECT * FROM web_sales_visits WHERE id=$1 FOR UPDATE',[b.id])).rows[0];
     if(!old || old.version!==b.version)throw new AdminInputError('Visita alterada ou excluída. Atualize a lista.');
     let after=null;

@@ -1,5 +1,5 @@
 import { alertRecipients } from "@/lib/employees";
-import { requireAdmin, Unauthorized, Forbidden } from "@/lib/auth";
+import { requireUser, Unauthorized, Forbidden } from "@/lib/auth";
 import { loadRentalReport as loadReport } from "@/lib/rental-reports/load";
 import { rentalMessage as reportMessage } from "@/lib/rental-reports/report";
 import { rentalPdf as reportPdf } from "@/lib/rental-reports/pdf";
@@ -23,7 +23,7 @@ export async function GET(req: Request) {
           { error: "Credencial inválida." },
           { status: 401, headers },
         );
-    } else await requireAdmin();
+    } else await requireUser();
     const p = new URL(req.url).searchParams,
       kind = p.get("kind"),
       format = p.get("format") || "json";

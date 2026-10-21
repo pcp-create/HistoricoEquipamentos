@@ -261,7 +261,7 @@ export async function changeTimeRequest(b: any, email: string) {
     if (!["request", "planner_adjust"].includes(b.action))
       throw new TimeRequestError("Ação inválida.");
     const direct = b.action === "planner_adjust";
-    if (direct && user.role !== "admin") throw new Forbidden();
+
     const key = uuid(b.requestId);
     const repeated = (
       await c.query(
