@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import ChangePassword from "@/components/change-password";
 import { initialSessionAccess } from "@/lib/initial-access";
 import { SessionAccessProvider } from "@/components/session-access";
 import "@fontsource/dm-sans/400.css";
@@ -50,7 +51,7 @@ export default async function Layout({
       </head>
       <body className={access.admin ? "admin-preview" : undefined}>
         <SessionAccessProvider access={access}>
-          {children}
+          {"mustChangePassword" in access && access.mustChangePassword ? <ChangePassword/> : children}
         </SessionAccessProvider>
       </body>
     </html>

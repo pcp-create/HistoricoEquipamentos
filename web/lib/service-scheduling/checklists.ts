@@ -1,5 +1,5 @@
-export const fieldTypes: Record<string,string> = {flag:'Indicador de Status',text:'Texto curto',textarea:'Texto longo',number:'Número',select:'Lista de opções',date:'Data',time:'Hora',photo:'Fotos / anexos de imagem',meter:'Horímetro do equipamento',signature:'Assinatura'};
-export type ChecklistField = {id:string;label:string;type:string;required:boolean;options?:string[];group?:string;maxPhotos?:number;comment?:boolean;report?:boolean;internalNote?:boolean};
+export const fieldTypes: Record<string,string> = {flag:'Indicador de Status',flag2:'Indicador de Status 2',flag3:'Indicador de Status 3',flag4:'Indicador de Status 4',text:'Texto curto',textarea:'Texto longo',number:'Número',select:'Lista de opções',date:'Data',time:'Hora',photo:'Fotos / anexos de imagem',meter:'Horímetro do equipamento',signature:'Assinatura'};
+export type ChecklistField = {id:string;label:string;type:string;required:boolean;options?:string[];alertOptions?:string[];group?:string;maxPhotos?:number;comment?:boolean;report?:boolean;internalNote?:boolean};
 export type ChecklistGroup = {id:string;name:string;fields:ChecklistField[];direct?:boolean};
 export type ChecklistStage = {id:string;name:string;fields:ChecklistField[];groups?:ChecklistGroup[]};
 export function groupsOf(s:ChecklistStage):ChecklistGroup[]{
@@ -8,7 +8,9 @@ export function groupsOf(s:ChecklistStage):ChecklistGroup[]{
  for(const f of s.fields||[]){const name=f.group?.trim()||'';let group=groups.find(g=>g.name===name);if(!group){group={id:s.id+'-group-'+(groups.length+1),name,fields:[],...(name?{}:{direct:true})};groups.push(group);}group.fields.push(f);}
  return groups;
 }
-export function fieldOptions(f:ChecklistField):string[]{return f.options ?? (f.type==='flag'?['OK','NOK','NA']:[]);}
+export const fixedStatusOptions:Record<string,string[]> = {flag2:['OK','NOK','NA'],flag3:['Sim','Não','NA'],flag4:['Operando normalmente','Operando com falha','Bloqueado','Parado','Desligado / Desenergizado']};
+export const isStatusField=(type:string)=>['flag','flag2','flag3','flag4'].includes(type);
+export function fieldOptions(f:ChecklistField):string[]{return fixedStatusOptions[f.type] ?? f.options ?? (f.type==='flag'?['OK','NOK','NA']:[]);}
 export function photoLimit(f:ChecklistField){return f.maxPhotos??(f.type==='photo'?12:0);}
 export function normalizeStage(s:ChecklistStage):ChecklistStage {const groups=groupsOf(s).filter(g=>!g.direct||g.fields.length>0);return {...s,groups,fields:groups.flatMap(g=>g.fields)};}
 
@@ -41,6 +43,8 @@ export function validateChecklists(raw:any):ChecklistTemplate[] {
     for(const f of s.fields){
      if(!f||!id(f.id)||fieldIds.has(f.id)||!text(f.label,200)||!Object.hasOwn(fieldTypes,f.type)||typeof f.required!=='boolean'||(f.group!=null && (typeof f.group!=='string'||f.group.length>120)))throw Error('Campo de checklist inválido.');
      fieldIds.add(f.id);
+     if(fixedStatusOptions[f.type] && f.options!==undefined && JSON.stringify(f.options)!==JSON.stringify(fixedStatusOptions[f.type]))throw Error('As opções deste indicador são fixas e não podem ser alteradas.');
+     if(f.alertOptions!==undefined && (!isStatusField(f.type)||!Array.isArray(f.alertOptions)||new Set(f.alertOptions).size!==f.alertOptions.length||f.alertOptions.some((v:any)=>!fieldOptions(f).includes(v))))throw Error('Selecione somente opções válidas do indicador para gerar alertas.');
      if(f.maxPhotos!==undefined&&(!Number.isInteger(f.maxPhotos)||f.maxPhotos<0||f.maxPhotos>30||(f.type==='photo'&&f.maxPhotos===0)))throw Error('Quantidade máxima de fotos deve ser de 1 a 30 (ou zero para desativar).');
      if((['comment','report','internalNote'] as const).some(k=>f[k]!==undefined&&typeof f[k]!=='boolean'))throw Error('Opções do campo inválidas.');
      if((f.type==='select'||(f.type==='flag'&&f.options!==undefined))&&(!Array.isArray(f.options)||!f.options.length||f.options.length>50||f.options.some((v:any)=>!text(v,120))||new Set(f.options).size!==f.options.length))throw Error('Informe opções distintas para o campo de seleção.');
@@ -61,7 +65,7 @@ export function validateAnswers(stage:ChecklistStage,raw:any,complete:boolean){
   if(f.type==='number'||f.type==='meter') {if(typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)>1e9||(f.type==='meter'&&v<0))throw Error(`Número inválido: ${f.label}.`);}
   else if(f.type==='photo'||f.type==='signature'){if(!Array.isArray(v)||v.length>(f.type==='signature'?1:photoLimit(f))||v.some((id:any)=>typeof id!=='string'||!/^\d{1,18}$/.test(id))||new Set(v).size!==v.length)throw Error('Anexos inválidos.');}
   else {if(typeof v!=='string'||v.length>(f.type==='textarea'?30000:2000))throw Error(`Texto inválido: ${f.label}.`);
-   if(f.type==='flag'&&!fieldOptions(f).includes(v))throw Error('Selecione um indicador de status válido.');
+   if(isStatusField(f.type)&&!fieldOptions(f).includes(v))throw Error('Selecione um indicador de status válido.');
    if(f.type==='select'&&!f.options?.includes(v))throw Error(`Seleção inválida: ${f.label}.`);
    if(f.type==='date'&&(!/^\d{4}-\d{2}-\d{2}$/.test(v)||!Number.isFinite(Date.parse(v))||new Date(v).toISOString().slice(0,10)!==v))throw Error('Data inválida.');
    if(f.type==='time'&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))throw Error('Hora inválida.');

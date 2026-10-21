@@ -3,7 +3,7 @@ import { EquipmentInputError } from "@/lib/equipment-management/planning";
 import { EquipmentConflict } from "@/lib/equipment-management/store";
 import { requireUser, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import { AdminInputError } from "@/lib/admin-store";
-import { visitsData, saveVisit, saveCustomerLocation } from "@/lib/visits/store";
+import { visitsData, saveVisit, saveCustomerLocation, administerVisit } from "@/lib/visits/store";
 export const runtime = "nodejs";
 const json = (v: unknown, status = 200) =>
   Response.json(v, {
@@ -52,7 +52,8 @@ export async function POST(r: Request) {
     } catch {
       return json({ error: "Dados inválidos." }, 400);
     }
-    if (body.action === "meter") await saveVisitMeter(body, u, body.management === true);
+    if (["admin_edit","admin_delete"].includes(body.action)) await administerVisit(body,u.email);
+    else if (body.action === "meter") await saveVisitMeter(body, u, body.management === true);
     else if (body.action === "location") await saveCustomerLocation(body, u.email);
     else await saveVisit(body, u.email);
     return json({ saved: true });

@@ -47,7 +47,7 @@ test('stages freeze templates, restrict technicians, validate photos and update 
   await assert.rejects(act('checklist_release'),/administradores/);
   await act('checklist_release',{},'admin',true);
   config.checklists[0].name='Novo nome';assert.equal(op.document.checklistRun.template.name,ccp.name);
-  await assert.rejects(act('checklist_save',{answers:{}},'outsider'),/equipe atribuída/);
+  await assert.rejects(act('checklist_save',{answers:{}},'outsider'),/técnico responsável/);
   const answer={[stage.fields[0].id]:1234};
   await assert.rejects(act('checklist_save',{answers:answer,equipmentId:'8',meterDate:'2026-09-28'}),/vinculado/);
   await act('checklist_save',{answers:answer,equipmentId:'7',meterDate:'2026-09-28'});

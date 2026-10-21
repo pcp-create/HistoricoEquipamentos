@@ -1,17 +1,11 @@
 import "server-only";
+import {resetWhatsAppPhone} from "./password-reset-notifications";
+import { INITIAL_PASSWORD, needsPasswordChange, passwordValidation } from "./password-policy";
 import { database } from "./db";
 import { AdminInputError } from "./admin-store";
 import type { AuthUser } from "./user-display-name";
 export async function createEmployeeLogin(body: any, actor: AuthUser) {
-  if (
-    typeof body.email !== "string" ||
-    typeof body.password !== "string" ||
-    body.password.length < 6 ||
-    body.password.length > 128
-  )
-    throw new AdminInputError(
-      "Informe o e-mail cadastrado e uma senha inicial de 6 a 128 caracteres.",
-    );
+  if(typeof body?.email!=="string")throw new AdminInputError("Informe o e-mail cadastrado.");
   const url = process.env.SUPABASE_URL,
     key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key)
@@ -54,8 +48,9 @@ export async function createEmployeeLogin(body: any, actor: AuthUser) {
       },
       body: JSON.stringify({
         email: user.email,
-        password: body.password,
+        password: INITIAL_PASSWORD,
         email_confirm: true,
+        app_metadata: {must_change_password:true},
         user_metadata: { full_name: user.display_name },
       }),
     });
@@ -83,13 +78,7 @@ export async function createEmployeeLogin(body: any, actor: AuthUser) {
 }
 
 export async function resetEmployeePassword(body: any, actor: AuthUser) {
-  if (
-    typeof body?.email !== "string" ||
-    typeof body.password !== "string" ||
-    body.password.length < 6 ||
-    body.password.length > 128 ||
-    body.password !== body.passwordConfirmation
-  ) throw new AdminInputError("Informe e confirme a nova senha, de 6 a 128 caracteres.");
+  if(typeof body?.email!=="string")throw new AdminInputError("Informe o e-mail cadastrado.");
   const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key)
     throw new AdminInputError("A redefinição de senhas precisa ser configurada no servidor.");
@@ -109,6 +98,12 @@ export async function resetEmployeePassword(body: any, actor: AuthUser) {
     )).rows[0];
     if (!user?.user_id)
       throw new AdminInputError("Este funcionário ainda não possui uma conta de acesso vinculada.");
+    const phone=resetWhatsAppPhone(user.phone);
+    if(!user.enabled)throw new AdminInputError("Libere o acesso do funcionário antes de redefinir sua senha.");
+    if(!phone)throw new AdminInputError("Cadastre um WhatsApp válido para o funcionário antes de redefinir sua senha.");
+    // Prepare the outbox before changing the external password; all DB work stays transactional.
+    await c.query("UPDATE web_password_reset_notifications SET state='skipped' WHERE email=$1 AND state='pending'",[user.email]);
+    await c.query('INSERT INTO web_password_reset_notifications(email,user_id,phone) VALUES($1,$2,$3)',[user.email,user.user_id,phone]);
     const endpoint = `${url}/auth/v1/admin/users/${encodeURIComponent(user.user_id)}`;
     const headers = { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
     const identityResponse = await fetch(endpoint, {
@@ -121,7 +116,7 @@ export async function resetEmployeePassword(body: any, actor: AuthUser) {
       throw new AdminInputError("A conta vinculada não corresponde ao e-mail do funcionário.");
     const response = await fetch(endpoint, {
       method: "PUT", headers, cache: "no-store", signal: AbortSignal.timeout(15000),
-      body: JSON.stringify({ password: body.password }),
+      body: JSON.stringify({ password: INITIAL_PASSWORD, app_metadata:{...identity.app_metadata,must_change_password:true} }),
     });
     if (!response.ok)
       throw new AdminInputError("Não foi possível redefinir a senha. Verifique os requisitos de senha da autenticação e tente novamente.");
@@ -136,4 +131,29 @@ export async function resetEmployeePassword(body: any, actor: AuthUser) {
   } finally {
     c.release();
   }
+}
+
+export async function changeInitialPassword(body:any,user:AuthUser) {
+  const invalid=passwordValidation(body?.password,body?.confirmation);
+  if(invalid)throw new AdminInputError(invalid);
+  const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!url||!key)throw new AdminInputError('A troca de senha não está configurada no servidor.');
+  const c=await database().connect();
+  try{
+    await c.query('BEGIN READ WRITE');
+    await c.query('SELECT pg_advisory_xact_lock(81020,1)');
+    const access=(await c.query('SELECT enabled FROM web_user_access WHERE email=$1 FOR UPDATE',[user.email.toLowerCase()])).rows[0];
+    if(!access?.enabled)throw new AdminInputError('Acesso não autorizado.');
+    const endpoint=`${url}/auth/v1/admin/users/${encodeURIComponent(user.id)}`;
+    const headers={apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'};
+    const current=await fetch(endpoint,{headers,cache:'no-store',signal:AbortSignal.timeout(15000)});
+    if(!current.ok)throw new AdminInputError('Não foi possível verificar a conta.');
+    const identity=await current.json();
+    if(identity.id!==user.id || identity.email?.toLowerCase()!==user.email.toLowerCase() || !needsPasswordChange(identity))throw new AdminInputError('Não há troca obrigatória pendente. Entre novamente no sistema.');
+    const updated=await fetch(endpoint,{method:'PUT',headers,cache:'no-store',signal:AbortSignal.timeout(15000),body:JSON.stringify({password:body.password,app_metadata:{...identity.app_metadata,must_change_password:false}})});
+    if(!updated.ok)throw new AdminInputError('Não foi possível alterar a senha. Confira os requisitos e tente novamente.');
+    await c.query("UPDATE web_password_reset_notifications SET state='skipped' WHERE email=$1 AND state='pending'",[user.email]);
+    await c.query("INSERT INTO web_access_events(event,email,actor) VALUES('password_changed',$1,$1)",[user.email]);
+    await c.query('COMMIT');
+  }catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}
 }

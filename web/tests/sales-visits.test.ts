@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { addMonths, visitHealth } from "../lib/visits/model";
-import { visitsData, saveVisit, saveCustomerLocation } from "../lib/visits/store";
+import { visitsData, saveVisit, saveCustomerLocation, administerVisit } from "../lib/visits/store";
 import { saveVisitMeter } from "../lib/visits/equipment";
 import { saveVisitPurpose,visitSettings } from "../lib/visits/settings";
 import { saveTerritory } from "../lib/tasks/territories";
@@ -220,6 +220,16 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     assert.equal(tech.customers[0].in_portfolio,false);
     await assert.rejects(()=>saveVisit({action:"cancel",id:external.id,version:1},"a@test.com"));
     await saveVisit({action:"cancel",id:external.id,version:1},"tech@test.com");
+    const edit={...external,action:"admin_edit",version:2,contact:"Contato corrigido"};
+    await assert.rejects(()=>administerVisit(edit,"tech@test.com"));
+    await assert.rejects(()=>administerVisit({...edit,action:"admin_delete"},"tech@test.com"));
+    await administerVisit(edit,"admin@test.com");
+    assert.equal((await visitsData("tech@test.com")).visits[0].contact,"Contato corrigido");
+    await assert.rejects(()=>administerVisit({...edit,action:"admin_delete"},"admin@test.com"),/alterada/);
+    await administerVisit({...edit,version:3,action:"admin_delete"},"admin@test.com");
+    assert.equal((await visitsData("tech@test.com")).visits.length,0);
+    assert.equal((await db.query("SELECT * FROM web_access_events WHERE event='sales_visit_admin'")).rows.length,2);
+
   } finally {
     g.historyPool = old;
     await db.close();

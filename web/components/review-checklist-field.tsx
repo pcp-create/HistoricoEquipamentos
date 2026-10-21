@@ -4,11 +4,11 @@ import ReportPhotoPicker from "./report-photo-picker";
 import EquipmentMeterReference from "./equipment-meter-reference";
 import {prepareReportPhoto} from "@/lib/prepare-report-photo";
 import {useState,useId} from 'react';
-import {fieldOptions,photoLimit} from '@/lib/service-scheduling/checklists';
+import {isStatusField,fieldOptions,photoLimit} from '@/lib/service-scheduling/checklists';
 import {apiFetch} from '@/lib/client-api-cache';
-export function ReviewFlags({label,options,value,disabled=true,onChange}:{label:string;options:string[];value:any;disabled?:boolean;onChange?:(v:string)=>void}){
+export function ReviewFlags({label,options,value,alertOptions=[],disabled=true,onChange}:{label:string;options:string[];value:any;alertOptions?:string[];disabled?:boolean;onChange?:(v:string)=>void}){
  const name=useId();
- return <div className="review-flags" role="radiogroup" aria-label={label}>{options.map(option=><label key={option}><input type="radio" name={name} aria-label={option} checked={value===option} disabled={disabled} onChange={()=>onChange?.(option)}/><span>{option}</span></label>)}</div>;
+ return <div className="review-flags" role="radiogroup" aria-label={label}>{options.map(option=><label key={option} className={value===option&&alertOptions.includes(option)?"status-alert-selected":undefined}><input type="radio" name={name} aria-label={option} checked={value===option} disabled={disabled} onChange={()=>onChange?.(option)}/><span>{option}</span></label>)}</div>;
 }
 export default function ReviewChecklistField({field:f,value,details,disabled,operationId,stageId,onValue,onDetail,meterDate,onMeterDate,onUploading,equipmentId}:any){
  const [uploading,setUploading]=useState(false),[error,setError]=useState('');
@@ -29,7 +29,7 @@ export default function ReviewChecklistField({field:f,value,details,disabled,ope
  }
  const photos=(extra=false)=>{const ids=extra?details.photos||[]:value||[];return <div className="review-edit-photos"><ReportPhotoPicker label={f.label} requiredMissing={!extra&&f.type==='photo'&&f.required&&ids.length===0} multiple={f.type!=='signature'} disabled={locked} onSelect={files=>void upload(files,extra)}/>{ids.map((id:string)=><div key={id}><a href={'/api/service-scheduling/photos/'+id} target="_blank" rel="noreferrer"><img src={'/api/service-scheduling/photos/'+id} alt={f.label}/></a><button type="button" disabled={locked} onClick={()=>extra?onDetail('photos',ids.filter((v:string)=>v!==id)):onValue(ids.filter((v:string)=>v!==id))}>Remover imagem</button></div>)}</div>;};
  return <div className="review-edit-field">
- {['flag','select'].includes(f.type)?<ReviewFlags label={f.label} options={fieldOptions(f)} value={value} disabled={locked} onChange={onValue}/>:
+ {(isStatusField(f.type)||f.type==='select')?<ReviewFlags label={f.label} options={fieldOptions(f)} alertOptions={f.alertOptions} value={value} disabled={locked} onChange={onValue}/>:
  ['photo','signature'].includes(f.type)?photos():
  f.type==='textarea'?<AutoResizeTextarea aria-label={f.label} value={value??''} disabled={locked} onChange={e=>onValue(e.target.value)}/>:
  <input aria-label={f.label} type={['number','meter'].includes(f.type)?'number':['date','time'].includes(f.type)?f.type:'text'} step="any" min={f.type==='meter'?0:undefined} value={value??''} disabled={locked} onChange={e=>onValue(['number','meter'].includes(f.type)?e.target.value===''?null:Number(e.target.value):e.target.value)}/>}

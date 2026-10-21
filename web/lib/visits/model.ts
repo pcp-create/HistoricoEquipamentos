@@ -69,6 +69,7 @@ export type VisitSellerLocation = {
 };
 export type VisitPurpose = {id:string;name:string;description:string;active:boolean;version:number};
 export type VisitsData = {
+  canEditVisits?: boolean;
   purposes?: VisitPurpose[];
   canManage?: boolean;
   sellers?: VisitSellerLocation[];

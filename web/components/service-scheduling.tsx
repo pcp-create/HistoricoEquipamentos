@@ -8,6 +8,7 @@ import { displayedScheduleStatus } from "@/lib/service-scheduling/display-status
 import { includesLaborCost } from "@/lib/service-scheduling/labor-costs";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import {reportStatusLabel,reportSubmission} from "@/lib/service-scheduling/checklists";
+import OrderOperationsReview from "./order-operations-review";
 import OrderReportWindow from "./order-report-window";
 import OperationReviewWindow from "./operation-review-window";
 import ScheduleOrdersMap from "./schedule-orders-map";
@@ -18,6 +19,10 @@ import SaveActionIcon from "./save-action-icon";
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
+  Send,
+  CheckCheck,
+  Eye,
+  Undo2,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -134,6 +139,7 @@ export default function ServiceScheduling() {
     [tab, setTab] = useState("operations"),
     [query, setQuery] = useState("");
   const [orderReportOpen,setOrderReportOpen]=useState(false);
+  const [orderReviewOpen,setOrderReviewOpen]=useState(false);
   const dirtyOperations=useRef(new Set<string>());
   const [overviewView, setOverviewView] = useState("list");
   const [listSort, setListSort] = useState<{key: ScheduleSortKey; descending: boolean} | null>(null);
@@ -604,7 +610,8 @@ export default function ServiceScheduling() {
                 Ver detalhes da OS
               </OrderDetailLink>
             </section>
-            {data.canEditSettings && <div className="scheduling-actions order-report-launch"><button type="button" disabled={busy} onClick={()=>setOrderReportOpen(true)}>Gerar relatório da OS</button></div>}
+            {data.canEditSettings && <div className="scheduling-actions order-report-launch"><button type="button" disabled={busy} onClick={()=>setOrderReportOpen(true)}>Gerar relatório da OS</button><button type="button" disabled={busy||!data.operations?.length} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações das operações antes de iniciar a revisão da OS.");return;}setOrderReviewOpen(true);}}><ListChecks size={18}/>Revisar operações da OS</button></div>}
+            {orderReviewOpen && <OrderOperationsReview key={data.schedule.id} data={data} busy={busy} error={error} mutate={mutate} dirtyOperations={dirtyOperations.current} onClose={()=>setOrderReviewOpen(false)}/>}
             {orderReportOpen && <OrderReportWindow key={data.schedule.id} data={data} onClose={()=>setOrderReportOpen(false)}/>}
             <nav className="app-section-tabs" aria-label="Abas da programação">
               {[
@@ -1133,12 +1140,14 @@ function OperationRow({
             />
             <p>Salvar grava a observação e todos os campos alterados desta operação.</p>
             {noteError && <p role="alert">{noteError}</p>}
-            <button disabled={locked} onClick={async () => {
+            <div className="operation-note-actions">
+            <button type="button" className="operation-note-save" disabled={locked} onClick={async () => {
               setNoteError("");
               if (await persist()) noteDialog.current?.close();
               else setNoteError("Não foi possível salvar. Verifique os campos da operação e tente novamente; sua edição foi mantida.");
-            }} aria-label="Salvar" title="Salvar"><SaveActionIcon /></button>
-            <button disabled={busy} onClick={() => { change("internalNote", noteBeforeEditing.current); setNoteError(""); noteDialog.current?.close(); }}>Cancelar</button>
+            }} aria-label="Salvar" title="Salvar"><SaveActionIcon />Salvar</button>
+            <button type="button" disabled={busy} onClick={() => { change("internalNote", noteBeforeEditing.current); setNoteError(""); noteDialog.current?.close(); }}>Cancelar</button>
+            </div>
           </dialog>
         </td>
         <td>
@@ -1157,6 +1166,7 @@ function OperationRow({
           </select>
         </td>
         <td>
+          <div className="operation-execution-content">
           <div className="operation-execution-actions">
           <button
             className="operation-icon-action"
@@ -1164,12 +1174,13 @@ function OperationRow({
             aria-label={"Salvar operação " + operationNumber(o.position)}
             onClick={() => void persist()}
            title={"Salvar operação " + operationNumber(o.position)}><SaveActionIcon /></button>
-          {data.canEditSettings && <button type="button" disabled={busy||dirty||o.status!=="scheduled"||!d.responsible} onClick={()=>void mutate({action:"dispatch",operationId:o.id,version:o.version})}>{o.sent_at?"Enviado ao técnico":"Enviar ao técnico"}</button>}
-          <button type="button" onClick={() => setExpanded(true)}>
-            Acompanhar
+          {data.canEditSettings && <button className="operation-icon-action" type="button" title={o.sent_at?"Enviado ao técnico":"Enviar ao técnico"} aria-label={o.sent_at?"Enviado ao técnico":"Enviar ao técnico"} disabled={busy||dirty||o.status!=="scheduled"||!d.responsible} onClick={()=>void mutate({action:"dispatch",operationId:o.id,version:o.version})}>{o.sent_at?<CheckCheck size={18} aria-hidden="true"/>:<Send size={18} aria-hidden="true"/>}</button>}
+          <button className="operation-icon-action" type="button" title="Acompanhar execução" aria-label="Acompanhar execução" onClick={() => setExpanded(true)}>
+            <Eye size={18} aria-hidden="true"/>
           </button>
+          {o.document.checklistId && data.canEditSettings&&reportSubmission(o.document.checklistRun)&&!['reviewed','completed'].includes(o.status)&&<button className="operation-icon-action" type="button" title="Devolver relatório ao técnico" aria-label="Devolver relatório ao técnico" disabled={busy||dirty} onClick={()=>void mutate({action:'report_reopen',operationId:o.id,version:o.version})}><Undo2 size={18} aria-hidden="true"/></button>}
           <button
-            className="operation-icon-action"
+            className="operation-icon-action operation-icon-action--danger"
             title={"Remover operação " + operationNumber(o.position)}
             aria-label={"Remover operação " + operationNumber(o.position)}
             disabled={
@@ -1187,14 +1198,16 @@ function OperationRow({
             <Trash2 size={18} />
           </button>
           </div>
+          <div className="operation-execution-details">
           {o.document.checklistId&&<div className="operation-report-state"><span>Relatório: <strong>{reportStatusLabel(o.document.checklistRun)}</strong></span>
-            {data.canEditSettings&&reportSubmission(o.document.checklistRun)&&!['reviewed','completed'].includes(o.status)&&<button type="button" disabled={busy||dirty} onClick={()=>void mutate({action:'report_reopen',operationId:o.id,version:o.version})}>Devolver relatório ao técnico</button>}
           </div>}
           {dirty && (
             <small className="operation-draft-label" role="status">
               Alterações não salvas
             </small>
           )}
+          </div>
+          </div>
         </td>
       </tr>
       {expanded && <OperationReviewWindow operation={o} data={data} busy={busy} dirty={dirty} error={error} mutate={mutate} onReportDirty={(value:boolean)=>{if(value)dirtyOperations.add(o.id+":review");else dirtyOperations.delete(o.id+":review");}} onClose={() => {dirtyOperations.delete(o.id+":review");setExpanded(false);}}/>}

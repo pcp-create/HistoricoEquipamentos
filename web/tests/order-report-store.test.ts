@@ -96,10 +96,10 @@ test("unified export validates selection, scopes data to the OS, and checks curr
       "UPDATE web_service_operations SET status='awaiting_review' WHERE id=$1",
       [one],
     );
-    await assert.rejects(
-      loadOrderReport(body, "admin"),
-      /ainda não foi revisada/,
-    );
+    const preliminary = await loadOrderReport({...body, preliminary:false}, "admin");
+    assert.equal(preliminary.model.preliminary, true);
+    assert.equal(preliminary.model.chapters.length, 1);
+    assert.equal(result.model.preliminary, false);
     await db.query(
       "UPDATE web_service_operations SET status='reviewed' WHERE id=$1",
       [one],

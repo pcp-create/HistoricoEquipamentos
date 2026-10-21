@@ -1,4 +1,5 @@
 import "server-only";
+import { needsPasswordChange } from "./password-policy";
 import { accessRecord } from "./admin-store";
 import type { AuthUser } from "./user-display-name";
 import { cookies, headers } from "next/headers";
@@ -59,7 +60,9 @@ export async function clearSession() {
   jar.delete("m8-refresh");
 }
 // Called only in route handlers: refresh can update HttpOnly cookies.
-export async function requireUser() {
+export class PasswordChangeRequired extends Unauthorized {}
+export function assertPasswordReady(user:AuthUser,allowPasswordChange=false){if(!allowPasswordChange && needsPasswordChange(user))throw new PasswordChangeRequired("Troque sua senha para continuar.");}
+export async function requireUser(allowPasswordChange = false) {
   const jar = await cookies();
   const token = jar.get("m8-access")?.value;
   if (token) {
@@ -71,8 +74,10 @@ export async function requireUser() {
         !user.is_anonymous &&
         user.email_confirmed_at &&
         (await authorizedEmail(user.email))
-      )
+      ) {
+        assertPasswordReady(user,allowPasswordChange);
         return user as AuthUser;
+      }
       throw new Unauthorized();
     }
     if (response.status !== 401 && response.status !== 403)
@@ -92,6 +97,7 @@ export async function requireUser() {
         (await authorizedEmail(data.user.email))
       ) {
         await setSession(data);
+        assertPasswordReady(data.user,allowPasswordChange);
         return data.user as AuthUser;
       }
     }

@@ -484,8 +484,10 @@
   width: 34px;
   min-width: 34px;
   padding: 7px;
-  border: 0;
-  background: transparent;
+  border: 1px solid #d6e2ee;
+  border-radius: 8px;
+  background: #fff;
+  color: #266194;
   box-shadow: none;
   flex-shrink: 0;
 }
@@ -731,3 +733,79 @@
 .schedule-stage-filter-label {display:flex;align-items:center;gap:8px;font-size:13px}
 
 .field-pause-settings input[type="checkbox"]{width:18px;height:18px;accent-color:#246397;cursor:pointer;}
+
+.operations-table .operation-execution-actions { width: max-content; padding: 3px 0; }
+.operations-table .operation-icon-action:not(:disabled):hover { background: #eaf3fb; border-color: #a9c6e1; }
+.operations-table .operation-execution-actions > .operation-icon-action--danger { margin-left: 6px; color: #b63f4c; }
+.operations-table .operation-icon-action--danger:not(:disabled):hover { background: #fff0f1; border-color: #e5b2b9; }
+.operations-table .operation-icon-action:disabled { opacity: .45; cursor: not-allowed; }
+.operations-table .operation-report-state { margin-top: 6px; line-height: 1.5; }
+
+/* Keep the action row centered with the adjacent fields; details sit below it. */
+.operations-table .operation-execution-content { position: relative; width: max-content; }
+.operations-table .operation-execution-details { position: absolute; top: 100%; left: 0; min-width: 100%; }
+.operations-table .operation-execution-details .operation-report-state { margin-top: 3px; white-space: nowrap; }
+.operations-table tr.operation-unsaved > td { padding-bottom: 42px; }
+
+.operation-review-window .operation-review-tabs {
+  gap: 4px; margin: 0 20px; padding: 12px 0 0;
+  border-bottom: 1px solid #d6e2ee; flex-wrap: nowrap; overflow-x: auto;
+}
+.operation-review-window .operation-review-tabs > [role="tab"] {
+  flex-shrink: 0; margin: 0; padding: 12px 18px;
+  border: 0; border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0;
+  background: transparent; color: #687f98; box-shadow: none; font-weight: 500;
+}
+.operation-review-window .operation-review-tabs > [role="tab"]:hover { background: #f2f7fc; color: #245e91; }
+.operation-review-window .operation-review-tabs > [aria-selected="true"] {
+  background: #eaf3fc; color: #245e91; border-bottom-color: #2878bd; font-weight: 700;
+}
+.operation-review-window .operation-review-tabs > [role="tab"]:focus-visible { outline: 2px solid #2878bd; outline-offset: -4px; }
+@media (max-width: 600px) {
+  .operation-review-window .operation-review-tabs { margin-inline: 12px; }
+  .operation-review-window .operation-review-tabs > [role="tab"] { padding: 12px; }
+}
+
+.operation-note-dialog .operation-note-actions {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  margin-top: 16px; padding-top: 16px; border-top: 1px solid #e1e9f2;
+}
+.operation-note-dialog .operation-note-actions > button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-width: 108px; height: 40px; margin: 0; padding: 0 16px; border-radius: 8px;
+}
+.operation-note-dialog .operation-note-actions > .operation-note-save {
+  background: #246397; border-color: #246397; color: #fff;
+}
+.operation-note-dialog .operation-note-actions > .operation-note-save:not(:disabled):hover { background: #1d527e; }
+
+.order-report-preliminary { margin: 12px 20px; padding: 12px 16px; border: 1px solid #e6c170; border-radius: 8px; background: #fff4d8; color: #835413; font-weight: 700; font-size: 13px; }
+
+.order-operations-review-nav { margin: 16px 20px; padding: 16px; border: 1px solid #d6e2ee; border-radius: 12px; background: #f6f9fc; }
+.order-operations-review-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.order-operations-review-summary h3 { margin: 0 0 6px; }
+.order-operations-review-nav p { margin: 6px 0; font-size: 12px; color: #607994; }
+.order-operations-review-controls { display: flex; gap: 10px; align-items: center; }
+.order-operations-review-controls button { display: inline-flex; align-items: center; gap: 6px; }
+.order-operations-review-controls > span { white-space: nowrap; font-size: 12px; }
+.order-operations-review-list { display: grid; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap: 8px; max-height: 220px; overflow-y: auto; margin-top: 14px; padding: 2px; }
+.order-operations-review-list > button { display: flex; align-items: flex-start; flex-direction: column; gap: 8px; text-align: left; padding: 12px; border-radius: 8px; background: #fff; }
+.order-operations-review-list > button[aria-current="step"] { background: #eaf3fc; border-color: #246397; box-shadow: inset 0 0 0 1px #246397; }
+.order-operations-review-description { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+@media(max-width:600px) { .order-operations-review-nav { margin: 12px; padding: 12px; } }
+
+.review-flags .status-alert-selected { color: #bc2e40; font-weight: 700; }
+.review-flags .status-alert-selected input[type="radio"] { accent-color: #bc2e40; opacity: 1; }
+
+.checklist-review-report .review-flags .status-alert-selected input[type=radio]:checked { background:#bc2e40; border-color:#bc2e40; }
+.checklist-review-alerts { margin: 0 0 20px; padding: 18px; border: 1px solid #efc5cb; border-left: 4px solid #bc2e40; border-radius: 10px; background: #fff7f7; }
+.checklist-review-alerts h3 { display:flex; align-items:center; gap:8px; margin:0 0 12px; color:#ac2637; }
+.checklist-review-alerts ul { padding-left:20px; margin:8px 0 16px; }
+.checklist-review-alerts li { margin:6px 0; color:#a82a39; }
+.checklist-review-alerts li small { display:block; color:#687f98; }
+.checklist-review-alerts p { font-size:13px; }
+.checklist-review-alert-form { display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-top:14px; }
+.checklist-review-alert-form label { display:grid; gap:6px; font-size:13px; }
+.checklist-review-alert-form :is(select,textarea) { width:100%; min-width:0; }
+.checklist-review-alert-description { grid-column:1/-1; }
+@media(max-width:600px) { .checklist-review-alert-form { grid-template-columns:1fr; } }

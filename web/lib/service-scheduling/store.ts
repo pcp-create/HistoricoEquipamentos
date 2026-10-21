@@ -1,3 +1,4 @@
+import {createChecklistAlertTask} from "./checklist-alert-task";
 import {defaultOperation} from "./default-operation";
 import { operationNumber } from "./operation-number";
 import { operationCalendarAllocation } from "./calendar";
@@ -562,7 +563,8 @@ export async function mutateSchedule(b: any, email: string) {
         if ((await c.query("SELECT 1 FROM web_field_time_requests WHERE operation_id=$1 AND status='pending'", [operation.id])).rows.length)
           throw new ScheduleInputError("Analise as solicitações de apontamento pendentes antes de concluir a revisão.");
       }
-      try { document=await reviewChecklist(c,operation,schedule,config.document,email); }
+      try { document=await reviewChecklist(c,operation,schedule,config.document,email);
+        document=await createChecklistAlertTask(c,operation,schedule,document,config.document,email,b.alertTask); }
       catch(e){throw new ScheduleInputError((e as Error).message);}
       status = "reviewed";
     } else if (b.action === "complete") {

@@ -1,3 +1,4 @@
+import { needsPasswordChange } from "@/lib/password-policy";
 import { recordActivity } from "@/lib/admin-store";
 import { NextResponse } from "next/server";
 import {
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     if (body.action === "logout") {
       try {
-        await recordActivity(await requireUser(), "logout");
+        await recordActivity(await requireUser(true), "logout");
       } catch {
         console.error("SESSION_LOGOUT_AUDIT_UNAVAILABLE");
       }
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
       console.error("SESSION_LOGIN_AUDIT_UNAVAILABLE");
     }
     return NextResponse.json(
-      { ok: true },
+      { ok: true, mustChangePassword:needsPasswordChange(data.user) },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch {

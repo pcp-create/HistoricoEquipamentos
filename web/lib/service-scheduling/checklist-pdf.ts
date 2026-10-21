@@ -9,7 +9,7 @@ import sharp from 'sharp';
 import {PDFDocument,rgb,pushGraphicsState,popGraphicsState,moveTo,lineTo,appendBezierCurve,closePath,clip,endPath,type PDFPage} from 'pdf-lib';
 import {database} from '../db';
 import {Forbidden} from '../auth';
-import {checklistReport,reportFieldValue,type ReportMode} from './checklist-report';
+import {reportFilenameMode,checklistReport,reportFieldValue,type ReportMode} from './checklist-report';
 export class ChecklistPdfPending extends Error {}
 export async function checklistPdf(operationId:string,email:string,mode:ReportMode="complete",preview=false){
  if(!/^[0-9a-f-]{36}$/i.test(operationId))return null;
@@ -29,9 +29,9 @@ export async function checklistPdf(operationId:string,email:string,mode:ReportMo
  const report=technicalReport({id:operationId,document:row.document},row.order_record||{},users.rows,sessions.rows,events.rows,operationEvents.rows,mode,pauseReasons);
  const ids=[...new Set(report.flatMap(s=>s.groups.flatMap(g=>g.fields.flatMap(f=>f.photos))))];
  const photos=ids.length?(await db.query('SELECT id::text,content FROM web_service_checklist_photos WHERE operation_id=$1 AND id=ANY($2::bigint[])',[operationId,ids])).rows:[];
- return {bytes:await renderChecklistPdf({title:(preview&&!["reviewed","completed"].includes(row.status)?"PRÉVIA · ":"")+run.template.name,order:String(row.numero_sequencia||row.order_id),client:row.cliente_nome||'',equipment:reportEquipment(row,row),position:row.position,report,photos,mode}),filename:`Checklist-OS-${row.numero_sequencia||row.order_id}-${mode}.pdf`};
+ return {bytes:await renderChecklistPdf({title:(preview&&!["reviewed","completed"].includes(row.status)?"PRÉVIA · ":"")+run.template.name,order:String(row.numero_sequencia||row.order_id),client:row.cliente_nome||'',equipment:reportEquipment(row,row),position:row.position,report,photos,mode}),filename:`Relatorio-OS-${row.numero_sequencia||row.order_id}-${reportFilenameMode[mode]}.pdf`};
 }
-export async function renderChecklistPdf(data:{title:string;order:string;client:string;equipment:string;position?:number;report:ReturnType<typeof checklistReport>;photos:any[];mode?:ReportMode;chapters?:{title:string;position:number;report:ReturnType<typeof checklistReport>}[]}){
+export async function renderChecklistPdf(data:{preliminary?:boolean;title:string;order:string;client:string;equipment:string;position?:number;report:ReturnType<typeof checklistReport>;photos:any[];mode?:ReportMode;chapters?:{title:string;position:number;report:ReturnType<typeof checklistReport>}[]}){
  const pdf=await PDFDocument.create();
  pdf.registerFontkit(fontkit);
  const [regularBytes,boldBytes,titleBytes,labelBytes]=await Promise.all(['dm-sans-latin-400-normal.woff','dm-sans-latin-700-normal.woff','manrope-latin-800-normal.woff','dm-sans-latin-600-normal.woff'].map(file=>readFile(path.join(process.cwd(),'public/fonts/report',file))));
@@ -40,7 +40,7 @@ export async function renderChecklistPdf(data:{title:string;order:string;client:
  const left=9,width=595.28-2*left,labelWidth=width*.38,valueX=left+labelWidth,valueWidth=width-labelWidth;
  // PDF points: 2 CSS pixels correspond to 1.5 points.
  const bodySize=7.5,stageSize=8.5;
- const pageHeight=841.89,headerHeight=60,bodyTop=pageHeight-headerHeight-14;
+ const pageHeight=841.89,headerHeight=60,bodyTop=pageHeight-headerHeight-14-(data.preliminary?24:0);
  const ink=rgb(39/255,68/255,95/255),lineColor=rgb(220/255,229/255,238/255);
  let page!:PDFPage,y=0;
  let chapter={title:data.title,position:data.position,report:data.report};
@@ -80,6 +80,10 @@ export async function renderChecklistPdf(data:{title:string;order:string;client:
   const identifier=clean(chapter.position==null?data.order:`${data.order}/${operationNumber(chapter.position)}`);
   const identifierSize=Math.min(15,77/Math.max(1,bold.widthOfTextAtSize(identifier,1)));
   page.drawText(identifier,{x:502,y:802,size:identifierSize,font:bold,color:rgb(1,1,1)});
+  if(data.preliminary){
+   page.drawRectangle({x:0,y:pageHeight-headerHeight-24,width:595.28,height:24,color:rgb(1,.94,.79)});
+   page.drawText('PRÉVIO — NÃO REVISADO · Sujeito a alterações',{x:left+8,y:pageHeight-headerHeight-16,size:9,font:bold,color:rgb(.55,.32,.06)});
+  }
   y=bodyTop;
  }
  function room(height:number){if(y-height<45)newPage();}
@@ -108,7 +112,8 @@ export async function renderChecklistPdf(data:{title:string;order:string;client:
   const baseline=y+5-height/2+((lines.length-1)*12+textHeight)/2-textHeight;
   lines.forEach((line,index)=>page.drawText(line,{x:left+(stage?37:9),y:baseline-index*12,size,font:bold,color:ink}));y-=height;
  }
- function row(label:string,value:string,choices?:string[],selected?:any){
+ function row(label:string,value:string,choices?:string[],selected?:any,alertOptions:string[]=[]){
+  const selectedColor=alertOptions.includes(selected)?rgb(.78,.15,.2):rgb(.22,.48,.85);
   const labels=wrap(label,labelWidth-16,bodySize,false,labelFont), values=choices ? [] : wrap(value,valueWidth-16,bodySize);
   const choiceLines:{label:string;selected:boolean;x:number}[][]=[];
   if(choices){
@@ -135,12 +140,12 @@ export async function renderChecklistPdf(data:{title:string;order:string;client:
     if(values[offset+i])page.drawText(values[offset+i],{x:valueX+8,y:baseline,size:bodySize,font,color:ink});
     for(const option of choiceLines[offset+i]||[]){
      const x=valueX+8+option.x;
-     page.drawSvgPath('M 2 0 H 6 Q 8 0 8 2 V 6 Q 8 8 6 8 H 2 Q 0 8 0 6 V 2 Q 0 0 2 0 Z',{x,y:baseline+7,borderColor:option.selected?rgb(.22,.48,.85):rgb(.65,.7,.75),borderWidth:.6,...(option.selected?{color:rgb(.22,.48,.85)}:{})});
+     page.drawSvgPath('M 2 0 H 6 Q 8 0 8 2 V 6 Q 8 8 6 8 H 2 Q 0 8 0 6 V 2 Q 0 0 2 0 Z',{x,y:baseline+7,borderColor:option.selected?selectedColor:rgb(.65,.7,.75),borderWidth:.6,...(option.selected?{color:selectedColor}:{})});
      if(option.selected){
       page.drawLine({start:{x:x+1.5,y:baseline+3},end:{x:x+3.3,y:baseline+1},thickness:1,color:rgb(1,1,1)});
       page.drawLine({start:{x:x+3.3,y:baseline+1},end:{x:x+6.7,y:baseline+5.5},thickness:1,color:rgb(1,1,1)});
      }
-     page.drawText(clean(option.label),{x:x+12,y:baseline,size:bodySize,font,color:ink});
+     page.drawText(clean(option.label),{x:x+12,y:baseline,size:bodySize,font,color:option.selected?selectedColor:ink});
     }
    }
    page.drawLine({start:{x:valueX,y:top},end:{x:valueX,y:bottom},thickness:.5,color:lineColor});
@@ -206,7 +211,7 @@ export async function renderChecklistPdf(data:{title:string;order:string;client:
     continue;
    }
    for(const field of group.fields){
-    row(field.label,reportFieldValue(field)+(field.comment&&!field.options?'\nComentário: '+field.comment:''),field.options,field.value);
+    row(field.label,reportFieldValue(field)+(field.comment&&!field.options?'\nComentário: '+field.comment:''),field.options,field.value,field.alertOptions);
     if(field.options&&field.comment)row('Comentário',field.comment);
     for(const id of field.photos){
      const image=data.photos.find(p=>String(p.id)===String(id));if(!image)continue;
@@ -234,7 +239,7 @@ export async function renderChecklistPdf(data:{title:string;order:string;client:
  const pages=pdf.getPages();pages.forEach((p,i)=>{
   p.drawLine({start:{x:left,y:35},end:{x:left+width,y:35},thickness:.7,color:ink});
   p.drawText('RJ Compressores',{x:left,y:22,size:8,font:bold,color:ink});
-  p.drawText('Relatório técnico · Gestão Integrada',{x:218,y:22,size:7,font,color:ink});
+  p.drawText(data.preliminary?'PRÉVIO — NÃO REVISADO':'Relatório técnico · Gestão Integrada',{x:218,y:22,size:7,font,color:ink});
   p.drawText(`Página ${i+1} de ${pages.length}`,{x:495,y:22,size:7,font,color:ink});
  });
  return pdf.save();

@@ -1,3 +1,4 @@
+import {claimPasswordResetNotifications,acknowledgePasswordReset} from "@/lib/password-reset-notifications";
 import { PUBLIC_SYSTEM_URL } from "@/lib/public-url";
 import { claimReminders, acknowledgeReminder } from "@/lib/tasks/reminders";
 import { dailyTaskSummaries } from "@/lib/tasks/daily-summary";
@@ -20,7 +21,9 @@ export async function POST(req: Request) {
     if (raw.length > 1000) throw new TaskInputError("Dados excedem o limite.");
     const body = JSON.parse(raw);
     if (body.action === "ack") {
-      if (typeof body.id === "string" && body.id.startsWith("reminder:"))
+      if (typeof body.id === "string" && body.id.startsWith("password-reset:"))
+        await acknowledgePasswordReset(body.id.slice(15),body.token);
+      else if (typeof body.id === "string" && body.id.startsWith("reminder:"))
         await acknowledgeReminder(body.id.slice(9), body.token);
       else await acknowledgeNotification(body.id, body.token);
       return Response.json({ ok: true }, { headers });
@@ -62,7 +65,7 @@ export async function POST(req: Request) {
     const result = await syncTasks();
     const notifications =
       body.deliver === true
-        ? await claimNotifications(PUBLIC_SYSTEM_URL)
+        ? [...await claimPasswordResetNotifications(), ...await claimNotifications(PUBLIC_SYSTEM_URL)]
         : [];
     return Response.json({ ...result, notifications }, { headers });
   } catch (e) {

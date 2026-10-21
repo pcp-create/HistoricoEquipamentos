@@ -1,4 +1,5 @@
 import "server-only";
+import { needsPasswordChange } from "./password-policy";
 import { cookies } from "next/headers";
 import { authRequest } from "./auth";
 import { accessRecord } from "./admin-store";
@@ -36,6 +37,7 @@ export async function resolveInitialSession(
     )
       return empty;
     const access = await lookup(user.email);
+    if(access?.enabled !== false && needsPasswordChange(user))return {...empty,mustChangePassword:true};
     return {
       cacheScope:
         access?.enabled === false

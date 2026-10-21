@@ -1,6 +1,7 @@
 export type AuthUser = {
   id: string;
   email: string;
+  app_metadata?: Record<string, unknown>;
   user_metadata?: Record<string, unknown>;
 };
 export function userDisplayName(user: AuthUser): string {

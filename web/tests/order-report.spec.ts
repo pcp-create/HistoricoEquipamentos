@@ -130,10 +130,15 @@ test("planner selects reviewed operations, previews chronology and modes, and do
   ).toBeDisabled();
   await expect(
     dialog.getByRole("checkbox", { name: /Operação 03/ }),
-  ).toBeDisabled();
+  ).toBeEnabled();
+  await dialog.getByRole("checkbox", { name: /Operação 03/ }).check();
+  await expect(dialog.getByRole("button", {name:"Gerar PDF prévio"})).toBeEnabled();
+  await expect(dialog.getByRole("status")).toContainText("PRÉVIO — NÃO REVISADO");
+  await dialog.getByRole("checkbox", { name: /Operação 03/ }).uncheck();
   await dialog
-    .getByRole("button", { name: "Selecionar todas as revisadas" })
+    .getByRole("button", { name: "Selecionar todas disponíveis" })
     .click();
+  await dialog.getByRole("checkbox", { name: /Operação 03/ }).uncheck();
   await expect(
     dialog.getByText("2 operação(ões) selecionada(s)", { exact: true }),
   ).toBeVisible();
@@ -143,7 +148,7 @@ test("planner selects reviewed operations, previews chronology and modes, and do
       .locator(".order-report-chapter")
       .first()
       .locator(".technical-report-order"),
-  ).toContainText("14877/02");
+  ).toContainText("14877/01");
   await expect(
     dialog.getByRole("heading", { name: /Linha do tempo das operações/ }),
   ).toBeVisible();
@@ -188,7 +193,7 @@ test("planner selects reviewed operations, previews chronology and modes, and do
   const download = page.waitForEvent("download");
   await dialog.getByRole("button", { name: "Gerar PDF unificado" }).click();
   expect((await download).suggestedFilename()).toBe(
-    "Relatorio-OS-14877-unificado-budget.pdf",
+    "Relatorio-OS-14877-unificado-Orcamento.pdf",
   );
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await dialog.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
@@ -196,7 +201,8 @@ test("planner selects reviewed operations, previews chronology and modes, and do
   );
   await dialog.getByRole("button", { name: "1. Selecionar operações" }).click();
   await page.screenshot({ path: "/tmp/order-report-mobile.png" });
-  await dialog.getByRole("button", { name: "Limpar seleção" }).click();
+  await dialog.getByRole("checkbox", {name:/Operação 01/}).uncheck();
+  await dialog.getByRole("checkbox", {name:/Operação 02/}).uncheck();
   await expect(
     dialog.getByRole("button", { name: "Gerar PDF unificado" }),
   ).toBeDisabled();

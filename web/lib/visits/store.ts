@@ -146,7 +146,7 @@ export async function visitsData(email: string, db: any = database(), management
       AND ($2::boolean OR u.email=$1)
     ORDER BY u.display_name,u.email`, [email,management || user.role === "admin",management])).rows;
   const purposes = (await db.query("SELECT id::text,name,description,active,version FROM web_sales_visit_purposes WHERE active ORDER BY id")).rows;
-  return { purposes, name: user.display_name || email, customers, visits, sellers, canManage: true };
+  return { canEditVisits:user.role === "admin", purposes, name: user.display_name || email, customers, visits, sellers, canManage: true };
 }
 function text(b: any, key: string, max: number, required = false) {
   const value = b?.[key];
@@ -308,4 +308,31 @@ export async function saveCustomerLocation(body: any, email: string) {
       [email,JSON.stringify({customer_key:body.customer_key,latitude:body.latitude,longitude:body.longitude})]);
     await c.query("COMMIT");
   } catch(error) { await c.query("ROLLBACK"); throw error; } finally { c.release(); }
+}
+
+export async function administerVisit(b:any,email:string) {
+  if(!uuid.test(b?.id || '') || !Number.isInteger(b.version) || !['admin_edit','admin_delete'].includes(b.action))throw new AdminInputError('Visita inválida.');
+  const c=await database().connect();
+  try {
+    await c.query('BEGIN READ WRITE');
+    const user=await visitIdentity(c,email.toLowerCase());
+    if(user.role!=='admin')throw new Forbidden();
+    const old=(await c.query('SELECT * FROM web_sales_visits WHERE id=$1 FOR UPDATE',[b.id])).rows[0];
+    if(!old || old.version!==b.version)throw new AdminInputError('Visita alterada ou excluída. Atualize a lista.');
+    let after=null;
+    if(b.action==='admin_delete')await c.query('DELETE FROM web_sales_visits WHERE id=$1',[b.id]);
+    else {
+      const at=instant(b.scheduled_at),contact=text(b,'contact',160,true),phone=text(b,'phone',40,true),description=text(b,'description',10000);
+      if(!/^[+()\d\s.-]{8,40}$/.test(phone))throw new AdminInputError('Informe um telefone válido.');
+      const purpose=b.purpose_id || null;
+      if(purpose!==null && (!/^\d+$/.test(String(purpose)) || !(await c.query('SELECT 1 FROM web_sales_visit_purposes WHERE id=$1 AND (active OR id=$2)',[purpose,old.purpose_id])).rows.length))throw new AdminInputError('Selecione uma finalidade ativa.');
+      if(!purpose && old.purpose_id)throw new AdminInputError('Selecione a finalidade da visita.');
+      const completed=old.status==='completed'?instant(b.completed_at):null;
+      if(completed && completed.getTime()>Date.now())throw new AdminInputError('A realização não pode ter data futura.');
+      const outcome=old.status==='completed'?text(b,'outcome',10000,true):old.outcome;
+      after=(await c.query(`UPDATE web_sales_visits SET scheduled_at=$2,contact=$3,phone=$4,description=$5,purpose_id=$6,completed_at=$7,outcome=$8,version=version+1,updated_at=now() WHERE id=$1 RETURNING *`,[b.id,at,contact,phone,description,purpose,completed,outcome])).rows[0];
+    }
+    await c.query("INSERT INTO web_access_events(event,email,actor,details) VALUES('sales_visit_admin',$1,$1,$2)",[email,JSON.stringify({action:b.action,before:old,after})]);
+    await c.query('COMMIT');
+  }catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}
 }

@@ -24,6 +24,7 @@ import {
   type VisitsData,
 } from "@/lib/visits/model";
 import { lastSeen } from "@/lib/last-seen";
+import VisitAdminActions from "./visit-admin-actions";
 import SalesVisits from "./sales-visits";
 import SalesVisitsMap from "./sales-visits-map";
 import "./field-app.css";
@@ -239,6 +240,7 @@ export default function SalesVisitsManagement() {
           <b>Registro da visita:</b> {v.outcome}
         </p>
       )}
+      {data?.canEditVisits && <VisitAdminActions visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} purposes={data.purposes || []} onSaved={async message=>{setMessage(message);await reload()}}/>}
     </article>
   );
   const calendarVisits = filteredVisits

@@ -1,0 +1,21 @@
+import {test,expect} from '@playwright/test';
+test.setTimeout(90000);
+test('seller first login requires a personal password and returns to portal',async({page,context})=>{
+ await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
+ let saved:any=null;
+ await page.route('**/api/session',r=>r.fulfill({json:{ok:true,mustChangePassword:true}}));
+ await page.route('**/api/password',r=>{saved=r.request().postDataJSON();return r.fulfill({json:{ok:true}})});
+ await page.route('**/visitas',r=>r.fulfill({contentType:'text/html',body:'<h1>Portal de visitas</h1>'}));
+ await page.goto('/vendas/entrar');
+ await page.getByLabel('E-mail',{exact:true}).fill('employee@example.test');
+ await page.getByLabel('Senha',{exact:true}).fill('123456');
+ await page.getByRole('button',{name:'Entrar no Portal Vendas'}).click();
+ await expect(page.getByRole('heading',{name:'Defina sua nova senha'})).toBeVisible();
+ await page.getByLabel('Nova senha',{exact:true}).fill('123456');await page.getByLabel('Confirmar nova senha',{exact:true}).fill('123456');
+ await page.getByRole('button',{name:'Salvar nova senha'}).click();
+ await expect(page.locator('form [role="alert"]')).toContainText('diferente');expect(saved).toBeNull();
+ await page.getByLabel('Nova senha',{exact:true}).fill('senha-pessoal');await page.getByLabel('Confirmar nova senha',{exact:true}).fill('diferente');
+ await page.getByRole('button',{name:'Salvar nova senha'}).click();await expect(page.locator('form [role="alert"]')).toContainText('não confere');
+ await page.getByLabel('Confirmar nova senha',{exact:true}).fill('senha-pessoal');
+ await page.getByRole('button',{name:'Salvar nova senha'}).click();await expect(page).toHaveURL(/\/visitas$/);expect(saved).toEqual({password:'senha-pessoal',confirmation:'senha-pessoal'});
+});

@@ -1,12 +1,13 @@
-import {stagesOf,groupsOf,fieldOptions} from './checklists';
-export type ReportField = { id:string; label:string; type:string; value:any; photos:string[]; comment:string; options?:string[]; responsible?:string; operation?:string };
+import {isStatusField,stagesOf,groupsOf,fieldOptions} from './checklists';
+export type ReportField = { id:string; label:string; type:string; value:any; photos:string[]; comment:string; options?:string[]; alertOptions?:string[]; responsible?:string; operation?:string };
 export type ReportStage = { id:string; name:string; status:string; groups:{name:string;fields:ReportField[]}[] };
 export type ReportMode = "complete" | "summary" | "budget";
+export const reportFilenameMode: Record<ReportMode, string> = { complete: "Completo", summary: "Resumido", budget: "Orcamento" };
 /** Internal notes are included only in the explicitly requested budget export. */
 export function checklistReport(run:any, mode:ReportMode="complete"):ReportStage[]{
  return stagesOf(run.template).map(stage=>({id:stage.id,name:stage.name,status:run.stages[stage.id]?.status||'pending',groups:groupsOf(stage).map(group=>({name:group.name,fields:group.fields.filter(f=>f.report!==false || (mode==='budget' && f.internalNote)).map(f=>{
   const value=run.stages[stage.id]?.answers?.[f.id];const d=run.stages[stage.id]?.details?.[f.id]||{};
-  return {...(['flag','select'].includes(f.type)?{options:fieldOptions(f)}:{}),id:f.id,label:f.label,type:f.type,value:['photo','signature'].includes(f.type)?null:value??null,photos:[...(['photo','signature'].includes(f.type)?value||[]:[]),...(d.photos||[])],comment:[f.comment?d.comment||'':'',mode==='budget'&&f.internalNote&&d.internalNote?.trim()?'Observação interna: '+d.internalNote:''].filter(Boolean).join('\n\n')};
+  return {...(isStatusField(f.type)||f.type==='select'?{options:fieldOptions(f),alertOptions:f.alertOptions}:{} ),id:f.id,label:f.label,type:f.type,value:['photo','signature'].includes(f.type)?null:value??null,photos:[...(['photo','signature'].includes(f.type)?value||[]:[]),...(d.photos||[])],comment:[f.comment?d.comment||'':'',mode==='budget'&&f.internalNote&&d.internalNote?.trim()?'Observação interna: '+d.internalNote:''].filter(Boolean).join('\n\n')};
  })})).filter(g=>g.fields.length)})).filter(s=>s.groups.length);
 }
 

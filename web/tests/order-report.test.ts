@@ -106,11 +106,11 @@ const data = {
     },
   ],
 };
-test("unified report orders by actual dates, keeps readings separate, and scopes totals without mirrored duplicates", () => {
+test("unified report orders chapters by operation number, keeps readings separate, and scopes totals without mirrored duplicates", () => {
   const report = orderReport(data, ["one", "two"]);
   assert.deepEqual(
     report.chapters.map((c) => c.position),
-    [2, 1],
+    [1, 2],
   );
   assert.equal(
     report.report.find((s) => s.id === "timeline")!.groups[0].fields.length,
@@ -132,7 +132,7 @@ test("unified report orders by actual dates, keeps readings separate, and scopes
     report.chapters.map(
       (c) => c.report.find((s) => s.id === "s")!.groups[0].fields[0].value,
     ),
-    [2000, 1000],
+    [1000, 2000],
   );
   assert.ok(
     report.chapters.every(
@@ -231,9 +231,25 @@ test('summary export keeps three totals per operation and removes professional b
   assert.equal(logs.groups[0].fields.length,3);
   assert.equal(logs.groups[0].name,'Totais da operação');
  }
- assert.equal(model.chapters[0].report.find(s=>s.id==='events')!.groups[0].fields[2].value,'01:00:00');
- assert.equal(model.chapters[1].report.find(s=>s.id==='events')!.groups[0].fields[2].value,'00:30:00');
+ assert.equal(model.chapters[0].report.find(s=>s.id==='events')!.groups[0].fields[2].value,'00:30:00');
+ assert.equal(model.chapters[1].report.find(s=>s.id==='events')!.groups[0].fields[2].value,'01:00:00');
  for(const mode of ['complete','budget'] as const){
   assert.ok(orderReport(data,['one','two'],mode).report.find(s=>s.id==='totals')!.groups.length>1);
  }
+});
+
+test('preliminary report includes pending operations and renders all chapters with the preliminary flag', async () => {
+ const pending = operation('pending-review', 3);
+ pending.status = 'awaiting_review';
+ assert.equal(canIncludeInOrderReport(pending), false);
+ assert.equal(canIncludeInOrderReport(pending, true), true);
+ assert.equal(canIncludeInOrderReport({...pending, status:'cancelled'}, true), false);
+ const model = orderReport({...data, operations:[operation('reviewed',1),pending]}, ['reviewed','pending-review'], 'complete', true);
+ assert.equal(model.preliminary, true);
+ assert.equal(model.chapters.length, 2);
+ const bytes = await renderChecklistPdf({...model, client:'',equipment:'',photos:[]});
+ assert.ok((await PDFDocument.load(bytes)).getPageCount() >= 3);
+ writeFileSync('/tmp/order-report-preliminary.pdf', bytes);
+ const final = orderReport({...data, operations:[operation('reviewed',1)]}, ['reviewed'], 'complete', true);
+ assert.equal(final.preliminary, false);
 });

@@ -1,20 +1,29 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, FileDown } from "lucide-react";
+import ChecklistAlertReview from "./checklist-alert-review";
+import {checklistAlerts,existingAlertTask} from "@/lib/service-scheduling/checklist-alerts";
 import ChecklistReviewReport from "./checklist-review-report";
 import ScheduleTimeLogs from "./schedule-time-logs";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import { materialWithdrawals } from "@/lib/service-scheduling/material-balance";
 import { reportSubmission } from "@/lib/service-scheduling/checklists";
 import { statusNames } from "@/lib/service-scheduling/model";
-export default function OperationReviewWindow({ operation: o, data, busy, dirty, error, mutate, onClose, onReportDirty }: any) {
+export default function OperationReviewWindow({ operation: o, data, busy, dirty, error, mutate, onClose, onReportDirty, navigation }: any) {
+  const tabsId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   const [reportMode,setReportMode]=useState("complete");
   const [tab, setTab] = useState("report");
   const [reportDirty,setReportDirty]=useState(false);
-  const updateReportDirty=(value:boolean)=>{setReportDirty(value);onReportDirty?.(value);if(value)setConfirmed(false);};
-  const close=()=>{if(!reportDirty||window.confirm("Descartar as correções não salvas e fechar a revisão?")){onReportDirty?.(false);onClose();}};
+  const updateReportDirty=(value:boolean)=>{setReportDirty(value);if(value)setConfirmed(false);};
+  const close=()=>{if(!(reportDirty||alertTaskDirty)||window.confirm("Descartar as correções não salvas e fechar a revisão?")){onReportDirty?.(false);onClose();}};
+  const [alertTask,setAlertTask]=useState({assignedTo:'',description:'',reportMode:'complete'});
+  const alerts=checklistAlerts(o.document.checklistRun);
+  const existingTask=existingAlertTask(o.document,alerts);
+  const alertTaskDirty=o.status==='awaiting_review'&&!existingTask&&alerts.length>0&&!!(alertTask.assignedTo||alertTask.description||alertTask.reportMode!=='complete');
+  useEffect(()=>{onReportDirty?.(reportDirty||alertTaskDirty);},[reportDirty,alertTaskDirty]);
+  const missingAlertTask=alerts.length>0&&!existingTask&&(!alertTask.assignedTo||!alertTask.description.trim());
   const [confirmed, setConfirmed] = useState(false);
   const reviewed = ["reviewed", "completed"].includes(o.status);
   useEffect(() => {
@@ -30,18 +39,27 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
     fieldSessions: (data.fieldSessions || []).filter((v: any) => v.operation_id === o.id),
     fieldEvents: (data.fieldEvents || []).filter((v: any) => v.operation_id === o.id),
     requests: (data.requests || []).filter((v: any) => v.operation_id === o.id) };
-  const act = (action: string) => mutate({ action, operationId: o.id, version: o.version });
+  const act = (action: string) => mutate({ action, operationId: o.id, version: o.version, ...(action==="review"?{alertTask}:{}) });
   return createPortal(<dialog ref={dialog} className="scheduling-page operation-review-window" aria-label={`Revisão da operação ${operationNumber(o.position)}`} onCancel={e => { e.preventDefault(); if (!busy) close(); }}>
     <header className="operation-review-header">
       <div><h2>OS {data.detail?.order?.numero_sequencia || data.schedule.order_id}/{operationNumber(o.position)} · Revisão da operação</h2><p>{o.document.description || "Sem descrição"} · {statusNames[o.status]}</p></div>
       <button type="button" aria-label="Fechar revisão" disabled={busy} onClick={close}><X size={20}/></button>
     </header>
-    <nav className="operation-review-tabs" aria-label="Seções da revisão">
-      {[["report", "Relatório"], ["parts", "Peças"], ["logs", "Apontamentos"], ["history", "Histórico"]].map(([key, label]) => <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</button>)}
+    {navigation}
+    <nav className="operation-review-tabs" role="tablist" aria-label="Seções da revisão" onKeyDown={e => {
+      const keys = ["report", "parts", "logs", "history"];
+      const index = keys.indexOf(tab);
+      const next = e.key === "ArrowRight" ? (index + 1) % keys.length : e.key === "ArrowLeft" ? (index + keys.length - 1) % keys.length : e.key === "Home" ? 0 : e.key === "End" ? keys.length - 1 : -1;
+      if (next < 0) return;
+      e.preventDefault(); setTab(keys[next]);
+      document.getElementById(`${tabsId}-${keys[next]}`)?.focus();
+    }}>
+      {[["report", "Relatório"], ["parts", "Peças"], ["logs", "Apontamentos"], ["history", "Histórico"]].map(([key, label]) => <button key={key} type="button" role="tab" id={`${tabsId}-${key}`} aria-selected={tab === key} aria-controls={`${tabsId}-panel`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}>{label}</button>)}
     </nav>
-    <div className="operation-review-content">
+    <div className="operation-review-content" role="tabpanel" id={`${tabsId}-panel`} aria-labelledby={`${tabsId}-${tab}`} tabIndex={0}>
       {dirty && <p role="alert">Há alterações não salvas na programação. Feche esta janela e salve a operação antes de revisar.</p>}
       {error && <p className="operation-review-error" role="alert">{error}</p>}
+      <ChecklistAlertReview alerts={alerts} existing={existingTask} editable={data.canEditSettings&&o.status==="awaiting_review"} busy={busy||reportDirty||dirty} users={data.users||[]} value={alertTask} onChange={setAlertTask}/>
       <div hidden={tab!=="report"}>{o.document.checklistId || o.document.checklistRun ? <ChecklistReviewReport operation={o} data={data} busy={busy} disabled={dirty} mutate={mutate} onDirtyChange={updateReportDirty}/> : <p>Esta operação não possui checklist.</p>}</div>
       {tab === "logs" && <ScheduleTimeLogs data={scoped} onChanged={() => window.dispatchEvent(new Event("service-schedule-updated"))}/>}
       {tab === "parts" && <>
@@ -61,7 +79,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
       {data.canEditSettings && !reviewed && reportSubmission(o.document.checklistRun) && <button type="button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}>Devolver relatório ao técnico</button>}
       {data.canEditSettings && o.status === "awaiting_review" && <>
         <label><input type="checkbox" checked={confirmed} disabled={busy || dirty || reportDirty} onChange={e => setConfirmed(e.target.checked)}/> Conferi o relatório, as peças e os apontamentos desta operação.</label>
-        <button type="button" disabled={busy || dirty || reportDirty || !confirmed || scoped.requests.some((r: any) => r.status === "pending")} onClick={() => void act("review")}>Concluir revisão</button>
+        <button type="button" disabled={busy || dirty || reportDirty || !confirmed || missingAlertTask || scoped.requests.some((r: any) => r.status === "pending")} onClick={() => void act("review")}>Concluir revisão</button>
         {scoped.requests.some((r: any) => r.status === "pending") && <small>Há solicitações de apontamento aguardando aprovação.</small>}
       </>}
       {reviewed && o.document.checklistRun && !busy ? <><select aria-label="Tipo de relatório" value={reportMode} onChange={e=>setReportMode(e.target.value)}><option value="complete">Relatório Completo</option><option value="summary">Relatório Resumido</option><option value="budget">Relatório de Orçamento</option></select><a href={`/api/service-scheduling/checklist-pdf?operationId=${o.id}&mode=${reportMode}`} target="_blank" rel="noreferrer"><FileDown size={16}/> Gerar PDF</a></> : o.document.checklistId && <small>O PDF será liberado após a conclusão da revisão.</small>}

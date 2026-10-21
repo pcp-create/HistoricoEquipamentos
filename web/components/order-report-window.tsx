@@ -10,6 +10,7 @@ import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import { statusNames } from "@/lib/service-scheduling/model";
 import {
   reportFieldValue,
+  reportFilenameMode,
   type ReportMode,
   type ReportStage,
 } from "@/lib/service-scheduling/checklist-report";
@@ -20,11 +21,13 @@ function ReportPages({
   order,
   report,
   mode,
+  preliminary,
 }: {
   title: string;
   order: string;
   report: ReportStage[];
   mode: ReportMode;
+  preliminary: boolean;
 }) {
   return (
     <article className="checklist-review-report">
@@ -41,6 +44,7 @@ function ReportPages({
           <strong>{order}</strong>
         </div>
       </header>
+      {preliminary && <div className="order-report-preliminary">PRÉVIO — NÃO REVISADO · Sujeito a alterações</div>}
       {report.map((stage, index) => (
         <section key={stage.id} className="review-report-stage">
           <h4>
@@ -108,6 +112,7 @@ function ReportPages({
                           <ReviewFlags
                             label={f.label}
                             options={f.options}
+                            alertOptions={f.alertOptions}
                             value={f.value}
                           />
                         ) : (
@@ -163,10 +168,10 @@ export default function OrderReportWindow({
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const operations: any[] = data.operations || [];
-  const eligible = operations.filter(canIncludeInOrderReport);
+  const eligible = operations.filter(op => canIncludeInOrderReport(op, true));
   const ids = selected.filter((id) => eligible.some((op) => op.id === id));
   const model = useMemo(
-    () => orderReport(data, ids, mode),
+    () => orderReport(data, ids, mode, true),
     [data, ids.join(","), mode],
   );
   const close = () => {
@@ -202,7 +207,7 @@ export default function OrderReportWindow({
       const url = URL.createObjectURL(await response.blob()),
         anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `Relatorio-OS-${model.order}-unificado-${mode}.pdf`;
+      anchor.download = `Relatorio-OS-${model.order}-unificado-${model.preliminary ? "PREVIO-" : ""}${reportFilenameMode[mode]}.pdf`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -264,11 +269,11 @@ export default function OrderReportWindow({
           <>
             <p>
               O documento reúne o resumo da OS, a linha do tempo e os detalhes
-              de cada operação em ordem cronológica. Cada operação começa em uma
+              de cada operação em ordem numérica (01, 02, 03…). Cada operação começa em uma
               nova página do PDF.
             </p>
             <p>
-              Somente operações revisadas e com relatório podem ser incluídas.
+              Operações com relatório podem ser incluídas antes da revisão. Nesse caso, o documento será identificado como PRÉVIO — NÃO REVISADO.
               Horários de Brasília; os totais somam as horas de cada
               profissional.
             </p>
@@ -286,7 +291,7 @@ export default function OrderReportWindow({
               >
                 {ids.length && ids.length === eligible.length
                   ? "Limpar seleção"
-                  : "Selecionar todas as revisadas"}
+                  : "Selecionar todas disponíveis"}
               </button>
               <span aria-live="polite">
                 {ids.length} operação(ões) selecionada(s)
@@ -294,7 +299,7 @@ export default function OrderReportWindow({
             </div>
             <div className="order-report-options">
               {operations.map((op) => {
-                const available = canIncludeInOrderReport(op),
+                const available = canIncludeInOrderReport(op, true),
                   person = data.users?.find(
                     (u: any) => u.email === op.document.responsible,
                   );
@@ -337,7 +342,7 @@ export default function OrderReportWindow({
                       {!available && (
                         <small>
                           {op.document.checklistRun
-                            ? "Conclua a revisão para incluir esta operação."
+                            ? "Operação cancelada não pode ser incluída."
                             : "Esta operação não possui relatório."}
                         </small>
                       )}
@@ -355,6 +360,7 @@ export default function OrderReportWindow({
               order={model.order}
               report={model.report}
               mode={mode}
+              preliminary={model.preliminary}
             />
             <nav
               className="order-report-index"
@@ -377,12 +383,14 @@ export default function OrderReportWindow({
                   order={`${model.order}/${operationNumber(c.position)}`}
                   report={c.report}
                   mode={mode}
+                  preliminary={model.preliminary}
                 />
               </section>
             ))}
           </div>
         )}
       </div>
+      {model.preliminary && <p className="order-report-preliminary" role="status">PRÉVIO — NÃO REVISADO. Há operações selecionadas com revisão pendente. O documento está sujeito a alterações.</p>}
       <footer className="operation-review-footer order-report-footer">
         <label>
           Tipo de relatório
@@ -410,7 +418,7 @@ export default function OrderReportWindow({
           onClick={() => void download()}
         >
           <FileDown size={16} />
-          {busy ? "Gerando PDF…" : "Gerar PDF unificado"}
+          {busy ? "Gerando PDF…" : model.preliminary ? "Gerar PDF prévio" : "Gerar PDF unificado"}
         </button>
       </footer>
     </dialog>,

@@ -3,7 +3,7 @@ import { database } from "../db";
 import { Forbidden } from "../auth";
 import { canIncludeInOrderReport, orderReport } from "./order-report";
 import { renderChecklistPdf } from "./checklist-pdf";
-import type { ReportMode } from "./checklist-report";
+import { reportFilenameMode, type ReportMode } from "./checklist-report";
 
 export class OrderReportInputError extends Error {}
 export class OrderReportConflict extends Error {}
@@ -75,9 +75,9 @@ export async function loadOrderReport(body: any, email: string, portal = false) 
       throw new OrderReportInputError(
         "Selecione somente operações desta OS. Atualize a programação e tente novamente.",
       );
-    if (!portal && operations.some((op) => !canIncludeInOrderReport(op)))
+    if (!portal && operations.some((op) => !canIncludeInOrderReport(op, true)))
       throw new OrderReportConflict(
-        "Uma operação selecionada ainda não foi revisada ou não possui relatório. Atualize a programação e confira a seleção.",
+        "Uma operação selecionada está cancelada ou não possui relatório. Atualize a programação e confira a seleção.",
       );
     const users = (
       await c.query("SELECT email,display_name FROM web_user_access")
@@ -113,7 +113,7 @@ export async function loadOrderReport(body: any, email: string, portal = false) 
       },
       operationIds,
       mode,
-      portal,
+      true,
     );
     const photos: any[] = [];
     for (const chapter of model.chapters) {
@@ -156,6 +156,6 @@ export async function orderReportPdf(body: any, email: string, portal = false) {
       equipment: "",
       photos,
     }),
-    filename: `Relatorio-OS-${model.order.replace(/[^\w-]/g, "")}-unificado-${model.mode}.pdf`,
+    filename: `Relatorio-OS-${model.order.replace(/[^\w-]/g, "")}-unificado-${model.preliminary ? "PREVIO-" : ""}${reportFilenameMode[model.mode]}.pdf`,
   };
 }

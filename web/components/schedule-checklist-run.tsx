@@ -9,7 +9,7 @@ import {checklistProgress,progressLabels,checklistCounts} from '@/lib/service-sc
 import { ChevronRight, Plus, Minus } from "lucide-react";
 import SaveActionIcon from "./save-action-icon";
 import {useState,useEffect,useRef,useId} from 'react';
-import {stagesOf,groupsOf,photoLimit,fieldOptions,type ChecklistField} from '@/lib/service-scheduling/checklists';
+import {stagesOf,groupsOf,photoLimit,isStatusField,fieldOptions,type ChecklistField} from '@/lib/service-scheduling/checklists';
 import {apiFetch} from '@/lib/client-api-cache';
 import {DictationText,SignatureInput} from './checklist-inputs';
 import './schedule-checklists.css';
@@ -89,7 +89,7 @@ function Stage({stageAccordionName,stage,operation,data,mutate,locked,readOnly,c
  {f.type==='textarea'?<><span className="checklist-field-title">{fieldLabel}</span><DictationText label={label} value={v} disabled={disabled} onChange={s=>answer(f.id,s)}/></>:
  f.type==='signature'?<><span className="checklist-field-title">{fieldLabel}</span><SignatureInput label={label} ids={answers[f.id]||[]} disabled={disabled} onClear={()=>answer(f.id,[])} onUpload={file=>upload(f,[file])}/></>:
  f.type==='photo'?<><span className="checklist-field-title">{fieldLabel}</span>{photos(f)}</>:
- f.type==='flag'?<div className="checklist-status-field"><span className="checklist-field-title">{fieldLabel}</span><div className="checklist-status-options" role="radiogroup" aria-label={label}>{fieldOptions(f).map(option=><label key={option} className={'checklist-status-option'+(v===option?' selected':'')}><input type="radio" name={operation.id+':'+stage.id+':'+f.id} value={option} checked={v===option} disabled={disabled} onChange={()=>answer(f.id,option)}/><span>{option}</span></label>)}</div></div>:
+ isStatusField(f.type)?<div className="checklist-status-field"><span className="checklist-field-title">{fieldLabel}</span><div className="checklist-status-options" role="radiogroup" aria-label={label}>{fieldOptions(f).map(option=><label key={option} className={'checklist-status-option'+(v===option?' selected':'')+(v===option&&f.alertOptions?.includes(option)?' status-alert-selected':'')}><input type="radio" name={operation.id+':'+stage.id+':'+f.id} value={option} checked={v===option} disabled={disabled} onChange={()=>answer(f.id,option)}/><span>{option}</span></label>)}</div></div>:
  <label className="checklist-answer">{fieldLabel}{f.type==='select'?<select value={v} onChange={e=>answer(f.id,e.target.value)}><option value="">Selecione</option>{fieldOptions(f).map(x=><option key={x} value={x}>{x}</option>)}</select>:<input type={f.type==='number'||f.type==='meter'?'number':f.type==='date'||f.type==='time'?f.type:'text'} min={f.type==='meter'?0:undefined} step={f.type==='number'||f.type==='meter'?'any':undefined} value={v} onChange={e=>answer(f.id,(f.type==='number'||f.type==='meter')&&e.target.value!==''?Number(e.target.value):e.target.value)}/>}</label>}
  {f.type==='meter'&&<>
  <EquipmentMeterReference equipmentId={equipmentId}/>

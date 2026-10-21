@@ -29,15 +29,14 @@ export default function Login({
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
-      window.location.assign(
-        sales
+      const destination = sales
           ? "/visitas"
           : technician
             ? "/tecnico"
             : planReturnPath(
                 new URLSearchParams(window.location.search).get("next"),
-              ),
-      );
+              );
+      window.location.assign(result.mustChangePassword ? "/alterar-senha?next="+encodeURIComponent(destination) : destination);
     } catch (error) {
       setError(
         error instanceof Error ? error.message : "Não foi possível entrar.",

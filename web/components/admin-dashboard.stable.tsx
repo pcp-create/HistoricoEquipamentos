@@ -36,6 +36,7 @@ const eventNames: Record<string, string> = {
   access_changed: "Cadastro / permissão alterados",
   account_created: "Conta de acesso criada",
   password_reset: "Senha redefinida pelo administrador",
+  password_changed: "Senha alterada pelo usuário",
 };
 export default function AdminDashboard() {
   const [data, setData] = useState<any>(null),
@@ -47,10 +48,7 @@ export default function AdminDashboard() {
   const [editing, setEditing] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [tab, setTab] = useState("users");
-  const [password, setPassword] = useState("");
-  const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const hasLogin = Boolean(data?.users?.find((u: any) => u.email === form.email)?.user_id);
-  useEffect(() => { setPassword(""); setPasswordConfirmation(""); }, [form.email]);
   async function load() {
     try {
       const r = await apiFetch("/api/admin");
@@ -114,6 +112,7 @@ export default function AdminDashboard() {
     }
   }
   async function createLogin(reset = false) {
+    if(reset && !confirm("Redefinir a senha deste usuário para 123456? Ele receberá as instruções pelo WhatsApp cadastrado e deverá trocá-la no próximo acesso."))return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -124,23 +123,19 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           action: reset ? "reset-password" : "create-login",
           email: form.email,
-          password,
-          ...(reset ? { passwordConfirmation } : {}),
         }),
       });
       const b = await r.json();
       if (!r.ok) throw Error(b.error);
       setMessage(
         reset
-          ? "Senha redefinida. Informe a nova senha ao funcionário por um canal privado."
-          : "Conta de acesso criada. Entregue a senha inicial ao funcionário por um canal privado.",
+          ? "Senha redefinida para 123456. Aviso agendado para envio pelo assistente no WhatsApp cadastrado. A troca será obrigatória no próximo acesso."
+          : "Conta criada com senha inicial 123456. A troca será obrigatória no primeiro acesso.",
       );
       await load();
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setPassword("");
-      setPasswordConfirmation("");
       setBusy(false);
     }
   }
@@ -206,7 +201,6 @@ export default function AdminDashboard() {
                     onClick={() => {
                       setForm(emptyEmployee);
                       setEditing(false);
-                      setPassword("");
                       setError("");
                       setMessage("");
                       setFormOpen(true);
@@ -365,7 +359,6 @@ export default function AdminDashboard() {
                               setForm(emptyEmployee);
                               setEditing(false);
                               setError("");
-                              setPassword("");
                               setMessage("");
                             }}
                           >
@@ -385,34 +378,15 @@ export default function AdminDashboard() {
                         )}
                         <p>
                           {hasLogin
-                            ? "Defina uma nova senha para substituir a senha atual deste funcionário."
-                            : "Salve o cadastro e crie a conta com uma senha inicial."}
+                            ? "O reset define a senha padrão 123456 e exige uma nova senha no próximo acesso."
+                            : "Salve o cadastro e crie a conta com a senha inicial automática 123456."}
                         </p>
-                        <label>
-                          {hasLogin ? "Nova senha" : "Senha inicial"}
-                          <input
-                            type="password"
-                            autoComplete="new-password"
-                            minLength={6}
-                            maxLength={128}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                          />
-                        </label>
-                        {hasLogin && (
-                          <label>
-                            Confirmar nova senha
-                            <input type="password" autoComplete="new-password" minLength={6} maxLength={128}
-                              value={passwordConfirmation} onChange={(e) => setPasswordConfirmation(e.target.value)} />
-                          </label>
-                        )}
                         <button
                           type="button"
-                          disabled={!data.loginProvisioningConfigured || password.length < 6 ||
-                            (hasLogin && password !== passwordConfirmation)}
+                          disabled={!data.loginProvisioningConfigured || busy}
                           onClick={() => void createLogin(hasLogin)}
                         >
-                          {hasLogin ? "Redefinir senha" : "Criar conta de acesso"}
+                          {hasLogin ? "Reset de senha" : "Criar conta de acesso"}
                         </button>
                       </fieldset>
                     )}
@@ -474,7 +448,6 @@ export default function AdminDashboard() {
                                 setEditing(true);
                                 setError("");
                                 setMessage("");
-                                setPassword("");
                               }}
                             >
                               Editar funcionário

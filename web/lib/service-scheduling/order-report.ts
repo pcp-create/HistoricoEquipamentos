@@ -8,8 +8,8 @@ import { timeLogs, elapsedTime } from "./time-logs";
 import { reportSubmission } from "./checklists";
 import { operationNumber } from "./operation-number";
 
-export const canIncludeInOrderReport = (operation: any) =>
-  ["reviewed", "completed"].includes(operation.status) &&
+export const canIncludeInOrderReport = (operation: any, allowUnreviewed = false) =>
+  (allowUnreviewed ? operation.status !== "cancelled" : ["reviewed", "completed"].includes(operation.status)) &&
   !!operation.document?.checklistRun;
 
 export function orderReport(
@@ -217,7 +217,7 @@ export function orderReport(
     const pauses = customerPauses(operations.flatMap(({logs}) => logs.rows), data.settings?.document?.pauseReasons);
     if (pauses.size) overview.push(section("customer-pauses", "Tempo de paradas", [...pauses].map(([name, seconds]) => [name, elapsedTime(seconds)])));
   }
-  const chapters = operations.map(({ op }: any) => ({
+  const chapters = [...operations].sort((a, b) => Number(a.op.position) - Number(b.op.position)).map(({ op }: any) => ({
     id: op.id,
     position: op.position,
     title: `Operação ${operationNumber(op.position)} · ${op.document.description || (op.document.checklistRun?.template?.name || "Sem checklist")}`,
@@ -235,6 +235,7 @@ export function orderReport(
   return {
     order: String(order.numero_sequencia || data.schedule.order_id),
     mode,
+    preliminary: preview && operations.some(({op})=>!["reviewed","completed"].includes(op.status)),
     title: (preview && operations.some(({op})=>!["reviewed","completed"].includes(op.status))?"PRÉVIA · ":"")+"Relatório unificado da OS",
     report: filterReport(overview, mode),
     chapters,

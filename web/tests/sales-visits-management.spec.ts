@@ -106,3 +106,22 @@ test('management schedules a visit without leaving the page',async({page,context
  expect(refreshes).toBeGreaterThan(1);
  await expect(page).toHaveURL(/\/visitas\/gestao$/);
 });
+
+test('administrator edits and deletes a visit with confirmation',async({page,context})=>{
+ await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
+ let rows=[{...visits[1]}];const writes:any[]=[];
+ await page.route('**/api/visits/management',r=>r.fulfill({json:{name:'Gestor',canEditVisits:true,sellers,customers,visits:rows,purposes:[]}}));
+ await page.route('**/api/visits',r=>{const b=r.request().postDataJSON();writes.push(b);rows=b.action==='admin_delete'?[]:[{...rows[0],...b,status:'scheduled',version:2}];return r.fulfill({json:{saved:true}})});
+ await page.goto('/visitas/gestao');await expect(page.getByRole('heading',{name:'Situação da carteira'})).toBeVisible();
+ await page.getByRole('button',{name:'Visitas',exact:true}).click();
+ await page.getByRole('button',{name:'Editar',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Editar visita'});
+ await dialog.getByLabel('Pessoa de contato',{exact:true}).fill('Contato corrigido');
+ await dialog.getByRole('button',{name:'Salvar alterações'}).click();
+ await expect(dialog).toHaveCount(0);
+ await expect(page.locator('.sales-visit')).toContainText('Contato corrigido');
+ page.once('dialog',d=>d.dismiss());await page.getByRole('button',{name:'Excluir',exact:true}).click();expect(writes).toHaveLength(1);
+ page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Excluir',exact:true}).click();
+ await expect(page.locator('.sales-visit')).toHaveCount(0);
+ expect(writes[1]).toMatchObject({action:'admin_delete',version:2});
+});
