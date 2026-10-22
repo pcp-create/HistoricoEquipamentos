@@ -69,21 +69,42 @@ export default function SalesVisitsMap({
   const mapped = customers.filter(
     (c) => c.latitude !== null && c.longitude !== null,
   );
+  const callbacks = useRef({onSelect, onEquipment});
+  callbacks.current = {onSelect, onEquipment};
+  const fitted = useRef(false);
   useEffect(() => {
     let closed = false;
-    let map: import("leaflet").Map | undefined;
     let observer: ResizeObserver | undefined;
-    void import("leaflet").then((L) => {
+    void import("leaflet").then(L => {
       if (closed || !root.current) return;
-      map = L.map(root.current).setView([-27, -50], 6);
+      const map = L.map(root.current).setView([-27, -50], 6);
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        // Send the site origin required by OSM without exposing page paths.
-        referrerPolicy: "origin",
-        maxZoom: 19,
+        referrerPolicy: "origin", maxZoom: 19,
       }).addTo(map);
-      const m = map;
-      mapRef.current = m; setMapReady(value => value + 1);
+      mapRef.current = map;
+      setMapReady(value => value + 1);
+      observer = new ResizeObserver(() => map.invalidateSize());
+      observer.observe(root.current);
+    });
+    return () => {
+      closed = true;
+      observer?.disconnect();
+      mapRef.current?.remove();
+      mapRef.current = null;
+      fitted.current = false;
+    };
+  }, []);
+  // Refresh overlays without recreating tiles or resetting the user's zoom/pan.
+  const contentKey = JSON.stringify({customers, visits, sellers});
+  useEffect(() => {
+    const activeMap = mapRef.current;
+    if (!activeMap) return;
+    const m: import("leaflet").Map = activeMap;
+    let closed = false;
+    let cleanup: (() => void) | undefined;
+    void import("leaflet").then(L => {
+      if (closed) return;
       const located = customers.filter(c => c.latitude !== null && c.longitude !== null);
       const scheduled = new Map<string, SalesVisit>();
       for (const v of visits) {
@@ -154,32 +175,33 @@ export default function SalesVisitsMap({
               const count=document.createElement("p");count.className="sales-popup-equipment-count";count.textContent=`${equipment.length} equipamento${equipment.length === 1 ? "" : "s"} cadastrado${equipment.length === 1 ? "" : "s"}`;section.append(count);
               const list=document.createElement("ul");list.className="sales-popup-equipment-list";list.hidden=true;
               for(const item of equipment){
-                const li=document.createElement("li");const name=document.createElement("button");name.type="button";name.className="sales-equipment-name";name.disabled=!onEquipment;name.onclick=()=>onEquipment?.(c,item);name.textContent=`${item.id} · ${item.name}`;li.append(name);
+                const li=document.createElement("li");const name=document.createElement("button");name.type="button";name.className="sales-equipment-name";name.disabled=!onEquipment;name.onclick=()=>callbacks.current.onEquipment?.(c,item);name.textContent=`${item.id} · ${item.name}`;li.append(name);
                 const info=document.createElement("span");info.textContent=`Modelo: ${item.model || "Não informado"} · Série: ${item.serial || "Não informada"}`;li.append(info);
                 const reading=document.createElement("span");reading.textContent=`Último horímetro: ${item.meter == null ? "Não informado" : item.meter.toLocaleString("pt-BR") + " h"} · Coleta: ${item.meterDate ? item.meterDate.split("-").reverse().join("/") : "Não registrada"}`;li.append(reading);
                 const collect=document.createElement("button");collect.type="button";collect.className="sales-meter-icon";collect.title="Registrar horímetro atual";collect.setAttribute("aria-label","Registrar horímetro atual");
                 const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
                 for(const [key,value] of Object.entries({viewBox:"0 0 24 24",width:"18",height:"18",fill:"none",stroke:"currentColor","stroke-width":"2","stroke-linecap":"round","stroke-linejoin":"round","aria-hidden":"true"})) svg.setAttribute(key,value);
-                const path=document.createElementNS("http://www.w3.org/2000/svg","path");path.setAttribute("d","m12 14 4-4 M3.34 19a10 10 0 1 1 17.32 0Z");svg.append(path);collect.append(svg);collect.onclick=()=>onEquipment?.(c,item);if(onEquipment)li.append(collect);list.append(li);
+                const path=document.createElementNS("http://www.w3.org/2000/svg","path");path.setAttribute("d","m12 14 4-4 M3.34 19a10 10 0 1 1 17.32 0Z");svg.append(path);collect.append(svg);collect.onclick=()=>callbacks.current.onEquipment?.(c,item);if(onEquipment)li.append(collect);list.append(li);
               }
               const actions=document.createElement("div");actions.className="sales-popup-actions";
               if(equipment.length){const toggle=document.createElement("button");toggle.type="button";toggle.textContent="Ver equipamentos";toggle.setAttribute("aria-expanded","false");toggle.onclick=()=>{list.hidden=!list.hidden;toggle.textContent=list.hidden?"Ver equipamentos":"Ocultar equipamentos";toggle.setAttribute("aria-expanded",String(!list.hidden));marker.getPopup()?.update()};actions.append(toggle)}
               section.append(list);
               const visit=scheduled.get(c.key);
               if(visit){const date=document.createElement("p");date.textContent="Agendada: "+new Date(visit.scheduled_at).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"});section.append(date)}
-              const button=document.createElement("button");button.textContent=customerActionLabel || (onEquipment?"Ver cliente / agendar":"Ver cliente");button.className="sales-popup-primary";button.onclick=()=>onSelect(c);actions.append(button);section.append(actions);popup.append(section);
+              const button=document.createElement("button");button.textContent=customerActionLabel || (onEquipment?"Ver cliente / agendar":"Ver cliente");button.className="sales-popup-primary";button.onclick=()=>callbacks.current.onSelect(c);actions.append(button);section.append(actions);popup.append(section);
             }
             marker.bindPopup(popup,{className:"sales-customer-popup",minWidth:240,maxWidth:320,maxHeight:350});
           }
         }
       }
+      const sellerLayer = L.layerGroup().addTo(m);
       const positionedSellers = sellers.filter(s => s.latitude !== null && s.longitude !== null);
       for (const seller of positionedSellers) {
         const icon = document.createElement("span");
         icon.className = "sales-seller-avatar" + (seller.online ? " online" : "");
         icon.textContent = seller.name.trim().split(/\s+/).slice(0,2).map(part=>part[0]).join("").toUpperCase();
         const marker = L.marker([seller.latitude!,seller.longitude!], { zIndexOffset:1000,
-          icon:L.divIcon({className:"sales-seller-marker",html:icon,iconSize:[36,36],iconAnchor:[18,18]}) }).addTo(m);
+          icon:L.divIcon({className:"sales-seller-marker",html:icon,iconSize:[36,36],iconAnchor:[18,18]}) }).addTo(sellerLayer);
         const label=document.createElement("span");label.textContent=`Vendedor · ${seller.name}`;
         marker.bindTooltip(label,{direction:"top",offset:[0,-18]});
         marker.getElement()?.setAttribute("aria-label",`Vendedor ${seller.name}`);
@@ -194,19 +216,14 @@ export default function SalesVisitsMap({
       }
       const bounds = [...located.map(c=>[c.latitude!,c.longitude!] as [number,number]),
         ...positionedSellers.map(s=>[s.latitude!,s.longitude!] as [number,number])];
-      if(bounds.length)m.fitBounds(bounds,{padding:[30,30],maxZoom:13});
+      if(bounds.length && !fitted.current) { m.fitBounds(bounds,{padding:[30,30],maxZoom:13}); fitted.current = true; }
       drawClusters();
-      m.on("zoomend",()=>{expandedLocation=null;drawClusters()});
-      observer = new ResizeObserver(() => map?.invalidateSize());
-      observer.observe(root.current);
+      const zoom = () => { expandedLocation = null; drawClusters(); };
+      m.on("zoomend", zoom);
+      cleanup = () => { m.off("zoomend", zoom); layer.remove(); sellerLayer.remove(); };
     });
-    return () => {
-      closed = true;
-      observer?.disconnect();
-      mapRef.current = null;
-      map?.remove();
-    };
-  }, [customers, visits, onSelect, sellers, onEquipment, customerActionLabel]);
+    return () => { closed = true; cleanup?.(); };
+  }, [contentKey, mapReady, customerActionLabel]);
   return (
     <section className={`sales-panel${showNames ? "" : " sales-map-hide-names"}`}>
       <div className="sales-map-options">

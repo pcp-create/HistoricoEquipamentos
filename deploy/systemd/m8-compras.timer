@@ -1,0 +1,11 @@
+[Unit]
+Description=Consultar ordens de compra M8 a cada minuto
+
+[Timer]
+OnBootSec=40s
+OnCalendar=*-*-* *:*:30
+AccuracySec=1s
+Unit=m8-compras.service
+
+[Install]
+WantedBy=timers.target

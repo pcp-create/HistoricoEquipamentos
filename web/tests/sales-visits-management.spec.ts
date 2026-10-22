@@ -125,3 +125,23 @@ test('administrator edits and deletes a visit with confirmation',async({page,con
  await expect(page.locator('.sales-visit')).toHaveCount(0);
  expect(writes[1]).toMatchObject({action:'admin_delete',version:2});
 });
+
+test('map keeps its tiles and zoom when management data refreshes', async ({page,context}) => {
+ await page.clock.install();
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/**',r=>r.fulfill({json:{admin:true}}));
+ let calls=0;
+ await page.route('**/api/visits/management',r=>{calls++;return r.fulfill({json:{name:'Gestor',sellers:[],customers:[{...customers[0],latitude:-27.8,longitude:-50.3,name:`Cliente atualizado ${calls}`}],visits:[]}})});
+ await page.route('https://tile.openstreetmap.org/**',r=>r.abort());
+ await page.goto('/visitas/gestao');
+ await page.getByRole('button',{name:'Mapa',exact:true}).click();
+ await expect(page.locator('.leaflet-tile-pane')).toBeAttached();
+ await page.locator('.leaflet-control-zoom-in').click();
+ await page.waitForTimeout(400);
+ await page.evaluate(()=>{(window as any).originalTilePane=document.querySelector('.leaflet-tile-pane');(window as any).originalMapId=(document.querySelector('.sales-map') as any)._leaflet_id});
+ await page.clock.fastForward(61000);
+ await expect.poll(()=>calls).toBeGreaterThan(1);
+ await expect(page.locator('.map-customer-label')).toContainText('Cliente atualizado 2');
+ expect(await page.evaluate(()=>document.querySelector('.leaflet-tile-pane')===(window as any).originalTilePane)).toBe(true);
+ expect(await page.evaluate(()=>(document.querySelector('.sales-map') as any)._leaflet_id===(window as any).originalMapId)).toBe(true);
+});

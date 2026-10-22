@@ -1,0 +1,967 @@
+{
+  "ATOrdemServicoRequestDto": {
+    "required": [
+      "clienteId",
+      "condicaoPagamentoId",
+      "dataEntrega",
+      "dataEntregaPrevista",
+      "emissao",
+      "funcionarioId",
+      "tipoId"
+    ],
+    "type": "object",
+    "properties": {
+      "tipoId": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "clienteId": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "emissao": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "dataEntregaPrevista": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "dataEntrega": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "condicaoPagamentoId": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "funcionarioId": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "numeroSequencia": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "dataFaturamento": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "enderecoEntregaId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "enderecoRetiradaId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "responsavelId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "revendaContratoId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "projetoId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "slaId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "tipoAtendimentoId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "modalidadeAtendimentoId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "origemId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "contato": {
+        "type": "string",
+        "nullable": true
+      },
+      "situacaoId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "imposto": {
+        "type": "string",
+        "nullable": true
+      },
+      "prazoCondicional": {
+        "type": "string",
+        "nullable": true
+      },
+      "localAtendimento": {
+        "type": "string",
+        "nullable": true
+      },
+      "responsavelTecnicoId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "supervisorId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "solicitanteChamadoId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "tipoGarantiaId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "situacaoInicialEquipamento": {
+        "type": "string",
+        "nullable": true
+      },
+      "modeloVeiculo": {
+        "type": "string",
+        "nullable": true
+      },
+      "veiculoManutencaoId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "kmAtual": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "freteId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "indicadorPresencaComprador": {
+        "$ref": "#/components/schemas/TipoAtendimentoNfeEnum"
+      },
+      "status": {
+        "$ref": "#/components/schemas/SituacaoEnum"
+      },
+      "origemDados": {
+        "$ref": "#/components/schemas/OrigemDadosEnum"
+      },
+      "idOrigemDados": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "horaEntrega": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true,
+        "readOnly": true
+      },
+      "dataAbertura": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true,
+        "readOnly": true
+      },
+      "horaAbertura": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true,
+        "readOnly": true
+      },
+      "observacao": {
+        "type": "string",
+        "nullable": true
+      },
+      "observacaoInterna": {
+        "type": "string",
+        "nullable": true
+      },
+      "manutencao": {
+        "$ref": "#/components/schemas/ATOrdemServicoManutencaoRequestDto"
+      },
+      "equipamentoProduto": {
+        "$ref": "#/components/schemas/ATOrdemServicoEquipamentoRequestDto"
+      },
+      "produtos": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ATOrdemServicoProdutoRequestDto"
+        },
+        "nullable": true
+      },
+      "servicos": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ATOrdemServicoServicoRequestDto"
+        },
+        "nullable": true
+      },
+      "apontamentos": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ATOrdemServicoApontamentoHoraRequestDto"
+        },
+        "nullable": true
+      },
+      "parcelas": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ATOrdemServicoParcelaRequestDto"
+        },
+        "nullable": true
+      },
+      "checklistRespostas": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ChecklistRespostaRequestDto"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "TipoAtendimentoNfeEnum": {
+    "enum": [
+      "NaoAplicavel",
+      "OperacaoPresencial",
+      "OperacaoNaoPresencialInternet",
+      "OperacaoNaoPresencialTeleatendimento",
+      "NfceOperacaoDomicilio",
+      "OperacaoPresencialForaEstabelecimento",
+      "OperacaoNaoPresencialOutros"
+    ],
+    "type": "string"
+  },
+  "SituacaoEnum": {
+    "enum": [
+      "Pendente",
+      "Processado",
+      "Cancelado",
+      "Aprovado"
+    ],
+    "type": "string"
+  },
+  "OrigemDadosEnum": {
+    "enum": [
+      "Digitado",
+      "Importado",
+      "Copia",
+      "ProcessamentoSistema",
+      "ConciliacaoFinanceiro",
+      "TransferenciaAutomatica",
+      "Agrupamento",
+      "Transformacao",
+      "CopiaAgrupamento",
+      "OrdemServico",
+      "Pedido",
+      "Saida",
+      "OutrasNF",
+      "Compra",
+      "OrdemCompra",
+      "SolicitacaoCompra",
+      "Orcamento",
+      "Contrato",
+      "ImportadoXmlNfe",
+      "Proposta",
+      "TarifaCartaoContasAReceber",
+      "CupomFiscal",
+      "Requisicao",
+      "OrdemProducao",
+      "CompraAutomaticaVenda",
+      "PreFatura",
+      "Renegociacao",
+      "CompraRetencao",
+      "BaixaAdiantamento",
+      "Romaneio",
+      "Duplicado",
+      "ContasAPagar",
+      "ContasAReceber",
+      "ConhecimentoTransporte",
+      "OrdemServicoSimplesFatura",
+      "SafeChekAutomaticoOrdemServico",
+      "Mobile",
+      "PedidoSimplesFatura",
+      "SolicitacaoTransferenciaFilial",
+      "RevendaContratoFatura",
+      "CentroCustoLancamentoFinanceiro",
+      "AutorizacaoPagamento",
+      "ServicoImportarXmlNFE",
+      "RequisicaoConsumoOrdemProducao",
+      "RequisicaoConsumoOrdemServico",
+      "OrcamentoSimplesFatura",
+      "CentroCustoDocumentoFiscal",
+      "ProcessamentoEncontroConta",
+      "MovimentacaoCereais",
+      "CentroCustoTituloFinanceiro",
+      "EnvioXmlNFE",
+      "ComissaoDocumentoFiscal",
+      "EstornoMaterialOrdemProducao",
+      "OrdemServicoEquipamento",
+      "RegeradoComissao",
+      "ComissaoDigitada",
+      "PedidoItemCusto",
+      "ImpostosAnterior",
+      "ApontamentoNFVendedor",
+      "PedidoRapido",
+      "SolicitacaoCompraItem",
+      "ComandoBancoDados",
+      "BaixaTitulo",
+      "Apurado",
+      "ValoresAnuais",
+      "OutrasOperacoes",
+      "ProjetoOrcamento",
+      "CrmOportunidade",
+      "IntegracaoEzEcommerce",
+      "Provisao",
+      "Revisao",
+      "IntegracaoAPI",
+      "RetencaoCompraInss",
+      "RetencaoCompraIss",
+      "RetencaoCompraIrrf",
+      "RetencaoCompraPis",
+      "RetencaoCompraCofins",
+      "RetencaoCompraCsll",
+      "BaixaTarifaRetornoBoleto",
+      "ComposicaoProduto",
+      "ImportadoXmlCte",
+      "ComissaoDocumentoFiscalApuracao",
+      "ContratosServico",
+      "ProjetoOrcamentoSimplesFatura",
+      "ImportadoMarketplace",
+      "DevolucaoVenda",
+      "ProjetoExecucaoTarefaEtapa",
+      "ProjetoExecucaoTarefaEtapaDetalhamentoExecucao",
+      "RequisicaoItemFatura",
+      "SimplesNacional",
+      "OrdemServicoFechamentoRequisicao",
+      "DocumentoFiscalAgrupado",
+      "AtualizacaoCondicaoTitulo",
+      "NotaFiscalSaidaOS",
+      "ProjetoExecucao",
+      "ProjetoExecucaoTarefa",
+      "ProjetoExecucaoTarefaItem",
+      "AgrupamentoPedido",
+      "LancamentoFinanceiro",
+      "CompraItem",
+      "SubstituicaoItem",
+      "FichaTecnica",
+      "PreRecebimento",
+      "DeclaracaoImportacaoDI",
+      "OutrosDocumento",
+      "ProcessoCotacaoRecriado",
+      "OrdemProducaoVinculada",
+      "AgrupamentoPedidoOrdemProducao",
+      "EstruturaComposicao",
+      "ImportarProjetoExecucao",
+      "AjusteEstoque",
+      "AgendaFinanceira",
+      "PesagemVeiculo",
+      "RetencaoCompraFunrural",
+      "CompraTransferenciaEstoque",
+      "OutrasNFTransferenciaEstoqueEntrada",
+      "OutrasNFTransferenciaEstoqueSaida",
+      "FolhaPagamento",
+      "RenegociacaoVariacaoReceber",
+      "RenegociacaoVariacaoPagar",
+      "ApontamentoManualProducao",
+      "OrcamentoDavParcelaNfce",
+      "OrcamentoDavItemNfce",
+      "AnaliseSugestaoCompra",
+      "OrdemProducaoItem",
+      "OrcamentoDavNfce",
+      "DocumentoFiscalGeral",
+      "ContratoAditivoProduto",
+      "ContratoAditivo",
+      "IntegracaoAPIMobile",
+      "OutrasObrigacaoOperaracaoFiscal",
+      "PlanilhaExcel",
+      "BaixaDescontoParcela",
+      "PdvNfce",
+      "TransferenciaArmazenagem",
+      "SimuladorPreco",
+      "Replicado",
+      "RequisicaoSaida",
+      "RequisicaoEntrada",
+      "SimuladorProducao",
+      "ImportadoAPI",
+      "ApuracaoIcms",
+      "OrdemServicoFechamentoContrato",
+      "AgrupamentoTitulo",
+      "DesmembramentoTarefa",
+      "DevolucaoPedido",
+      "ComposicaoEngenharia",
+      "CadastroVeiculoFlorestal",
+      "CadastroVeiculoPessoa",
+      "CadastroVeiculoReboque",
+      "RecalculoEstoque",
+      "RevendaContratoAditivoProduto",
+      "RevendaContratoAditivo",
+      "ProvisaoAutomatica",
+      "PedidoCarrinho",
+      "AdiantamentoNFCompra",
+      "AdiantamentoNFVenda",
+      "ComexBaixarPagar",
+      "ExtratoBancario",
+      "AdiantamentoCliente",
+      "AdiantamentoFornecedor",
+      "DevolucaoAutomaticaVenda",
+      "AjusteDadosSistema"
+    ],
+    "type": "string"
+  },
+  "ATOrdemServicoManutencaoRequestDto": {
+    "required": [
+      "veiculoPessoaId"
+    ],
+    "type": "object",
+    "properties": {
+      "veiculoPessoaId": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "motoristaNome": {
+        "type": "string",
+        "nullable": true
+      },
+      "kmAtual": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "box": {
+        "type": "string",
+        "nullable": true
+      },
+      "dataUltimaTrocaOleo": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "kmUltimaTroca": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "kmRodado": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "quantidadeCombustivel": {
+        "$ref": "#/components/schemas/QuantidadeCombustivelEnum"
+      },
+      "condicaoEntrada": {
+        "$ref": "#/components/schemas/CondicaoEntradaEnum"
+      },
+      "dataProximaTrocaOleo": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "avisoAntecedenciaTrocaOleo": {
+        "$ref": "#/components/schemas/AvisoAntecedenciaEnum"
+      },
+      "observacoesTrocaOleo": {
+        "type": "string",
+        "nullable": true
+      },
+      "dataProximaRevisao": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "avisoAntecedencia": {
+        "$ref": "#/components/schemas/AvisoAntecedenciaEnum"
+      },
+      "observacoesRevisao": {
+        "type": "string",
+        "nullable": true
+      },
+      "observacao": {
+        "type": "string",
+        "nullable": true
+      },
+      "avarias": {
+        "type": "string",
+        "nullable": true
+      },
+      "defeitos": {
+        "type": "string",
+        "nullable": true
+      },
+      "laudo": {
+        "type": "string",
+        "nullable": true
+      },
+      "recarregarEquipamento": {
+        "type": "boolean",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "QuantidadeCombustivelEnum": {
+    "enum": [
+      "Vazio",
+      "Cheio",
+      "Meio",
+      "UmQuarto",
+      "TresQuartos"
+    ],
+    "type": "string"
+  },
+  "CondicaoEntradaEnum": {
+    "enum": [
+      "Rodando",
+      "Guincho"
+    ],
+    "type": "string"
+  },
+  "AvisoAntecedenciaEnum": {
+    "enum": [
+      "Nenhum",
+      "Customizado",
+      "Dia",
+      "TresDia",
+      "CincoDias",
+      "Semana",
+      "QuinzeDias",
+      "Mes"
+    ],
+    "type": "string"
+  },
+  "ATOrdemServicoEquipamentoRequestDto": {
+    "type": "object",
+    "properties": {
+      "equipamentoId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "equipamentoProdutoId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "horimetro": {
+        "type": "string",
+        "nullable": true
+      },
+      "dataHorimetro": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "horimetroDois": {
+        "type": "string",
+        "nullable": true
+      },
+      "dataHorimetroDois": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "horimetroTres": {
+        "type": "string",
+        "nullable": true
+      },
+      "dataHorimetroTres": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "box": {
+        "type": "string",
+        "nullable": true
+      },
+      "numeroSerie": {
+        "type": "string",
+        "nullable": true
+      },
+      "numeroFrota": {
+        "type": "string",
+        "nullable": true
+      },
+      "dataInstalacao": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "diasGarantia": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "anoFabricacao": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "torre": {
+        "type": "string",
+        "nullable": true
+      },
+      "marcaId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "defeitoId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "tecnicoId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "problemaId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "causaProblemaId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "marca": {
+        "type": "string",
+        "nullable": true
+      },
+      "equipamentoModelo": {
+        "type": "string",
+        "nullable": true
+      },
+      "documentoOrigem": {
+        "type": "string",
+        "nullable": true
+      },
+      "defeitos": {
+        "type": "string",
+        "nullable": true
+      },
+      "problema": {
+        "type": "string",
+        "nullable": true
+      },
+      "solucao": {
+        "type": "string",
+        "nullable": true
+      },
+      "pendencia": {
+        "type": "string",
+        "nullable": true
+      },
+      "observacoes": {
+        "type": "string",
+        "nullable": true
+      },
+      "observacoesInternas": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ATOrdemServicoProdutoRequestDto": {
+    "required": [
+      "produtoId",
+      "quantidade",
+      "valorTotal",
+      "valorUnitario"
+    ],
+    "type": "object",
+    "properties": {
+      "produtoId": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "quantidade": {
+        "type": "number",
+        "format": "double"
+      },
+      "valorUnitario": {
+        "type": "number",
+        "format": "double"
+      },
+      "valorTotal": {
+        "type": "number",
+        "format": "double"
+      },
+      "id": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "valorUnitarioDesconto": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "percentualDesconto": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "valorDesconto": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "descricaoDetalhadaNfe": {
+        "type": "string",
+        "nullable": true
+      },
+      "destinoEstoqueId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "situacaoItemId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "observacaoInterna": {
+        "type": "string",
+        "nullable": true
+      },
+      "observacao": {
+        "type": "string",
+        "nullable": true
+      },
+      "numerosSerieApi": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ATOrdemServicoProdutoNumeroSerieRequestDto"
+        },
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ATOrdemServicoProdutoNumeroSerieRequestDto": {
+    "required": [
+      "id"
+    ],
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "ordemServicoItemId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ATOrdemServicoServicoRequestDto": {
+    "required": [
+      "quantidade",
+      "servicoId",
+      "valorTotal",
+      "valorUnitario"
+    ],
+    "type": "object",
+    "properties": {
+      "servicoId": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "quantidade": {
+        "type": "number",
+        "format": "double"
+      },
+      "valorUnitario": {
+        "type": "number",
+        "format": "double"
+      },
+      "valorTotal": {
+        "type": "number",
+        "format": "double"
+      },
+      "id": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "quantidadeHora": {
+        "type": "string",
+        "format": "date-time",
+        "nullable": true
+      },
+      "valorUnitarioDesconto": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "percentualDesconto": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "valorDesconto": {
+        "type": "number",
+        "format": "double",
+        "nullable": true
+      },
+      "descricaoDetalhadaNfe": {
+        "type": "string",
+        "nullable": true
+      },
+      "responsavelTecnicoId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "destinoEstoqueId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "situacaoItemId": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "observacaoInterna": {
+        "type": "string",
+        "nullable": true
+      },
+      "observacao": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ATOrdemServicoApontamentoHoraRequestDto": {
+    "required": [
+      "data",
+      "descricaoServico",
+      "funcionarioId",
+      "horaFim",
+      "horaInicio",
+      "servicoId",
+      "totalHoras"
+    ],
+    "type": "object",
+    "properties": {
+      "servicoId": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "funcionarioId": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "horaInicio": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "horaFim": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "totalHoras": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "descricaoServico": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "data": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "id": {
+        "type": "integer",
+        "format": "int32",
+        "nullable": true
+      },
+      "observacao": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ATOrdemServicoParcelaRequestDto": {
+    "required": [
+      "condicaoPagamentoId",
+      "valor",
+      "vencimento"
+    ],
+    "type": "object",
+    "properties": {
+      "condicaoPagamentoId": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "vencimento": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "valor": {
+        "type": "number",
+        "format": "double"
+      },
+      "observacao": {
+        "type": "string",
+        "nullable": true
+      }
+    },
+    "additionalProperties": false
+  },
+  "ChecklistRespostaRequestDto": {
+    "required": [
+      "avaliacaoNota",
+      "checklistPerguntaExecucaoRelacionadaId",
+      "observacao"
+    ],
+    "type": "object",
+    "properties": {
+      "checklistPerguntaExecucaoRelacionadaId": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "observacao": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "avaliacaoNota": {
+        "type": "number",
+        "format": "double"
+      }
+    },
+    "additionalProperties": false
+  }
+}

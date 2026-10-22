@@ -10,6 +10,8 @@ import TaskCharts from "./task-charts";
 import {
   Save,
   Trash2,
+  Paperclip,
+  MessageSquarePlus,
   Plus,
   Settings,
   ChevronDown,
@@ -165,6 +167,7 @@ export function TaskDrawer({
     [addingNote, setAddingNote] = useState(false),
     [title, setTitle] = useState(""),
     [description, setDescription] = useState("");
+  const attachmentInput = useRef<HTMLInputElement>(null);
   function accept(b: any) {
     if (b.task.redacted) { onChanged?.(); onClose(); return; }
     setRestricted(!!b.task.restricted);
@@ -536,9 +539,13 @@ export function TaskDrawer({
           <aside>
             <section className="task-card">
               <h3>Anexos ({data.attachments.length})</h3>
-              <label>
-                Incluir PDF ou Office (até 3 MB)
+              <div className="task-attachment-action">
+                <button type="button" className="task-secondary-action" disabled={busy} onClick={()=>attachmentInput.current?.click()}><Paperclip size={17}/><span>Anexar arquivo</span></button>
+                <span className="task-upload-limit">Até 3 MB por arquivo</span>
                 <input
+                  ref={attachmentInput}
+                  style={{display:"none"}}
+                  aria-label="Selecionar anexo"
                   disabled={busy}
                   type="file"
                   accept={taskAttachmentAccept}
@@ -547,8 +554,8 @@ export function TaskDrawer({
                     e.target.value = "";
                   }}
                 />
-              </label>
-              <small>{taskAttachmentTypeMessage}</small>
+              </div>
+              <small className="task-upload-help">{taskAttachmentTypeMessage}</small>
               {data.attachments.map((a: any) => (
                 <p key={a.id}>
                   <a
@@ -569,10 +576,14 @@ export function TaskDrawer({
             <section className="task-card">
               <h3>Notas ({data.notes.length})</h3>
               <button
+                type="button"
+                className="task-secondary-action task-add-note"
                 disabled={busy}
+                aria-expanded={addingNote}
                 onClick={() => setAddingNote(!addingNote)}
               >
-                {addingNote ? "Cancelar nota" : "Incluir nota"}
+                {addingNote ? <X size={17}/> : <MessageSquarePlus size={17}/>}
+                <span>{addingNote ? "Cancelar nota" : "Incluir nota"}</span>
               </button>
               {addingNote && (
                 <form
@@ -603,12 +614,13 @@ export function TaskDrawer({
                   <button disabled={busy}>Salvar nota</button>
                 </form>
               )}
+              <div className="task-notes-timeline">
               {data.notes.map((n: any) => (
-                <article key={n.id} className="task-note">
+                <article key={n.id} className={`task-note ${n.automatic ? "task-note-system" : "task-note-user"}`} style={{"--note-color": n.automatic ? "#94a3b8" : userTaskColor(n.created_by,users.find((u:any)=>u.email?.toLowerCase()===n.created_by?.toLowerCase())?.task_color)} as CSSProperties}>
                   <div className="task-note-heading"><strong>{n.title}</strong>{canDeleteNotes&&<button type="button" disabled={busy} title="Excluir nota" aria-label={"Excluir nota: "+n.title} onClick={()=>void removeNote(String(n.id))}><Trash2 size={15}/></button>}</div>
                   <small>
-                    {n.automatic ? "Automática · " : ""}
-                    {n.created_name} · {date(n.created_at)}
+                    {date(n.created_at)} · {n.created_name}
+                    <span className="task-note-origin">{n.automatic ? "Automática do sistema" : "Nota do usuário"}</span>
                   </small>
                   <p>{n.description}</p>
                   {n.quote_id && (
@@ -620,6 +632,7 @@ export function TaskDrawer({
                   )}
                 </article>
               ))}
+              </div>
             </section>
           </aside>
         </div>

@@ -1,10 +1,13 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { MoreVertical, ClipboardPlus } from "lucide-react";
+import { MoreVertical, ClipboardPlus, Pencil } from "lucide-react";
+import Link from "next/link";
+import {processedOrder} from "@/lib/service-orders/edit-status";
 import { apiFetch } from "@/lib/client-api-cache";
 import { TaskDrawer } from "./tasks-dashboard";
 import "./create-linked-task.css";
 type LinkContext = {
+  orderStatus?: string | null;
   orderId?: string;
   orderCompany?: number | string;
   equipmentId?: string;
@@ -52,6 +55,7 @@ export default function CreateLinkedTask(props: LinkContext) {
         >
           <ClipboardPlus size={17} aria-hidden="true"/> Criar tarefa
         </button>
+        {props.orderId && props.orderCompany && props.orderStatus != null && !processedOrder(props.orderStatus) && <Link className="edit-order-menu-link" href={`/OrdemServico/editar?empresa=${props.orderCompany}&id=${props.orderId}`} onClick={()=>menu.current?.hidePopover()}><Pencil size={17}/> Editar OS</Link>}
       </div>
 
       {creating && (

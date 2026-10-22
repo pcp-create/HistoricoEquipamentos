@@ -257,7 +257,7 @@ test("creation uses customer equipment rule, persists progress, isolates users a
       return async (
         path: string,
         body?: unknown,
-        method: "POST" | "PATCH" = "POST",
+        method: "POST" | "PATCH" | "PUT" | "DELETE" = "POST",
       ) => {
         if (path.endsWith("/statusfluxo")) {
           assert.equal(method, "PATCH");

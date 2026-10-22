@@ -52,7 +52,10 @@ async function api(body?: unknown, query = "") {
   if (!r.ok) throw Error(d.error);
   return d;
 }
-export default function NewServiceOrder() {
+export default function NewServiceOrder({
+  editing,
+}: { editing?: { company: string; id: string } } = {}) {
+  const [editData, setEditData] = useState<any>(null);
   const router = useRouter();
   const [form, setForm] = useState<OrderDraft>(blank),
     [meta, setMeta] = useState<any>(null),
@@ -71,13 +74,51 @@ export default function NewServiceOrder() {
     active = Boolean(
       current && !["rejected", "complete"].includes(current.state),
     );
-  const disabled = busy || active;
+  const disabled = busy || active || Boolean(editing && !editData);
   const set = (key: keyof OrderDraft, value: string) => {
     setError("");
     setForm((f) => ({ ...f, [key]: value }));
   };
   async function load() {
     try {
+      if (editing) {
+        const [m, d] = await Promise.all([
+          api(undefined, "?lookup=metadata"),
+          api(
+            undefined,
+            "?edit=1&company=" + editing.company + "&order=" + editing.id,
+          ),
+        ]);
+        setMeta(m);
+        setEditData(d);
+        setForm(d.draft);
+        setNames(d.names);
+        setError("");
+        const pending = sessionStorage.getItem(
+          "edit-service-order-" + editing.company + "-" + editing.id,
+        );
+        if (pending) {
+          requestId.current = pending;
+          try {
+            const status = await api(undefined, "?editStatus=" + pending);
+            if (status.state === "complete") {
+              sessionStorage.removeItem(
+                "edit-service-order-" + editing.company + "-" + editing.id,
+              );
+              requestId.current = null;
+            } else {
+              setCurrent(status);
+              if (status.draft) setForm(status.draft);
+            }
+          } catch {
+            sessionStorage.removeItem(
+              "edit-service-order-" + editing.company + "-" + editing.id,
+            );
+            requestId.current = null;
+          }
+        }
+        return;
+      }
       const [m, r] = await Promise.all([
         api(undefined, "?lookup=metadata"),
         api(),
@@ -143,7 +184,11 @@ export default function NewServiceOrder() {
             : d.rows.length === 1
               ? d.rows[0]
               : null;
-        setForm((f) => ({ ...f, seller: chosen?.id || "" }));
+        setForm((f) =>
+          editing && f.customer === editData?.draft.customer
+            ? f
+            : { ...f, seller: chosen?.id || "" },
+        );
         if (!d.rows.length)
           setSellerError(
             "Cliente sem vendedor cadastrado no M8. Atualize o cadastro do cliente para continuar.",
@@ -166,13 +211,20 @@ export default function NewServiceOrder() {
   async function advance(id: string) {
     let r;
     do {
-      r = await api({ action: "advance", id });
+      r = await api({ action: editing ? "edit-advance" : "advance", id });
       setCurrent(r);
     } while (r.state === "ready");
-    if (r.state === "complete")
+    if (r.state === "complete") {
+      if (editing) {
+        sessionStorage.removeItem(
+          "edit-service-order-" + editing.company + "-" + editing.id,
+        );
+        requestId.current = null;
+      }
       router.replace(
         `/historico?createdCompany=${r.company}&createdOrder=${r.m8Id}`,
       );
+    }
     if (r.state !== "complete")
       setError(
         r.message || "O envio está pendente. Confira o andamento abaixo.",
@@ -184,7 +236,7 @@ export default function NewServiceOrder() {
     if (sending.current) return;
     setError("");
     try {
-      parseOrder(form);
+      parseOrder(form, Boolean(editing));
     } catch (e) {
       setTab("header");
       setError(e instanceof Error ? e.message : "Confira os campos.");
@@ -195,11 +247,27 @@ export default function NewServiceOrder() {
     try {
       const id = requestId.current || crypto.randomUUID();
       requestId.current = id;
-      sessionStorage.setItem("new-service-order-submission", id);
-      const prepared = await api({ action: "prepare", id, draft: form });
+      sessionStorage.setItem(
+        editing
+          ? "edit-service-order-" + editing.company + "-" + editing.id
+          : "new-service-order-submission",
+        id,
+      );
+      const prepared = await api(
+        editing
+          ? {
+              action: "edit-prepare",
+              id,
+              company: editing.company,
+              order: editing.id,
+              version: editData.version,
+              draft: form,
+            }
+          : { action: "prepare", id, draft: form },
+      );
       setCurrent(prepared);
       await advance(id);
-      setRecent((await api()).rows);
+      if (!editing) setRecent((await api()).rows);
     } catch (e) {
       setError(
         e instanceof Error
@@ -208,8 +276,14 @@ export default function NewServiceOrder() {
       );
       try {
         if (requestId.current) {
-          const r = await api(undefined, "?id=" + requestId.current);
-          if (r.rows[0]) setCurrent(r.rows[0]);
+          const r = await api(
+            undefined,
+            editing
+              ? "?editStatus=" + requestId.current
+              : "?id=" + requestId.current,
+          );
+          if (editing) setCurrent(r);
+          else if (r.rows[0]) setCurrent(r.rows[0]);
         }
       } catch {}
     } finally {
@@ -223,10 +297,15 @@ export default function NewServiceOrder() {
     setBusy(true);
     setError("");
     requestId.current = id;
-    sessionStorage.setItem("new-service-order-submission", id);
+    sessionStorage.setItem(
+      editing
+        ? "edit-service-order-" + editing.company + "-" + editing.id
+        : "new-service-order-submission",
+      id,
+    );
     try {
       await advance(id);
-      setRecent((await api()).rows);
+      if (!editing) setRecent((await api()).rows);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível continuar.");
     } finally {
@@ -236,7 +315,11 @@ export default function NewServiceOrder() {
   }
   function reset() {
     requestId.current = null;
-    sessionStorage.removeItem("new-service-order-submission");
+    sessionStorage.removeItem(
+      editing
+        ? "edit-service-order-" + editing.company + "-" + editing.id
+        : "new-service-order-submission",
+    );
     setCurrent(null);
     setError("");
   }
@@ -266,15 +349,33 @@ export default function NewServiceOrder() {
   ) => (
     <label>
       <span className="os-field-title">
-        {label} {key !== "technician" && <b>*</b>}
+        {label}{" "}
+        {key !== "technician" &&
+          (!editing ||
+            ["type", "customer", "payment", "seller"].includes(key)) && (
+            <b>*</b>
+          )}
       </span>
       <OrderSearchSelect
         label={label}
         value={String(form[key])}
-        options={options.map((r) => ({
-          ...r,
-          detail: key === "technician" ? "" : `ID ${r.id}`,
-        }))}
+        options={(editing &&
+        form[key] &&
+        !options.some((r) => String(r.id) === String(form[key]))
+          ? [
+              ...options,
+              {
+                id: String(form[key]),
+                name: editData?.labels?.[key] || "Valor atual no M8",
+              },
+            ]
+          : options
+        )
+          .sort((a, b) => Number(a.id) - Number(b.id))
+          .map((r) => ({
+            ...r,
+            detail: key === "technician" ? "" : `ID ${r.id}`,
+          }))}
         onChange={(r) =>
           key === "type" ? choose("type", r.id) : set(key, r.id)
         }
@@ -291,10 +392,36 @@ export default function NewServiceOrder() {
         </Link>
         <header>
           <div>
-            <h1>Nova Ordem de Serviço</h1>
-            <p>Cadastre a ordem no M8 com seus produtos e serviços.</p>
+            <h1>
+              {editing
+                ? "Editar OS " + (editData?.number || "")
+                : "Nova Ordem de Serviço"}
+            </h1>
+            <p>
+              {editing
+                ? "Revise os dados e salve as alterações na ordem existente."
+                : "Cadastre a ordem no M8 com seus produtos e serviços."}
+            </p>
           </div>
-          <Link href="/configuracoes/cadastros">Cadastros auxiliares</Link>
+          <div>
+            <Link href="/configuracoes/cadastros">Cadastros auxiliares</Link>
+            {editing && (
+              <button
+                type="button"
+                disabled={busy || active}
+                onClick={() => {
+                  requestId.current = null;
+                  setCurrent(null);
+                  sessionStorage.removeItem(
+                    "edit-service-order-" + editing.company + "-" + editing.id,
+                  );
+                  void load();
+                }}
+              >
+                Recarregar OS
+              </button>
+            )}
+          </div>
         </header>
         {!meta && (
           <p>
@@ -304,6 +431,13 @@ export default function NewServiceOrder() {
             </button>
           </p>
         )}
+        {editing && editData?.missing?.length > 0 && (
+          <p className="os-edit-notice">
+            Alguns campos, como origem, frete, garantia e observações internas,
+            não são retornados pelo M8. Eles ficam em branco e só são enviados
+            se você os preencher.
+          </p>
+        )}
         {error && (
           <p role="alert" className="os-error">
             {error}
@@ -311,7 +445,11 @@ export default function NewServiceOrder() {
         )}
         {current && (
           <section className="os-result" aria-live="polite">
-            <strong>{stateNames[current.state]}</strong>
+            <strong>
+              {editing && current.state === "complete"
+                ? "OS atualizada"
+                : stateNames[current.state]}
+            </strong>
             <p>
               Empresa {companyName(String(current.company))}
               {current.m8Id ? ` · ID M8 da OS: ${current.m8Id}` : ""} ·{" "}
@@ -327,7 +465,7 @@ export default function NewServiceOrder() {
             {["sending", "uncertain"].includes(current.state) && (
               <p>
                 A resposta não está confirmada. Confira a OS no ERP antes de
-                realizar um novo cadastro.
+                realizar um novo envio.
               </p>
             )}
             {["ready", "partial"].includes(current.state) && (
@@ -345,7 +483,7 @@ export default function NewServiceOrder() {
                 disabled={busy}
                 onClick={() => {
                   reset();
-                  if (current.state === "complete") {
+                  if (current.state === "complete" && !editing) {
                     setForm(blank());
                     setNames({ customer: "", equipment: "" });
                   }
@@ -375,6 +513,7 @@ export default function NewServiceOrder() {
                 </span>
                 <OrderSearchSelect
                   label="Empresa"
+                  disabled={Boolean(editing)}
                   value={form.company}
                   placeholder="Selecione a empresa para cadastrar"
                   options={["1", "2", "27404"].map((id) => ({
@@ -384,7 +523,11 @@ export default function NewServiceOrder() {
                   onChange={(r) => choose("company", r.id)}
                 />
               </label>
-              <span>A OS será criada na empresa selecionada.</span>
+              <span>
+                {editing
+                  ? "Empresa da OS existente."
+                  : "A OS será criada na empresa selecionada."}
+              </span>
             </div>
             <nav className="os-tabs" aria-label="Dados da nova OS">
               {[
@@ -427,7 +570,7 @@ export default function NewServiceOrder() {
                   </label>
                   <label>
                     <span className="os-field-title">
-                      Equipamento <b>*</b>
+                      Equipamento {!editing && <b>*</b>}
                     </span>
                     <OrderSearchSelect
                       label="Equipamento"
@@ -529,7 +672,7 @@ export default function NewServiceOrder() {
                   {select("freight", "Frete", registry("freight"))}
                   <label>
                     <span className="os-field-title">
-                      Prazo Garantia <b>*</b>
+                      Prazo Garantia {!editing && <b>*</b>}
                     </span>
                     <input
                       readOnly
@@ -539,10 +682,10 @@ export default function NewServiceOrder() {
                   </label>
                   <label className="os-wide">
                     <span className="os-field-title">
-                      Observações <b>*</b>
+                      Observações {!editing && <b>*</b>}
                     </span>
                     <textarea
-                      required
+                      required={!editing}
                       maxLength={20000}
                       rows={4}
                       value={form.notes}
@@ -551,10 +694,10 @@ export default function NewServiceOrder() {
                   </label>
                   <label className="os-wide">
                     <span className="os-field-title">
-                      Observações Internas <b>*</b>
+                      Observações Internas {!editing && <b>*</b>}
                     </span>
                     <textarea
-                      required
+                      required={!editing}
                       maxLength={20000}
                       rows={4}
                       value={form.internalNotes}
@@ -575,6 +718,11 @@ export default function NewServiceOrder() {
                     "Técnico",
                     [
                       { id: "", name: "Não atribuído" },
+                      ...(editing &&
+                      form.technician.startsWith("m8:") &&
+                      editData?.technicianOption
+                        ? [editData.technicianOption]
+                        : []),
                       ...(meta?.users || []).map((u: any) => ({
                         id: u.email,
                         displayId: u.m8_employee_id
@@ -600,10 +748,17 @@ export default function NewServiceOrder() {
                           placeholder="Padrão do M8"
                           options={[
                             { id: "", name: "Padrão do M8" },
-                            ...(field.options || []).map((id) => ({
-                              id,
-                              name: id,
-                            })),
+                            ...(field.options || [])
+                              .filter(
+                                (id) =>
+                                  !editing ||
+                                  field.key !== "status" ||
+                                  id !== "Processado",
+                              )
+                              .map((id) => ({
+                                id,
+                                name: id,
+                              })),
                           ]}
                           onChange={(r) =>
                             setForm((f) => ({
@@ -702,7 +857,7 @@ export default function NewServiceOrder() {
                         {form.items.map(
                           (item, index) =>
                             item.kind === kind && (
-                              <tr key={kind + item.code}>
+                              <tr key={kind + (item.id || item.code)}>
                                 <td>
                                   {item.code} · {item.name}
                                 </td>
@@ -795,11 +950,17 @@ export default function NewServiceOrder() {
               }
             >
               <Save size={18} />
-              {busy ? "Criando no M8…" : "Criar OS no M8"}
+              {busy
+                ? editing
+                  ? "Salvando no M8…"
+                  : "Criando no M8…"
+                : editing
+                  ? "Salvar alterações"
+                  : "Criar OS no M8"}
             </button>
           </footer>
         </form>
-        <details className="os-recent">
+        <details className="os-recent" hidden={Boolean(editing)}>
           <summary>Meus envios recentes</summary>
           <button type="button" disabled={busy} onClick={() => void load()}>
             <RefreshCw size={15} /> Atualizar andamento

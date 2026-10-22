@@ -1,3 +1,4 @@
+import {equipmentWorkshopStatus} from "../workshop/equipment-status";
 import { predictPlans } from "./preventive-hierarchy.stable";
 import { planItemUnit } from "./plan-items";
 import { planClients } from "./plan-clients";
@@ -64,6 +65,8 @@ export async function equipmentList(params: URLSearchParams) {
  WHERE l.equipment_id=e.equipment_id AND l.present GROUP BY l.person_id) p) c ON true
  WHERE e.present ORDER BY e.name,e.equipment_id`)
   ).rows;
+  const workshops = await equipmentWorkshopStatus(rows.map(e => e.id));
+  for (const row of rows) row.workshop = workshops.get(row.id) || null;
   const plans = (
     await db.query(
       "SELECT p.id,p.equipment_id::text,p.document,p.updated_at,COALESCE(NULLIF(u.display_name,''),p.updated_by) AS updated_by_name FROM web_equipment_plans p LEFT JOIN web_user_access u ON u.email=p.updated_by WHERE NOT p.archived",
@@ -102,7 +105,7 @@ export async function equipmentList(params: URLSearchParams) {
       return {
         ...e,
         ownership: e.rental ? "own" : e.settings.ownership || "unknown",
-        rentalStatus: rentalStates.get(e.id) || null,
+        rentalStatus: e.workshop ? {key:"in_workshop",label:"Em Oficina",order:null,company:null,customer:null} : rentalStates.get(e.id) || null,
         plans: planned.length,
         plansUpdatedAt: lastModifiedPlan ? new Date(lastModifiedPlan.updatedAt).toISOString() : null,
         plansUpdatedBy: lastModifiedPlan?.updatedByName || null,
@@ -191,6 +194,8 @@ export async function equipmentDetail(raw: string) {
   equipment.rentalStatus = equipment.rental
     ? (await rentalStatuses([id])).get(id)
     : null;
+  equipment.workshop = (await equipmentWorkshopStatus([id])).get(id) || null;
+  if (equipment.workshop) equipment.rentalStatus = {key:"in_workshop",label:"Em Oficina",order:null,company:null,customer:null};
   equipment.usage = equipment.rental
     ? (await rentalUsage([id])).get(id)
     : undefined;

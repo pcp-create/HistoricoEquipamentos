@@ -42,3 +42,7 @@ SELECT company_id,count(*) AS orcamentos,
  max(collected_at) AS ultima_consulta
 FROM m8_quotes GROUP BY company_id ORDER BY company_id;
 ```
+
+## Atualização conjunta com compras
+
+Para instalar os orçamentos pendentes junto com as novas ordens de compra, siga [a atualização conjunta](atualizacao-compras.md), que inclui os dois timers no mesmo pacote.

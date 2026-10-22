@@ -67,6 +67,7 @@ const modules = [
     links: [["Últimas tarefas, minhas tarefas e calendário", "/tarefas"]],
     next: "Notas, anexos e histórico de cada ocorrência.",
   },
+  {id:"oficina",title:"Gestão de Oficina",icon:Wrench,description:"Entrada, manutenção e saída de máquinas. Controle de consertos externos.",links:[["Painel da oficina","/oficina"]],next:"Acompanhe máquinas, prazos e componentes em reparo."},
   {id:"visitas",title:"Visitas",icon:Users,description:"Carteira de clientes, agenda e acompanhamento de visitas comerciais.",links:[["Portal Vendas RJ", "/visitas"],["Gestão de Visitas", "/visitas/gestao"]],next:"Planeje visitas e acompanhe o relacionamento com seus clientes."},
 ];
 

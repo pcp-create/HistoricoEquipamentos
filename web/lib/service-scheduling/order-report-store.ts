@@ -12,6 +12,7 @@ export function validateOrderReportSelection(body: any): {
   scheduleId: string;
   operationIds: string[];
   mode: ReportMode;
+  includeTimeline: boolean;
 } {
   const uuid =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -38,7 +39,9 @@ export function validateOrderReportSelection(body: any): {
   const mode = body.mode ?? "complete";
   if (!["complete", "summary", "budget"].includes(mode))
     throw new OrderReportInputError("Tipo de relatório inválido.");
-  return { scheduleId: body.scheduleId, operationIds, mode };
+  if (body.includeTimeline != null && typeof body.includeTimeline !== "boolean")
+    throw new OrderReportInputError("Opção de linha do tempo inválida.");
+  return { scheduleId: body.scheduleId, operationIds, mode, includeTimeline: body.includeTimeline ?? mode !== "summary" };
 }
 
 /** Read one consistent snapshot, rechecking permissions and operation ownership server-side. */
@@ -115,6 +118,7 @@ export async function loadOrderReport(body: any, email: string, portal = false, 
       operationIds,
       mode,
       true,
+      body.includeTimeline ?? mode !== "summary",
     );
     const photos: any[] = [];
     for (const chapter of model.chapters) {

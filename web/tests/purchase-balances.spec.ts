@@ -1,0 +1,20 @@
+import {test,expect} from '@playwright/test';
+test('planning products show stocks, outstanding purchases and incomplete imports',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/**',r=>r.fulfill({json:{admin:true,tasks:[]}}));
+ const material={id_m8:1,item_company:1,item_order:'100',produto_id:10,produto_nome:'Filtro',unidade_nome:'UNIDADE',quantidade:2,current:{unit:'UNIDADE',stock:'5',available:'0',stock_at:'2026-10-22T12:00:00Z',available_at:'2026-10-22T12:00:00Z'}};
+ const data={email:'planner',canEdit:true,users:[],settings:{document:{serviceTypes:[],calendars:[],checklists:[]}},schedule:{id:'1',company_id:1,order_id:'100'},detail:{detail_at:'2026-10-22',order:{numero_sequencia:15119,cliente_nome:'Cliente'},materials:[{...material,purchases:{imported:true,complete:true,collectedAt:'2026-10-22T12:00:00Z',groups:[{unit:'UNIDADE',quantity:'4',orders:['1653'],deliveryDates:['2026-11-03']}]}},{...material,id_m8:2,produto_id:11,produto_nome:'Óleo',purchases:{imported:true,complete:false,groups:[]}},{...material,id_m8:3,produto_id:12,produto_nome:'Reparo'}],services:[]},operations:[],usage:[],costs:[],events:[],fieldEvents:[],fieldSessions:[],profit:null};
+ await page.route('**/api/service-scheduling**',r=>r.fulfill({json:data}));
+ await page.goto('/programacao?id=1');
+ await page.getByRole('button',{name:'Produtos',exact:true}).click();
+ await expect(page.getByRole('columnheader',{name:'Em compra',exact:true})).toBeVisible();
+ const row=page.getByRole('row').filter({hasText:'Filtro'});
+ await expect(row.getByRole('cell').nth(4)).toHaveText('5');
+ await expect(row.getByRole('cell').nth(5)).toHaveText('0');
+ await expect(row.getByRole('cell').nth(6)).toContainText('4 UNIDADE');
+ await expect(row.getByRole('cell').nth(6)).toContainText('Previsão de entrega: 03/11/2026');
+ await expect(row.getByRole('cell').nth(4)).toHaveCSS('text-align','center');
+ await expect(row.getByTitle(/Ordens de compra: 1653/)).toBeVisible();
+ await expect(page.getByRole('row').filter({hasText:'Óleo'})).toContainText('Importação parcial');
+ await expect(page.getByRole('row').filter({hasText:'Reparo'})).toContainText('Aguardando integração');
+});

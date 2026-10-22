@@ -42,6 +42,7 @@ test("requests require managers, stay pending, approve once, retain originals an
         ),
       );
     }
+    await db.exec("ALTER TABLE web_tasks ADD COLUMN followers text[] NOT NULL DEFAULT '{}'");
     await db.exec(`CREATE TABLE m8_ordens_servico(company_id integer,id_m8 bigint,numero_sequencia bigint,equipamento text,cliente_nome text);
  INSERT INTO m8_ordens_servico VALUES(1,100,100,'Compressor','Cliente');
  INSERT INTO web_user_access(email,display_name,role,updated_by) VALUES('tech','Técnico','user','test'),('manager','Gestor','admin','test'),('manager2','Gestor 2','admin','test'),('outsider','Outro','admin','test');
@@ -110,6 +111,7 @@ test("requests require managers, stay pending, approve once, retain originals an
       "3600",
     );
     assert.equal((await db.query("SELECT * FROM web_tasks")).rows.length, 2);
+    assert.ok((await db.query<any>("SELECT followers FROM web_tasks")).rows.every(t => t.followers.join() === "tech"));
     const notifications = (await db.query<any>(
       "SELECT n.recipient,n.state,n.task_version,t.assigned_to FROM web_task_notifications n JOIN web_tasks t ON t.id=n.task_id ORDER BY n.recipient",
     )).rows;

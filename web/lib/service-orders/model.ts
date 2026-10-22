@@ -8,6 +8,7 @@ export function positiveId(v: unknown, label: string) {
 }
 export type OrderItem = {
   kind: "material" | "service";
+  id?: string;
   code: string;
   name: string;
   quantity: string;
@@ -33,7 +34,7 @@ export type OrderDraft = {
   items: OrderItem[];
   extra?: Record<string, string>;
 };
-export function parseOrder(value: unknown): OrderDraft {
+export function parseOrder(value: unknown, editing = false): OrderDraft {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new OrderInputError("Dados inválidos.");
   const b = value as Record<string, unknown>,
@@ -50,20 +51,34 @@ export function parseOrder(value: unknown): OrderDraft {
     situation: "a situação",
     flowStatus: "o Status Fluxo",
   }))
-    out[k] = String(positiveId(b[k], label));
-  if (
+    if (
+      editing &&
+      [
+        "equipment",
+        "serviceType",
+        "origin",
+        "situation",
+        "flowStatus",
+      ].includes(k) &&
+      !b[k]
+    )
+      out[k] = "";
+    else out[k] = String(positiveId(b[k], label));
+  if (editing && !b.freight) out.freight = "";
+  else if (
     !/^(0|[1-9]\d*)$/.test(String(b.freight)) ||
     Number(b.freight) > 2147483647
   )
     throw new OrderInputError("Selecione o frete.");
-  out.freight = String(b.freight);
+  else out.freight = String(b.freight);
   if (!["1", "2", "27404"].includes(out.company))
     throw new OrderInputError("Empresa inválida.");
   if (
     b.technician != null &&
     b.technician !== "" &&
     (typeof b.technician !== "string" ||
-      !b.technician.includes("@") ||
+      (!b.technician.includes("@") &&
+        !(editing && /^m8:[1-9]\d*$/.test(b.technician))) ||
       b.technician.length > 254)
   )
     throw new OrderInputError("Selecione o técnico.");
@@ -82,7 +97,7 @@ export function parseOrder(value: unknown): OrderDraft {
   for (const k of ["notes", "internalNotes"]) {
     if (
       typeof b[k] !== "string" ||
-      !(b[k] as string).trim() ||
+      (!editing && !(b[k] as string).trim()) ||
       (b[k] as string).length > 20000
     )
       throw new OrderInputError(
@@ -110,7 +125,9 @@ export function parseOrder(value: unknown): OrderDraft {
       throw new OrderInputError(
         "Informe quantidade positiva e preço válido nos itens.",
       );
+    if (editing && i.id) positiveId(i.id, "o item da OS");
     return {
+      ...(editing && i.id ? { id: String(i.id) } : {}),
       kind: i.kind,
       code: String(i.code),
       name: i.name,
@@ -119,8 +136,12 @@ export function parseOrder(value: unknown): OrderDraft {
     };
   });
   if (
-    new Set(out.items.map((i: OrderItem) => i.kind + ":" + i.code)).size !==
-    out.items.length
+    new Set(
+      out.items.map(
+        (i: OrderItem) =>
+          i.kind + ":" + (editing && i.id ? "id-" + i.id : i.code),
+      ),
+    ).size !== out.items.length
   )
     throw new OrderInputError(
       "Produto ou serviço duplicado. Ajuste a quantidade na linha existente.",

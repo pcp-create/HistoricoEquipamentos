@@ -661,8 +661,8 @@ export async function createTask(body: any, user: AuthUser, transaction?: PoolCl
     id = String(
       (
         await c.query(
-          `INSERT INTO web_tasks(source_key,cycle,origin,title,equipment_name,source_status,priority,priority_manual,assigned_to,due_date,first_assigned_at,created_by,updated_by,order_company,order_id,order_number,equipment_id,customer)
-      VALUES($1,'manual',$7,$2,$8,'manual',$3,true,$4,$5,CASE WHEN $4::text IS NOT NULL THEN now() END,$6,$6,$9,$10,$11,$12,$13) RETURNING id`,
+          `INSERT INTO web_tasks(source_key,cycle,origin,title,equipment_name,source_status,priority,priority_manual,assigned_to,due_date,first_assigned_at,created_by,updated_by,order_company,order_id,order_number,equipment_id,customer,followers)
+      VALUES($1,'manual',$7,$2,$8,'manual',$3,true,$4,$5,CASE WHEN $4::text IS NOT NULL THEN now() END,$6,$6,$9,$10,$11,$12,$13,ARRAY[lower($6)]) RETURNING id`,
           [
             "manual:" + randomUUID(),
             body.title.trim(),

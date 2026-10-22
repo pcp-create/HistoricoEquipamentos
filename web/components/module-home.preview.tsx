@@ -69,6 +69,7 @@ const modules = [
     next: "Notas, anexos e histórico de cada ocorrência.",
   },
   {id:"visitas",title:"Visitas",icon:Users,description:"Carteira de clientes, agenda e acompanhamento de visitas comerciais.",links:[["Portal Vendas RJ", "/visitas"],["Gestão de Visitas", "/visitas/gestao"]],next:"Planeje visitas e acompanhe o relacionamento com seus clientes."},
+  {id:"oficina",title:"Gestão de Oficina",icon:Wrench,description:"Entrada, manutenção e saída de máquinas. Controle de consertos externos.",links:[["Painel da oficina","/oficina"]],next:"Acompanhe máquinas, prazos e componentes em reparo."},
   {id:"configuracoes",title:"Configurações",icon:Settings,description:"Cadastros e parâmetros utilizados no sistema.",links:[["Cadastros","/configuracoes/cadastros"]],next:"Cadastros integrados ao M8 e listas manuais."},
 ];
 

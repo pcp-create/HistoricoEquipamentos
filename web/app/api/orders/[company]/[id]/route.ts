@@ -12,7 +12,7 @@ export async function GET(
     await requireUser();
     const { company, id } = await context.params;
     const local = await orderDetail(company, id);
-    const result = local?.detail_at ? local : await createdOrderDetail(company, id) || local;
+    const result = await createdOrderDetail(company,id,local?.detail_at) || local;
     return NextResponse.json(
       result || { error: "Ordem de serviço não encontrada." },
       {

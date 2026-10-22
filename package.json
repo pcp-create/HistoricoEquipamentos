@@ -31,7 +31,8 @@
     "sync:services": "tsx src/scripts/syncServices.ts",
     "sync:localities": "tsx src/scripts/syncLocalities.ts",
     "sync:new-orders": "tsx src/scripts/syncNewOrders.ts",
-    "sync:quotes": "tsx src/scripts/syncQuotes.ts"
+    "sync:quotes": "tsx src/scripts/syncQuotes.ts",
+    "sync:purchases": "tsx src/scripts/syncPurchases.ts"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

@@ -459,7 +459,7 @@ export async function changeTimeRequest(b: any, email: string) {
       for (const manager of managers) {
         const task = (
           await c.query(
-            `INSERT INTO web_tasks(source_key,cycle,origin,title,equipment_name,customer,source_status,priority,assigned_to,first_assigned_at,created_by,updated_by,order_company,order_id,order_number) VALUES($1,$2,'Aprovação de apontamento',$3,$4,$5,'Aguardando aprovação','normal',$6,now(),$7,$7,$8,$9,$10) RETURNING id`,
+            `INSERT INTO web_tasks(source_key,cycle,origin,title,equipment_name,customer,source_status,priority,assigned_to,first_assigned_at,created_by,updated_by,order_company,order_id,order_number,followers) VALUES($1,$2,'Aprovação de apontamento',$3,$4,$5,'Aguardando aprovação','normal',$6,now(),$7,$7,$8,$9,$10,ARRAY[lower($7)]) RETURNING id`,
             [
               "time-request:" + id + ":" + manager,
               id,

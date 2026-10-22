@@ -113,6 +113,11 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
       "overdue",
     );
     assert.equal((await visitsData("tech@test.com")).customers.length,0);
+    await db.exec(`INSERT INTO web_sales_visits(id,seller,customer_key,scheduled_at,status,completed_at,contact,phone,description,outcome) VALUES('99999999-9999-4999-8999-999999999999','tech@test.com','m8:1',now(),'completed',now(),'Contato','123','Visita técnica','Concluída')`);
+    assert.equal((await visitsData("a@test.com")).customers[0].health, "overdue", "Visita técnica não regulariza a carteira do vendedor");
+    assert.equal((await visitsData("admin@test.com", undefined, true)).customers.find(c => c.key === "m8:1")?.health, "overdue");
+    await db.exec("DELETE FROM web_sales_visits WHERE id='99999999-9999-4999-8999-999999999999'");
+
     const body = {
       purpose_id: "1",
       action: "schedule",

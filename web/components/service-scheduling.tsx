@@ -102,6 +102,30 @@ const qty = (v: any) =>
   v == null
     ? "—"
     : Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+function MaterialStock({ material, available = false }: { material: any; available?: boolean }) {
+  const current = material.current;
+  const value = available ? current?.available : current?.stock;
+  const collected = available ? current?.available_at : current?.stock_at;
+  const date = collected ? new Date(collected) : null;
+  const known = value != null && String(value).trim() !== "" && Number.isFinite(Number(value));
+  const differentUnit = current?.unit && current.unit.trim().toUpperCase() !== String(material.unidade_nome || "").trim().toUpperCase();
+  return <td title={date && Number.isFinite(date.getTime()) ? `Última coleta: ${date.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : "Data de coleta não informada"}>
+    {known ? qty(value) : "Não informado"}
+    {known && differentUnit && <small style={{display:"block"}}>{current.unit}</small>}
+  </td>;
+}
+function MaterialPurchases({material}: {material:any}) {
+  const purchases = material.purchases;
+  if (!purchases?.imported) return <td>Aguardando integração</td>;
+  const updated = purchases.collectedAt ? new Date(purchases.collectedAt).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo"}) : "Não informada";
+  return <td title={`Última coleta: ${updated}`}>
+    {purchases.groups.length ? purchases.groups.map((group:any) => <div key={group.unit} title={`Ordens de compra: ${group.orders.join(", ")} · Última coleta: ${updated}`}>
+      <span className="material-purchase-quantity">{qty(group.quantity)} <small>{group.unit}</small></span>
+      <small className="material-delivery">Previsão de entrega: {(group.deliveryDates?.length ? [...group.deliveryDates].sort((a:any,b:any)=>String(a ?? "z").localeCompare(String(b ?? "z"))) : [null]).map((date:any) => date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.split("-").reverse().join("/") : "Não informada").join(" · ")}</small>
+    </div>) : purchases.complete ? "0" : "Não confirmado"}
+    {!purchases.complete && <small style={{display:"block"}}>Importação parcial</small>}
+  </td>;
+}
 const number = (s: string) => (s === "" ? null : Number(s));
 const orderDate = (value: string | null | undefined) => {
   if (!value) return "Não informada";
@@ -705,7 +729,7 @@ export default function ServiceScheduling() {
               <>
                 <p>
                   Itens da OS principal e, abaixo, os códigos distintos da OS vinculada. Retirada e utilização ficam em branco
-                  até o preenchimento pela equipe responsável.
+                  até o preenchimento pela equipe responsável. Estoque e estoque disponível correspondem à última coleta do ERP na empresa de origem do item; passe o cursor sobre o saldo para ver a data. Em compra mostra o saldo pendente das ordens de compra ativas da mesma empresa, por unidade.
                 </p>
                 {!data.detail?.detail_at && (
                   <p>
@@ -713,7 +737,7 @@ export default function ServiceScheduling() {
                     incompleta.
                   </p>
                 )}
-                <div className="scheduling-table">
+                <div className="scheduling-table materials-table">
                   <table>
                     <thead>
                       <tr>
@@ -721,6 +745,9 @@ export default function ServiceScheduling() {
                         <th>Produto</th>
                         <th>Unidade</th>
                         <th>Quantidade empenhada</th>
+                        <th>Estoque</th>
+                        <th>Estoque disponível</th>
+                        <th>Em compra</th>
                         <th>Quantidade Retirada</th>
                         <th>Quantidade Utilizada</th>
                       </tr>
@@ -736,6 +763,9 @@ export default function ServiceScheduling() {
                             <td>{m.produto_nome}<ItemInconsistency item={m}/></td>
                             <td>{m.unidade_nome}</td>
                             <td>{qty(m.quantidade)}</td>
+                            <MaterialStock material={m} />
+                            <MaterialStock material={m} available />
+                            <MaterialPurchases material={m} />
                             {["withdrawn", "used"].map((field) => (
                               <td key={field}>
                                 <input

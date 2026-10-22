@@ -54,14 +54,14 @@ export async function m8Session(
   return async (
     path: string,
     body?: unknown,
-    method: "POST" | "PATCH" = "POST",
+    method: "POST" | "PATCH" | "PUT" | "DELETE" = "POST",
   ) => {
     if (!path.startsWith("/v1/") || path.includes(".."))
       throw new Error("Endpoint inválido.");
     let response: Response;
     try {
       response = await transport(base + path, {
-        method: body === undefined ? "GET" : method,
+        method: body === undefined && method !== "DELETE" ? "GET" : method,
         cache: "no-store",
         redirect: "error",
         signal: AbortSignal.timeout(25000),

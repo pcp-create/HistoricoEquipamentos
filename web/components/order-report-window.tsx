@@ -167,12 +167,13 @@ export default function OrderReportWindow({
     [preview, setPreview] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [includeTimeline, setIncludeTimeline] = useState(true);
   const operations: any[] = data.operations || [];
   const eligible = operations.filter(op => canIncludeInOrderReport(op, true));
   const ids = selected.filter((id) => eligible.some((op) => op.id === id));
   const model = useMemo(
-    () => orderReport(data, ids, mode, true),
-    [data, ids.join(","), mode],
+    () => orderReport(data, ids, mode, true, includeTimeline),
+    [data, ids.join(","), mode, includeTimeline],
   );
   const close = () => {
     if (!busy) onClose();
@@ -198,6 +199,7 @@ export default function OrderReportWindow({
           scheduleId: String(data.schedule.id),
           operationIds: ids,
           mode,
+          includeTimeline,
         }),
       });
       if (!response.ok) {
@@ -268,7 +270,7 @@ export default function OrderReportWindow({
         {!preview ? (
           <>
             <p>
-              O documento reúne o resumo da OS, a linha do tempo e os detalhes
+              O documento reúne o resumo da OS, a linha do tempo opcional e os detalhes
               de cada operação em ordem numérica (01, 02, 03…). Cada operação começa em uma
               nova página do PDF.
             </p>
@@ -392,13 +394,14 @@ export default function OrderReportWindow({
       </div>
       {model.preliminary && <p className="order-report-preliminary" role="status">PRÉVIO — NÃO REVISADO. Há operações selecionadas com revisão pendente. O documento está sujeito a alterações.</p>}
       <footer className="operation-review-footer order-report-footer">
+        <label><input type="checkbox" checked={includeTimeline} disabled={busy} onChange={e => setIncludeTimeline(e.target.checked)} /> Exibir linha do tempo</label>
         <label>
           Tipo de relatório
           <select
             aria-label="Tipo do relatório unificado"
             value={mode}
             disabled={busy}
-            onChange={(e) => setMode(e.target.value as ReportMode)}
+            onChange={(e) => { setMode(e.target.value as ReportMode); setIncludeTimeline(e.target.value !== "summary"); }}
           >
             <option value="complete">Relatório Completo</option>
             <option value="summary">Relatório Resumido</option>

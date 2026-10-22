@@ -8,6 +8,7 @@ test("planner selects reviewed operations, previews chronology and modes, and do
   await context.addCookies([
     { name: "m8-access", value: "test", domain: "localhost", path: "/" },
   ]);
+  await page.route("**/api/**", r => r.fulfill({json:{admin:true}}));
   await page.route("**/api/activity", (r) =>
     r.fulfill({ json: { admin: true } }),
   );
@@ -103,6 +104,7 @@ test("planner selects reviewed operations, previews chronology and modes, and do
         scheduleId: "1",
         operationIds: [operations[0].id, operations[1].id],
         mode: "budget",
+        includeTimeline: true,
       });
       if (!exports++)
         return r.fulfill({
@@ -175,6 +177,11 @@ test("planner selects reviewed operations, previews chronology and modes, and do
   await dialog
     .getByRole("combobox", { name: "Tipo do relatório unificado" })
     .selectOption("summary");
+  await expect(dialog.getByRole("checkbox", {name:"Exibir linha do tempo"})).not.toBeChecked();
+  await expect(dialog.getByRole("heading", {name:/Linha do tempo das operações/})).toHaveCount(0);
+  await dialog.getByRole("checkbox", {name:"Exibir linha do tempo"}).check();
+  await expect(dialog.getByRole("heading", {name:/Linha do tempo das operações/})).toBeVisible();
+  await dialog.getByRole("checkbox", {name:"Exibir linha do tempo"}).uncheck();
   await expect(dialog.getByText("Campo vazio", { exact: true })).toHaveCount(0);
   await expect(
     dialog.getByText("Tempo de paradas", { exact: true }),

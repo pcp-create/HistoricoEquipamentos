@@ -1,12 +1,15 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { MoreVertical, ClipboardPlus, Link2 } from "lucide-react";
+import { MoreVertical, ClipboardPlus, Link2, Pencil } from "lucide-react";
 import { apiFetch } from "@/lib/client-api-cache";
+import Link from "next/link";
+import {processedOrder} from "@/lib/service-orders/edit-status";
 import LinkOrder from "./link-order";
 import ScheduleOrderButton from "./schedule-order-button";
 import { TaskDrawer } from "./tasks-dashboard";
 import "./create-linked-task.css";
 type LinkContext = {
+  orderStatus?: string | null;
   orderId?: string;
   orderCompany?: number | string;
   equipmentId?: string;
@@ -32,8 +35,8 @@ export default function CreateLinkedTask(props: LinkContext) {
               Math.max(8, Math.min(box.right - 184, window.innerWidth - 200)) +
               "px";
             menu.current.style.top =
-              (box.bottom + (props.orderId ? 150 : 60) > window.innerHeight
-                ? Math.max(8, box.top - (props.orderId ? 146 : 56))
+              (box.bottom + (props.orderId ? 200 : 60) > window.innerHeight
+                ? Math.max(8, box.top - (props.orderId ? 196 : 56))
                 : box.bottom + 4) + "px";
             menu.current.togglePopover();
           }
@@ -59,6 +62,7 @@ export default function CreateLinkedTask(props: LinkContext) {
           <ClipboardPlus size={17} aria-hidden="true"/> Criar tarefa
         </button>
         {menuOpen && props.orderId && props.orderCompany && <>
+          {props.orderStatus != null && !processedOrder(props.orderStatus) && <Link className="edit-order-menu-link" href={`/OrdemServico/editar?empresa=${props.orderCompany}&id=${props.orderId}`} onClick={()=>menu.current?.hidePopover()}><Pencil size={17}/> Editar OS</Link>}
           <ScheduleOrderButton company={Number(props.orderCompany)} orderId={props.orderId}/>
           <button type="button" onClick={() => { menu.current?.hidePopover(); setLinking(true); }}><Link2 size={17} aria-hidden="true"/> Vincular OS</button>
         </>}

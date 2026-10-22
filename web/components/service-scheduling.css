@@ -888,3 +888,20 @@
 .order-linked-task-status { border-radius: 6px; padding: 4px 8px; font-size: 12px; background: #eef2f7; }
 .order-linked-task-status.in_progress { background: #fff3d6; color: #855600; }
 .order-linked-task-status.completed { background: #e0f3ea; color: #16734c; }
+
+/* Quantidades de materiais alinhadas sob seus respectivos cabeçalhos. */
+.materials-table th:nth-child(n+3),
+.materials-table td:nth-child(n+3) { text-align: center; }
+.materials-table td:nth-child(n+4) { font-variant-numeric: tabular-nums; }
+.materials-table td:nth-child(2) { min-width: 260px; }
+.materials-table td:nth-child(7) { min-width: 170px; }
+.materials-table td:nth-child(n+8) input {
+  display: block;
+  width: 110px;
+  max-width: 130px;
+  margin: 0 auto;
+  text-align: center;
+}
+.material-purchase-quantity { display: block; font-weight: 600; }
+.material-purchase-quantity small { font-weight: 400; }
+.material-delivery { display: block; margin-top: 5px; font-size: 11px; line-height: 1.4; color: #627d98; }

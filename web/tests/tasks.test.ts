@@ -87,6 +87,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       (await taskDetail(String(manual.task.id))).task.status,
       "not_started",
     );
+    assert.deepEqual(manual.task.followers, [user.email]);
     const done = await updateTask(
       {
         action: "move", assignmentReason: "Redistribuição da equipe",

@@ -6,9 +6,13 @@ export function planReturnPath(value: string | null): string {
     const url = new URL(value, "https://internal.invalid");
     if (
       url.origin !== "https://internal.invalid" ||
-      !["/equipamentos", "/orcamentos", "/orcamentos/novo", "/OrdemServico/nova", "/tarefas"].includes(url.pathname)
+      !["/equipamentos", "/orcamentos", "/orcamentos/novo", "/OrdemServico/nova", "/OrdemServico/editar", "/tarefas"].includes(url.pathname)
     )
       return "/";
+    if(url.pathname==="/OrdemServico/editar"){
+      const company=url.searchParams.get("empresa"),id=url.searchParams.get("id");
+      return company&&["1","2","27404"].includes(company)&&id&&/^[1-9]\d{0,9}$/.test(id)?url.pathname+"?empresa="+company+"&id="+id:"/historico";
+    }
     const params = new URLSearchParams();
     for (const key of url.pathname === "/equipamentos"
       ? ["equipment", "plan"]

@@ -27,3 +27,11 @@ __pycache__/
 
 # Generated offline asset manifest
 /web/public/field-offline/assets.json
+
+# Local integrator release packages
+/artifacts/m8-integrador-*.tar.gz
+/artifacts/m8-integrador-*.sha256
+
+# Private workshop source and reconciliation records
+/Manutenção Interna atualizada.xlsm
+/artifacts/workshop-import*

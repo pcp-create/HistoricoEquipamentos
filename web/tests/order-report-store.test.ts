@@ -49,6 +49,10 @@ test("unified export validates selection, scopes data to the OS, and checks curr
       [one],
     );
     const body = { scheduleId: "1", operationIds: [one], mode: "complete" };
+    assert.throws(() => validateOrderReportSelection({...body,includeTimeline:"false"}), /linha do tempo/);
+    assert.equal(validateOrderReportSelection({...body,mode:"summary"}).includeTimeline,false);
+    assert.equal(validateOrderReportSelection({...body,mode:"summary",includeTimeline:true}).includeTimeline,true);
+
     assert.throws(
       () => validateOrderReportSelection({ ...body, operationIds: [] }),
       /Selecione/,

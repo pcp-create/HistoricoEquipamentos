@@ -830,7 +830,7 @@ export default function Dashboard() {
                           >
                             <Eye size={17} />
                           </button>
-                          <CreateLinkedTask orderId={row.id} orderCompany={row.company_id} number={row.number}/>
+                          <CreateLinkedTask orderStatus={row.status} orderId={row.id} orderCompany={row.company_id} number={row.number}/>
                           </div>
                         </td>
                       </tr>
@@ -1101,7 +1101,7 @@ export function OrderDetails({
             <span className="eyebrow">
               ORDEM DE SERVIÇO · {companyName(selection?.company_id)}
             </span>
-            <h2>{detail?.order.numero_sequencia ? `OS-${String(detail.order.numero_sequencia).padStart(5,"0")}` : selection.number ? `OS-${selection.number.padStart(5,"0")}` : "Nova Ordem de Serviço"} <CreateLinkedTask orderId={selection.id} orderCompany={selection.company_id} number={String(detail?.order.numero_sequencia || selection.number)}/></h2>
+            <h2>{detail?.order.numero_sequencia ? `OS-${String(detail.order.numero_sequencia).padStart(5,"0")}` : selection.number ? `OS-${selection.number.padStart(5,"0")}` : "Nova Ordem de Serviço"} <CreateLinkedTask orderStatus={detail ? String(detail.order.status || "") : undefined} orderId={selection.id} orderCompany={selection.company_id} number={String(detail?.order.numero_sequencia || selection.number)}/></h2>
             <OrderLinkCaption company={selection.company_id} id={selection.id}/>
           </div>
           <button

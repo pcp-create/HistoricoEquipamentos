@@ -253,3 +253,12 @@ test('preliminary report includes pending operations and renders all chapters wi
  const final = orderReport({...data, operations:[operation('reviewed',1)]}, ['reviewed'], 'complete', true);
  assert.equal(final.preliminary, false);
 });
+
+test("timeline defaults off for summary and respects explicit selection in every mode", () => {
+  for (const mode of ["complete", "summary", "budget"] as const) {
+    const hasTimeline = (flag?: boolean) => orderReport(data, ["one", "two"], mode, false, flag).report.some(s => s.id === "timeline");
+    assert.equal(hasTimeline(), mode !== "summary");
+    assert.equal(hasTimeline(true), true);
+    assert.equal(hasTimeline(false), false);
+  }
+});

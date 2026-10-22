@@ -52,3 +52,15 @@ Falha na atribuição do Status Fluxo preserva a OS e os itens confirmados. Reje
 Aplicar `web/sql/065_manual_service_order_registries.sql` após 064. Importa 33 tipos de atendimento (30 ativos), 11 origens e 9 situações. Registros excluídos ficam inativos; garantias já configuradas são preservadas. Os CSVs não incluem prazo de garantia: configurar ID e descrição no Tipo Atendimento antes de criar OS.
 
 Situação Ordem de Serviço passa a ser manual. O único endpoint de situações documentado (`/v1/assistenciatecnica/ordemservico/situacao`) retornou SEPARADO/FALTANDO na conferência, em desacordo com a lista fornecida. O sistema usa os IDs e nomes do CSV e não oferece atualização M8 para esse cadastro.
+
+## Edição de OS
+
+Na lista ou no detalhamento, **Mais ações → Editar OS** abre `/OrdemServico/editar?empresa=...&id=...` com os dados atuais do M8. OS com status Processado/Processada não oferece a ação e é recusada no servidor.
+
+Aplicar `web/sql/066_service_order_edits.sql`. Cabeçalho atualizado com PUT `/v1/assistenciatecnica/ordemservico/{id}`, conforme ATOrdemServicoRequestDto. Campos exigidos: tipoId, clienteId, emissao, dataEntregaPrevista, dataEntrega, condicaoPagamentoId e funcionarioId. Empresa permanece fixa e a emissão original é preservada. Equipamento usa o objeto documentado; produtos e serviços preservam os IDs existentes e os campos não editados. Exclusões solicitadas usam os DELETEs específicos quando o item ainda existe após o PUT. Status Fluxo alterado usa o PATCH específico por último.
+
+O servidor consulta o M8 antes de preparar e novamente antes de enviar. Mudanças desde a abertura exigem recarregar; processamento bloqueia a gravação. Um registro por edição guarda etapas e impede gravações simultâneas da mesma OS pelo portal. Respostas ambíguas ficam em conferência, sem repetição automática de PUT/DELETE/PATCH. Rejeições explícitas antes do PUT permitem corrigir os campos. Após uma etapa confirmada, retoma-se somente o restante.
+
+O GET completo não retorna todos os campos do PUT (por exemplo, origemId, freteId, tipoGarantiaId e observacaoInterna). A tela sinaliza essa limitação; campos ausentes não são presumidos nem enviados sem alteração do usuário. Campos opcionais ausentes não impedem editar uma OS histórica. Técnico sem vínculo local mantém seu ID M8 original.
+
+Após concluir, retorna à lista e abre o detalhe. Enquanto a importação local estiver anterior à edição, o detalhe consulta o M8 diretamente. Testes usam requisições simuladas; nenhuma OS real é editada na validação.

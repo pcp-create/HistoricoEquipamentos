@@ -1,3 +1,4 @@
+import {withPurchaseBalances} from "./purchase-balances";
 import {readTaskLists,mutateTaskList} from "./task-lists";
 import {withRescheduling} from "./rescheduling";
 import {createChecklistAlertTask} from "./checklist-alert-task";
@@ -168,7 +169,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
   const linkedDetail = link?.linked_order_id ? await orderDetail(String(link.linked_company_id),String(link.linked_order_id)) : null;
   const linkedProfit = link?.linked_order_id ? (await db.query("SELECT document FROM web_order_profit WHERE company_id=$1 AND order_id=$2",[link.linked_company_id,link.linked_order_id])).rows[0]?.document || null : null;
   const combinedDetail = detail ? {...detail,
-    materials:combineOrderItems(detail,linkedDetail,"materials",schedule.company_id,schedule.order_id,link?.linked_company_id,link?.linked_order_id),
+    materials:await withPurchaseBalances(combineOrderItems(detail,linkedDetail,"materials",schedule.company_id,schedule.order_id,link?.linked_company_id,link?.linked_order_id)),
     services:combineOrderItems(detail,linkedDetail,"services",schedule.company_id,schedule.order_id,link?.linked_company_id,link?.linked_order_id).map((item: any) => ({...item,source_profit:item.source_linked ? linkedProfit : profit.rows[0]?.document || null}))
   } : detail;
   return {

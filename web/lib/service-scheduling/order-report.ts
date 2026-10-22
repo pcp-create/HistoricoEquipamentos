@@ -17,6 +17,7 @@ export function orderReport(
   operationIds: string[],
   mode: ReportMode = "complete",
   preview = false,
+  includeTimeline = mode !== "summary",
 ) {
   const ids = new Set(operationIds);
   const users: any[] = data.users || [],
@@ -182,7 +183,7 @@ export function orderReport(
       comment: "",
     }),
   );
-  if (operations.length) overview.push(chronological);
+  if (operations.length && includeTimeline) overview.push(chronological);
   const totals = section("totals", "Totais das operações selecionadas", []);
   let work = 0,
     travel = 0,

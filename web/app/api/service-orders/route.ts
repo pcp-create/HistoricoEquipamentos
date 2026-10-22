@@ -5,9 +5,15 @@ import {
   advanceOrder,
   submissions,
 } from "@/lib/service-orders/store";
+import {
+  loadEdit,
+  prepareEdit,
+  advanceEdit,
+  editStatus,
+} from "@/lib/service-orders/edit";
 import { OrderInputError } from "@/lib/service-orders/model";
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 const json = (b: unknown, s = 200) =>
   Response.json(b, {
     status: s,
@@ -31,9 +37,13 @@ export async function GET(r: Request) {
     const u = await requireUser(),
       p = new URL(r.url).searchParams;
     return json(
-      p.has("lookup")
-        ? await orderLookups(p)
-        : { rows: await submissions(u.email, p.get("id") || undefined) },
+      p.has("edit")
+        ? await loadEdit(p.get("company") || "", p.get("order") || "")
+        : p.has("editStatus")
+          ? await editStatus(u.email, p.get("editStatus") || "")
+          : p.has("lookup")
+            ? await orderLookups(p)
+            : { rows: await submissions(u.email, p.get("id") || undefined) },
     );
   } catch (e) {
     return failure(e);
@@ -46,6 +56,19 @@ export async function POST(r: Request) {
     if (Number(r.headers.get("content-length") || 0) > 500000)
       return json({ error: "Solicitação muito grande." }, 413);
     const b = await r.json();
+    if (b.action === "edit-prepare")
+      return json(
+        await prepareEdit(
+          u.email,
+          b.id,
+          b.company,
+          b.order,
+          b.version,
+          b.draft,
+        ),
+      );
+    if (b.action === "edit-advance")
+      return json(await advanceEdit(u.email, b.id));
     if (b.action === "prepare")
       return json(await prepareOrder(u.email, b.id, b.draft));
     if (b.action === "advance") return json(await advanceOrder(u.email, b.id));

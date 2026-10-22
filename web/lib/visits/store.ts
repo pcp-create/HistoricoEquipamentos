@@ -57,8 +57,8 @@ export async function visitsData(email: string, db: any = database(), management
   const locationMap = new Map<string, any>(locations.map((r: any) => [r.customer_key,r]));
   const last = (
     await db.query(
-      "SELECT customer_key,max(completed_at) last FROM web_sales_visits WHERE customer_key=ANY($1::text[]) AND status='completed' GROUP BY customer_key",
-      [keys],
+      "SELECT v.customer_key,max(v.completed_at) last FROM web_sales_visits v JOIN web_user_access u ON u.email=v.seller WHERE v.customer_key=ANY($1::text[]) AND v.status='completed' AND lower(trim(u.job_title)) IN ('vendedor','vendedora') AND ($3::boolean OR v.seller=$2) GROUP BY v.customer_key",
+      [keys, email, management],
     )
   ).rows;
   const lastMap = new Map(
