@@ -53,7 +53,7 @@ export default function PreventivePlanQuote({
       const result = await response.json();
       if (!response.ok)
         throw Error(result.error || "Não foi possível gerar o orçamento.");
-      window.location.assign(`/orcamentos?id=${encodeURIComponent(result.id)}`);
+      window.location.assign(`/orcamentos/novo?id=${encodeURIComponent(result.id)}`);
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);

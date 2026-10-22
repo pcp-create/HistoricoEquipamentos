@@ -150,6 +150,7 @@ export async function setAccess(body: any, actor: AuthUser) {
           employee.task_color,
         ],
       );
+    if(employee && "m8_employee_id" in employee)await c.query("UPDATE web_user_access SET m8_employee_id=$2 WHERE email=$1",[email,employee.m8_employee_id]);
     if(employee && "managers" in employee){
       const managers=employee.managers as string[];
       if(managers.includes(email))throw new AdminInputError('O funcionário não pode ser seu próprio gestor.');
@@ -184,7 +185,7 @@ export async function setAccess(body: any, actor: AuthUser) {
 export async function adminOverview() {
   const db = database();
   const users = (
-    await db.query(`SELECT COALESCE(to_jsonb(web_user_access)->'managers','[]'::jsonb) managers,to_jsonb(web_user_access)->>'hourly_cost' AS hourly_cost,to_jsonb(web_user_access)->>'task_color' AS task_color,email,display_name,department,job_title,phone,alert_preventive,alert_rental,alert_email,alert_whatsapp,user_id,role,enabled,last_login_at,last_seen_at,last_logout_at,
+    await db.query(`SELECT COALESCE(to_jsonb(web_user_access)->'managers','[]'::jsonb) managers,to_jsonb(web_user_access)->>'m8_employee_id' AS m8_employee_id,to_jsonb(web_user_access)->>'hourly_cost' AS hourly_cost,to_jsonb(web_user_access)->>'task_color' AS task_color,email,display_name,department,job_title,phone,alert_preventive,alert_rental,alert_email,alert_whatsapp,user_id,role,enabled,last_login_at,last_seen_at,last_logout_at,
  (enabled AND last_seen_at>now()-interval '15 minutes' AND (last_logout_at IS NULL OR last_seen_at>last_logout_at)) AS online FROM web_user_access ORDER BY role,email`)
   ).rows;
   const events = (

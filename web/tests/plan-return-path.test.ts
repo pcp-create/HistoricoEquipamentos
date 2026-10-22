@@ -8,6 +8,7 @@ test("login preserves plan/quote targets and rejects external redirects", () => 
     `/equipamentos?equipment=100&plan=${id}`,
   );
   assert.equal(planReturnPath(`/orcamentos?id=${id}`), `/orcamentos?id=${id}`);
+  assert.equal(planReturnPath(`/orcamentos/novo?id=${id}`), `/orcamentos/novo?id=${id}`);
   for (const unsafe of [
     "https://evil.test",
     "//evil.test",

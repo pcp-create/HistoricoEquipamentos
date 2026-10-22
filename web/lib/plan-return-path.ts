@@ -6,7 +6,7 @@ export function planReturnPath(value: string | null): string {
     const url = new URL(value, "https://internal.invalid");
     if (
       url.origin !== "https://internal.invalid" ||
-      !["/equipamentos", "/orcamentos", "/tarefas"].includes(url.pathname)
+      !["/equipamentos", "/orcamentos", "/orcamentos/novo", "/OrdemServico/nova", "/tarefas"].includes(url.pathname)
     )
       return "/";
     const params = new URLSearchParams();

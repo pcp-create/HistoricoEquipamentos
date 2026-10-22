@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { apiFetch } from "@/lib/client-api-cache";
 import { mergeQuoteItems } from "@/lib/quotes/merge-items";
 import { groupedProducts } from "@/lib/manufacturer/products";
@@ -654,10 +655,11 @@ export default function QuoteDashboard() {
         />
       )}
       <main className="manual-page quotes-page">
+        <Link className="button" href="/orcamentos">← Voltar para Orçamentos</Link>
         <div className="manual-title">
           <ClipboardList size={30} />
           <div>
-            <h1>Orçamentos</h1>
+            <h1>Novo Orçamento</h1>
             <p>
               Monte uma proposta com o histórico do equipamento e as referências
               do fabricante.

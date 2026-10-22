@@ -613,7 +613,7 @@ export function TaskDrawer({
                   <p>{n.description}</p>
                   {n.quote_id && (
                     <a
-                      href={`/orcamentos?id=${encodeURIComponent(n.quote_id)}`}
+                      href={`/orcamentos/novo?id=${encodeURIComponent(n.quote_id)}`}
                     >
                       Abrir orçamento
                     </a>

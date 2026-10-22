@@ -9,6 +9,7 @@ import { useSessionAccess } from "./session-access";
 import { useSearchParams } from "next/navigation";
 import { House, ChevronRight, LogOut, ShieldCheck } from "lucide-react";
 const moduleNames: Record<string, string> = {
+  configuracoes: "Configurações",
   visitas: "Visitas",
   tarefas: "Tarefas",
   crm: "CRM",
@@ -17,14 +18,15 @@ const moduleNames: Record<string, string> = {
   equipamentos: "Equipamentos",
 };
 const screens: Record<string, { label: string; modules: string[] }> = {
+  registries: {label:"Cadastros",modules:["configuracoes"]},
   visitsManagement: { label: "Gestão de Visitas", modules: ["visitas"] },
   leakage: { label: "Gerar Relatório Caça Vazamento", modules: ["assistencia-tecnica"] },
   vibration: { label: "Gerar Relatório Análise de Vibração", modules: ["assistencia-tecnica"] },
   scheduling: {label:"Programação de OSs",modules:["assistencia-tecnica"]},
   tasks: { label: "Acompanhamento de tarefas", modules: ["tarefas"] },
   history: {
-    label: "Consulta de histórico",
-    modules: ["assistencia-tecnica", "crm"],
+    label: "Ordens de Serviço",
+    modules: ["assistencia-tecnica"],
   },
   analysis: { label: "Análise de materiais", modules: ["suprimentos"] },
   manufacturer: {
@@ -49,6 +51,7 @@ export default function SiteHeader({
   moduleId,
 }: {
   active:
+    | "registries"
     | "visitsManagement"
     | "leakage"
     | "vibration"

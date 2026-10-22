@@ -1632,7 +1632,7 @@ export default function EquipmentDashboard() {
                                       </span>
                                     ) : (
                                       <a
-                                        href={`/orcamentos?id=${encodeURIComponent(e.document.quoteId)}`}
+                                        href={`/orcamentos/novo?id=${encodeURIComponent(e.document.quoteId)}`}
                                       >
                                         Abrir ORÇ-
                                         {String(

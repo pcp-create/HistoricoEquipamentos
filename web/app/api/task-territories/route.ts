@@ -1,4 +1,4 @@
-import { requireAdmin, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
+import { requireUser, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import { AdminInputError } from "@/lib/admin-store";
 import { territoryList, saveTerritory } from "@/lib/tasks/territories";
 export const runtime = "nodejs";
@@ -16,7 +16,7 @@ function failure(e: unknown) {
           : e instanceof Unauthorized
             ? "Sessão expirada."
             : e instanceof Forbidden
-              ? "Acesso exclusivo de administradores."
+              ? "Você não tem permissão para esta ação."
               : "Não foi possível atualizar a divisão comercial.",
     },
     e instanceof AdminInputError
@@ -30,7 +30,7 @@ function failure(e: unknown) {
 }
 export async function GET() {
   try {
-    await requireAdmin();
+    await requireUser();
     return json(await territoryList());
   } catch (e) {
     return failure(e);
@@ -39,7 +39,7 @@ export async function GET() {
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return json({ error: "Origem inválida." }, 403);
   try {
-    const user = await requireAdmin();
+    const user = await requireUser();
     const raw = await req.text();
     if (raw.length > 2000)
       return json({ error: "Dados excedem o limite." }, 413);

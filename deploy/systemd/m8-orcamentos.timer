@@ -1,0 +1,11 @@
+[Unit]
+Description=Consultar orçamentos M8 a cada minuto
+
+[Timer]
+OnBootSec=20s
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
+Unit=m8-orcamentos.service
+
+[Install]
+WantedBy=timers.target

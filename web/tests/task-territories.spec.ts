@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-test("administrator can create, edit, search and remove a city assignment", async ({
+test("authenticated user can manage city assignments through registries", async ({
   page,
   context,
   request,
@@ -12,7 +12,7 @@ test("administrator can create, edit, search and remove a city assignment", asyn
     { name: "m8-refresh", value: "test", domain: "localhost", path: "/" },
   ]);
   await page.route("**/api/activity", (r) =>
-    r.fulfill({ json: { admin: true } }),
+    r.fulfill({ json: { admin: false } }),
   );
   await page.route("**/api/admin", (r) =>
     r.fulfill({
@@ -60,9 +60,9 @@ test("administrator can create, edit, search and remove a city assignment", asyn
       },
     });
   });
-  await page.goto("/administracao");
+  await page.goto("/configuracoes/cadastros");
   await page
-    .getByRole("button", { name: "Divisão comercial", exact: true })
+    .getByRole("link", { name: /Divisão Comercial/ })
     .click();
   await page.getByRole("button", { name: "Adicionar regra" }).click();
   await page.getByLabel("Cidade nova regra", { exact: true }).fill("São José");

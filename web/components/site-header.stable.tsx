@@ -23,8 +23,8 @@ const screens: Record<string, { label: string; modules: string[] }> = {
   scheduling: { label: "Programação de OSs", modules: ["assistencia-tecnica"] },
   tasks: { label: "Acompanhamento de tarefas", modules: ["tarefas"] },
   history: {
-    label: "Consulta de histórico",
-    modules: ["assistencia-tecnica", "crm"],
+    label: "Ordens de Serviço",
+    modules: ["assistencia-tecnica"],
   },
   analysis: { label: "Análise de materiais", modules: ["suprimentos"] },
   manufacturer: {

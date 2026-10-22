@@ -4,7 +4,6 @@ import IntegrationItems from "./integration-items";
 import SupportPicker from "./support-picker";
 import SaveActionIcon from "./save-action-icon";
 import { userTaskColor } from "@/lib/tasks/user-color";
-import TaskTerritories from "./task-territories";
 import { apiFetch } from "@/lib/client-api-cache";
 import "./admin-dashboard.css";
 import { Fragment, useEffect, useState } from "react";
@@ -17,6 +16,7 @@ const emptyEmployee = {
   department: "",
   job_title: "",
   hourly_cost: "",
+  m8_employee_id: "",
   managers: [] as string[],
   phone: "",
   task_color: null as string | null,
@@ -159,13 +159,16 @@ export default function AdminDashboard() {
                             [
                               ["display_name", "Nome completo"],
                               ["department", "Setor"],
-                              ["job_title", "Cargo"],
+                              ["job_title", "Cargo"], ["m8_employee_id", "ID do técnico no M8"],
                               ["phone", "WhatsApp (país + DDD + número)"],
                             ] as const
                           ).map(([key, label]) => (
                             <label key={key}>
                               {label}
                               <input
+                                type={key === "m8_employee_id" ? "number" : "text"}
+                                min={key === "m8_employee_id" ? 1 : undefined}
+                                max={key === "m8_employee_id" ? 2147483647 : undefined}
                                 required={key === "display_name"}
                                 maxLength={
                                   key === "phone"
@@ -174,7 +177,7 @@ export default function AdminDashboard() {
                                       ? 160
                                       : 120
                                 }
-                                value={form[key]}
+                                value={form[key] ?? ""}
                                 onChange={(e) =>
                                   setForm({ ...form, [key]: e.target.value })
                                 }
@@ -354,7 +357,6 @@ export default function AdminDashboard() {
               {[
                 ["users", "Usuários"],
                 ["integrations", "Integrações"],
-                ["territories", "Divisão comercial"],
                 ["logs", "Logs de acesso"],
               ].map(([key, label]) => (
                 <button
@@ -367,7 +369,6 @@ export default function AdminDashboard() {
                 </button>
               ))}
             </nav>
-            {tab === "territories" && <TaskTerritories />}
             <div hidden={tab !== "users"}>
               <section className="manual-card">
                 <h2>Funcionários e acessos</h2>

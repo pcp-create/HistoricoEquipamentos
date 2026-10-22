@@ -9,6 +9,7 @@ import {
   PackageSearch,
   Factory,
   ClipboardList,
+  Settings,
 } from "lucide-react";
 import SiteHeader from "./site-header";
 
@@ -20,7 +21,6 @@ const modules = [
     description: "Apoio ao comercial e preparação de propostas.",
     links: [
       ["Orçamentos", "/orcamentos"],
-      ["Histórico de clientes e peças", "/historico"],
       ["Catálogo do fabricante", "/fabricante"],
     ],
     next: "Próximas etapas: clientes, oportunidades e acompanhamento comercial.",
@@ -31,7 +31,7 @@ const modules = [
     icon: Wrench,
     description: "Consulta técnica e planejamento das manutenções.",
     links: [
-      ["Consulta de histórico / OS", "/historico"],
+      ["Ordens de Serviço", "/historico"],
       ["Programação de OSs", "/programacao"],
       ["Portal do técnico", "/tecnico"],
       ["Gerar Relatório Análise de Vibração", "/analise-vibracao"],
@@ -69,6 +69,7 @@ const modules = [
     next: "Notas, anexos e histórico de cada ocorrência.",
   },
   {id:"visitas",title:"Visitas",icon:Users,description:"Carteira de clientes, agenda e acompanhamento de visitas comerciais.",links:[["Portal Vendas RJ", "/visitas"],["Gestão de Visitas", "/visitas/gestao"]],next:"Planeje visitas e acompanhe o relacionamento com seus clientes."},
+  {id:"configuracoes",title:"Configurações",icon:Settings,description:"Cadastros e parâmetros utilizados no sistema.",links:[["Cadastros","/configuracoes/cadastros"]],next:"Cadastros integrados ao M8 e listas manuais."},
 ];
 
 export default function ModuleHome({ moduleId }: { moduleId?: string }) {

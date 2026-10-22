@@ -9,6 +9,7 @@ test("portal organizes tools and preserves history links", async ({ page, contex
   await page.getByRole("navigation", { name: "Módulos do sistema" }).getByRole("link", { name: /CRM/ }).click();
   await expect(page).toHaveURL(/\/modulos\/crm$/);
   await expect(page.getByRole("navigation", { name: "Menus de CRM" }).getByRole("link", { name: "Orçamentos" })).toHaveAttribute("href", "/orcamentos?module=crm");
+  await expect(page.getByRole("navigation", { name: "Menus de CRM" }).getByRole("link", { name: /Histórico|Ordens de Serviço/ })).toHaveCount(0);
   await page.getByRole("link", { name: "Todos os módulos" }).click();
   await expect(page.getByRole("heading", { name: "Módulos", exact: true })).toBeVisible();
   await page.goto("/?view=orders&company=1&orderNumber=14083");
@@ -30,13 +31,13 @@ test("breadcrumb follows module context on shared screens", async ({ page, conte
   await expect(nav.getByRole("link", { name: "Assistência Técnica", exact: true })).toBeVisible();
 });
 
-test("history renders CRM before hydration", async ({ browser }) => {
+test("history belongs only to technical assistance before hydration", async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   await context.addCookies([{ name: "m8-access", value: "test", domain: "localhost", path: "/" }]);
   const page = await context.newPage();
   await page.goto("/historico?module=crm");
   const nav = page.getByRole("navigation", { name: "Navegação principal" });
-  await expect(nav.getByRole("link", { name: "CRM", exact: true })).toBeVisible();
-  await expect(nav.getByText("Assistência Técnica", { exact: true })).toHaveCount(0);
+  await expect(nav.getByRole("link", { name: "Assistência Técnica", exact: true })).toBeVisible();
+  await expect(nav.getByText("CRM", { exact: true })).toHaveCount(0);
   await context.close();
 });

@@ -33,7 +33,9 @@ export function employeeFields(body: any) {
   const hourly=body.hourly_cost;
   if(hourly!==undefined&&hourly!==null&&hourly!==""&&(!/^(\d+)(\.\d{1,2})?$/.test(String(hourly))||Number(hourly)>1000000))throw Error("Informe um custo por hora válido, com até duas casas decimais.");
   if(body.managers!==undefined&&(!Array.isArray(body.managers)||body.managers.length>20||new Set(body.managers).size!==body.managers.length||body.managers.some((v:any)=>typeof v!=='string'||!v.includes('@')||v.length>254)))throw Error("Gestores inválidos.");
+  if(body.m8_employee_id!=null&&body.m8_employee_id!==""&&(!/^[1-9]\d*$/.test(String(body.m8_employee_id))||Number(body.m8_employee_id)>2147483647))throw Error("ID do técnico no M8 inválido.");
   return {
+    ...(body.m8_employee_id!==undefined?{m8_employee_id:body.m8_employee_id===null||body.m8_employee_id===""?null:Number(body.m8_employee_id)}:{}),
     ...(body.managers!==undefined?{managers:body.managers}:{}),
     ...(hourly!==undefined?{hourly_cost:hourly===null||hourly===""?null:Number(hourly)}:{}),
     task_color: body.task_color || null,

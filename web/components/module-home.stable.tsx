@@ -20,7 +20,6 @@ const modules = [
     description: "Apoio ao comercial e preparação de propostas.",
     links: [
       ["Orçamentos", "/orcamentos"],
-      ["Histórico de clientes e peças", "/historico"],
       ["Catálogo do fabricante", "/fabricante"],
     ],
     next: "Próximas etapas: clientes, oportunidades e acompanhamento comercial.",
@@ -31,7 +30,7 @@ const modules = [
     icon: Wrench,
     description: "Consulta técnica e planejamento das manutenções.",
     links: [
-      ["Consulta de histórico / OS", "/historico"],
+      ["Ordens de Serviço", "/historico"],
       ["Programação de OSs", "/programacao"],
       ["Portal do técnico", "/tecnico"],
       ["Gerar Relatório Análise de Vibração", "/analise-vibracao"],

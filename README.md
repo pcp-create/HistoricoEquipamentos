@@ -249,3 +249,7 @@ A interface inclui pesquisa da planilha por modelo, série, descrição e códig
 ## Equipamentos e vínculos com clientes
 
 Cadastro compartilhado coletado na empresa 1, vínculos pessoa–equipamento, rastreabilidade das observações e histórico consolidado nos orçamentos: [configuração e atualização do servidor](docs/atualizacao-equipamentos.md).
+
+## Orçamentos M8 no CRM
+
+A listagem de propostas das empresas 1, 2 e 27404 usa `npm run sync:quotes` e os endpoints de orçamentos, produtos, serviços e vendedores. O timer de um minuto, a fila de detalhes e as instruções de atualização estão em [integração de orçamentos](docs/atualizacao-orcamentos.md).

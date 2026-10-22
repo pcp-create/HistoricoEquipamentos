@@ -20,7 +20,7 @@ test("quotation routes require login and reject cross-origin writes", async ({
   request,
 }) => {
   expect((await request.get("/api/quotes/pdf?id=missing")).status()).toBe(401);
-  await page.goto("/orcamentos");
+  await page.goto("/orcamentos/novo");
   await expect(page).toHaveURL(/login/);
   for (const query of [
     "",
@@ -39,7 +39,7 @@ test("quotation routes require login and reject cross-origin writes", async ({
   expect(
     (
       await request.post("/api/quotes", {
-        headers: { Origin: "http://localhost:3000" },
+        headers: { Origin: new URL(page.url()).origin },
         data: blankQuote(),
       })
     ).status(),
@@ -240,7 +240,7 @@ test("quote selects equipment, combines suggestions, edits prices, saves and reo
       },
     });
   });
-  await page.goto("/orcamentos");
+  await page.goto("/orcamentos/novo");
   await expect(
     page.getByRole("combobox", { name: "Empresa", exact: true }),
   ).toHaveCount(0);
@@ -453,7 +453,7 @@ test("manual manufacturer selection works with blank model and serial", async ({
     }
     return route.fulfill({ json: { rows: [], email: "test@example.com" } });
   });
-  await page.goto("/orcamentos");
+  await page.goto("/orcamentos/novo");
   await expect(
     page.getByTitle("test@example.com", { exact: true }),
   ).toBeVisible();
@@ -559,7 +559,7 @@ test("material picker searches while typing, paginates and preserves a general s
       });
     return route.fulfill({ json: { rows: [], email: "test@example.com" } });
   });
-  await page.goto("/orcamentos");
+  await page.goto("/orcamentos/novo");
   await page.locator(".quote-extras > summary").click();
   await page
     .getByRole("button", { name: "Adicionar material", exact: true })
@@ -654,7 +654,7 @@ test("incomplete draft saves responsible and notes and reopens without required 
       },
     });
   });
-  await page.goto("/orcamentos");
+  await page.goto("/orcamentos/novo");
   await expect(page.getByLabel("Responsável pelo orçamento")).toHaveCount(0);
   await page.getByLabel("Observações do orçamento").fill("Continuar amanhã");
   await page.getByRole("button", { name: "Salvar rascunho" }).click();
@@ -770,7 +770,7 @@ test("other materials use refreshed balances even when draft has an empty produc
       },
     });
   });
-  await page.goto("/orcamentos");
+  await page.goto("/orcamentos/novo");
   await page.getByRole("button", { name: /ORÇ-00015/ }).click();
   const row = page
     .locator(".quote-extras .quote-choice")
@@ -847,7 +847,7 @@ test("selected equipment identity survives clearing NC serial and editing model"
     }
     return r.fulfill({ json: { rows: [], email: "test@example.com" } });
   });
-  await page.goto("/orcamentos");
+  await page.goto("/orcamentos/novo");
   await page.getByRole("combobox", { name: "Cliente", exact: true }).click();
   await page.getByRole("option", { name: /HYDROWHEEL/ }).click();
   await page
@@ -961,5 +961,5 @@ test("saved draft can be deleted after confirmation without deleting on cancel",
   await expect(page.getByRole("button", { name: /ORÇ-00015/ })).toHaveCount(0);
   await expect(button).toHaveCount(0);
   expect(deleteCalls).toBe(1);
-  await expect(page).toHaveURL(/\/orcamentos$/);
+  await expect(page).toHaveURL(/\/orcamentos\/novo$/);
 });

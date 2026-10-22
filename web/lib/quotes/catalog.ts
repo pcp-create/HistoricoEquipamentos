@@ -33,7 +33,7 @@ export async function quoteCatalog(p: URLSearchParams) {
     await db.query(
       `WITH catalog AS (${catalog})
     SELECT * FROM catalog WHERE ${normalized("concat_ws(' ',name,id,aliases)")} LIKE $1
-    ORDER BY name,id LIMIT 31 OFFSET $2`,
+    ORDER BY id LIMIT 31 OFFSET $2`,
       [pattern, (page - 1) * 30],
     )
   ).rows;
