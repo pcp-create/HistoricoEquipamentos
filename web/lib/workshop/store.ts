@@ -39,6 +39,7 @@ export async function workshopMutate(b:any,email:string){
  if(!b||typeof b.action!=='string')throw new WorkshopInputError('Ação inválida.');
  const c=await database().connect();
  try{await c.query('BEGIN READ WRITE');
+  let confirmedVisit:any=null;
   if(b.action==='externalUpdate'){
    const id=uuid(b.externalId),row=(await c.query('SELECT * FROM web_workshop_external WHERE id=$1 FOR UPDATE',[id])).rows[0];
    if(!row||row.returned_at||row.reconciled_out_at||row.version!==b.version)throw new WorkshopConflict('Este envio mudou. Atualize a tela antes de salvar.');
@@ -90,9 +91,10 @@ export async function workshopMutate(b:any,email:string){
     const company=positive(b.company),quote=positive(b.quoteId);if(!(await c.query('SELECT 1 FROM m8_quotes WHERE company_id=$1 AND id=$2',[company,quote])).rows.length)throw new WorkshopInputError('Orçamento não encontrado.');
     await c.query('INSERT INTO web_workshop_quotes VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[id,company,quote]);action='Orçamento vinculado';
    }else throw new WorkshopInputError('Ação inválida.');
-   await c.query('UPDATE web_workshop_visits SET version=version+1,updated_by=$2,updated_at=now() WHERE id=$1',[id,email]);
-   await c.query('INSERT INTO web_workshop_events(visit_id,action,actor,document) VALUES($1,$2,$3,$4)',[id,action,email,JSON.stringify(eventDocument)]);
+   const updated=(await c.query('UPDATE web_workshop_visits SET version=version+1,updated_by=$2,updated_at=now() WHERE id=$1 RETURNING id,stage,version',[id,email])).rows[0];
+   const event=(await c.query('INSERT INTO web_workshop_events(visit_id,action,actor,document) VALUES($1,$2,$3,$4) RETURNING *',[id,action,email,JSON.stringify(eventDocument)])).rows[0];
+   if(b.action==='stage')confirmedVisit={...updated,event:{...event,actor_name:email}};
   }
-  await c.query('COMMIT');return {saved:true};
+  await c.query('COMMIT');return {saved:true,...(confirmedVisit?{visit:confirmedVisit}:{})};
  }catch(e){await c.query('ROLLBACK');if((e as any).code==='23505')throw new WorkshopConflict('Essa máquina já possui uma entrada aberta na oficina.');throw e;}finally{c.release();}
 }

@@ -1014,7 +1014,7 @@ export default function EquipmentDashboard() {
                             <EquipmentPhoto id={e.id} name={e.name} />
                           )}
                           <div>
-                            <strong>{e.name}</strong>{e.workshop&&<small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>Em Oficina · {e.workshop.workshop}</small>}
+                            <strong>{e.name}</strong>{e.workshop&&<small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>{e.rental ? "Em Revisão" : "Em Oficina"} · {e.workshop.workshop}</small>}
                             <small>
                               {e.brand || "Marca não informada"} ·{" "}
                               {e.model || "Modelo não informado"} · Cód. {e.id}
@@ -1146,7 +1146,7 @@ export default function EquipmentDashboard() {
             {detail && (
               <>
                 <section className="manual-card">
-                  <h2>{detail.equipment.name}</h2>{detail.equipment.workshop&&<a href="/oficina" style={{color:"#16756b",fontWeight:600}}>Em Oficina · {detail.equipment.workshop.workshop}</a>}
+                  <h2>{detail.equipment.name}</h2>{detail.equipment.workshop&&<a href="/oficina" style={{color:"#16756b",fontWeight:600}}>{detail.equipment.rental ? "Em Revisão" : "Em Oficina"} · {detail.equipment.workshop.workshop}</a>}
                   {detail.equipment.rental && (
                     <span className="equipment-rental-badge">
                       Máquina de locação · Família 3 no M8

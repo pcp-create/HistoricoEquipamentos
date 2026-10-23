@@ -1,3 +1,7 @@
+import {registerMachine,listMachines,saveMachineSettings,machineSettings} from '../lib/visits/machine-registration';
+import {createCustomerContact,listCustomerContacts} from "../lib/visits/contacts";
+import {createVisitTask} from "../lib/visits/tasks";
+import {queueVisitAlert,claimVisitAlerts,acknowledgeVisitAlert} from "../lib/visits/alerts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -45,6 +49,9 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
         ),
       );
     }
+    for(const f of ["010_tasks","018_task_assignment_reason","011_task_kanban","012_manual_tasks","016_task_order_links","015_task_origin_rules","041_task_completion_notifications","042_restricted_tasks","024_task_stages","027_task_stage_assignment","017_task_reminders","023_task_reminder_recurrence","044_task_followers"])await db.exec(readFileSync(new URL("../sql/"+f+".sql",import.meta.url),"utf8"));
+    await db.exec(readFileSync(new URL("../sql/071_visit_contacts_actions.sql",import.meta.url),"utf8"));
+    await db.exec(readFileSync(new URL("../sql/072_visit_machine_registration.sql",import.meta.url),"utf8"));
     const query = async (sql: string, args?: any[]) => {
       if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
       return db.query(sql.replace("BEGIN READ WRITE", "BEGIN"), args);
@@ -234,6 +241,54 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     await administerVisit({...edit,version:3,action:"admin_delete"},"tech@test.com");
     assert.equal((await visitsData("tech@test.com")).visits.length,0);
     assert.equal((await db.query("SELECT * FROM web_access_events WHERE event='sales_visit_admin'")).rows.length,2);
+
+    assert.equal((await visitsData("a@test.com")).customers.find(c=>c.lead)?.in_portfolio,false);
+    const contact=await createCustomerContact("m8:1",{name:"Contato reutilizável",phone:"49999999999"},"a@test.com");
+    assert.ok((await listCustomerContacts("m8:1","tech@test.com")).some(c=>c.id===contact.id));
+    const linked={...body,id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",purpose_id:"2",contact_id:contact.id,contact:"Nome ignorado"};
+    await saveVisit(linked,"a@test.com");
+    assert.equal((await db.query<any>("SELECT contact FROM web_sales_visits WHERE id=$1",[linked.id])).rows[0].contact,"Contato reutilizável");
+    await assert.rejects(()=>saveVisit({...linked,id:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",customer_key:"m8:2"},"a@test.com"),/contato deste cliente/);
+    await db.exec("UPDATE web_user_access SET phone='49999999999' WHERE email IN ('a@test.com','tech@test.com')");
+    await assert.rejects(()=>queueVisitAlert({query},linked.id,"a@test.com","2020-01-01T12:00"),/futura/);
+    await queueVisitAlert({query},linked.id,"a@test.com","2099-01-01T12:00");
+    await queueVisitAlert({query},linked.id,"a@test.com","2099-01-01T12:00");
+    assert.equal((await db.query("SELECT * FROM web_sales_visit_alerts")).rows.length,1);
+    await db.exec("UPDATE web_sales_visit_alerts SET scheduled_at=now()-interval '1 minute'");
+    const messages=await claimVisitAlerts("https://example.test");
+    assert.equal(messages.length,1);assert.match(messages[0].text,/Contato reutilizável/);
+    assert.equal((await claimVisitAlerts("https://example.test")).length,0);
+    await assert.rejects(()=>acknowledgeVisitAlert(messages[0].id.slice(6),"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"));
+    await acknowledgeVisitAlert(messages[0].id.slice(6),messages[0].token);
+    const demand={visitId:linked.id,requestId:"cccccccc-cccc-4ccc-8ccc-cccccccccccc",title:"Demanda da visita",description:"Preparar proposta",assignedTo:"tech@test.com",priority:"high",dueDate:"2099-01-02"};
+    const task=await createVisitTask(demand,{email:"a@test.com"} as any);
+    assert.equal((await createVisitTask(demand,{email:"a@test.com"} as any)).taskId,task.taskId);
+    const savedTask=(await db.query<any>("SELECT * FROM web_tasks WHERE id=$1",[task.taskId])).rows[0];
+    assert.equal(savedTask.assigned_to,"tech@test.com");assert.deepEqual(savedTask.followers,["a@test.com"]);
+    assert.deepEqual((await db.query<any>("SELECT followers FROM web_sales_visits WHERE id=$1",[linked.id])).rows[0].followers,["a@test.com"]);
+    await queueVisitAlert({query},linked.id,"a@test.com","2099-02-01T12:00");
+    await saveVisit({action:"cancel",id:linked.id,version:1},"a@test.com");
+    assert.equal((await db.query<any>("SELECT count(*) n FROM web_sales_visit_alerts WHERE state='pending'")).rows[0].n,0);
+
+
+    const registration={customer:'m8:5',requestId:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',equipmentType:'Compressor',model:'GA22',brand:'Atlas Copco',serial:'ABC123',meter:'1234,5'};
+    await assert.rejects(()=>registerMachine(registration,{email:'a@test.com'} as any),/Defina o responsável/);
+    await assert.rejects(()=>saveMachineSettings('a@test.com','b@test.com'),/WhatsApp/);
+    await saveMachineSettings('a@test.com','tech@test.com');
+    assert.equal((await machineSettings('a@test.com')).equipmentAssignee,'tech@test.com');
+    const machine=await registerMachine(registration,{email:'a@test.com'} as any);
+    assert.equal((await registerMachine(registration,{email:'a@test.com'} as any)).taskId,machine.taskId);
+    assert.equal((await listMachines('m8:5','tech@test.com')).length,1);
+    assert.equal(Number((await listMachines('m8:5','tech@test.com'))[0].meter),1234.5);
+    const machineTask=(await db.query<any>('SELECT * FROM web_tasks WHERE id=$1',[machine.taskId])).rows[0];
+    assert.equal(machineTask.assigned_to,'tech@test.com');
+    assert.equal(machineTask.customer,'Sem máquinas');
+    assert.deepEqual(machineTask.followers,['a@test.com']);
+    await assert.rejects(()=>registerMachine({...registration,meter:'-1'},{email:'a@test.com'} as any),/horímetro/);
+    await assert.rejects(()=>registerMachine({...registration,customer:'m8:999'},{email:'a@test.com'} as any));
+    await db.exec("UPDATE web_user_access SET enabled=false WHERE email='tech@test.com'");
+    await assert.rejects(()=>registerMachine({...registration,requestId:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'},{email:'a@test.com'} as any),/ativo/);
+    assert.equal((await listMachines('m8:5','a@test.com')).length,1);
 
   } finally {
     g.historyPool = old;

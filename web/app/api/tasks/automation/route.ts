@@ -1,3 +1,4 @@
+import {claimVisitAlerts,acknowledgeVisitAlert} from "@/lib/visits/alerts";
 import {claimPasswordResetNotifications,acknowledgePasswordReset} from "@/lib/password-reset-notifications";
 import { PUBLIC_SYSTEM_URL } from "@/lib/public-url";
 import { claimReminders, acknowledgeReminder } from "@/lib/tasks/reminders";
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
         await acknowledgePasswordReset(body.id.slice(15),body.token);
       else if (typeof body.id === "string" && body.id.startsWith("reminder:"))
         await acknowledgeReminder(body.id.slice(9), body.token);
+      else if(typeof body.id==="string"&&body.id.startsWith("visit:"))await acknowledgeVisitAlert(body.id.slice(6),body.token);
       else await acknowledgeNotification(body.id, body.token);
       return Response.json({ ok: true }, { headers });
     }
@@ -33,7 +35,7 @@ export async function POST(req: Request) {
         {
           notifications:
             body.deliver === true
-              ? [...await claimReminders(PUBLIC_SYSTEM_URL), ...await claimNotifications(PUBLIC_SYSTEM_URL,true)]
+              ? [...await claimVisitAlerts(PUBLIC_SYSTEM_URL), ...await claimReminders(PUBLIC_SYSTEM_URL), ...await claimNotifications(PUBLIC_SYSTEM_URL,true)]
               : [],
         },
         { headers },
@@ -65,7 +67,7 @@ export async function POST(req: Request) {
     const result = await syncTasks();
     const notifications =
       body.deliver === true
-        ? [...await claimPasswordResetNotifications(), ...await claimNotifications(PUBLIC_SYSTEM_URL)]
+        ? [...await claimVisitAlerts(PUBLIC_SYSTEM_URL), ...await claimPasswordResetNotifications(), ...await claimNotifications(PUBLIC_SYSTEM_URL)]
         : [];
     return Response.json({ ...result, notifications }, { headers });
   } catch (e) {

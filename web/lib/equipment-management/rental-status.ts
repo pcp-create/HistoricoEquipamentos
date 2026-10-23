@@ -1,3 +1,4 @@
+import {equipmentWorkshopStatus} from "../workshop/equipment-status";
 import { rentalContract } from "./contract";
 import "server-only";
 import { database } from "../db";
@@ -9,6 +10,7 @@ export type RentalStatus = {
   company: number | null;
   customer: string | null;
   stockNote?: string;
+  workshop?: string;
   contract?: ReturnType<typeof rentalContract>;
 };
 export function resolveRentalStatus(
@@ -22,10 +24,13 @@ export function resolveRentalStatus(
     contract_end?: string | null;
   }[],
   totalStock: number | null = null,
+  workshop: {workshop: string | null} | null = null,
 ): RentalStatus {
+  if (workshop) return {key:"in_review",label:"Em Revisão",workshop:workshop.workshop || "Oficina não informada",order:null,company:null,customer:null};
+  // Cost orders do not indicate physical presence in a workshop.
   // Caller supplies newest first. Active commitments take precedence over completed orders.
-  const isReview = (o: (typeof orders)[number]) => o.status === "Pendente" && [20, 21].includes(Number(o.tipo_id));
-  const pending = orders.find((o) => o.status === "Pendente" && !isReview(o));
+  const isCostOrder = (o: (typeof orders)[number]) => o.status === "Pendente" && [20, 21].includes(Number(o.tipo_id));
+  const pending = orders.find((o) => o.status === "Pendente" && !isCostOrder(o));
   if (pending) {
     const kind = Number(pending.tipo_id);
     return {
@@ -59,14 +64,6 @@ export function resolveRentalStatus(
     };
   const knownStock = totalStock != null && Number.isFinite(totalStock);
   const unavailable = knownStock && totalStock <= 0;
-  const review = orders.find(isReview);
-  if (!unavailable && review) return {
-    key: "in_review",
-    label: "Em Revisão",
-    order: review.id,
-    company: review.company_id,
-    customer: review.cliente_nome?.trim() || null,
-  };
   const stockText = knownStock
     ? totalStock.toLocaleString("pt-BR", { maximumFractionDigits: 3 })
     : "";
@@ -92,12 +89,6 @@ export async function rentalStatuses(ids: string[]) {
  SELECT p.produto_id AS equipment_id,p.company_id,p.ordem_servico_id AS order_id
  FROM m8_os_produtos p WHERE p.produto_id=ANY($1::bigint[])
  AND p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")}
- UNION
- SELECT l.equipment_id,l.company_id,l.order_id
- FROM m8_equipment_linked l JOIN m8_ordens_servico o ON o.company_id=l.company_id AND o.id_m8=l.order_id
- WHERE l.equipment_id=ANY($1::bigint[]) AND o.status='Pendente' AND o.tipo_id IN(20,21)
- AND (NOT EXISTS(SELECT 1 FROM m8_os_produtos p WHERE p.company_id=l.company_id AND p.ordem_servico_id=l.order_id AND p.produto_id=l.equipment_id)
- OR EXISTS(SELECT 1 FROM m8_os_produtos p WHERE p.company_id=l.company_id AND p.ordem_servico_id=l.order_id AND p.produto_id=l.equipment_id AND p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")}))
  )
  SELECT DISTINCT l.equipment_id::text AS equipment_id,o.id_m8::text AS id,o.company_id,o.status,o.tipo_id,o.cliente_nome,
  (o.data_abertura AT TIME ZONE 'America/Sao_Paulo')::date::text AS contract_start,
@@ -117,6 +108,7 @@ export async function rentalStatuses(ids: string[]) {
       [ids],
     )
   ).rows;
+  const workshops = await equipmentWorkshopStatus(ids);
   const totals = new Map<string, number | null>(
     stocks.map((s) => [s.id, s.total == null ? null : Number(s.total)]),
   );
@@ -137,6 +129,7 @@ export async function rentalStatuses(ids: string[]) {
       resolveRentalStatus(
         rows.filter((r) => r.equipment_id === id),
         totals.get(id) ?? null,
+        workshops.get(id) ?? null,
       ),
     );
   return result;

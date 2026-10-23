@@ -1,4 +1,5 @@
 "use client";
+import { CalendarCheck2, Users, Info } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { VisitCustomer, SalesVisit, VisitSellerLocation } from "@/lib/visits/model";
 import { lastSeen } from "@/lib/last-seen";
@@ -7,6 +8,11 @@ import "leaflet/dist/leaflet.css";
 import "./map-customer-label.css";
 import { clusterMapPoints } from "@/lib/service-scheduling/map-clusters";
 import { customerMapLabel } from "@/lib/service-scheduling/customer-map-label";
+function scheduledIcon() {
+  const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+  for(const [key,value] of Object.entries({viewBox:"0 0 24 24",width:"16",height:"16",fill:"none",stroke:"currentColor","stroke-width":"2","stroke-linecap":"round","stroke-linejoin":"round","aria-hidden":"true"}))svg.setAttribute(key,value);
+  const path=document.createElementNS("http://www.w3.org/2000/svg","path");path.setAttribute("d","M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2M9 16l2 2 4-4");svg.append(path);return svg;
+}
 const noSellers: VisitSellerLocation[] = [];
 export default function SalesVisitsMap({
   sellers = noSellers,
@@ -146,11 +152,12 @@ export default function SalesVisitsMap({
           icon.style.background = `conic-gradient(${segments.join(",")})`;
           const number = document.createElement("b");
           number.className = "sales-map-count";
-          number.textContent = group.length > 1 ? String(group.length) : scheduled.has(group[0].key) ? "▣" : "●";
+          number.textContent = group.length > 1 ? String(group.length) : scheduled.has(group[0].key) ? "" : "●";
+          if(group.length===1 && scheduled.has(group[0].key))number.append(scheduledIcon());
           if (group.length === 1 && scheduled.has(group[0].key)) number.setAttribute("data-scheduled", "true");
           icon.append(number);
           const hasScheduled = group.some(c=>scheduled.has(c.key));
-          if(group.length>1 && hasScheduled){const badge=document.createElement("i");badge.className="sales-map-scheduled-badge";badge.textContent="▣";icon.append(badge)}
+          if(group.length>1 && hasScheduled){const badge=document.createElement("i");badge.className="sales-map-scheduled-badge";badge.append(scheduledIcon());icon.append(badge)}
           if(cluster.spread) L.polyline([[group[0].latitude!,group[0].longitude!],m.unproject([cluster.x,cluster.y],m.getZoom())],{color:"#71899e",weight:1,dashArray:"3 4",interactive:false}).addTo(layer);
           const marker = L.marker(m.unproject([cluster.x,cluster.y],m.getZoom()),{icon:L.divIcon({className:group.length === 1 ? "sales-map-marker sales-map-pin" : "sales-map-marker",html:icon,iconSize:[size,size],iconAnchor:group.length === 1 ? [size/2,size+6] : [size/2,size/2],popupAnchor:group.length === 1 ? [0,-size] : [0,0]})}).addTo(layer);
           const description = Object.entries(counts).filter(([,count])=>count).map(([key,count])=>`${healthLabels[key as keyof typeof counts]}: ${count}`).join(" · ");
@@ -243,16 +250,19 @@ export default function SalesVisitsMap({
         {territories && !territories.features.length && <p>Nenhum município disponível.</p>}
         {!!territories?.missing?.length && <details><summary>{territories.missing.length} municípios sem limite disponível</summary>{territories.missing.join(", ")}</details>}
       </div>}
-      <div className="sales-map-legend">
-        <span>● Situação da carteira</span>
-        <span className="sales-seller-legend">● Vendedores (iniciais)</span>
-        <span>▣ Visita agendada</span>
-        <span>Número: clientes agrupados · clique para ampliar ou consultar</span>
-        <span>Vermelho: vencida · Amarelo: próxima · Verde: em dia</span>
+      <div className="sales-map-guide">
+        <strong>Legenda do mapa</strong>
+        <div className="sales-map-legend">
+          <span><i className="sales-legend-dot overdue"/>Visita vencida</span>
+          <span><i className="sales-legend-dot due"/>Próxima do vencimento</span>
+          <span><i className="sales-legend-dot current"/>Visita em dia</span>
+          <span><CalendarCheck2 size={17}/>Visita agendada</span>
+          <span><Users size={17}/>Vendedores (iniciais)</span>
+        </div>
+        <details className="sales-map-help"><summary><Info size={16}/>Como usar o mapa e localização</summary><p>Os números nos marcadores indicam clientes agrupados. Clique para ampliar ou consultar.</p>
+        {sellers.some(s=>s.latitude===null || s.longitude===null) && <p>{sellers.filter(s=>s.latitude===null || s.longitude===null).length} vendedor(es) sem localização disponível. Permita o acesso à localização no navegador para exibir a posição.</p>}
+        </details>
       </div>
-      {sellers.some(s => s.latitude === null || s.longitude === null) && (
-        <p className="sales-muted">{sellers.filter(s => s.latitude === null || s.longitude === null).length} vendedor(es) sem localização disponível. Permita o acesso à localização no navegador para exibir a posição.</p>
-      )}
       {/* Leaflet manages classes on this element; keep its React className stable. */}
       <div ref={root} className="sales-map" />
       <p className="sales-muted">

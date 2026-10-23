@@ -25,6 +25,8 @@ import {
 } from "@/lib/visits/model";
 import { lastSeen } from "@/lib/last-seen";
 import VisitAdminActions from "./visit-admin-actions";
+import VisitsPeriodCalendar from "./visits-period-calendar";
+import VisitTaskButton from "./visit-task-button";
 import SalesVisits from "./sales-visits";
 import SalesVisitsMap from "./sales-visits-map";
 import "./field-app.css";
@@ -54,6 +56,7 @@ function SellerPhoto({id,name}:{id:string;name:string}) {
   return <span className="sales-seller-photo" aria-hidden="true">{failed ? initials : <img src={`/api/users/photo?email=${encodeURIComponent(id)}`} alt="" width={44} height={44} loading="lazy" onError={()=>setFailed(true)}/>}</span>;
 }
 export default function SalesVisitsManagement() {
+  const [calendarView,setCalendarView]=useState<"month"|"week"|"day">("month");
   const [filtersExpanded,setFiltersExpanded]=useState(false);
   const [data, setData] = useState<VisitsData | null>(null),
     [error, setError] = useState(""),
@@ -133,7 +136,7 @@ export default function SalesVisitsManagement() {
   });
   const portfolio = customers.filter(
     (c) =>
-      c.in_portfolio !== false &&
+      !c.lead && c.in_portfolio !== false &&
       (!seller || c.seller_ids?.includes(seller)) &&
       customerMatches(c),
   );
@@ -240,6 +243,7 @@ export default function SalesVisitsManagement() {
           <b>Registro da visita:</b> {v.outcome}
         </p>
       )}
+      {data?.canEditVisits && v.status !== "cancelled" && <VisitTaskButton visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key}/>}
       {data?.canEditVisits && <VisitAdminActions visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} purposes={data.purposes || []} onSaved={async message=>{setMessage(message);await reload()}}/>}
     </article>
   );
@@ -425,7 +429,7 @@ export default function SalesVisitsManagement() {
                       "Clientes na carteira",
                       portfolio.filter((c) => !c.lead).length,
                     ],
-                    ["Leads", portfolio.filter((c) => c.lead).length],
+                    ["Leads", customers.filter(c=>c.lead && (!seller || c.seller_ids?.includes(seller)) && customerMatches(c)).length],
                     ["Visitas realizadas", completed.length],
                     ["Agendadas em aberto", scheduled.length],
                     ["Agendamentos atrasados", overdue.length],
@@ -445,7 +449,7 @@ export default function SalesVisitsManagement() {
                   <section className="sales-panel">
                     <h2>Situação da carteira</h2>
                     <p className="sales-muted">
-                      Inclui clientes e Leads. Sem visita registrada: vencida.
+                      Somente clientes da carteira. Sem visita registrada: vencida.
                     </p>
                     {Object.entries(healthLabels).map(([key, label]) => {
                       const count = portfolio.filter(
@@ -627,7 +631,8 @@ export default function SalesVisitsManagement() {
             )}
             {tab === "calendar" && (
               <section className="field-calendar">
-                <div className="field-calendar-heading">
+                <div className="sales-actions visit-calendar-modes">{(["month","week","day"] as const).map(mode=><button key={mode} aria-pressed={calendarView===mode} onClick={()=>setCalendarView(mode)}>{mode==="month"?"Mês":mode==="week"?"Semana":"Dia"}</button>)}</div>{calendarView!=="month"?<VisitsPeriodCalendar mode={calendarView} visits={filteredVisits} renderVisit={renderVisit}/>:<>
+<div className="field-calendar-heading">
                   <button
                     aria-label="Mês anterior"
                     onClick={() => moveMonth(-1)}
@@ -698,7 +703,8 @@ export default function SalesVisitsManagement() {
                 )}
                 {calendarVisits.map(renderVisit)}
                 {!calendarVisits.length && <p>Nenhuma visita neste período.</p>}
-              </section>
+              </>}
+</section>
             )}
             {tab === "map" && (
               <>

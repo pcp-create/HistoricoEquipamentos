@@ -49,6 +49,8 @@ export type VisitCustomer = {
   health: VisitHealth;
 };
 export type SalesVisit = {
+  contact_id?:string;
+  followers?:string[];
   purpose_id?: string;
   purpose_name?: string;
   seller?: string;

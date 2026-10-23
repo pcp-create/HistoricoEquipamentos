@@ -1,4 +1,5 @@
 "use client";
+import VisitAutomationSettings from "./visit-automation-settings";
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {ArrowLeft,Plus,Save,Trash2} from 'lucide-react';
@@ -20,6 +21,7 @@ export default function VisitSettings(){
  return <div className="sales-shell"><SiteHeader active="visitsManagement" moduleId="visitas"/><main className="field-app sales-app sales-management">
  <section className="sales-panel sales-purpose-settings">
  <header className="sales-purpose-heading"><h1>Configurações de Visitas</h1><Link href="/visitas/gestao"><ArrowLeft size={16}/>Voltar</Link></header>
+ <VisitAutomationSettings/>
  <div className="sales-purpose-tabs" role="tablist" aria-label="Configurações de Visitas"><button role="tab" id="visit-purpose-tab" aria-selected="true" aria-controls="visit-purpose-panel">Finalidade da Visita</button></div>
  <div id="visit-purpose-panel" role="tabpanel" aria-labelledby="visit-purpose-tab">
  <p className="sales-purpose-help">Configure as finalidades disponíveis no agendamento. Desative uma opção para impedir novos usos, preservando as visitas já registradas.</p>

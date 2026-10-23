@@ -1,5 +1,10 @@
 import {test,expect} from '@playwright/test';
 test.setTimeout(90000);
+
+test.beforeEach(async({page})=>{
+ await page.route('**/api/customer-contacts?*',r=>r.fulfill({json:{contacts:[{id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',name:'João',phone:'49999999999'}]}}));
+ await page.route('**/api/customer-contacts',r=>r.fulfill({json:{contact:{id:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',...r.request().postDataJSON()}}}));
+});
 const sellers=[{id:'a@test',name:'Vendedor A',enabled:true,online:true,latitude:null,longitude:null,located_at:null,last_seen_at:null},{id:'b@test',name:'Vendedor B',enabled:false,online:false,latitude:null,longitude:null,located_at:null,last_seen_at:null}];
 const customers=[{key:'1',name:'Cliente A',city:'Lages',uf:'SC',document:'111',lead:false,health:'current',seller_ids:['a@test'],latitude:null,longitude:null,lastVisit:'2026-10-01T12:00:00Z'}, {key:'2',name:'Lead B',city:'Lages',uf:'SC',document:'222',lead:true,health:'overdue',seller_ids:['b@test'],latitude:null,longitude:null,lastVisit:null}];
 const base={contact:'Contato',phone:'49999999999',description:'Descrição da visita',outcome:'',version:1,completed_at:null};
@@ -79,6 +84,7 @@ test('administrator can record an equipment meter from management map',async({pa
  expect(saved).toMatchObject({action:'meter',management:true,customer_key:'1',equipment:'100',version:1,meter:1350,meterDate:'2026-10-10'});
  await page.locator('.sales-map-marker').click();
  await page.getByRole('button',{name:'Ver equipamentos',exact:true}).click();
+ await expect(page.locator('.sales-popup-equipment-list')).toHaveCount(1);
  await expect(page.locator('.sales-popup-equipment-list')).toContainText('1.350 h');
 });
 
@@ -97,8 +103,7 @@ test('management schedules a visit without leaving the page',async({page,context
  await dialog.getByRole('option').first().click();
  await dialog.getByLabel('Data e hora agendada').fill('2026-11-20T10:00');
  await dialog.getByLabel('Finalidade da Visita',{exact:true}).selectOption('1');
- await dialog.getByLabel('Pessoa que receberá').fill('João');
- await dialog.getByLabel('Telefone de contato').fill('49999999999');
+ await dialog.getByLabel('Contato que receberá a visita').selectOption('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
  await dialog.getByRole('button',{name:'Salvar agendamento'}).click();
  await expect(dialog).toHaveCount(0);
  await expect(page.locator('.sales-success')).toContainText('Visita agendada');

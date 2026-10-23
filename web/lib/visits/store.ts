@@ -1,4 +1,6 @@
 import "server-only";
+import {storeContact} from "./contacts";
+import {queueVisitAlert} from "./alerts";
 import { database } from "../db";
 import { AdminInputError } from "../admin-store";
 import { Forbidden } from "../auth";
@@ -117,7 +119,7 @@ export async function visitsData(email: string, db: any = database(), management
       uf: r.uf,
       address: r.address,
       seller_ids: [r.owner],
-      in_portfolio: true,
+      in_portfolio: false,
       lead: true,
       equipment: [],
       latitude: null,
@@ -223,9 +225,12 @@ export async function saveVisit(b: any, email: string) {
       const purpose = b.purpose_id;
       if (!/^\d+$/.test(String(purpose || "")) || !(await c.query("SELECT 1 FROM web_sales_visit_purposes WHERE id=$1 AND active FOR SHARE",[purpose])).rows.length)
         throw new AdminInputError("Selecione uma finalidade da visita ativa.");
+      let selectedContact:any=null;
+      if(b.contact_id){if(!uuid.test(b.contact_id))throw new AdminInputError('Contato inválido.');selectedContact=(await c.query('SELECT id,name,phone FROM web_customer_contacts WHERE id=$1 AND customer_key=$2',[b.contact_id,key])).rows[0];if(!selectedContact)throw new AdminInputError('Selecione um contato deste cliente.');}
+      else if(b.contact||b.phone)selectedContact=await storeContact(c,key,{name:b.contact,phone:b.phone},email);
       const at = instant(b.scheduled_at),
-        contact = text(b, "contact", 160, true),
-        phone = text(b, "phone", 40, true),
+        contact = selectedContact?.name || text(b, "contact", 160, true),
+        phone = selectedContact?.phone || text(b, "phone", 40, true),
         description = text(b, "description", 10000);
       if (!/^[+()\d\s.-]{8,40}$/.test(phone))
         throw new AdminInputError("Informe um telefone válido.");
@@ -236,7 +241,7 @@ export async function saveVisit(b: any, email: string) {
           "Uma visita realizada não pode ter data futura.",
         );
       await c.query(
-        `INSERT INTO web_sales_visits(id,seller,customer_key,scheduled_at,contact,phone,description,status,completed_at,outcome,purpose_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(id) DO NOTHING`,
+        `INSERT INTO web_sales_visits(id,seller,customer_key,scheduled_at,contact,phone,description,status,completed_at,outcome,purpose_id,contact_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(id) DO NOTHING`,
         [
           b.id,
           email,
@@ -249,6 +254,7 @@ export async function saveVisit(b: any, email: string) {
           completed ? at : null,
           outcome,
           purpose,
+          selectedContact?.id||null,
         ],
       );
       const owner = (
@@ -275,6 +281,8 @@ export async function saveVisit(b: any, email: string) {
         ],
       );
     }
+    if(b.action==='cancel')await c.query("UPDATE web_sales_visit_alerts SET state='cancelled' WHERE visit_id=$1 AND state='pending'",[b.id]);
+    else await queueVisitAlert(c,b.id,email,b.whatsappAt);
     await c.query(
       "INSERT INTO web_access_events(event,email,actor,details) VALUES('sales_visit',$1,$1,$2)",
       [email, JSON.stringify({ action: b.action, id: b.id })],

@@ -56,3 +56,71 @@ test('workshop board filters locations, opens linked records and records an entr
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'/tmp/workshop-mobile.png',fullPage:true});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });
+
+test('kanban drag saves stage and version, maps rental approval and preserves card on failure',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ const machine={id:'10000000-0000-4000-8000-000000000001',equipment_id:'100',name:'Máquina locação',source:{sheet:'Equipamentos Locação em revisão'},workshop_id:'1',workshop:'RJ',entered_at:'2026-10-01T12:00:00Z',stage:'received',effective_stage:'received',version:1,orders:[],quotes:[],drafts:[],tasks:[],external:[],events:[]};
+ const writes:any[]=[];let reject=false;
+ await page.route('**/api/**',r=>r.fulfill({json:{admin:true}}));
+ await page.route('**/api/workshop',r=>{if(r.request().method()==='POST'){const b=r.request().postDataJSON();writes.push(b);if(reject)return r.fulfill({status:503,json:{error:'Falha ao salvar etapa'}});machine.stage=b.stage;machine.effective_stage=b.stage==='approval'?'approval_internal':b.stage;machine.version++;return r.fulfill({json:{saved:true}})}return r.fulfill({json:{visits:[machine],workshops:[{id:'1',name:'RJ',active:true}],imports:[]}})});
+ await page.goto('/oficina');await page.getByRole('button',{name:'Kanban',exact:true}).click();
+ await page.locator('[data-stage=received] .ws-machine').dragTo(page.locator('[data-stage=repair]'));
+ await expect(page.locator('[data-stage=repair] .ws-machine')).toHaveCount(1);
+ await expect.poll(()=>writes.length).toBe(1);
+ expect(writes[0]).toMatchObject({action:'stage',id:machine.id,version:1,stage:'repair'});
+ await expect(page.getByRole('dialog',{name:'Ficha da máquina'})).toHaveCount(0);
+ await expect(page.locator('[data-stage=repair] .ws-machine')).toHaveAttribute('draggable','true');
+ await page.locator('[data-stage=repair] .ws-machine').dragTo(page.locator('[data-stage=approval_internal]'));
+ await expect(page.locator('[data-stage=approval_internal] .ws-machine')).toHaveCount(1);
+ expect(writes[1]).toMatchObject({stage:'approval',version:2});
+ reject=true;
+ await expect(page.locator('[data-stage=approval_internal] .ws-machine')).toHaveAttribute('draggable','true');
+ await page.locator('[data-stage=approval_internal] .ws-machine').dragTo(page.locator('[data-stage=repair]'),{targetPosition:{x:40,y:40}});
+ await expect(page.locator('.ws-error')).toContainText('Falha ao salvar etapa');
+ await expect(page.locator('[data-stage=approval_internal] .ws-machine')).toHaveCount(1);
+ await expect(page.locator('[data-stage=repair] .ws-machine')).toHaveCount(0);
+});
+
+test('sticky top scrollbar stays synchronized and optimistic moves do not wait for validation',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ const base={id:'a',equipment_id:'100',name:'Máquina A',workshop_id:'1',workshop:'RJ',entered_at:'2026-10-01T12:00:00Z',stage:'received',effective_stage:'received',version:1,orders:[],quotes:[],drafts:[],tasks:[],external:[],events:[]};
+ const second={...base,id:'b',equipment_id:'200',name:'Máquina B',stage:'diagnosis',effective_stage:'diagnosis'};
+ let release!:()=>void;const pending=new Promise<void>(resolve=>{release=resolve});let reads=0,posts=0;
+ await page.route('**/api/**',r=>r.fulfill({json:{admin:true}}));
+ await page.route('**/api/workshop',async r=>{
+  if(r.request().method()==='POST'){
+   const b=r.request().postDataJSON();posts++;
+   if(b.id==='a'){await pending;return r.fulfill({status:503,json:{error:'Falha de validação'}})}
+   return r.fulfill({json:{saved:true,visit:{id:b.id,stage:b.stage,version:2,event:{id:'event-b',created_at:new Date().toISOString(),action:'Etapa: Em execução',actor_name:'Usuário',document:{previousStage:'diagnosis',nextStage:b.stage}}}}});
+  }
+  reads++;return r.fulfill({json:{workshops:[{id:'1',name:'RJ',active:true}],visits:[base,second,...Array.from({length:12},(_,i)=>({...base,id:'extra'+i,name:'Máquina '+i,equipment_id:String(300+i)}))],imports:[]}});
+ });
+ await page.goto('/oficina');await page.getByRole('button',{name:'Kanban',exact:true}).click();
+ const bar=page.getByRole('group',{name:'Navegação horizontal do Kanban'}),scroll=page.getByRole('region',{name:'Rolar colunas do Kanban'});
+ await bar.scrollIntoViewIfNeeded();
+ await scroll.evaluate(el=>{el.scrollLeft=400});
+ await expect.poll(()=>page.locator('.ws-board').evaluate(el=>el.scrollLeft)).toBe(400);
+ await page.locator('.ws-board').evaluate(el=>{el.scrollLeft=el.scrollWidth;});
+ await expect.poll(()=>scroll.evaluate(el=>el.scrollLeft)).toBe(await page.locator('.ws-board').evaluate(el=>el.scrollLeft));
+ await page.evaluate(()=>{const el=document.querySelector('.ws-board-navigation')!;window.scrollTo(0,window.scrollY+el.getBoundingClientRect().top+350);});
+ await expect.poll(async()=>Math.round((await bar.boundingBox())!.y)).toBe(8);
+ await page.getByRole('button',{name:'Colunas anteriores',exact:true}).click();
+ await expect.poll(()=>page.locator('.ws-board').evaluate(el=>el.scrollLeft)).toBeLessThan(await page.locator('.ws-board').evaluate(el=>el.scrollWidth-el.clientWidth));
+ await page.locator('.ws-board').evaluate(el=>{el.scrollLeft=0;window.scrollTo(0,window.scrollY+el.getBoundingClientRect().top-120);});
+ await expect.poll(()=>page.locator('.ws-board').evaluate(el=>el.scrollLeft)).toBe(0);
+ const a=page.locator('.ws-machine').filter({has:page.getByRole('heading',{name:'Máquina A',exact:true})});
+ const b=page.locator('.ws-machine').filter({has:page.getByRole('heading',{name:'Máquina B',exact:true})});
+ const initialReads=reads;
+ await a.dragTo(page.locator('[data-stage=repair]'),{targetPosition:{x:40,y:40}});
+ await expect(page.locator('[data-stage=repair]')).toContainText('Máquina A');
+ await expect(a).toHaveAttribute('aria-busy','true');await expect(a).toHaveAttribute('draggable','false');
+ await expect(a).toContainText('Salvando etapa');
+ await expect.poll(()=>posts).toBe(1);expect(reads).toBe(initialReads);
+ await b.dragTo(page.locator('[data-stage=repair]'),{targetPosition:{x:40,y:40}});
+ await expect(b).toHaveAttribute('aria-busy','false');await expect(page.locator('[data-stage=repair]')).toContainText('Máquina B');
+ release();
+ await expect(page.locator('.ws-error')).toContainText('movimentação foi desfeita');
+ await expect(page.locator('[data-stage=received]')).toContainText('Máquina A');
+ await expect(page.locator('[data-stage=repair]')).toContainText('Máquina B');
+ expect(reads).toBe(initialReads);expect(posts).toBe(2);
+});

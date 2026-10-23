@@ -59,3 +59,20 @@ A opção “Buscar em toda a base de clientes” consulta `/api/visits/customer
 Ao definir a localização de um cliente ou Lead, o marcador fica fixo no centro e o usuário move o mapa. Busca de endereço e localização atual centralizam o mapa no resultado; a posição só é gravada ao salvar. No Lead, a consulta reversa preenche cidade, UF e endereço; os dados aparecem junto ao mapa e podem ser corrigidos em “Editar endereço”. Para clientes sem endereço cadastrado, o resumo consulta o ponto do mapa sem alterar o cadastro M8. Consultas antigas são canceladas ao trocar o ponto e falhas não apagam a posição.
 
 Configurações de finalidades usam salvamento em lote transacional e controle de versão, com o botão de salvar ao lado de “Adicionar finalidade”. A Gestão usa o cabeçalho web padrão; seu atalho não aparece dentro do Portal do Vendedor.
+
+## Contatos, demandas e alertas de visitas
+
+Aplicar `web/sql/071_visit_contacts_actions.sql` antes de publicar esta versão. A migração preserva o histórico e cadastra os contatos já informados nas visitas. Novos contatos são compartilhados pela chave do cliente (`m8:ID`, sem duplicação por empresa) e podem ser consultados por `GET /api/customer-contacts?customer=m8:ID`. Leads têm contatos isolados por cadastro e acesso conforme seu proprietário.
+
+O calendário oferece Mês, Semana e Dia. Leads aparecem em lista própria e não entram na contagem nem na saúde da carteira de clientes. Ao salvar uma visita realizada, o usuário pode agendar a próxima com cliente e contato preservados; finalidade, descrição, data e hora ficam vazias.
+
+A ação **Criar tarefa da visita** solicita responsável, prioridade e vencimento. Título e descrição são preenchidos com o registro, permanecendo editáveis. A tarefa e o vínculo com a visita são gravados na mesma transação; repetir a mesma solicitação não duplica a tarefa. O criador entra no acompanhamento da tarefa e da visita.
+
+**Receber alerta no meu WhatsApp** agenda uma mensagem para o telefone do usuário, na data e hora escolhidas (Brasília). O alerta usa a automação existente de tarefas: operações `sync` e `reminders` com `deliver: true` incluem mensagens com ID `visit:UUID`; a operação `ack` confirma o envio com o mesmo ID e token. Não é necessário outro fluxo se o integrador atual já encaminha todos os itens de `notifications` e confirma suas entregas. Cancelar uma visita cancela seus alertas pendentes. A leitura de visitas não dispara mensagens.
+
+### Solicitação de cadastro de máquina
+Na lista de clientes, expanda **Máquinas** e escolha **Cadastrar máquina**. Informe tipo, modelo, marca, número de série e horímetro. O registro fica vinculado ao cliente como **Cadastro pendente**, com acesso à tarefa gerada para o cadastro definitivo. Não cria automaticamente equipamento no M8.
+
+Em **Configurações de Visitas → Tarefas automáticas**, selecione o responsável pelo cadastro de equipamentos (inicialmente Danieli Oliveira). O destinatário deve estar ativo e ter WhatsApp cadastrado. O criador acompanha a tarefa automaticamente. Registro e tarefa são gravados na mesma transação; reenvios da mesma solicitação não duplicam tarefas. A criação usa a fila de notificações já existente.
+
+Aplicar `web/sql/072_visit_machine_registration.sql` nos ambientes antes da publicação desta funcionalidade.

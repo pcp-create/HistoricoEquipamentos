@@ -104,7 +104,7 @@ export async function equipmentList(params: URLSearchParams) {
       return {
         ...e,
         ownership: e.rental ? "own" : e.settings.ownership || "unknown",
-        rentalStatus: e.workshop ? {key:"in_workshop",label:"Em Oficina",order:null,company:null,customer:null} : rentalStates.get(e.id) || null,
+        rentalStatus: e.workshop && !e.rental ? {key:"in_workshop",label:"Em Oficina",order:null,company:null,customer:null} : rentalStates.get(e.id) || null,
         plans: planned.length,
         plansUpdatedAt: lastModifiedPlan ? new Date(lastModifiedPlan.updatedAt).toISOString() : null,
         plansUpdatedBy: lastModifiedPlan?.updatedByName || null,
@@ -194,7 +194,7 @@ export async function equipmentDetail(raw: string) {
     ? (await rentalStatuses([id])).get(id)
     : null;
   equipment.workshop = (await equipmentWorkshopStatus([id])).get(id) || null;
-  if (equipment.workshop) equipment.rentalStatus = {key:"in_workshop",label:"Em Oficina",order:null,company:null,customer:null};
+  if (equipment.workshop && !equipment.rental) equipment.rentalStatus = {key:"in_workshop",label:"Em Oficina",order:null,company:null,customer:null};
   equipment.usage = equipment.rental
     ? (await rentalUsage([id])).get(id)
     : undefined;

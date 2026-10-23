@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
 test.setTimeout(90000);
+
+test.beforeEach(async({page})=>{
+ await page.route('**/api/customer-contacts?*',r=>r.fulfill({json:{contacts:[{id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',name:'João',phone:'49999999999'}]}}));
+ await page.route('**/api/customer-contacts',r=>r.fulfill({json:{contact:{id:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',...r.request().postDataJSON()}}}));
+});
 const purposes=[{id:'1',name:'Prospecção',description:'Identificar oportunidades.',active:true,version:1}];
 
 test("sales portal displays portfolio, schedules visits and registers historical visits on mobile", async ({
@@ -54,12 +59,16 @@ test("sales portal displays portfolio, schedules visits and registers historical
   await page.getByRole("searchbox", { name: "Pesquisar cliente" }).fill("Cliente de teste");
   await page.getByRole("option", { name: /Cliente de teste/ }).click();
   await page.getByLabel("Data e hora agendada").fill("2026-11-20T10:00");
-  await page.getByLabel("Pessoa que receberá").fill("João");
-  await page.getByLabel("Telefone de contato").fill("49999999999");
+  await page.getByRole('button',{name:'+ Novo contato',exact:true}).click();
+  await page.getByLabel('Nome do contato').fill('João');await page.getByLabel('Telefone do contato').fill('49999999999');
+  await page.getByRole('button',{name:'Salvar contato',exact:true}).click();
+  await expect(page.getByLabel('Contato que receberá a visita')).toHaveValue('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
+  await page.getByLabel('Receber alerta no meu WhatsApp').check();
+  await page.getByLabel('Data e hora do alerta (Brasília)').fill('2099-11-20T09:00');
   await page.getByLabel("Finalidade da Visita",{exact:true}).selectOption("1");
   await page.getByRole("button", { name: "Salvar agendamento" }).click();
   await expect(page.getByRole("status")).toContainText("Visita agendada");
-  expect(writes[0].scheduled_at).toBe("2026-11-20T13:00:00.000Z");
+  expect(writes[0].scheduled_at).toBe("2026-11-20T13:00:00.000Z");expect(writes[0].whatsappAt).toBe("2099-11-20T09:00");expect(writes[0].contact_id).toBe("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee");
   await page.getByRole("button", { name: "Calendário", exact: true }).click();
   await expect(page.locator(".field-calendar-heading")).toContainText("novembro de 2026");
   await expect(page.locator(".field-calendar-grid button[aria-pressed=true]")).toContainText("1 visita");
@@ -76,6 +85,7 @@ test("sales portal displays portfolio, schedules visits and registers historical
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
+  await page.getByRole("button", { name: "Abrir ações de visita" }).click();
   await page
     .getByRole("button", { name: "Registrar visita realizada", exact: true })
     .click();
@@ -85,8 +95,7 @@ test("sales portal displays portfolio, schedules visits and registers historical
   await page.getByRole("searchbox", { name: "Pesquisar cliente" }).fill("Cliente de teste");
   await page.getByRole("option", { name: /Cliente de teste/ }).click();
   await page.getByLabel("Data e hora da realização").fill("2026-01-15T14:00");
-  await page.getByLabel("Pessoa que receberá").fill("João");
-  await page.getByLabel("Telefone de contato").fill("49999999999");
+  await page.getByLabel("Contato que receberá a visita").selectOption("dddddddd-dddd-4ddd-8ddd-dddddddddddd");
   await page
     .getByLabel("Registro da visita e próximos passos")
     .fill("Cliente visitado, retornar com proposta.");
@@ -96,6 +105,12 @@ test("sales portal displays portfolio, schedules visits and registers historical
     "Visita realizada registrada",
   );
   expect(writes[1].action).toBe("history");
+  await expect(page.getByRole('dialog',{name:'Agendar próxima visita'})).toBeVisible();
+  await page.getByRole('button',{name:'Agendar próxima visita',exact:true}).click();
+  await expect(page.getByLabel('Data e hora agendada')).toHaveValue('');
+  await expect(page.getByLabel('Finalidade da Visita',{exact:true})).toHaveValue('');
+  await expect(page.getByLabel('Contato que receberá a visita')).toHaveValue('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+  page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Fechar formulário',exact:true}).click();
   const tileReferrers: string[] = [];
   await page.route("https://tile.openstreetmap.org/**", async route => {
     const headers = await route.request().allHeaders();
@@ -202,7 +217,7 @@ test('selected customer mini map saves a manual location without losing the visi
  await page.getByRole('option',{name:/Cliente mapa/}).click();
  await expect(page.getByRole('region',{name:'Endereço do cliente',exact:true})).toContainText('Rua identificada, 100');
  await expect(page.locator('.sales-customer-mini-map')).toHaveClass(/leaflet-container/);
- await page.getByLabel('Pessoa que receberá').fill('Contato preservado');
+ await page.getByRole('button',{name:'+ Novo contato',exact:true}).click();await page.getByLabel('Nome do contato').fill('Contato preservado');
  await page.getByRole('button',{name:'Alterar localização',exact:true}).click();
  const mapBox=await page.locator('.sales-customer-mini-map').boundingBox();
  const pinBefore=await page.locator('.sales-location-center').boundingBox();
@@ -216,7 +231,7 @@ test('selected customer mini map saves a manual location without losing the visi
  expect(writes).toHaveLength(1);expect(writes[0].action).toBe('location');expect(writes[0].customer_key).toBe('m8:1');
  expect(writes[0].latitude).not.toBe(-27.8);
  await expect(page.getByRole('region',{name:'Endereço do cliente',exact:true})).toContainText('Rua do novo ponto, 200');
- await expect(page.getByLabel('Pessoa que receberá')).toHaveValue('Contato preservado');
+ await expect(page.getByLabel('Nome do contato')).toHaveValue('Contato preservado');
 });
 
 test('new lead searches a city and submits its selected map position',async({page,context})=>{
@@ -248,8 +263,8 @@ test('new lead searches a city and submits its selected map position',async({pag
  await expect(page.getByLabel('UF',{exact:true})).toHaveValue('SC');
  await expect(page.getByLabel('Endereço',{exact:true})).toHaveValue('Rua XV de Novembro, 100, Centro');
  await page.getByLabel('Data e hora agendada').fill('2026-11-20T10:00');
- await page.getByLabel('Pessoa que receberá').fill('João');
- await page.getByLabel('Telefone de contato').fill('49999999999');
+ await page.getByLabel('Nome do contato').fill('João');
+ await page.getByLabel('Telefone do contato').fill('49999999999');
  await page.getByLabel('Finalidade da Visita',{exact:true}).selectOption('1');
  await page.getByRole('button',{name:'Salvar agendamento',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('Visita agendada');
@@ -272,7 +287,7 @@ test('user without territory schedules an external customer with a purpose',asyn
  await page.getByRole('option',{name:/Cliente fora da carteira/}).click();
  await page.getByLabel('Data e hora agendada').fill('2026-11-20T10:00');
  await page.getByLabel('Finalidade da Visita',{exact:true}).selectOption('1');
- await page.getByLabel('Pessoa que receberá').fill('João');await page.getByLabel('Telefone de contato').fill('49999999999');
+ await page.getByLabel('Contato que receberá a visita').selectOption('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
  await page.getByRole('button',{name:'Salvar agendamento',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('Visita agendada');
  expect(saved).toMatchObject({customer_key:'m8:99',purpose_id:'1'});
@@ -294,4 +309,106 @@ test('visit purpose settings edits and adds options',async({page,context})=>{
  await page.getByRole('button',{name:'Salvar configurações',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('Configurações salvas');
  expect(rows[1].name).toBe('Treinamento');
+});
+
+test('lead separation, week/day calendar and visit task demand',async({page,context})=>{
+ await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
+ const customer={key:'m8:1',name:'Cliente carteira',document:'1',city:'Lages',uf:'SC',address:'',lead:false,in_portfolio:true,health:'overdue',latitude:null,longitude:null,lastVisit:null};
+ const lead={...customer,key:'lead:1',name:'Lead separado',lead:true,in_portfolio:false};
+ const visit={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',customer_key:'m8:1',seller:'a@test',scheduled_at:'2026-10-23T13:00:00Z',completed_at:null,contact:'João',phone:'49999999999',description:'Preparar proposta de manutenção',outcome:'',purpose_name:'Prospecção',status:'scheduled',version:1};
+ let demand:any;
+ await page.route('**/api/activity',r=>r.fulfill({json:{}}));
+ await page.route('**/api/visits',r=>{if(r.request().method()==='POST'){demand=r.request().postDataJSON();return r.fulfill({json:{taskId:'123'}})}return r.fulfill({json:{name:'Vendedor',customers:[customer,lead],visits:[visit],purposes}})});
+ await page.route('**/api/tasks',r=>r.fulfill({json:{users:[{email:'tech@test',display_name:'Técnico'}]}}));
+ await page.goto('/visitas');await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
+ await expect(page.getByRole('button',{name:/Clientes na carteira/})).toContainText('1');
+ await expect(page.getByRole('button',{name:/Visitas vencidas/})).toContainText('1');
+ await page.getByRole('button',{name:'Lista',exact:true}).click();
+ await expect(page.locator('.sales-customer-grid')).not.toContainText('Lead separado');
+ await page.getByRole('button',{name:'Leads (1)',exact:true}).click();
+ await expect(page.locator('.sales-customer-grid')).toContainText('Lead separado');
+ await expect(page.locator('.sales-customer-grid')).not.toContainText('Cliente carteira');
+ await page.getByRole('button',{name:'Calendário',exact:true}).click();
+ await page.getByRole('button',{name:'Semana',exact:true}).click();
+ await page.getByLabel('Data do calendário').fill('2026-10-23');
+ await expect(page.locator('.visit-period-grid>section')).toHaveCount(7);
+ await expect(page.locator('.visit-period-grid')).toContainText('Preparar proposta de manutenção');
+ await page.getByRole('button',{name:'Dia',exact:true}).click();
+ await expect(page.locator('.visit-period-grid>section')).toHaveCount(1);
+ await page.getByRole('button',{name:'Criar tarefa da visita',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Criar tarefa da visita'});
+ await expect(dialog.getByLabel('Título',{exact:true})).toHaveValue('Visita - Cliente carteira - Prospecção');
+ await expect(dialog.getByLabel('Descrição',{exact:true})).toHaveValue(/Preparar proposta de manutenção/);
+ await dialog.getByLabel('Responsável').selectOption('tech@test');await dialog.getByLabel('Prioridade').selectOption('high');await dialog.getByLabel('Vencimento').fill('2026-11-01');
+ await dialog.getByRole('button',{name:'Criar tarefa',exact:true}).click();
+ await expect(page.getByRole('link',{name:'Abrir tarefa TAR-123'})).toBeVisible();
+ expect(demand).toMatchObject({action:'task',visitId:visit.id,assignedTo:'tech@test',priority:'high',dueDate:'2026-11-01'});
+ await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Semana',exact:true}).click();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+});
+
+test('customer list opens machines and records meter; mobile history actions stay compact',async({page,context})=>{
+ await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
+ const equipment={id:'100',name:'Compressor',model:'GA15',serial:'ABC',meter:1200,meterDate:'2026-10-01',version:1};
+ const customer={key:'m8:1',name:'Cliente máquinas',document:'1',city:'Lages',uf:'SC',address:'Rua Um',lead:false,health:'overdue',latitude:-27.8,longitude:-50.3,lastVisit:null,equipment:[equipment]};
+ const visit={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',customer_key:customer.key,scheduled_at:'2099-10-23T13:00:00Z',contact:'João',phone:'49999999999',status:'scheduled',version:1,description:'Inspeção',outcome:''};
+ let saved:any;
+ await page.route('**/api/activity',r=>r.fulfill({json:{}}));
+ await page.route('https://tile.openstreetmap.org/**',r=>r.abort());
+ await page.route('**/api/visits',r=>{if(r.request().method()==='POST'){saved=r.request().postDataJSON();equipment.meter=saved.meter;return r.fulfill({json:{saved:true}})}return r.fulfill({json:{name:'Vendedor',customers:[customer],visits:[visit],purposes}})});
+ await page.goto('/visitas');await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
+ await page.setViewportSize({width:390,height:844});
+ await page.getByRole('button',{name:'Lista',exact:true}).click();
+ await page.getByRole('button',{name:'Máquinas (1)',exact:true}).click();
+ const machines=page.getByRole('region',{name:'Máquinas de Cliente máquinas'});
+ await expect(machines).toContainText('1.200 h');await expect(machines).toContainText('ABC');
+ await machines.getByRole('button',{name:'Registrar horímetro',exact:true}).click();
+ const meter=page.getByRole('dialog',{name:'Registrar horímetro',exact:true});
+ await meter.getByLabel('Horímetro atual (h)').fill('1300');await meter.getByLabel('Data da coleta').fill('2026-10-01');
+ await meter.getByRole('button',{name:'Salvar horímetro',exact:true}).click();
+ await expect(meter).toHaveCount(0);await expect(machines).toContainText('1.300 h');expect(saved).toMatchObject({action:'meter',customer_key:'m8:1',equipment:'100',meter:1300});
+ await page.getByRole('button',{name:'Ver histórico',exact:true}).click();
+ const history=page.getByRole('dialog',{name:'Histórico do cliente'});
+ await expect(history.getByRole('button',{name:'Cancelar visita',exact:true})).toHaveCSS('color','rgb(180, 35, 53)');
+ const close=history.getByRole('button',{name:'Fechar histórico'});expect((await close.boundingBox())!.width).toBeLessThanOrEqual(40);
+ await close.click();await page.getByRole('button',{name:'Mapa',exact:true}).click();
+ await expect(page.locator('[data-scheduled] svg')).toHaveCount(1);
+ await expect(page.getByText('Legenda do mapa',{exact:true})).toBeVisible();
+ await page.getByText('Como usar o mapa e localização',{exact:true}).click();
+ await expect(page.getByText('Os números nos marcadores indicam clientes agrupados. Clique para ampliar ou consultar.')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+ await page.screenshot({path:'/tmp/visitas-mapa-mobile.png',fullPage:true});
+});
+
+test('customer machine registration creates task and displays pending machine',async({page,context})=>{
+ await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/visits',r=>r.fulfill({json:{name:'Vendedor',customers:[{key:'m8:1',name:'Cliente sem máquina',document:'123',city:'Lages',uf:'SC',address:'',lead:false,in_portfolio:true,latitude:null,longitude:null,lastVisit:null,health:'overdue',equipment:[]}],visits:[],purposes}}));
+ let machines:any[]=[];let payload:any;
+ await page.route('**/api/visits/machines*',r=>{if(r.request().method()==='POST'){payload=r.request().postDataJSON();machines=[{id:payload.requestId,equipment_type:payload.equipmentType,model:payload.model,brand:payload.brand,serial:payload.serial,meter:payload.meter,task_id:'321'}];return r.fulfill({json:{taskId:'321'}})}return r.fulfill({json:{machines}})});
+ await page.goto('/visitas');await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
+ await page.getByRole('button',{name:'Lista',exact:true}).click();
+ await page.getByRole('button',{name:/Máquinas \(0\)/}).click();
+ await page.getByRole('button',{name:'Cadastrar máquina',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Cadastrar máquina'});
+ await expect(dialog).toContainText('Cliente sem máquina');
+ for(const [label,value] of [['Tipo de equipamento','Compressor'],['Modelo','GA22'],['Marca','Atlas Copco'],['Número de série','ABC123'],['Horímetro (h)','1200']])await dialog.getByLabel(label,{exact:true}).fill(value);
+ await dialog.getByRole('button',{name:'Salvar e gerar tarefa'}).click();
+ await expect(dialog).toHaveCount(0);await expect(page.getByText('Cadastro pendente',{exact:true})).toBeVisible();
+ await expect(page.getByRole('link',{name:'Tarefa TAR-321'})).toHaveAttribute('href','/tarefas?task=321');
+ expect(payload.customer).toBe('m8:1');expect(payload.requestId).toMatch(/^[a-f0-9-]{36}$/);
+});
+
+test('mobile navigation stays at bottom and floating button expands visit actions',async({page,context})=>{
+ await page.setViewportSize({width:390,height:844});
+ await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/visits',r=>r.fulfill({json:{name:'Vendedor',customers:[],visits:[],purposes}}));
+ await page.goto('/visitas');await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
+ const nav=page.getByRole('navigation',{name:'Visões de visitas'});
+ await expect(nav).toHaveCSS('position','fixed');
+ const bounds=await nav.boundingBox();expect(bounds!.y+bounds!.height).toBeCloseTo(844,0);
+ await page.getByRole('button',{name:'Abrir ações de visita'}).click();
+ await expect(page.getByRole('button',{name:'Fechar ações de visita'})).toHaveAttribute('aria-expanded','true');
+ await page.locator('.sales-quick-options').getByRole('button',{name:'Agendar visita',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Agendar visita',exact:true})).toBeVisible();
+ await expect(page.locator('.sales-quick-options')).toHaveCount(0);
 });

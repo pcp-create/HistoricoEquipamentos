@@ -1,3 +1,5 @@
+import {equipmentWorkshopStatus} from "../lib/workshop/equipment-status";
+import {resolveRentalStatus} from "../lib/equipment-management/rental-status";
 import {test} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {PGlite} from '@electric-sql/pglite';
 import {workshopMutate} from '../lib/workshop/store';import {effectiveStage,daysInWorkshop,stageOptions} from '../lib/workshop/model';
 test('workshop computes elapsed days and follows explicit OS material shortages',()=>{assert.equal(effectiveStage('repair',[{status_lancamento_nome:'22 - O.S FALTANDO PEÇAS'}]),'parts');assert.equal(effectiveStage('repair',[]),'repair');assert.equal(daysInWorkshop('2026-10-20T12:00:00Z','2026-10-22T12:00:00Z'),2);});
@@ -13,6 +15,12 @@ test('entries prevent duplicates; external parts block exit; version conflicts a
   const entry={action:'entry',equipmentId:'100',workshopId:'1',enteredAt:'2025-01-01T12:00:00Z',notes:'Entrada'};
   await workshopMutate(entry,'planner');await assert.rejects(()=>workshopMutate(entry,'planner'),/já possui/);
   let v=(await db.query<any>('SELECT * FROM web_workshop_visits')).rows[0];
+  const workshop=(await equipmentWorkshopStatus(['100'])).get('100');
+  assert.ok(workshop?.workshop);assert.equal(resolveRentalStatus([],0,workshop).key,'in_review');
+  assert.equal(resolveRentalStatus([],0,workshop).workshop,workshop.workshop);
+  await db.query('UPDATE web_workshop_visits SET reconciled_out_at=now() WHERE id=$1',[v.id]);
+  assert.equal((await equipmentWorkshopStatus(['100'])).size,0);
+  await db.query('UPDATE web_workshop_visits SET reconciled_out_at=NULL WHERE id=$1',[v.id]);
   await workshopMutate({action:'external',id:v.id,version:1,component:'Motor',supplier:'Prestador'},'planner');
   await assert.rejects(()=>workshopMutate({action:'stage',id:v.id,version:1,stage:'ready'},'planner'),/mudou/);
   await assert.rejects(()=>workshopMutate({action:'exit',id:v.id,version:2},'planner'),/retorno/);
@@ -20,6 +28,8 @@ test('entries prevent duplicates; external parts block exit; version conflicts a
   const external=(await db.query<any>('SELECT * FROM web_workshop_external')).rows[0];
   await workshopMutate({action:'return',id:v.id,version:2,externalId:external.id},'planner');
   await workshopMutate({action:'exit',id:v.id,version:3,notes:'Entregue'},'planner');
+  const afterExit=(await equipmentWorkshopStatus(['100'])).get('100') || null;
+  assert.equal(afterExit,null);assert.equal(resolveRentalStatus([],1,afterExit).key,'available');
   v=(await db.query<any>('SELECT * FROM web_workshop_visits')).rows[0];assert.ok(v.exited_at);assert.equal(v.version,4);
   assert.equal((await db.query('SELECT * FROM web_workshop_events')).rows.length,4);
   await workshopMutate(entry,'planner');assert.equal((await db.query('SELECT * FROM web_workshop_visits')).rows.length,2);
@@ -38,6 +48,11 @@ test('entries prevent duplicates; external parts block exit; version conflicts a
   await assert.rejects(()=>workshopMutate({action:'deliveryDate',id:editable.id,version:editable.version,expectedAt:'2026-11-06'},'planner'),/mudou/);
   await workshopMutate({action:'deliveryDate',id:editable.id,version:editable.version+1,expectedAt:''},'planner');
   assert.equal((await db.query<any>('SELECT expected_at::text expected_at FROM web_workshop_visits WHERE id=$1',[editable.id])).rows[0].expected_at,null);
+  const confirmation=await workshopMutate({action:'stage',id:editable.id,version:editable.version+2,stage:'repair'},'planner');
+  assert.equal(confirmation.visit.id,editable.id);assert.equal(confirmation.visit.version,editable.version+3);assert.equal(confirmation.visit.stage,'repair');
+  assert.equal(confirmation.visit.event.document.previousStage,'received');assert.equal(confirmation.visit.event.document.nextStage,'repair');
+  const persisted=(await db.query<any>('SELECT * FROM web_workshop_events WHERE id=$1',[confirmation.visit.event.id])).rows[0];
+  assert.equal(new Date(confirmation.visit.event.created_at).getTime(),new Date(persisted.created_at).getTime());
   const standalone='00000000-0000-4000-8000-000000000002';
   await db.query("INSERT INTO web_workshop_external(id,component,supplier,sent_at,status,created_by) VALUES($1,'Motor','Fornecedor','2026-01-01','approval','Importação')",[standalone]);
   await workshopMutate({action:'externalUpdate',externalId:standalone,version:1,status:'quotation',returned:false,expectedAt:'2026-11-01'},'planner');

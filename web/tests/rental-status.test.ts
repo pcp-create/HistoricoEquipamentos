@@ -113,9 +113,9 @@ test("uncommitted machines require positive stock; excess stock is flagged witho
   assert.equal(resolveRentalStatus([order(1,"Processado"),order(34,"Processado","99")],0).key,"unavailable");
  });
 
-test("pending repair and rental cost orders put otherwise available machines under review",()=>{
+test("cost orders no longer trigger review without a workshop entry",()=>{
  for (const type of [20,21]) {
-  assert.equal(resolveRentalStatus([order(type)],1).key,"in_review");
+  assert.equal(resolveRentalStatus([order(type)],1).key,"available");
   assert.equal(resolveRentalStatus([order(type)],0).key,"unavailable");
   assert.equal(resolveRentalStatus([order(type)],-1).key,"unavailable");
   assert.equal(resolveRentalStatus([order(type,"Processado")],1).key,"available");
@@ -123,4 +123,14 @@ test("pending repair and rental cost orders put otherwise available machines und
   assert.equal(resolveRentalStatus([order(type),order(45,"Pendente","99")],1).key,"loaned");
   assert.equal(resolveRentalStatus([order(type),order(24,"Pendente","99")],1).key,"reserved");
  }
+});
+
+
+test("active workshop takes precedence over stock and commitments and identifies the workshop",()=>{
+ for(const stock of [null,-1,0,1])for(const orders of [[],[order(8)],[order(45)],[order(20)],[order(24,"Processado")]]){
+  const result=resolveRentalStatus(orders,stock,{workshop:"RJ Compressores"});
+  assert.equal(result.key,"in_review");assert.equal(result.label,"Em Revisão");assert.equal(result.workshop,"RJ Compressores");assert.equal(result.order,null);
+ }
+ assert.equal(resolveRentalStatus([order(20)],1,null).key,"available");
+ assert.equal(resolveRentalStatus([order(8)],1,null).key,"rented");
 });

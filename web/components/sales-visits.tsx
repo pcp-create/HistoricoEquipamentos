@@ -1,9 +1,13 @@
 "use client";
+import VisitMachineRegistration from "./visit-machine-registration";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart3,
+  Gauge,
   List,
   CalendarDays,
+  CalendarPlus,
+  CalendarCheck,
   MapPin,
   Plus,
   Pencil,
@@ -37,6 +41,9 @@ import SalesVisitsMap from "./sales-visits-map";
 import { readActivityLocation } from "@/lib/activity-location";
 import "./field-app.css";
 import "./sales-visits.css";
+import CustomerContacts from './customer-contacts';
+import VisitTaskButton from './visit-task-button';
+import VisitsPeriodCalendar from './visits-period-calendar';
 const localNow = () =>
   new Intl.DateTimeFormat("sv-SE", {
     timeZone: "America/Sao_Paulo",
@@ -60,6 +67,8 @@ const fold = (v: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 type Form = {
+  contact_id?:string;
+  whatsappAt?:string;
   mode: "schedule" | "history" | "complete";
   id: string;
   version?: number;
@@ -79,7 +88,11 @@ type Form = {
   outcome: string;
 };
 export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{scheduleOnly?:boolean;onClose?:()=>void;onScheduled?:()=>void|Promise<void>} = {}) {
+  const [calendarView,setCalendarView]=useState<'month'|'week'|'day'>('month');
+  const [nextVisit,setNextVisit]=useState<(Form & {customerName:string})|null>(null);
+  const [whatsapp,setWhatsapp]=useState(false);
   const [home, setHome] = useState(true);
+  const [quickActions,setQuickActions] = useState(false);
   const [data, setData] = useState<VisitsData | null>(null),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
@@ -120,6 +133,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
       setLeadAddressStatus("Localização identificada. Confira os dados abaixo.");
     }catch{if(!controller.signal.aborted)setLeadAddressStatus("Não foi possível consultar o endereço. A posição foi mantida; preencha os campos manualmente.");}
   }
+  const [equipmentCustomer,setEquipmentCustomer]=useState<string|null>(null);
   const [detail, setDetail] = useState<VisitCustomer | null>(null);
   const [meterForm, setMeterForm] = useState<{customer: VisitCustomer; equipment: NonNullable<VisitCustomer["equipment"]>[number]} | null>(null);
   const [meterValue, setMeterValue] = useState("");
@@ -191,7 +205,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
   });
   const completed = visits.filter((v) => v.status === "completed"),
     planned = visits.filter((v) => v.status === "scheduled");
-  const portfolio = customers.filter(c=>c.in_portfolio !== false);
+  const portfolio = customers.filter(c=>!c.lead&&c.in_portfolio !== false);
   const counts = {
     current: portfolio.filter((c) => c.health === "current").length,
     due: portfolio.filter((c) => c.health === "due").length,
@@ -224,8 +238,9 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
       setError("");
       setMessage("");
       setEditingLeadAddress(false);setLeadAddressStatus("");leadAddressRequest.current?.abort();
-      setOutsidePortfolio(false);
+      setOutsidePortfolio(false);setWhatsapp(false);
       setForm({
+        contact_id:v?.contact_id,
         purpose_id: v?.purpose_id || "",
         mode,
         id: v?.id || crypto.randomUUID(),
@@ -271,6 +286,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
         customer_key: form.customer_key,
         scheduled_at: date,
         completed_at: date,
+        contact_id:form.contact_id,
+        whatsappAt:whatsapp?form.whatsappAt:undefined,
         contact: form.contact,
         phone: form.phone,
         description: form.description,
@@ -302,6 +319,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
         setFilter("all");
       }
       if(scheduleOnly){await onScheduled?.();return;}
+      if(form.mode!=='schedule')setNextVisit({...form,customerName:form.lead?form.leadName:(formCustomer?.name||customerMap.get(form.customer_key)?.name||'Cliente'),mode:'schedule',id:crypto.randomUUID(),version:undefined,customer_key:form.lead?'lead:'+form.leadId:form.customer_key,lead:false,description:'',outcome:'',purpose_id:'',scheduled_at:'',whatsappAt:''});
       setForm(null);
       setMessage(
         form.mode === "schedule"
@@ -406,6 +424,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
           <b>Registro da visita:</b> {v.outcome}
         </p>
       )}
+      {v.status!=="cancelled"&&<VisitTaskButton visit={v} customer={customerMap.get(v.customer_key)?.name||v.customer_key}/>}
       {v.status === "scheduled" && (
         <div className="sales-visit-actions">
           <button
@@ -418,9 +437,9 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
             <CheckCircle2 size={16} />
             Registrar realização
           </button>
-          <button disabled={busy || !online} onClick={() => void cancel(v)}>
+          <button className="sales-cancel-visit" disabled={busy || !online} onClick={() => void cancel(v)}>
             <X size={17} />
-            Cancelar
+            Cancelar visita
           </button>
         </div>
       )}
@@ -439,15 +458,36 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
           Sair
         </button>
       </div>
-      <main className="field-app sales-app">
+      <main className={"field-app sales-app" + (!home ? " sales-mobile-navigation" : "")}>
         <header className="field-header">
           <div>
             <small>PORTAL VENDEDOR RJ</small>
             <h1>{home ? "Seu dia em campo" : "Minhas visitas"}</h1>
             <p className="field-user">{data?.name || "Portal Vendedor RJ"}</p>
           </div>
-          <div className="sales-actions">
+          <div className="sales-actions sales-header-actions">
+            {!home && <>
+          <button
+            className="sales-primary sales-icon-action"
+            aria-label="Agendar visita"
+            title="Agendar visita"
+            disabled={!data || !online}
+            onClick={() => openForm("schedule")}
+          >
+            <CalendarPlus size={21} aria-hidden="true" />
+          </button>
+          <button
+            className="sales-icon-action"
+            aria-label="Registrar visita realizada"
+            title="Registrar visita realizada"
+            disabled={!data || !online}
+            onClick={() => openForm("history")}
+          >
+            <CalendarCheck size={21} aria-hidden="true" />
+          </button>
+            </>}
             <button
+              title="Atualizar visitas"
               aria-label="Atualizar visitas"
               disabled={loading}
               onClick={() => void reload()}
@@ -467,22 +507,15 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
             <button disabled><Wallet /><span><b>Controle de Despesas</b><small>Em breve</small></span></button>
           </nav>
         </> : <>
-        <div className="sales-actions sales-primary-actions">
-          <button
-            className="sales-primary"
-            disabled={!data || !online}
-            onClick={() => openForm("schedule")}
-          >
-            <Plus size={18} />
-            Agendar visita
-          </button>
-          <button
-            disabled={!data || !online}
-            onClick={() => openForm("history")}
-          >
-            <History size={18} />
-            Registrar visita realizada
-          </button>
+        <div className="sales-mobile-quick-actions" onKeyDown={e=>{if(e.key==='Escape'){setQuickActions(false);document.getElementById('sales-quick-toggle')?.focus()}}}>
+          {quickActions && <>
+            <button className="sales-quick-backdrop" aria-label="Fechar ações rápidas" onClick={()=>setQuickActions(false)}/>
+            <div id="sales-quick-options" className="sales-quick-options">
+              <button disabled={!data||!online} onClick={()=>{setQuickActions(false);openForm('schedule')}}><CalendarPlus size={20} aria-hidden="true"/>Agendar visita</button>
+              <button disabled={!data||!online} onClick={()=>{setQuickActions(false);openForm('history')}}><CalendarCheck size={20} aria-hidden="true"/>Registrar visita realizada</button>
+            </div>
+          </>}
+          <button id="sales-quick-toggle" className="sales-quick-toggle" aria-label={quickActions?'Fechar ações de visita':'Abrir ações de visita'} aria-expanded={quickActions} aria-controls={quickActions?'sales-quick-options':undefined} onClick={()=>setQuickActions(!quickActions)}>{quickActions?<X size={24} aria-hidden="true"/>:<Plus size={25} aria-hidden="true"/>}</button>
         </div>
         <nav className="sales-tabs" aria-label="Visões de visitas">
           {[
@@ -496,7 +529,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
               <button
                 key={key as string}
                 aria-pressed={tab === key}
-                onClick={() => setTab(key as string)}
+                onClick={() => {setTab(key as string);setQuickActions(false)}}
               >
                 <I size={17} />
                 {label as string}
@@ -537,7 +570,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                   {(
                     [
                       ["all", "Clientes na carteira", portfolio.length, Users],
-                      ["leads", "Leads na carteira", customers.filter(c => c.lead).length, UserPlus],
+                      ["leads", "Leads", customers.filter(c => c.lead).length, UserPlus],
                       [
                         "current",
                         "Visitas em dia",
@@ -553,7 +586,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                       className={"sales-kpi " + key}
                       onClick={() => {
                         setFilter(key);
-                        setListMode("customers");
+                        setListMode(key==="leads"?"leads":"customers");
                         setTab("list");
                       }}
                     >
@@ -698,20 +731,21 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                 <div className="sales-actions sales-list-tabs">
                   <button
                     aria-pressed={listMode === "customers"}
-                    onClick={() => setListMode("customers")}
+                    onClick={() => {setListMode("customers");if(filter==="leads")setFilter("all")}}
                   >
-                    Clientes ({filtered.length})
+                    <Users size={16} aria-hidden="true"/>Clientes ({filtered.filter(c=>!c.lead).length})
                   </button>
+                  <button aria-pressed={listMode==='leads'} onClick={()=>{setListMode('leads');setFilter('all')}}><UserPlus size={16} aria-hidden="true"/>Leads ({customers.filter(c=>c.lead&&matches(c)).length})</button>
                   <button
                     aria-pressed={listMode === "visits"}
                     onClick={() => setListMode("visits")}
                   >
-                    Visitas ({visitRows.length})
+                    <CalendarDays size={16} aria-hidden="true"/>Visitas ({visitRows.length})
                   </button>
                 </div>
-                {listMode === "customers" ? (
+                {(listMode === "customers" || listMode === "leads") ? (
                   <div className="sales-customer-grid">
-                    {filtered.map((c) => (
+                    {filtered.filter(c=>listMode==="leads"?c.lead:!c.lead).map((c) => (
                       <article
                         key={c.key}
                         className={"sales-customer " + c.health}
@@ -746,11 +780,17 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                             <CalendarDays size={17} />
                             Agendar
                           </button>
-                          <button onClick={() => setDetail(c)}>
+                          <button className="sales-history-button" onClick={() => setDetail(c)}>
                             <History size={17} />
                             Ver histórico
+                            <ChevronRight size={15}/>
                           </button>
+                          {!c.lead && <button className="sales-equipment-toggle" aria-expanded={equipmentCustomer===c.key} onClick={()=>setEquipmentCustomer(equipmentCustomer===c.key?null:c.key)}><Gauge size={17}/>Máquinas ({c.equipment?.length || 0})<ChevronDown size={15}/></button>}
                         </div>
+                        {equipmentCustomer===c.key && <section className="sales-client-machines" aria-label={"Máquinas de "+c.name}>
+                          <VisitMachineRegistration customer={c.key} name={c.name} online={online}/>{!c.equipment?.length && <p>Nenhuma máquina integrada para este cliente.</p>}
+                          {c.equipment?.map(item=><article key={item.id}><strong>{item.id} · {item.name}</strong><p>Modelo: {item.model || "Não informado"} · Série: {item.serial || "Não informada"}</p><p>Horímetro: <b>{item.meter == null?"Não informado":item.meter.toLocaleString("pt-BR")+" h"}</b> · Coleta: {item.meterDate?item.meterDate.split("-").reverse().join("/"):"Não registrada"}</p><button disabled={!online} onClick={()=>selectEquipment(c,item)}><Gauge size={16}/>Registrar horímetro</button></article>)}
+                        </section>}
                       </article>
                     ))}
                   </div>
@@ -759,8 +799,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                     {visitRows.map(renderVisit)}
                   </section>
                 )}
-                {!(listMode === "customers"
-                  ? filtered.length
+                {!(listMode !== "visits"
+                  ? filtered.filter(c=>listMode==="leads"?c.lead:!c.lead).length
                   : visitRows.length) && (
                   <p className="sales-empty">
                     Nenhum resultado para os filtros selecionados.
@@ -769,7 +809,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
               </>
             )}
             {tab === "calendar" && (
-              <section className="field-calendar" aria-label="Calendário de visitas">
+              <section className="field-calendar" aria-label="Calendário de visitas"><div className="sales-actions">{([['month','Mês'],['week','Semana'],['day','Dia']] as const).map(([id,label])=><button key={id} aria-pressed={calendarView===id} onClick={()=>setCalendarView(id)}>{label}</button>)}</div>{calendarView!=='month'?<VisitsPeriodCalendar mode={calendarView} visits={visitRows.filter(v=>v.status==='scheduled')} renderVisit={renderVisit}/>:<>
                 <div className="field-calendar-heading">
                   <button aria-label="Mês anterior" onClick={() => changeMonth(-1)}>
                     <ChevronLeft size={18} />
@@ -825,7 +865,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                   )
                   .map(renderVisit)}
 
-              </section>
+              </>}</section>
             )}
             {tab === "map" && (
               <SalesVisitsMap
@@ -847,7 +887,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
       {meterForm && (
         <div className="sales-overlay">
           <section className="sales-dialog" role="dialog" aria-modal="true" aria-label="Registrar horímetro">
-            <div className="sales-between"><h2>Registrar horímetro atual</h2><button aria-label="Fechar" disabled={meterBusy} onClick={() => setMeterForm(null)}><X /></button></div>
+            <div className="sales-between"><h2>Registrar horímetro atual</h2><button className="sales-dialog-close" aria-label="Fechar" disabled={meterBusy} onClick={() => setMeterForm(null)}><X /></button></div>
             <p>{meterForm.customer.name}</p>
             <p><strong>{meterForm.equipment.id} · {meterForm.equipment.name}</strong></p>
             <p>Último horímetro: {meterForm.equipment.meter == null ? "Não informado" : meterForm.equipment.meter.toLocaleString("pt-BR") + " h"}</p>
@@ -868,7 +908,19 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
           </section>
         </div>
       )}
-      {detail && !form && (
+      {nextVisit&&!form&&<div className="sales-overlay sales-next-visit-overlay">
+        <section role="dialog" aria-modal="true" aria-label="Agendar próxima visita" aria-describedby="sales-next-visit-description" className="sales-dialog sales-next-visit">
+          <div className="sales-next-visit-heading"><span className="sales-next-visit-icon"><CheckCircle2 size={24} aria-hidden="true"/></span><h2>Visita registrada!</h2></div>
+          <p id="sales-next-visit-description">A visita a <strong>{nextVisit.customerName}</strong> foi registrada com sucesso.</p>
+          <p className="sales-next-visit-question">Deseja deixar a próxima visita agendada?</p>
+          <div className="sales-next-visit-actions">
+            <button type="button" autoFocus className="sales-primary" onClick={()=>{setWhatsapp(false);setForm(nextVisit);setNextVisit(null)}}><CalendarDays size={18} aria-hidden="true"/>Agendar próxima visita</button>
+            <button type="button" className="sales-next-visit-later" onClick={()=>setNextVisit(null)}>Agora não</button>
+          </div>
+        </section>
+      </div>}
+
+      {detail && !form && !nextVisit && (
         <div className="sales-overlay">
           <section
             role="dialog"
@@ -879,6 +931,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
             <div className="sales-between">
               <h2>{detail.name}</h2>
               <button
+                className="sales-dialog-close"
                 aria-label="Fechar histórico"
                 onClick={() => setDetail(null)}
               >
@@ -888,6 +941,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
             <p>
               {detail.address} · {detail.city}/{detail.uf}
             </p>
+            <CustomerContacts customer={detail.key} readonly/>
             <div className="sales-actions">
               <button
                 disabled={!online}
@@ -932,6 +986,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
               <button
                 type="button"
                 disabled={busy}
+                className="sales-dialog-close"
                 aria-label="Fechar formulário"
                 onClick={() => {
                   if (confirm("Fechar sem salvar?")) {setForm(null);if(scheduleOnly)onClose?.();}
@@ -956,7 +1011,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                     onChange={(e) =>
                       setForm({
                         ...form,
-                        lead: e.target.checked,
+                        lead: e.target.checked, contact_id:"", contact:"", phone:"",
                         leadPoint: undefined,
                         customer_key: "",
                       })
@@ -1030,8 +1085,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                   <>
                     <div className="sales-customer-picker-row">
                       <SalesCustomerSelect customers={outsidePortfolio ? allCustomers : customers} value={form.customer_key}
-                        onChange={customer_key => setForm({ ...form, customer_key })} />
-                      <label className="sales-customer-scope"><input type="checkbox" checked={outsidePortfolio} onChange={e=>{setOutsidePortfolio(e.target.checked);setForm({...form,customer_key:""});if(e.target.checked)void loadAllCustomers();}}/><span>Base completa de clientes</span></label>
+                        onChange={customer_key => setForm({ ...form, customer_key, contact_id:"", contact:"", phone:"" })} />
+                      <label className="sales-customer-scope"><input type="checkbox" aria-label="Base completa de clientes" checked={outsidePortfolio} onChange={e=>{setOutsidePortfolio(e.target.checked);setForm({...form,customer_key:"",contact_id:"",contact:"",phone:""});if(e.target.checked)void loadAllCustomers();}}/><span>Base completa de clientes<small>Inclui clientes com ou sem máquinas cadastradas.</small></span></label>
                     </div>
                     {customerLoading && <p role="status">Carregando clientes…</p>}
                   </>
@@ -1069,30 +1124,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
               </label>}
               {form.mode !== "complete" && (
                 <>
-                  <label>
-                    Pessoa que receberá a visita
-                    <input
-                      required
-                      maxLength={160}
-                      value={form.contact}
-                      onChange={(e) =>
-                        setForm({ ...form, contact: e.target.value })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Telefone de contato
-                    <input
-                      required
-                      type="tel"
-                      maxLength={40}
-                      value={form.phone}
-                      onChange={(e) =>
-                        setForm({ ...form, phone: e.target.value })
-                      }
-                      placeholder="(49) 99999-9999"
-                    />
-                  </label>
+                  <CustomerContacts customer={form.lead?'':form.customer_key} value={form.contact_id} name={form.contact} phone={form.phone} onSelect={c=>setForm({...form,contact_id:c.id,contact:c.name,phone:c.phone})}/>
                 </>
               )}
             </div>
@@ -1123,6 +1155,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                 />
               </label>
             )}
+            <label className="sales-check visit-alert-toggle"><input type="checkbox" checked={whatsapp} onChange={e=>setWhatsapp(e.target.checked)}/>Receber alerta no meu WhatsApp</label>
+            {whatsapp&&<label>Data e hora do alerta (Brasília)<input type="datetime-local" required value={form.whatsappAt||''} onChange={e=>setForm({...form,whatsappAt:e.target.value})}/><small>Será enviado para o WhatsApp cadastrado no seu usuário.</small></label>}
             <p className="sales-muted">
               Horários de Brasília. Visitas anteriores podem ser registradas com
               a data real de realização.

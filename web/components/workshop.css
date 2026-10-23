@@ -33,3 +33,17 @@
 .ws-page button.ws-kpi-filter:hover{box-shadow:0 0 0 2px #adc5d7}
 .ws-page button.ws-kpi-filter:focus-visible{outline:3px solid #4285a4;outline-offset:4px}
 @media(max-width:650px){.ws-page button.ws-kpi-filter{padding:15px}}
+
+.ws-board .ws-machine[draggable=true] { cursor: grab; }
+.ws-board .ws-machine[draggable=true]:active { cursor: grabbing; }
+.ws-board .ws-machine.ws-dragging { opacity: .45; }
+.ws-board .ws-column.ws-drop-target { outline: 2px dashed var(--stage); outline-offset: -2px; background: #edf4fa; }
+
+/* Keep horizontal navigation within reach even on long columns. */
+.ws-workspace:has(.ws-board-frame) { overflow: clip; }
+.ws-board-navigation { position: sticky; top: 8px; z-index: 5; display: flex; align-items: center; gap: 12px; margin: 0 21px 14px; padding: 8px 10px; border: 1px solid #d7e2eb; border-radius: 10px; background: #fff; box-shadow: 0 3px 12px #213f5912; }
+.ws-board-top-scroll { flex: 1; min-width: 0; overflow-x: scroll; overflow-y: hidden; height: 22px; scrollbar-color: #879faf #e8eff4; }
+.ws-board-top-scroll:focus-visible { outline: 2px solid #237ca3; outline-offset: 2px; }
+.ws-board-navigation button { flex-shrink: 0; }
+.ws-stage-saving { display: block; color: #237ca3; font-size: 11px; margin: 8px 0; }
+.ws-board .ws-machine[aria-busy=true] { border-color: #a1bfd1; cursor: progress; }
