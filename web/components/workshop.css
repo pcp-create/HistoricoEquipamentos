@@ -4,3 +4,32 @@
 @media(min-width:1400px){.ws-column{flex-basis:215px;min-width:215px}}
 .ws-analytics{padding:0 20px 24px}.ws-analytics-summary{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px;background:#eff5fb;border-radius:12px;margin-bottom:16px}.ws-analytics-summary h2{margin:8px 0;font-size:24px}.ws-analytics-summary p,.ws-chart p,.ws-priority p{color:#627d98;font-size:12px;margin:6px 0}.ws-analytics-total{text-align:center;flex-shrink:0}.ws-analytics-total strong{display:block;font-size:42px;color:#21486c;line-height:1.2}.ws-analytics-total span{font-size:12px}.ws-attention{display:flex;gap:24px;flex-wrap:wrap;padding:4px 0 20px}.ws-attention>span{display:flex;align-items:center;gap:6px;font-size:13px}.ws-attention>span:first-child{color:#b53b43}.ws-analytics-grid{display:grid;grid-template-columns:minmax(280px,0.9fr) minmax(360px,1.3fr);gap:20px;align-items:start}.ws-charts{display:grid;gap:18px;min-width:0}.ws-chart,.ws-priority{border:1px solid #dce6f0;border-radius:12px;background:white;overflow:hidden}.ws-chart{padding:20px}.ws-chart h3,.ws-priority h3{margin:0;font-size:16px}.ws-chart-bars{display:grid;gap:10px;margin-top:18px}.ws-chart-bars button{display:grid!important;grid-template-columns:minmax(100px,1.2fr) minmax(50px,1fr) 30px;gap:10px;align-items:center;text-align:left;border:1px solid transparent!important;background:transparent!important;padding:7px!important;width:100%;border-radius:7px}.ws-chart-bars button:hover,.ws-chart-bars button.active{background:#eff5fb!important;border-color:#a5bfd9!important}.ws-chart-label{font-size:12px;overflow-wrap:anywhere}.ws-chart-track{height:23px;background:#f0f4f8;border-radius:3px;overflow:hidden}.ws-chart-track>span{display:block;height:100%;border-radius:3px}.ws-chart-bars b{text-align:right;font-variant-numeric:tabular-nums}.ws-priority header{display:flex;justify-content:space-between;align-items:center;padding:18px;gap:12px}.ws-priority-scroll{max-height:740px;overflow:auto}.ws-priority table{width:100%;border-collapse:collapse;text-align:left;font-size:12px}.ws-priority th{position:sticky;top:0;background:#eff5fb;padding:12px 10px;z-index:1}.ws-priority td{padding:13px 10px;border-top:1px solid #e5edf5;vertical-align:top}.ws-priority tr:nth-child(even){background:#fafcfe}.ws-priority td small{display:block;margin-top:5px;color:#667e95;line-height:1.4}.ws-days-badge{display:inline-flex;justify-content:center;align-items:center;min-width:38px;height:32px;border-radius:6px;color:white;font-weight:700;padding:0 6px}.ws-priority-link{border:0!important;padding:0!important;background:transparent!important;text-align:left;color:#1c5b8f!important;font-weight:600!important;line-height:1.5}.ws-priority-link:hover{text-decoration:underline}.ws-priority td .ws-overdue{color:#bb3649;font-weight:600}
 @media(max-width:1100px){.ws-analytics-grid{grid-template-columns:1fr}.ws-priority-scroll{max-height:550px}}@media(max-width:600px){.ws-analytics{padding:0 10px 16px}.ws-analytics-summary{padding:16px;align-items:flex-start}.ws-analytics-summary h2{font-size:19px}.ws-analytics-total strong{font-size:32px}.ws-analytics-total{max-width:90px}.ws-attention{gap:12px}.ws-chart{padding:14px}.ws-priority table{min-width:540px}.ws-chart-bars button{grid-template-columns:minmax(100px,1.2fr) minmax(45px,1fr) 25px}}
+.ws-fleet-tag{display:block;width:fit-content;margin:0 0 6px;padding:3px 7px;border-radius:5px;background:#edf0fb;color:#5b5891;font-size:10px;font-weight:600}
+.ws-card-top .ws-colored-age{color:#fff;font-weight:600}
+.ws-equipment-list{overflow:auto;max-width:100%;margin:0 20px 20px;border:1px solid #dce6f0;border-radius:10px}
+.ws-equipment-list table{width:100%;min-width:1050px;border-collapse:collapse;text-align:left;font-size:12px}
+.ws-equipment-list th{padding:13px 12px;background:#eff5fb;color:#627d98;white-space:nowrap}
+.ws-equipment-list td{padding:14px 12px;border-top:1px solid #e5edf5;vertical-align:middle}
+.ws-equipment-list tr:nth-child(even){background:#fafcfe}
+.ws-equipment-list tbody tr:hover{background:#f1f6fb}
+.ws-equipment-list th:first-child,.ws-equipment-list td:first-child{text-align:center;white-space:nowrap}
+.ws-equipment-list td:nth-child(2){min-width:260px;max-width:420px}
+.ws-equipment-list td small{display:block;margin-top:5px;color:#6b8299;line-height:1.5}
+.ws-equipment-list td .ws-overdue{color:#bd394b}
+.ws-list-stage{font-weight:600;display:inline-block;min-width:115px;max-width:180px;line-height:1.5}
+.ws-delivery-form{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin:18px 0;padding:14px;border:1px solid #dce6f0;border-radius:9px;background:#f7fafd}
+.ws-delivery-form label{display:grid;gap:6px;flex:1;min-width:170px;font-size:13px;font-weight:600}
+.ws-delivery-form input{width:100%;min-height:38px;padding:8px;border:1px solid #cbdced;border-radius:6px;background:white;color:#315372;font:inherit}
+.ws-delivery-form>small{flex-basis:100%;font-size:11px;color:#73899f;line-height:1.5}
+.ws-stage-time{display:block;margin:6px 0;color:#607d94;font-size:11px;line-height:1.5}
+.ws-stage-durations{padding:14px;margin:14px 0;border:1px solid #dce6ef;border-radius:9px;background:#f7fafd}
+.ws-stage-durations h3{font-size:14px}.ws-stage-durations p{font-size:12px;line-height:1.5;color:#6b8299}
+.ws-stage-durations dl{margin:12px 0}.ws-stage-durations dl>div{display:flex;gap:12px;justify-content:space-between;padding:9px 0;border-bottom:1px solid #e1eaf2;font-size:12px}
+.ws-stage-durations dt small{display:block;color:#8296a9;font-size:10px;margin-top:4px}.ws-stage-durations dd{margin:0;text-align:right;font-weight:600;white-space:nowrap}
+@media(min-width:1101px){.ws-kpis{grid-template-columns:repeat(auto-fit,minmax(185px,1fr))}}
+.ws-page button.ws-kpi-filter{display:block;text-align:left;padding:20px;border-radius:12px;background:#fff;color:inherit;border:1px solid #e1e8ee;font:inherit;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+.ws-page button.ws-kpi-filter.navy{background:#173d54;color:#fff;border-color:#173d54}
+.ws-page button.ws-kpi-filter[aria-pressed="true"]{box-shadow:0 0 0 2px #4285a4;border-color:#4285a4}
+.ws-page button.ws-kpi-filter:hover{box-shadow:0 0 0 2px #adc5d7}
+.ws-page button.ws-kpi-filter:focus-visible{outline:3px solid #4285a4;outline-offset:4px}
+@media(max-width:650px){.ws-page button.ws-kpi-filter{padding:15px}}

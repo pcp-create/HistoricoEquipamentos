@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {PGlite} from '@electric-sql/pglite';
-import {workshopMutate} from '../lib/workshop/store';import {effectiveStage,daysInWorkshop} from '../lib/workshop/model';
+import {workshopMutate} from '../lib/workshop/store';import {effectiveStage,daysInWorkshop,stageOptions} from '../lib/workshop/model';
 test('workshop computes elapsed days and follows explicit OS material shortages',()=>{assert.equal(effectiveStage('repair',[{status_lancamento_nome:'22 - O.S FALTANDO PEÇAS'}]),'parts');assert.equal(effectiveStage('repair',[]),'repair');assert.equal(daysInWorkshop('2026-10-20T12:00:00Z','2026-10-22T12:00:00Z'),2);});
 test('entries prevent duplicates; external parts block exit; version conflicts and history are preserved',async()=>{
  const db=new PGlite(),g=globalThis as any,old=g.historyPool;
@@ -7,6 +7,9 @@ test('entries prevent duplicates; external parts block exit; version conflicts a
  try{
   await db.exec('CREATE ROLE anon; CREATE ROLE authenticated;CREATE TABLE m8_equipment_catalog(equipment_id bigint,present boolean);INSERT INTO m8_equipment_catalog VALUES(100,true);');
   await db.exec(readFileSync(new URL('../sql/067_workshop.sql',import.meta.url),'utf8'));
+  await db.exec(readFileSync(new URL('../sql/068_workshop_reconciliation.sql',import.meta.url),'utf8'));
+  await db.exec(readFileSync(new URL('../sql/069_workshop_external_position.sql',import.meta.url),'utf8'));
+  await db.exec(readFileSync(new URL('../sql/070_workshop_rental_stages.sql',import.meta.url),'utf8'));
   const entry={action:'entry',equipmentId:'100',workshopId:'1',enteredAt:'2025-01-01T12:00:00Z',notes:'Entrada'};
   await workshopMutate(entry,'planner');await assert.rejects(()=>workshopMutate(entry,'planner'),/já possui/);
   let v=(await db.query<any>('SELECT * FROM web_workshop_visits')).rows[0];
@@ -20,5 +23,38 @@ test('entries prevent duplicates; external parts block exit; version conflicts a
   v=(await db.query<any>('SELECT * FROM web_workshop_visits')).rows[0];assert.ok(v.exited_at);assert.equal(v.version,4);
   assert.equal((await db.query('SELECT * FROM web_workshop_events')).rows.length,4);
   await workshopMutate(entry,'planner');assert.equal((await db.query('SELECT * FROM web_workshop_visits')).rows.length,2);
+  const open=(await db.query<any>('SELECT * FROM web_workshop_visits WHERE exited_at IS NULL')).rows[0];
+  await db.query('UPDATE web_workshop_visits SET reconciled_out_at=now() WHERE id=$1',[open.id]);
+  await assert.rejects(()=>workshopMutate({action:'stage',id:open.id,version:open.version,stage:'repair'},'planner'),/mudou/);
+  await workshopMutate(entry,'planner');
+  await db.exec(`INSERT INTO web_workshop_visits(id,entered_at,stage,created_by,updated_by) VALUES('00000000-0000-4000-8000-000000000001','2026-01-01','factory_warranty','Importação','Importação')`);
+  assert.equal((await db.query('SELECT * FROM web_workshop_visits WHERE exited_at IS NULL AND reconciled_out_at IS NULL')).rows.length,2);
+  const editable=(await db.query<any>('SELECT * FROM web_workshop_visits WHERE equipment_id=100 AND exited_at IS NULL AND reconciled_out_at IS NULL')).rows[0];
+  await assert.rejects(()=>workshopMutate({action:'deliveryDate',id:editable.id,version:editable.version,expectedAt:'2024-12-01'},'planner'),/anterior/);
+  await workshopMutate({action:'deliveryDate',id:editable.id,version:editable.version,expectedAt:'2026-11-05'},'planner');
+  assert.equal((await db.query<any>('SELECT expected_at::text expected_at FROM web_workshop_visits WHERE id=$1',[editable.id])).rows[0].expected_at,'2026-11-05');
+  const event=(await db.query<any>("SELECT document FROM web_workshop_events WHERE visit_id=$1 AND action='Previsão de entrega alterada'",[editable.id])).rows[0];
+  assert.equal(event.document.expectedAt,'2026-11-05');assert.equal(event.document.previousExpectedAt,null);
+  await assert.rejects(()=>workshopMutate({action:'deliveryDate',id:editable.id,version:editable.version,expectedAt:'2026-11-06'},'planner'),/mudou/);
+  await workshopMutate({action:'deliveryDate',id:editable.id,version:editable.version+1,expectedAt:''},'planner');
+  assert.equal((await db.query<any>('SELECT expected_at::text expected_at FROM web_workshop_visits WHERE id=$1',[editable.id])).rows[0].expected_at,null);
+  const standalone='00000000-0000-4000-8000-000000000002';
+  await db.query("INSERT INTO web_workshop_external(id,component,supplier,sent_at,status,created_by) VALUES($1,'Motor','Fornecedor','2026-01-01','approval','Importação')",[standalone]);
+  await workshopMutate({action:'externalUpdate',externalId:standalone,version:1,status:'quotation',returned:false,expectedAt:'2026-11-01'},'planner');
+  await assert.rejects(()=>workshopMutate({action:'externalUpdate',externalId:standalone,version:1,status:'repair',returned:false},'planner'),/mudou/);
+  await workshopMutate({action:'externalUpdate',externalId:standalone,version:2,status:'ready',returned:true},'planner');
+  assert.ok((await db.query<any>('SELECT returned_at FROM web_workshop_external WHERE id=$1',[standalone])).rows[0].returned_at);
+
+
  }finally{g.historyPool=old;await db.close();}
+});
+
+test('approval groups and selectable labels follow machine origin without changing stored status',()=>{
+ const rental={sheet:'Equipamentos Locação em revisão'};
+ assert.equal(effectiveStage('approval',[],rental),'approval_internal');
+ assert.equal(effectiveStage('approval',[],{sheet:'Equipamentos em Oficina'}),'approval');
+ assert.equal(stageOptions(rental).find(s=>s.id==='approval')?.label,'Aguardando aprovação interna');
+ assert.equal(stageOptions().find(s=>s.id==='approval')?.label,'Aguardando aprovação do cliente');
+ assert.equal(effectiveStage('approval',[{status_lancamento_nome:'Aguardando peças'}],rental),'parts');
+ assert.ok(!stageOptions(rental).some(s=>s.id==='approval_internal'));
 });

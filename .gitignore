@@ -35,3 +35,9 @@ __pycache__/
 # Private workshop source and reconciliation records
 /Manutenção Interna atualizada.xlsm
 /artifacts/workshop-import*
+
+/Equipamentos em oficina atual.xlsx
+
+/Equipamentos em conserto externo atual.xlsx
+
+/Maquinas de Locação em Revisão na Oficina Atual.xlsx

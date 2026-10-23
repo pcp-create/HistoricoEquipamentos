@@ -1725,6 +1725,7 @@ export default function TasksDashboard() {
                     <tr>
                       <th>Tarefa / equipamento</th>
                       <th>Origem</th>
+                      <th>Criado por</th>
                       <th>Atribuído a</th>
                       <th>Prioridade</th>
                       <th>Status / espera inicial</th>
@@ -1746,6 +1747,7 @@ export default function TasksDashboard() {
                           <small>{t.customer}</small>
                         </td>
                         <td>{t.origin}</td>
+                        <td>{t.redacted ? "Restrito" : t.creator_name || (t.created_by === "Sistema" ? "Sistema" : "Usuário sem nome cadastrado")}</td>
                         <td>
                           <button
                             className="task-link"
