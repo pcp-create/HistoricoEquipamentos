@@ -35,6 +35,7 @@ export function customerTradeName(payload: Record<string, unknown> | null | unde
   return [payload?.nomeFantasia, payload?.fantasia, payload?.apelido].find((name): name is string => typeof name === "string" && !!name.trim())?.trim() || "";
 }
 export type VisitCustomer = {
+  disqualification?: {reason:string; actor:string; created_at:string};
   tradeName?: string;
   key: string;
   name: string;
@@ -75,6 +76,7 @@ export type VisitSellerLocation = {
 };
 export type VisitPurpose = {id:string;name:string;description:string;active:boolean;version:number};
 export type VisitsData = {
+  assignees?: {id: string; name: string}[];
   canEditVisits?: boolean;
   purposes?: VisitPurpose[];
   canManage?: boolean;

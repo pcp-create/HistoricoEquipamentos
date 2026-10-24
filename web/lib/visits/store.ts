@@ -132,6 +132,8 @@ export async function visitsData(email: string, db: any = database(), management
     return { ...c, latitude: location?.latitude ?? c.latitude, longitude: location?.longitude ?? c.longitude,
       locationVersion: location?.version ?? 0, lastVisit, health: visitHealth(lastVisit) };
   });
+  const disqualifications = (await db.query("SELECT * FROM web_sales_disqualifications WHERE customer_key=ANY($1::text[])",[keys])).rows;
+  for (const customer of customers) customer.disqualification = disqualifications.find((row:any)=>row.customer_key===customer.key);
   customers.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   const visits = (
     await db.query(
@@ -149,7 +151,8 @@ export async function visitsData(email: string, db: any = database(), management
       AND ($2::boolean OR u.email=$1)
     ORDER BY u.display_name,u.email`, [email,management || user.role === "admin",management])).rows;
   const purposes = (await db.query("SELECT id::text,name,description,active,version FROM web_sales_visit_purposes WHERE active ORDER BY id")).rows;
-  return { canEditVisits:true, purposes, name: user.display_name || email, customers, visits, sellers, canManage: true };
+  const assignees = management ? (await db.query("SELECT email AS id,COALESCE(NULLIF(display_name,''),email) AS name FROM web_user_access WHERE enabled ORDER BY display_name,email")).rows : undefined;
+  return { assignees, canEditVisits:true, purposes, name: user.display_name || email, customers, visits, sellers, canManage: true };
 }
 function text(b: any, key: string, max: number, required = false) {
   const value = b?.[key];
@@ -185,7 +188,11 @@ export async function saveVisit(b: any, email: string) {
     await c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
       "visits:" + email,
     ]);
-    const data = await visitsData(email, c);
+    const assigning = b.action === "schedule" && b.seller != null;
+    const seller = assigning ? text(b, "seller", 254, true).toLowerCase() : email;
+    // Gestão de Visitas is available to active users; validate both actor and assignee.
+    if (assigning && seller !== email) await visitIdentity(c, seller);
+    const data = await visitsData(seller, c);
     if (["schedule", "history"].includes(b.action)) {
       let key = text(b, "customer_key", 120);
       if (b.lead) {
@@ -203,14 +210,14 @@ export async function saveVisit(b: any, email: string) {
           throw new AdminInputError("UF inválida.");
         await c.query(
           "INSERT INTO web_sales_leads(id,owner,name,city,uf,address) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO NOTHING",
-          [b.lead.id, email, name, city, uf, address],
+          [b.lead.id, seller, name, city, uf, address],
         );
         const lead = (
           await c.query("SELECT owner FROM web_sales_leads WHERE id=$1", [
             b.lead.id,
           ])
         ).rows[0];
-        if (lead?.owner !== email) throw new Forbidden();
+        if (lead?.owner !== seller) throw new Forbidden();
         key = "lead:" + b.lead.id;
         if (b.lead.location != null) {
           const {latitude,longitude}=b.lead.location;
@@ -245,7 +252,7 @@ export async function saveVisit(b: any, email: string) {
         `INSERT INTO web_sales_visits(id,seller,customer_key,scheduled_at,contact,phone,description,status,completed_at,outcome,purpose_id,contact_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(id) DO NOTHING`,
         [
           b.id,
-          email,
+          seller,
           key,
           at,
           contact,
@@ -261,7 +268,7 @@ export async function saveVisit(b: any, email: string) {
       const owner = (
         await c.query("SELECT seller FROM web_sales_visits WHERE id=$1", [b.id])
       ).rows[0];
-      if (owner?.seller !== email) throw new Forbidden();
+      if (owner?.seller !== seller) throw new Forbidden();
     } else {
       const old = data.visits.find((v: any) => v.id === b.id);
       if (!old) throw new Forbidden();
@@ -283,10 +290,10 @@ export async function saveVisit(b: any, email: string) {
       );
     }
     if(b.action==='cancel')await c.query("UPDATE web_sales_visit_alerts SET state='cancelled' WHERE visit_id=$1 AND state='pending'",[b.id]);
-    else await queueVisitAlert(c,b.id,email,b.whatsappAt);
+    else await queueVisitAlert(c,b.id,seller,b.whatsappAt);
     await c.query(
       "INSERT INTO web_access_events(event,email,actor,details) VALUES('sales_visit',$1,$1,$2)",
-      [email, JSON.stringify({ action: b.action, id: b.id })],
+      [email, JSON.stringify({ action: b.action, id: b.id, seller })],
     );
     await c.query("COMMIT");
   } catch (e) {
@@ -344,4 +351,31 @@ export async function administerVisit(b:any,email:string) {
     await c.query("INSERT INTO web_access_events(event,email,actor,details) VALUES('sales_visit_admin',$1,$1,$2)",[email,JSON.stringify({action:b.action,before:old,after})]);
     await c.query('COMMIT');
   }catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}
+}
+
+export async function disqualifyVisitCustomer(body:any,email:string) {
+  const key=text(body,"customer_key",120,true), reason=text(body,"reason",2000,true);
+  const c=await database().connect();
+  try {
+    await c.query("BEGIN READ WRITE");
+    const data=await visitsData(email.toLowerCase(),c);
+    if(!data.customers.some(customer=>customer.key===key)) throw new Forbidden();
+    const result=await c.query("INSERT INTO web_sales_disqualifications(customer_key,reason,actor) VALUES($1,$2,$3) ON CONFLICT(customer_key) DO NOTHING RETURNING customer_key",[key,reason,email.toLowerCase()]);
+    if(result.rows.length) await c.query("INSERT INTO web_access_events(event,email,actor,details) VALUES('sales_disqualification',$1,$1,$2)",[email.toLowerCase(),JSON.stringify({customer_key:key,reason})]);
+    await c.query("COMMIT");
+  } catch(error) {await c.query("ROLLBACK");throw error;} finally {c.release();}
+}
+
+export async function restoreVisitCustomer(body:any,email:string) {
+  const key=text(body,"customer_key",120,true);
+  email=email.toLowerCase();
+  const c=await database().connect();
+  try {
+    await c.query("BEGIN READ WRITE");
+    const data=await visitsData(email,c);
+    if(!data.customers.some(customer=>customer.key===key)) throw new Forbidden();
+    const result=await c.query("DELETE FROM web_sales_disqualifications WHERE customer_key=$1 RETURNING *",[key]);
+    if(result.rows.length) await c.query("INSERT INTO web_access_events(event,email,actor,details) VALUES('sales_customer_restored',$1,$1,$2)",[email,JSON.stringify({customer_key:key,previous:result.rows[0]})]);
+    await c.query("COMMIT");
+  }catch(error){await c.query("ROLLBACK");throw error;}finally{c.release();}
 }

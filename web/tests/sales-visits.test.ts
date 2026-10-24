@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { addMonths, visitHealth } from "../lib/visits/model";
-import { visitsData, saveVisit, saveCustomerLocation, administerVisit } from "../lib/visits/store";
+import { restoreVisitCustomer, disqualifyVisitCustomer, visitsData, saveVisit, saveCustomerLocation, administerVisit } from "../lib/visits/store";
 import { saveVisitMeter } from "../lib/visits/equipment";
 import { saveVisitPurpose,visitSettings } from "../lib/visits/settings";
 import { saveTerritory } from "../lib/tasks/territories";
@@ -52,6 +52,7 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     for(const f of ["010_tasks","018_task_assignment_reason","011_task_kanban","012_manual_tasks","016_task_order_links","015_task_origin_rules","041_task_completion_notifications","042_restricted_tasks","024_task_stages","027_task_stage_assignment","017_task_reminders","023_task_reminder_recurrence","044_task_followers"])await db.exec(readFileSync(new URL("../sql/"+f+".sql",import.meta.url),"utf8"));
     await db.exec(readFileSync(new URL("../sql/071_visit_contacts_actions.sql",import.meta.url),"utf8"));
     await db.exec(readFileSync(new URL("../sql/072_visit_machine_registration.sql",import.meta.url),"utf8"));
+    await db.exec(readFileSync(new URL("../sql/074_visit_disqualifications.sql",import.meta.url),"utf8"));
     const query = async (sql: string, args?: any[]) => {
       if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
       return db.query(sql.replace("BEGIN READ WRITE", "BEGIN"), args);
@@ -289,6 +290,41 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     await db.exec("UPDATE web_user_access SET enabled=false WHERE email='tech@test.com'");
     await assert.rejects(()=>registerMachine({...registration,requestId:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'},{email:'a@test.com'} as any),/ativo/);
     assert.equal((await listMachines('m8:5','a@test.com')).length,1);
+
+    await db.exec("UPDATE web_user_access SET enabled=true WHERE email='b@test.com'");
+    await db.exec("UPDATE web_sales_visit_purposes SET active=true WHERE id=1");
+    const delegated = {...body,id:"abababab-abab-4bab-8bab-abababababab",seller:"b@test.com"};
+    await saveVisit(delegated,"a@test.com");
+    assert.equal((await db.query<any>("SELECT seller FROM web_sales_visits WHERE id=$1",[delegated.id])).rows[0].seller,"b@test.com");
+    assert.ok((await visitsData("b@test.com")).visits.some((v:any)=>v.id===delegated.id));
+    assert.ok(!(await visitsData("a@test.com")).visits.some((v:any)=>v.id===delegated.id));
+    const delegatedLead={...delegated,id:"acacacac-acac-4cac-8cac-acacacacacac",customer_key:"",lead:{id:"adadadad-adad-4dad-8dad-adadadadadad",name:"Lead SDR",city:"Lages",uf:"SC",address:"Rua A"}};
+    await saveVisit(delegatedLead,"a@test.com");
+    assert.equal((await db.query<any>("SELECT owner FROM web_sales_leads WHERE id=$1",[delegatedLead.lead.id])).rows[0].owner,"b@test.com");
+    const audit=(await db.query<any>("SELECT actor,details FROM web_access_events WHERE event='sales_visit' AND details->>'id'=$1",[delegatedLead.id])).rows[0];
+    assert.equal(audit.actor,"a@test.com");assert.equal(audit.details.seller,"b@test.com");
+    await assert.rejects(()=>saveVisit({...delegated,seller:"tech@test.com"},"a@test.com"));
+    await assert.rejects(()=>saveVisit({...delegated,seller:"missing@test.com"},"a@test.com"));
+    const assignmentData=await visitsData("a@test.com",undefined,true);
+    assert.ok(assignmentData.assignees.some((u:any)=>u.id==="b@test.com"));
+    assert.ok(!assignmentData.assignees.some((u:any)=>u.id==="tech@test.com"));
+
+    await assert.rejects(()=>disqualifyVisitCustomer({customer_key:"m8:1",reason:" "},"a@test.com"));
+    await assert.rejects(()=>disqualifyVisitCustomer({customer_key:"m8:999",reason:"Fora do perfil"},"a@test.com"));
+    await disqualifyVisitCustomer({customer_key:"m8:1",reason:"Fora do perfil"},"a@test.com");
+    assert.equal((await visitsData("a@test.com")).customers.find(c=>c.key==="m8:1")?.disqualification?.reason,"Fora do perfil");
+    await disqualifyVisitCustomer({customer_key:"lead:"+delegatedLead.lead.id,reason:"Sem interesse"},"b@test.com");
+    assert.equal((await visitsData("b@test.com")).customers.find(c=>c.key==="lead:"+delegatedLead.lead.id)?.disqualification?.reason,"Sem interesse");
+
+    await assert.rejects(()=>restoreVisitCustomer({customer_key:"m8:999"},"a@test.com"));
+    await assert.rejects(()=>restoreVisitCustomer({customer_key:"lead:"+delegatedLead.lead.id},"a@test.com"));
+    for(const [key,actor] of [["m8:1","a@test.com"],["lead:"+delegatedLead.lead.id,"b@test.com"]]){
+      await restoreVisitCustomer({customer_key:key},actor);
+      await restoreVisitCustomer({customer_key:key},actor);
+      assert.equal((await visitsData(actor)).customers.find(c=>c.key===key)?.disqualification,undefined);
+      const audit=(await db.query<any>("SELECT details FROM web_access_events WHERE event='sales_customer_restored' AND details->>'customer_key'=$1",[key])).rows;
+      assert.equal(audit.length,1);assert.ok(audit[0].details.previous.reason);
+    }
 
   } finally {
     g.historyPool = old;

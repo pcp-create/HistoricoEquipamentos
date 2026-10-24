@@ -14,6 +14,13 @@ function display(value:string,mode:Props['mode']) {
 }
 export default function DateTimePicker({value,onChange,label,mode='datetime',required,disabled,max,editable=false}:Props){
  const [open,setOpen]=useState(false);
+ const [native,setNative]=useState(false);
+ useEffect(()=>{
+  const media=window.matchMedia('(pointer: coarse)');
+  const update=()=>{setNative(media.matches);setOpen(false);};
+  update();media.addEventListener('change',update);
+  return ()=>media.removeEventListener('change',update);
+ },[]);
  const [text,setText]=useState(display(value,mode));
  const [error,setError]=useState('');
  useEffect(()=>{setText(display(value,mode));setError('');},[value,mode]);
@@ -29,14 +36,23 @@ export default function DateTimePicker({value,onChange,label,mode='datetime',req
   if(valid&&(!max||next<=max)){setError('');setText(display(next,mode));if(next!==value)onChange(next);}
   else{setText(display(value,mode));setError(mode==='time'?'Horário inválido. Use HH:mm.':'Data inválida. Use DD/MM/AAAA.');}
  }
+ const nativeType=mode==='datetime'?'datetime-local':mode;
+ const nativeChange=(next:string)=>{setError('');onChange(next);};
  const icon=mode==='time'?<Clock size={17} aria-hidden/>:<CalendarDays size={17} aria-hidden/>;
+ if(native&&!editable)return <span className="date-time-field date-time-native-field">
+  <input aria-label={label} type={nativeType} value={value} required={required} disabled={disabled} max={max} onChange={e=>nativeChange(e.target.value)}/>
+ </span>;
  return <span className={`date-time-field${editable?' date-time-editable':''}`}>
   <input aria-label={label} aria-haspopup={editable?undefined:'dialog'} aria-expanded={editable?undefined:open} aria-invalid={!!error} required={required} disabled={disabled}
    value={editable?text:display(value,mode)} placeholder={editable?(mode==='time'?'HH:mm':'DD/MM/AAAA'):mode==='time'?'Selecionar horário':mode==='date'?'Selecionar data':'Selecionar data e horário'}
    inputMode={editable?(mode==='date'?'numeric':'text'):'none'} onChange={e=>{if(editable){const digits=e.target.value.replace(/\D/g,'').slice(0,8);setText(mode==='date'?[digits.slice(0,2),digits.slice(2,4),digits.slice(4,8)].filter(Boolean).join('/'):e.target.value);setError('');}}} onBlur={()=>{if(editable)commit();}}
    onClick={()=>{if(!editable)setOpen(true);}} onInvalid={e=>{if(!editable){e.preventDefault();setOpen(true);}}}
    onKeyDown={e=>{if(editable){if(e.key==='Enter'){e.preventDefault();e.stopPropagation();commit();}return;}if(e.key==='Tab'||e.key==='Escape')return;e.preventDefault();e.stopPropagation();setOpen(true);}} />
-  {editable?<button type="button" className="date-time-open" aria-label={`Abrir ${mode==='time'?'horário':'calendário'}: ${label}`} aria-haspopup="dialog" disabled={disabled} onClick={()=>setOpen(true)}>{icon}</button>:icon}
+  {editable&&native?<span className="date-time-native-open">
+    {icon}
+    <input type={nativeType} aria-label={`Abrir ${mode==='time'?'horário':'calendário'}: ${label}`} value={value} disabled={disabled} max={max}
+      onChange={e=>nativeChange(e.target.value)} onClick={e=>{try{e.currentTarget.showPicker?.();}catch{/* Native focus/click remains available on older browsers. */}}}/>
+  </span>:editable?<button type="button" className="date-time-open" aria-label={`Abrir ${mode==='time'?'horário':'calendário'}: ${label}`} aria-haspopup="dialog" disabled={disabled} onClick={()=>setOpen(true)}>{icon}</button>:icon}
   {error&&<small role="alert">{error} Valor anterior mantido.</small>}
   {open&&!disabled&&createPortal(<PickerDialog {...{value,onChange,label,mode,required,max}} onClose={()=>setOpen(false)}/>,document.body)}
  </span>;

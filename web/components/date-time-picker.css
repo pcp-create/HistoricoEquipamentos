@@ -28,3 +28,9 @@
 .date-time-editable input { cursor:text; }
 .date-time-field > .date-time-open { position:absolute; right:1px; top:1px; width:32px; min-width:32px; height:calc(var(--field-height, 44px) - 2px); margin:0; padding:0; display:grid; place-items:center; border:0; border-radius:0 8px 8px 0; background:transparent; color:#6082a0; cursor:pointer; }
 .date-time-field > small { display:block; color:#b73535; font-size:11px; }
+
+.date-time-native-field input { --field-padding:4px 10px; cursor:pointer; }
+.date-time-native-open { position:absolute; top:1px; right:1px; width:32px; height:calc(var(--field-height, 44px) - 2px); display:grid; place-items:center; color:#6082a0; border-radius:0 8px 8px 0; }
+.date-time-native-open:focus-within { outline:2px solid #a8cbea; }
+.date-time-native-open > input { position:absolute; inset:0; opacity:0; width:100%; min-width:0 !important; height:100%; cursor:pointer; }
+.date-time-native-open > input::-webkit-calendar-picker-indicator { position:absolute; inset:0; width:100%; height:100%; margin:0; padding:0; }

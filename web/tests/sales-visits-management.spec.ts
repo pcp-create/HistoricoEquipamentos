@@ -92,7 +92,7 @@ test('administrator can record an equipment meter from management map',async({pa
 test('management schedules a visit without leaving the page',async({page,context})=>{
  await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
  let saved:any;let refreshes=0;
- await page.route('**/api/visits/management',r=>{refreshes++;return r.fulfill({json:{name:'Gestor',sellers,customers,visits:[]}})});
+ await page.route('**/api/visits/management',r=>{refreshes++;return r.fulfill({json:{name:'Gestor',sellers,assignees:[{id:'a@test',name:'Vendedor A'}],customers,visits:[],purposes:[{id:'1',name:'Prospecção',description:'',active:true,version:1}]}})});
  await page.route('https://tile.openstreetmap.org/**',r=>r.abort());
  await page.route('**/api/visits',r=>{if(r.request().method()==='POST'){saved=r.request().postDataJSON();return r.fulfill({json:{saved:true}})}return r.fulfill({json:{name:'Gestor',customers,visits:[],purposes:[{id:'1',name:'Prospecção',description:'Identificar oportunidades',active:true,version:1}]}})});
  await page.goto('/visitas/gestao');
@@ -100,6 +100,8 @@ test('management schedules a visit without leaving the page',async({page,context
  await page.getByRole('button',{name:'Agendar visita',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Formulário de visita'});
  await expect(dialog).toBeVisible();
+ await dialog.getByRole('combobox',{name:'Vendedor responsável',exact:true}).click();
+ await dialog.getByRole('option').filter({hasText:'Vendedor A'}).click();
  await dialog.getByRole('combobox',{name:'Cliente',exact:true}).click();
  await dialog.getByRole('option').first().click();
  await pickDateTime(page,"Data e hora agendada",'2026-11-20T10:00');
@@ -109,7 +111,7 @@ test('management schedules a visit without leaving the page',async({page,context
  await dialog.getByRole('button',{name:'Salvar agendamento'}).click();
  await expect(dialog).toHaveCount(0);
  await expect(page.locator('.sales-success')).toContainText('Visita agendada');
- expect(saved).toMatchObject({action:'schedule',purpose_id:'1'});
+ expect(saved).toMatchObject({action:'schedule',purpose_id:'1',seller:'a@test'});
  expect(refreshes).toBeGreaterThan(1);
  await expect(page).toHaveURL(/\/visitas\/gestao$/);
 });

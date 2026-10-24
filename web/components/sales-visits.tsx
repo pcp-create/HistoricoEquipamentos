@@ -1,4 +1,5 @@
 "use client";
+import VisitCustomerSwipe from "./visit-customer-swipe";
 import DateTimePicker from "./date-time-picker";
 import { matchesSearch } from "@/lib/filters";
 
@@ -20,6 +21,7 @@ import {
   Clock3,
   Users,
   UserPlus,
+  UserX,
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
@@ -71,6 +73,7 @@ const fold = (v: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 type Form = {
+  seller?: string;
   contact_id?:string;
   whatsappAt?:string;
   mode: "schedule" | "history" | "complete";
@@ -154,7 +157,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch("/api/visits", { cache: "no-store" });
+      const r = await fetch(scheduleOnly ? "/api/visits/management" : "/api/visits", { cache: "no-store" });
       const b = await r.json();
       if (!r.ok) throw Error(b.error);
       setData(b);
@@ -164,7 +167,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scheduleOnly]);
   useEffect(() => {
     void reload();
     const update = () => setOnline(navigator.onLine);
@@ -199,6 +202,19 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
     window.addEventListener("online", pulse);
     return () => { stopped = true; clearInterval(timer); document.removeEventListener("visibilitychange", pulse); window.removeEventListener("online", pulse); };
   }, [reload,scheduleOnly]);
+  const listTabsRef = useRef<HTMLDivElement>(null);
+  const [moreTabs, setMoreTabs] = useState(false);
+  useEffect(() => {
+    const menu = listTabsRef.current;
+    if (!menu) return;
+    const update = () => setMoreTabs(menu.scrollWidth - menu.clientWidth - menu.scrollLeft > 1);
+    const observer = new ResizeObserver(update);
+    observer.observe(menu);
+    for (const child of menu.children) observer.observe(child);
+    menu.addEventListener("scroll", update, {passive:true});
+    update();
+    return () => { observer.disconnect(); menu.removeEventListener("scroll", update); };
+  }, [home, tab, data, query, filter]);
   const customers = data?.customers || [],
     visits = data?.visits || [];
   const matches = (c: VisitCustomer) =>
@@ -206,6 +222,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
   const filtered = useMemo(() => customers.filter(
     (c) => matchesSearch(fold(`${c.name} ${c.tradeName || ""} ${c.document} ${c.city} ${c.uf}`), fold(query)) && (filter === "all" || (filter === "leads" ? c.lead : c.health === filter)),
   ), [customers, query, filter]);
+  const listCustomers = filtered.filter(c=>listMode === "disqualified" ? !!c.disqualification : !c.disqualification && (listMode === "leads" ? c.lead : !c.lead));
   const customerMap = new Map(customers.map((c) => [c.key, c]));
   const visitRows = visits.filter((v) => {
     const c = customerMap.get(v.customer_key);
@@ -280,6 +297,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!form || busy) return;
+    if (scheduleOnly && !form.seller) { setError("Selecione o vendedor responsável."); return; }
     if(form.lead && !form.city.trim()){setEditingLeadAddress(true);setError("Informe a cidade do Lead ou selecione uma localização no mapa.");return;}
     if (!form.lead && !form.customer_key) { setError("Selecione o cliente."); return; }
     if (form.mode !== "complete" && !form.purpose_id) { setError("Selecione a finalidade da visita."); return; }
@@ -291,6 +309,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
         action: form.mode === "complete" ? "complete" : form.mode,
         id: form.id,
         version: form.version,
+        seller: scheduleOnly ? form.seller : undefined,
         purpose_id: form.purpose_id,
         customer_key: form.customer_key,
         scheduled_at: date,
@@ -588,14 +607,15 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                       ],
                       ["due", "Próximas do vencimento", counts.due, Clock3],
                       ["overdue", "Visitas vencidas", counts.overdue, History],
+                      ["disqualified", "Desqualificados", customers.filter(c => !!c.disqualification).length, UserX],
                     ] as const
                   ).map(([key, label, value, Icon]) => (
                     <button
                       key={key}
                       className={"sales-kpi " + key}
                       onClick={() => {
-                        setFilter(key);
-                        setListMode(key==="leads"?"leads":"customers");
+                        setFilter(key === "disqualified" ? "all" : key);
+                        setListMode(key === "disqualified" ? "disqualified" : key==="leads"?"leads":"customers");
                         setTab("list");
                       }}
                     >
@@ -604,7 +624,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                         {label}
                       </span>
                       <strong>{value}</strong>
-                      <small>{key === "leads" ? "Ver Leads" : "Ver clientes"}</small>
+                      <small>{key === "disqualified" ? "Ver desqualificados" : key === "leads" ? "Ver Leads" : "Ver clientes"}</small>
                     </button>
                   ))}
                 </div>
@@ -737,24 +757,30 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
             )}
             {tab === "list" && (
               <>
-                <div className="sales-actions sales-list-tabs">
+                <div className="sales-list-menu">
+                <div ref={listTabsRef} className="sales-actions sales-list-tabs">
                   <button
                     aria-pressed={listMode === "customers"}
                     onClick={() => {setListMode("customers");if(filter==="leads")setFilter("all")}}
                   >
-                    <Users size={16} aria-hidden="true"/>Clientes ({filtered.filter(c=>!c.lead).length})
+                    <Users size={16} aria-hidden="true"/>Clientes ({filtered.filter(c=>!c.lead&&!c.disqualification).length})
                   </button>
-                  <button aria-pressed={listMode==='leads'} onClick={()=>{setListMode('leads');setFilter('all')}}><UserPlus size={16} aria-hidden="true"/>Leads ({customers.filter(c=>c.lead&&matches(c)).length})</button>
+                  <button aria-pressed={listMode==='leads'} onClick={()=>{setListMode('leads');setFilter('all')}}><UserPlus size={16} aria-hidden="true"/>Leads ({customers.filter(c=>c.lead&&!c.disqualification&&matches(c)).length})</button>
                   <button
                     aria-pressed={listMode === "visits"}
                     onClick={() => setListMode("visits")}
                   >
                     <CalendarDays size={16} aria-hidden="true"/>Visitas ({visitRows.length})
                   </button>
+                  <button aria-pressed={listMode === "disqualified"} onClick={()=>{setListMode("disqualified");setFilter("all")}}>Desqualificado ({customers.filter(c=>!!c.disqualification&&matches(c)).length})</button>
                 </div>
-                {(listMode === "customers" || listMode === "leads") ? (
+                <button className="sales-list-next" style={{visibility:moreTabs?"visible":"hidden"}} aria-hidden={!moreTabs} tabIndex={moreTabs?0:-1} disabled={!moreTabs} aria-label="Ver mais abas" title="Role para ver mais abas" onClick={e=>{const menu=e.currentTarget.previousElementSibling;menu?.scrollBy({left:menu.clientWidth,behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"instant":"smooth"})}}><ChevronRight size={18}/></button>
+                </div>
+                {listMode === "disqualified" && <h3>Desqualificado ({listCustomers.length})</h3>}
+                {listMode !== "visits" ? (
                   <div className="sales-customer-grid">
-                    {filtered.filter(c=>listMode==="leads"?c.lead:!c.lead).map((c) => (
+                    {listCustomers.map((c) => (
+                      <VisitCustomerSwipe key={c.key} customer={c} online={online} onSaved={reload}>
                       <article
                         key={c.key}
                         className={"sales-customer " + c.health}
@@ -780,6 +806,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                             Possui visita agendada
                           </p>
                         )}
+                        {c.disqualification && <p className="visit-disqualification-reason"><strong>Justificativa:</strong> {c.disqualification.reason}</p>}
                         <div className="sales-customer-actions">
                           <button
                             className="sales-primary"
@@ -801,6 +828,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                           {c.equipment?.map(item=><article key={item.id}><strong>{item.id} · {item.name}</strong><p>Modelo: {item.model || "Não informado"} · Série: {item.serial || "Não informada"}</p><p>Horímetro: <b>{item.meter == null?"Não informado":item.meter.toLocaleString("pt-BR")+" h"}</b> · Coleta: {item.meterDate?item.meterDate.split("-").reverse().join("/"):"Não registrada"}</p><button disabled={!online} onClick={()=>selectEquipment(c,item)}><Gauge size={16}/>Registrar horímetro</button></article>)}
                         </section>}
                       </article>
+                      </VisitCustomerSwipe>
                     ))}
                   </div>
                 ) : (
@@ -809,7 +837,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                   </section>
                 )}
                 {!(listMode !== "visits"
-                  ? filtered.filter(c=>listMode==="leads"?c.lead:!c.lead).length
+                  ? listCustomers.length
                   : visitRows.length) && (
                   <p className="sales-empty">
                     Nenhum resultado para os filtros selecionados.
@@ -1009,7 +1037,14 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                 {error}
               </p>
             )}
-            {scheduleOnly && <p className="sales-muted">A visita será registrada em seu nome.</p>}
+            {scheduleOnly && <div className="sales-customer-picker-row">
+              <label>Vendedor responsável</label>
+              <OrderSearchSelect label="Vendedor responsável" value={form.seller || ""}
+                placeholder="Selecione ou pesquise o usuário" disabled={loading || busy}
+                options={(data?.assignees || []).map(user=>({id:user.id,displayId:"",name:user.name,detail:user.id}))}
+                onChange={user=>setForm({...form,seller:user.id,customer_key:"",contact_id:"",contact:"",phone:""})}/>
+              <small className="sales-muted">A visita e o novo Lead serão vinculados ao usuário selecionado.</small>
+            </div>}
             {loading && <p role="status">Carregando dados do agendamento…</p>}
             {form.mode !== "complete" ? (
               <>
@@ -1093,7 +1128,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                 ) : (
                   <>
                     <div className="sales-customer-picker-row">
-                      <SalesCustomerSelect fullBase={outsidePortfolio} onSelectCustomer={customer=>setAllCustomers(current=>[...current.filter(c=>c.key!==customer.key),customer])} customers={outsidePortfolio ? allCustomers : customers} value={form.customer_key}
+                      <SalesCustomerSelect fullBase={outsidePortfolio} onSelectCustomer={customer=>setAllCustomers(current=>[...current.filter(c=>c.key!==customer.key),customer])} customers={(outsidePortfolio ? allCustomers : customers).filter(customer=>!scheduleOnly || !customer.lead || customer.seller_ids?.includes(form.seller || ""))} value={form.customer_key}
                         onChange={customer_key => setForm({ ...form, customer_key, contact_id:"", contact:"", phone:"" })} />
                       <label className="sales-customer-scope"><input type="checkbox" aria-label="Base completa de clientes" checked={outsidePortfolio} onChange={e=>{setOutsidePortfolio(e.target.checked);setForm({...form,customer_key:"",contact_id:"",contact:"",phone:""});}}/><span>Base completa de clientes</span></label>
                     </div>

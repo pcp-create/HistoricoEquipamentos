@@ -194,7 +194,12 @@ export default function OrderSearchSelect({
                   row.disabled ||
                   options.some((o) => o.id === row.id && o.disabled)
                 }
-                onClick={() => pick(row)}
+                onClick={(e) => {
+                  // A wrapping label must not forward this click back to the input
+                  // after the option is removed, reopening the selected list.
+                  e.preventDefault();
+                  pick(row);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "ArrowDown" || e.key === "ArrowUp") {
                     e.preventDefault();
