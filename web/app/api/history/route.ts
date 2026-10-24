@@ -1,3 +1,4 @@
+import {historyScheduleStatuses} from "@/lib/service-scheduling/history-status";
 import { companyName } from "@/lib/company-names";
 import { priceComparison } from "@/lib/product-values";
 import { logDataError } from "@/lib/data-error";
@@ -117,7 +118,8 @@ export async function GET(request: Request) {
         },
       });
     }
-    return NextResponse.json(result, {
+    const programming = await historyScheduleStatuses(result.rows);
+    return NextResponse.json({...result,rows:result.rows.map(row=>({...row,programming_id:programming.get(`${row.company_id}:${row.id}`)?.id,programming_status:programming.get(`${row.company_id}:${row.id}`)?.status,programming_label:programming.get(`${row.company_id}:${row.id}`)?.label}))}, {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {

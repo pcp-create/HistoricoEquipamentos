@@ -1,4 +1,5 @@
 "use client";
+import {matchesSearch} from "@/lib/filters";
 import { apiFetch } from "@/lib/client-api-cache";
 import VersionPicker from "./version-picker";
 import { useEffect, useMemo, useState } from "react";
@@ -239,7 +240,7 @@ export default function ManufacturerDashboard() {
   const visibleRows = useMemo(() => {
     const text = fold(form.list.trim());
     return indexedRows
-      .filter((row) => row.text.includes(text))
+      .filter((row) => matchesSearch(row.text,text))
       .map((row) => row.entry);
   }, [indexedRows, form.list]);
 

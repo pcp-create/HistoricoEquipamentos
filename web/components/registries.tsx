@@ -1,4 +1,6 @@
 "use client";
+import { matchesSearch } from "@/lib/filters";
+
 import { useEffect, useState, useRef } from "react";
 import {
   Database,
@@ -113,7 +115,7 @@ export default function Registries() {
       .toLowerCase();
   const filtered = rows.filter(
     (r) =>
-      normalize(r.id + " " + r.name).includes(normalize(search)) &&
+      matchesSearch(normalize(r.id + " " + r.name), normalize(search)) &&
       (status === "all" || r.active === (status === "active")),
   );
   return (

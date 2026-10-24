@@ -154,10 +154,10 @@ test("creation uses customer equipment rule, persists progress, isolates users a
         "utf8",
       ),
     );
-    await db.exec(`CREATE TABLE m8_customer_directory(company_id int,person_id bigint,name text,document text);CREATE TABLE m8_equipment_catalog(equipment_id bigint,name text,model text,serial text,present boolean,payload jsonb);CREATE TABLE m8_person_equipment(company_id int,person_id bigint,equipment_id bigint,present boolean);CREATE TABLE m8_product_catalog(company_id int,product_id bigint);CREATE TABLE m8_service_catalog(company_id int,service_id bigint);
+    await db.exec(`CREATE TABLE m8_customer_directory(company_id int,person_id bigint,name text,document text,payload jsonb DEFAULT '{}');CREATE TABLE m8_equipment_catalog(equipment_id bigint,name text,model text,serial text,present boolean,payload jsonb);CREATE TABLE m8_person_equipment(company_id int,person_id bigint,equipment_id bigint,present boolean);CREATE TABLE m8_product_catalog(company_id int,product_id bigint);CREATE TABLE m8_service_catalog(company_id int,service_id bigint);
  INSERT INTO web_user_access VALUES('tech@example.com','Técnico',true,99);
  INSERT INTO m8_order_type_catalog VALUES(1,'Corretiva',true,true),(2,'Todas',true,false);
- INSERT INTO m8_customer_directory VALUES(1,10,'Cliente','123'),(2,10,'Cliente duplicado','123');
+ INSERT INTO m8_customer_directory(company_id,person_id,name,document) VALUES(1,10,'Cliente','123'),(2,10,'Cliente duplicado','123');
  INSERT INTO m8_equipment_catalog VALUES(100,'Compressor','A','X',true,'{}'),(101,'Outro','B','Y',true,'{}');
  INSERT INTO m8_person_equipment VALUES(1,10,100,true);
  INSERT INTO m8_product_catalog VALUES(1,50);INSERT INTO m8_service_catalog VALUES(1,60);
@@ -418,4 +418,14 @@ test("creation uses customer equipment rule, persists progress, isolates users a
     process.env = env;
     await db.close();
   }
+});
+
+test("service observations are validated and sent separately to M8", () => {
+  const parsed = parseOrder({...draft, items: [{...draft.items[1], notes: "Orientação ao cliente", internalNotes: "Uso interno"}]});
+  const payload = itemPayload(parsed.items[0]);
+  assert.equal(payload.observacao, "Orientação ao cliente");
+  assert.equal(payload.observacaoInterna, "Uso interno");
+  assert.equal(itemPayload({...parsed.items[0], notes: "", internalNotes: ""}).observacaoInterna, "");
+  assert.throws(() => parseOrder({...draft, items: [{...draft.items[1], notes: 42}]}));
+  assert.throws(() => parseOrder({...draft, items: [{...draft.items[1], internalNotes: "x".repeat(20001)}]}));
 });

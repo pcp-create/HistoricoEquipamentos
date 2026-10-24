@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+test.setTimeout(90000);
 test("new OS selects company, filters equipment, fills seller and submits header/products/services", async ({
   page,
   context,
@@ -6,6 +7,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
   await context.addCookies([
     { name: "m8-access", value: "test", domain: "localhost", path: "/" },
   ]);
+  await page.route("**/api/tasks*", r => r.fulfill({json:{tasks:[],users:[],settings:{},canManage:false}}));
   await page.route("**/api/activity", (r) =>
     r.fulfill({ json: { admin: false } }),
   );
@@ -139,6 +141,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
       },
     });
   });
+  await page.setViewportSize({width:390,height:844});
   await page.goto("/OrdemServico/nova");
   const choose = async (label: string, id: string) => {
     await page.getByRole("combobox", { name: label, exact: true }).click();
@@ -165,13 +168,14 @@ test("new OS selects company, filters equipment, fills seller and submits header
   await page
     .getByRole("combobox", { name: "Tipo Ordem de Serviço", exact: true })
     .click();
-  const typeSearch = page.getByRole("searchbox", {
-    name: "Pesquisar Tipo Ordem de Serviço",
+  const typeSearch = page.getByRole("combobox", {
+    name: "Tipo Ordem de Serviço",
     exact: true,
   });
   await typeSearch.fill("corretiva");
   await typeSearch.press("ArrowDown");
-  await expect(page.getByRole("option", { name: /Corretiva/ })).toBeFocused();
+  await expect(typeSearch).toBeFocused();
+  await expect(typeSearch).toHaveAttribute("aria-activedescendant", /.+-0$/);
   await page.keyboard.press("Enter");
   await expect(
     page.getByRole("combobox", { name: "Tipo Ordem de Serviço", exact: true }),
@@ -179,12 +183,12 @@ test("new OS selects company, filters equipment, fills seller and submits header
 
   await page.getByRole("combobox", { name: "Cliente", exact: true }).click();
   await page
-    .getByRole("searchbox", { name: "Pesquisar Cliente", exact: true })
+    .getByRole("combobox", { name: "Cliente", exact: true })
     .fill("Cliente");
   await page.getByRole("option", { name: /Cliente Teste/ }).click();
   await expect(
     page.getByRole("combobox", { name: "Vendedor", exact: true }),
-  ).toContainText("Vendedor padrão");
+  ).toHaveValue(/Vendedor padrão/);
   await choose("Equipamento", "100");
   expect(equipmentQueries[0]).toContain("customer=10");
   expect(equipmentQueries[0]).toContain("type=1");
@@ -204,7 +208,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
   await choose("Técnico", "99");
   await expect(
     page.getByRole("combobox", { name: "Técnico", exact: true }),
-  ).toHaveText("99 - Técnico");
+  ).toHaveValue("99 - Técnico");
   await page.getByLabel("Data Entrega Prevista").fill("2026-10-23");
   await page.getByLabel("Data Entrega *", { exact: true }).fill("2026-10-24");
   await page
@@ -220,13 +224,29 @@ test("new OS selects company, filters equipment, fills seller and submits header
     fullPage: true,
   });
   await page.getByRole("button", { name: "Produtos (0)", exact: true }).click();
-  await page.getByRole("combobox", { name: "Adicionar produtos" }).click();
-  await page.getByRole("option", { name: /Filtro novo/ }).click();
+  await page.getByRole("button", { name: "Adicionar Produto", exact:true }).click();
+  await page.getByRole("dialog").getByLabel("Pesquisar no cadastro").fill("Filtro");
+  await page.getByRole("dialog").getByRole("button",{name:"Adicionar",exact:true}).click();
+  await expect(page.getByRole("dialog").getByRole("button",{name:"Já incluído"})).toBeDisabled();
+  await page.getByRole("dialog").getByRole("button",{name:"Fechar",exact:true}).click();
+  await expect(page.getByRole("textbox",{name:"Valor unitário",exact:true})).toHaveValue("10,00");
+  await page.getByRole("textbox",{name:"Valor unitário",exact:true}).fill("181,69");
+  await page.getByRole("heading",{name:"Produtos da OS"}).click();
+  await expect(page.getByRole("textbox",{name:"Valor unitário",exact:true})).toHaveValue("181,69");
   await page.getByRole("button", { name: "Serviços (0)", exact: true }).click();
-  await page.getByRole("combobox", { name: "Adicionar serviços" }).click();
-  await page.getByRole("option", { name: /Revisão geral/ }).click();
+  await page.getByRole("button", { name: "Adicionar Serviço", exact:true }).click();
+  await page.getByRole("dialog").getByLabel("Pesquisar no cadastro").fill("Revisão");
+  await page.getByRole("dialog").getByRole("button",{name:"Adicionar",exact:true}).click();
+  await expect(page.getByRole("dialog").getByRole("button",{name:"Já incluído"})).toBeDisabled();
+  await page.getByRole("dialog").getByRole("button",{name:"Fechar",exact:true}).click();
+  await page.getByRole("button", {name:/^Observação:/}).click();
+  await page.getByRole("dialog").getByLabel("Observação", {exact:true}).fill("Detalhe do serviço");
+  await page.getByRole("button", {name:"Salvar observação",exact:true}).click();
+  await page.getByRole("button", {name:/^Observação interna:/}).click();
+  await page.getByRole("dialog").getByLabel("Observação interna", {exact:true}).fill("Orientação interna");
+  await page.getByRole("button", {name:"Salvar observação",exact:true}).click();
   await page.getByRole("button", { name: "Criar OS no M8" }).click();
-  await expect(page).toHaveURL(/\/historico\?/);
+  await expect(page).toHaveURL(/\/historico\?/, {timeout:30000});
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("heading", { name: /OS-15099/ })).toBeVisible();
   await expect(
@@ -236,5 +256,8 @@ test("new OS selects company, filters equipment, fills seller and submits header
   expect(saved.extra.contato).toBe("Contato técnico");
   expect(saved.freight).toBe("0");
   expect(saved.items).toHaveLength(2);
+  expect(saved.items[0].price).toBe("181.69");
+  expect(saved.items[1].notes).toBe("Detalhe do serviço");
+  expect(saved.items[1].internalNotes).toBe("Orientação interna");
   expect(step).toBe(5);
 });

@@ -1,20 +1,15 @@
+import {searchPatterns} from "@/lib/filters";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { database } from "../db";
 import { parseQuote, quoteTotals, QuoteValidation } from "./types";
 export class QuoteConflict extends Error {}
 export async function listQuotes(search = "") {
-  const pattern =
-    "%" +
-    search
-      .trim()
-      .slice(0, 120)
-      .replace(/[\\%_]/g, "\\$&") +
-    "%";
+  const pattern = searchPatterns(search.trim().slice(0,120));
   return (
     await database().query(
       `SELECT id,number::text,version,client_name,equipment,service_type,total_cents::text,updated_at,updated_by,document->>'responsible' AS responsible,COALESCE((document->>'pendingAmounts')::boolean,false) AS pending_amounts
-    FROM web_quotes WHERE document->>'deletedAt' IS NULL AND concat_ws(' ',number,client_name,equipment,service_type,document->>'responsible') ILIKE $1 ORDER BY updated_at DESC LIMIT 100`,
+    FROM web_quotes WHERE document->>'deletedAt' IS NULL AND concat_ws(' ',number,client_name,equipment,service_type,document->>'responsible') ILIKE ALL($1::text[]) ORDER BY updated_at DESC LIMIT 100`,
       [pattern],
     )
   ).rows;

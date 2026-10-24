@@ -1,0 +1,64 @@
+/* Shared field design, based on the Visits customer picker.
+   Important declarations in this layer intentionally override legacy module CSS.
+   Keep visual exceptions (invalid/disabled) here instead of adding module overrides. */
+:root {
+  --field-font: "DM Sans", Arial, sans-serif;
+  --field-text: #294d6a;
+  --field-placeholder: #98a1ae;
+  --field-border: #cbddec;
+  --field-focus: #a8cbea;
+  --field-radius: 9px;
+}
+@layer form-controls {
+  :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="submit"]):not([type="reset"]):not([type="button"]):not([type="image"]), select, textarea) {
+    font-family: var(--field-font) !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    font-style: normal !important;
+    line-height: 1.4 !important;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    color: var(--field-control-text, var(--field-text)) !important;
+    background-color: #fff !important;
+    border: 1px solid var(--field-border) !important;
+    border-radius: var(--field-radius) !important;
+    min-height: var(--field-height, 44px) !important;
+    padding: var(--field-padding, 10px 12px) !important;
+    box-sizing: border-box !important;
+    &::placeholder {
+      font-family: var(--field-font) !important;
+      font-weight: 400 !important;
+      font-style: normal !important;
+      letter-spacing: normal !important;
+      color: var(--field-placeholder) !important;
+      opacity: 1 !important;
+    }
+    &:focus {
+      border-color: var(--field-border) !important;
+      outline: 2px solid var(--field-focus) !important;
+      outline-offset: 1px !important;
+      box-shadow: none !important;
+    }
+    &:disabled {
+      background-color: #f3f6f9 !important;
+      color: var(--field-disabled-text, #748b9e) !important;
+      cursor: not-allowed;
+    }
+    &[aria-invalid="true"], &.alert-comment-empty {
+      border-color: #c43848 !important;
+      &:focus { outline-color: #c43848 !important; }
+    }
+    @media (max-width: 640px) { font-size: 16px !important; }
+  }
+  /* Dropdown content must not inherit label or button typography. */
+  .order-search-select .order-search-options button {
+    font-family: var(--field-font) !important;
+    font-weight: 400 !important;
+    line-height: 1.4 !important;
+    letter-spacing: normal !important;
+    color: #2d5674 !important;
+  }
+  .order-search-select .order-choice-line strong { font-size: 13px !important; font-weight: 700 !important; }
+  .order-search-select .order-choice-id { font-size: 12px !important; font-weight: 400 !important; }
+  .order-search-select small { font-size: 11px !important; font-weight: 400 !important; color: #748b9e !important; letter-spacing: normal !important; }
+}

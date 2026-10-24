@@ -1,4 +1,7 @@
 "use client";
+import DateTimePicker from "./date-time-picker";
+import { matchesSearch } from "@/lib/filters";
+
 import {ScheduleTaskLists,TaskListActions} from "./schedule-task-lists";
 import {needsRescheduling} from "@/lib/service-scheduling/rescheduling";
 import {ReschedulingHistory,ReschedulingConfirmation} from "./operation-rescheduling";
@@ -195,7 +198,7 @@ export default function ServiceScheduling() {
   }
   const searchedSchedules = (data?.schedules || []).filter((s: any) =>
     displayedScheduleStatus(s) !== "cancelled" &&
-    `${s.numero_sequencia || s.order_id} ${s.cliente_nome} ${s.equipamento} ${s.customer_city || ""}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase())
+    matchesSearch(`${s.numero_sequencia || s.order_id} ${s.cliente_nome} ${s.equipamento} ${s.customer_city || ""}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(), query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase())
   );
   const filteredSchedules = searchedSchedules.map((s:any) => filterScheduleDateView(s,dateView,deliveryMonth,executor)).filter(Boolean);
   // The calendar uses operation dates and its own navigation, never delivery projections.
@@ -1029,9 +1032,8 @@ function OperationRow({
         }}
       >
         <td>
-          <strong>{operationNumber(o.position)}</strong>
+          <strong className="operation-cell-value operation-number">{operationNumber(o.position)}</strong>
           <ReschedulingHistory entries={o.document.reschedulingHistory || []} users={data.users}/>
-          {dirty && <small className="operation-draft-label">Não salvo</small>}
         </td>
         <td>
           <select
@@ -1102,24 +1104,24 @@ function OperationRow({
           />
         </td>
         <td>
-          <input
-            aria-label={"Data de Programação " + operationNumber(o.position)}
-            type="date"
+          <DateTimePicker editable
+            label={"Data de Programação " + operationNumber(o.position)}
+            mode="date"
             disabled={locked}
             value={d.date}
-            onChange={(e) => change("date", e.target.value)}
+            onChange={(value) => change("date", value)}
           />
           {rescheduleDraft && <ReschedulingConfirmation previous={o.document} next={rescheduleDraft} busy={busy} error={error}
             onCancel={()=>{setRescheduleDraft(null);setD((current:any)=>({...current,date:o.document.date,time:o.document.time}));}}
             onConfirm={async reason=>{if(await persist(rescheduleDraft,{confirmed:true,reason}))setRescheduleDraft(null);}}/>}
         </td>
         <td>
-          <input
-            aria-label={"Hora início " + operationNumber(o.position)}
-            type="time"
+          <DateTimePicker editable
+            label={"Hora início " + operationNumber(o.position)}
+            mode="time"
             disabled={locked || !d.date}
             value={d.time}
-            onChange={(e) => change("time", e.target.value)}
+            onChange={(value) => change("time", value)}
           />
         </td>
         <td>
@@ -1135,15 +1137,15 @@ function OperationRow({
           />
         </td>
         <td>
-          {totalHours(d) == null
+          <span className="operation-cell-value">{totalHours(d) == null
             ? "—"
             : totalHours(d)!.toLocaleString("pt-BR", {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 3,
-              })}
+              })}</span>
         </td>
         <td aria-label={"Apontamento total da operação " + operationNumber(o.position)} title="Tempo dos apontamentos finalizados de toda a equipe: atividade, deslocamento e pausas. Independente do envio do relatório.">
-          {completedOperationHours(o.id, data.fieldSessions || [], data.fieldEvents || [], data.events || []).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}
+          <span className="operation-cell-value">{completedOperationHours(o.id, data.fieldSessions || [], data.fieldEvents || [], data.events || []).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</span>
         </td>
         <td>
           <select
@@ -1160,11 +1162,11 @@ function OperationRow({
           </select>
         </td>
         <td>
-          <span className={"operation-status " + o.status}>
+          <div className="operation-cell-value"><span className={"operation-status " + o.status}>
             {o.document.checklistReturn?"Devolvida para ajuste do checklist":statusNames[o.status]}
-          </span>
+          </span></div>
         </td>
-        <td>{o.sent_at ? "Sim" : "Não"}{o.document.checklistReturn&&<small>Motivo: {o.document.checklistReturn.reason}</small>}</td>
+        <td><span className="operation-cell-value">{o.sent_at ? "Sim" : "Não"}</span>{o.document.checklistReturn&&<small>Motivo: {o.document.checklistReturn.reason}</small>}</td>
         <td>
           <button
             className="operation-note-preview"
@@ -1249,11 +1251,9 @@ function OperationRow({
           <div className="operation-execution-details">
           {o.document.checklistId&&<div className="operation-report-state"><span>Relatório: <strong>{reportStatusLabel(o.document.checklistRun)}</strong></span>
           </div>}
-          {dirty && (
-            <small className="operation-draft-label" role="status">
-              Alterações não salvas
-            </small>
-          )}
+          <small className="operation-draft-label" role="status" style={{visibility:dirty?"visible":"hidden"}} aria-hidden={!dirty}>
+            Alterações não salvas
+          </small>
           </div>
           </div>
         </td>

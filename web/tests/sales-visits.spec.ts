@@ -1,3 +1,4 @@
+import {pickDateTime} from "./helpers/pick-date-time";
 import { test, expect } from "@playwright/test";
 test.setTimeout(90000);
 
@@ -17,6 +18,7 @@ test("sales portal displays portfolio, schedules visits and registers historical
   const customer = {
     key: "m8:1",
     name: "Cliente de teste",
+    tradeName: "COOPERSULCA",
     document: "123",
     city: "Lages",
     uf: "SC",
@@ -53,22 +55,29 @@ test("sales portal displays portfolio, schedules visits and registers historical
   await page
     .getByRole("button", { name: "Agendar visita", exact: true })
     .click();
+  const fieldStyle = async (name:string) => page.getByRole("combobox",{name,exact:true}).evaluate(el=>{
+    const style=getComputedStyle(el), placeholder=getComputedStyle(el,'::placeholder');
+    return {font:style.fontFamily,size:style.fontSize,weight:style.fontWeight,color:style.color,border:style.borderColor,radius:style.borderRadius,placeholderColor:placeholder.color,placeholderWeight:placeholder.fontWeight};
+  });
+  expect(await fieldStyle("Finalidade da Visita")).toEqual(await fieldStyle("Cliente"));
+  expect((await fieldStyle("Finalidade da Visita")).placeholderWeight).toBe("400");
   await page
     .getByRole("combobox", { name: "Cliente", exact: true })
     .click();
-  await page.getByRole("searchbox", { name: "Pesquisar cliente" }).fill("Cliente de teste");
+  await page.getByRole("combobox", { name: "Cliente", exact:true }).fill("COOPERSULCA");
   await page.getByRole("option", { name: /Cliente de teste/ }).click();
-  await page.getByLabel("Data e hora agendada").fill("2026-11-20T10:00");
+  await pickDateTime(page,"Data e hora agendada","2026-11-20T10:00");
   await page.getByRole('button',{name:'+ Novo contato',exact:true}).click();
   await page.getByLabel('Nome do contato').fill('João');await page.getByLabel('Telefone do contato').fill('49999999999');
   await page.getByRole('button',{name:'Salvar contato',exact:true}).click();
   await expect(page.getByLabel('Contato que receberá a visita')).toHaveValue('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
   await page.getByLabel('Receber alerta no meu WhatsApp').check();
-  await page.getByLabel('Data e hora do alerta (Brasília)').fill('2099-11-20T09:00');
-  await page.getByLabel("Finalidade da Visita",{exact:true}).selectOption("1");
+  await pickDateTime(page,'Data e hora do alerta (Brasília)','2027-11-20T09:00');
+  await page.getByRole("combobox",{name:"Finalidade da Visita",exact:true}).fill("Prospec");
+ await page.getByRole("listbox").getByRole("option").first().click();
   await page.getByRole("button", { name: "Salvar agendamento" }).click();
   await expect(page.getByRole("status")).toContainText("Visita agendada");
-  expect(writes[0].scheduled_at).toBe("2026-11-20T13:00:00.000Z");expect(writes[0].whatsappAt).toBe("2099-11-20T09:00");expect(writes[0].contact_id).toBe("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee");
+  expect(writes[0].scheduled_at).toBe("2026-11-20T13:00:00.000Z");expect(writes[0].whatsappAt).toBe("2027-11-20T09:00");expect(writes[0].contact_id).toBe("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee");
   await page.getByRole("button", { name: "Calendário", exact: true }).click();
   await expect(page.locator(".field-calendar-heading")).toContainText("novembro de 2026");
   await expect(page.locator(".field-calendar-grid button[aria-pressed=true]")).toContainText("1 visita");
@@ -92,14 +101,15 @@ test("sales portal displays portfolio, schedules visits and registers historical
   await page
     .getByRole("combobox", { name: "Cliente", exact: true })
     .click();
-  await page.getByRole("searchbox", { name: "Pesquisar cliente" }).fill("Cliente de teste");
+  await page.getByRole("combobox", { name: "Cliente", exact:true }).fill("Cliente de teste");
   await page.getByRole("option", { name: /Cliente de teste/ }).click();
-  await page.getByLabel("Data e hora da realização").fill("2026-01-15T14:00");
+  await pickDateTime(page,"Data e hora da realização","2026-01-15T14:00");
   await page.getByLabel("Contato que receberá a visita").selectOption("dddddddd-dddd-4ddd-8ddd-dddddddddddd");
   await page
     .getByLabel("Registro da visita e próximos passos")
     .fill("Cliente visitado, retornar com proposta.");
-  await page.getByLabel("Finalidade da Visita",{exact:true}).selectOption("1");
+  await page.getByRole("combobox",{name:"Finalidade da Visita",exact:true}).fill("Prospec");
+ await page.getByRole("listbox").getByRole("option").first().click();
   await page.getByRole("button", { name: "Salvar visita realizada" }).click();
   await expect(page.getByRole("status")).toContainText(
     "Visita realizada registrada",
@@ -262,10 +272,11 @@ test('new lead searches a city and submits its selected map position',async({pag
  await expect(page.getByLabel('Cidade',{exact:true})).toHaveValue('Rio do Sul');
  await expect(page.getByLabel('UF',{exact:true})).toHaveValue('SC');
  await expect(page.getByLabel('Endereço',{exact:true})).toHaveValue('Rua XV de Novembro, 100, Centro');
- await page.getByLabel('Data e hora agendada').fill('2026-11-20T10:00');
+ await pickDateTime(page,"Data e hora agendada",'2026-11-20T10:00');
  await page.getByLabel('Nome do contato').fill('João');
  await page.getByLabel('Telefone do contato').fill('49999999999');
- await page.getByLabel('Finalidade da Visita',{exact:true}).selectOption('1');
+ await page.getByRole("combobox",{name:"Finalidade da Visita",exact:true}).fill("Prospec");
+ await page.getByRole("listbox").getByRole("option").first().click();
  await page.getByRole('button',{name:'Salvar agendamento',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('Visita agendada');
  expect(writes[0].lead.location).toEqual({latitude:-27.81,longitude:-50.31});
@@ -285,8 +296,9 @@ test('user without territory schedules an external customer with a purpose',asyn
  await expect(page.getByRole('status').filter({hasText:'Carregando clientes'})).toHaveCount(0);
  await page.getByRole('combobox',{name:'Cliente',exact:true}).click();
  await page.getByRole('option',{name:/Cliente fora da carteira/}).click();
- await page.getByLabel('Data e hora agendada').fill('2026-11-20T10:00');
- await page.getByLabel('Finalidade da Visita',{exact:true}).selectOption('1');
+ await pickDateTime(page,"Data e hora agendada",'2026-11-20T10:00');
+ await page.getByRole("combobox",{name:"Finalidade da Visita",exact:true}).fill("Prospec");
+ await page.getByRole("listbox").getByRole("option").first().click();
  await page.getByLabel('Contato que receberá a visita').selectOption('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
  await page.getByRole('button',{name:'Salvar agendamento',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('Visita agendada');
@@ -411,4 +423,28 @@ test('mobile navigation stays at bottom and floating button expands visit action
  await page.locator('.sales-quick-options').getByRole('button',{name:'Agendar visita',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Agendar visita',exact:true})).toBeVisible();
  await expect(page.locator('.sales-quick-options')).toHaveCount(0);
+});
+
+test('full customer base finds COOPERSULCA by trade name on the visits page', async ({page,context}) => {
+  await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
+  await page.setViewportSize({width:454,height:803});
+  await page.route('**/api/visits',r=>r.fulfill({json:{purposes,canManage:true,name:'Teste',customers:[],visits:[]}}));
+  const directoryCustomers = [
+    {key:'m8:28667',name:'COOPERATIVA REGIONAL AGROPECUARIA SUL CATARINENSE',tradeName:'COOPERSULCA',city:'TURVO',uf:'SC',document:'86512647002595',lead:false},
+    {key:'m8:28672',name:'COOPERATIVA REGIONAL AGROPECUARIA SUL CATARINENSE',tradeName:'COOPERSULCA',city:'TORRES',uf:'RS',document:'86512647003303',lead:false}
+  ];
+  await page.route('**/api/visits/customers*',r=>r.fulfill({json:new URL(r.request().url()).searchParams.has('q')
+    ? {rows:directoryCustomers.map(c=>({id:c.key,displayId:c.key.slice(3),name:c.name,tradeName:c.tradeName,detail:`${c.city}/${c.uf} · ${c.document}`,data:c}))}
+    : {customers:directoryCustomers}}));
+  await page.goto('/visitas?module=visitas');
+  await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
+  await page.getByRole('button',{name:'Abrir ações de visita'}).click();
+  await page.getByRole('button',{name:'Agendar visita',exact:true}).click();
+  await page.getByRole('checkbox',{name:'Base completa de clientes'}).check();
+  await page.getByRole('combobox',{name:'Cliente',exact:true}).fill('coopersulca');
+  await expect(page.getByRole('listbox').getByRole('option')).toHaveCount(2);
+  await expect(page.locator('.order-choice-trade-name')).toHaveText(['COOPERSULCA','COOPERSULCA']);
+  await page.screenshot({path:'/tmp/visitas-coopersulca.png'});
+  await page.getByRole('option').filter({hasText:'28667'}).click();
+  await expect(page.getByRole('combobox',{name:'Cliente',exact:true})).toHaveValue(/COOPERSULCA/);
 });

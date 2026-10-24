@@ -1,3 +1,4 @@
+import {searchWords} from "@/lib/filters";
 import { productAverageCostSql } from "./product-average-cost";
 import { approvedMaterialSql } from "./material-approval";
 import { linkedOrder, linkedSerial } from "./equipment";
@@ -22,7 +23,7 @@ export function buildWhere(filters: Filters) {
   };
   const clauses = ["o.company_id IN (1,2,27404)"];
   const like = (column: string, input: string) =>
-    `${normalized(column)} LIKE ${bind(`%${escapeLike(fold(input))}%`)}`;
+    "(" + searchWords(input).map(term => `${normalized(column)} LIKE ${bind(`%${escapeLike(fold(term))}%`)}`).join(" AND ") + ")";
   if (filters.company)
     clauses.push(`o.company_id=${bind(Number(filters.company))}`);
   if (filters.orderNumber)

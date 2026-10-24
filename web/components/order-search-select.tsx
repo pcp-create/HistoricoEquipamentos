@@ -1,11 +1,15 @@
 "use client";
+import { matchesSearch } from "@/lib/filters";
+
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Check } from "lucide-react";
+import "./order-search-select.css";
 export type OrderChoice = {
   id: string;
   displayId?: string;
   name: string;
   detail?: string;
+  tradeName?: string;
   disabled?: boolean;
   data?: any;
 };
@@ -35,9 +39,10 @@ export default function OrderSearchSelect({
 }) {
   const id = useId(),
     root = useRef<HTMLDivElement>(null),
-    trigger = useRef<HTMLButtonElement>(null),
+    trigger = useRef<HTMLInputElement>(null),
     list = useRef<HTMLDivElement>(null),
-    search = useRef<HTMLInputElement>(null);
+    search = trigger;
+  const [active,setActive] = useState(-1);
   const [open, setOpen] = useState(false),
     [q, setQ] = useState(""),
     [page, setPage] = useState(1),
@@ -46,8 +51,8 @@ export default function OrderSearchSelect({
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const close = () => {
-    setOpen(false);
     trigger.current?.focus();
+    setOpen(false);
   };
   useEffect(() => {
     if (!open) return;
@@ -112,7 +117,7 @@ export default function OrderSearchSelect({
   const rows = endpoint
     ? remote
     : options.filter((r) =>
-        fold(`${r.displayId ?? r.id} ${r.name} ${r.detail || ""}`).includes(fold(q)),
+        matchesSearch(fold(`${r.displayId ?? r.id} ${r.name} ${r.tradeName || ""} ${r.detail || ""}`), fold(q)),
       );
   const selected = options.find((r) => r.id === value);
   function pick(row: OrderChoice) {
@@ -125,7 +130,7 @@ export default function OrderSearchSelect({
       className="order-search-select"
       ref={root}
       onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+        if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node))
           setOpen(false);
       }}
       onKeyDown={(e) => {
@@ -136,62 +141,37 @@ export default function OrderSearchSelect({
         }
       }}
     >
-      <button
+      <input
         ref={trigger}
-        type="button"
+        type="text"
         role="combobox"
         aria-label={label}
+        aria-autocomplete="list"
         aria-expanded={open}
-        aria-controls={id}
-        aria-haspopup="listbox"
+        aria-controls={open ? id : undefined}
+        aria-activedescendant={open && active >= 0 ? id+'-'+active : undefined}
         disabled={disabled}
-        className="order-search-trigger"
-        onClick={() => {
-          setQ("");
-          setPage(1);
-          setRemote([]);
-          setOpen(!open);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowDown") {
-            e.preventDefault();
-            setOpen(true);
+        autoComplete="off"
+        className="order-search-trigger order-search-direct"
+        value={open ? q : selectedLabel || (selected ? (selected.displayId ? `${selected.displayId} - ${selected.name}` : selected.name) : '')}
+        placeholder={open ? 'Pesquisar por ID ou descrição' : placeholder}
+        onFocus={()=>{if(!open){setQ('');setPage(1);setRemote([]);setActive(-1);setOpen(true)}}}
+        onClick={()=>{if(!open){setQ('');setPage(1);setRemote([]);setActive(-1);setOpen(true)}}}
+        onChange={e=>{setQ(e.target.value);setPage(1);setRemote([]);setActive(-1);setOpen(true)}}
+        onKeyDown={e=>{
+          if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+            e.preventDefault();setOpen(true);
+            const available=rows.map((row,index)=>({row,index})).filter(x=>!x.row.disabled);
+            if(!available.length)return;
+            const current=available.findIndex(x=>x.index===active);
+            const next=available[current<0?(e.key==='ArrowDown'?0:available.length-1):(current+(e.key==='ArrowDown'?1:-1)+available.length)%available.length].index;
+            setActive(next);document.getElementById(id+'-'+next)?.scrollIntoView({block:'nearest'});
           }
+          if(e.key==='Enter'&&open){e.preventDefault();if(!busy){if(active>=0&&rows[active])pick(rows[active]);else if(rows.length===1)pick(rows[0])}}
         }}
-      >
-        <span>{selectedLabel || (selected ? (selected.displayId ? `${selected.displayId} - ${selected.name}` : selected.name) : placeholder)}</span>
-        <ChevronDown size={18} />
-      </button>
+      />
       {open && (
         <div className="order-search-menu">
-          <div className="order-search-input">
-            <Search size={17} />
-            <input
-              ref={search}
-              autoFocus
-              type="search"
-              aria-label={"Pesquisar " + label}
-              placeholder="Pesquisar por ID ou descrição"
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setPage(1);
-                setRemote([]);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  if (!busy && rows.length === 1) pick(rows[0]);
-                }
-                if (e.key === "ArrowDown") {
-                  e.preventDefault();
-                  list.current
-                    ?.querySelector<HTMLButtonElement>("button:not(:disabled)")
-                    ?.focus();
-                }
-              }}
-            />
-          </div>
           <div
             ref={list}
             id={id}
@@ -200,12 +180,16 @@ export default function OrderSearchSelect({
             className="order-search-options"
             aria-busy={busy}
           >
-            {rows.map((row) => (
+            {rows.map((row,index) => (
               <button
                 type="button"
                 role="option"
                 aria-selected={row.id === value}
                 key={row.id}
+                id={id+'-'+index}
+                data-active={active===index}
+                tabIndex={-1}
+                onMouseDown={e=>e.preventDefault()}
                 disabled={
                   row.disabled ||
                   options.some((o) => o.id === row.id && o.disabled)
@@ -231,6 +215,7 @@ export default function OrderSearchSelect({
                     {(row.displayId ?? row.id) && <><span className="order-choice-id">{row.displayId ?? row.id}</span><span className="order-choice-separator" aria-hidden="true">-</span></>}
                     <strong>{row.name.startsWith(`${row.id} · `) ? row.name.slice(row.id.length + 3) : row.name}</strong>
                   </span>
+                  {row.tradeName && <small className="order-choice-trade-name">{row.tradeName}</small>}
                   {row.detail && row.detail !== row.id && row.detail !== `ID ${row.id}` && (
                     <small>{row.detail.startsWith(`ID ${row.id} · `) ? row.detail.slice(`ID ${row.id} · `.length) : row.detail}</small>
                   )}

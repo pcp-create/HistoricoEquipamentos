@@ -1,4 +1,6 @@
 "use client";
+import { matchesSearch } from "@/lib/filters";
+
 import { useEffect, useRef, useState } from "react";
 import {
   ClipboardPlus,
@@ -590,9 +592,8 @@ export function ScheduleTaskLists({ data }: { data: any }) {
             <div className="task-list-catalog">
               {lists
                 .filter((l) =>
-                  l.name
-                    .toLocaleLowerCase("pt-BR")
-                    .includes(query.toLocaleLowerCase("pt-BR")),
+                  matchesSearch(l.name
+                    .toLocaleLowerCase("pt-BR"), query.toLocaleLowerCase("pt-BR")),
                 )
                 .map((list) => (
                   <article key={list.id}>

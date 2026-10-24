@@ -41,3 +41,7 @@ __pycache__/
 /Equipamentos em conserto externo atual.xlsx
 
 /Maquinas de Locação em Revisão na Oficina Atual.xlsx
+
+# Temporary Next.js builds and browser-test output
+/web/.next-*/
+/test-results/

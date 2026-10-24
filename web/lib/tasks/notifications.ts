@@ -8,7 +8,7 @@ export async function claimNotifications(origin: string, reminderOnly = false) {
     await c.query("BEGIN READ WRITE");
     const rows = (
       await c.query(
-        `SELECT n.*,u.phone,u.enabled,to_jsonb(t)->>'restricted' restricted,u.role recipient_role,t.title,s.name AS stage_name,t.followers,owner.display_name AS assignee_name,r.scheduled_at AS reminder_at,r.state AS reminder_state,t.origin,t.equipment_name,t.customer,t.status,t.assigned_to,t.completed_at,t.updated_by,NOT EXISTS(SELECT 1 FROM web_task_notifications newer WHERE newer.task_id=n.task_id AND COALESCE(to_jsonb(newer)->>'kind','assignment')=COALESCE(to_jsonb(n)->>'kind','assignment') AND n.kind<>'reminder' AND newer.task_version>n.task_version) current_assignment FROM web_task_notifications n JOIN web_user_access u ON u.email=n.recipient JOIN web_tasks t ON t.id=n.task_id LEFT JOIN web_task_stages s ON s.id=t.stage_id LEFT JOIN web_user_access owner ON owner.email=t.assigned_to LEFT JOIN web_task_reminders r ON r.id=n.reminder_id WHERE (n.kind='reminder')=$1 AND n.state='pending' AND n.attempts=0 AND (n.leased_until IS NULL OR n.leased_until<now()) ORDER BY n.id LIMIT 20 FOR UPDATE OF n SKIP LOCKED`,
+        `SELECT to_jsonb(t)->>'task_type' task_type,to_jsonb(t)->>'approval_state' approval_state,to_jsonb(t)->>'approval_description' approval_description,to_jsonb(t)->>'approval_reason' approval_reason,n.*,u.phone,u.enabled,to_jsonb(t)->>'restricted' restricted,u.role recipient_role,t.title,s.name AS stage_name,t.followers,owner.display_name AS assignee_name,r.scheduled_at AS reminder_at,r.state AS reminder_state,t.origin,t.equipment_name,t.customer,t.status,t.assigned_to,t.completed_at,t.updated_by,NOT EXISTS(SELECT 1 FROM web_task_notifications newer WHERE newer.task_id=n.task_id AND COALESCE(to_jsonb(newer)->>'kind','assignment')=COALESCE(to_jsonb(n)->>'kind','assignment') AND n.kind<>'reminder' AND newer.task_version>n.task_version) current_assignment FROM web_task_notifications n JOIN web_user_access u ON u.email=n.recipient JOIN web_tasks t ON t.id=n.task_id LEFT JOIN web_task_stages s ON s.id=t.stage_id LEFT JOIN web_user_access owner ON owner.email=t.assigned_to LEFT JOIN web_task_reminders r ON r.id=n.reminder_id WHERE (n.kind='reminder')=$1 AND n.state='pending' AND n.attempts=0 AND (n.leased_until IS NULL OR n.leased_until<now()) ORDER BY n.id LIMIT 20 FOR UPDATE OF n SKIP LOCKED`,
         [reminderOnly],
       )
     ).rows;
@@ -38,7 +38,9 @@ export async function claimNotifications(origin: string, reminderOnly = false) {
         id: String(n.id),
         token,
         number: n.phone,
-        text: n.kind === "reminder"
+        text: n.task_type === 'approval'
+          ? `📋 *${n.approval_state === 'pending' ? 'Solicitação de aprovação' : n.approval_state === 'approved' ? 'Solicitação aprovada — de acordo' : 'Solicitação reprovada'}*\n${n.approval_description}${n.approval_state !== 'pending' ? '\n\n'+n.approval_reason : ''}\n\n${n.approval_state === 'pending' ? 'Abra para aprovar ou reprovar' : 'Retornou para sua tratativa'}: ${origin}/tarefas?task=${n.task_id}`
+          : n.kind === "reminder"
           ? `⏰ *Lembrete de tarefa*\n*TAR-${n.task_id} · ${n.title}*\nEtapa: ${n.stage_name || "Não definida"}\nResponsável: ${n.assignee_name || "Não atribuído"}\nAgendado para: ${new Date(n.reminder_at).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})} (Brasília)\n${origin}/tarefas?task=${n.task_id}`
           : n.kind === "completed"
           ? `✅ *Tarefa concluída*\n*TAR-${n.task_id} · ${n.title}*\nOrigem: ${n.origin}\nEquipamento: ${n.equipment_name || "Não informado"}\nCliente: ${n.customer || "Não informado"}\nConclusão: ${n.completed_at ? new Date(n.completed_at).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo"}) : "Registrada"}\nConfira: ${origin}/tarefas?task=${n.task_id}`

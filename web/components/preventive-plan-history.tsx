@@ -1,4 +1,6 @@
 "use client";
+import { matchesSearch } from "@/lib/filters";
+
 import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useState } from "react";
 import type { QuoteItem, QuoteSalesHistory } from "@/lib/quotes/types";
@@ -95,7 +97,7 @@ export default function PreventivePlanHistory({
   const filtered = items.filter(
     (i) =>
       (i.kind === kind) &&
-      fold(`${i.code} ${i.name} ${i.unit}`).includes(fold(query.trim())),
+      matchesSearch(fold(`${i.code} ${i.name} ${i.unit}`), fold(query.trim())),
   );
   const pages = Math.max(1, Math.ceil(filtered.length / 10));
   return (

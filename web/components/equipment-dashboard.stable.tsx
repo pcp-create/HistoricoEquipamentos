@@ -1,4 +1,6 @@
 "use client";
+import { matchesSearch } from "@/lib/filters";
+
 import { orderPreventivePlans, nextPreventivePlanId } from "@/lib/equipment-management/plan-order";
 import { rentalSpecifications, rentalSpecificationRanges, matchesRentalSpecification, type RentalSpecification } from "@/lib/equipment-management/rental-specifications";
 import CopyPreventivePlan from "./copy-preventive-plan";
@@ -27,6 +29,7 @@ import { OrderDetails } from "./dashboard";
 import MaterialPhoto from "./material-photo";
 import { EquipmentTaskProvider, EquipmentTaskLinks } from "./tasks-dashboard";
 import SiteHeader from "./site-header";
+import {equipmentSections, type EquipmentSection} from "@/lib/equipment-sections";
 import { useSessionAccess } from "./session-access";
 import {
   emptyOperating,
@@ -196,10 +199,11 @@ function RentalBadge({ status }: { status: any }) {
 function OrderLink({id,company,equipment}:{id:string;company?:number;equipment?:string}){
   return <OrderDetailLink id={String(id)} company={company} equipment={equipment}/>;
 }
-export default function EquipmentDashboard() {
+export default function EquipmentDashboard({section}:{section?:EquipmentSection}) {
+  const sectionInfo = section ? equipmentSections[section] : null;
   const { admin } = useSessionAccess();
   const [previewEquipment, setPreviewEquipment] = useState("");
-  const [equipmentView, setEquipmentView] = useState("list");
+  const [equipmentView, setEquipmentView] = useState(section === "clientes" ? "clients" : "list");
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [loaded, setResult] = useState<any>(null),
     [error, setError] = useState(""),
@@ -207,7 +211,7 @@ export default function EquipmentDashboard() {
     [message, setMessage] = useState("");
   const [query, setQuery] = useState(""),
     [ownership, setOwnership] = useState(""),
-    [equipmentTab, setEquipmentTab] = useState("all"),
+    [equipmentTab, setEquipmentTab] = useState(section === "locacao" ? "rental" : "all"),
     [rentalStatus, setRentalStatus] = useState(""),
     [contractStatus, setContractStatus] = useState(""),
     [contractType, setContractType] = useState("all"),
@@ -257,7 +261,7 @@ export default function EquipmentDashboard() {
       (!state ||
         (state === "none" ? !e.plans : e.forecast?.status === state)) &&
       (!query.trim() ||
-        fold(
+        matchesSearch(fold(
           [
             e.id,
             e.rental ? e.internal_code : "",
@@ -271,7 +275,7 @@ export default function EquipmentDashboard() {
             e.rentalStatus?.stockNote,
             ...(e.clients || []).map((c: any) => c.name || c.id),
           ].join(" "),
-        ).includes(fold(query.trim()))),
+        ), fold(query.trim()))),
   );
   const rentalRows = baseRows.filter((e: any) => e.rental);
   const rentalOptions = [
@@ -742,10 +746,10 @@ export default function EquipmentDashboard() {
                     </form>) : null;
   return (
     <EquipmentTaskProvider>
-      <SiteHeader active="equipment" email={result?.email} />
+      <SiteHeader active={section === "preventivas" ? "equipmentPreventives" : section === "locacao" ? "equipmentRental" : section === "clientes" ? "equipmentClients" : "equipment"} email={result?.email} />
       <main className="equipment-page catalog-settings">
         <section className="manual-card">
-          <h1>Equipamentos</h1>
+          <h1>{sectionInfo?.title || "Equipamentos"}</h1>
           {admin && (
             <div className="catalog-editor-actions">
               <a
@@ -767,16 +771,21 @@ export default function EquipmentDashboard() {
             </div>
           )}
           <p>
-            Clientes, histórico de OS e planejamento de preventivas dos
-            equipamentos cadastrados.
+            {sectionInfo?.description || "Clientes, histórico de OS e planejamento de preventivas dos equipamentos cadastrados."}
           </p>
+          {section === "clientes" && <p className="equipment-group-hint">Expanda um cliente para consultar suas máquinas. Os vínculos são agrupados pelo ID do cliente; equipamentos compartilhados aparecem em cada vínculo.</p>}
           <div className="equipment-counters">
-            {[
+            {(section === "locacao" ? [
+              ["Frota de locação", loaded ? rentalRows.length : null],
+              ["Disponíveis", loaded ? rentalRows.filter((e:any)=>e.rentalStatus?.key === "available").length : null],
+              ["Locados / emprestados", loaded ? rentalRows.filter((e:any)=>["rented","loaned"].includes(e.rentalStatus?.key)).length : null],
+              ["Em revisão", loaded ? rentalRows.filter((e:any)=>e.rentalStatus?.key === "in_review").length : null],
+            ] : [
               ["Equipamentos", result?.counts.equipment],
               ["Vencidas / limite atingido", result?.counts.overdue],
               ["Próximos 30 dias", result?.counts.soon],
               ["Sem plano", result?.counts.unplanned],
-            ].map(([label, value]) => (
+            ]).map(([label, value]) => (
               <div key={label}>
                 <small>{label}</small>
                 <strong>{value ?? "—"}</strong>
@@ -798,7 +807,7 @@ export default function EquipmentDashboard() {
         {message && <p role="status">{message}</p>}
         {!selected ? (
           <section className="manual-card">
-            <nav
+            {(!section || section === "locacao") && <nav
               className="equipment-view-tabs app-section-tabs"
               aria-label="Visão dos equipamentos"
             >
@@ -806,7 +815,7 @@ export default function EquipmentDashboard() {
                 ["all", "Todos"],
                 ["rental", "Máquinas de Locação"],
                 ["status", "Locados e Emprestados"],
-              ].map(([key, label]) => (
+              ].filter(([key]) => !section || key !== "all").map(([key, label]) => (
                 <button
                   type="button"
                   key={key}
@@ -831,7 +840,7 @@ export default function EquipmentDashboard() {
                   )
                 </button>
               ))}
-            </nav>
+            </nav>}
             {equipmentTab === "rental" && (
               <div
                 className="equipment-rental-status-filters equipment-rental-status-cards"

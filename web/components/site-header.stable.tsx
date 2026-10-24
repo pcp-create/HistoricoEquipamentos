@@ -15,7 +15,7 @@ const moduleNames: Record<string, string> = {
   crm: "CRM",
   "assistencia-tecnica": "Assistência Técnica",
   suprimentos: "Suprimentos",
-  equipamentos: "Equipamentos",
+  equipamentos: "Gestão de Equipamentos",
 };
 const screens: Record<string, { label: string; modules: string[] }> = {
   workshop: {label:"Painel da oficina",modules:["oficina"]},
@@ -38,6 +38,9 @@ const screens: Record<string, { label: string; modules: string[] }> = {
     label: "Configuração do catálogo",
     modules: ["suprimentos", "crm", "assistencia-tecnica"],
   },
+  equipmentPreventives: {label:"Controle de Preventivas",modules:["equipamentos","assistencia-tecnica"]},
+  equipmentRental: {label:"Controle de locação",modules:["equipamentos"]},
+  equipmentClients: {label:"Cliente / Equipamento",modules:["equipamentos"]},
   equipment: {
     label: "Gestão de equipamentos",
     modules: ["equipamentos", "assistencia-tecnica"],
@@ -63,6 +66,9 @@ export default function SiteHeader({
     | "manufacturer"
     | "quotes"
     | "settings"
+    | "equipmentPreventives"
+    | "equipmentRental"
+    | "equipmentClients"
     | "equipment"
     | "admin";
   email?: string;

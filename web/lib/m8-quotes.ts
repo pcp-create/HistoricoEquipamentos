@@ -1,3 +1,4 @@
+import {searchWords} from "@/lib/filters";
 import "server-only";
 import {database} from "./db";
 import {escapeLike,fold} from "./filters";
@@ -8,7 +9,7 @@ export function quoteFilters(params:URLSearchParams){
  const clauses=['q.company_id IN (1,2,27404)'];
  const text=(key:string)=>{const v=(params.get(key)||'').trim();if(v.length>200)throw new QuoteFilterError('Filtro muito longo.');return v;};
  const normalized=(s:string)=>`translate(lower(COALESCE(${s},'')),'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc')`;
- const like=(column:string,v:string)=>`${normalized(column)} LIKE ${bind('%'+escapeLike(fold(v))+'%')}`;
+ const like=(column:string,v:string)=>"("+searchWords(v).map(term=>`${normalized(column)} LIKE ${bind("%"+escapeLike(fold(term))+"%")}`).join(" AND ")+")";
  const company=text('company');if(company){if(!['1','2','27404'].includes(company))throw new QuoteFilterError('Empresa inválida.');clauses.push('q.company_id='+bind(Number(company)));}
  for(const [key,column] of [['number','q.number'],['client',"concat_ws(' ',q.client,q.document,q.client_id)"],['description','q.description']] as const){const v=text(key);if(v)clauses.push(like(column,v));}
  for(const [key,column] of [['status','q.status'],['type','q.type_name'],['situation','q.situation']] as const){const v=text(key);if(v)clauses.push(column+'='+bind(v));}

@@ -101,6 +101,7 @@ export function toEditDraft(
         name: text(r[name]),
         quantity: text(r.quantidade),
         price: text(r.valorUnitario),
+        ...(kind === "service" ? { notes: text(r.observacao), internalNotes: text(r.observacaoInterna) } : {}),
       }));
   return {
     company,
@@ -446,6 +447,10 @@ export async function prepareEdit(
         Number(old.valorUnitario) !== Number(i.price)
       )
         Object.assign(out, itemPayload(i));
+      if (kind === "service") {
+        if (i.notes !== undefined) out.observacao = i.notes;
+        if (i.internalNotes !== undefined) out.observacaoInterna = i.internalNotes;
+      }
       return out;
     });
     for (const old of originals)

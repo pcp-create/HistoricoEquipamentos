@@ -1,4 +1,6 @@
 "use client";
+import { matchesSearch } from "@/lib/filters";
+
 import SaveActionIcon from "./save-action-icon";
 import { useEffect, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
@@ -80,9 +82,9 @@ export default function TaskTerritories() {
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase();
   const rows = (data?.rules || []).filter((r: any) =>
-    fold(
+    matchesSearch(fold(
       `${r.city} ${r.mesoregion || ""} ${r.microregion || ""} ${r.seller || ""} ${data?.users.find((u: any) => u.email === r.seller_user)?.display_name || ""} ${r.uf} ${r.display_name || ""}`,
-    ).includes(fold(query)),
+    ), fold(query)),
   );
   return (
     <section className="manual-card">

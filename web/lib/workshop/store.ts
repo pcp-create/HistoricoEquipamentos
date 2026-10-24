@@ -1,3 +1,4 @@
+import {searchPatterns} from "@/lib/filters";
 import 'server-only';
 import {randomUUID} from 'node:crypto';
 import {database} from '../db';
@@ -11,12 +12,12 @@ const date=(v:unknown)=>{if(v==null||v==='')return null;if(typeof v!=='string'||
 const orderLink=`(o.produto_equipamento_id=v.equipment_id OR EXISTS(SELECT 1 FROM m8_order_equipment_links l WHERE l.company_id=o.company_id AND l.order_id=o.id_m8 AND l.equipment_id=v.equipment_id AND NOT l.stale))`;
 export async function workshopSearch(q:string,quotes=false){
  const term=text(q,120);if(term.length<2)return [];
- if(quotes)return (await database().query(`SELECT company_id,id::text,number,client,status FROM m8_quotes WHERE concat_ws(' ',id,number,client) ILIKE $1 AND status NOT IN ('Concretizado','Cancelado','Perdido') ORDER BY id,company_id LIMIT 40`,['%'+term.replace(/[\\%_]/g,'\\$&')+'%'])).rows;
+ if(quotes)return (await database().query(`SELECT company_id,id::text,number,client,status FROM m8_quotes WHERE concat_ws(' ',id,number,client) ILIKE ALL($1::text[]) AND status NOT IN ('Concretizado','Cancelado','Perdido') ORDER BY id,company_id LIMIT 40`,[searchPatterns(term)])).rows;
  return (await database().query(`SELECT e.equipment_id::text id,e.name,e.model,e.serial,
  (SELECT max(person_name) FROM m8_person_equipment p WHERE p.equipment_id=e.equipment_id AND p.present) client
- FROM m8_equipment_catalog e WHERE e.present AND concat_ws(' ',e.equipment_id,e.name,e.model,e.serial) ILIKE $1
+ FROM m8_equipment_catalog e WHERE e.present AND concat_ws(' ',e.equipment_id,e.name,e.model,e.serial) ILIKE ALL($1::text[])
  AND NOT EXISTS(SELECT 1 FROM web_workshop_visits v WHERE v.equipment_id=e.equipment_id AND v.exited_at IS NULL AND v.reconciled_out_at IS NULL)
- ORDER BY e.equipment_id LIMIT 40`,['%'+term.replace(/[\\%_]/g,'\\$&')+'%'])).rows;
+ ORDER BY e.equipment_id LIMIT 40`,[searchPatterns(term)])).rows;
 }
 export async function workshopData(email:string){
  const db=database();const admin=(await db.query("SELECT role='admin' AS admin FROM web_user_access WHERE email=$1",[email])).rows[0]?.admin===true;

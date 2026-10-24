@@ -13,6 +13,8 @@ export type OrderItem = {
   name: string;
   quantity: string;
   price: string;
+  notes?: string;
+  internalNotes?: string;
 };
 export type OrderDraft = {
   company: string;
@@ -125,6 +127,10 @@ export function parseOrder(value: unknown, editing = false): OrderDraft {
       throw new OrderInputError(
         "Informe quantidade positiva e preço válido nos itens.",
       );
+    for (const key of ["notes", "internalNotes"]) {
+      if (i[key] !== undefined && (typeof i[key] !== "string" || i[key].length > 20000))
+        throw new OrderInputError("Observações do serviço devem ter até 20.000 caracteres.");
+    }
     if (editing && i.id) positiveId(i.id, "o item da OS");
     return {
       ...(editing && i.id ? { id: String(i.id) } : {}),
@@ -133,6 +139,10 @@ export function parseOrder(value: unknown, editing = false): OrderDraft {
       name: i.name,
       quantity: String(i.quantity),
       price: String(i.price),
+      ...(i.kind === "service" ? {
+        ...(i.notes !== undefined ? { notes: i.notes.trim() } : {}),
+        ...(i.internalNotes !== undefined ? { internalNotes: i.internalNotes.trim() } : {}),
+      } : {}),
     };
   });
   if (
@@ -181,6 +191,10 @@ export function itemPayload(i: OrderItem, technician?: number) {
     price = Number(i.price);
   return {
     [i.kind === "material" ? "produtoId" : "servicoId"]: Number(i.code),
+    ...(i.kind === "service" ? {
+      ...(i.notes !== undefined ? { observacao: i.notes } : {}),
+      ...(i.internalNotes !== undefined ? { observacaoInterna: i.internalNotes } : {}),
+    } : {}),
     quantidade: quantity,
     valorUnitario: price,
     valorTotal:

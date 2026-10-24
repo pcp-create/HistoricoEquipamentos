@@ -95,3 +95,16 @@ export function csvCell(value: unknown) {
   if (/^[\s]*[=+\-@\t\r]/.test(text)) text = `'${text}`;
   return `"${text.replaceAll('"', '""')}"`;
 }
+
+/** All search words must occur, in any order; accents and case are ignored. */
+export function searchWords(query: string): string[] {
+  return [...new Set(query.trim().split(/\s+/).filter(Boolean))];
+}
+export function matchesSearch(text: string, query: string): boolean {
+  const document = fold(text);
+  return searchWords(fold(query)).every(word => document.includes(word));
+}
+/** Bind the returned array to LIKE/ILIKE ALL($n::text[]), never interpolate user input. */
+export function searchPatterns(query: string): string[] {
+  return searchWords(query).map(word => `%${escapeLike(word)}%`);
+}

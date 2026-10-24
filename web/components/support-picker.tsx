@@ -1,4 +1,6 @@
 "use client";
+import { matchesSearch } from "@/lib/filters";
+
 import {useState,useEffect,useRef,useId} from "react";
 import "./support-picker.css";
 export default function SupportPicker({ position, disabled, users, selected, onChange, label, removeLabel = "Remover apoio", filterLabel, className = "" }: any) {
@@ -38,14 +40,11 @@ export default function SupportPicker({ position, disabled, users, selected, onC
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase();
   const filtered = users.filter((u: any) =>
-    fold(u.display_name || u.email).includes(fold(query.trim())),
+    matchesSearch(fold(u.display_name || u.email), fold(query.trim())),
   );
   return (
     <div
       className={"support-picker " + className}
-      onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false);
-      }}
       onKeyDown={(e) => {
         if (e.key === "Escape") {
           e.stopPropagation();

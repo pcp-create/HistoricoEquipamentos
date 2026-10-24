@@ -342,3 +342,14 @@
  .new-os .os-company>span{margin-left:0}
  .new-os .os-grid>label:has(textarea)>.os-field-title{padding-top:0}
 }
+
+.os-add-item { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; margin-bottom: 8px; }
+
+.new-os .os-note-preview { display:block; width:160px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; padding:10px; color:#24649c; }
+.os-note-dialog { width:min(640px,calc(100vw - 32px)); max-height:85dvh; overflow:auto; border:1px solid #d6e3ef; border-radius:16px; padding:24px; color:#294d6a; }
+.os-note-dialog::backdrop { background:rgba(23,48,68,.45); }
+.os-note-dialog header { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.os-note-dialog h2 { margin:0; font-size:20px; }
+.os-note-dialog > p { color:#748b9e; margin:12px 0 20px; }
+.os-note-dialog textarea { display:block; width:100%; margin-top:8px; resize:vertical; }
+.os-note-dialog footer { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }

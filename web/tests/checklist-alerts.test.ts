@@ -33,7 +33,8 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  const query:any=db.query.bind(db);g.historyPool={query,connect:async()=>({query,release(){}})};
  try{
  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated;');
- for(const name of ['008_administration','009_employees','010_tasks','011_task_kanban','012_manual_tasks','016_task_order_links','022_task_activity_progress','028_service_scheduling','029_order_links','030_service_schedule_visibility','031_schedule_item_sources','037_field_operations','038_time_adjustment_requests','039_material_withdrawals']) await db.exec(readFileSync(new URL('../sql/'+name+'.sql',import.meta.url),'utf8'));
+ for(const name of ['008_administration','009_employees','010_tasks','011_task_kanban','012_manual_tasks','016_task_order_links','022_task_activity_progress','028_service_scheduling','029_order_links','030_service_schedule_visibility','031_schedule_item_sources','037_field_operations','038_time_adjustment_requests','039_material_withdrawals','073_task_approvals']) await db.exec(readFileSync(new URL('../sql/'+name+'.sql',import.meta.url),'utf8'));
+ await db.exec("ALTER TABLE web_tasks ADD COLUMN followers text[] NOT NULL DEFAULT '{}';");
  await db.exec(`CREATE TABLE m8_ordens_servico(company_id int,id_m8 bigint,numero_sequencia bigint,cliente_nome text,equipamento text);
  CREATE TABLE m8_equipment_catalog(equipment_id bigint,name text,present boolean);
  CREATE TABLE m8_order_equipment_links(company_id int,order_id bigint,equipment_id bigint,stale boolean);

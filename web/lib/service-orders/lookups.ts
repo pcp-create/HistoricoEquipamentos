@@ -1,3 +1,4 @@
+import {searchPatterns} from "@/lib/filters";
 import "server-only";
 import { database } from "../db";
 import { m8Session } from "./m8";
@@ -41,13 +42,7 @@ export async function orderLookups(p: URLSearchParams) {
       }));
     return { rows: [...new Map(sellers.map((r) => [r.id, r])).values()].sort((a,b)=>Number(a.id)-Number(b.id)) };
   }
-  const q =
-    "%" +
-    (p.get("q") || "")
-      .trim()
-      .slice(0, 120)
-      .replace(/[\\%_]/g, "\\$&") +
-    "%";
+  const q = searchPatterns((p.get("q") || "").trim().slice(0,120));
   const page = Number(p.get("page") || 1);
   if (!Number.isInteger(page) || page < 1 || page > 10000)
     throw new OrderInputError("Página inválida.");
@@ -55,7 +50,10 @@ export async function orderLookups(p: URLSearchParams) {
     return {
       rows: (
         await db.query(
-          `SELECT person_id::text id,concat_ws(' · ',person_id,name,document) name FROM m8_customer_directory WHERE company_id=1 AND concat_ws(' ',person_id,name,document) ILIKE $1 ORDER BY person_id LIMIT 31 OFFSET $2`,
+          `SELECT person_id::text id,name,
+ COALESCE(NULLIF(trim(payload->>'nomeFantasia'),''),NULLIF(trim(payload->>'fantasia'),''),NULLIF(trim(payload->>'apelido'),''),'') AS "tradeName",
+ concat_ws(' · ',NULLIF(concat_ws('/',payload->>'municipioNome',payload->>'ufSigla'),''),document) detail
+ FROM m8_customer_directory WHERE company_id=1 AND concat_ws(' ',person_id,name,document,payload->>'nomeFantasia',payload->>'fantasia',payload->>'apelido',payload->>'municipioNome') ILIKE ALL($1::text[]) ORDER BY person_id LIMIT 31 OFFSET $2`,
           [q, (page - 1) * 30],
         )
       ).rows,
@@ -76,7 +74,7 @@ export async function orderLookups(p: URLSearchParams) {
     return {
       rows: (
         await db.query(
-          `SELECT e.equipment_id::text id,concat_ws(' · ',e.equipment_id,e.name,NULLIF(e.model,''),NULLIF(e.serial,'')) name FROM m8_equipment_catalog e WHERE e.present AND concat_ws(' ',e.equipment_id,e.name,e.model,e.serial) ILIKE $1 AND (NOT $2::boolean OR EXISTS(SELECT 1 FROM m8_person_equipment p WHERE p.company_id=1 AND p.person_id=$3 AND p.equipment_id=e.equipment_id AND p.present)) ORDER BY e.equipment_id LIMIT 31 OFFSET $4`,
+          `SELECT e.equipment_id::text id,concat_ws(' · ',e.equipment_id,e.name,NULLIF(e.model,''),NULLIF(e.serial,'')) name FROM m8_equipment_catalog e WHERE e.present AND concat_ws(' ',e.equipment_id,e.name,e.model,e.serial) ILIKE ALL($1::text[]) AND (NOT $2::boolean OR EXISTS(SELECT 1 FROM m8_person_equipment p WHERE p.company_id=1 AND p.person_id=$3 AND p.equipment_id=e.equipment_id AND p.present)) ORDER BY e.equipment_id LIMIT 31 OFFSET $4`,
           [q, t.customer_equipment_only, customer, (page - 1) * 30],
         )
       ).rows,

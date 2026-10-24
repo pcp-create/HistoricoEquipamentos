@@ -328,7 +328,7 @@ export async function taskDetail(id: string, user?: AuthUser) {
         suffix,
     );
   }
-  return { task, notes, attachments, notifications };
+  return { task, notes, attachments, notifications, canDecideApproval: task.task_type === "approval" && task.approval_state === "pending" && task.assigned_to === user?.email, canCloseApproval: task.task_type === "approval" && task.approval_state !== "pending" && task.created_by === user?.email && task.status !== "completed" };
 }
 export async function updateTask(body: any, user: AuthUser, transaction?: PoolClient) {
   const id = idValue(body?.id);
@@ -352,7 +352,26 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
         "A tarefa foi atualizada. Recarregue antes de salvar.",
       );
     if(t.source_key.startsWith('time-request:')&&['move','reopen','update','stage'].includes(body.action))throw new TaskInputError('Esta tarefa deve ser analisada pelo botão Aprovar Solicitação ou Rejeitar Solicitação.');
-    if (body.action === "followers") {
+    if(t.task_type === 'approval' && !['approval_decide','approval_close'].includes(body.action))throw new TaskInputError('Utilize as ações do fluxo de aprovação.');
+    if (body.action === 'approval_decide') {
+      if(t.task_type!=='approval'||t.approval_state!=='pending'||t.status==='completed')throw new TaskConflict('Esta solicitação já foi decidida ou não é uma aprovação.');
+      if(t.assigned_to!==user.email||t.approval_approver!==user.email)throw new Forbidden();
+      if(!['approved','rejected'].includes(body.decision))throw new TaskInputError('Decisão inválida.');
+      const reason=typeof body.reason==='string'?body.reason.trim():'';
+      if(reason.length>2000||(body.decision==='rejected'&&!reason))throw new TaskInputError('Informe a justificativa da reprovação (até 2.000 caracteres).');
+      const requester=(await c.query('SELECT enabled FROM web_user_access WHERE email=$1 FOR SHARE',[t.created_by])).rows[0];
+      if(!requester?.enabled)throw new TaskInputError('O solicitante está inativo. Regularize o cadastro antes de devolver a tarefa.');
+      const approved=body.decision==='approved';
+      await c.query("UPDATE web_tasks SET approval_state=$2,approval_reason=$3,approval_decided_by=$4,approval_decided_at=now(),assigned_to=created_by,status='in_progress',kanban_column=NULL WHERE id=$1",[id,body.decision,approved?(reason||'De acordo. Pode seguir com o processo.'):reason,user.email]);
+      const result=approved?'Aprovada — de acordo para seguir com o processo.':'Reprovada — '+reason;
+      await note(c,id,approved?'Solicitação aprovada':'Solicitação reprovada',result+(approved&&reason?' '+reason:''),user);
+      await c.query("INSERT INTO web_task_notifications(task_id,task_version,recipient,assignment_reason) VALUES($1,$2,$3,$4)",[id,t.version+1,t.created_by,result]);
+    } else if (body.action === 'approval_close') {
+      if(t.task_type!=='approval'||t.approval_state==='pending'||t.status==='completed')throw new TaskConflict('A solicitação ainda não foi decidida ou já está concluída.');
+      if(t.created_by!==user.email)throw new Forbidden();
+      await c.query("UPDATE web_tasks SET status='completed',completed_at=now() WHERE id=$1",[id]);
+      await note(c,id,'Tratativa encerrada pelo solicitante','Resultado da aprovação recebido. Tratativa concluída.',user);
+    } else if (body.action === "followers") {
       if (!Array.isArray(body.followers) || body.followers.length>100 || body.followers.some((email:unknown)=>typeof email!=="string")) throw new TaskInputError("Selecione os usuários para acompanhamento.");
       const followers = [...new Set<string>(body.followers.map((email:string)=>email.trim().toLowerCase()))];
       const recipients = (await c.query("SELECT email,display_name,enabled,phone,role FROM web_user_access WHERE email=ANY($1::text[]) FOR SHARE",[followers])).rows;
@@ -547,10 +566,10 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
   } finally {
     if (!transaction) c.release();
   }
-  if (transaction) return { task: (await c.query("SELECT id,status FROM web_tasks WHERE id=$1", [id!])).rows[0], notes: [], attachments: [], notifications: [] };
+  if (transaction) return { task: (await c.query("SELECT id,status FROM web_tasks WHERE id=$1", [id!])).rows[0], notes: [], attachments: [], notifications: [], canDecideApproval:false, canCloseApproval:false };
   if (body.action === "update" && body.restricted === true && !(await taskAdministrator(user.email, transaction))) {
     const task = (await database().query("SELECT id,status,kanban_column FROM web_tasks WHERE id=$1",[id])).rows[0];
-    return {task:restrictedTaskSummary(task),notes:[],attachments:[],notifications:[]};
+    return {task:restrictedTaskSummary(task),notes:[],attachments:[],notifications:[],canDecideApproval:false,canCloseApproval:false};
   }
   return taskDetail(id, user);
 }
@@ -569,9 +588,10 @@ export async function attachTask(id: string, file: File, user: AuthUser) {
   try {
     await c.query("BEGIN READ WRITE");
     const t = (
-      await c.query("SELECT id FROM web_tasks WHERE id=$1 FOR UPDATE", [id])
+      await c.query("SELECT id,task_type FROM web_tasks WHERE id=$1 FOR UPDATE", [id])
     ).rows[0];
     if (!t) throw new TaskInputError("Tarefa não encontrada.");
+    if(t.task_type==='approval')throw new TaskInputError('O fluxo de aprovação contém somente a descrição e a decisão.');
     const count = Number(
       (
         await c.query(
@@ -609,6 +629,10 @@ export async function attachTask(id: string, file: File, user: AuthUser) {
 }
 
 export async function createTask(body: any, user: AuthUser, transaction?: PoolClient) {
+  const taskType=body.taskType??'standard';
+  if(!['standard','approval'].includes(taskType))throw new TaskInputError('Tipo de tarefa inválido.');
+  if(taskType==='approval'&&(typeof body.assignedTo!=='string'||!body.assignedTo.trim()||typeof body.description!=='string'||!body.description.trim()))throw new TaskInputError('Informe a descrição e o responsável pela aprovação.');
+  if(taskType==='approval'&&(body.restricted||body.stageId))throw new TaskInputError('Aprovações usam um fluxo próprio, sem etapa ou restrição administrativa.');
   if (body.restricted != null && typeof body.restricted !== "boolean") throw new TaskInputError("Visibilidade inválida.");
   if (
     typeof body.title !== "string" ||
@@ -685,6 +709,7 @@ export async function createTask(body: any, user: AuthUser, transaction?: PoolCl
         )
       ).rows[0].id,
     );
+    if(taskType==='approval')await c.query("UPDATE web_tasks SET task_type='approval',approval_state='pending',approval_description=$2,approval_approver=$3,origin='Aprovação' WHERE id=$1",[id,body.description.trim(),assigned]);
     if(body.restricted) await c.query("UPDATE web_tasks SET restricted=true WHERE id=$1",[id]);
     if(initialStage)await c.query("UPDATE web_tasks SET stage_id=$2 WHERE id=$1",[id,initialStage.id]);
     await note(
@@ -711,8 +736,8 @@ export async function createTask(body: any, user: AuthUser, transaction?: PoolCl
   } finally {
     if (!transaction) c.release();
   }
-  if (transaction) return { task: (await c.query("SELECT id,status FROM web_tasks WHERE id=$1", [id!])).rows[0], notes: [], attachments: [], notifications: [] };
-  if (body.restricted && !(await taskAdministrator(user.email, transaction))) return { task: restrictedTaskSummary({id:id!,status:"not_started"}), notes:[],attachments:[],notifications:[] };
+  if (transaction) return { task: (await c.query("SELECT id,status FROM web_tasks WHERE id=$1", [id!])).rows[0], notes: [], attachments: [], notifications: [], canDecideApproval:false, canCloseApproval:false };
+  if (body.restricted && !(await taskAdministrator(user.email, transaction))) return { task: restrictedTaskSummary({id:id!,status:"not_started"}), notes:[],attachments:[],notifications:[],canDecideApproval:false,canCloseApproval:false };
   return taskDetail(id!, user);
 }
 
@@ -722,8 +747,9 @@ export async function deleteTaskNote(body:any,user:AuthUser){
  await c.query('BEGIN READ WRITE');
  const access=(await c.query('SELECT role,enabled FROM web_user_access WHERE email=$1 FOR SHARE',[user.email])).rows[0];
  if(!access?.enabled)throw new Forbidden();
- const task=(await c.query('SELECT id FROM web_tasks WHERE id=$1 FOR UPDATE',[id])).rows[0];
+ const task=(await c.query('SELECT id,task_type FROM web_tasks WHERE id=$1 FOR UPDATE',[id])).rows[0];
  if(!task)throw new TaskInputError('Tarefa não encontrada.');
+ if(task.task_type==='approval')throw new TaskInputError('O histórico de aprovação não pode ser removido.');
  const removed=(await c.query('DELETE FROM web_task_notes WHERE id=$1 AND task_id=$2 RETURNING *',[noteId,id])).rows[0];
  if(!removed)throw new TaskConflict('A nota já foi removida ou não pertence a esta tarefa.');
  await c.query("INSERT INTO web_access_events(event,email,actor,details) VALUES('task_note_deleted',$1,$1,$2)",[user.email,JSON.stringify({task_id:id,note:removed})]);

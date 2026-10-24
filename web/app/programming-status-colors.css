@@ -1,0 +1,9 @@
+/* Shared palette for the scheduling screen and OS history actions. */
+.operation-status, .history-programming-action { background:#eef2f6; color:#65788c; }
+.operation-status.scheduled, .operation-status.executing,
+.history-programming-action.scheduled, .history-programming-action.executing,
+.history-programming-action.none { background:#e7f1ff; color:#2370b8; }
+.operation-status.completed, .operation-status.reviewed,
+.history-programming-action.completed, .history-programming-action.reviewed { background:#e6f5ed; color:#288360; }
+.operation-status.awaiting_review, .operation-status.awaiting_execution,
+.history-programming-action.awaiting_review, .history-programming-action.awaiting_execution { background:#fff4d9; color:#9c760d; }

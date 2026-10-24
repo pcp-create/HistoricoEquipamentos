@@ -36,3 +36,8 @@ test("login preserves plan/quote targets and rejects external redirects", () => 
     "/equipamentos",
   );
 });
+
+test('equipment submodules preserve authorized deep links on login',()=>{
+ for(const section of ['preventivas','locacao','clientes'])assert.equal(planReturnPath(`/equipamentos/${section}?equipment=100&ignored=1`),`/equipamentos/${section}?equipment=100`);
+ assert.equal(planReturnPath('/equipamentos/externo?equipment=100'),'/');
+});

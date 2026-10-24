@@ -108,6 +108,8 @@ test("scheduling includes once, versions operations, protects execution and reco
     );
     const admin = "guih.waltrick@gmail.com",
       user = "tech@test.com";
+    await db.exec("ALTER TABLE m8_ordens_servico ADD COLUMN status text DEFAULT 'Pendente'; INSERT INTO m8_ordens_servico(company_id,id_m8,status) VALUES(1,101,'Cancelado');");
+    await assert.rejects(mutateSchedule({action:'include',company:1,orderId:'101'},admin),/OS cancelada/);
     const a = await mutateSchedule(
         { action: "include", company: 1, orderId: "100" },
         user,

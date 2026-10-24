@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import {equipmentSections} from "@/lib/equipment-sections";
 import {
   ArrowUpRight,
   ArrowLeft,
@@ -36,7 +37,7 @@ const modules = [
       ["Gerar Relatório Análise de Vibração", "/analise-vibracao"],
       ["Gerar Relatório Caça Vazamento", "/caca-vazamento"],
       ["Catálogo do fabricante", "/fabricante"],
-      ["Equipamentos e planos preventivos", "/equipamentos"],
+      ["Controle de Preventivas", "/equipamentos/preventivas"],
     ],
     next: "Próximas etapas: agenda, atendimento e apontamentos de campo.",
   },
@@ -53,10 +54,10 @@ const modules = [
   },
   {
     id: "equipamentos",
-    title: "Equipamentos",
+    title: "Gestão de Equipamentos",
     icon: Factory,
     description: "Máquinas de clientes, frota própria e planos preventivos.",
-    links: [["Gestão de equipamentos e contratos", "/equipamentos"]],
+    links: Object.values(equipmentSections).map(section => [section.title, section.href]),
     next: "Inclui locação, empréstimos, situação da frota e preventivas.",
   },
   {

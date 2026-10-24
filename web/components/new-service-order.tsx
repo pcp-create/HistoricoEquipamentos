@@ -2,9 +2,12 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Trash2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Save, Trash2, RefreshCw, Plus } from "lucide-react";
 import SiteHeader from "./site-header";
 import OrderSearchSelect from "./order-search-select";
+import CurrencyInput from "./currency-input";
+import QuoteCatalogPicker from "./quote-catalog-picker";
+import type { QuoteItem } from "@/lib/quotes/types";
 
 import { type OrderDraft, parseOrder } from "@/lib/service-orders/model";
 import { companyName } from "@/lib/company-names";
@@ -55,6 +58,8 @@ async function api(body?: unknown, query = "") {
 export default function NewServiceOrder({
   editing,
 }: { editing?: { company: string; id: string } } = {}) {
+  const [noteEditor, setNoteEditor] = useState<{index:number; field:"notes"|"internalNotes"; text:string}|null>(null);
+  const [catalogKind, setCatalogKind] = useState<QuoteItem["kind"] | null>(null);
   const [editData, setEditData] = useState<any>(null);
   const router = useRouter();
   const [form, setForm] = useState<OrderDraft>(blank),
@@ -795,52 +800,6 @@ export default function NewServiceOrder({
                     <h2>
                       {kind === "material" ? "Produtos" : "Serviços"} da OS
                     </h2>
-                    <OrderSearchSelect
-                      label={
-                        kind === "material"
-                          ? "Adicionar produtos"
-                          : "Adicionar serviços"
-                      }
-                      value=""
-                      placeholder={
-                        kind === "material"
-                          ? "Selecionar produto"
-                          : "Selecionar serviço"
-                      }
-                      endpoint={
-                        "/api/quotes?lookup=" +
-                        (kind === "material" ? "materials" : "services")
-                      }
-                      options={form.items
-                        .filter((i) => i.kind === kind)
-                        .map((i) => ({
-                          id: i.code,
-                          name: i.name,
-                          disabled: true,
-                        }))}
-                      onChange={(r) => {
-                        const i = r.data;
-                        setForm((f) =>
-                          f.items.some(
-                            (v) => v.kind === i.kind && v.code === i.code,
-                          )
-                            ? f
-                            : {
-                                ...f,
-                                items: [
-                                  ...f.items,
-                                  {
-                                    kind: i.kind,
-                                    code: i.code,
-                                    name: i.name,
-                                    quantity: i.quantity || "1",
-                                    price: i.price || i.referencePrice || "0",
-                                  },
-                                ],
-                              },
-                        );
-                      }}
-                    />
                   </div>
                   <div className="os-items">
                     <table>
@@ -850,6 +809,7 @@ export default function NewServiceOrder({
                           <th>Quantidade</th>
                           <th>Valor unitário</th>
                           <th>Total</th>
+                          {kind === "service" && <><th>Observação</th><th>Observação interna</th></>}
                           <th>Ações</th>
                         </tr>
                       </thead>
@@ -860,11 +820,12 @@ export default function NewServiceOrder({
                               <tr key={kind + (item.id || item.code)}>
                                 <td>
                                   {item.code} · {item.name}
+
                                 </td>
                                 {(["quantity", "price"] as const).map(
                                   (field) => (
                                     <td key={field}>
-                                      <input
+                                      {field === "price" ? <CurrencyInput label="Valor unitário" value={item.price} onChange={price=>setForm(f=>({...f,items:f.items.map((v,i)=>i===index?{...v,price}:v)}))}/> : <input
                                         aria-label={
                                           field === "quantity"
                                             ? "Quantidade"
@@ -889,7 +850,7 @@ export default function NewServiceOrder({
                                             ),
                                           }))
                                         }
-                                      />
+                                      />}
                                     </td>
                                   ),
                                 )}
@@ -902,6 +863,15 @@ export default function NewServiceOrder({
                                     currency: "BRL",
                                   })}
                                 </td>
+                                {kind === "service" && (["notes", "internalNotes"] as const).map(field => (
+                                  <td key={field}>
+                                    <button type="button" className="os-note-preview"
+                                      aria-label={`${field === "notes" ? "Observação" : "Observação interna"}: ${item.name}`}
+                                      onClick={() => setNoteEditor({index, field, text:item[field] ?? ""})}>
+                                      {item[field] || "+ Adicionar"}
+                                    </button>
+                                  </td>
+                                ))}
                                 <td>
                                   <button
                                     type="button"
@@ -930,6 +900,9 @@ export default function NewServiceOrder({
                       incluído.
                     </p>
                   )}
+                  <button type="button" className="secondary-button os-add-item" disabled={disabled} onClick={()=>setCatalogKind(kind as QuoteItem["kind"])}>
+                    <Plus size={16} /> {kind === "material" ? "Adicionar Produto" : "Adicionar Serviço"}
+                  </button>
                 </div>
               ))}
             </fieldset>
@@ -987,7 +960,39 @@ export default function NewServiceOrder({
             </div>
           ))}
         </details>
+        {noteEditor && <ServiceNoteDialog
+          title={noteEditor.field === "notes" ? "Observação" : "Observação interna"}
+          service={form.items[noteEditor.index].name}
+          value={noteEditor.text}
+          onClose={() => setNoteEditor(null)}
+          onSave={text => {
+            setForm(f => ({...f, items:f.items.map((item,index) => index === noteEditor.index ? {...item,[noteEditor.field]:text} : item)}));
+            setNoteEditor(null);
+          }}
+        />}
+        {catalogKind && <QuoteCatalogPicker
+          kind={catalogKind}
+          historyContext={catalogKind === "material" ? {customer:form.customer,equipment:form.equipment} : undefined}
+          existing={new Set(form.items.map(item=>`${item.kind}:${item.code.trim()}`))}
+          onClose={()=>setCatalogKind(null)}
+          onAdd={item=>setForm(previous=>previous.items.some(existing=>existing.kind===item.kind && existing.code===item.code) ? previous : {
+            ...previous,
+            items:[...previous.items,{kind:item.kind,code:item.code,name:item.name,quantity:item.quantity || "1",price:item.price || item.referencePrice || "0"}],
+          })}
+        />}
       </main>
     </>
   );
+}
+
+function ServiceNoteDialog({title,service,value,onClose,onSave}:{title:string;service:string;value:string;onClose:()=>void;onSave:(text:string)=>void}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [text,setText] = useState(value);
+  useEffect(() => { dialog.current?.showModal(); }, []);
+  return <dialog ref={dialog} className="os-note-dialog" aria-labelledby="os-note-title" onCancel={onClose}>
+    <header><h2 id="os-note-title">{title}</h2><button type="button" onClick={onClose}>Fechar</button></header>
+    <p>{service}</p>
+    <label><span>{title}</span><textarea autoFocus rows={10} maxLength={20000} value={text} onChange={event=>setText(event.target.value)} /></label>
+    <footer><button type="button" onClick={onClose}>Cancelar</button><button type="button" className="primary" onClick={()=>onSave(text)}>Salvar observação</button></footer>
+  </dialog>;
 }

@@ -1,3 +1,4 @@
+import {pickDateTime} from "./helpers/pick-date-time";
 import {test,expect} from '@playwright/test';
 test.setTimeout(90000);
 
@@ -101,8 +102,9 @@ test('management schedules a visit without leaving the page',async({page,context
  await expect(dialog).toBeVisible();
  await dialog.getByRole('combobox',{name:'Cliente',exact:true}).click();
  await dialog.getByRole('option').first().click();
- await dialog.getByLabel('Data e hora agendada').fill('2026-11-20T10:00');
- await dialog.getByLabel('Finalidade da Visita',{exact:true}).selectOption('1');
+ await pickDateTime(page,"Data e hora agendada",'2026-11-20T10:00');
+ await dialog.getByRole("combobox",{name:"Finalidade da Visita",exact:true}).fill("Prospec");
+ await dialog.getByRole("listbox").getByRole("option").first().click();
  await dialog.getByLabel('Contato que receberá a visita').selectOption('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
  await dialog.getByRole('button',{name:'Salvar agendamento'}).click();
  await expect(dialog).toHaveCount(0);

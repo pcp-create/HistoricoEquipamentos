@@ -1,4 +1,6 @@
 "use client";
+import { matchesSearch } from "@/lib/filters";
+
 import { useState } from "react";
 import {
   CalendarDays,
@@ -51,9 +53,8 @@ export default function TaskCharts({
       (priority === "all" || t.priority === priority) &&
       (status === "all" || t.status === status) &&
       (!search ||
-        `${t.title} ${t.customer || ""} ${t.equipment_name || ""} ${t.assignee_name || ""}`
-          .toLocaleLowerCase("pt-BR")
-          .includes(search.toLocaleLowerCase("pt-BR"))),
+        matchesSearch(`${t.title} ${t.customer || ""} ${t.equipment_name || ""} ${t.assignee_name || ""}`
+          .toLocaleLowerCase("pt-BR"), search.toLocaleLowerCase("pt-BR"))),
   );
   const within = (date: string) => valid && date >= from && date <= to;
   const opened = filtered.filter((t) => within(localDay(t.created_at))).length;

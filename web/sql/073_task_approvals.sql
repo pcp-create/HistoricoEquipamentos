@@ -1,0 +1,10 @@
+BEGIN READ WRITE;
+ALTER TABLE web_tasks ADD COLUMN task_type text NOT NULL DEFAULT 'standard' CHECK(task_type IN ('standard','approval'));
+ALTER TABLE web_tasks ADD COLUMN approval_state text CHECK(approval_state IN ('pending','approved','rejected'));
+ALTER TABLE web_tasks ADD COLUMN approval_description text;
+ALTER TABLE web_tasks ADD COLUMN approval_approver text REFERENCES web_user_access(email);
+ALTER TABLE web_tasks ADD COLUMN approval_decided_by text;
+ALTER TABLE web_tasks ADD COLUMN approval_decided_at timestamptz;
+ALTER TABLE web_tasks ADD COLUMN approval_reason text;
+ALTER TABLE web_tasks ADD CONSTRAINT task_approval_fields CHECK(task_type<>'approval' OR (approval_state IS NOT NULL AND approval_description IS NOT NULL AND approval_approver IS NOT NULL));
+COMMIT;

@@ -17,7 +17,7 @@ const headers = { "Cache-Control": "private, no-store", "X-Task-Hierarchy-Versio
 const json = (data: unknown, status = 200) =>
   Response.json(data, { status, headers });
 function failure(e: unknown) {
-  if (e instanceof Forbidden)return json({error:"Somente administradores podem acessar ou alterar as informações desta tarefa."},403);
+  if (e instanceof Forbidden)return json({error:"Você não tem permissão para acessar ou realizar esta ação nesta tarefa."},403);
   if (e instanceof Unauthorized)
     return json({ error: "Sessão expirada." }, 401);
   if (e instanceof TaskInputError) return json({ error: e.message }, 400);

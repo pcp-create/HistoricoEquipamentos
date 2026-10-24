@@ -1,4 +1,6 @@
 "use client";
+import { matchesSearch } from "@/lib/filters";
+
 import RequiredMarker from "./required-marker";
 import SaveActionIcon from "./save-action-icon";
 import { apiFetch } from "@/lib/client-api-cache";
@@ -210,9 +212,7 @@ export default function CatalogConfiguration() {
               {versions
                 .filter(
                   (v) =>
-                    fold([v.name, ...v.header].join(" ")).includes(
-                      fold(query),
-                    ) || v.id === version,
+                    matchesSearch(fold([v.name, ...v.header].join(" ")), fold(query)) || v.id === version,
                 )
                 .map((v) => (
                   <option key={v.id} value={v.id}>

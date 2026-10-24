@@ -1,3 +1,5 @@
+import {isCancelledOrder} from "./display-status";
+import {historyScheduleStatuses} from "./history-status";
 import {withPurchaseBalances} from "./purchase-balances";
 import {readTaskLists,mutateTaskList} from "./task-lists";
 import {withRescheduling} from "./rescheduling";
@@ -131,7 +133,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
     };
   }
   const schedule = (
-    await db.query(`SELECT s.*,c.payload->>'municipioNome' AS customer_city,c.payload->>'ufSigla' AS customer_state
+    await db.query(`SELECT s.*,o.status AS order_status,c.payload->>'municipioNome' AS customer_city,c.payload->>'ufSigla' AS customer_state
       FROM web_service_schedules s
       LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id
       LEFT JOIN m8_customer_directory c ON c.company_id=o.company_id AND c.person_id=o.cliente_id
@@ -140,6 +142,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
     ])
   ).rows[0];
   if (!schedule) throw new ScheduleInputError("Programação não encontrada.");
+  if (isCancelledOrder(schedule.order_status)) throw new ScheduleInputError("Não é possível abrir a programação de uma OS cancelada.");
   const timeAdjustmentsAvailable=await timeRequestsAvailable(db);
   const [detail, operations, usage, costs, events, profit, fieldSessions, fieldEvents, timeRequests] = await Promise.all([
     orderDetail(String(schedule.company_id), String(schedule.order_id)),
@@ -191,7 +194,11 @@ export async function schedulingData(scheduleId: string | null, email: string) {
 export async function scheduleForOrder(company: string, orderId: string) {
   if (!["1", "2", "27404"].includes(company)) throw new ScheduleInputError("Empresa inválida.");
   id(orderId);
-  return { schedule: (await database().query("SELECT id,active FROM web_service_schedules WHERE company_id=$1 AND order_id=$2", [company,orderId])).rows[0] || null };
+  const db=database();
+  const schedule=(await db.query("SELECT id,active FROM web_service_schedules WHERE company_id=$1 AND order_id=$2",[company,orderId])).rows[0]||null;
+  const order=(await db.query("SELECT status FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2",[company,orderId])).rows[0];
+  const statuses=await historyScheduleStatuses([{company_id:company,id:orderId,status:order?.status||null}]);
+  return {schedule,programming:statuses.get(`${company}:${orderId}`)};
 }
 export async function scheduleTaskLists(email:string){
  const db=database();await access(db,email);return readTaskLists(db);
@@ -275,15 +282,9 @@ export async function mutateSchedule(b: any, email: string) {
       if (!["1", "2", "27404"].includes(company))
         throw new ScheduleInputError("Empresa inválida.");
       id(b.orderId);
-      if (
-        !(
-          await c.query(
-            "SELECT id_m8 FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2",
-            [company, b.orderId],
-          )
-        ).rows.length
-      )
-        throw new ScheduleInputError("OS não encontrada.");
+      const orderRow=(await c.query("SELECT id_m8,status FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2 FOR SHARE",[company,b.orderId])).rows[0];
+      if(!orderRow)throw new ScheduleInputError("OS não encontrada.");
+      if(b.action === "include" && isCancelledOrder(orderRow.status))throw new ScheduleInputError("Não é possível programar uma OS cancelada.");
       if (b.action === "remove_schedule") {
         if((await c.query("SELECT 1 FROM web_field_sessions f JOIN web_service_operations p ON p.id=f.operation_id JOIN web_service_schedules s ON s.id=p.schedule_id WHERE s.company_id=$1 AND s.order_id=$2 AND f.state<>'finished'",[company,b.orderId])).rows.length)throw new ScheduleInputError("Finalize os apontamentos ativos antes de remover a programação.");
         const schedule = (await c.query("UPDATE web_service_schedules SET active=false WHERE company_id=$1 AND order_id=$2 RETURNING *", [company,b.orderId])).rows[0];

@@ -10,11 +10,13 @@ const money = (v: string) =>
     : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 export default function QuoteCatalogPicker({
   kind,
+  historyContext,
   existing,
   onAdd,
   onClose,
 }: {
   kind: QuoteItem["kind"];
+  historyContext?: {customer:string;equipment:string};
   existing: Set<string>;
   onAdd: (item: QuoteItem) => void;
   onClose: () => void;
@@ -43,6 +45,7 @@ export default function QuoteCatalogPicker({
               lookup: kind === "material" ? "materials" : "services",
               q: query,
               page: String(page),
+              ...(historyContext ? {historyFirst:"1",customer:historyContext.customer,equipment:historyContext.equipment} : {}),
             }),
           { signal: controller.signal },
         );
@@ -69,7 +72,7 @@ export default function QuoteCatalogPicker({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [kind, query, page]);
+  }, [kind, query, page, historyContext?.customer, historyContext?.equipment]);
   return (
     <dialog
       ref={dialog}
@@ -85,7 +88,7 @@ export default function QuoteCatalogPicker({
           <h2 id="quote-catalog-title">
             {kind === "material" ? "Adicionar material" : "Adicionar serviço"}
           </h2>
-          <p>Cadastro geral · todas as empresas, clientes e equipamentos</p>
+          <p>{historyContext ? "Histórico do equipamento/cliente primeiro · vendas mais recentes" : "Cadastro geral · todas as empresas, clientes e equipamentos"}</p>
         </div>
         <button type="button" className="secondary-button" onClick={onClose}>
           Fechar
@@ -126,6 +129,7 @@ export default function QuoteCatalogPicker({
             <article key={item.key}>
               <div>
                 <strong>{item.name}</strong>
+                {historyContext && <small>{item.source?.startsWith("Histórico") ? "Histórico do equipamento/cliente" : "Demais produtos cadastrados"}</small>}
                 <small>
                   Cód. {item.code} · {item.unit || "Unidade não informada"}
                 </small>

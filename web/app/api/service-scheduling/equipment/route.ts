@@ -1,3 +1,4 @@
+import {searchPatterns} from "@/lib/filters";
 import {requireUser,Unauthorized} from '@/lib/auth';
 import {database} from '@/lib/db';
 export const runtime='nodejs';
@@ -17,12 +18,12 @@ export async function GET(req:Request){
   const all=params.get('scope')==='all';
   const offset=Math.max(0,Math.min(100000,Number(params.get('offset'))||0));
   const rows=(await database().query(`SELECT e.equipment_id::text,e.name,e.serial FROM m8_equipment_catalog e
-    WHERE e.present AND ($2='' OR e.equipment_id::text ILIKE $3 OR e.name ILIKE $3 OR e.serial ILIKE $3)
+    WHERE e.present AND ($2='' OR concat_ws(' ',e.equipment_id,e.name,e.serial) ILIKE ALL($3::text[]))
     AND ($4::boolean OR EXISTS(SELECT 1 FROM m8_person_equipment l
       JOIN web_service_schedules s ON s.id=$1
       JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id
       WHERE l.equipment_id=e.equipment_id AND l.person_id=o.cliente_id AND l.present))
-    ORDER BY e.name,e.equipment_id LIMIT 51 OFFSET $5`,[schedule,q,'%'+q+'%',all,Math.floor(offset)])).rows;
+    ORDER BY e.name,e.equipment_id LIMIT 51 OFFSET $5`,[schedule,q,searchPatterns(q),all,Math.floor(offset)])).rows;
   return Response.json({rows:rows.slice(0,50),hasMore:rows.length>50},{headers:{'Cache-Control':'private, no-store'}});
  }catch(e){return Response.json({error:'Não foi possível buscar equipamentos.'},{status:e instanceof Unauthorized?401:503});}
 }

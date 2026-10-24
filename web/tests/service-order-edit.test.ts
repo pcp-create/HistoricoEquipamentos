@@ -47,6 +47,8 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
         id: 201,
         servicoId: 60,
         servicoNome: "Serviço",
+        observacao: "Nota existente",
+        observacaoInterna: "Interna existente",
         quantidade: 1,
         valorUnitario: 20,
         valorTotal: 20,
@@ -91,7 +93,9 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
     assert.equal(draft.technician, "m8:99");
     assert.equal(draft.items[0].id, "101");
     const id = randomUUID(),
-      changed = { ...draft, notes: "Revisada" };
+      changed = { ...draft, notes: "Revisada", items: draft.items.map(i => i.kind === "service" ? {...i, notes: "Nota revisada", internalNotes: ""} : i) };
+    assert.equal(draft.items[1].notes, "Nota existente");
+    assert.equal(draft.items[1].internalNotes, "Interna existente");
     await prepareEdit(
       "user",
       id,
@@ -122,6 +126,8 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
     assert.equal(writes[0].body.produtos[0].valorTotal, 18);
     assert.equal(writes[0].body.produtos[0].observacao, "Não perder");
     assert.equal(writes[0].body.observacao, "Revisada");
+    assert.equal(writes[0].body.servicos[0].observacao, "Nota revisada");
+    assert.equal(writes[0].body.servicos[0].observacaoInterna, "");
     assert.equal(writes[0].body.responsavelTecnicoId, 99);
     assert.equal(writes[0].body.emissao, source.emissao);
     assert.equal(writes[0].body.equipamentoProduto.horimetro, "1000");

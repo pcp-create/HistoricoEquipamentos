@@ -1,4 +1,7 @@
 "use client";
+import { matchesSearch } from "@/lib/filters";
+
+import TaskApproval from "./task-approval";
 import SupportPicker from "./support-picker";
 import TimeRequestApproval from "./time-request-approval";
 import SaveActionIcon from "./save-action-icon";
@@ -315,7 +318,7 @@ export function TaskDrawer({
                 className={`task-progress-badge task-progress-${t.status}`}
                 aria-label="Andamento da tarefa"
               >
-                {t.status === "completed"
+                {t.task_type === "approval" && t.status !== "completed" ? (t.approval_state === "pending" ? "Aguardando aprovação" : t.approval_state === "approved" ? "Aprovada" : "Reprovada") : t.status === "completed"
                   ? "Concluído"
                   : t.status === "in_progress"
                     ? "Em andamento"
@@ -337,7 +340,8 @@ export function TaskDrawer({
           </button>
         </p>
       )}
-      {t && (
+      {t?.task_type === "approval" && <TaskApproval data={data} onChanged={()=>{void reload();onChanged?.()}}/>}
+      {t && t.task_type !== "approval" && (
         <div className="task-blocks">
           <div>
             <section className="task-card">
@@ -655,6 +659,7 @@ export default function TasksDashboard() {
     [kanbanView, setKanbanView] = useState("responsible"),
     [tab, setTab] = useState("tasks"),
     [creating, setCreating] = useState(false),
+    [newTaskType,setNewTaskType] = useState("standard"),
     [status, setStatus] = useState("active"),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState<string | null>(params.get("task")),
@@ -786,9 +791,8 @@ export default function TasksDashboard() {
         ? status === "all" || t.status !== "completed"
         : taskColumn(t) === status) &&
       (!query ||
-        `${t.id} ${t.title} ${t.equipment_name} ${t.customer} ${t.origin} ${t.assignee_name || ""}`
-          .toLocaleLowerCase("pt-BR")
-          .includes(query.toLocaleLowerCase("pt-BR"))),
+        matchesSearch(`${t.id} ${t.title} ${t.equipment_name} ${t.customer} ${t.origin} ${t.assignee_name || ""}`
+          .toLocaleLowerCase("pt-BR"), query.toLocaleLowerCase("pt-BR"))),
   );
   // Completed tasks remain below open tasks in every ordering.
   const statusOrder = { overdue: 0, pending: 1, in_progress: 2, completed: 3 };
@@ -1166,7 +1170,7 @@ export default function TasksDashboard() {
               onClick={() => {
                 setTab("tasks");
                 setNewStage(null);
-                setCreating(true);
+                setNewTaskType("standard");setCreating(true);
               }}
             >
               <Plus size={18} /> Nova tarefa
@@ -1195,7 +1199,7 @@ export default function TasksDashboard() {
                     const result = await api("/api/tasks", {
                       action: "create",
                       ...Object.fromEntries(fields),
-                      restricted: fields.get("restricted") === "on",
+                      restricted: newTaskType === "standard" && fields.get("restricted") === "on",
                       stageId:newStage,
                     });
                     setCreating(false);
@@ -1208,7 +1212,9 @@ export default function TasksDashboard() {
                   }
                 }}
               >
-                <h2>Nova tarefa manual</h2>
+                <h2>Nova tarefa</h2>
+                <label>Tipo de tarefa<select name="taskType" value={newTaskType} onChange={e=>setNewTaskType(e.target.value)}><option value="standard">Tarefa padrão</option><option value="approval" disabled={!!newStage}>Tarefa de aprovação</option></select></label>
+                <p>Na aprovação, informe o responsável e a descrição. A decisão retorna ao solicitante; reprovações exigem justificativa.</p>
                 {newStage&&<p>Etapa inicial: {stages.find(s=>s.id===newStage)?.name}</p>}
                 <div className="task-manual-fields">
                   <label>
@@ -1220,6 +1226,7 @@ export default function TasksDashboard() {
                     <select
                       key={newAssignee}
                       name="assignedTo"
+                      required={newTaskType === "approval"}
                       defaultValue={newAssignee}
                     >
                       <option value="">Não atribuído</option>
@@ -1245,12 +1252,12 @@ export default function TasksDashboard() {
                     Vencimento
                     <input type="date" name="dueDate" />
                   </label>
-                  <div className="task-restriction-field"><label className="task-restriction-check"><input type="checkbox" name="restricted" /> Tarefa restrita</label><small>Oculta os detalhes da tarefa, mantendo sua existência e status visíveis.</small></div>
+                  <div hidden={newTaskType === "approval"} className="task-restriction-field"><label className="task-restriction-check"><input type="checkbox" name="restricted" /> Tarefa restrita</label><small>Oculta os detalhes da tarefa, mantendo sua existência e status visíveis.</small></div>
                   </div>
                 </div>
                 <label>
                   Descrição
-                  <textarea name="description" maxLength={12000} rows={4} />
+                  <textarea name="description" required={newTaskType === "approval"} maxLength={12000} rows={4} />
                 </label>
                 <div className="task-toolbar">
                   <button disabled={busy} type="submit">
@@ -1706,7 +1713,7 @@ export default function TasksDashboard() {
                                 : "",
                             );
                             setNewStage(kanbanView === "stage" && key!=="no-stage" ? key : null);
-                            setCreating(true);
+                            setNewTaskType("standard");setCreating(true);
                             createForm.current?.scrollIntoView({
                               behavior: "smooth",
                               block: "center",

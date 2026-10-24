@@ -1,4 +1,6 @@
 "use client";
+import { matchesSearch } from "@/lib/filters";
+
 import Link from "next/link";
 import SaveActionIcon from "./save-action-icon";
 import ProductReservations from "./product-reservations";
@@ -612,7 +614,7 @@ export default function QuoteDashboard() {
         },
         quote.interval,
       ) &&
-      [
+      matchesSearch([
         r.name,
         r.code,
         r.variant,
@@ -624,8 +626,7 @@ export default function QuoteDashboard() {
         .join(" ")
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase()
-        .includes(fold(filter)),
+        .toLowerCase(), fold(filter)),
   );
   const visibleRecommendationKeys = new Set(
     recommendedRows.flatMap((r) => r.itemKeys),
@@ -634,7 +635,7 @@ export default function QuoteDashboard() {
     (i) =>
       (!visibleRecommendationKeys.has(i.key) || revisionCollapsed) &&
       (kind === "all" || i.kind === kind) &&
-      fold([i.name, i.code].join(" ")).includes(fold(extraFilter).trim()),
+      matchesSearch(fold([i.name, i.code].join(" ")), fold(extraFilter).trim()),
   );
   rows.sort((a, b) =>
     compareQuoteItems(

@@ -1,3 +1,5 @@
+
+import { matchesSearch } from "@/lib/filters";
 import {equipmentWorkshopStatus} from "../workshop/equipment-status";
 import { predictPlans } from "./preventive-hierarchy.stable";
 import { planItemUnit } from "./plan-items";
@@ -116,7 +118,7 @@ export async function equipmentList(params: URLSearchParams) {
     .filter(
       (e) =>
         (!q ||
-          fold(
+          matchesSearch(fold(
             [
               e.id,
               e.rental ? e.internal_code : "",
@@ -130,7 +132,7 @@ export async function equipmentList(params: URLSearchParams) {
               e.rentalStatus?.stockNote,
               ...e.clients.map((c: any) => c.name || c.id),
             ].join(" "),
-          ).includes(q)) &&
+          ), q)) &&
         (!ownership || e.ownership === ownership) &&
         (!rentalOnly || e.rental),
     );

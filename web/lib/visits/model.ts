@@ -31,7 +31,11 @@ export function visitHealth(
       ? "due"
       : "current";
 }
+export function customerTradeName(payload: Record<string, unknown> | null | undefined): string {
+  return [payload?.nomeFantasia, payload?.fantasia, payload?.apelido].find((name): name is string => typeof name === "string" && !!name.trim())?.trim() || "";
+}
 export type VisitCustomer = {
+  tradeName?: string;
   key: string;
   name: string;
   document: string;

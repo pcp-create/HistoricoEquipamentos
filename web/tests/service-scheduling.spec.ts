@@ -1,3 +1,4 @@
+import {pickDateTime} from "./helpers/pick-date-time";
 import ccp from "../lib/service-scheduling/templates/ccp.json";
 import { test, expect } from "@playwright/test";
 import {
@@ -168,9 +169,7 @@ test("operations save explicitly, keep support distinct, show order-wide items a
   await expect(
     page.locator(".operations-table tbody>tr").first().locator("td").nth(9),
   ).toHaveText("4,00");
-  await page
-    .getByLabel("Data de Programação 01", { exact: true })
-    .fill("2026-10-02");
+  await pickDateTime(page,"Data de Programação 01","2026-10-02");
   await page.getByLabel("Data de Programação 01", { exact: true }).blur();
   await expect(
     page.getByText("Alterações não salvas", { exact: true }),
@@ -185,8 +184,8 @@ test("operations save explicitly, keep support distinct, show order-wide items a
   await expect(page.locator(".operation-status").first()).toHaveText(
     "Em planejamento",
   );
-  await page.getByLabel("Hora início 01", { exact: true }).fill("11:00");
-  await page.getByLabel("Hora início 01", { exact: true }).press("Enter");
+  await pickDateTime(page,"Hora início 01","11:00");
+  await page.getByRole("button", { name:"Salvar operação 01", exact:true }).click();
   await expect(page.locator(".operation-status").first()).toHaveText(
     "Programado",
   );

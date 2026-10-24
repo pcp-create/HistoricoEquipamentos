@@ -99,3 +99,7 @@
   box-shadow: 0 6px 22px #14395b30;
   z-index: 100;
 }
+
+@media (pointer: coarse) {
+  .support-picker .support-options-list button { min-height:44px; }
+}

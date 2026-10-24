@@ -53,6 +53,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       "017_task_reminders.sql",
       "023_task_reminder_recurrence.sql",
       "044_task_followers.sql",
+      "073_task_approvals.sql",
     ])
       await db.exec(
         readFileSync(new URL("../sql/" + f, import.meta.url), "utf8"),
@@ -543,6 +544,30 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     await db.query("UPDATE web_user_access SET role='admin' WHERE email=$1",[user.email]);
     const secret = await taskDetail(restrictedId,user);
     await assert.rejects(()=>updateTask({action:"followers",id:restrictedId,version:secret.task.version,followers:['third@example.com']},user),/administradores/);
+
+
+    const approver={...user,email:'other@example.com'};
+    let approval=await createTask({taskType:'approval',title:'Autorizar compra',description:'Aprovar aquisição do motor.',assignedTo:approver.email,priority:'normal',dueDate:''},user);
+    const aid=String(approval.task.id);
+    assert.equal(approval.task.approval_state,'pending');
+    assert.equal(approval.canDecideApproval,false);
+    assert.equal((await taskDetail(aid,approver)).canDecideApproval,true);
+    await assert.rejects(()=>updateTask({action:'approval_decide',id:aid,version:1,decision:'approved'},user));
+    await assert.rejects(()=>updateTask({action:'move',id:aid,version:1,column:'completed'},approver),/fluxo de aprovação/);
+    await assert.rejects(()=>updateTask({action:'approval_decide',id:aid,version:1,decision:'rejected',reason:' '},approver),/justificativa/);
+    approval=await updateTask({action:'approval_decide',id:aid,version:1,decision:'rejected',reason:'Revisar o valor antes de comprar.'},approver);
+    assert.equal(approval.task.assigned_to,user.email);
+    assert.equal(approval.task.approval_state,'rejected');
+    assert.equal(approval.task.approval_reason,'Revisar o valor antes de comprar.');
+    assert.equal(approval.notifications[0].recipient,user.email);
+    await assert.rejects(()=>updateTask({action:'approval_decide',id:aid,version:2,decision:'approved'},approver),/já foi decidida/);
+    await assert.rejects(()=>updateTask({action:'approval_close',id:aid,version:2},approver));
+    approval=await updateTask({action:'approval_close',id:aid,version:2},user);
+    assert.equal(approval.task.status,'completed');
+    let approved=await createTask({taskType:'approval',title:'Autorizar serviço',description:'Autorizar revisão.',assignedTo:approver.email,priority:'normal',dueDate:''},user);
+    approved=await updateTask({action:'approval_decide',id:String(approved.task.id),version:1,decision:'approved'},approver);
+    assert.equal(approved.task.approval_state,'approved');assert.equal(approved.task.assigned_to,user.email);assert.match(approved.task.approval_reason,/De acordo/);
+    const approvalNotices=await claimNotifications('https://example.com');assert.ok(approvalNotices.some(n=>n.text.includes('Solicitação aprovada — de acordo')));
 
   } finally {
     g.historyPool = old;

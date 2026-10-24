@@ -1,4 +1,7 @@
 "use client";
+import DateTimePicker from "./date-time-picker";
+import { matchesSearch } from "@/lib/filters";
+
 import VisitMachineRegistration from "./visit-machine-registration";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -37,6 +40,7 @@ import {
 } from "@/lib/visits/model";
 import SalesCustomerLocation from "./sales-customer-location";
 import SalesCustomerSelect from "./sales-customer-select";
+import OrderSearchSelect from "./order-search-select";
 import SalesVisitsMap from "./sales-visits-map";
 import { readActivityLocation } from "@/lib/activity-location";
 import "./field-app.css";
@@ -109,7 +113,11 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
   const [allCustomers,setAllCustomers] = useState<VisitCustomer[]>([]);
   const [outsidePortfolio,setOutsidePortfolio] = useState(false);
   const [customerLoading,setCustomerLoading] = useState(false);
-  async function loadAllCustomers(){setCustomerLoading(true);try{const r=await fetch('/api/visits/customers',{cache:'no-store'});const b=await r.json();if(!r.ok)throw Error(b.error);setAllCustomers(b.customers)}catch(e){setError((e as Error).message)}finally{setCustomerLoading(false)}}
+  const loadAllCustomers = useCallback(async () => {setCustomerLoading(true);try{const r=await fetch('/api/visits/customers',{cache:'no-store'});const b=await r.json();if(!r.ok)throw Error(b.error);setAllCustomers(b.customers)}catch(e){setError((e as Error).message)}finally{setCustomerLoading(false)}}, []);
+  const customerPickerOpen = Boolean(form && !form.lead);
+  useEffect(() => {
+    if (customerPickerOpen && outsidePortfolio) void loadAllCustomers();
+  }, [customerPickerOpen, outsidePortfolio, loadAllCustomers]);
   const leadAddressRequest=useRef<AbortController | null>(null);
   const [editingLeadAddress,setEditingLeadAddress]=useState(false);
   const [leadAddressStatus,setLeadAddressStatus]=useState("");
@@ -194,9 +202,9 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
   const customers = data?.customers || [],
     visits = data?.visits || [];
   const matches = (c: VisitCustomer) =>
-    fold(`${c.name} ${c.document} ${c.city} ${c.uf}`).includes(fold(query));
+    matchesSearch(fold(`${c.name} ${c.tradeName || ""} ${c.document} ${c.city} ${c.uf}`), fold(query));
   const filtered = useMemo(() => customers.filter(
-    (c) => fold(`${c.name} ${c.document} ${c.city} ${c.uf}`).includes(fold(query)) && (filter === "all" || (filter === "leads" ? c.lead : c.health === filter)),
+    (c) => matchesSearch(fold(`${c.name} ${c.tradeName || ""} ${c.document} ${c.city} ${c.uf}`), fold(query)) && (filter === "all" || (filter === "leads" ? c.lead : c.health === filter)),
   ), [customers, query, filter]);
   const customerMap = new Map(customers.map((c) => [c.key, c]));
   const visitRows = visits.filter((v) => {
@@ -274,6 +282,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
     if (!form || busy) return;
     if(form.lead && !form.city.trim()){setEditingLeadAddress(true);setError("Informe a cidade do Lead ou selecione uma localização no mapa.");return;}
     if (!form.lead && !form.customer_key) { setError("Selecione o cliente."); return; }
+    if (form.mode !== "complete" && !form.purpose_id) { setError("Selecione a finalidade da visita."); return; }
     setBusy(true);
     setError("");
     try {
@@ -1084,9 +1093,9 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                 ) : (
                   <>
                     <div className="sales-customer-picker-row">
-                      <SalesCustomerSelect customers={outsidePortfolio ? allCustomers : customers} value={form.customer_key}
+                      <SalesCustomerSelect fullBase={outsidePortfolio} onSelectCustomer={customer=>setAllCustomers(current=>[...current.filter(c=>c.key!==customer.key),customer])} customers={outsidePortfolio ? allCustomers : customers} value={form.customer_key}
                         onChange={customer_key => setForm({ ...form, customer_key, contact_id:"", contact:"", phone:"" })} />
-                      <label className="sales-customer-scope"><input type="checkbox" aria-label="Base completa de clientes" checked={outsidePortfolio} onChange={e=>{setOutsidePortfolio(e.target.checked);setForm({...form,customer_key:"",contact_id:"",contact:"",phone:""});if(e.target.checked)void loadAllCustomers();}}/><span>Base completa de clientes<small>Inclui clientes com ou sem máquinas cadastradas.</small></span></label>
+                      <label className="sales-customer-scope"><input type="checkbox" aria-label="Base completa de clientes" checked={outsidePortfolio} onChange={e=>{setOutsidePortfolio(e.target.checked);setForm({...form,customer_key:"",contact_id:"",contact:"",phone:""});}}/><span>Base completa de clientes</span></label>
                     </div>
                     {customerLoading && <p role="status">Carregando clientes…</p>}
                   </>
@@ -1105,21 +1114,24 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                 {form.mode === "schedule"
                   ? "Data e hora agendada"
                   : "Data e hora da realização"}
-                <input
+                <DateTimePicker
+                  label={form.mode === "schedule" ? "Data e hora agendada" : "Data e hora da realização"}
                   required
-                  type="datetime-local"
                   max={form.mode !== "schedule" ? localNow() : undefined}
                   value={form.scheduled_at}
-                  onChange={(e) =>
-                    setForm({ ...form, scheduled_at: e.target.value })
+                  onChange={(value) =>
+                    setForm({ ...form, scheduled_at: value })
                   }
                 />
               </label>
               {form.mode !== "complete" && <label>Finalidade da Visita
-                <select aria-label="Finalidade da Visita" required value={form.purpose_id} onChange={e=>setForm({...form,purpose_id:e.target.value})}>
-                  <option value="">Selecione a finalidade</option>
-                  {(data?.purposes || []).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                <OrderSearchSelect
+                  label="Finalidade da Visita"
+                  placeholder="Selecione ou pesquise a finalidade"
+                  value={form.purpose_id}
+                  options={[...(data?.purposes || [])].sort((a,b)=>Number(a.id)-Number(b.id)).map(p=>({id:p.id,name:p.name,detail:p.description}))}
+                  onChange={row=>setForm({...form,purpose_id:row.id})}
+                />
                 <small>{data?.purposes?.find(p=>p.id===form.purpose_id)?.description}</small>
               </label>}
               {form.mode !== "complete" && (
@@ -1156,7 +1168,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
               </label>
             )}
             <label className="sales-check visit-alert-toggle"><input type="checkbox" checked={whatsapp} onChange={e=>setWhatsapp(e.target.checked)}/>Receber alerta no meu WhatsApp</label>
-            {whatsapp&&<label>Data e hora do alerta (Brasília)<input type="datetime-local" required value={form.whatsappAt||''} onChange={e=>setForm({...form,whatsappAt:e.target.value})}/><small>Será enviado para o WhatsApp cadastrado no seu usuário.</small></label>}
+            {whatsapp&&<label>Data e hora do alerta (Brasília)<DateTimePicker label="Data e hora do alerta (Brasília)" required value={form.whatsappAt||''} onChange={value=>setForm({...form,whatsappAt:value})}/><small>Será enviado para o WhatsApp cadastrado no seu usuário.</small></label>}
             <p className="sales-muted">
               Horários de Brasília. Visitas anteriores podem ser registradas com
               a data real de realização.

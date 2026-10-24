@@ -1,3 +1,4 @@
+import {searchPatterns} from "@/lib/filters";
 import type { PoolClient } from "pg";
 import { catalogProductCodesSql } from "../manufacturer/direct-products";
 import { approvedMaterialSql } from "../material-approval";
@@ -58,7 +59,7 @@ export async function quoteLookup(p: URLSearchParams): Promise<{
   const c = "1",
     q = (p.get("q") || "").trim().slice(0, 120),
     db = database();
-  const pattern = "%" + q.replace(/[\\%_]/g, "\\$&") + "%";
+  const pattern = searchPatterns(q);
   if (p.get("lookup") === "clients") {
     const rows = (
       await db.query(
@@ -66,7 +67,7 @@ export async function quoteLookup(p: URLSearchParams): Promise<{
  SELECT person_id AS id,name,document,company_id,0 AS priority FROM m8_customer_directory WHERE company_id IN(1,2,27404)
  UNION ALL SELECT cliente_id,cliente_nome,cliente_cpf_cnpj,company_id,1 FROM m8_ordens_servico WHERE company_id IN(1,2,27404) AND cliente_id IS NOT NULL
  ), distinct_clients AS (SELECT DISTINCT ON(id) id,name,document FROM clients ORDER BY id,priority,company_id)
- SELECT id::text,name,document FROM distinct_clients WHERE concat_ws(' ',name,document,id) ILIKE $1 ORDER BY name LIMIT 31`,
+ SELECT id::text,name,document FROM distinct_clients WHERE concat_ws(' ',name,document,id) ILIKE ALL($1::text[]) ORDER BY name LIMIT 31`,
         [pattern],
       )
     ).rows;
@@ -88,7 +89,7 @@ export async function quoteLookup(p: URLSearchParams): Promise<{
  FROM m8_ordens_servico o LEFT JOIN m8_equipamentos e ON e.company_id=o.company_id AND e.ordem_servico_id=o.id_m8
  WHERE o.company_id IN(1,2,27404) AND o.cliente_id=$1
  ), combined AS (SELECT * FROM registry UNION SELECT DISTINCT * FROM historical h WHERE NOT EXISTS(SELECT 1 FROM registry r WHERE r.serial<>'' AND r.serial=regexp_replace(upper(h.serial),'[^A-Z0-9]','','g')))
- SELECT * FROM combined WHERE concat_ws(' ',name,model,serial,equipment_id) ILIKE $2
+ SELECT * FROM combined WHERE concat_ws(' ',name,model,serial,equipment_id) ILIKE ALL($2::text[])
  ORDER BY source,name,model,serial LIMIT 301`,
         [id, pattern],
       )

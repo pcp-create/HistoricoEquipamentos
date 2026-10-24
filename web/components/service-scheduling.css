@@ -131,26 +131,9 @@
 .operation-status {
   display: inline-block;
   border-radius: 5px;
-  background: #eef2f6;
-  color: #65788c;
   padding: 5px 8px;
   white-space: nowrap;
   font-size: 11px;
-}
-.operation-status.scheduled,
-.operation-status.executing {
-  background: #e7f1ff;
-  color: #2370b8;
-}
-.operation-status.completed,
-.operation-status.reviewed {
-  background: #e6f5ed;
-  color: #288360;
-}
-.operation-status.awaiting_review,
-.operation-status.awaiting_execution {
-  background: #fff4d9;
-  color: #9c760d;
 }
 .operation-execution {
   padding: 18px;
@@ -456,13 +439,15 @@
 .schedule-linked-legend { font-size: 12px; color: #816320; }
 
 .operation-checklist-select { position: relative; }
-.operation-checklist-select select { width: 100%; color: transparent; }
+/* The compact label overlays the native select; hide only its native text. */
+.operation-checklist-select select { width: 100%; color: transparent; --field-control-text: transparent; --field-disabled-text: transparent; }
 .operation-checklist-select select option { color: #29445f; background: white; }
 .operation-checklist-select > span {
-  position: absolute; left: 7px; right: 24px; top: 50%; transform: translateY(-50%);
+  position: absolute; left: 12px; right: 30px; top: 50%; transform: translateY(-50%);
   pointer-events: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 12px; color: #29445f;
+  font-family: var(--field-font); font-size: 13px; font-weight: 400; color: var(--field-text);
 }
+@media (max-width: 640px) { .operation-checklist-select > span { font-size: 16px; } }
 .operation-checklist-select:has(select:disabled) > span { opacity: .6; }
 .field-pause-settings{width:100%;border-collapse:collapse;min-width:480px;}.field-pause-settings td,.field-pause-settings th{padding:6px 8px;border-bottom:1px solid #e2eaf1;text-align:left;}.field-pause-settings input{width:100%;}.field-pause-settings th:nth-child(2){width:170px;}.field-pause-settings th:last-child{width:70px;}
 
@@ -743,9 +728,9 @@
 
 /* Keep the action row centered with the adjacent fields; details sit below it. */
 .operations-table .operation-execution-content { position: relative; width: max-content; }
-.operations-table .operation-execution-details { position: absolute; top: 100%; left: 0; min-width: 100%; }
+.operations-table .operation-execution-details { position:absolute; top:100%; left:0; min-width:100%; display:flex; align-items:center; gap:10px; white-space:nowrap; }
 .operations-table .operation-execution-details .operation-report-state { margin-top: 3px; white-space: nowrap; }
-.operations-table tr.operation-unsaved > td { padding-bottom: 42px; }
+
 
 .operation-review-window .operation-review-tabs {
   gap: 4px; margin: 0 20px; padding: 12px 0 0;
@@ -905,3 +890,25 @@
 .material-purchase-quantity { display: block; font-weight: 600; }
 .material-purchase-quantity small { font-weight: 400; }
 .material-delivery { display: block; margin-top: 5px; font-size: 11px; line-height: 1.4; color: #627d98; }
+
+/* A single control height for the operation row, including custom selectors. */
+.operations-table { --operation-control-height:34px; }
+.operations-table > tbody > tr > td { vertical-align:top; padding-top:8px; }
+.operations-table > tbody > tr > td input:not([type=checkbox]):not([type=radio]),
+.operations-table > tbody > tr > td select { --field-height:var(--operation-control-height); --field-padding:4px 10px; height:var(--operation-control-height); margin:0; }
+.operations-table .date-time-field input { --field-padding:4px 36px 4px 10px; }
+.operations-table > tbody > tr > td > button,
+.operations-table .operation-execution-actions > button,
+.operations-table .support-picker,
+.operations-table .support-selected { height:var(--operation-control-height); min-height:var(--operation-control-height); box-sizing:border-box; margin-top:0; }
+.operations-table .support-add { top:calc(var(--operation-control-height) + 1px); }
+@media(max-width:640px) { .operations-table { --operation-control-height:44px; } }
+
+.operations-table .date-time-field { --field-height:var(--operation-control-height); }
+
+.operations-table .operation-cell-value { display:flex; align-items:center; min-height:var(--operation-control-height); box-sizing:border-box; }
+.operations-table .operation-number { justify-content:center; }
+.operations-table .operation-execution-actions { padding:0; }
+.operations-table .operation-cell-value .operation-status { margin:0; }
+
+.operations-table td:last-child .operation-execution-actions > button { margin:0; }

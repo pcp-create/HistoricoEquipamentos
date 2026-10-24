@@ -1,3 +1,4 @@
+import {searchPatterns} from "@/lib/filters";
 import 'server-only';
 import {createHash} from 'node:crypto';
 import sharp from 'sharp';
@@ -66,7 +67,7 @@ export async function saveImage(file:File,email:string){
  return write(async c=>(await c.query('INSERT INTO web_vibration_report_images(digest,content,content_type,created_by) VALUES($1,$2,$3,$4) ON CONFLICT(digest) DO UPDATE SET digest=EXCLUDED.digest RETURNING id',[digest,content,contentType,email])).rows[0]);
 }
 export async function reportsList(search:string,offset:number){
- const rows=(await database().query('SELECT id,title,service_order,clients,version,created_by,updated_by,updated_at FROM web_vibration_reports WHERE title ILIKE $1 OR clients ILIKE $1 OR service_order ILIKE $1 ORDER BY updated_at DESC,id LIMIT 51 OFFSET $2',['%'+search.slice(0,200)+'%',offset])).rows;
+ const rows=(await database().query(`SELECT id,title,service_order,clients,version,created_by,updated_by,updated_at FROM web_vibration_reports WHERE concat_ws(' ',title,clients,service_order) ILIKE ALL($1::text[]) ORDER BY updated_at DESC,id LIMIT 51 OFFSET $2`,[searchPatterns(search.slice(0,200)),offset])).rows;
  return {reports:rows.slice(0,50),hasMore:rows.length>50};
 }
 export async function reportDetail(id:string){return (await database().query('SELECT id,version,document,updated_at FROM web_vibration_reports WHERE id=$1',[reportId(id)])).rows[0];}
@@ -74,7 +75,7 @@ export async function reportImage(id:string){return (await database().query('SEL
 
 export async function reportCustomers(search:string){
  const rows=(await database().query(`SELECT company_id,person_id::text,name,document,payload->>'municipioNome' city,payload->>'ufSigla' uf
- FROM m8_customer_directory WHERE company_id=1 AND concat_ws(' ',name,document,person_id::text,payload->>'municipioNome') ILIKE $1
- ORDER BY name NULLS LAST,company_id,person_id LIMIT 51`,['%'+search.slice(0,200)+'%'])).rows;
+ FROM m8_customer_directory WHERE company_id=1 AND concat_ws(' ',name,document,person_id::text,payload->>'municipioNome') ILIKE ALL($1::text[])
+ ORDER BY name NULLS LAST,company_id,person_id LIMIT 51`,[searchPatterns(search.slice(0,200))])).rows;
  return {customers:rows.slice(0,50).map(r=>({companyId:r.company_id,personId:r.person_id,name:r.name||'Cliente sem nome',document:r.document||'',city:r.city||'',uf:r.uf||''})),hasMore:rows.length>50};
 }

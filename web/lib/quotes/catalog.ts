@@ -1,3 +1,4 @@
+import {searchPatterns} from "@/lib/filters";
 import { approvedMaterialSql } from "../material-approval";
 import "server-only";
 import { quoteProducts } from "./products";
@@ -19,8 +20,7 @@ export async function quoteCatalog(p: URLSearchParams) {
   const page = Number(p.get("page") || 1);
   if (!Number.isSafeInteger(page) || page < 1 || page > 10000)
     throw new QuoteValidation("Página inválida.");
-  const pattern =
-    "%" + escapeLike(fold((p.get("q") || "").trim().slice(0, 120))) + "%";
+  const pattern = searchPatterns(fold((p.get("q") || "").trim().slice(0,120)));
   const db = database();
   const catalog =
     kind === "material"
@@ -29,12 +29,33 @@ export async function quoteCatalog(p: URLSearchParams) {
        FROM m8_product_catalog WHERE company_id IN(1,2,27404) ORDER BY product_id,company_id`
       : `SELECT DISTINCT ON(service_id) service_id AS id,company_id,name,unit,sale_price,minimum_price,collected_at,internal_code AS aliases
        FROM m8_service_catalog WHERE company_id IN(1,2,27404) ORDER BY service_id,company_id`;
+  const prioritizeHistory = kind === "material" && p.get("historyFirst") === "1";
+  const customer = p.get("customer") || "", equipment = p.get("equipment") || "";
+  if ([customer,equipment].some(id=>id && !/^\d{1,18}$/.test(id))) throw new QuoteValidation("Cliente ou equipamento inválido.");
   const rows = (
     await db.query(
-      `WITH catalog AS (${catalog})
-    SELECT * FROM catalog WHERE ${normalized("concat_ws(' ',name,id,aliases)")} LIKE $1
+      prioritizeHistory ? `WITH catalog AS (${catalog}), sales_rank AS (
+        SELECT p.produto_id AS id,
+          max(COALESCE(o.emissao,o.data_abertura)) AS latest_sale,
+          bool_or(o.cliente_id::text=$3 AND ($4='' OR o.produto_equipamento_id::text=$4 OR EXISTS (
+            SELECT 1 FROM m8_equipment_linked l WHERE l.company_id=o.company_id AND l.order_id=o.id_m8 AND l.equipment_id::text=$4 AND l.method='explicit'
+          ))) AS in_history,
+          max(COALESCE(o.emissao,o.data_abertura)) FILTER (WHERE o.cliente_id::text=$3 AND ($4='' OR o.produto_equipamento_id::text=$4 OR EXISTS (
+            SELECT 1 FROM m8_equipment_linked l WHERE l.company_id=o.company_id AND l.order_id=o.id_m8 AND l.equipment_id::text=$4 AND l.method='explicit'
+          ))) AS history_sale
+        FROM m8_os_produtos p JOIN m8_ordens_servico o ON o.company_id=p.company_id AND o.id_m8=p.ordem_servico_id
+        JOIN integracao_m8_os_sync sync ON sync.company_id=o.company_id AND sync.ordem_servico_id=o.id_m8
+        WHERE o.company_id IN(1,2,27404) AND o.status='Processado' AND sync.finalized AND NOT sync.pending
+          AND p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")} AND p.quantidade>0
+        GROUP BY p.produto_id
+      ) SELECT c.*,COALESCE(r.in_history,false) AS in_history FROM catalog c LEFT JOIN sales_rank r ON r.id=c.id
+      WHERE ${normalized("concat_ws(' ',c.name,c.id,c.aliases)")} LIKE ALL($1::text[])
+      ORDER BY COALESCE(r.in_history,false) DESC, CASE WHEN r.in_history THEN r.history_sale ELSE r.latest_sale END DESC NULLS LAST,c.id
+      LIMIT 31 OFFSET $2`
+      : `WITH catalog AS (${catalog})
+    SELECT * FROM catalog WHERE ${normalized("concat_ws(' ',name,id,aliases)")} LIKE ALL($1::text[])
     ORDER BY id LIMIT 31 OFFSET $2`,
-      [pattern, (page - 1) * 30],
+      prioritizeHistory ? [pattern,(page-1)*30,customer,equipment] : [pattern, (page - 1) * 30],
     )
   ).rows;
   const choices = rows.slice(0, 30);
@@ -95,7 +116,7 @@ export async function quoteCatalog(p: URLSearchParams) {
       quantity: "1",
       price: "",
       selected: false,
-      source: `Base geral · Cadastro M8 empresa ${r.company_id} · ${r.aliases || ""} · Última venda entre todas as empresas, clientes e equipamentos`,
+      source: `${r.in_history ? "Histórico do equipamento/cliente" : "Base geral"} · Cadastro M8 empresa ${r.company_id} · ${r.aliases || ""} · Última venda entre todas as empresas, clientes e equipamentos`,
       referencePrice: number(r.sale_price),
       minimumPrice: number(r.minimum_price),
       lastPrice: generalSale?.unitPrice || "",

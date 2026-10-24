@@ -5,7 +5,7 @@ import { database } from "../db";
 import { AdminInputError } from "../admin-store";
 import { Forbidden } from "../auth";
 import { cityKey } from "../tasks/territories";
-import { visitHealth, type VisitCustomer } from "./model";
+import { customerTradeName, visitHealth, type VisitCustomer } from "./model";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function visitIdentity(db: any, email: string) {
   const u = (
@@ -97,6 +97,7 @@ export async function visitsData(email: string, db: any = database(), management
       return {
         key: `m8:${r.person_id}`,
         name: r.name || "Cliente sem nome",
+        tradeName: customerTradeName(r.payload),
         document: r.document || "",
         city: r.payload.municipioNome || "",
         uf: r.payload.ufSigla || "",

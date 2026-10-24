@@ -4286,3 +4286,36 @@ body.operational-ui :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar
 
 textarea.alert-comment-empty { border-color: #c43848 !important; }
 textarea.alert-comment-empty:focus { outline-color: #c43848; }
+
+.history-programming-status { display:block; margin-top:8px; font-size:11px; line-height:1.4; color:#526a7d; white-space:normal; }
+.history-programming-status small { display:block; font-size:10px; color:#748b9e; margin-bottom:2px; }
+.history-programming-status[data-status="executing"],.history-programming-status[data-status="scheduled"] { color:#2565af; }
+.history-programming-status[data-status="completed"],.history-programming-status[data-status="reviewed"] { color:#23835c; }
+.history-programming-status[data-status="awaiting_review"],.history-programming-status[data-status="planning"] { color:#996019; }
+
+/* One creation action: header on desktop, floating action on phones. */
+.new-order-action { display:inline-flex; align-items:center; justify-content:center; gap:8px; background:#2462a6; color:#fff; border:1px solid #2462a6; white-space:nowrap; min-height:44px; }
+.new-order-action:hover { background:#1c528f; color:#fff; }
+@media(max-width:640px) {
+  .order-history-page { padding-bottom:90px; }
+  .new-order-action { position:fixed; right:18px; bottom:calc(20px + env(safe-area-inset-bottom, 0px)); z-index:90; width:54px; height:54px; min-width:54px; padding:0; margin:0; border-radius:50%; box-shadow:0 5px 18px #173e6040; }
+  .new-order-action span { display:none; }
+  .new-order-action svg { width:24px; height:24px; }
+}
+
+.history-programming-status[data-status="none"] { color:#748b9e; white-space:nowrap; }
+
+.history-programming-action { display:flex; align-items:center; gap:5px; border-radius:5px; white-space:nowrap; width:max-content; max-width:100%; margin-top:8px; border:1px solid currentColor; min-height:0; height:auto; padding:5px 8px; font-family:inherit; font-size:9px; font-weight:500; line-height:normal; text-decoration:none; cursor:pointer; }
+.history-programming-action:hover { filter:brightness(.96); text-decoration:underline; }
+.history-programming-action:focus-visible { outline:2px solid #7faff0; outline-offset:2px; }
+
+/* Programming actions remain visibly clickable without a filled badge. */
+a.history-programming-action[class],
+button.history-programming-action[class] {
+  background: transparent;
+  border: 0;
+  padding-inline: 0;
+}
+
+.history-programming-action.cancelled { background:transparent; border:0; cursor:default; color:#8c98a6; }
+.history-programming-action.cancelled:hover { filter:none; text-decoration:none; }

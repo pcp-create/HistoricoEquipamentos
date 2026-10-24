@@ -2,6 +2,7 @@
 import {formatOrderDetailDate} from "@/lib/order-detail-dates";
 import OrderLinkCaption from "./order-link-caption";
 import {OrderPendingTaskLinks} from "./tasks-dashboard";
+import HistoryProgrammingAction from "./history-programming-action";
 import CreateLinkedTask from "./create-linked-task";
 import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
 import { companyName } from "@/lib/company-names";
@@ -23,6 +24,7 @@ import {
   ChevronRight,
   CircleHelp,
   ClipboardList,
+  ClipboardPlus,
   Clock3,
   Database,
   Eye,
@@ -53,6 +55,9 @@ type Row = {
   model: string | null;
   serial: string | null;
   status: string | null;
+  programming_id?: string;
+  programming_status?: string;
+  programming_label?: string;
   situation: string | null;
   type_name?: string | null;
   detail_at: string | null;
@@ -168,7 +173,7 @@ function searchParams(
 }
 
 async function api(url: string, signal?: AbortSignal) {
-  const response = await apiFetch(url, { signal, cache: "no-store" });
+  const response = await apiFetch(url, { signal, cache: "reload" });
   if (response.status === 401) {
     window.location.assign("/login");
     throw new Error("Sessão expirada.");
@@ -314,7 +319,7 @@ export default function Dashboard() {
   return (
     <>
       <SiteHeader active="history" email={overview?.email} />
-      <main className="main">
+      <main className="main order-history-page">
         <div className="page-heading">
           <div>
             <div className="eyebrow">MANUTENÇÃO / CONSULTAS</div>
@@ -326,7 +331,7 @@ export default function Dashboard() {
               seus equipamentos.
             </p>
           </div>
-          <a className="button refresh-button" href="/OrdemServico/nova">+ Nova Ordem de Serviço</a>
+          <a className="button primary new-order-action" href="/OrdemServico/nova" aria-label="Nova Ordem de Serviço" title="Nova Ordem de Serviço"><ClipboardPlus size={20} aria-hidden="true"/><span>+ Nova Ordem de Serviço</span></a>
         </div>
         <form onSubmit={submit} className="search-section">
           <div className="global-search">
@@ -649,7 +654,7 @@ export default function Dashboard() {
                     <th className="numeric">Materiais</th>
                   )}
                   <th>Tarefas pendentes</th>
-                  <th>Status</th>
+                  <th>Status OS / Programação</th>
                   <th>Empresa</th>
                   <th>
                     <span className="sr-only">Detalhes</span>
@@ -815,6 +820,8 @@ export default function Dashboard() {
                         <td><OrderPendingTaskLinks company={row.company_id} orderId={row.id}/></td>
                         <td>
                           <Badge status={row.status} />
+                          <HistoryProgrammingAction orderStatus={row.status} company={row.company_id} orderId={row.id} scheduleId={row.programming_id} status={row.programming_status} label={row.programming_label}/>
+
                         </td>
                         <td>
                           <span className="company-tag">

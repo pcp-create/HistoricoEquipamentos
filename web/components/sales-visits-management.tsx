@@ -1,4 +1,6 @@
 "use client";
+import { matchesSearch } from "@/lib/filters";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import SiteHeader from "./site-header";
@@ -117,7 +119,7 @@ export default function SalesVisitsManagement() {
   const customerMap = new Map(customers.map((c) => [c.key, c]));
   const sellerMap = new Map(sellers.map((s) => [s.id, s]));
   const customerMatches = (c: VisitCustomer) =>
-    fold(`${c.name} ${c.document} ${c.city} ${c.uf}`).includes(fold(query));
+    matchesSearch(fold(`${c.name} ${c.tradeName || ""} ${c.document} ${c.city} ${c.uf}`), fold(query));
   const periodInvalid = !!(from && until && from > until);
   const filteredVisits = visits.filter((v) => {
     const c = customerMap.get(v.customer_key);
@@ -129,7 +131,7 @@ export default function SalesVisitsManagement() {
       (!query ||
         (c
           ? customerMatches(c)
-          : fold(v.customer_key).includes(fold(query)))) &&
+          : matchesSearch(fold(v.customer_key), fold(query)))) &&
       (!from || date >= from) &&
       (!until || date <= until)
     );
@@ -153,7 +155,7 @@ export default function SalesVisitsManagement() {
     return (data?.customers || []).filter(
       (c) =>
         (!seller || c.seller_ids?.includes(seller) || relevant.has(c.key)) &&
-        fold(`${c.name} ${c.document} ${c.city} ${c.uf}`).includes(fold(query)),
+        matchesSearch(fold(`${c.name} ${c.tradeName || ""} ${c.document} ${c.city} ${c.uf}`), fold(query)),
     );
   }, [data, seller, query]);
   const mapSellers = useMemo(

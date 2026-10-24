@@ -849,3 +849,5 @@
 .task-upload-limit{font-size:12px;color:#7a90a6}
 .task-card .task-upload-help{display:block;margin-top:12px;line-height:1.5}
 .task-card .task-add-note{margin-top:10px}
+.task-approval h3 {display:flex;align-items:center;gap:8px}.task-approval-description{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;padding:20px;background:#f4f8fb;border:1px solid #dce7ef;border-radius:12px}.task-approval textarea{width:100%;box-sizing:border-box;margin:8px 0 16px}.task-approval .task-toolbar button{display:inline-flex;align-items:center;gap:7px;min-height:42px}.task-approval .task-approval-reject{color:#b52d40;border-color:#efc3ca;background:#fff5f6}.task-approval-result{padding:18px;border-radius:12px;background:#eaf7ef;color:#256746}.task-approval-result.rejected{background:#fff1f2;color:#a42d3c}.task-approval-result p{white-space:pre-wrap;overflow-wrap:anywhere}
+.task-restriction-field[hidden]{display:none}
