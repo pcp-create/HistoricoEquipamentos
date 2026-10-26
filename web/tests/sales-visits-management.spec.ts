@@ -176,3 +176,19 @@ test('management customer tabs scroll on mobile and floating action schedules vi
  await expect(page.getByRole('dialog',{name:'Formulário de visita'})).toBeVisible();
  await expect(page.getByRole('combobox',{name:'Vendedor responsável'})).toBeVisible();
 });
+
+test('map hides customers whose visits do not match status and period',async({page,context})=>{
+ await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/visits/management',r=>r.fulfill({json:{name:'Gestor',canManage:true,sellers,customers:customers.map((c,i)=>({...c,latitude:-27.8+i*.1,longitude:-50.3})),visits}}));
+ await page.route('https://tile.openstreetmap.org/**',r=>r.abort());
+ await page.goto('/visitas/gestao');
+ await page.getByRole('button',{name:'Mapa',exact:true}).click();
+ await expect(page.locator('.sales-map-marker')).toHaveCount(2);
+ await page.getByRole('button',{name:/Filtros de pesquisa.*Expandir/}).click();
+ await page.getByRole('combobox',{name:'Status da visita',exact:true}).selectOption('cancelled');
+ await expect(page.locator('.sales-map-marker')).toHaveCount(1);
+ await page.getByLabel('De',{exact:true}).fill('2026-10-05');
+ await expect(page.locator('.sales-map-marker')).toHaveCount(0);
+ await page.getByRole('button',{name:'Limpar filtros',exact:true}).click();
+ await expect(page.locator('.sales-map-marker')).toHaveCount(2);
+});

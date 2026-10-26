@@ -1,5 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {build} from 'esbuild';
+import {readFileSync} from 'node:fs';
+import * as XLSX from 'xlsx';
 test('ERP customer table protects rows and only sends edited M8 fields after enabling editing',async({page})=>{
  const bundle=await build({stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import Table from './components/customer-registry';createRoot(document.getElementById('root')).render(<Table/>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,outdir:'out',jsx:'automatic'});
  await page.route('**/customer-registry-test',r=>r.fulfill({contentType:'text/html',body:`<style>${bundle.outputFiles.find(f=>f.path.endsWith('.css'))!.text}</style><div id="root"></div><script>${bundle.outputFiles.find(f=>f.path.endsWith('.js'))!.text}</script>`}));
@@ -10,6 +12,14 @@ test('ERP customer table protects rows and only sends edited M8 fields after ena
  await expect(page.locator('tbody')).toContainText('Cliente A');await expect(page.locator('tbody')).toContainText('Indústria');await expect(page.locator('tbody')).toContainText('Serrana');
  await expect(page.getByRole('button',{name:/Excluir|Remover/})).toHaveCount(0);
  await expect(page.getByRole('textbox',{name:'Cliente 7',exact:true})).toHaveCount(0);
+ const downloadPromise=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Exportar Excel',exact:true}).click();
+ const download=await downloadPromise;
+ expect(download.suggestedFilename()).toBe('clientes-m8.xlsx');
+ const workbook=XLSX.read(readFileSync((await download.path())!));
+ const exported=XLSX.utils.sheet_to_json(workbook.Sheets['Clientes M8']);
+ expect(exported).toHaveLength(1);
+ expect(exported[0]).toMatchObject({'ID M8':'7','Cliente':'Cliente A','CNPJ / CPF':'123','Classificação M8':'Indústria'});
  await page.getByRole('button',{name:'Editar campos M8',exact:true}).click();
  await page.getByRole('textbox',{name:'Cliente 7',exact:true}).fill('Cliente B');
  await page.getByRole('combobox',{name:'Orçamentista 7'}).selectOption('a@test');

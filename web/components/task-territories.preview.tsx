@@ -1,4 +1,5 @@
 "use client";
+import SheetFillCell from "./sheet-fill-cell";
 import TerritoryColumnFilter from "./territory-column-filter";
 import {useEffect,useMemo,useState} from "react";
 import {Plus,Save,Trash2} from "lucide-react";
@@ -64,7 +65,7 @@ export default function TaskTerritories(){
  }
  return <section className="manual-card territory-sheet">
   <h2>Divisão comercial por cidade e UF</h2>
-  <p>Edite as células ou cole dados do Excel com Ctrl+V. Para preencher uma coluna inteira, segure Shift e clique no título da coluna e cole um valor ou uma lista. A colagem segue as linhas visíveis. Use Ctrl+C para copiar a coluna selecionada.</p>
+  <p>Arraste o canto inferior direito da célula para copiar o valor nas linhas visíveis abaixo. Edite as células ou cole dados do Excel com Ctrl+V. Para preencher uma coluna inteira, segure Shift e clique no título da coluna e cole um valor ou uma lista. A colagem segue as linhas visíveis. Use Ctrl+C para copiar a coluna selecionada.</p>
   <p>As alterações só são gravadas em “Salvar alterações”. Vendedores definem a carteira de visitas; orçamentistas recebem as novas tarefas. Tarefas existentes não são redistribuídas.</p>
   <div className="territory-sheet-toolbar">
    <button disabled={!loaded||busy} onClick={()=>{setDraft(current=>[...current,{key:crypto.randomUUID(),version:0,...Object.fromEntries(columns.map(([key])=>[key,key==='uf'?'SC':'']))}]);setFilters({})}}><Plus size={16}/>Adicionar regra</button>
@@ -79,10 +80,10 @@ export default function TaskTerritories(){
     <div className="territory-column-heading"><button title="Shift + clique para selecionar a coluna" aria-pressed={selectedColumn===index} onClick={e=>{if(e.shiftKey){setSelectedColumn(index);return;}setSelectedColumn(null)}}>{label}</button>
     <TerritoryColumnFilter onSort={direction=>setSort({key,direction})} onOpen={()=>setSelectedColumn(null)} label={label} values={[...new Set(draft.map(row=>String(display(originals.get(row.key)||row,key))))].sort((a,b)=>a.localeCompare(b,"pt-BR"))} selected={filters[key]} onApply={values=>{setSelectedColumn(null);setFilters(current=>({...current,[key]:values}))}}/></div>
    </th>)}<th>Ações</th></tr></thead>
-   <tbody>{rows.map((row,rowIndex)=><tr key={row.key} className={changed.includes(row)?'territory-dirty':''}>{columns.map(([key,label],columnIndex)=><td key={key} className={selectedColumn===columnIndex?'territory-selected':''}>
+   <tbody>{rows.map((row,rowIndex)=><tr key={row.key} className={changed.includes(row)?'territory-dirty':''}>{columns.map(([key,label],columnIndex)=><SheetFillCell key={key} rowIndex={rowIndex} column={key} editable={!busy} className={selectedColumn===columnIndex?'territory-selected':''} onFill={last=>{const keys=new Set(rows.slice(rowIndex+1,last+1).map(item=>item.key));setDraft(current=>current.map(item=>keys.has(item.key)?{...item,[key]:row[key]}:item));setError('');setMessage('')}}>
     <input aria-label={`${label} ${row.city||'nova regra'}`} disabled={busy} value={display(row,key)} list={key==='seller_user'?'territory-sellers':key==='assignee'?'territory-users':undefined}
      onFocus={()=>setSelectedColumn(null)} onChange={e=>edit(row.key,key,e.target.value)} onPaste={e=>{e.preventDefault();e.stopPropagation();paste(e.clipboardData.getData('text/plain'),rowIndex,columnIndex)}}/>
-   </td>)}<td><button disabled={busy} aria-label={`Remover regra de ${row.city}`} onClick={()=>setDraft(current=>current.filter(item=>item.key!==row.key))}><Trash2 size={15}/></button></td></tr>)}</tbody></table>
+   </SheetFillCell>)}<td><button disabled={busy} aria-label={`Remover regra de ${row.city}`} onClick={()=>setDraft(current=>current.filter(item=>item.key!==row.key))}><Trash2 size={15}/></button></td></tr>)}</tbody></table>
   </div>
   {!rows.length&&<p>{loaded?'Nenhuma regra nos filtros selecionados.':'Carregando divisão comercial…'}</p>}
   <datalist id="territory-users">{users.map(user=><option key={user.email} value={user.email}>{user.display_name}</option>)}</datalist>

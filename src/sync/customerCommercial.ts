@@ -7,7 +7,7 @@ import { catalogPages } from "./catalogPages.js";
 export async function syncCustomerCommercial(
   client: Pick<M8Client, "get" | "company">,
   db: Database,
-  options: { maxPeople?: number; shouldStop?: () => boolean } = {},
+  options: { maxPeople?: number; drainInitial?: boolean; shouldStop?: () => boolean } = {},
 ) {
   if (client.company !== 1)
     throw new SafeError("Clientes são compartilhados; usar empresa 1");
@@ -52,12 +52,15 @@ export async function syncCustomerCommercial(
         );
       });
     }
+    let initialOnly = false;
+    do {
     const targets = (
       await db.query<{ person_id: string }>(
-        `SELECT person_id::text FROM m8_customer_commercial_queue WHERE next_at<=now() ORDER BY next_at,person_id LIMIT $1`,
-        [options.maxPeople ?? 100],
+        `SELECT person_id::text FROM m8_customer_commercial_queue WHERE next_at<=now() AND (NOT $2::boolean OR (checked_at IS NULL AND error IS NULL)) ORDER BY (checked_at IS NULL) DESC,next_at,person_id LIMIT $1`,
+        [options.maxPeople ?? 100, initialOnly],
       )
     ).rows;
+    if (!targets.length) break;
     for (const { person_id: person } of targets) {
       if (options.shouldStop?.()) break;
       try {
@@ -102,6 +105,8 @@ export async function syncCustomerCommercial(
         );
       }
     }
+    initialOnly = true;
+    } while (options.drainInitial && !options.shouldStop?.());
     return { checked, failures };
   } finally {
     await db.query("SELECT pg_advisory_unlock(81018,1)");

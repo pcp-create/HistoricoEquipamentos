@@ -164,18 +164,14 @@ export default function SalesVisitsManagement() {
   const scheduled = filteredVisits.filter((v) => v.status === "scheduled");
   const overdue = scheduled.filter((v) => Date.parse(v.scheduled_at) < now);
   const selectedSeller = sellerMap.get(seller);
-  const mapCustomers = useMemo(() => {
-    const relevant = new Set(
-      (data?.visits || [])
-        .filter((v) => !seller || v.seller === seller)
-        .map((v) => v.customer_key),
-    );
-    return (data?.customers || []).filter(
-      (c) =>
-        (!seller || c.seller_ids?.includes(seller) || relevant.has(c.key)) &&
-        matchesSearch(fold(`${c.name} ${c.tradeName || ""} ${c.document} ${c.city} ${c.uf}`), fold(query)),
-    );
-  }, [data, seller, query]);
+  const mapVisitCustomers = new Set(filteredVisits.map(v => v.customer_key));
+  const filterMapByVisits = !!(status || from || until);
+  const mapCustomers = customers.filter(c =>
+    customerMatches(c) &&
+    (filterMapByVisits
+      ? mapVisitCustomers.has(c.key)
+      : (!seller || c.seller_ids?.includes(seller) || mapVisitCustomers.has(c.key)))
+  );
   const mapSellers = useMemo(
     () => (data?.sellers || []).filter((s) => !seller || s.id === seller),
     [data, seller],
@@ -750,8 +746,8 @@ export default function SalesVisitsManagement() {
               <>
                 <p className="sales-muted">
                   Mapa da carteira atual e dos clientes com histórico. Vendedor
-                  e pesquisa filtram os clientes; período e status filtram as
-                  visitas indicadas. Localização dos vendedores atualiza ao
+                  e pesquisa filtram os clientes. Com período ou status selecionado,
+                  aparecem somente clientes com visitas que atendem aos filtros. Localização dos vendedores atualiza ao
                   atualizar os dados.
                 </p>
                 <SalesVisitsMap

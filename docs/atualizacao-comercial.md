@@ -1,15 +1,19 @@
-# Atualização do integrador 0.2.2 — Windows → servidor Ubuntu
+# Atualização do integrador 0.2.3 — Windows → servidor Ubuntu
 
 Este roteiro atualiza o servidor existente em `/opt/m8-integrador`, com o usuário de serviço `m8-integrador`. O pacote é cumulativo: inclui as correções anteriores e as migrations 001–021. Preserve o `.env` e os certificados existentes. A aplicação web é publicada separadamente.
 
 **Padrão para próximas versões:** atualizar este arquivo junto com o pacote, incluindo download, nomes dos arquivos, verificação SHA256, comandos PowerShell, transferência, backup, instalação, ativação e validação no servidor. Não entregar apenas os comandos Linux.
 
+## Novidade da versão 0.2.3
+
+O serviço de clientes processa lotes consecutivos de clientes nunca consultados, sem a pausa de cinco minutos entre esses lotes. As chamadas continuam sequenciais e mantêm os limites e retentativas do cliente HTTP. Após esgotar os clientes iniciais elegíveis, o serviço encerra e o timer aguarda cinco minutos. Atualizações normais mantêm lotes de 100 e validade de 24 horas; erros aguardam 15 minutos e não entram nos lotes adicionais desta execução. O comando manual com `--max-people=N` continua limitado a N clientes.
+
 ## 1. Baixar para Downloads no Windows
 
 No explorador de arquivos do projeto, abra `artifacts`, clique com o botão direito em cada arquivo e escolha **Download**:
 
-- `m8-integrador-0.2.2.tar.gz`
-- `m8-integrador-0.2.2.sha256`
+- `m8-integrador-0.2.3.tar.gz`
+- `m8-integrador-0.2.3.sha256`
 
 Salve ambos em **Downloads**, sem extrair. Evite nomes com `(1)`; os comandos abaixo usam os nomes exatos.
 
@@ -19,9 +23,9 @@ Execute no **Windows PowerShell**:
 
 ```powershell
 Set-Location "$env:USERPROFILE\Downloads"
-Get-Item .\m8-integrador-0.2.2.tar.gz, .\m8-integrador-0.2.2.sha256
-$esperadoM8 = ((Get-Content .\m8-integrador-0.2.2.sha256 -Raw).Trim() -split '\s+')[0]
-$calculadoM8 = (Get-FileHash .\m8-integrador-0.2.2.tar.gz -Algorithm SHA256).Hash
+Get-Item .\m8-integrador-0.2.3.tar.gz, .\m8-integrador-0.2.3.sha256
+$esperadoM8 = ((Get-Content .\m8-integrador-0.2.3.sha256 -Raw).Trim() -split '\s+')[0]
+$calculadoM8 = (Get-FileHash .\m8-integrador-0.2.3.tar.gz -Algorithm SHA256).Hash
 if ($calculadoM8 -ne $esperadoM8) { throw 'Checksum diferente. Baixe os dois arquivos novamente.' }
 Write-Host 'Pacote conferido: SHA256 OK' -ForegroundColor Green
 ```
@@ -33,10 +37,10 @@ Só continue quando aparecer **SHA256 OK**.
 Substitua `IP_DO_SERVIDOR` pelo IP ou nome DNS utilizado no seu acesso SSH. O nome exibido no terminal, `srv-integrador`, não necessariamente é um endereço acessível pelo Windows.
 
 ```powershell
-$servidorM8 = 'IP_DO_SERVIDOR'
+$servidorM8 = '187.77.36.214'
 $usuarioM8 = 'root'
 ssh -F NUL "${usuarioM8}@${servidorM8}" "mkdir -p /root/m8-upload"
-scp -F NUL .\m8-integrador-0.2.2.tar.gz .\m8-integrador-0.2.2.sha256 "${usuarioM8}@${servidorM8}:/root/m8-upload/"
+scp -F NUL .\m8-integrador-0.2.3.tar.gz .\m8-integrador-0.2.3.sha256 "${usuarioM8}@${servidorM8}:/root/m8-upload/"
 ```
 
 O parâmetro `-F NUL` ignora o arquivo local `.ssh/config`, contornando o erro de permissões encontrado anteriormente. Use o endereço real do servidor, não um apelido definido nesse arquivo. Se seu acesso exige porta específica ou chave, acrescente `-p PORTA` no `ssh`, `-P PORTA` no `scp` e `-i CAMINHO_DA_CHAVE` em ambos. Não altere o método de autenticação do servidor.
@@ -57,7 +61,7 @@ Os próximos comandos são executados no **terminal Linux**, cujo prompt será s
 
 ```bash
 cd /root/m8-upload
-sha256sum -c m8-integrador-0.2.2.sha256
+sha256sum -c m8-integrador-0.2.3.sha256
 node --version
 id m8-integrador
 test -f /opt/m8-integrador/.env && echo 'Configuração existente encontrada'
@@ -70,9 +74,9 @@ O checksum deve retornar **OK**. O projeto requer Node.js 22 ou superior. Se alg
 Registre quais timers estão ativos para restaurar a mesma configuração depois:
 
 ```bash
-systemctl list-units --type=timer --state=active --no-legend --plain 'm8-*.timer' | awk '{print $1}' > /root/m8-upload/timers-ativos-antes-0.2.2.txt
-cat /root/m8-upload/timers-ativos-antes-0.2.2.txt
-xargs -r systemctl stop < /root/m8-upload/timers-ativos-antes-0.2.2.txt
+systemctl list-units --type=timer --state=active --no-legend --plain 'm8-*.timer' | awk '{print $1}' > /root/m8-upload/timers-ativos-antes-0.2.3.txt
+cat /root/m8-upload/timers-ativos-antes-0.2.3.txt
+xargs -r systemctl stop < /root/m8-upload/timers-ativos-antes-0.2.3.txt
 systemctl list-units --type=service --state=running,activating --no-pager 'm8-*'
 ```
 
@@ -82,7 +86,7 @@ Depois:
 
 ```bash
 install -d -m 700 /root/m8-backups
-backup_m8="/root/m8-backups/integrador-antes-0.2.2-$(date +%Y%m%d-%H%M%S).tar.gz"
+backup_m8="/root/m8-backups/integrador-antes-0.2.3-$(date +%Y%m%d-%H%M%S).tar.gz"
 tar -czf "$backup_m8" -C /opt m8-integrador
 chmod 600 "$backup_m8"
 ls -lh "$backup_m8"
@@ -95,7 +99,7 @@ O backup contém configurações privadas: mantenha-o somente no servidor.
 Execute um comando por vez. **Se houver erro, não prossiga para a ativação.**
 
 ```bash
-tar -xzf /root/m8-upload/m8-integrador-0.2.2.tar.gz -C /opt/m8-integrador
+tar -xzf /root/m8-upload/m8-integrador-0.2.3.tar.gz -C /opt/m8-integrador
 chown -R m8-integrador:m8-integrador /opt/m8-integrador
 cd /opt/m8-integrador
 sudo -u m8-integrador npm ci
@@ -103,7 +107,7 @@ sudo -u m8-integrador npm run db:migrate
 node -p "require('./package.json').version"
 ```
 
-A versão deve ser **0.2.2**. Os arquivos compilados já estão no pacote; não é necessário `npm run build`. A extração preserva o `.env` e os certificados, pois eles não fazem parte do pacote. Não substitua esses arquivos por exemplos.
+A versão deve ser **0.2.3**. Os arquivos compilados já estão no pacote; não é necessário `npm run build`. A extração preserva o `.env` e os certificados, pois eles não fazem parte do pacote. Não substitua esses arquivos por exemplos.
 
 As migrations já aplicadas são reconhecidas automaticamente. Não exclua tabelas nem altere migrations antigas se houver falha.
 
@@ -112,10 +116,13 @@ As migrations já aplicadas são reconhecidas automaticamente. Não exclua tabel
 ```bash
 cd /opt/m8-integrador
 cp deploy/systemd/m8-projecao-manual.service deploy/systemd/m8-projecao-manual.timer /etc/systemd/system/
+cp deploy/systemd/m8-clientes.service deploy/systemd/m8-clientes.timer /etc/systemd/system/
 systemctl daemon-reload
+systemctl enable --now m8-clientes.timer
+systemctl start --no-block m8-clientes.service
 systemctl enable --now m8-projecao-manual.timer
 systemctl start m8-projecao-manual.service
-xargs -r systemctl start < /root/m8-upload/timers-ativos-antes-0.2.2.txt
+xargs -r systemctl start < /root/m8-upload/timers-ativos-antes-0.2.3.txt
 systemctl list-timers --all 'm8-*.timer' --no-pager
 ```
 
@@ -158,7 +165,7 @@ Pressione **Ctrl+C** para sair apenas da visualização dos logs; isso não inte
 - Verifique `journalctl -u m8-projecao-manual.service -n 100 --no-pager`. Não envie credenciais junto dos logs.
 - Se a instalação falhar, preserve o backup e o arquivo de timers ativos. Não restaure arquivos sobre serviços em execução nem tente desfazer migrations apagando tabelas.
 
-## O que a versão 0.2.2 acrescenta
+## O que a versão 0.2.3 acrescenta
 
 A aplicação registra uma solicitação autenticada no banco. O integrador coleta contratos, faturamentos e devoluções das empresas **1, 2 e 27404**, e depois atualiza as OS. Mantém os locks e checkpoints existentes. Falhas são informadas sem afirmar sucesso total. Os timers automáticos continuam funcionando normalmente.
 
@@ -171,3 +178,12 @@ A versão inclui as migrations 020 (parciais imutáveis da projeção) e 021 (fi
 - Coleta comercial completa paginada a cada hora após o término anterior; atualização atômica por empresa/tabela. Não há filtro incremental por data de emissão: alterações antigas e cancelamentos também precisam ser reconciliados.
 - Dados originais em `m8_commercial_facts`, com chave empresa/tipo/ID e indicadores de presença. Quatro views com os nomes das tabelas do PBIX expõem os campos e regras de transformação. Linhas ausentes deixam de participar das views após uma coleta completa bem-sucedida; permanecem armazenadas para conferência.
 - O integrador não escreve no ERP nem altera o PBIX. A aplicação web usa essas tabelas no módulo Comercial; veja [Projeção de vendas](projecao-vendas.md).
+
+### Conferir a carga inicial de clientes
+
+```bash
+systemctl status m8-clientes.timer m8-clientes.service --no-pager
+journalctl -u m8-clientes.service -n 100 -f
+```
+
+Durante a carga inicial, o serviço pode permanecer em execução por bastante tempo. Use Ctrl+C para sair dos logs sem parar o serviço. O resumo de quantidades é registrado ao concluir. O botão manual da tela não é necessário para essa carga.

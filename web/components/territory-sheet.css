@@ -22,8 +22,8 @@
 .territory-sheet button:focus-visible { outline: 2px solid #a8cbea; outline-offset: 1px; }
 .territory-sheet .territory-save { background: #246194; border-color: #246194; color: white; }
 .manual-card.territory-sheet table th,.manual-card.territory-sheet table td { padding: 0; border-radius: 0; height: auto; vertical-align: middle; }
-.manual-card.territory-sheet table input { --field-height: 32px; --field-padding: 4px 8px; --field-radius: 0px; --field-border: transparent; height: 32px; margin: 0; border-radius: 0; }
-.manual-card.territory-sheet table input:focus { --field-border: #a8cbea; }
+.manual-card.territory-sheet table input, .manual-card.territory-sheet table select { --field-height: 32px; --field-padding: 4px 8px; --field-radius: 0px; --field-border: transparent; height: 32px; margin: 0; border-radius: 0; }
+.manual-card.territory-sheet table input:focus, .manual-card.territory-sheet table select:focus { --field-border: #a8cbea; }
 .territory-sheet th button { display: flex; justify-content: flex-start; border: 0; border-radius: 0; background: transparent; min-height: 28px; padding: 4px 8px; font-size: 12px; }
 .territory-sheet th input { border-block: 1px solid #dbe5ee; }
 .territory-sheet td:last-child { text-align: center; }
@@ -66,3 +66,14 @@
 .territory-column-filter .territory-filter-values label input[type=checkbox] { display: inline-block; margin: 0; padding: 0; width: 16px; min-width: 16px; height: 16px; min-height: 16px; flex: 0 0 16px; accent-color: #246194; }
 .territory-column-filter .territory-filter-values label span { display: block; flex: 1; text-align: left; white-space: normal; }
 .territory-column-filter .territory-save { background: #246194; border-color: #246194; color: white; }
+
+/* Read-only values and dropdowns use the same cells as the commercial division. */
+.manual-card.territory-sheet table select { width: 100%; max-width: 100%; --field-font-size: 13px; }
+.manual-card.territory-sheet .territory-cell-value { display: block; box-sizing: border-box; min-height: 32px; padding: 5px 9px; font: 400 13px/1.4 var(--field-font); color: var(--field-text); white-space: nowrap; }
+
+.territory-sheet td.territory-fill-cell { position: relative; }
+.territory-sheet td .territory-fill-handle { position: absolute; right: 0; bottom: 0; z-index: 2; width: 9px; min-width: 9px; height: 9px; min-height: 9px; padding: 0; border: 1px solid white; border-radius: 0; background: #246194; cursor: crosshair; opacity: 0; touch-action: none; }
+.territory-sheet td:hover .territory-fill-handle,.territory-sheet td:focus-within .territory-fill-handle { opacity: 1; }
+.territory-sheet td.territory-fill-preview { box-shadow: inset 0 0 0 2px #246194; }
+.territory-sheet td.territory-fill-preview > :not(.territory-fill-handle) { opacity: .65; }
+@media (hover: none) { .territory-sheet td .territory-fill-handle { opacity: 1; width: 12px; height: 12px; } }

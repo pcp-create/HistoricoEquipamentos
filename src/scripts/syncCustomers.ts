@@ -21,6 +21,7 @@ async function main() {
     if (!stopped) {
       const result = await syncCustomerCommercial(new M8Client(config, 1), db, {
         maxPeople,
+        drainInitial: args.length === 0,
         shouldStop: () => stopped,
       });
       log("CLIENTES", "Coleta de clientes concluída", result);
