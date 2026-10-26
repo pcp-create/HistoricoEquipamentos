@@ -46,3 +46,28 @@ Caso o pacote anterior ainda não tenha sido instalado, confira também os pré-
 - Detalhes da extração e diferenças intencionais: `pbix-comercial.md`.
 
 Em caso de falha de leitura ou paginação, o último snapshot daquela tabela/empresa é preservado e o processo retorna erro. Os demais snapshots podem concluir normalmente. Não houve instalação remota nem ativação de timers durante a preparação deste pacote.
+
+## 0.2.2 — botão Sincronizar com ERP
+
+A aplicação grava uma solicitação autenticada no banco; o integrador consulta a fila a cada 30 segundos. O processamento independe do navegador. Primeiro coleta contratos, faturamentos e devoluções (empresas 1, 2 e 27404); depois executa o ciclo das OS. Mantém locks e checkpoints existentes. Falhas são informadas na tela, sem afirmar sucesso parcial.
+
+Após instalar o pacote 0.2.2 em /opt/m8-integrador, preservando .env e certificados:
+
+```bash
+cd /opt/m8-integrador
+sudo -u m8-integrador npm ci
+sudo -u m8-integrador npm run db:migrate
+sudo cp deploy/systemd/m8-projecao-manual.service deploy/systemd/m8-projecao-manual.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now m8-projecao-manual.timer
+sudo systemctl start m8-projecao-manual.service
+systemctl list-timers --all m8-projecao-manual.timer --no-pager
+```
+
+Requer migrations 020 e 021. O botão fica indisponível sem heartbeat do integrador nos últimos dois minutos. Há apenas uma solicitação ativa global, limite de uma nova solicitação por minuto e cinco minutos de espera após sucesso. Os timers anteriores continuam funcionando. Se uma coleta automática possuir o lock, a solicitação pode falhar: aguarde o ciclo antes de solicitar novamente. Ao reiniciar, o worker marca solicitações interrompidas como falha, sem repeti-las silenciosamente.
+
+```bash
+sudo journalctl -u m8-projecao-manual.service -n 100 --no-pager
+```
+
+O novo serviço roda como m8-integrador, sem privilégios de root. A aplicação não executa comandos remotos nem recebe credenciais do ERP.

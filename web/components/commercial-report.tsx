@@ -2,8 +2,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Download, Pencil, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, Pencil, RefreshCw, SlidersHorizontal, ChevronRight } from "lucide-react";
+import ProjectionSyncButton from "./projection-sync-button";
 import SiteHeader from "./site-header";
+import CommercialPeriodFilter from "./commercial-period-filter";
+import HistoryProgrammingAction from "./history-programming-action";
+import OrderQuickEdit from "./order-quick-edit";
 import OrderBillingDialog from "./order-billing-dialog";
 import { billingLabels } from "@/lib/sales-projection/billing";
 import ColumnFilter from "./territory-column-filter";
@@ -23,6 +27,13 @@ const fold = (s: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 type Col = { key: string; label: string; type?: "date" | "money" };
+const flowStages = [
+  "Almoxarifado",
+  "Compras",
+  "Planejamento",
+  "Comercial",
+  "Faturamento",
+];
 const shared: Col[] = [
   { key: "company", label: "Empresa" },
   { key: "id", label: "Código" },
@@ -39,12 +50,14 @@ const contractCols: Col[] = [
   { key: "pending", label: "Saldo a faturar", type: "money" },
 ];
 const salesCols: Col[] = [
-  ...shared,
-  { key: "status", label: "Situação" },
+  ...shared.map((c) => c.key === "name" ? { ...c, label: "Cliente / Equipamento" } : c),
+  { key: "status", label: "Status OS / Programação" },
   { key: "orderType", label: "Tipo de OS" },
   { key: "flowStatus", label: "Status do fluxo" },
   { key: "expected", label: "Entrega prevista", type: "date" },
   { key: "amount", label: "Valor total", type: "money" },
+  { key: "inWorkshop", label: "Equipamento em oficina?" },
+  { key: "seller", label: "Vendedor" },
   { key: "billingState", label: "Conferência do faturamento" },
   { key: "billingAmount", label: "Notas válidas (acumulado)", type: "money" },
   { key: "billingBalance", label: "Saldo a conferir", type: "money" },
@@ -52,12 +65,49 @@ const salesCols: Col[] = [
   { key: "modality", label: "Modalidade" },
   { key: "flowOwner", label: "Responsável do fluxo" },
   { key: "notes", label: "Observação" },
-  { key: "equipment", label: "Equipamento" },
   { key: "opened", label: "Abertura", type: "date" },
   { key: "billedDate", label: "Faturamento", type: "date" },
-  { key: "seller", label: "Vendedor" },
 ];
+function contractGroup(row: Detail) {
+  const type = fold(String(row.fields?.contractType || ""));
+  if (/manutencao/.test(type) || /^(1|6)(\s*-|$)/.test(type)) return "maintenance";
+  return /locacao/.test(type) ? "rental" : "other";
+}
+function ContractSignal({ row, column, value }: { row: Detail; column: string; value: string }) {
+  let tone = "";
+  let label = "";
+  if (column === "pending" && Math.round(Number(row.fields?.pending) * 100) > 0) {
+    tone = "red";
+    label = "Saldo pendente de faturamento";
+  } else if (column === "billed") {
+    const billed = Number(row.fields?.billed);
+    if (Number.isFinite(billed)) {
+      const covered = Math.round(billed * 100) >= Math.round(row.amount * 100);
+      tone = covered ? "green" : "yellow";
+      label = covered ? "Valor da parcela faturado" : "Faturamento menor que o valor da parcela";
+    }
+  } else if (column === "installment") {
+    const match = String(row.fields?.installment || "").match(/^(\d+)\/(\d+)$/);
+    if (match) {
+      const current = Number(match[1]), total = Number(match[2]);
+      if (current > 0 && total >= current) {
+        tone = current === total ? "red" : current === total - 1 ? "yellow" : "green";
+        label = current === total ? "Última parcela" : current === total - 1 ? "Penúltima parcela" : "Contrato com mais de uma parcela restante";
+      }
+    }
+  }
+  return tone ? (
+    <span className={`cr-contract-signal ${tone}`} title={label} aria-label={`${value} — ${label}`}>
+      {value}
+    </span>
+  ) : <>{value}</>;
+}
+
 export function reportValue(row: Detail, key: string): string | number {
+  if (key === "seller") return String(row.fields?.seller || "").replace(/^\s*\d+\s*[-–—·:]\s*/, "").replace(/\s*[-–—·:]\s*\d+\s*$/, "").trim();
+  if (key === "name" && row.kind.startsWith("sales"))
+    return [row.name, row.fields?.equipment].filter(Boolean).join(" · ");
+
   if (key === "billingState")
     return row.billing ? billingLabels[row.billing.state] : "Sem análise";
   if (key === "billingAmount") return row.billing?.billed ?? "";
@@ -89,6 +139,10 @@ export default function CommercialReport({
       ? params.get("billing")!
       : "all",
   );
+  const [contractFilter, setContractFilter] = useState("total");
+  const [quickUpdates, setQuickUpdates] = useState<Record<string, { busy?: boolean; value?: string; error?: string }>>({});
+  const quickKey = (row: Detail, field: string) => `${row.fields?.sourceCompany || row.company}:${row.id}:${field}`;
+  const [quickEdit, setQuickEdit] = useState<{ row: Detail; field: "expected" | "flowStatus" } | null>(null);
   const [billingRow, setBillingRow] = useState<Detail | null>(null);
   const current = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "America/Sao_Paulo",
@@ -149,13 +203,15 @@ export default function CommercialReport({
       ) || [],
     [data, kind],
   );
-  const visible = useMemo(
+  const billingCardsMode = kind === "sales" && status === "Processado";
+  const ownerScope = useMemo(
     () =>
       base
         .filter(
           (r) =>
             (company === "all" || String(r.company) === company) &&
             (kind === "contracts" ||
+              billingCardsMode ||
               billingFilter === "all" ||
               r.billing?.state === billingFilter) &&
             (kind === "contracts" ||
@@ -171,6 +227,7 @@ export default function CommercialReport({
               ) &&
             cols.every(
               (c) =>
+                c.key === (billingCardsMode ? "billingState" : "flowOwner") ||
                 !filters[c.key] ||
                 filters[c.key]!.includes(String(reportValue(r, c.key))),
             ),
@@ -185,13 +242,69 @@ export default function CommercialReport({
               : String(x).localeCompare(String(y), "pt-BR", { numeric: true }))
           );
         }),
-    [base, company, status, query, filters, sort, kind, billingFilter],
+    [base, company, status, query, filters, sort, kind, billingFilter, billingCardsMode],
   );
+  const visible = useMemo(
+    () =>
+      ownerScope.filter(
+        (r) =>
+          kind === "contracts"
+            ? contractFilter === "total" ||
+              (contractFilter === "pending" || contractFilter === "billed"
+                ? Math.round(Number(r.fields?.[contractFilter] || 0) * 100) > 0
+                : contractGroup(r) === contractFilter)
+            : billingCardsMode
+            ? (billingFilter === "all" || (r.billing?.state || "unanalyzed") === billingFilter) &&
+              (!filters.billingState || filters.billingState.includes(String(reportValue(r, "billingState"))))
+            : !filters.flowOwner ||
+              filters.flowOwner.includes(String(reportValue(r, "flowOwner"))),
+      ),
+    [ownerScope, filters.flowOwner, filters.billingState, billingCardsMode, billingFilter, kind, contractFilter],
+  );
+  const ownerCards = useMemo(() => {
+    const groups = new Map<
+      string,
+      { owner: string; cents: number; count: number }
+    >();
+    for (const row of ownerScope) {
+      const owner = billingCardsMode ? row.billing?.state || "unanalyzed" : String(reportValue(row, "flowOwner"));
+      const group = groups.get(owner) || { owner, cents: 0, count: 0 };
+      group.cents += Math.round(row.amount * 100);
+      group.count++;
+      groups.set(owner, group);
+    }
+    const stages = billingCardsMode
+      ? ["matched", "partial", "review", "unmatched", ...(groups.has("unanalyzed") ? ["unanalyzed"] : [])]
+      : flowStages;
+    return [
+      ...stages.map(
+        (owner) => groups.get(owner) || { owner, cents: 0, count: 0 },
+      ),
+      ...[...groups.values()]
+        .filter((group) => !stages.includes(group.owner))
+        .sort((a, b) => a.owner.localeCompare(b.owner, "pt-BR")),
+    ];
+  }, [ownerScope, billingCardsMode]);
+  const contractSummary = useMemo(() => {
+    const summary = { total: 0, pending: 0, billed: 0, maintenance: 0, rental: 0, other: 0 };
+    if (kind !== "contracts") return summary;
+    for (const row of ownerScope) {
+      const cents = Math.round(row.amount * 100);
+      summary.total += cents;
+      summary.pending += Math.round(Number(row.fields?.pending || 0) * 100);
+      summary.billed += Math.round(Number(row.fields?.billed || 0) * 100);
+      summary[contractGroup(row)] += cents;
+    }
+    return summary;
+  }, [kind, ownerScope]);
   const title = kind === "contracts" ? "Contratos" : "Vendas";
   const back = `/comercial/projecao?period=${period}&company=${company}`;
   const returnTo = `/comercial/vendas?period=${period}&company=${company}&status=${status}&billing=${billingFilter}`;
+  const isOverdue = (r: Detail) => quickUpdates[quickKey(r, "expected")]?.value
+    ? String(quickUpdates[quickKey(r, "expected")].value).slice(0, 7) < (data?.today || "").slice(0, 7)
+    : r.overdue;
   const display = (r: Detail, c: Col) => {
-    const v = reportValue(r, c.key);
+    const v = quickUpdates[quickKey(r, c.key)]?.value ?? reportValue(r, c.key);
     if (v === "") return "—";
     return c.type === "money"
       ? money(v)
@@ -232,6 +345,16 @@ export default function CommercialReport({
           kind === "contracts" ? "commercialContracts" : "commercialSales"
         }
       />
+      {quickEdit && <OrderQuickEdit row={quickEdit.row} field={quickEdit.field}
+        onClose={() => setQuickEdit(null)}
+        onStart={() => {
+          const key = quickKey(quickEdit.row, quickEdit.field);
+          setQuickUpdates((all) => ({ ...all, [key]: { ...all[key], busy: true, error: undefined } }));
+        }}
+        onResult={(result) => {
+          const key = quickKey(quickEdit.row, quickEdit.field);
+          setQuickUpdates((all) => ({ ...all, [key]: { value: result.value ?? all[key]?.value, error: result.error, busy: false } }));
+        }} />}
       <main className="sales-projection commercial-report">
         <Link className="cr-back" href={back}>
           <ArrowLeft size={16} /> Voltar à projeção
@@ -246,7 +369,7 @@ export default function CommercialReport({
                 : "Pendentes e faturadas em uma única visão. Ajuste a OS para atualizar a projeção."}
             </p>
           </div>
-          <div className="sp-actions">
+          <div className="sp-actions"><ProjectionSyncButton onComplete={() => setRefresh((n) => n + 1)} />
             <button className="button" onClick={csv} disabled={busy || !data}>
               <Download size={16} /> Exportar
             </button>
@@ -259,37 +382,25 @@ export default function CommercialReport({
             </button>
           </div>
         </div>
-        <section className="cr-filters">
-          <label>
-            Competência
-            <input
-              type="month"
-              value={period}
-              onChange={(e) => {
-                if (e.target.value) setPeriod(e.target.value);
-              }}
-            />
-          </label>
-          <label>
-            Empresa
-            <select
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-            >
-              <option value="all">Todas</option>
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
+        <CommercialPeriodFilter
+          period={period}
+          company={company}
+          onPeriodChange={setPeriod}
+          onCompanyChange={setCompany}
+          companies={companies.map((c) => ({ company: c.id, name: c.name }))}
+        />
+        <details className="cr-filter-panel">
+          <summary><SlidersHorizontal size={16} aria-hidden="true" /><span>Filtros de pesquisa</span><ChevronRight className="cr-filter-chevron" size={16} aria-hidden="true" /></summary>
+          <section className="cr-filters">
           {kind === "sales" && (
             <label>
               Situação
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
+                onChange={(e) => {
+                  setStatus(e.target.value);
+                  setFilters((f) => ({ ...f, flowOwner: undefined }));
+                }}
               >
                 <option value="all">Pendentes e faturadas</option>
                 <option value="Pendente">Pendentes</option>
@@ -305,6 +416,7 @@ export default function CommercialReport({
                 onChange={(e) => setBillingFilter(e.target.value)}
               >
                 <option value="all">Todas</option>
+                {billingFilter === "unanalyzed" && <option value="unanalyzed">Sem análise</option>}
                 {Object.entries(billingLabels).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
@@ -321,10 +433,26 @@ export default function CommercialReport({
               placeholder="Cliente, OS, equipamento, observação…"
             />
           </label>
+          {cols.filter((c) => !["company", "status", "billingState"].includes(c.key)).map((c) => (
+            <label key={c.key}>
+              {c.label}
+              <select
+                value={filters[c.key]?.length === 1 ? filters[c.key]![0] : filters[c.key] ? "__multiple__" : "__all__"}
+                onChange={(e) => setFilters((f) => ({ ...f, [c.key]: e.target.value === "__all__" ? undefined : [e.target.value] }))}
+              >
+                <option value="__all__">Todos</option>
+                {filters[c.key] && filters[c.key]!.length !== 1 && <option value="__multiple__">Seleção do filtro da coluna</option>}
+                {[...new Map(base.map((r) => [String(reportValue(r, c.key)), display(r, c)])).entries()]
+                  .sort((a, b) => a[1].localeCompare(b[1], "pt-BR", { numeric: true }))
+                  .map(([value, label]) => <option key={value} value={value}>{label || "Não informado"}</option>)}
+              </select>
+            </label>
+          ))}
           <button
             className="button"
             onClick={() => {
               setFilters({});
+              setContractFilter("total");
               setQuery("");
               setCompany("all");
               setStatus("all");
@@ -333,7 +461,8 @@ export default function CommercialReport({
           >
             Limpar filtros
           </button>
-        </section>
+          </section>
+        </details>
         {error && (
           <p role="alert" className="sp-notice">
             {error}
@@ -342,6 +471,111 @@ export default function CommercialReport({
         {busy && <p role="status">Carregando {title.toLowerCase()}…</p>}
         {data && !busy && (
           <>
+            {kind === "contracts" && (
+              <section className="cr-owner-section" aria-label="Resumo dos contratos">
+                <div className="cr-owner-heading">
+                  <h2>Contratos · valores da competência</h2>
+                  <p>Os valores acompanham os filtros. Manutenção reúne os tipos 1 e 6, incluindo retenção de CSRF.</p>
+                </div>
+                <div className="cr-contract-cards">
+                  {[
+                    { label: "Total de contratos", value: contractSummary.total, tone: "total" },
+                    { label: "Valores pendentes", value: contractSummary.pending, tone: "pending" },
+                    { label: "Valores faturados", value: contractSummary.billed, tone: "billed" },
+                    { label: "Contratos de Manutenção", value: contractSummary.maintenance, tone: "maintenance" },
+                    { label: "Contratos de Locação", value: contractSummary.rental, tone: "rental" },
+                    ...(contractSummary.other ? [{ label: "Outros contratos", value: contractSummary.other, tone: "other" }] : []),
+                  ].map((card) => (
+                    <button type="button" key={card.tone} className="cr-owner-card cr-contract-card" data-tone={card.tone}
+                      aria-pressed={contractFilter === card.tone}
+                      onClick={() => setContractFilter((current) => current === card.tone ? "total" : card.tone)}
+                    >
+                      <span>{card.label}</span>
+                      <strong>R$ {money(card.value / 100)}</strong>
+                      <small>{card.tone === "total" ? `${ownerScope.length} contratos · parcelas do período` : contractFilter === card.tone ? "Filtro ativo" : "Filtrar lista"}</small>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+            {kind === "sales" && (
+              <section
+                className="cr-owner-section"
+                aria-label={billingCardsMode ? "Valores por conferência do faturamento" : "Valores por responsável do fluxo"}
+              >
+                <div className="cr-owner-heading">
+                  <h2>{billingCardsMode ? "Conferência do faturamento" : "Responsável do fluxo"} · valor das OS</h2>
+                  <p>
+                    Clique para filtrar a lista. Os valores acompanham os demais
+                    filtros.
+                  </p>
+                </div>
+                <div className="cr-owner-cards">
+                  <button
+                    type="button"
+                    className="cr-owner-card cr-owner-total"
+                    aria-pressed={billingCardsMode ? billingFilter === "all" && !filters.billingState : !filters.flowOwner}
+                    onClick={() => {
+                      if (billingCardsMode) {
+                        setBillingFilter("all");
+                        setFilters((f) => ({ ...f, billingState: undefined }));
+                      } else setFilters((f) => ({ ...f, flowOwner: undefined }));
+                    }}
+                  >
+                    <span>{billingCardsMode ? "Todas as conferências" : "Todos os responsáveis"}</span>
+                    <strong>
+                      R${" "}
+                      {money(
+                        ownerCards.reduce((sum, c) => sum + c.cents, 0) / 100,
+                      )}
+                    </strong>
+                    <small>{ownerScope.length} OS</small>
+                  </button>
+                  {ownerCards.map((card) => (
+                    <button
+                      type="button"
+                      key={card.owner}
+                      className="cr-owner-card"
+                      data-billing-state={billingCardsMode ? card.owner : undefined}
+                      aria-pressed={
+                        billingCardsMode ? billingFilter === card.owner : filters.flowOwner?.includes(card.owner) || false
+                      }
+                      onClick={() => {
+                        if (billingCardsMode) {
+                          setBillingFilter((value) => value === card.owner ? "all" : card.owner);
+                          setFilters((f) => ({ ...f, billingState: undefined }));
+                          return;
+                        }
+                        setFilters((f) => ({
+                          ...f,
+                          flowOwner:
+                            f.flowOwner?.length === 1 &&
+                            f.flowOwner[0] === card.owner
+                              ? undefined
+                              : [card.owner],
+                        }));
+                      }}
+                    >
+                      {!billingCardsMode && flowStages.indexOf(card.owner) > 0 && (
+                        <span className="cr-stage-arrow" aria-hidden="true">
+                          ›
+                        </span>
+                      )}
+                      <span className="cr-owner-stage">
+                        {billingCardsMode ? billingLabels[card.owner as keyof typeof billingLabels] || "Sem análise" : card.owner || "Sem responsável"}
+                      </span>
+                      <strong>R$ {money(card.cents / 100)}</strong>
+                      <small>
+                        {card.count} OS ·{" "}
+                        {(billingCardsMode ? billingFilter === card.owner : filters.flowOwner?.includes(card.owner))
+                          ? "Filtro ativo"
+                          : "Filtrar lista"}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
             {!data.complete && (
               <p className="sp-notice">
                 Integração comercial ainda incompleta.
@@ -354,7 +588,7 @@ export default function CommercialReport({
                 projeção.
               </p>
             )}
-            {kind === "sales" && (
+            {kind === "sales" && visible.some((r) => r.billing?.state === "partial") && (
               <div className="cr-billing-notice">
                 <strong>
                   {visible.filter((r) => r.billing?.state === "partial").length}{" "}
@@ -413,7 +647,7 @@ export default function CommercialReport({
               )}
             </div>
             <div className="cr-table-scroll">
-              <table className="cr-table">
+              <table className="cr-table" data-report={kind}>
                 <thead>
                   <tr>
                     {cols.map((c) => (
@@ -450,7 +684,9 @@ export default function CommercialReport({
                           data-column={c.key}
                           className={c.type === "money" ? "cr-number" : ""}
                         >
-                          {c.key === "billingState" ? (
+                          {kind === "contracts" && ["pending", "billed", "installment"].includes(c.key) ? (
+                            <ContractSignal row={r} column={c.key} value={String(display(r, c))} />
+                          ) : c.key === "billingState" ? (
                             <button
                               className={`cr-billing-state ${r.billing?.state || ""}`}
                               onClick={() => setBillingRow(r)}
@@ -470,6 +706,8 @@ export default function CommercialReport({
                               <summary>Ver observação</summary>
                               <p>{String(reportValue(r, c.key))}</p>
                             </details>
+                          ) : c.key === "name" && kind === "sales" ? (
+                            <div>{r.name}<small className="cr-client-equipment">{r.fields?.equipment || "Equipamento não informado"}</small></div>
                           ) : c.key === "id" ? (
                             <span className="cr-code">
                               {kind === "sales" ? "OS-" : ""}
@@ -478,15 +716,38 @@ export default function CommercialReport({
                           ) : c.key === "company" ? (
                             <span className="cr-company">{display(r, c)}</span>
                           ) : c.key === "status" ? (
+                            <div className="cr-order-programming">
                             <span
                               className={`cr-status ${r.kind === "salesPending" ? "pending" : "processed"}`}
                             >
                               {display(r, c)}
                             </span>
+                            <HistoryProgrammingAction
+                              company={r.fields?.sourceCompany || r.company}
+                              orderId={r.id}
+                              orderStatus={String(r.fields?.status || "")}
+                              scheduleId={r.programming?.id}
+                              status={r.programming?.status}
+                              label={r.programming?.label}
+                            />
+                            </div>
+                          ) : c.key === "expected" ? (
+                            <span className={isOverdue(r) ? "sp-red" : undefined}>{display(r, c)}</span>
                           ) : (
                             display(r, c)
                           )}
-                          {c.key === "expected" && r.overdue && (
+                          {kind === "sales" && r.kind === "salesPending" && (c.key === "expected" || c.key === "flowStatus") && (
+                            <button type="button" className="cr-quick-pencil"
+                              disabled={["expected", "flowStatus"].some((field) => quickUpdates[quickKey(r, field)]?.busy)}
+                              aria-label={`Editar ${c.label} da OS ${r.id}`}
+                              title={`Editar ${c.label}`}
+                              onClick={() => setQuickEdit({ row: r, field: c.key as "expected" | "flowStatus" })}>
+                              <Pencil size={13} />
+                            </button>
+                          )}
+                          {quickUpdates[quickKey(r, c.key)]?.busy && <small role="status">Salvando no ERP…</small>}
+                          {quickUpdates[quickKey(r, c.key)]?.error && <small role="alert" className="cr-quick-error">{quickUpdates[quickKey(r, c.key)].error}</small>}
+                          {c.key === "expected" && isOverdue(r) && (
                             <small className="sp-red">
                               Vencida · projetada para o mês atual
                             </small>
@@ -499,9 +760,10 @@ export default function CommercialReport({
                             <Link
                               className="button"
                               aria-label={`Editar OS ${r.id}`}
+                              title={`Editar OS ${r.id}`}
                               href={`/OrdemServico/editar?empresa=${r.fields?.sourceCompany || r.company}&id=${r.id}&returnTo=${encodeURIComponent(returnTo)}`}
                             >
-                              <Pencil size={14} /> Editar
+                              <Pencil size={14} aria-hidden="true" />
                             </Link>
                           ) : (
                             <span className="cr-readonly">Somente leitura</span>

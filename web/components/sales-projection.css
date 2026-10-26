@@ -79,11 +79,11 @@
   color: white;
   background: var(--sp-navy);
 }
-.sp-period select {
+.sales-projection .sp-period select {
   width: 190px;
   height: 40px !important;
   min-height: 40px !important;
-  font-size: 12px !important;
+  font-size: 11px !important;
 }
 .sp-kpis {
   display: grid;
@@ -570,62 +570,6 @@
     grid-column: 1 / -1;
   }
 }
-.sp-billing-review {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  border: 1px solid #e3c68e;
-  border-left: 4px solid #c18b2f;
-  background: #fffbf2;
-  padding: 20px 24px;
-  border-radius: 12px;
-  margin-bottom: 24px;
-}
-.sp-billing-review span {
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  color: #856126;
-  font-weight: 700;
-}
-.sp-billing-review h2 {
-  font-size: 19px;
-  margin: 7px 0;
-}
-.sp-billing-review p {
-  font-size: 12px;
-  max-width: 650px;
-  line-height: 1.6;
-  margin: 0;
-  color: #7c735e;
-}
-.sp-billing-review strong {
-  display: block;
-  font-size: 26px;
-  color: #805611;
-}
-.sp-billing-review small {
-  display: block;
-  font-size: 10px;
-  margin: 4px 0 10px;
-  color: #7c735e;
-}
-.sp-billing-review .button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  text-decoration: none;
-}
-@media (max-width: 700px) {
-  .sp-billing-review {
-    display: block;
-    padding: 18px;
-  }
-  .sp-billing-review > div + div {
-    margin-top: 15px;
-  }
-}
 .sp-other-review {
   display: inline-flex;
   align-items: center;
@@ -634,3 +578,30 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+
+
+@media (max-width: 600px) {
+  body .sales-projection .sp-period select {
+    font-size: 12px !important;
+    width: 164px;
+    padding-left: 10px;
+    padding-right: 24px;
+  }
+  .sales-projection .sp-year strong { font-size: 12px; }
+}
+
+.sales-projection .sp-period select { --field-font-size: 12px; }
+
+.sales-projection .sp-table tbody th:first-child,
+.sales-projection .sp-table tfoot th:first-child {
+  font-size: 13px;
+}
+
+.sales-projection .sp-actions { flex-wrap: wrap; }
+.sales-projection .sp-actions .button { text-align: center; justify-content: center; }
+
+.projection-sync-control { display:flex; flex-direction:column; align-items:flex-start; gap:5px; max-width:290px; }
+.projection-sync-control small { font-size:10px; color:#71839a; line-height:1.4; }
+.projection-sync-control small[role="alert"] { color:#a72b3d; }
+@media print { .projection-sync-control { display:none!important; } }

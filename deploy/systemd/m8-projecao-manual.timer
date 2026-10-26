@@ -1,0 +1,9 @@
+[Unit]
+Description=Verificar solicitações da projeção a cada 30 segundos
+[Timer]
+OnBootSec=15s
+OnUnitInactiveSec=30s
+AccuracySec=1s
+Unit=m8-projecao-manual.service
+[Install]
+WantedBy=timers.target

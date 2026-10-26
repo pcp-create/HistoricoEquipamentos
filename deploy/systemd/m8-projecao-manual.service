@@ -1,0 +1,21 @@
+[Unit]
+Description=Processar solicitações de sincronização da projeção
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=m8-integrador
+Group=m8-integrador
+WorkingDirectory=/opt/m8-integrador
+ExecStart=/usr/bin/node /opt/m8-integrador/dist/scripts/syncProjectionRequests.js
+TimeoutStartSec=infinity
+TimeoutStopSec=300
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StandardOutput=journal
+StandardError=journal

@@ -12,7 +12,7 @@
 @layer form-controls {
   :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="submit"]):not([type="reset"]):not([type="button"]):not([type="image"]), select, textarea) {
     font-family: var(--field-font) !important;
-    font-size: 13px !important;
+    font-size: var(--field-font-size, 13px) !important;
     font-weight: 400 !important;
     font-style: normal !important;
     line-height: 1.4 !important;
@@ -48,7 +48,7 @@
       border-color: #c43848 !important;
       &:focus { outline-color: #c43848 !important; }
     }
-    @media (max-width: 640px) { font-size: 16px !important; }
+    @media (max-width: 640px) { font-size: var(--field-font-size, 16px) !important; }
   }
   /* Dropdown content must not inherit label or button typography. */
   .order-search-select .order-search-options button {

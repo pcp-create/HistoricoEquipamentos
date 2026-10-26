@@ -73,6 +73,7 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
         equipment: "Compressor",
         notes: "Observação longa",
         seller: "Ana",
+        flowOwner: "Comercial",
       },
     },
     {
@@ -110,6 +111,7 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
         flowStatus: "Faturada",
         billedDate: "2026-10-20",
         seller: "Bruno",
+        flowOwner: "Planejamento",
       },
     },
   ];
@@ -127,13 +129,99 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
     }),
   );
   await page.goto("/report-test?period=2026-10");
+  await page.locator(".cr-filter-panel > summary").click();
   await expect(page.locator(".cr-table tbody tr")).toHaveCount(2);
+  const originalDraft = { expected: "2026-10-20", flowStatus: "18", notes: "Preservar", items: [] };
+  const submittedDrafts: any[] = [];
+  await page.route("**/api/service-orders**", (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({ json: route.request().url().includes("lookup")
+        ? { registries: [{ kind: "flow-statuses", id: "18", name: "Liberado" }, { kind: "flow-statuses", id: "22", name: "Faltando peças" }] }
+        : { version: "current-version", draft: originalDraft, labels: { flowStatus: "Liberado" } } });
+    }
+    const body = route.request().postDataJSON();
+    if (body.action === "edit-prepare") {
+      submittedDrafts.push(body);
+      return route.fulfill({ json: { state: "ready" } });
+    }
+    return route.fulfill({ json: { state: "complete", localSynced: true } });
+  });
+  for (const [field, label, value] of [
+    ["expected", "Entrega prevista", "2026-11-05"],
+    ["flowStatus", "Status do fluxo", "22"],
+  ]) {
+    await page.getByRole("button", { name: `Editar ${label} da OS 101`, exact: true }).click();
+    const editor = page.locator(".cr-quick-dialog");
+    await expect(editor).toBeVisible();
+    if (field === "expected") await editor.getByLabel(label, { exact: true }).fill(value);
+    else await editor.getByLabel(label, { exact: true }).selectOption(value);
+    await editor.getByRole("button", { name: "Salvar no ERP" }).click();
+    await expect(editor).toHaveCount(0);
+    expect(submittedDrafts.at(-1).draft).toEqual({ ...originalDraft, [field]: value });
+    expect(submittedDrafts.at(-1).version).toBe("current-version");
+  }
+  await expect(page.locator(".cr-table tbody tr").filter({ has: page.getByRole("link", { name: "Editar OS 101", exact: true }) }).locator('[data-column="expected"]')).toContainText("05/11/2026");
+  let releaseFailure!: () => void;
+  const pendingFailure = new Promise<void>((resolve) => { releaseFailure = resolve; });
+  await page.route("**/api/service-orders", async (route) => {
+    await pendingFailure;
+    await route.fulfill({ status: 503, json: { error: "ERP indisponível" } });
+  });
+  await page.getByRole("button", { name: "Editar Entrega prevista da OS 101", exact: true }).click();
+  await page.locator(".cr-quick-dialog").getByLabel("Entrega prevista", { exact: true }).fill("2026-12-01");
+  await page.locator(".cr-quick-dialog").getByRole("button", { name: "Salvar no ERP" }).click();
+  await expect(page.locator(".cr-quick-dialog")).toHaveCount(0);
+  await expect(page.getByText("Salvando no ERP…", { exact: true })).toBeVisible();
+  await expect(page.locator(".cr-table tbody tr")).toHaveCount(2);
+  releaseFailure();
+  await expect(page.locator(".cr-quick-error")).toContainText("ERP indisponível");
+  await expect(page.locator(".cr-table tbody tr").filter({ has: page.getByRole("link", { name: "Editar OS 101", exact: true }) }).locator('[data-column="expected"]')).toContainText("05/11/2026");
+  const ownerCards = page.getByRole("region", {
+    name: "Valores por responsável do fluxo",
+  });
+  for (const [index, name] of [
+    "Almoxarifado",
+    "Compras",
+    "Planejamento",
+    "Comercial",
+    "Faturamento",
+  ].entries()) {
+    await expect(ownerCards.getByRole("button").nth(index + 1)).toContainText(
+      name,
+    );
+  }
+  await expect(
+    ownerCards.getByRole("button", { name: /Comercial/ }),
+  ).toContainText("100,00");
+  await ownerCards.getByRole("button", { name: /Comercial/ }).click();
+  await expect(page.locator(".cr-table tbody tr")).toHaveCount(1);
+  await expect(page.locator(".cr-table tbody")).toContainText(
+    "Cliente pendente",
+  );
+  await expect(
+    ownerCards.getByRole("button", { name: /Planejamento/ }),
+  ).toBeVisible();
+  await ownerCards
+    .getByRole("button", { name: /Todos os responsáveis/ })
+    .click();
+  await expect(page.locator(".cr-table tbody tr")).toHaveCount(2);
+
   await expect(
     page.getByRole("link", { name: "Editar OS 101" }),
   ).toHaveAttribute("href", /returnTo=.*comercial/);
   await expect(page.getByRole("link", { name: "Editar OS 102" })).toHaveCount(
     0,
   );
+  await page.getByRole("combobox", { name: "Situação", exact: true }).selectOption("Processado");
+  const billingCards = page.getByRole("region", { name: "Valores por conferência do faturamento" });
+  await expect(billingCards).toBeVisible();
+  await expect(billingCards.getByRole("button", { name: /Possível parcial/ })).toContainText("1 OS");
+  await billingCards.getByRole("button", { name: /Valor conciliado/ }).click();
+  await expect(page.locator(".cr-table tbody tr")).toHaveCount(0);
+  await billingCards.getByRole("button", { name: /Possível parcial/ }).click();
+  await expect(page.locator(".cr-table tbody tr")).toHaveCount(1);
+  await expect(page.getByRole("combobox", { name: "Conferência do faturamento", exact: true })).toHaveValue("partial");
+  await billingCards.getByRole("button", { name: /Todas as conferências/ }).click();
   await page
     .getByRole("combobox", { name: "Situação", exact: true })
     .selectOption("Pendente");
@@ -148,12 +236,30 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
     name: "Filtro de Vendedor",
     exact: true,
   });
-  const checkbox = dialog.getByRole("checkbox", { name: "Selecionar tudo", exact: true });
-  expect(await checkbox.evaluate(el=>getComputedStyle(el).height)).toBe("16px");
-  expect(await checkbox.evaluate(el=>getComputedStyle(el.parentElement!).flexDirection)).toBe("row");
-  expect(await page.getByRole("button",{name:"Filtrar Vendedor",exact:true}).evaluate(el=>getComputedStyle(el).borderTopWidth)).toBe("0px");
-  await expect(dialog.getByRole("button",{name:"Aplicar",exact:true})).toBeVisible();
-  await page.screenshot({path:'test-results/commercial-column-filter.png',fullPage:true});
+  const checkbox = dialog.getByRole("checkbox", {
+    name: "Selecionar tudo",
+    exact: true,
+  });
+  expect(await checkbox.evaluate((el) => getComputedStyle(el).height)).toBe(
+    "16px",
+  );
+  expect(
+    await checkbox.evaluate(
+      (el) => getComputedStyle(el.parentElement!).flexDirection,
+    ),
+  ).toBe("row");
+  expect(
+    await page
+      .getByRole("button", { name: "Filtrar Vendedor", exact: true })
+      .evaluate((el) => getComputedStyle(el).borderTopWidth),
+  ).toBe("0px");
+  await expect(
+    dialog.getByRole("button", { name: "Aplicar", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "test-results/commercial-column-filter.png",
+    fullPage: true,
+  });
   await dialog
     .getByRole("checkbox", { name: "Selecionar tudo", exact: true })
     .uncheck();
@@ -250,13 +356,17 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
       },
     ] as any),
   );
-  for (let i=0;i<60;i++) details.push({...details[0],id:String(300+i)});
+  for (let i = 0; i < 60; i++)
+    details.push({ ...details[0], id: String(300 + i) });
   await page.goto("/report-test?period=2026-10");
+  await page.locator(".cr-filter-panel > summary").click();
   await expect(
     page.getByRole("heading", { name: "Contratos", exact: true }),
   ).toBeVisible();
   await expect(page.locator(".cr-table tbody tr")).toHaveCount(61);
-  await expect(page.getByRole("button", {name:"Próxima",exact:true})).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Próxima", exact: true }),
+  ).toHaveCount(0);
   await expect(page.locator(".cr-table tbody")).toContainText("10/12");
   await expect(page.locator(".cr-table tbody")).toContainText("Locação");
   await expect(

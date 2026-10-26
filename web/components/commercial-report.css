@@ -118,7 +118,9 @@
 }
 .cr-edit .button {
   min-height: 32px;
-  padding: 5px 9px;
+  width: 32px;
+  padding: 5px;
+  justify-content: center;
   font-size: 11px;
   display: inline-flex;
   gap: 5px;
@@ -353,3 +355,273 @@
 .cr-column .territory-filter-trigger[data-filtered="true"] svg {
   color: #246194;
 }
+.cr-owner-section {
+  margin: 0 0 22px;
+}
+.cr-owner-heading h2 {
+  font-size: 15px;
+  margin: 0 0 5px;
+  color: #244c6b;
+}
+.cr-owner-heading p {
+  font-size: 12px;
+  color: #7c8fa4;
+  margin: 0 0 13px;
+}
+.cr-owner-cards {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(190px, 1fr);
+  gap: 28px;
+  overflow-x: auto;
+  padding: 4px 3px 10px;
+}
+.cr-owner-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 17px 18px;
+  border: 1px solid #dce6ef;
+  border-radius: 12px;
+  background: white;
+  color: #244c6b;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  min-width: 0;
+}
+.cr-owner-card span {
+  font-size: 12px;
+  font-weight: 600;
+}
+.cr-owner-card strong {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+.cr-owner-card small {
+  font-size: 11px;
+  color: #7c8fa4;
+}
+.cr-owner-card:hover {
+  border-color: #83abd0;
+  background: #f5f9fd;
+}
+.cr-owner-card[aria-pressed="true"] {
+  border-color: #246194;
+  background: #edf5fc;
+  box-shadow: inset 0 3px 0 #246194;
+}
+.cr-owner-card[aria-pressed="true"] small {
+  color: #246194;
+}
+.cr-owner-card:focus-visible {
+  outline: 3px solid #a8cbea;
+  outline-offset: 2px;
+}
+@media (max-width: 600px) {
+  .cr-owner-cards {
+    grid-auto-columns: minmax(175px, 1fr);
+    gap: 28px;
+  }
+  .cr-owner-card {
+    padding: 13px 10px;
+    gap: 8px;
+  }
+  .cr-owner-card strong {
+    font-size: 18px;
+  }
+  .cr-owner-card span {
+    font-size: 11px;
+  }
+}
+
+.cr-owner-stage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cr-owner-card .cr-stage-arrow {
+  position: absolute;
+  left: -22px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  text-align: center;
+  color: #8ca9c2;
+  font-size: 24px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* Billing categories retain their color when selected. */
+.cr-owner-card[data-billing-state="matched"] {
+  --billing-color: #237344;
+}
+.cr-owner-card[data-billing-state="partial"] {
+  --billing-color: #99620b;
+}
+.cr-owner-card[data-billing-state="review"] {
+  --billing-color: #b34b18;
+}
+.cr-owner-card[data-billing-state="unmatched"],
+.cr-owner-card[data-billing-state="unanalyzed"] {
+  --billing-color: #ac3547;
+}
+.cr-owner-card[data-billing-state] {
+  border-top: 3px solid var(--billing-color);
+  background: white;
+}
+.cr-owner-card[data-billing-state][aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px #246194;
+}
+
+
+.cr-contract-signal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 9px;
+  min-width: 64px;
+  border-radius: 5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.cr-contract-signal.red { color: #a72b3d; background: #fcecef; }
+.cr-contract-signal.yellow { color: #876000; background: #fff5d9; }
+.cr-contract-signal.green { color: #236940; background: #edf7f0; }
+
+.cr-table[data-report="contracts"] :is(th, td):is(
+  [data-column="installment"],
+  [data-column="amount"],
+  [data-column="start"],
+  [data-column="end"],
+  [data-column="billed"],
+  [data-column="pending"]
+) {
+  text-align: center;
+  vertical-align: middle;
+}
+.cr-table[data-report="contracts"] th:is(
+  [data-column="installment"],
+  [data-column="amount"],
+  [data-column="start"],
+  [data-column="end"],
+  [data-column="billed"],
+  [data-column="pending"]
+) .cr-column {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 20px;
+}
+.cr-table[data-report="contracts"] th:is(
+  [data-column="installment"],
+  [data-column="amount"],
+  [data-column="start"],
+  [data-column="end"],
+  [data-column="billed"],
+  [data-column="pending"]
+) .cr-column > span:first-child {
+  grid-column: 2;
+}
+
+.cr-contract-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+.cr-contract-card {
+  cursor: pointer;
+  border-top: 3px solid #7696b5;
+}
+.cr-contract-card:hover { background: white; border-color: #dce6ef; border-top-color: #7696b5; }
+.cr-contract-card[data-tone="pending"] { border-top-color: #b42336; }
+.cr-contract-card[data-tone="billed"] { border-top-color: #237344; }
+.cr-contract-card[data-tone="maintenance"] { border-top-color: #3978b2; }
+.cr-contract-card[data-tone="rental"] { border-top-color: #7865aa; }
+@media (max-width: 600px) {
+  .cr-contract-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cr-contract-card:first-child { grid-column: 1 / -1; }
+}
+
+.cr-filter-panel {
+  margin-bottom: 20px;
+  border: 1px solid #dce6ef;
+  border-radius: 12px;
+  background: white;
+}
+.cr-filter-panel > summary {
+  cursor: pointer;
+  padding: 14px 18px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.cr-filter-panel > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  list-style: none;
+  box-sizing: border-box;
+}
+.cr-filter-panel > summary::-webkit-details-marker { display: none; }
+.cr-filter-panel > summary > svg { color: #7195b9; flex-shrink: 0; }
+.cr-filter-panel > summary span { flex: 1; font-size: 12px; font-weight: 600; }
+.cr-filter-chevron { transition: transform 150ms ease; }
+.cr-filter-panel[open] .cr-filter-chevron { transform: rotate(90deg); }
+.cr-filter-panel .cr-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  border: 0;
+  border-top: 1px solid #edf0f5;
+  border-radius: 0 0 12px 12px;
+  margin: 0;
+}
+.cr-filter-panel .cr-filters label { min-width: 0; }
+.cr-filter-panel .cr-search { min-width: 0 !important; }
+.cr-filter-panel .cr-filters select { text-overflow: ellipsis; }
+@media (max-width: 600px) {
+  .cr-filter-panel .cr-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; }
+  .cr-filter-panel .cr-search { grid-column: 1 / -1; }
+}
+
+.cr-quick-pencil {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; margin-left: 5px;
+  border: 0; border-radius: 5px; background: transparent;
+  color: #246194; cursor: pointer; opacity: 0;
+}
+.cr-table td:hover .cr-quick-pencil, .cr-quick-pencil:focus-visible { opacity: 1; }
+@media (hover: none) { .cr-quick-pencil { opacity: 1; } }
+.cr-quick-dialog { width: min(460px, calc(100vw - 32px)); padding: 22px; border: 1px solid #dce6ef; border-radius: 12px; color: #244c6b; }
+.cr-quick-dialog::backdrop { background: #15345066; }
+.cr-quick-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.cr-quick-heading h2 { font-size: 17px; margin: 0; }
+.cr-quick-dialog label { display: grid; gap: 8px; font-size: 13px; }
+.cr-quick-dialog input, .cr-quick-dialog select { width: 100%; min-width: 0; }
+.cr-quick-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.cr-quick-dialog [role="alert"] { color: #a72b3d; font-size: 13px; }
+
+.cr-order-programming { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.cr-order-programming .history-programming-action { white-space: nowrap; }
+
+.cr-order-programming .history-programming-action {
+  margin-top: 0;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+.cr-table td[data-column="expected"] { white-space: nowrap; min-width: 115px; }
+.cr-table td[data-column="expected"] > small { white-space: normal; }
+.cr-table td[data-column="expected"] .cr-quick-pencil {
+  vertical-align: middle;
+  margin-left: 3px;
+  width: 22px;
+  height: 22px;
+}
+
+.cr-table td .cr-quick-error { color: #a72b3d; white-space: normal; max-width: 230px; }
+
+.cr-table [data-column="seller"] { min-width: 180px; max-width: 240px; }
+.cr-table td .cr-client-equipment { font-size: 10px; line-height: 1.5; margin-top: 5px; color: #71839a; white-space: normal; }
+.cr-table [data-column="inWorkshop"] { min-width: 110px; text-align: center; }

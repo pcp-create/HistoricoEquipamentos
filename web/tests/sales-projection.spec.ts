@@ -72,6 +72,11 @@ test("periods, companies, document details and mobile layout", async ({
         rows: [row, { ...row, company: 2, name: "RJ Serrana" }],
         details: [
           {
+            company: 1, kind: "salesBilled", id: "14897",
+            name: "CLIENTE PARCIAL", date: "2026-10-01", amount: 2885,
+            billing: { state: "partial", balance: 2400, billed: 485, documents: [] },
+          },
+          {
             company: 1,
             kind: "returns",
             id: "1",
@@ -94,6 +99,9 @@ test("periods, companies, document details and mobile layout", async ({
     page.getByRole("columnheader", { name: /Devoluções/ }).first(),
   ).toBeVisible();
   await expect(page.locator(".sp-target-gap")).toBeVisible();
+  await expect(page.locator(".sp-billing-review")).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Fat. OSs", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Saldo a conferir", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Set", exact: true }).click();
   await expect.poll(() => periods.at(-1)?.endsWith("-09")).toBe(true);
   await page.getByRole("combobox", { name: "Empresa" }).selectOption("1");

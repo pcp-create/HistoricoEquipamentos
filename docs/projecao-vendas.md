@@ -63,3 +63,13 @@ Os totais originais da projeção e de “Faturamento outros” não são reclas
 ### Tipo do documento na conferência
 
 A coluna **Tipo** consulta, ao abrir a janela, os endpoints de produtos e serviços de cada nota (`/v1/faturamento/notafiscalvenda/{id}/produto` e `/servico`). Exibe **Peças**, **Serviços**, **Peças e serviços** ou **Não identificado** (nenhum item ativo retornado). Não infere o tipo pela série, valor ou observação. A consulta autenticada valida empresa e existência da nota na base integrada; não modifica o documento, mesmo quando cancelado. Falhas aparecem como **Não disponível**, com opção de tentar novamente, sem alterar o saldo apresentado. Não requer atualização do integrador.
+
+## Parciais e resumo gerencial
+
+- `/comercial/resumo`: projeção, faturamento líquido, pendências, meta, valor a buscar (meta menos projeção, limitado a zero), percentuais, contratos pendentes e vendas pendentes por responsável do fluxo. Meta é do grupo; não é rateada arbitrariamente por empresa.
+- `/comercial/parciais`: compara a integração atual com a parcial mais recente da mesma competência, permitindo escolher outra referência. Mostra entradas, saídas e alterações de valor, situação, datas, vendedor, responsável e saldo dos contratos.
+- Antes de enviar a parcial de sexta-feira às 12h de Brasília, clicar em **Registrar parcial agora**. A captura é manual, não há cron nem envio de mensagens. O botão sempre captura as três empresas, independentemente do filtro visual.
+- A captura consulta os dados no servidor, não aceita valores financeiros do navegador, guarda autor/horário/meta/documentos e bloqueia integração incompleta. A data da última integração aparece no resumo. O documento é imutável, inclusive por trigger no banco. Repetições da mesma requisição reutilizam o UUID para evitar duplicidade.
+- **Parcial congelada** e **Imprimir / PDF** permitem compartilhar o resumo com os números gravados. A visão atual não altera fotografias anteriores.
+- A comparação preserva identidade de OS ao faturar e identidade de nota ao mudar classificação. Uma saída significa ausência na competência, sem inferir cancelamento. A variação consolidada vem dos totais financeiros; não se somam linhas de documentos, porque OS, contratos e notas se compensam no modelo.
+- Migração `020_sales_projection_snapshots.sql`, incluída em `npm run db:migrate`. Não registra automaticamente uma primeira parcial durante a implantação.

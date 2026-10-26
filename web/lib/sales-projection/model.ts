@@ -19,7 +19,9 @@ export type Detail = {
   date: string;
   amount: number;
   overdue?: boolean;
+  sourceKind?: string;
   billing?: BillingCheck;
+  programming?: { id?: string; status: string; label: string };
   fields?: Record<string, string | number>;
 };
 export type Summary = {
@@ -149,6 +151,7 @@ export function projection(
       details.push({
         company: r.company,
         kind: "returns",
+        sourceKind: f.kind,
         id: f.id,
         name: p.pessoaNome || p.fornecedorRazaoSocial || "Devolução",
         date: String(p.emissao).slice(0, 10),

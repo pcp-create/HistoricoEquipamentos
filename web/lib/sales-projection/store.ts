@@ -1,7 +1,7 @@
 import "server-only";
+import { historyScheduleStatuses } from "../service-scheduling/history-status";
 import { database } from "../db";
 import { projection, type SourceRow } from "./model";
-import { cityKey } from "../tasks/territories";
 import { reconcileBilling } from "./billing";
 import targets from "./targets.json";
 export async function salesProjection(period: string) {
@@ -34,29 +34,39 @@ export async function salesProjection(period: string) {
     if (detail.kind.startsWith("sales")) {
       detail.billing = billing.get(`${detail.company}:${detail.id}`);
     }
-  const [customerRows, territories] = await Promise.all([
-    db.query(
-      `SELECT DISTINCT ON(d.person_id) d.person_id::text AS id,d.payload->>'municipioNome' AS city,d.payload->>'ufSigla' AS uf,r.seller_user,u.display_name FROM m8_customer_directory d LEFT JOIN web_customer_registry r ON r.company_id=1 AND r.person_id=d.person_id LEFT JOIN web_user_access u ON u.email=r.seller_user WHERE d.company_id IN(1,2,27404) ORDER BY d.person_id,(d.company_id=1) DESC,d.collected_at DESC`,
-    ),
-    db.query(
-      `SELECT t.city_key,t.uf,coalesce(u.display_name,t.seller,'') AS seller FROM web_task_territories t LEFT JOIN web_user_access u ON u.email=t.seller_user`,
-    ),
-  ]);
-  const byCity = new Map(
-    territories.rows.map((t) => [t.city_key + ":" + t.uf, t.seller]),
-  );
-  const sellers = new Map(
-    customerRows.rows.map((c) => [
-      c.id,
-      c.seller_user
-        ? c.display_name || "Vendedor sem nome"
-        : byCity.get(cityKey(c.city || "") + ":" + c.uf) || "",
-    ]),
-  );
-  for (const detail of result.details)
-    if (detail.kind.startsWith("sales") && detail.fields)
-      detail.fields.seller =
-        sellers.get(String(detail.fields.customerId)) || "";
+  // Keep fields.seller from the OS payload (funcionarioNome), as mapped by
+  // projection(). Customer assignments and territory rules can differ from the OS.
+  const sales = result.details.filter((detail) => detail.kind.startsWith("sales"));
+  const schedules = await historyScheduleStatuses(sales.map((detail) => ({
+    company_id: Number(detail.fields?.sourceCompany || detail.company),
+    id: detail.id,
+    status: String(detail.fields?.status || ""),
+  })));
+  for (const detail of sales) {
+    detail.programming = schedules.get(`${detail.fields?.sourceCompany || detail.company}:${detail.id}`);
+  }
+  // Same active visit and explicit equipment links used by the Workshop panel.
+  const workshopOrders = await db.query<{ company: string; id: string }>(`
+    SELECT DISTINCT o.company_id::text company, o.id_m8::text id
+    FROM m8_ordens_servico o
+    JOIN jsonb_to_recordset($1::jsonb) k(company_id bigint, order_id bigint)
+      ON k.company_id=o.company_id AND k.order_id=o.id_m8
+    WHERE EXISTS (
+      SELECT 1 FROM web_workshop_visits v
+      WHERE v.exited_at IS NULL AND v.reconciled_out_at IS NULL
+        AND (v.equipment_id=o.produto_equipamento_id OR EXISTS (
+          SELECT 1 FROM m8_order_equipment_links l
+          WHERE l.company_id=o.company_id AND l.order_id=o.id_m8
+            AND l.equipment_id=v.equipment_id AND NOT l.stale
+        ))
+    )`, [JSON.stringify(sales.map((detail) => ({
+      company_id: Number(detail.fields?.sourceCompany || detail.company), order_id: detail.id,
+    })))]);
+  const inWorkshop = new Set(workshopOrders.rows.map((row) => `${row.company}:${row.id}`));
+  for (const detail of sales) {
+    if (detail.fields) detail.fields.inWorkshop =
+      inWorkshop.has(`${detail.fields.sourceCompany || detail.company}:${detail.id}`) ? "Sim" : "Não";
+  }
   const dates = sync.rows.map((r) => new Date(r.collected_at).getTime());
   return {
     ...result,

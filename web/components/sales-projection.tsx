@@ -7,8 +7,6 @@ import {
   BarChart3,
   CalendarDays,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Download,
   RefreshCw,
   Target,
@@ -16,7 +14,9 @@ import {
   X,
   Search,
 } from "lucide-react";
+import ProjectionSyncButton from "./projection-sync-button";
 import SiteHeader from "./site-header";
+import CommercialPeriodFilter from "./commercial-period-filter";
 import type { ProjectionData } from "@/lib/sales-projection/store";
 import { sumRows, type Summary } from "@/lib/sales-projection/model";
 import "./sales-projection.css";
@@ -30,20 +30,6 @@ const percent = (n: number, d: number) =>
     ? ((n / d) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) +
       "%"
     : "—";
-const months = [
-  "Jan",
-  "Fev",
-  "Mar",
-  "Abr",
-  "Mai",
-  "Jun",
-  "Jul",
-  "Ago",
-  "Set",
-  "Out",
-  "Nov",
-  "Dez",
-];
 const labels: Record<string, string> = {
   contracts: "Contratos previstos",
   contractBilled: "Contratos faturados",
@@ -55,7 +41,7 @@ const labels: Record<string, string> = {
 const columns: [keyof Summary, string][] = [
   ["projection", "Projeção"],
   ["contractBilled", "Fat. contratos"],
-  ["salesBilled", "Fat. vendas"],
+  ["salesBilled", "Fat. OSs"],
   ["other", "Fat. outros"],
   ["returns", "Devoluções"],
   ["billed", "Total líquido"],
@@ -106,16 +92,6 @@ export default function SalesProjection({
     data?.rows.filter(
       (r) => company === "all" || String(r.company) === company,
     ) || [];
-  const partialOrders =
-    data?.details.filter(
-      (d) =>
-        d.billing?.state === "partial" &&
-        (company === "all" || String(d.company) === company),
-    ) || [];
-  const partialBalance = partialOrders.reduce(
-    (sum, d) => sum + (d.billing?.balance || 0),
-    0,
-  );
   const total = rows.length ? sumRows(rows) : null;
   const items = useMemo(
     () =>
@@ -179,7 +155,9 @@ export default function SalesProjection({
             <h1>Projeção de Vendas</h1>
             <p>O resultado de hoje. O caminho até a meta.</p>
           </div>
-          <div className="sp-actions">
+          <div className="sp-actions"><ProjectionSyncButton onComplete={() => setRefresh((n) => n + 1)} />
+            <Link className="button" href="/comercial/resumo">Resumo gerencial</Link>
+            <Link className="button" href="/comercial/parciais">Parciais e movimentações</Link>
             <button
               className="button"
               onClick={exportCsv}
@@ -197,56 +175,13 @@ export default function SalesProjection({
             </button>
           </div>
         </div>
-        <section className="sp-period" aria-label="Período e empresa">
-          <div className="sp-year">
-            <button
-              aria-label="Ano anterior"
-              disabled={Number(period.slice(0, 4)) <= 2000}
-              onClick={() =>
-                setPeriod(Number(period.slice(0, 4)) - 1 + period.slice(4))
-              }
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <strong>{period.slice(0, 4)}</strong>
-            <button
-              aria-label="Próximo ano"
-              disabled={Number(period.slice(0, 4)) >= 2099}
-              onClick={() =>
-                setPeriod(Number(period.slice(0, 4)) + 1 + period.slice(4))
-              }
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-          <div className="sp-months" role="group" aria-label="Mês">
-            {months.map((m, i) => (
-              <button
-                key={m}
-                aria-pressed={Number(period.slice(5)) === i + 1}
-                onClick={() =>
-                  setPeriod(
-                    period.slice(0, 4) + "-" + String(i + 1).padStart(2, "0"),
-                  )
-                }
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-          <select
-            aria-label="Empresa"
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-          >
-            <option value="all">Todas as empresas</option>
-            {data?.rows.map((r) => (
-              <option key={r.company} value={r.company}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-        </section>
+        <CommercialPeriodFilter
+          period={period}
+          company={company}
+          onPeriodChange={setPeriod}
+          onCompanyChange={setCompany}
+          companies={data?.rows || []}
+        />
         {error && (
           <div className="sp-notice" role="alert">
             {error}{" "}
@@ -364,30 +299,6 @@ export default function SalesProjection({
                   </p>
                 </article>
               )}
-            </section>
-            <section
-              className="sp-billing-review"
-              aria-label="Conferência de faturamento parcial"
-            >
-              <div>
-                <span>FATURAMENTO PARCIAL · CONFERÊNCIA</span>
-                <h2>{partialOrders.length} OS com saldo a conferir</h2>
-                <p>
-                  Nas OS desta competência, notas complementares de outros meses
-                  são consideradas. Cancelamentos e refaturamentos podem exigir
-                  conferência no ERP.
-                </p>
-              </div>
-              <div>
-                <strong>R$ {money(partialBalance)}</strong>
-                <small>Não incluído automaticamente na projeção</small>
-                <Link
-                  className="button"
-                  href={`/comercial/vendas?period=${period}&company=${company}&billing=partial`}
-                >
-                  Conferir OS e notas <ArrowUpRight size={15} />
-                </Link>
-              </div>
             </section>
             <section className="sp-panel">
               <div className="sp-panel-heading">
