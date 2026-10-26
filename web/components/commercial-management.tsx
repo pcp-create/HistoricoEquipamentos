@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Camera, Printer, RefreshCw, TrendingUp, CheckCircle2, Clock3, Target, ArrowUpRight, FileText } from "lucide-react";
+import { Camera, Printer, RefreshCw, TrendingUp, CheckCircle2, Clock3, Target, ArrowUpRight, FileText, ArrowUp, ArrowDown, Minus } from "lucide-react";
 import ProjectionSyncButton from "./projection-sync-button";
 import SiteHeader from "./site-header";
 import CommercialPeriodFilter from "./commercial-period-filter";
@@ -88,6 +88,7 @@ export default function CommercialManagement({ mode }: { mode: "summary" | "chan
   }
   const monthName = new Intl.DateTimeFormat("pt-BR", { month: "long", timeZone: "UTC" }).format(new Date(period + "-01T12:00:00Z"));
   const periodLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1) + "/" + period.slice(0, 4);
+  const previousTarget = company === "all" ? snapshot?.document.target : null;
   const target = company === "all" ? data?.target : null;
   return <>
     <SiteHeader active="salesProjection" />
@@ -113,19 +114,28 @@ export default function CommercialManagement({ mode }: { mode: "summary" | "chan
         <div className="cm-stamp"><strong>{period.split("-").reverse().join("/")} · {company === "all" ? "Grupo RJ — todas as empresas" : rows[0]?.name}</strong><span>{frozen && mode === "summary" && snapshot ? `Parcial: ${date(snapshot.created_at)} · ${snapshot.created_by}` : `Base integrada: ${data.updatedAt ? date(data.updatedAt) : "sem data"}`}</span></div>
         <section className="cm-kpis">
           {[
-            { title: `Projeção · ${periodLabel}`, value: total.projection, base: target, note: "da meta projetada", icon: TrendingUp, tone: "projection" },
-            { title: "Total faturado líquido", value: total.billed, base: total.projection, note: "da projeção realizada", icon: CheckCircle2, tone: "billed" },
-            { title: "A faturar", value: total.pending, base: total.projection, note: "da projeção a realizar", icon: Clock3, tone: "pending" },
-            { title: "Meta de faturamento", value: target, ratio: total.billed, base: target, note: "da meta faturada", icon: Target, tone: "target" },
-            { title: "A buscar da meta", value: target == null ? null : Math.max(0, target - total.projection), base: target, note: "da meta a conquistar", icon: ArrowUpRight, tone: "gap" },
-            { title: "Contratos pendentes", value: total.contractPending, base: total.pending, note: "do valor a faturar", icon: FileText, tone: "contracts" },
+            { title: `Projeção · ${periodLabel}`, value: total.projection, base: target, note: "da meta projetada", icon: TrendingUp, tone: "projection", previous: oldTotal?.projection },
+            { title: "Total faturado líquido", value: total.billed, base: total.projection, note: "da projeção realizada", icon: CheckCircle2, tone: "billed", previous: oldTotal?.billed },
+            { title: "A faturar", value: total.pending, base: total.projection, note: "da projeção a realizar", icon: Clock3, tone: "pending", previous: oldTotal?.pending },
+            { title: "Meta de faturamento", value: target, ratio: total.billed, base: target, note: "da meta faturada", icon: Target, tone: "target", previous: previousTarget },
+            { title: "A buscar da meta", value: target == null ? null : Math.max(0, target - total.projection), base: target, note: "da meta a conquistar", icon: ArrowUpRight, tone: "gap", previous: previousTarget != null && oldTotal ? Math.max(0, previousTarget - oldTotal.projection) : null },
+            { title: "Contratos pendentes", value: total.contractPending, base: total.pending, note: "do valor a faturar", icon: FileText, tone: "contracts", previous: oldTotal?.contractPending },
           ].map((card) => {
             const Icon = card.icon;
+            const delta = typeof card.value === "number" && typeof card.previous === "number" ? (Math.round(card.value * 100) - Math.round(card.previous * 100)) / 100 : null;
+            const decreaseIsGood = card.tone === "pending" || card.tone === "gap";
+            const positiveChange = delta !== null && delta !== 0 && (decreaseIsGood ? delta < 0 : delta > 0);
+            const Direction = delta === null || delta === 0 ? Minus : delta > 0 ? ArrowUp : ArrowDown;
             const ratio = card.ratio ?? card.value;
             const hasRatio = typeof ratio === "number" && typeof card.base === "number" && card.base > 0;
             return <article key={card.tone} className={`cm-kpi cm-kpi-${card.tone}`}>
               <div className="cm-kpi-heading"><span>{card.title}</span><span className="cm-kpi-icon"><Icon size={21} strokeWidth={1.7} aria-hidden="true"/></span></div>
+              <div className="cm-kpi-value-row">
               <strong className="cm-kpi-value">{typeof card.value === "number" ? <><span>R$</span> {card.value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</> : "—"}</strong>
+              {mode === "changes" && card.tone !== "target" && <div className="cm-kpi-variation" title={snapshot ? `Comparação com ${snapshot.label} · ${date(snapshot.created_at)}` : "Registre uma parcial para comparar"}>
+                {delta !== null ? <><span className="cm-variation-value"><Direction size={17} className={delta === 0 ? "" : positiveChange ? "cm-arrow-good" : "cm-arrow-bad"} aria-hidden="true"/>{delta === 0 ? "Sem variação" : `${delta > 0 ? "+" : "−"}${money(Math.abs(delta))}`}</span><small>em relação à parcial de referência</small></> : <small>{selected && !snapshot ? "Carregando comparação…" : "Sem base para comparação"}</small>}
+              </div>}
+              </div>
               <div className="cm-kpi-footer">
                 <p>{hasRatio ? <><b>{pct(ratio!, card.base!)}</b> {card.note}</> : card.base == null ? "Meta definida apenas para o grupo" : "Sem base para calcular o percentual"}</p>
                 {hasRatio && <div className="cm-meter" aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, ratio! / card.base! * 100))}%` }}/></div>}
@@ -139,9 +149,9 @@ export default function CommercialManagement({ mode }: { mode: "summary" | "chan
         </> : snapshot && oldTotal ? <>
           <section className="sp-panel cm-panel"><h2>Desde {snapshot.label} · {date(snapshot.created_at)}</h2><p>Projeção da parcial: <strong>{money(oldTotal.projection)}</strong> → Atual: <strong>{money(total.projection)}</strong> · Variação: <strong>{money(total.projection-oldTotal.projection)}</strong></p><p>Faturado líquido: {money(oldTotal.billed)} → {money(total.billed)} · A faturar: {money(oldTotal.pending)} → {money(total.pending)}</p><p className="sp-footnote">Entradas e saídas indicam presença nesta competência. Não comprovam cancelamento ou mudança de mês. OS faturadas são alterações de situação. Os valores de documentos não devem ser somados: notas, contratos e OS têm compensações no cálculo da projeção.</p></section>
           <section className="cm-change-filters"><label>Movimentação<select aria-label="Movimentação" value={changeType} onChange={(e) => setChangeType(e.target.value)}><option value="all">Todas ({changes.length})</option>{["Entrada","Saída","Alteração"].map((t) => <option key={t} value={t}>{t} ({changes.filter((c) => c.type === t).length})</option>)}</select></label><label>Pesquisar cliente ou documento<input value={search} onChange={(e) => setSearch(e.target.value)}/></label></section>
-          <div className="sp-panel sp-table-scroll"><table className="sp-table cm-changes"><thead><tr><th>Movimento</th><th>Empresa / documento</th><th>Cliente</th><th>Na parcial</th><th>Atual</th><th>O que mudou</th></tr></thead><tbody>{visible.map((c) => {
+          <div className="sp-panel sp-table-scroll"><table className="sp-table cm-changes"><thead><tr><th>Movimento</th><th>Empresa / documento</th><th>Cliente / Equipamento</th><th>Na parcial</th><th>Atual</th><th>O que mudou</th></tr></thead><tbody>{visible.map((c) => {
             const d = c.after || c.before!;
-            return <tr key={c.key}><th><span className={`cm-change cm-${c.type === "Entrada" ? "in" : c.type === "Saída" ? "out" : "edit"}`}>{c.type}</span></th><td>{companies.find((co) => co.id === d.company)?.name}<br/>{kindName(d)} · {d.id}</td><td>{d.name}</td>{[c.before,c.after].map((v,i) => <td key={i}>{v ? <><strong>{money(v.amount)}</strong><small>{kindName(v)} · {v.date}</small><small>{String(v.fields?.flowOwner || "")} · {String(v.fields?.flowStatus || "")}</small>{v.fields?.expected && <small>Entrega: {String(v.fields.expected)}</small>}{v.fields?.seller && <small>Vendedor: {String(v.fields.seller)}</small>}{v.kind === "contracts" && <small>Faturado: {money(Number(v.fields?.billed || 0))} · Saldo: {money(Number(v.fields?.pending || 0))}</small>}</> : "Não consta"}</td>)}<td>{c.changes.join(" · ")}</td></tr>;
+            return <tr key={c.key}><th><span className={`cm-change cm-${c.type === "Entrada" ? "in" : c.type === "Saída" ? "out" : "edit"}`}>{c.type}</span></th><td>{companies.find((co) => co.id === d.company)?.name}<br/>{kindName(d)} · {d.id}</td><td>{d.name}{d.fields?.equipment && <small className="cm-client-equipment">{String(d.fields.equipment)}</small>}</td>{[c.before,c.after].map((v,i) => <td key={i}>{v ? <><strong>{money(v.amount)}</strong><small>{kindName(v)} · {v.date}</small><small>{String(v.fields?.flowOwner || "")} · {String(v.fields?.flowStatus || "")}</small>{v.fields?.expected && <small>Entrega: {String(v.fields.expected)}</small>}{v.fields?.seller && <small>Vendedor: {String(v.fields.seller)}</small>}{v.kind === "contracts" && <small>Faturado: {money(Number(v.fields?.billed || 0))} · Saldo: {money(Number(v.fields?.pending || 0))}</small>}</> : "Não consta"}</td>)}<td>{c.changes.join(" · ")}</td></tr>;
           })}</tbody></table>{!visible.length && <p className="sp-empty">Nenhuma movimentação para os filtros selecionados.</p>}</div>
         </> : <p className="sp-notice">{selected ? "Carregando parcial de referência…" : "Registre a primeira parcial para começar a acompanhar entradas, saídas e alterações."}</p>}
       </>}

@@ -55,3 +55,23 @@
  .cm-page .sp-table-scroll { overflow:visible; }
  .cm-page { print-color-adjust:exact; }
 }
+
+.cm-page .cm-changes thead th {
+  text-align: left;
+  vertical-align: middle;
+}
+
+.cm-changes .cm-client-equipment { font-size: 10px; line-height: 1.5; margin-top: 5px; color: #71839a; }
+
+.cm-kpi-variation { display:grid;gap:4px;margin-left:auto;max-width:145px; }
+.cm-variation-value { display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:650; }
+.cm-kpi-variation small { font-size:10px;color:#71839a; }
+.cm-kpi-projection .cm-kpi-variation small { color:#c7d8e8; }
+@media(max-width:700px) { .cm-variation-value { font-size:11px; } }
+
+.cm-kpi-value-row { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.cm-variation-value { white-space:nowrap; }
+.cm-arrow-good { color:#198367; flex-shrink:0; }
+.cm-arrow-bad { color:#c43c4d; flex-shrink:0; }
+.cm-kpi-projection .cm-arrow-good { color:#6fdfb1; }
+.cm-kpi-projection .cm-arrow-bad { color:#ff9ca5; }

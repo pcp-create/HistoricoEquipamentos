@@ -40,6 +40,9 @@ test("manager freezes summary, compares latest snapshot and remains usable on mo
   await page.goto("/management-test?changes");
   await expect(page.getByRole("cell", { name: "Cliente novo", exact: true })).toBeVisible();
   await expect(page.locator(".cm-changes tbody tr")).toHaveCount(2);
+  await expect(page.locator(".cm-kpi-projection .cm-variation-value")).toContainText("150,00");
+  await expect(page.locator(".cm-kpi-gap .cm-variation-value")).toContainText("−R$");
+  await expect(page.locator(".cm-kpi-target .cm-variation-value")).toHaveCount(0);
   await page.getByLabel("Movimentação", { exact: true }).selectOption("Entrada");
   await expect(page.locator(".cm-changes tbody tr")).toHaveCount(1);
   await page.setViewportSize({ width: 390, height: 844 });
