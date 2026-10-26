@@ -1,0 +1,26 @@
+import {test,expect} from '@playwright/test';
+import {build} from 'esbuild';
+test('ERP customer table protects rows and only sends edited M8 fields after enabling editing',async({page})=>{
+ const bundle=await build({stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import Table from './components/customer-registry';createRoot(document.getElementById('root')).render(<Table/>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,outdir:'out',jsx:'automatic'});
+ await page.route('**/customer-registry-test',r=>r.fulfill({contentType:'text/html',body:`<style>${bundle.outputFiles.find(f=>f.path.endsWith('.css'))!.text}</style><div id="root"></div><script>${bundle.outputFiles.find(f=>f.path.endsWith('.js'))!.text}</script>`}));
+ let row={id:'7',name:'Cliente A',document:'123',municipioNome:'Lages',ufSigla:'SC',regiaoId:2,regiaoNome:'Sul',classificacaoId:3,classificacaoNome:'Indústria',seller:'Carlos',seller_user:'',mesoregion:'Serrana',microregion:'Lages',assignee:'',version:1,synced_at:'2026-10-26'};
+ const writes:any[]=[];
+ await page.route('**/api/customer-registry*',r=>{if(r.request().method()==='POST'){const body=r.request().postDataJSON();if(body.action==='lookups')return r.fulfill({json:{classifications:[{id:'3',name:'Indústria'}]}});writes.push(body);row={...row,name:body.changes.razaoSocial||row.name,assignee:body.assignee,seller_user:body.seller_user,version:row.version+1};return r.fulfill({json:{saved:true}})}return r.fulfill({json:{rows:[row],users:[{email:'a@test',display_name:'Ana',job_title:'Vendedor'}]}})});
+ await page.goto('/customer-registry-test');
+ await expect(page.locator('tbody')).toContainText('Cliente A');await expect(page.locator('tbody')).toContainText('Indústria');await expect(page.locator('tbody')).toContainText('Serrana');
+ await expect(page.getByRole('button',{name:/Excluir|Remover/})).toHaveCount(0);
+ await expect(page.getByRole('textbox',{name:'Cliente 7',exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'Editar campos M8',exact:true}).click();
+ await page.getByRole('textbox',{name:'Cliente 7',exact:true}).fill('Cliente B');
+ await page.getByRole('combobox',{name:'Orçamentista 7'}).selectOption('a@test');
+ expect(writes).toHaveLength(0);
+ await page.getByRole('button',{name:/Salvar alterações/}).click();
+ await expect(page.getByRole('status')).toContainText('1 cliente(s) salvo(s)');
+ expect(writes).toHaveLength(1);expect(writes[0].changes).toEqual({razaoSocial:'Cliente B'});expect(writes[0].before).toEqual({razaoSocial:'Cliente A'});expect(writes[0].assignee).toBe('a@test');expect(writes[0].editM8).toBe(true);
+ await page.getByRole('button',{name:'Encerrar edição M8',exact:true}).click();
+ await page.getByRole('combobox',{name:'Vendedor vinculado 7',exact:true}).selectOption('a@test');
+ await page.getByRole('button',{name:/Salvar alterações/}).click();
+ await expect(page.getByRole('button',{name:'Salvar alterações (0)',exact:true})).toBeDisabled();
+ expect(writes).toHaveLength(2);expect(writes[1].seller_user).toBe('a@test');expect(writes[1].changes).toEqual({});expect(writes[1].editM8).toBe(false);
+
+});

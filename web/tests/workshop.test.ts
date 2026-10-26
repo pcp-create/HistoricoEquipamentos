@@ -61,6 +61,19 @@ test('entries prevent duplicates; external parts block exit; version conflicts a
   assert.ok((await db.query<any>('SELECT returned_at FROM web_workshop_external WHERE id=$1',[standalone])).rows[0].returned_at);
 
 
+
+  const imported='00000000-0000-4000-8000-000000000001';
+  await db.query('UPDATE web_workshop_visits SET notes=$2,source=$3 WHERE id=$1',[imported,'Texto da planilha',JSON.stringify({sheet:'Equipamentos em Oficina',row:362})]);
+  await workshopMutate({action:'notes',id:imported,version:1,notes:'Texto revisado\nNova informação'},'planner');
+  const noteVisit=(await db.query<any>('SELECT * FROM web_workshop_visits WHERE id=$1',[imported])).rows[0];
+  assert.equal(noteVisit.notes,'Texto revisado\nNova informação');assert.equal(noteVisit.version,2);assert.equal(noteVisit.source.row,362);assert.equal(noteVisit.updated_by,'planner');
+  const noteEvent=(await db.query<any>("SELECT * FROM web_workshop_events WHERE visit_id=$1 AND action='Observação alterada'",[imported])).rows[0];
+  assert.equal(noteEvent.document.previousNotes,'Texto da planilha');assert.equal(noteEvent.document.notes,noteVisit.notes);assert.equal(noteEvent.actor,'planner');
+  await assert.rejects(()=>workshopMutate({action:'notes',id:imported,version:1,notes:'Sobrescrever'},'other'),/mudou/);
+  await assert.rejects(()=>workshopMutate({action:'notes',id:imported,version:2,notes:'x'.repeat(4001)},'planner'),/campos/);
+  await workshopMutate({action:'notes',id:imported,version:2,notes:''},'planner');
+  assert.equal((await db.query<any>('SELECT notes FROM web_workshop_visits WHERE id=$1',[imported])).rows[0].notes,'');
+
  }finally{g.historyPool=old;await db.close();}
 });
 

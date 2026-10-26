@@ -1,342 +1,91 @@
 "use client";
-import { matchesSearch } from "@/lib/filters";
-
-import SaveActionIcon from "./save-action-icon";
-import { useEffect, useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
-import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
-import "./compact-edit-table.css";
-const empty = {
-  id: null,
-  version: 0,
-  city: "",
-  mesoregion: "",
-  microregion: "",
-  seller: "",
-  seller_user: "",
-  uf: "SC",
-  assignee: "",
-};
-export default function TaskTerritories() {
-  const [data, setData] = useState<any>(null),
-    [query, setQuery] = useState(""),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [message, setMessage] = useState(""),
-    [adding, setAdding] = useState(false);
-  async function load() {
-    const r = await apiFetch("/api/task-territories");
-    const b = await r.json();
-    if (!r.ok) throw Error(b.error);
-    setData(b);
-  }
-  useEffect(() => {
-    void load().catch((e) => setError(e.message));
-  }, []);
-  async function save(body: any) {
-    if (busy) return false;
-    const before = data;
-    setBusy(true);
-    setError("");
-    setMessage("");
-    const temp = {
-      ...body,
-      id: body.id || "new",
-      display_name: data.users.find((u: any) => u.email === body.assignee)
-        ?.display_name,
-      enabled: true,
-    };
-    setData({
-      ...data,
-      rules:
-        body.action === "delete"
-          ? data.rules.filter((r: any) => r.id !== body.id)
-          : body.id
-            ? data.rules.map((r: any) => (r.id === body.id ? temp : r))
-            : data.rules,
-    });
-    try {
-      const r = await apiFetch("/api/task-territories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const b = await r.json();
-      if (!r.ok) throw Error(b.error);
-      await load();
-      setMessage(
-        "Divisão comercial atualizada. A regra será usada nas novas tarefas.",
-      );
-      return true;
-    } catch (e) {
-      setData(before);
-      setError((e as Error).message);
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
-  const fold = (v: string) =>
-    v
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
-  const rows = (data?.rules || []).filter((r: any) =>
-    matchesSearch(fold(
-      `${r.city} ${r.mesoregion || ""} ${r.microregion || ""} ${r.seller || ""} ${data?.users.find((u: any) => u.email === r.seller_user)?.display_name || ""} ${r.uf} ${r.display_name || ""}`,
-    ), fold(query)),
-  );
-  return (
-    <section className="manual-card">
-      <h2>Divisão comercial por cidade e UF</h2>
-      <p>
-        Vincule o vendedor para definir sua carteira de visitas. Nomes em
-        amarelo ainda precisam de vínculo. Define também o orçamentista das
-        novas tarefas de Preventiva de Equipamento de Cliente. Alterações não
-        redistribuem tarefas existentes. Edite na linha e pressione Enter ou
-        Salvar.
-      </p>
-      {error && <p role="alert">{error}</p>}
-      {message && <p role="status">{message}</p>}
-      <div className="territory-toolbar">
-        <label>
-          Pesquisar divisão
-          <input
-            placeholder="Cidade, região, vendedor, estado ou orçamentista"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </label>
-        <button
-          disabled={busy}
-          onClick={() => {
-            clearApiCache();
-            void load().catch((e) => setError(e.message));
-          }}
-        >
-          Atualizar divisão
-        </button>
-      </div>
-      <p>{rows.length} regras</p>
-      <div className="compact-edit-wrap">
-        <table className="compact-edit-table">
-          <thead>
-            <tr>
-              {[
-                "Cidade",
-                "Mesorregião",
-                "Microrregião",
-                "Vendedor",
-                "Estado",
-                "Orçamentista",
-                "Ações",
-              ].map((h) => (
-                <th key={h}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r: any) => (
-              <TerritoryRow
-                key={r.id}
-                row={r}
-                users={data.users}
-                busy={busy}
-                save={save}
-              />
-            ))}
-            {adding && (
-              <TerritoryRow
-                row={empty}
-                users={data?.users || []}
-                busy={busy}
-                save={async (b: any) => {
-                  const ok = await save(b);
-                  if (ok) setAdding(false);
-                  return ok;
-                }}
-                cancel={() => setAdding(false)}
-              />
-            )}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={7}>
-                <button
-                  disabled={!data || busy || adding}
-                  onClick={() => setAdding(true)}
-                >
-                  <Plus size={15} />
-                  Adicionar regra
-                </button>
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </section>
-  );
-}
-function TerritoryRow({ row, users, busy, save, cancel }: any) {
-  const normalize = (r: any) => ({
-    ...empty,
-    ...r,
-    mesoregion: r.mesoregion || "",
-    microregion: r.microregion || "",
-    seller: r.seller || "",
-    seller_user: r.seller_user || "",
-  });
-  const [d, setD] = useState(() => normalize(row));
-  useEffect(() => setD(normalize(row)), [row.version]);
-  const fields = [
-    "city",
-    "mesoregion",
-    "microregion",
-    "seller",
-    "seller_user",
-    "uf",
-    "assignee",
-  ];
-  const dirty = !row.id || fields.some((k) => d[k] !== normalize(row)[k]);
-  const persist = () => {
-    if (!busy && dirty && d.city.trim() && d.assignee)
-      void save({ ...d, action: "save" });
-  };
-  return (
-    <tr
-      className={dirty ? "compact-edit-dirty" : ""}
-      onKeyDown={(e) => {
-        if (
-          e.key === "Enter" &&
-          !e.nativeEvent.isComposing &&
-          !(e.target instanceof HTMLButtonElement)
-        ) {
-          e.preventDefault();
-          persist();
-        }
-      }}
-    >
-      {["city", "mesoregion", "microregion"].map((key, i) => (
-        <td key={key}>
-          <input
-            aria-label={`${["Cidade", "Mesorregião", "Microrregião", "Vendedor"][i]} ${row.city || "nova regra"}`}
-            maxLength={150}
-            value={d[key]}
-            disabled={busy}
-            onChange={(e) => setD({ ...d, [key]: e.target.value })}
-          />
-          {i === 0 && dirty && <small>Alterações não salvas</small>}
-        </td>
-      ))}
-      <td>
-        <select
-          aria-label={`Vendedor ${row.city || "nova regra"}`}
-          value={d.seller_user}
-          disabled={busy}
-          style={
-            !d.seller_user && d.seller
-              ? { background: "#fff5ce", color: "#8b6315" }
-              : undefined
-          }
-          onChange={(e) => setD({ ...d, seller_user: e.target.value })}
-        >
-          <option value="">
-            {d.seller
-              ? `${d.seller} — vincular usuário`
-              : "Selecione o vendedor"}
-          </option>
-          {d.seller_user &&
-            !users.some(
-              (u: any) =>
-                u.email === d.seller_user &&
-                /^vendedor(a)?$/i.test(u.job_title?.trim()),
-            ) && (
-              <option value={d.seller_user}>
-                Vínculo anterior — selecione vendedor ativo
-              </option>
-            )}
-          {users
-            .filter((u: any) => /^vendedor(a)?$/i.test(u.job_title?.trim()))
-            .map((u: any) => (
-              <option key={u.email} value={u.email}>
-                {u.display_name || u.email}
-              </option>
-            ))}
-        </select>
-      </td>
-      <td>
-        <select
-          aria-label={`Estado ${row.city || "nova regra"}`}
-          value={d.uf}
-          disabled={busy}
-          onChange={(e) => setD({ ...d, uf: e.target.value })}
-        >
-          {"AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO"
-            .split(" ")
-            .map((uf) => (
-              <option key={uf}>{uf}</option>
-            ))}
-        </select>
-      </td>
-      <td>
-        <select
-          aria-label={`Orçamentista ${row.city || "nova regra"}`}
-          value={d.assignee}
-          disabled={busy}
-          onChange={(e) => setD({ ...d, assignee: e.target.value })}
-        >
-          <option value="">Selecione</option>
-          {d.assignee && !users.some((u: any) => u.email === d.assignee) && (
-            <option value={d.assignee}>
-              Responsável inativo — selecione outro
-            </option>
-          )}
-          {users.map((u: any) => (
-            <option key={u.email} value={u.email}>
-              {u.display_name || "Usuário sem nome cadastrado"}
-            </option>
-          ))}
-        </select>
-      </td>
-      <td>
-        <button
-          disabled={busy || !dirty || !d.city.trim() || !d.assignee}
-          onClick={persist}
-          aria-label="Salvar"
-          title="Salvar"
-        >
-          <SaveActionIcon />
-        </button>
-        {dirty && (
-          <button
-            disabled={busy}
-            onClick={() => (cancel ? cancel() : setD(normalize(row)))}
-          >
-            <X size={14} />
-            Cancelar
-          </button>
-        )}
-        {row.id && (
-          <button
-            disabled={busy}
-            aria-label={`Remover regra de ${row.city}`}
-            onClick={() => {
-              if (
-                window.confirm(
-                  `Remover a regra de ${row.city}/${row.uf}? As tarefas existentes serão mantidas.`,
-                )
-              )
-                void save({
-                  action: "delete",
-                  id: row.id,
-                  version: row.version,
-                });
-            }}
-          >
-            <Trash2 size={14} />
-          </button>
-        )}
-      </td>
-    </tr>
-  );
+import TerritoryColumnFilter from "./territory-column-filter";
+import {useEffect,useMemo,useState} from "react";
+import {Plus,Save,Trash2} from "lucide-react";
+import {apiFetch,clearApiCache} from "@/lib/client-api-cache";
+import "./territory-sheet.css";
+const columns=[['city','Cidade'],['mesoregion','Mesorregião'],['microregion','Microrregião'],['seller','Vendedor (texto original)'],['seller_user','Vendedor vinculado'],['uf','Estado'],['assignee','Orçamentista']] as const;
+type Row={key:string;id?:string;version:number;[key:string]:any};
+const fold=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+export default function TaskTerritories(){
+ const [original,setOriginal]=useState<Row[]>([]),[draft,setDraft]=useState<Row[]>([]),[users,setUsers]=useState<any[]>([]);
+ const [loaded,setLoaded]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+ const [filters,setFilters]=useState<Record<string,string[]|undefined>>({}),[sort,setSort]=useState({key:'city',direction:1});
+ const [selectedColumn,setSelectedColumn]=useState<number|null>(null);
+ const originals=useMemo(()=>new Map(original.map(row=>[row.key,row])),[original]);
+ const draftKeys=new Set(draft.map(row=>row.key));
+ const changed=draft.filter(row=>!row.id||JSON.stringify(row)!==JSON.stringify(originals.get(row.key)));
+ const removed=original.filter(row=>!draftKeys.has(row.key));
+ const dirty=changed.length+removed.length;
+ async function load(){
+  const response=await apiFetch('/api/task-territories');const data=await response.json();if(!response.ok)throw Error(data.error);
+  const rows=data.rules.map((row:any)=>({...row,key:String(row.id),...Object.fromEntries(columns.map(([key])=>[key,row[key]||'']))}));
+  setOriginal(rows);setDraft(rows);setUsers(data.users);setLoaded(true);
+ }
+ useEffect(()=>{void load().catch(e=>setError(e.message))},[]);
+ useEffect(()=>{if(!dirty)return;const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=''};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn)},[dirty]);
+ const display=(row:Row,key:string)=>{
+  if(!['seller_user','assignee'].includes(key))return row[key];
+  const original=originals.get(row.key);
+  return users.find(user=>user.email===row[key])?.display_name || (original?.[key]===row[key] ? original?.[key==='assignee'?'display_name':'seller_display_name'] : '') || row[key];
+ };
+ // Keep filtering and ordering stable while editing so the next paste targets the same visible rows.
+ const rows=draft.filter(row=>{const source=originals.get(row.key)||row;return columns.every(([key])=>!filters[key]||filters[key]!.includes(display(source,key)))})
+ .sort((a,b)=>String(display(originals.get(a.key)||a,sort.key)).localeCompare(String(display(originals.get(b.key)||b,sort.key)),'pt-BR',{numeric:true})*sort.direction);
+ function edit(key:string,field:string,value:string){setDraft(current=>current.map(row=>row.key===key?{...row,[field]:value}:row));setMessage('')}
+ function paste(text:string,rowIndex:number,columnIndex:number,wholeColumn=false){
+  const matrix=text.replace(/\r\n?/g,'\n').replace(/\n$/,'').split('\n').map(line=>line.split('\t'));
+  if(matrix.some(line=>line.length+columnIndex>columns.length)){setError('A colagem excede as colunas disponíveis.');return;}
+  if(wholeColumn&&matrix.some(line=>line.length!==1)){setError('Selecione uma célula para colar várias colunas.');return;}
+  const values=wholeColumn&&matrix.length===1?rows.map(()=>matrix[0]):matrix;
+  if(rowIndex+values.length>rows.length){setError('A colagem excede as linhas visíveis. Adicione linhas antes de colar.');return;}
+  const updates=new Map(rows.slice(rowIndex,rowIndex+values.length).map((row,index)=>[row.key,Object.fromEntries(values[index].map((value,i)=>[columns[columnIndex+i][0],value]))]));
+  setDraft(current=>current.map(row=>updates.has(row.key)?{...row,...updates.get(row.key)}:row));setError('');setMessage('');
+ }
+ function resolveUser(value:string,seller:boolean){
+  if(!value.trim()&&seller)return '';
+  const candidates=users.filter(user=>(!seller||/^vendedor(a)?$/i.test(user.job_title?.trim()))&&(fold(user.email)===fold(value)||fold(user.display_name||'')===fold(value)));
+  if(candidates.length!==1)throw Error(`Usuário "${value}" inválido ou ambíguo. Informe o e-mail de um ${seller?'vendedor':'usuário'} ativo.`);
+  return candidates[0].email;
+ }
+ async function save(){
+  if(busy||!dirty)return;setError('');setMessage('');setBusy(true);
+  try{
+   const changes=[...removed.map(row=>({action:'delete',id:row.id,version:row.version})),...changed.map(row=>{
+    const old=original.find(item=>item.key===row.key);
+    return {...Object.fromEntries(columns.map(([key])=>[key,row[key]])),id:row.id,version:row.version,action:'save',uf:row.uf.trim().toUpperCase(),
+     seller_user:old&&old.seller_user===row.seller_user?row.seller_user:resolveUser(row.seller_user,true),
+     assignee:resolveUser(row.assignee,false)};
+   })];
+   const response=await apiFetch('/api/task-territories',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'batch',changes})});
+   const data=await response.json();if(!response.ok)throw Error(data.error);
+   clearApiCache();await load();setMessage('Todas as alterações foram salvas.');
+  }catch(e){setError((e as Error).message)}finally{setBusy(false)}
+ }
+ return <section className="manual-card territory-sheet">
+  <h2>Divisão comercial por cidade e UF</h2>
+  <p>Edite as células ou cole dados do Excel com Ctrl+V. Para preencher uma coluna inteira, segure Shift e clique no título da coluna e cole um valor ou uma lista. A colagem segue as linhas visíveis. Use Ctrl+C para copiar a coluna selecionada.</p>
+  <p>As alterações só são gravadas em “Salvar alterações”. Vendedores definem a carteira de visitas; orçamentistas recebem as novas tarefas. Tarefas existentes não são redistribuídas.</p>
+  <div className="territory-sheet-toolbar">
+   <button disabled={!loaded||busy} onClick={()=>{setDraft(current=>[...current,{key:crypto.randomUUID(),version:0,...Object.fromEntries(columns.map(([key])=>[key,key==='uf'?'SC':'']))}]);setFilters({})}}><Plus size={16}/>Adicionar regra</button>
+   <button disabled={busy||!dirty} onClick={()=>{if(confirm('Descartar todas as alterações não salvas?')){setDraft(original);setError('');setMessage('')}}}>Descartar alterações</button>
+   <button disabled={busy||!!dirty} onClick={()=>{clearApiCache();void load().catch(e=>setError(e.message))}}>Atualizar divisão</button>
+   <button className="territory-save" disabled={!dirty||busy} onClick={()=>void save()}><Save size={16}/>{busy?'Salvando…':`Salvar alterações (${dirty})`}</button>
+  </div>
+  {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
+  <p>{rows.length} de {draft.length} regras · {dirty} alterações pendentes</p>
+  <div className="territory-sheet-scroll" onCopy={e=>{if(selectedColumn===null)return;e.preventDefault();e.clipboardData.setData('text/plain',rows.map(row=>display(row,columns[selectedColumn][0])).join('\n'))}} onPaste={e=>{if(selectedColumn===null||busy)return;e.preventDefault();paste(e.clipboardData.getData('text/plain'),0,selectedColumn,true)}}>
+   <table><thead><tr>{columns.map(([key,label],index)=><th key={key} aria-sort={sort.key===key?(sort.direction===1?'ascending':'descending'):'none'}>
+    <div className="territory-column-heading"><button title="Shift + clique para selecionar a coluna" aria-pressed={selectedColumn===index} onClick={e=>{if(e.shiftKey){setSelectedColumn(index);return;}setSelectedColumn(null)}}>{label}</button>
+    <TerritoryColumnFilter onSort={direction=>setSort({key,direction})} onOpen={()=>setSelectedColumn(null)} label={label} values={[...new Set(draft.map(row=>String(display(originals.get(row.key)||row,key))))].sort((a,b)=>a.localeCompare(b,"pt-BR"))} selected={filters[key]} onApply={values=>{setSelectedColumn(null);setFilters(current=>({...current,[key]:values}))}}/></div>
+   </th>)}<th>Ações</th></tr></thead>
+   <tbody>{rows.map((row,rowIndex)=><tr key={row.key} className={changed.includes(row)?'territory-dirty':''}>{columns.map(([key,label],columnIndex)=><td key={key} className={selectedColumn===columnIndex?'territory-selected':''}>
+    <input aria-label={`${label} ${row.city||'nova regra'}`} disabled={busy} value={display(row,key)} list={key==='seller_user'?'territory-sellers':key==='assignee'?'territory-users':undefined}
+     onFocus={()=>setSelectedColumn(null)} onChange={e=>edit(row.key,key,e.target.value)} onPaste={e=>{e.preventDefault();e.stopPropagation();paste(e.clipboardData.getData('text/plain'),rowIndex,columnIndex)}}/>
+   </td>)}<td><button disabled={busy} aria-label={`Remover regra de ${row.city}`} onClick={()=>setDraft(current=>current.filter(item=>item.key!==row.key))}><Trash2 size={15}/></button></td></tr>)}</tbody></table>
+  </div>
+  {!rows.length&&<p>{loaded?'Nenhuma regra nos filtros selecionados.':'Carregando divisão comercial…'}</p>}
+  <datalist id="territory-users">{users.map(user=><option key={user.email} value={user.email}>{user.display_name}</option>)}</datalist>
+  <datalist id="territory-sellers">{users.filter(user=>/^vendedor(a)?$/i.test(user.job_title?.trim())).map(user=><option key={user.email} value={user.email}>{user.display_name}</option>)}</datalist>
+ </section>
 }

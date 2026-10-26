@@ -278,3 +278,17 @@
 
 .sales-purpose-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:18px 8px 16px; }
 .sales-purpose-settings .sales-purpose-actions .sales-purpose-add { margin:0; }
+
+.sales-management-menu { display: flex; align-items: stretch; gap: 5px; margin: 18px 0 22px; min-width: 0; }
+.sales-management-menu .sales-management-tabs { flex: 1; min-width: 0; display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0; }
+.sales-management-tabs::-webkit-scrollbar { display: none; }
+.sales-management .sales-management-tabs button { flex: 0 0 auto; white-space: nowrap; min-height: 44px; border-radius: 12px; }
+.sales-management .sales-management-tabs button[aria-pressed="true"] { background: #246194; color: white; border-color: #246194; }
+.sales-management .sales-management-next { flex: 0 0 30px; width: 30px; padding: 0; display: grid; place-items: center; }
+.sales-management .sales-management-fab { display: none; }
+@media(max-width:700px) {
+ .sales-management .sales-management-create { display: none; }
+ .sales-management .sales-management-fab { display: grid; place-items: center; position: fixed; right: 20px; bottom: calc(22px + env(safe-area-inset-bottom)); z-index: 40; width: 56px; height: 56px; min-height: 56px; padding: 0; border-radius: 50%; background: #246194; color: white; border: 1px solid #3978a8; box-shadow: 0 4px 16px #173e6040; }
+ .sales-management { padding-bottom: 90px; }
+ .sales-management .sales-management-tabs button { padding: 10px 12px; font-size: 12px; }
+}

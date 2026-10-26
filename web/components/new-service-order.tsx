@@ -56,8 +56,8 @@ async function api(body?: unknown, query = "") {
   return d;
 }
 export default function NewServiceOrder({
-  editing,
-}: { editing?: { company: string; id: string } } = {}) {
+  editing, returnTo,
+}: { returnTo?: string; editing?: { company: string; id: string } } = {}) {
   const [noteEditor, setNoteEditor] = useState<{index:number; field:"notes"|"internalNotes"; text:string}|null>(null);
   const [catalogKind, setCatalogKind] = useState<QuoteItem["kind"] | null>(null);
   const [editData, setEditData] = useState<any>(null);
@@ -227,7 +227,7 @@ export default function NewServiceOrder({
         requestId.current = null;
       }
       router.replace(
-        `/historico?createdCompany=${r.company}&createdOrder=${r.m8Id}`,
+        returnTo ? returnTo + (r.localSynced === false ? "&sync=pending" : "") : `/historico?createdCompany=${r.company}&createdOrder=${r.m8Id}`,
       );
     }
     if (r.state !== "complete")
@@ -392,8 +392,8 @@ export default function NewServiceOrder({
     <>
       <SiteHeader active="history" />
       <main className="new-os">
-        <Link href="/historico" className="os-back">
-          <ArrowLeft size={16} /> Ordens de Serviço
+        <Link href={returnTo || "/historico"} className="os-back">
+          <ArrowLeft size={16} /> {returnTo ? "Voltar às vendas" : "Ordens de Serviço"}
         </Link>
         <header>
           <div>

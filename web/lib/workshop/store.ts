@@ -67,7 +67,11 @@ export async function workshopMutate(b:any,email:string){
    if(!visit)throw new WorkshopInputError('Entrada não encontrada.');
    if(visit.exited_at||visit.reconciled_out_at||b.version!==visit.version)throw new WorkshopConflict('Este registro mudou. Atualize a tela antes de salvar.');
    let action='';let eventDocument:Record<string,unknown>={notes:text(b.notes||'')};
-   if(b.action==='deliveryDate'){
+   if(b.action==='notes'){
+    const notes=text(b.notes);
+    await c.query('UPDATE web_workshop_visits SET notes=$2 WHERE id=$1',[id,notes]);
+    action='Observação alterada';eventDocument={previousNotes:visit.notes||'',notes};
+   }else if(b.action==='deliveryDate'){
     const expected=date(b.expectedAt);
     const entered=new Date(visit.entered_at).toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
     if(expected&&expected<entered)throw new WorkshopInputError('A previsão de entrega não pode ser anterior à entrada.');

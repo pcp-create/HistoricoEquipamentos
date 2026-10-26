@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "RJ Compressores | Gestão Integrada",
     short_name: "Gestão Integrada",
-    description: "CRM, assistência técnica, suprimentos e gestão de equipamentos.",
+    description: "Comercial, assistência técnica, suprimentos e gestão de equipamentos.",
     lang: "pt-BR",
     start_url: "/",
     scope: "/",

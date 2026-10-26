@@ -1,111 +1,50 @@
-import { test, expect } from "@playwright/test";
-test("authenticated user can manage city assignments through registries", async ({
-  page,
-  context,
-  request,
-}) => {
-  expect((await request.get("/api/task-territories")).status()).toBe(401);
-  expect(
-    (await request.post("/api/task-territories", { data: {} })).status(),
-  ).toBe(403);
-  await context.addCookies([
-    { name: "m8-refresh", value: "test", domain: "localhost", path: "/" },
-  ]);
-  await page.route("**/api/activity", (r) =>
-    r.fulfill({ json: { admin: false } }),
-  );
-  await page.route("**/api/admin", (r) =>
-    r.fulfill({
-      json: {
-        email: "admin@example.com",
-        users: [],
-        events: [],
-        orders: [],
-        products: [],
-        equipment: [],
-        runs: [],
-      },
-    }),
-  );
-  let rules: any[] = [];
-  await page.route("**/api/task-territories", (r) => {
-    if (r.request().method() === "POST") {
-      const b = r.request().postDataJSON();
-      if (b.action === "delete") rules = [];
-      else
-        rules = [
-          {
-            ...b,
-            id: "1",
-            version: (b.version || 0) + 1,
-            display_name:
-              b.assignee === "a@example.com" ? "Pessoa A" : "Pessoa B",
-            enabled: true,
-          },
-        ];
-      return r.fulfill({ json: { saved: true } });
-    }
-    return r.fulfill({
-      json: {
-        rules,
-        users: [
-          { email: "a@example.com", display_name: "Pessoa A" },
-          { email: "b@example.com", display_name: "Pessoa B" },
-          {
-            email: "seller@example.com",
-            display_name: "Bruno",
-            job_title: "Vendedor",
-          },
-        ],
-      },
-    });
-  });
-  await page.goto("/configuracoes/cadastros");
-  await page
-    .getByRole("link", { name: /Divisão Comercial/ })
-    .click();
-  await page.getByRole("button", { name: "Adicionar regra" }).click();
-  await page.getByLabel("Cidade nova regra", { exact: true }).fill("São José");
-  await page
-    .getByLabel("Mesorregião nova regra", { exact: true })
-    .fill("Grande Florianópolis");
-  await page
-    .getByLabel("Microrregião nova regra", { exact: true })
-    .fill("Florianópolis");
-  await page
-    .getByLabel("Vendedor nova regra", { exact: true })
-    .selectOption("seller@example.com");
-  await page
-    .getByLabel("Orçamentista nova regra", { exact: true })
-    .selectOption("a@example.com");
-  await page.getByRole("button", { name: "Salvar", exact: true }).click();
-  await expect(
-    page.getByLabel("Orçamentista São José", { exact: true }),
-  ).toHaveValue("a@example.com");
-  await page.getByLabel("Pesquisar divisão").fill("BRUNO");
-  await expect(
-    page.getByLabel("Mesorregião São José", { exact: true }),
-  ).toHaveValue("Grande Florianópolis");
-  await page
-    .getByLabel("Orçamentista São José", { exact: true })
-    .selectOption("b@example.com");
-  await expect(
-    page.getByText("Alterações não salvas", { exact: true }),
-  ).toBeVisible();
-  await page.getByLabel("Vendedor São José", { exact: true }).press("Enter");
-  await expect(
-    page.getByText("Alterações não salvas", { exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByLabel("Orçamentista São José", { exact: true }),
-  ).toHaveValue("b@example.com");
-  await page.getByLabel("Pesquisar divisão").fill("SAO JOSE");
-  await expect(page.getByLabel("Cidade São José", { exact: true })).toHaveValue(
-    "São José",
-  );
-  page.once("dialog", (d) => d.accept());
-  await page
-    .getByRole("button", { name: "Remover regra de São José", exact: true })
-    .click();
-  await expect(page.getByText("0 regras", { exact: true })).toBeVisible();
+import {test,expect} from '@playwright/test';
+import {build} from 'esbuild';
+test('spreadsheet pastes visible rows, fills a column and saves one batch',async({page})=>{
+ const bundle=await build({stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import Sheet from './components/task-territories';createRoot(document.getElementById('root')).render(<Sheet/>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,outdir:'out',jsx:'automatic'});
+ await page.route('**/territory-sheet-test',r=>r.fulfill({contentType:'text/html',body:`<style>${bundle.outputFiles.find(f=>f.path.endsWith('.css'))!.text}</style><div id="root"></div><script>${bundle.outputFiles.find(f=>f.path.endsWith('.js'))!.text}</script>`}));
+ let rules:any[]=[{id:'1',version:1,city:'Alpha',uf:'SC',assignee:'a@test',mesoregion:'Sul',microregion:'Um'},{id:'2',version:1,city:'Beta',uf:'SC',assignee:'a@test',mesoregion:'Sul',microregion:'Dois'}];
+ const writes:any[]=[];let fail=false;
+ await page.route('**/api/task-territories',r=>{if(r.request().method()==='POST'){const body=r.request().postDataJSON();writes.push(body);if(fail)return r.fulfill({status:400,json:{error:'Registro alterado. Atualize a lista antes de salvar.'}});rules=rules.map(row=>({...row,...body.changes.find((change:any)=>change.id===row.id),version:row.version+1}));return r.fulfill({json:{saved:true}})}return r.fulfill({json:{rules,users:[{email:'a@test',display_name:'Pessoa A',job_title:'Vendedor'},{email:'b@test',display_name:'Pessoa B',job_title:'Vendedor'}]}})});
+ await page.goto('/territory-sheet-test');
+ await expect(page.getByLabel('Pesquisar divisão')).toHaveCount(0);
+ const paste=async(selector:ReturnType<typeof page.getByLabel>,text:string)=>{await selector.focus();await selector.evaluate((el,text)=>{const clipboardData=new DataTransfer();clipboardData.setData('text/plain',text);el.dispatchEvent(new ClipboardEvent('paste',{clipboardData,bubbles:true,cancelable:true}))},text)};
+ await paste(page.getByLabel('Mesorregião Alpha',{exact:true}),'Norte\tMicro A\nOeste\tMicro B');
+ expect(writes).toHaveLength(0);
+ await expect(page.getByLabel('Microrregião Beta',{exact:true})).toHaveValue('Micro B');
+ await page.getByRole('button',{name:'Filtrar Cidade',exact:true}).click();
+ const filter=page.getByRole('dialog',{name:'Filtro de Cidade'});
+ await filter.getByRole('checkbox',{name:'Selecionar tudo',exact:true}).uncheck();
+ await filter.getByRole('textbox',{name:'Pesquisar valores'}).fill('bet');
+ await filter.getByRole('checkbox',{name:'Selecionar tudo',exact:true}).check();
+ await filter.getByRole('button',{name:'Aplicar',exact:true}).click();
+ await expect(page.locator('tbody tr')).toHaveCount(1);
+ await expect(page.getByRole('button',{name:'Selecionar coluna'})).toHaveCount(0);
+ await page.getByRole('button',{name:/^Orçamentista/}).click({modifiers:['Shift']});
+ await page.locator('.territory-sheet-scroll').evaluate(el=>{const clipboardData=new DataTransfer();clipboardData.setData('text/plain','Pessoa B');el.dispatchEvent(new ClipboardEvent('paste',{clipboardData,bubbles:true,cancelable:true}))});
+ await page.getByRole('button',{name:'Filtrar Cidade',exact:true}).click();
+ await filter.getByRole('button',{name:'Limpar filtro'}).click();
+ await expect(page.locator('tbody tr')).toHaveCount(2);
+ await expect(page.getByLabel('Orçamentista Alpha',{exact:true})).toHaveValue('Pessoa A');
+ await expect(page.getByLabel('Orçamentista Beta',{exact:true})).toHaveValue('Pessoa B');
+ await page.getByRole('button',{name:/Salvar alterações/}).click();
+ await expect(page.getByRole('status')).toHaveText('Todas as alterações foram salvas.');
+ expect(writes).toHaveLength(1);expect(writes[0].action).toBe('batch');expect(writes[0].changes).toHaveLength(2);expect(writes[0].changes[1].assignee).toBe('b@test');
+ await page.getByRole('button',{name:'Cidade',exact:true}).click();
+ await expect(page.locator('tbody tr').first().getByLabel('Cidade Alpha',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Filtrar Cidade',exact:true}).click();
+ await filter.getByRole('button',{name:'Classificar de Z a A'}).click();
+ await expect(page.locator('tbody tr').first().getByLabel('Cidade Beta',{exact:true})).toBeVisible();
+ fail=true;await page.getByLabel('Mesorregião Alpha',{exact:true}).fill('Pendente');await page.getByRole('button',{name:/Salvar alterações/}).click();
+ await expect(page.getByRole('alert')).toContainText('Registro alterado');await expect(page.getByLabel('Mesorregião Alpha',{exact:true})).toHaveValue('Pendente');
+ await page.setViewportSize({width:390,height:320});
+ await page.getByRole('button',{name:'Filtrar Cidade',exact:true}).click();
+ for(const name of ['Aplicar','Cancelar']){
+  const rect=await filter.getByRole('button',{name,exact:true}).boundingBox();
+  expect(rect).not.toBeNull();expect(rect!.y).toBeGreaterThanOrEqual(0);expect(rect!.y+rect!.height).toBeLessThanOrEqual(320);
+ }
+ const checkbox=filter.getByRole('checkbox',{name:'Selecionar tudo',exact:true});
+ const checkBox=await checkbox.boundingBox(),textBox=await filter.getByText('(Selecionar tudo)',{exact:true}).boundingBox();
+ expect(checkBox!.x+checkBox!.width).toBeLessThanOrEqual(textBox!.x);
+
 });

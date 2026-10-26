@@ -27,6 +27,9 @@ export async function visitsData(email: string, db: any = database(), management
       [email,management],
     )
   ).rows;
+  const directAssignments=(await db.query("SELECT person_id::text,seller_user FROM web_customer_registry WHERE company_id=1 AND seller_user IS NOT NULL")).rows;
+  const directSellers=new Map<string,string>(directAssignments.map((row:any)=>[row.person_id,row.seller_user]));
+  const assignedKeys=directAssignments.filter((row:any)=>management||row.seller_user===email).map((row:any)=>`m8:${row.person_id}`);
   const territories = new Set(rules.map((r: any) => r.city_key + ":" + r.uf));
   const source = (
     await db.query(
@@ -35,16 +38,11 @@ export async function visitsData(email: string, db: any = database(), management
        FROM m8_customer_directory d
        WHERE EXISTS (SELECT 1 FROM m8_person_equipment e WHERE e.person_id=d.person_id AND e.present) OR ('m8:' || d.person_id::text)=ANY($1::text[])
        ORDER BY d.person_id,d.collected_at DESC,d.company_id`,
-      [historical],
+      [[...historical,...assignedKeys]],
     )
   ).rows;
-  const mine = source.filter((r: any) =>
-    management || historical.includes(`m8:${r.person_id}`) || territories.has(
-      cityKey(r.payload?.municipioNome || "") +
-        ":" +
-        String(r.payload?.ufSigla || "").toUpperCase(),
-    ),
-  );
+  const mine = source.filter((r:any)=>management || historical.includes(`m8:${r.person_id}`) ||
+    (directSellers.has(r.person_id)?directSellers.get(r.person_id)===email:territories.has(cityKey(r.payload?.municipioNome||'')+':'+String(r.payload?.ufSigla||'').toUpperCase())));
   const leads = (
     await db.query(
       "SELECT * FROM web_sales_leads WHERE ($2::boolean OR owner=$1) ORDER BY name",
@@ -104,8 +102,8 @@ export async function visitsData(email: string, db: any = database(), management
         address: [r.payload.logradouro, r.payload.numero, r.payload.bairro]
           .filter(Boolean)
           .join(", "),
-        seller_ids: rules.filter((rule:any)=>rule.city_key === cityKey(r.payload?.municipioNome || "") && rule.uf === String(r.payload?.ufSigla || "").toUpperCase()).map((rule:any)=>rule.seller_user).filter(Boolean),
-        in_portfolio: r.has_equipment && (management || territories.has(cityKey(r.payload?.municipioNome || "") + ":" + String(r.payload?.ufSigla || "").toUpperCase())),
+        seller_ids: directSellers.has(r.person_id) ? [directSellers.get(r.person_id)!] : rules.filter((rule:any)=>rule.city_key === cityKey(r.payload?.municipioNome || "") && rule.uf === String(r.payload?.ufSigla || "").toUpperCase()).map((rule:any)=>rule.seller_user).filter(Boolean),
+        in_portfolio: directSellers.has(r.person_id) ? (management || directSellers.get(r.person_id)===email) : r.has_equipment && (management || territories.has(cityKey(r.payload?.municipioNome || "") + ":" + String(r.payload?.ufSigla || "").toUpperCase())),
         lead: false,
         equipment: equipmentMap.get(r.person_id) || [],
         latitude: p?.latitude ?? null,

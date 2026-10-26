@@ -1,6 +1,6 @@
 {
   "name": "historico-equipamentos",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -32,7 +32,10 @@
     "sync:localities": "tsx src/scripts/syncLocalities.ts",
     "sync:new-orders": "tsx src/scripts/syncNewOrders.ts",
     "sync:quotes": "tsx src/scripts/syncQuotes.ts",
-    "sync:purchases": "tsx src/scripts/syncPurchases.ts"
+    "sync:purchases": "tsx src/scripts/syncPurchases.ts",
+    "sync:customers": "tsx src/scripts/syncCustomers.ts",
+    "sync:commercial": "tsx src/scripts/syncCommercialFacts.ts",
+    "sync:commercial:status": "tsx src/scripts/commercialStatus.ts"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

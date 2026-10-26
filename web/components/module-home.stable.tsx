@@ -16,10 +16,13 @@ import SiteHeader from "./site-header";
 const modules = [
   {
     id: "crm",
-    title: "CRM",
+    title: "Comercial",
     icon: Users,
-    description: "Apoio ao comercial e preparação de propostas.",
+    description: "Faturamento, projeção de vendas e preparação de propostas.",
     links: [
+      ["Projeção de Vendas", "/comercial/projecao"],
+      ["Contratos", "/comercial/contratos"],
+      ["Vendas", "/comercial/vendas"],
       ["Orçamentos", "/orcamentos"],
       ["Catálogo do fabricante", "/fabricante"],
     ],

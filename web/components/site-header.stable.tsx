@@ -12,12 +12,15 @@ const moduleNames: Record<string, string> = {
   oficina: "Gestão de Oficina",
   visitas: "Visitas",
   tarefas: "Tarefas",
-  crm: "CRM",
+  crm: "Comercial",
   "assistencia-tecnica": "Assistência Técnica",
   suprimentos: "Suprimentos",
   equipamentos: "Gestão de Equipamentos",
 };
 const screens: Record<string, { label: string; modules: string[] }> = {
+  commercialContracts: {label:"Contratos",modules:["crm"]},
+  commercialSales: {label:"Vendas",modules:["crm"]},
+  salesProjection: {label:"Projeção de Vendas",modules:["crm"]},
   workshop: {label:"Painel da oficina",modules:["oficina"]},
   visitsManagement: { label: "Gestão de Visitas", modules: ["visitas"] },
   leakage: { label: "Gerar Relatório Caça Vazamento", modules: ["assistencia-tecnica"] },
@@ -54,6 +57,9 @@ export default function SiteHeader({
   moduleId,
 }: {
   active:
+    | "salesProjection"
+    | "commercialContracts"
+    | "commercialSales"
     | "workshop"
     | "visitsManagement"
     | "leakage"

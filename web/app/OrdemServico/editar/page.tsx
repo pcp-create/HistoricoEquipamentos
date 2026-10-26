@@ -1,3 +1,4 @@
+import { commercialReturnPath } from "@/lib/service-orders/return-path";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import NewServiceOrder from "@/components/new-service-order";
@@ -5,7 +6,7 @@ export const dynamic = "force-dynamic";
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ empresa?: string; id?: string }>;
+  searchParams: Promise<{ empresa?: string; id?: string; returnTo?: string }>;
 }) {
   const p = await searchParams;
   if (
@@ -21,5 +22,10 @@ export default async function Page({
           "/OrdemServico/editar?empresa=" + p.empresa + "&id=" + p.id,
         ),
     );
-  return <NewServiceOrder editing={{ company: p.empresa!, id: p.id! }} />;
+  return (
+    <NewServiceOrder
+      returnTo={commercialReturnPath(p.returnTo)}
+      editing={{ company: p.empresa!, id: p.id! }}
+    />
+  );
 }

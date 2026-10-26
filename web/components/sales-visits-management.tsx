@@ -1,12 +1,14 @@
 "use client";
 import { matchesSearch } from "@/lib/filters";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import SiteHeader from "./site-header";
 import {
   BarChart3,
   Users,
+  UserPlus,
+  UserX,
   List,
   CalendarDays,
   MapPin,
@@ -58,6 +60,8 @@ function SellerPhoto({id,name}:{id:string;name:string}) {
   return <span className="sales-seller-photo" aria-hidden="true">{failed ? initials : <img src={`/api/users/photo?email=${encodeURIComponent(id)}`} alt="" width={44} height={44} loading="lazy" onError={()=>setFailed(true)}/>}</span>;
 }
 export default function SalesVisitsManagement() {
+  const menuRef=useRef<HTMLElement>(null);
+  const [moreTabs,setMoreTabs]=useState(false);
   const [calendarView,setCalendarView]=useState<"month"|"week"|"day">("month");
   const [filtersExpanded,setFiltersExpanded]=useState(false);
   const [data, setData] = useState<VisitsData | null>(null),
@@ -136,6 +140,20 @@ export default function SalesVisitsManagement() {
       (!until || date <= until)
     );
   });
+  const visibleCustomers=customers.filter(c=>(!seller || c.seller_ids?.includes(seller)) && customerMatches(c));
+  const customerTabs={
+    customers:visibleCustomers.filter(c=>!c.lead&&!c.disqualification),
+    leads:visibleCustomers.filter(c=>c.lead&&!c.disqualification),
+    disqualified:visibleCustomers.filter(c=>!!c.disqualification),
+  };
+  const listedCustomers=customerTabs[tab as keyof typeof customerTabs];
+  useEffect(()=>{
+    const menu=menuRef.current;if(!menu)return;
+    const update=()=>setMoreTabs(menu.scrollWidth-menu.clientWidth-menu.scrollLeft>1);
+    const observer=new ResizeObserver(update);observer.observe(menu);for(const child of menu.children)observer.observe(child);
+    menu.addEventListener("scroll",update,{passive:true});update();
+    return()=>{observer.disconnect();menu.removeEventListener("scroll",update)};
+  },[data,seller,query]);
   const portfolio = customers.filter(
     (c) =>
       !c.lead && c.in_portfolio !== false &&
@@ -266,7 +284,7 @@ export default function SalesVisitsManagement() {
             <p>Acompanhe a carteira e as visitas de todos os vendedores.</p>
           </div>
           <div className="sales-actions">
-            <button className="sales-primary" onClick={()=>setScheduling(true)}><Plus size={18}/>Agendar visita</button>
+            <button className="sales-primary sales-management-create" onClick={()=>setScheduling(true)}><Plus size={18}/>Agendar visita</button>
             <Link href="/visitas/gestao/configuracoes" title="Configurações de Visitas" aria-label="Configurações de Visitas"><Settings size={20}/></Link>
           </div>
         </header>
@@ -380,12 +398,16 @@ export default function SalesVisitsManagement() {
               )}
               </div>
             </section>
-            <nav
+            <div className="sales-management-menu">
+            <nav ref={menuRef}
               className="sales-management-tabs"
               aria-label="Visões de gestão"
             >
               {[
                 ["overview", "Visão geral", BarChart3],
+                ["customers", `Clientes (${customerTabs.customers.length})`, Users],
+                ["leads", `Leads (${customerTabs.leads.length})`, UserPlus],
+                ["disqualified", `Desqualificados (${customerTabs.disqualified.length})`, UserX],
                 ["sellers", "Vendedores", Users],
                 ["visits", "Visitas", List],
                 ["calendar", "Calendário", CalendarDays],
@@ -404,6 +426,22 @@ export default function SalesVisitsManagement() {
                 );
               })}
             </nav>
+            <button className="sales-management-next" aria-label="Ver mais abas de gestão" style={{visibility:moreTabs?"visible":"hidden"}} tabIndex={moreTabs?0:-1} aria-hidden={!moreTabs} onClick={()=>menuRef.current?.scrollBy({left:menuRef.current.clientWidth,behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"instant":"smooth"})}><ChevronRight size={18}/></button>
+            </div>
+            {listedCustomers && <section aria-label="Lista de clientes da gestão">
+              <div className="sales-customer-grid">
+                {listedCustomers.map(customer=><article key={customer.key} className={"sales-customer "+customer.health}>
+                  <div className="sales-between"><strong>{customer.name}</strong><span className={"sales-badge "+customer.health}>{customer.disqualification?"Desqualificado":healthLabels[customer.health]}</span></div>
+                  {customer.tradeName&&<p>{customer.tradeName}</p>}
+                  <p>{customer.city} / {customer.uf} {customer.document&&"· "+customer.document}</p>
+                  <p className="sales-muted">{customer.lastVisit?"Última visita: "+dateTime(customer.lastVisit):"Nenhuma visita realizada registrada"}</p>
+                  <p className="sales-muted">Vendedor: {customer.seller_ids?.map(id=>sellerMap.get(id)?.name||id).join(", ")||"Não atribuído"}</p>
+                  {customer.disqualification&&<p className="visit-disqualification-reason"><strong>Justificativa:</strong> {customer.disqualification.reason}</p>}
+                  <div className="sales-customer-actions"><button className="sales-history-button" onClick={()=>setDetail(customer)}>Ver histórico e equipamentos<ChevronRight size={15}/></button></div>
+                </article>)}
+              </div>
+              {!listedCustomers.length&&<p className="sales-empty">Nenhum cadastro nos filtros selecionados.</p>}
+            </section>}
             {selectedSeller && (
               <section className="sales-management-profile">
                 <div className="sales-profile-identity">
@@ -728,6 +766,7 @@ export default function SalesVisitsManagement() {
             )}
           </>
         )}
+        {data&&<button className="sales-management-fab" aria-label="Agendar visita" title="Agendar visita" onClick={()=>setScheduling(true)}><Plus size={26}/></button>}
         <footer className="sales-footer">
           Gestão de Visitas · Horários de Brasília · Atualização automática a
           cada minuto

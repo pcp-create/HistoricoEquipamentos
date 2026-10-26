@@ -2,7 +2,7 @@ import {cookies} from "next/headers";
 import {redirect} from "next/navigation";
 import Link from "next/link";
 import SiteHeader from "@/components/site-header";
-import TaskTerritories from "@/components/task-territories";
+import CommercialRegistries from "@/components/commercial-registries";
 export const dynamic="force-dynamic";
 export default async function Page(){
  const jar=await cookies();
@@ -10,6 +10,6 @@ export default async function Page(){
  return <><SiteHeader active="registries"/><main className="manual-page">
  <Link className="button" href="/configuracoes/cadastros">← Todos os cadastros</Link>
  <header className="manual-title"><h1>Divisão Comercial</h1></header>
- <TaskTerritories/>
+ <CommercialRegistries/>
  </main></>;
 }

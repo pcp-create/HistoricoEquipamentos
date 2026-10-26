@@ -1,4 +1,5 @@
 import "server-only";
+import { refreshProjectionOrder } from "../sales-projection/refresh-order";
 import { createHash } from "node:crypto";
 import { database } from "../db";
 import { m8Session, M8RequestError } from "./m8";
@@ -209,6 +210,7 @@ function publicEdit(r: any) {
     itemCount: r.steps.length,
     message: r.message,
     draft: r.request,
+    localSynced: r.state === "complete" ? !r.message : undefined,
   };
 }
 export async function editStatus(email: string, id: string) {
@@ -579,6 +581,10 @@ export async function advanceEdit(
         : "uncertain";
     message =
       e instanceof Error ? e.message : "Não foi possível confirmar a edição.";
+  }
+  if (state === "complete") {
+    try { await refreshProjectionOrder(Number(row.company_id), text(row.m8_id), session); }
+    catch { message = "OS salva no M8. A atualização local aguarda sincronização."; }
   }
   return transaction(async (c) =>
     publicEdit(

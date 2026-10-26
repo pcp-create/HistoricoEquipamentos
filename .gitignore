@@ -45,3 +45,6 @@ __pycache__/
 # Temporary Next.js builds and browser-test output
 /web/.next-*/
 /test-results/
+
+# Private Power BI source (may contain API credentials)
+/Projeção de Vendas.pbix

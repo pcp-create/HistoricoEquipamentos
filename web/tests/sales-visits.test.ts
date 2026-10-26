@@ -53,6 +53,7 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     await db.exec(readFileSync(new URL("../sql/071_visit_contacts_actions.sql",import.meta.url),"utf8"));
     await db.exec(readFileSync(new URL("../sql/072_visit_machine_registration.sql",import.meta.url),"utf8"));
     await db.exec(readFileSync(new URL("../sql/074_visit_disqualifications.sql",import.meta.url),"utf8"));
+    for(const name of ["075_customer_registry","076_customer_seller"])await db.exec(readFileSync(new URL("../sql/"+name+".sql",import.meta.url),"utf8"));
     const query = async (sql: string, args?: any[]) => {
       if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
       return db.query(sql.replace("BEGIN READ WRITE", "BEGIN"), args);
@@ -325,6 +326,14 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
       const audit=(await db.query<any>("SELECT details FROM web_access_events WHERE event='sales_customer_restored' AND details->>'customer_key'=$1",[key])).rows;
       assert.equal(audit.length,1);assert.ok(audit[0].details.previous.reason);
     }
+
+    await db.exec("INSERT INTO web_customer_registry(company_id,person_id,seller_user) VALUES(1,5,'b@test.com'),(1,1,'b@test.com')");
+    const assigned=await visitsData('b@test.com');
+    assert.deepEqual(assigned.customers.find(c=>c.key==='m8:5')?.seller_ids,['b@test.com']);
+    assert.equal(assigned.customers.find(c=>c.key==='m8:5')?.in_portfolio,true,'directly assigned clients need no equipment');
+    assert.equal((await visitsData('a@test.com')).customers.find(c=>c.key==='m8:1')?.in_portfolio,false,'city rule does not override explicit seller');
+    await db.exec("UPDATE web_customer_registry SET seller_user=null WHERE person_id=1");
+    assert.equal((await visitsData('a@test.com')).customers.find(c=>c.key==='m8:1')?.in_portfolio,true);
 
   } finally {
     g.historyPool = old;

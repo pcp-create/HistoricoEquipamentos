@@ -47,3 +47,9 @@
 .ws-board-navigation button { flex-shrink: 0; }
 .ws-stage-saving { display: block; color: #237ca3; font-size: 11px; margin: 8px 0; }
 .ws-board .ws-machine[aria-busy=true] { border-color: #a1bfd1; cursor: progress; }
+.ws-notes-form{display:grid;gap:12px;margin:20px 0;padding:16px;border:1px solid #dce6f0;border-radius:9px;background:#f7fafd}
+.ws-notes-form label{display:grid;gap:8px;font-size:13px;font-weight:600}
+.ws-notes-form textarea{width:100%;min-height:140px;resize:vertical;border:1px solid #cbdced;border-radius:7px;padding:12px;color:#315372;background:#fff;font:inherit;font-weight:400;font-size:13px;line-height:1.6}
+.ws-notes-form>div{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ws-notes-form small{flex:1;min-width:180px;color:#73899f;font-size:11px;line-height:1.5}
+.ws-notes-form button{flex-shrink:0}.ws-drawer .ws-notes{white-space:pre-wrap;overflow-wrap:anywhere}

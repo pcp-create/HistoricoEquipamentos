@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import {
   assignNewTasks,
   saveTerritory,
+  saveTerritories,
   territoryList,
 } from "../lib/tasks/territories";
 test("territory CRUD and automatic assignment require unambiguous city/state, preserve existing owners and audit changes", async () => {
@@ -116,6 +117,14 @@ test("territory CRUD and automatic assignment require unambiguous city/state, pr
         .rows[0].assigned_to,
       "a@example.com",
     );
+    const before=(await territoryList()).rules.length;
+    await assert.rejects(()=>saveTerritories({changes:[{action:"save",city:"Cidade lote A",uf:"SC",assignee:"a@example.com"},{action:"save",city:"Cidade lote B",uf:"XX",assignee:"a@example.com"}]},"admin@example.com"),/Alteração 2/);
+    assert.equal((await territoryList()).rules.length,before,"invalid batch rolls back every row");
+    await saveTerritories({changes:[{action:"save",city:"Cidade lote A",uf:"SC",assignee:"a@example.com"},{action:"save",city:"Cidade lote B",uf:"SC",assignee:"a@example.com"}]},"admin@example.com");
+    const batchRows=(await territoryList()).rules.filter(r=>r.city.startsWith("Cidade lote"));
+    assert.equal(batchRows.length,2);
+    await assert.rejects(()=>saveTerritories({changes:batchRows.map((r,i)=>({...r,action:"save",city:r.city+" editada",version:i===1?r.version-1:r.version}))},"admin@example.com"),/Registro alterado/);
+    assert.ok((await territoryList()).rules.some(r=>r.city==="Cidade lote A"),"conflict preserves all original rows");
   } finally {
     g.historyPool = old;
     await db.close();

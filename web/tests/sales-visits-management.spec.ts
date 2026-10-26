@@ -154,3 +154,25 @@ test('map keeps its tiles and zoom when management data refreshes', async ({page
  expect(await page.evaluate(()=>document.querySelector('.leaflet-tile-pane')===(window as any).originalTilePane)).toBe(true);
  expect(await page.evaluate(()=>(document.querySelector('.sales-map') as any)._leaflet_id===(window as any).originalMapId)).toBe(true);
 });
+
+test('management customer tabs scroll on mobile and floating action schedules visits',async({page,context})=>{
+ await page.setViewportSize({width:390,height:844});
+ await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/visits/management',r=>r.fulfill({json:{name:'Gestor',sellers,customers:[...customers,{...customers[0],key:'3',name:'Cliente desqualificado',disqualification:{reason:'Fora do perfil',actor:'a@test',created_at:'2026-10-26T12:00:00Z'}}],visits:[]}}));
+ await page.goto('/visitas/gestao');
+ await page.getByRole('button',{name:'Clientes (1)',exact:true}).click();
+ await expect(page.locator('.sales-customer-grid')).toContainText('Cliente A');
+ await expect(page.locator('.sales-customer-grid')).not.toContainText('Cliente desqualificado');
+ await page.getByRole('button',{name:'Leads (1)',exact:true}).click();
+ await expect(page.locator('.sales-customer-grid')).toContainText('Lead B');
+ await page.getByRole('button',{name:'Desqualificados (1)',exact:true}).click();
+ await expect(page.locator('.sales-customer-grid')).toContainText('Fora do perfil');
+ expect(await page.locator('.sales-management-tabs').evaluate(el=>getComputedStyle(el).scrollbarWidth==='none'&&el.scrollWidth>el.clientWidth)).toBe(true);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ const action=page.getByRole('button',{name:'Agendar visita',exact:true});
+ await expect(action).toBeVisible();
+ expect(await action.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
+ await action.click();
+ await expect(page.getByRole('dialog',{name:'Formulário de visita'})).toBeVisible();
+ await expect(page.getByRole('combobox',{name:'Vendedor responsável'})).toBeVisible();
+});

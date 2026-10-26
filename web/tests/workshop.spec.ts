@@ -6,7 +6,7 @@ test('workshop board filters locations, opens linked records and records an entr
  data.external=[{id:'30000000-0000-4000-8000-000000000003',visit_id:null,component:'Motor externo',supplier:'Fornecedor teste',status:'approval',version:1,sent_at:'2026-01-01T03:00:00Z',expected_at:null,machine:{id:null,name:'Máquina externa',client:'Cliente externo',workshop_id:null,orders:[],tasks:[]}}];
  let saved:any;
  await page.route('**/api/**',r=>r.fulfill({json:{admin:true}}));
- await page.route('**/api/workshop**',r=>{if(r.request().method()==='POST'){saved=r.request().postDataJSON();return r.fulfill({json:{saved:true}});}if(new URL(r.request().url()).searchParams.has('q'))return r.fulfill({json:{rows:[{id:'22222',name:'COMPRESSOR TESTE',serial:'ABC',client:'Cliente novo'}]}});return r.fulfill({json:data});});
+ await page.route('**/api/workshop**',r=>{if(r.request().method()==='POST'){saved=r.request().postDataJSON();if(saved.action==='notes'){data.visits[0].notes=saved.notes;data.visits[0].version++;}return r.fulfill({json:{saved:true}});}if(new URL(r.request().url()).searchParams.has('q'))return r.fulfill({json:{rows:[{id:'22222',name:'COMPRESSOR TESTE',serial:'ABC',client:'Cliente novo'}]}});return r.fulfill({json:data});});
  await page.goto('/oficina');
  await expect(page.getByRole('heading',{name:'Gestão de Oficina',exact:true})).toBeVisible();
  await expect(page.getByRole('heading',{name:'O que precisa de atenção hoje'})).toBeVisible();
@@ -42,6 +42,12 @@ test('workshop board filters locations, opens linked records and records an entr
  await page.locator('.ws-machine').filter({hasText:'16929'}).click();
  await expect(page.getByRole('dialog',{name:'Ficha da máquina'})).toContainText('Aguardando peça: sinalizado automaticamente');
  await expect(page.getByRole('link',{name:/OS 15119/})).toHaveAttribute('href','/historico?createdCompany=1&createdOrder=400');
+ await expect(page.getByRole('textbox',{name:'Observações do equipamento'})).toHaveValue('Inspeção inicial registrada.');
+ await page.getByRole('textbox',{name:'Observações do equipamento'}).fill('Inspeção revisada.\nAguardando aprovação.');
+ await page.getByRole('button',{name:'Salvar observações',exact:true}).click();
+ await expect.poll(()=>saved?.action).toBe('notes');
+ expect(saved).toMatchObject({id:base.id,version:1,notes:'Inspeção revisada.\nAguardando aprovação.'});
+ await expect(page.getByRole('textbox',{name:'Observações do equipamento'})).toHaveValue('Inspeção revisada.\nAguardando aprovação.');
  await page.getByRole('button',{name:'Fechar ficha'}).click();
  await page.getByRole('button',{name:'Conferir registros'}).click();await expect(page.locator('.ws-import-list')).toContainText('Motor sem código');
  await page.getByRole('button',{name:'Kanban',exact:true}).click();

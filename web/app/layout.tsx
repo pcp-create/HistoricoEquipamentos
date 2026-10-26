@@ -15,14 +15,14 @@ import "./form-controls.css";
 export const metadata: Metadata = {
   title: "RJ Compressores | Gestão integrada",
   description:
-    "CRM, assistência técnica, suprimentos e gestão de equipamentos.",
+    "Comercial, assistência técnica, suprimentos e gestão de equipamentos.",
   robots: { index: false, follow: false },
   applicationName: "Gestão Integrada",
   openGraph: {
     type: "website",
     locale: "pt_BR",
     title: "RJ Compressores | Gestão integrada",
-    description: "CRM, assistência técnica, suprimentos e gestão de equipamentos.",
+    description: "Comercial, assistência técnica, suprimentos e gestão de equipamentos.",
     siteName: "Gestão Integrada",
     images: [{
       url: "https://rjcompressores.app/icons/gestao-integrada-512.png",

@@ -1,0 +1,68 @@
+.territory-sheet-toolbar { display:flex; flex-wrap:wrap; align-items:end; gap:8px; margin:18px 0; }
+.territory-sheet-toolbar label { display:grid; gap:6px; }
+.territory-sheet .territory-save { background:#246194; color:white; }
+.territory-sheet-scroll { overflow:auto; max-height:70vh; border:1px solid #cbdceb; border-radius:8px; }
+.territory-sheet table { border-collapse:separate; border-spacing:0; width:100%; }
+.territory-sheet th { position:sticky; top:0; z-index:1; background:#edf4fb; text-align:left; }
+.territory-sheet th,.territory-sheet td { padding:3px; border-right:1px solid #dbe5ee; border-bottom:1px solid #dbe5ee; min-width:180px; }
+.territory-sheet th:last-child,.territory-sheet td:last-child { min-width:50px; }
+.territory-sheet th input,.territory-sheet td input { width:100%; box-sizing:border-box; --field-height:36px; --field-padding:5px 8px; }
+.territory-sheet th button { display:block; width:100%; text-align:left; border:0; background:transparent; min-height:32px; padding:6px; }
+.territory-sheet th button[aria-pressed=true] { background:#d2e6fb; }
+.territory-sheet .territory-dirty td { background:#fff8df; }
+.territory-sheet td.territory-selected { background:#dcecff; }
+.territory-sheet [role=alert] { color:#b42335; white-space:pre-wrap; }
+.territory-sheet [role=status] { color:#207344; }
+
+/* Compact spreadsheet cells; keep spacing independent of legacy registry tables. */
+.manual-card.territory-sheet { --field-radius: 0px; }
+.territory-sheet-scroll { border-radius: 0; }
+.territory-sheet button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font: 500 13px var(--field-font); color: #294d6a; background: white; border: 1px solid #cbddec; border-radius: 6px; min-height: 36px; padding: 7px 12px; cursor: pointer; }
+.territory-sheet button:disabled { opacity: .5; cursor: not-allowed; }
+.territory-sheet button:focus-visible { outline: 2px solid #a8cbea; outline-offset: 1px; }
+.territory-sheet .territory-save { background: #246194; border-color: #246194; color: white; }
+.manual-card.territory-sheet table th,.manual-card.territory-sheet table td { padding: 0; border-radius: 0; height: auto; vertical-align: middle; }
+.manual-card.territory-sheet table input { --field-height: 32px; --field-padding: 4px 8px; --field-radius: 0px; --field-border: transparent; height: 32px; margin: 0; border-radius: 0; }
+.manual-card.territory-sheet table input:focus { --field-border: #a8cbea; }
+.territory-sheet th button { display: flex; justify-content: flex-start; border: 0; border-radius: 0; background: transparent; min-height: 28px; padding: 4px 8px; font-size: 12px; }
+.territory-sheet th input { border-block: 1px solid #dbe5ee; }
+.territory-sheet td:last-child { text-align: center; }
+.territory-sheet td button { min-height: 28px; height: 28px; padding: 4px 7px; border-radius: 0; border-color: transparent; background: transparent; color: #71869b; }
+.territory-sheet td button:hover { color: #b42335; background: #fff0f1; }
+
+.territory-column-filter { position: fixed; inset: auto; margin: 0; width: 280px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); overflow: auto; box-sizing: border-box; padding: 12px; border: 1px solid #cbddec; background: white; color: #294d6a; box-shadow: 0 6px 24px #294d6a26; font: 13px var(--field-font); }
+.territory-column-filter > strong { display: block; margin-bottom: 10px; }
+.territory-column-filter > input { width: 100%; }
+.territory-column-filter .territory-filter-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.territory-column-filter .territory-filter-actions button { width: auto; flex: 1; text-align: center; justify-content: center; font-size: 11px; border: 1px solid #cbddec; }
+.territory-filter-values { max-height: 200px; overflow-y: auto; margin: 10px 0; }
+.territory-filter-values label { display: flex; align-items: center; gap: 8px; padding: 6px 2px; font-weight: 400; cursor: pointer; }
+.territory-filter-values label span { overflow-wrap: anywhere; }
+.manual-card.territory-sheet .territory-filter-values input[type=checkbox] { width: 16px; height: 16px; min-height: 16px; flex: 0 0 16px; accent-color: #246194; }
+
+.territory-column-heading { display: flex; align-items: center; gap: 3px; padding-right: 4px; }
+.territory-column-heading > button:first-child { flex: 1; min-width: 0; width: auto; }
+.territory-sheet th .territory-filter-trigger { flex: 0 0 22px; width: 22px; height: 22px; min-height: 22px; padding: 2px; justify-content: center; border: 1px solid #b4c4d2; background: #f7f9fb; }
+.manual-card.territory-sheet .territory-column-filter .territory-filter-values label { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; text-align: left; width: 100%; margin: 0; padding: 5px 2px; gap: 7px; }
+.manual-card.territory-sheet .territory-column-filter .territory-filter-values label input[type=checkbox] { display: inline-block; margin: 0; padding: 0; width: 16px; min-width: 16px; height: 16px; min-height: 16px; flex: 0 0 16px; }
+.manual-card.territory-sheet .territory-column-filter .territory-filter-values label span { display: block; flex: 1; text-align: left; }
+.territory-sheet th .territory-column-filter .territory-filter-sort { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; padding: 7px 0; }
+
+.manual-card.territory-sheet th .territory-filter-trigger { display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
+.manual-card.territory-sheet th .territory-filter-trigger svg { display: block; flex: none; width: 13px; height: 13px; margin: 0; position: static; }
+.territory-column-filter:popover-open { display: flex; flex-direction: column; overflow: hidden; }
+.territory-column-filter > :not(.territory-filter-values) { flex-shrink: 0; }
+.territory-column-filter .territory-filter-values { flex: 1 1 auto; min-height: 0; max-height: 220px; overflow-y: auto; }
+.territory-column-filter > .territory-filter-actions:last-child { background: white; margin-top: 8px; padding-top: 8px; border-top: 1px solid #dbe5ee; }
+
+.manual-card.territory-sheet table th:last-child { text-align: center; }
+
+/* The shared filter also appears outside the editable spreadsheet container. */
+.territory-column-filter button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font: 500 13px var(--field-font); color: #294d6a; background: white; border: 1px solid #cbddec; border-radius: 6px; min-height: 36px; padding: 7px 12px; cursor: pointer; }
+.territory-column-filter button:focus-visible { outline: 2px solid #a8cbea; outline-offset: 1px; }
+.territory-column-filter .territory-filter-sort { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; padding: 7px 0; border: 0; border-radius: 0; background: transparent; text-align: left; }
+.territory-column-filter button svg { flex: none; margin: 0; position: static; }
+.territory-column-filter .territory-filter-values label { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; text-align: left; width: 100%; margin: 0; padding: 5px 2px; gap: 7px; }
+.territory-column-filter .territory-filter-values label input[type=checkbox] { display: inline-block; margin: 0; padding: 0; width: 16px; min-width: 16px; height: 16px; min-height: 16px; flex: 0 0 16px; accent-color: #246194; }
+.territory-column-filter .territory-filter-values label span { display: block; flex: 1; text-align: left; white-space: normal; }
+.territory-column-filter .territory-save { background: #246194; border-color: #246194; color: white; }

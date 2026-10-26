@@ -18,7 +18,7 @@ export async function territoryList() {
   return {
     rules: (
       await database().query(
-        "SELECT t.*,u.display_name,u.enabled FROM web_task_territories t JOIN web_user_access u ON u.email=t.assignee ORDER BY t.uf,t.city",
+        "SELECT t.*,u.display_name,u.enabled,s.display_name AS seller_display_name FROM web_task_territories t JOIN web_user_access u ON u.email=t.assignee LEFT JOIN web_user_access s ON s.email=t.seller_user ORDER BY t.uf,t.city",
       )
     ).rows,
     users: (
@@ -28,7 +28,7 @@ export async function territoryList() {
     ).rows,
   };
 }
-export async function saveTerritory(b: any, email: string) {
+export async function saveTerritory(b: any, email: string, transaction?: PoolClient) {
   if (!["save", "delete"].includes(b?.action))
     throw new AdminInputError("Operação inválida.");
   if (
@@ -59,9 +59,9 @@ export async function saveTerritory(b: any, email: string) {
       );
     details[field] = b[field]?.trim();
   }
-  const c = await database().connect();
+  const c = transaction || await database().connect();
   try {
-    await c.query("BEGIN READ WRITE");
+    if (!transaction) await c.query("BEGIN READ WRITE");
     const old = b.id
       ? (
           await c.query(
@@ -151,15 +151,30 @@ export async function saveTerritory(b: any, email: string) {
         }),
       ],
     );
-    await c.query("COMMIT");
+    if (!transaction) await c.query("COMMIT");
   } catch (e: any) {
-    await c.query("ROLLBACK");
+    if (!transaction) await c.query("ROLLBACK");
     if (e.code === "23505")
       throw new AdminInputError("Já existe uma regra para esta cidade e UF.");
     throw e;
   } finally {
-    c.release();
+    if (!transaction) c.release();
   }
+}
+export async function saveTerritories(body:any,email:string) {
+  if(!Array.isArray(body.changes)||!body.changes.length||body.changes.length>10000)
+    throw new AdminInputError("Envie entre 1 e 10000 alterações.");
+  const ids=body.changes.filter((row:any)=>row.id!=null).map((row:any)=>String(row.id));
+  if(new Set(ids).size!==ids.length)throw new AdminInputError("Registro repetido no lote.");
+  const c=await database().connect();
+  try {
+    await c.query("BEGIN READ WRITE");
+    for(let index=0;index<body.changes.length;index++) {
+      try{await saveTerritory(body.changes[index],email,c)}
+      catch(error){if(error instanceof AdminInputError)throw new AdminInputError(`Alteração ${index+1}: ${error.message}`);throw error;}
+    }
+    await c.query("COMMIT");
+  }catch(error){await c.query("ROLLBACK");throw error;}finally{c.release();}
 }
 export async function assignNewTasks(c: PoolClient, taskIds: string[]) {
   await assignNewRentalTasks(c, taskIds);

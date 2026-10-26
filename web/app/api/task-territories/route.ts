@@ -1,6 +1,6 @@
 import { requireUser, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import { AdminInputError } from "@/lib/admin-store";
-import { territoryList, saveTerritory } from "@/lib/tasks/territories";
+import { territoryList, saveTerritory, saveTerritories } from "@/lib/tasks/territories";
 export const runtime = "nodejs";
 const json = (v: unknown, status = 200) =>
   Response.json(v, {
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   try {
     const user = await requireUser();
     const raw = await req.text();
-    if (raw.length > 2000)
+    if (raw.length > 10000000)
       return json({ error: "Dados excedem o limite." }, 413);
     let body;
     try {
@@ -49,7 +49,8 @@ export async function POST(req: Request) {
     } catch {
       return json({ error: "Dados inválidos." }, 400);
     }
-    await saveTerritory(body, user.email);
+    if(body.action === "batch") await saveTerritories(body,user.email);
+    else await saveTerritory(body, user.email);
     return json({ saved: true });
   } catch (e) {
     return failure(e);

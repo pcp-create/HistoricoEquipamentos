@@ -1,0 +1,8 @@
+[Unit]
+Description=Sincronização periódica M8 clientes
+[Timer]
+OnBootSec=4min
+OnUnitInactiveSec=5min
+Unit=m8-clientes.service
+[Install]
+WantedBy=timers.target

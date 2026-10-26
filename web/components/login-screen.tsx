@@ -97,7 +97,7 @@ export default function Login({
               ? "Clientes, agendamentos e registros de visitas comerciais."
               : technician
                 ? "Ordens de serviço, apontamentos, fotos e relatórios técnicos."
-                : "CRM, assistência técnica, suprimentos e equipamentos."}
+                : "Comercial, assistência técnica, suprimentos e equipamentos."}
             <br />
             {sales
               ? "Sua carteira organizada para atender melhor a cada cliente."
