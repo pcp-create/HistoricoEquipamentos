@@ -993,3 +993,27 @@
   background: #e0eef9;
   border-color: #84afd1;
 }
+
+.sales-app .sales-customer-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+.sales-app .sales-customer-actions > button { min-width: 0; width: 100%; padding: 10px 6px; gap: 5px; font-size: 12px; white-space: nowrap; }
+.sales-app .sales-customer-actions > .sales-equipment-toggle { grid-column: 1 / -1; }
+.sales-app .sales-customer-actions > .sales-register-button { background: #edf4fb; color: #245988; border-color: #c9dcec; }
+.sales-customer-actions .sales-history-button svg:last-child { margin-left: 0; }
+@media(max-width:360px) { .sales-app .sales-customer-actions { gap: 5px; } .sales-app .sales-customer-actions > button { font-size: 11px; gap: 3px; } }
+
+.sales-card-machines { margin: 8px 0 0; }
+.sales-app .sales-card-machines-heading { display: flex; align-items: center; gap: 12px; width: 100%; margin: 0; padding: 16px; border: 0; border-radius: 0; background: #f3f8fc; color: #285d94; text-align: left; }
+.sales-card-machines-heading > svg { flex-shrink: 0; }
+.sales-card-machines-heading[aria-expanded=true] { border-bottom: 1px solid #d5e3ef; }
+.sales-card-machines-heading[aria-expanded=true] > svg:last-child { transform: rotate(180deg); }
+.sales-card-machines .sales-client-machines { margin-top: 0; border-top: 0; padding: 16px; }
+.sales-card-machines .sales-client-machines article { background: #fff; margin: 0 0 12px; padding: 14px; }
+.sales-app .sales-card-machines .sales-machine-create { display: flex; align-items: center; justify-content: center; width: 100%; gap: 9px; margin: 18px 0 2px; min-height: 44px; padding: 12px 16px; border: 1px solid #bfd6e9; border-radius: 10px; background: #edf5fc; color: #245e91; font-size: 13px; font-weight: 600; }
+.sales-app .sales-card-machines .sales-machine-create:hover:not(:disabled) { background: #e0eef9; border-color: #84afd1; }
+
+.sales-customer-history .sales-history-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin: 20px 0 16px; }
+.sales-customer-history .sales-history-actions > button { display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; width: 100%; min-height: 44px; margin: 0; padding: 10px 8px; border-radius: 9px; font: 600 13px/1.4 var(--field-font,Arial,sans-serif); text-align: center; }
+.sales-customer-history .sales-history-actions > button svg { flex-shrink: 0; }
+.sales-customer-history .sales-history-actions > .sales-primary { background: #246194; color: #fff; border: 1px solid #246194; }
+.sales-customer-history .sales-history-actions > .sales-history-register { background: #edf4fb; color: #245988; border: 1px solid #c9dcec; }
+.sales-customer-history .visit-contacts > button { display: inline-flex; justify-content: center; align-items: center; min-height: 40px; margin: 4px 0 0; padding: 10px 14px; border: 1px solid #bfd6e9; border-radius: 9px; background: #f3f8fc; color: #245e91; font: 600 13px/1.4 var(--field-font,Arial,sans-serif); }

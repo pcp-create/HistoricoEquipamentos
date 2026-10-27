@@ -19,6 +19,7 @@ import {
   RefreshCw,
   LogOut,
   CheckCircle2,
+  Wrench,
   Clock3,
   Users,
   UserPlus,
@@ -838,17 +839,24 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                             <CalendarDays size={17} />
                             Agendar
                           </button>
+                          <button className="sales-register-button" disabled={!online} onClick={() => openForm("history", c)}>
+                            <CheckCircle2 size={17}/>Registrar
+                          </button>
                           <button className="sales-history-button" onClick={() => setDetail(c)}>
                             <History size={17} />
-                            Ver histórico
-                            <ChevronRight size={15}/>
+                            Histórico
                           </button>
-                          {<button className="sales-equipment-toggle" aria-expanded={equipmentCustomer===c.key} onClick={()=>setEquipmentCustomer(equipmentCustomer===c.key?null:c.key)}><Gauge size={17}/>Máquinas ({c.equipment?.length || 0})<ChevronDown size={15}/></button>}
                         </div>
-                        {equipmentCustomer===c.key && <section className="sales-client-machines" aria-label={"Máquinas de "+c.name}>
-                          <VisitMachineRegistration customer={c.key} name={c.name} online={online}/>{!c.equipment?.length && <p>Nenhuma máquina integrada para este cliente.</p>}
-                          {c.equipment?.map(item=><article key={item.id}><strong>{item.id} · {item.name}</strong><p>Modelo: {item.model || "Não informado"} · Série: {item.serial || "Não informada"}</p><p>Horímetro: <b>{item.meter == null?"Não informado":item.meter.toLocaleString("pt-BR")+" h"}</b> · Coleta: {item.meterDate?item.meterDate.split("-").reverse().join("/"):"Não registrada"}</p><button disabled={!online} onClick={()=>selectEquipment(c,item)}><Gauge size={16}/>Registrar horímetro</button></article>)}
-                        </section>}
+                        <div className="visit-record-machines sales-card-machines">
+                          <button type="button" className="sales-card-machines-heading" aria-expanded={equipmentCustomer===c.key} onClick={()=>setEquipmentCustomer(equipmentCustomer===c.key?null:c.key)}>
+                            <Wrench size={20} aria-hidden="true"/><span className="visit-record-machines-title">Máquinas do cliente <span className="visit-machine-count">({c.equipment?.length || 0})</span><small>Consulte as máquinas ou cadastre uma nova</small></span><ChevronDown size={18} aria-hidden="true"/>
+                          </button>
+                          {equipmentCustomer===c.key && <section className="visit-record-machines-body sales-client-machines" aria-label={"Máquinas de "+c.name}>
+                            {!c.equipment?.length && <p>Nenhuma máquina integrada para este cliente.</p>}
+                            {c.equipment?.map(item=><article className="visit-machine-record-card" key={item.id}><strong>{item.name}</strong><p>Modelo: {item.model || "Não informado"}</p><p>Série: {item.serial || "Não informada"}</p><p>Horímetro: <b>{item.meter == null?"Não informado":item.meter.toLocaleString("pt-BR")+" h"}</b> · Coleta: {item.meterDate?item.meterDate.split("-").reverse().join("/"):"Não registrada"}</p><button disabled={!online} onClick={()=>selectEquipment(c,item)}><Gauge size={16}/>Registrar horímetro</button></article>)}
+                            <VisitMachineRegistration customer={c.key} name={c.name} online={online}/>
+                          </section>}
+                        </div>
                       </article>
                       </VisitCustomerSwipe>
                     ))}
@@ -985,7 +993,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
             role="dialog"
             aria-modal="true"
             aria-label="Histórico do cliente"
-            className="sales-dialog"
+            className="sales-dialog sales-customer-history"
           >
             <div className="sales-between">
               <h2>{detail.name}</h2>
@@ -1001,18 +1009,20 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
               {detail.address} · {detail.city}/{detail.uf}
             </p>
             <CustomerContacts customer={detail.key} readonly/>
-            <div className="sales-actions">
+            <div className="sales-history-actions">
               <button
+                className="sales-primary"
                 disabled={!online}
                 onClick={() => openForm("schedule", detail)}
               >
-                Agendar visita
+                <CalendarDays size={17} aria-hidden="true"/>Agendar visita
               </button>
               <button
+                className="sales-history-register"
                 disabled={!online}
                 onClick={() => openForm("history", detail)}
               >
-                Registrar visita realizada
+                <CheckCircle2 size={17} aria-hidden="true"/>Registrar visita realizada
               </button>
             </div>
             {visits

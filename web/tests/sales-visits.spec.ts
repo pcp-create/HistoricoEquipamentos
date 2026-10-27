@@ -425,7 +425,7 @@ for(const lead of [false,true])test(`customer machine registration creates task 
  await page.goto('/visitas');await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
  await page.getByRole('button',{name:'Lista',exact:true}).click();
  if(lead)await page.getByRole('button',{name:/^Leads/}).click();
- await page.getByRole('button',{name:/Máquinas \(0\)/}).click();
+ await page.getByRole('button',{name:/Máquinas do cliente \(0\)/}).click();
  await page.getByRole('button',{name:'Cadastrar máquina',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Cadastrar máquina'});
  await expect(dialog).toContainText('Cliente sem máquina');
