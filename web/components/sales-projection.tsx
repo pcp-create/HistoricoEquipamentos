@@ -14,7 +14,7 @@ import {
   X,
   Search,
 } from "lucide-react";
-import ProjectionSyncButton from "./projection-sync-button";
+import CommercialUpdateStatus from "./commercial-update-status";
 import SiteHeader from "./site-header";
 import CommercialPeriodFilter from "./commercial-period-filter";
 import type { ProjectionData } from "@/lib/sales-projection/store";
@@ -159,7 +159,7 @@ export default function SalesProjection({
             <h1>Projeção de Vendas</h1>
             <p>O resultado de hoje. O caminho até a meta.</p>
           </div>
-          <div className="sp-actions"><ProjectionSyncButton onComplete={() => setRefresh((n) => n + 1)} />
+          <div className="sp-actions">
             <Link className="button" href="/comercial/resumo">Resumo gerencial</Link>
             <Link className="button" href="/comercial/parciais">Parciais e movimentações</Link>
             <button
@@ -491,13 +491,7 @@ export default function SalesProjection({
               </section>
             </div>
             <footer className="sp-footer">
-              <span>OSs: {data.ordersUpdatedAt ? new Date(data.ordersUpdatedAt).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo"}) : "Aguardando coleta rápida"} · Atualização automática da tela a cada minuto</span>
-              <span>
-                <span className="sp-dot" />{" "}
-                {data.updatedAt
-                  ? `Base comercial atualizada a partir de ${new Date(data.updatedAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
-                  : "Aguardando integração"}
-              </span>
+              <CommercialUpdateStatus ordersUpdatedAt={data.ordersUpdatedAt} updatedAt={data.updatedAt} />
               <span>
                 Metas conforme cadastro do PBIX · OS vencidas projetadas para o
                 mês atual

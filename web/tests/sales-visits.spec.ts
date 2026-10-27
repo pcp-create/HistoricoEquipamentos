@@ -505,3 +505,13 @@ for (const status of ['scheduled','completed'] as const) {
   expect(saved).toMatchObject({action:'admin_edit',id:visit.id,version:1,contact:'Contato corrigido',outcome:visit.outcome});
  });
 }
+
+test("expired seller session offers a route back to sign in", async ({page, context}) => {
+  await context.addCookies([{name:"m8-refresh",value:"expired",domain:"localhost",path:"/"}]);
+  await page.route("**/api/visits", r => r.fulfill({status:401,json:{error:"Sessão expirada."}}));
+  await page.goto("/visitas");
+  await expect(page.getByRole("alert").filter({hasText:"Sua sessão expirou"})).toContainText("Entre novamente para continuar");
+  await expect(page.getByRole("link",{name:"Entrar novamente"})).toHaveAttribute("href","/vendas/entrar");
+  await page.getByRole("link",{name:"Entrar novamente"}).click();
+  await expect(page).toHaveURL(/\/vendas\/entrar$/);
+});

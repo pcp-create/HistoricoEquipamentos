@@ -2,7 +2,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Camera, Printer, RefreshCw, TrendingUp, CheckCircle2, Clock3, Target, ArrowUpRight, FileText, ArrowUp, ArrowDown, Minus } from "lucide-react";
-import ProjectionSyncButton from "./projection-sync-button";
 import SiteHeader from "./site-header";
 import CommercialPeriodFilter from "./commercial-period-filter";
 import type { ProjectionData } from "@/lib/sales-projection/store";
@@ -95,7 +94,7 @@ export default function CommercialManagement({ mode }: { mode: "summary" | "chan
     <main className="sales-projection cm-page">
       <nav className="cm-nav"><Link href="/comercial/projecao">← Projeção</Link><Link href="/comercial/resumo">Resumo gerencial</Link><Link href="/comercial/parciais">Movimentações das parciais</Link></nav>
       <div className="sp-heading"><div><span className="eyebrow">COMERCIAL / GESTÃO</span><h1>{mode === "summary" ? "Resumo gerencial" : "Movimentações da projeção"}</h1><p>{mode === "summary" ? "Indicadores para a parcial da gestão." : "Compare a base atual com a última parcial ou outra fotografia da mesma competência."}</p></div>
-        <div className="sp-actions"><ProjectionSyncButton onComplete={() => setRefresh((n) => n + 1)} /><button className="button" onClick={() => window.print()} disabled={!total || busy}><Printer size={16}/> Imprimir / PDF</button><button className="button" onClick={() => setRefresh((n) => n + 1)} disabled={busy || saving}><RefreshCw size={16}/> Atualizar</button></div></div>
+        <div className="sp-actions"><button className="button" onClick={() => window.print()} disabled={!total || busy}><Printer size={16}/> Imprimir / PDF</button><button className="button" onClick={() => setRefresh((n) => n + 1)} disabled={busy || saving}><RefreshCw size={16}/> Atualizar</button></div></div>
       <div className="cm-controls">
         <CommercialPeriodFilter period={period} company={company} onPeriodChange={(value) => { setPeriod(value); setSelected(""); setFrozen(false); setRequestId(null); setNotice(""); }} onCompanyChange={setCompany} companies={companies.map((c) => ({ company: c.id, name: c.name }))}/>
         <section className="cm-toolbar">

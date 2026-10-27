@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Download, Pencil, RefreshCw, SlidersHorizontal, ChevronRight, X } from "lucide-react";
-import ProjectionSyncButton from "./projection-sync-button";
+import CommercialUpdateStatus from "./commercial-update-status";
 import SiteHeader from "./site-header";
 import OrderSearchSelect from "./order-search-select";
 import CommercialPeriodFilter from "./commercial-period-filter";
@@ -387,7 +387,7 @@ export default function CommercialReport({
                 : "Pendentes e faturadas em uma única visão. Ajuste a OS para atualizar a projeção."}
             </p>
           </div>
-          <div className="sp-actions"><ProjectionSyncButton onComplete={() => setRefresh((n) => n + 1)} />
+          <div className="sp-actions">
             <button className="button" onClick={csv} disabled={busy || !data}>
               <Download size={16} /> Exportar
             </button>
@@ -400,7 +400,7 @@ export default function CommercialReport({
             </button>
           </div>
         </div>
-        {data && <p className="sp-subtitle">OSs: {data.ordersUpdatedAt ? new Date(data.ordersUpdatedAt).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo"}) : "Aguardando coleta rápida"} · Comercial: {data.updatedAt ? new Date(data.updatedAt).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo"}) : "Aguardando coleta"} · Atualização automática a cada minuto</p>}
+        {data && <CommercialUpdateStatus ordersUpdatedAt={data.ordersUpdatedAt} updatedAt={data.updatedAt} />}
         <CommercialPeriodFilter
           period={period}
           company={company}

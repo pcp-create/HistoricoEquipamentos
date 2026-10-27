@@ -109,6 +109,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
     [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false),
     [online, setOnline] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [tab, setTab] = useState("summary"),
     [query, setQuery] = useState(""),
     [filter, setFilter] = useState("all"),
@@ -178,7 +179,9 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
     try {
       const r = await fetch(scheduleOnly ? "/api/visits/management" : "/api/visits", { cache: "no-store" });
       const b = await r.json();
+      if (r.status === 401) setSessionExpired(true);
       if (!r.ok) throw Error(b.error);
+      setSessionExpired(false);
       setData(b);
       setError("");
     } catch (e) {
@@ -361,6 +364,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
         body: JSON.stringify(body),
       });
       const b = await r.json();
+      if (r.status === 401) setSessionExpired(true);
       if (!r.ok) throw Error(b.error);
       if (form.mode === "schedule") {
         setMonth(form.scheduled_at.slice(0, 7));
@@ -398,6 +402,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
         }),
       });
       const b = await r.json();
+      if (r.status === 401) setSessionExpired(true);
       if (!r.ok) throw Error(b.error);
       await reload();
     } catch (e) {
@@ -527,8 +532,15 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
             {!home && <button aria-label="Voltar ao início" onClick={() => setHome(true)}><ArrowLeft size={19} /></button>}
           </div>
         </header>
+        {sessionExpired && <div role="alert" className="sales-error">
+          <p>Sua sessão expirou. Entre novamente para continuar.</p>
+          <a className="sales-primary" href={scheduleOnly ? "/login" : "/vendas/entrar"}
+            onClick={event => {if (form && !confirm("Entrar novamente sairá desta tela. Os dados ainda não salvos serão perdidos. Deseja continuar?")) event.preventDefault();}}>
+            Entrar novamente
+          </a>
+        </div>}
         {home ? <>
-          {error && <p role="alert" className="sales-error">{error}</p>}
+          {error && !sessionExpired && <p role="alert" className="sales-error">{error}</p>}
           {loading && !data && <p role="status">Carregando seu portal…</p>}
           <nav className="field-home" aria-label="Serviços do portal">
             <button disabled={!data} onClick={() => setHome(false)}>
@@ -567,7 +579,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
             );
           })}
         </nav>
-        {error && (
+        {error && !sessionExpired && (
           <p role="alert" className="sales-error">
             {error}
           </p>
@@ -1034,7 +1046,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
                 <X />
               </button>
             </div>
-            {error && (
+            {error && !sessionExpired && (
               <p role="alert" className="sales-error">
                 {error}
               </p>
