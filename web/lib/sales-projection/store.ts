@@ -2,7 +2,7 @@ import "server-only";
 import { historyScheduleStatuses } from "../service-scheduling/history-status";
 import { database } from "../db";
 import { projection, type SourceRow } from "./model";
-import { reconcileBilling } from "./billing";
+import { reconcileBilling, type BillingLink } from "./billing";
 import targets from "./targets.json";
 export async function salesProjection(period: string) {
   if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(period))
@@ -11,7 +11,7 @@ export async function salesProjection(period: string) {
   const today = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "America/Sao_Paulo",
   }).format(new Date());
-  const [facts, orders, sync, invoices, headers] = await Promise.all([
+  const [facts, orders, sync, invoices, headers, links] = await Promise.all([
     db.query<SourceRow>(
       `SELECT company_id,kind,id::text,payload FROM m8_commercial_facts WHERE present AND company_id IN(1,2,27404) AND (kind='fContratos' OR left(payload->>'emissao',7)=$1)`,
       [period],
@@ -29,11 +29,14 @@ export async function salesProjection(period: string) {
       if (e.code === "42P01") return {rows:[]};
       throw e;
     }),
+    db.query<BillingLink>(
+      `SELECT company_id,ordem_servico_id::text,documento_fiscal_id::text FROM m8_os_documentos_fiscais WHERE company_id IN(1,2,27404)`,
+    ),
   ]);
   const result = projection(facts.rows, orders.rows, period, today);
   // All invoice dates are needed: a complementary service invoice can be issued
   // in a different month. This diagnostic does not change the PBIX totals.
-  const billing = reconcileBilling(orders.rows, invoices.rows);
+  const billing = reconcileBilling(orders.rows, invoices.rows, links.rows);
   for (const detail of result.details)
     if (detail.kind.startsWith("sales")) {
       detail.billing = billing.get(`${detail.company}:${detail.id}`);

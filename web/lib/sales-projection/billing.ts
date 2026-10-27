@@ -37,7 +37,19 @@ export function orderReferences(value: unknown) {
   return { ids: [...new Set(ids)], list };
 }
 
-export function reconcileBilling(orders: SourceRow[], invoices: SourceRow[]) {
+export type BillingLink = {
+  company_id: number;
+  ordem_servico_id: string;
+  documento_fiscal_id: string;
+};
+
+export function reconcileBilling(orders: SourceRow[], invoices: SourceRow[], links: BillingLink[] = []) {
+  const documentsByOrder = new Map<string, Set<string>>();
+  for (const link of links) {
+    const source = key(link.company_id, link.ordem_servico_id);
+    if (!documentsByOrder.has(source)) documentsByOrder.set(source, new Set());
+    documentsByOrder.get(source)!.add(link.documento_fiscal_id);
+  }
   const byAlias = new Map<string, Set<string>>(),
     byDocument = new Map<string, Set<string>>();
   const checks = new Map<string, BillingCheck>(),
@@ -64,6 +76,10 @@ export function reconcileBilling(orders: SourceRow[], invoices: SourceRow[]) {
       if (/^[1-9]\d*$/.test(alias))
         add(byAlias, `${c}:${p.clienteId}:${alias}`, id);
     }
+    // Collection context identifies the source OS; invoice company/customer
+    // still scope the financial association, including duplicated M8 contexts.
+    for (const document of documentsByOrder.get(key(o.company_id, o.id)) || [])
+      add(byDocument, `${c}:${p.clienteId}:${document}`, id);
     if (Number(p.tipoDocumentoFiscal) === 2 && p.documentoFiscalId)
       add(byDocument, `${c}:${p.clienteId}:${p.documentoFiscalId}`, id);
   }

@@ -138,3 +138,33 @@ test("a direct link conflicting with an unresolved textual reference requires re
   assert.equal(c.balance, null);
   assert.equal(c.billed, 0);
 });
+
+test("multiple structured M8 links reconcile invoices across months without textual OS references", () => {
+  const links = ["100", "101", "101"].map(documento_fiscal_id => ({company_id:1, ordem_servico_id:"10", documento_fiscal_id}));
+  const c = reconcileBilling([order("10", {documentoFiscalId:null})], [
+    invoice("100", {observacao:"RELATÓRIO Nº 10", totalGeral:400}),
+    invoice("101", {observacao:"", emissao:"2026-11-05", totalGeral:600}),
+  ], links).get("1:10")!;
+  assert.equal(c.state,"matched");
+  assert.equal(c.billed,1000);
+  assert.equal(c.balance,0);
+  assert.deepEqual(c.documents.map(d=>[d.id,d.date,d.link]), [["100","2026-10-01","M8"],["101","2026-11-05","M8"]]);
+});
+
+test("structured links retain company/customer, cancellation and shared-invoice safeguards", () => {
+  const link={company_id:1,ordem_servico_id:"10",documento_fiscal_id:"101"};
+  const os=order("10",{documentoFiscalId:null});
+  for (const patch of [{pessoaId:23},{empresaId:2}]) {
+    assert.equal(reconcileBilling([os],[invoice("101",{observacao:"",...patch})],[link]).get("1:10")!.documents.length,0);
+  }
+  assert.equal(reconcileBilling([os],[invoice("101",{observacao:""})],[{...link,company_id:2}]).get("1:10")!.documents.length,0);
+  for (const patch of [{status:"Cancelado"},{estaExcluido:true}]) {
+    const c=reconcileBilling([os],[invoice("101",{observacao:"",...patch})],[link]).get("1:10")!;
+    assert.equal(c.billed,0);
+    assert.equal(c.documents.length,1);
+  }
+  const shared=reconcileBilling([os,order("11",{documentoFiscalId:null})],[invoice("101",{observacao:""})],[link,{...link,ordem_servico_id:"11"}]);
+  assert.equal(shared.get("1:10")!.state,"review");
+  assert.equal(shared.get("1:11")!.state,"review");
+  assert.equal(shared.get("1:10")!.billed,0);
+});
