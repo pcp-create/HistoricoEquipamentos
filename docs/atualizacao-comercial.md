@@ -193,3 +193,15 @@ Durante a carga inicial, o serviço pode permanecer em execução por bastante t
 Antes de publicar a aplicação web com esse recurso, aplicar `web/sql/077_visit_machine_records.sql` no banco da aplicação (já aplicada no ambiente conectado durante a implementação). Não faz parte do pacote do integrador. A visita realizada aceita registros por máquina integrada do cliente e até seis fotos JPG/PNG/WebP. As imagens são reduzidas no navegador, reprocessadas no servidor e armazenadas no banco; a consulta exige autenticação e acesso ao cliente. Os registros e fotos são gravados na mesma transação da visita. Cada máquina selecionada recebe um evento de visita em seu histórico.
 
 O campo de observações do cadastro pendente de máquinas utiliza `web/sql/078_visit_machine_observations.sql`, também aplicada no ambiente conectado.
+
+### Perfil Gestor — Gestão de Visitas
+
+O perfil **Gestor** permite acessar a Gestão de Visitas, configurar suas finalidades, agendar visitas para vendedores e criar tarefas vinculadas às visitas da equipe. O perfil **Usuário** mantém o portal pessoal; somente gestores e administradores acessam a gestão. O gestor não recebe permissão para administrar usuários.
+
+Antes de publicar esta versão, execute no projeto web:
+```bash
+cd web
+node --env-file=.env.local --conditions=react-server --import tsx scripts/setup-visit-manager.mts
+```
+
+A migration `081_visit_manager_role.sql` habilita o perfil sem alterar o perfil de ninguém. Em **Administração → Usuários**, edite cada gestor, selecione **Perfil: Gestor** e salve. A migration já foi aplicada ao banco conectado neste ambiente.

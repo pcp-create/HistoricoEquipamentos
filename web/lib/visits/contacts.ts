@@ -1,3 +1,4 @@
+import { canManageVisits } from "../access-roles";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { database } from "../db";
@@ -25,7 +26,7 @@ export async function contactAccess(db: any, key: string, email: string) {
       (
         await db.query(
           "SELECT 1 FROM web_sales_leads WHERE id=$1 AND (owner=$2 OR $3)",
-          [key.slice(5), email, user.role === "admin"],
+          [key.slice(5), email, canManageVisits(user.role)],
         )
       ).rows.length
     )

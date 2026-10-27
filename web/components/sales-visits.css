@@ -1064,3 +1064,8 @@
   .visit-contact-new { grid-template-columns: minmax(0, 1fr); }
   .visit-contacts-heading { align-items: flex-start; flex-wrap: wrap; }
 }
+
+.sales-app .sales-customer-actions > button { justify-content: center; line-height: 1.3; }
+@media(max-width:380px) {
+  .sales-app .sales-customer-actions > button { flex-direction: column; gap: 4px; white-space: normal; font-size: 12px; }
+}

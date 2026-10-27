@@ -15,7 +15,7 @@ import {
 export type TaskSource = {
   key: string;
   cycle: string;
-  equipment: string;
+  equipment: string | null;
   plan: string | null;
   origin: string;
   title: string;
@@ -140,5 +140,7 @@ export async function taskSources(
       });
     }
   }
+  const {inspectionSources}=await import("../inspections/tasks");
+  result.push(...await inspectionSources());
   return result;
 }

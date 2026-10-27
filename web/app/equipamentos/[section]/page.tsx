@@ -1,3 +1,4 @@
+import InspectionControl from '@/components/inspection-control';
 import CustomerFleet from '@/components/customer-fleet';
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
@@ -13,6 +14,7 @@ export default async function Page({params,searchParams}:{params:Promise<{sectio
   const query=new URLSearchParams();for(const [key,value] of Object.entries(await searchParams))if(typeof value==='string')query.set(key,value);
   redirect('/login?next='+encodeURIComponent(planReturnPath('/equipamentos/'+section+'?'+query)));
  }
+ if(section === "inspecoes") return <InspectionControl/>;
  if(section === "clientes") return <CustomerFleet/>;
  return <EquipmentDashboard key={section} section={section}/>;
 }

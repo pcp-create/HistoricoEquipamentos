@@ -234,6 +234,7 @@ export default function AdminDashboard() {
                               }
                             >
                               <option value="user">Usuário</option>
+                              <option value="manager">Gestor</option>
                               <option value="admin">Administrador</option>
                             </select>
                           </label>
@@ -427,7 +428,7 @@ export default function AdminDashboard() {
                             </small>
                           </td>
                           <td>
-                            {u.role === "admin" ? "Administrador" : "Usuário"}
+                            {u.role === "admin" ? "Administrador" : u.role === "manager" ? "Gestor" : "Usuário"}
                             <small>
                               {u.enabled ? "Liberado" : "Bloqueado"}
                             </small>
@@ -676,7 +677,7 @@ export default function AdminDashboard() {
                           <td>{r.actor}</td>
                           <td>
                             {r.details?.after
-                              ? `${r.details.after.role === "admin" ? "Administrador" : "Usuário"} · ${r.details.after.enabled ? "Liberado" : "Bloqueado"}`
+                              ? `${r.details.after.role === "admin" ? "Administrador" : r.details.after.role === "manager" ? "Gestor" : "Usuário"} · ${r.details.after.enabled ? "Liberado" : "Bloqueado"}`
                               : "—"}
                           </td>
                         </tr>

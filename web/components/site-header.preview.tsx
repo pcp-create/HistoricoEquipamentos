@@ -43,7 +43,8 @@ const screens: Record<string, { label: string; modules: string[] }> = {
     label: "Configuração do catálogo",
     modules: ["suprimentos", "crm", "assistencia-tecnica"],
   },
-  equipmentPreventives: {label:"Controle de Preventivas",modules:["equipamentos","assistencia-tecnica"]},
+  equipmentInspections: {label:"Controle de Inspeções",modules:["equipamentos","assistencia-tecnica"]},
+  equipmentPreventives: {label:"Controle de Manutenções",modules:["equipamentos","assistencia-tecnica"]},
   equipmentRental: {label:"Controle de locação",modules:["equipamentos"]},
   equipmentClients: {label:"Cliente / Equipamento",modules:["equipamentos"]},
   equipment: {
@@ -76,6 +77,7 @@ export default function SiteHeader({
     | "quotes"
     | "settings"
     | "equipmentPreventives"
+    | "equipmentInspections"
     | "equipmentRental"
     | "equipmentClients"
     | "equipment"

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import SiteHeader from "./site-header";
 import {
+  History,
   CheckCircle2,
   Clock3,
   AlertCircle,
@@ -427,7 +428,7 @@ export default function SalesVisitsManagement() {
                   <p className="sales-muted">Vendedor: {customer.seller_ids?.map(id=>sellerMap.get(id)?.name||id).join(", ")||"Não atribuído"}</p>
                   {customer.disqualification&&<p className="visit-disqualification-reason"><strong>Justificativa:</strong> {customer.disqualification.reason}</p>}
                   {visits.some(v=>v.customer_key===customer.key&&v.status==="scheduled")&&<p className="sales-scheduled"><CalendarDays size={15}/>Possui visita agendada</p>}
-                  <div className="sales-customer-actions"><button className="sales-primary" disabled={!online} onClick={()=>openVisit("schedule",customer)}><CalendarDays size={17}/>Agendar</button><button className="sales-register-button" disabled={!online} onClick={()=>openVisit("history",customer)}>Registrar</button><button className="sales-history-button" onClick={()=>setDetail(customer)}>Ver histórico e equipamentos<ChevronRight size={15}/></button></div>
+                  <div className="sales-customer-actions"><button className="sales-primary" disabled={!online} onClick={()=>openVisit("schedule",customer)}><CalendarDays size={17}/>Agendar</button><button className="sales-register-button" disabled={!online} onClick={()=>openVisit("history",customer)}><CheckCircle2 size={17}/>Registrar</button><button className="sales-history-button" onClick={()=>setDetail(customer)}><History size={17}/>Histórico</button></div>
                   <VisitCustomerMachines customer={customer} online={online} onSelectEquipment={selectEquipment}/>
                 </article>)}
               </div>

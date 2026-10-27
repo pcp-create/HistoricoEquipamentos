@@ -94,21 +94,22 @@ export async function syncTasks(
     client?: PoolClient;
     silent?: boolean;
     preventiveOnly?: boolean;
+    inspectionOnly?: boolean;
   } = {},
 ) {
   const c = options.client || (await database().connect());
   try {
     if (!options.client) await c.query("BEGIN READ WRITE");
     await c.query("SELECT pg_advisory_xact_lock(81021,1)");
-    await repairOrderReportTasks(c);
+    if(!options.inspectionOnly)await repairOrderReportTasks(c);
     // Read the complete source snapshot inside the synchronization lock. A failed read never closes tasks.
     const sources = await provider(),
       byKey = new Map(sources.map((s) => [s.key, s]));
     if (byKey.size !== sources.length) throw Error("Duplicate task source");
     const open = (
       await c.query(
-        "SELECT * FROM web_tasks WHERE status<>'completed' AND (NOT $1::boolean OR source_key LIKE 'preventive%') FOR UPDATE",
-        [!!options.preventiveOnly],
+        "SELECT * FROM web_tasks WHERE status<>'completed' AND (NOT $1::boolean OR source_key LIKE 'preventive%') AND (NOT $2::boolean OR source_key LIKE 'inspection:%') FOR UPDATE",
+        [!!options.preventiveOnly,!!options.inspectionOnly],
       )
     ).rows;
     let created = 0,
@@ -116,8 +117,8 @@ export async function syncTasks(
     const active = new Set<string>();
     const closed = (
       await c.query(
-        "SELECT * FROM web_tasks WHERE status='completed' AND NOT source_resolved AND (NOT $1::boolean OR source_key LIKE 'preventive%') FOR UPDATE",
-        [!!options.preventiveOnly],
+        "SELECT * FROM web_tasks WHERE status='completed' AND NOT source_resolved AND (NOT $1::boolean OR source_key LIKE 'preventive%') AND (NOT $2::boolean OR source_key LIKE 'inspection:%') FOR UPDATE",
+        [!!options.preventiveOnly,!!options.inspectionOnly],
       )
     ).rows;
     for (const t of closed) {
@@ -136,9 +137,9 @@ export async function syncTasks(
         let reason = !source
           ? "Processo encerrado, substituído ou removido da base ativa."
           : source.cycle !== t.cycle
-            ? "Nova intervenção registrada no plano preventivo."
+            ? t.source_key.startsWith("inspection:")?"Nova inspeção registrada no cliente.":"Nova intervenção registrada no plano preventivo."
             : `Processo atualizado: ${statusLabel(t.source_status)} → ${statusLabel(source.state)}.`;
-        if (source && source.cycle !== t.cycle)
+        if (source && source.cycle !== t.cycle && !t.source_key.startsWith("inspection:"))
           reason += await interventionAttribution(c, t, new Date());
         await c.query(
           "UPDATE web_tasks SET status='completed',source_resolved=true,completed_at=now(),updated_at=now(),updated_by='Sistema',version=version+1 WHERE id=$1",

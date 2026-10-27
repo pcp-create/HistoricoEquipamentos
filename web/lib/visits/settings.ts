@@ -1,9 +1,11 @@
+import { Forbidden } from "../auth";
+import { canManageVisits } from "../access-roles";
 import "server-only";
 import { database } from "../db";
 import { visitIdentity } from "./store";
 import { AdminInputError } from "../admin-store";
 export async function visitSettings(email:string) {
-  const db=database(); await visitIdentity(db,email);
+  const db=database(); if (!canManageVisits((await visitIdentity(db,email)).role)) throw new Forbidden();
   return (await db.query("SELECT id::text,name,description,active,version FROM web_sales_visit_purposes ORDER BY id")).rows;
 }
 export async function saveVisitPurpose(body:any,email:string) {
@@ -15,7 +17,7 @@ export async function saveVisitPurpose(body:any,email:string) {
   }
   const c=await database().connect();
   try {
-    await c.query('BEGIN READ WRITE'); await visitIdentity(c,email);
+    await c.query('BEGIN READ WRITE'); if (!canManageVisits((await visitIdentity(c,email)).role)) throw new Forbidden();
     for(const body of items){
     const name=body.name.trim();
     const before=body.id?(await c.query('SELECT * FROM web_sales_visit_purposes WHERE id=$1 FOR UPDATE',[body.id])).rows[0]:null;

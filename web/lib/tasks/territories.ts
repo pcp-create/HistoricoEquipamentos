@@ -183,6 +183,8 @@ export async function assignNewTasks(c: PoolClient, taskIds: string[]) {
       "SELECT t.*,u.enabled,u.display_name FROM web_task_territories t JOIN web_user_access u ON u.email=t.assignee",
     )
   ).rows;
+  const {assignInspectionTasks}=await import("../inspections/tasks");
+  await assignInspectionTasks(c,taskIds,rules);
   if (!rules.length || !taskIds.length) return;
   const tasks = (
     await c.query(

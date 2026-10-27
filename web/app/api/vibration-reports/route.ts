@@ -1,3 +1,4 @@
+import {InspectionInputError,InspectionConflict} from '@/lib/inspections/model';
 import {requireUser,sameOrigin,Unauthorized} from '@/lib/auth';
 import {ReportInputError,ReportConflict,reportCustomers,reportsList,reportDetail,reportImage,saveReport,saveImage} from '@/lib/vibration-reports/store';
 export const runtime='nodejs';
@@ -6,8 +7,8 @@ const headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nos
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers});
 function failure(error:unknown){
  if(error instanceof Unauthorized)return json({error:'Sessão expirada. Entre novamente no sistema.'},401);
- if(error instanceof ReportInputError)return json({error:error.message},400);
- if(error instanceof ReportConflict)return json({error:error.message},409);
+ if(error instanceof ReportInputError||error instanceof InspectionInputError)return json({error:error.message},400);
+ if(error instanceof ReportConflict||error instanceof InspectionConflict)return json({error:error.message},409);
  console.error('VIBRATION_REPORT_FAILED');return json({error:'Não foi possível acessar os relatórios. Tente novamente.'},503);
 }
 export async function GET(req:Request){try{

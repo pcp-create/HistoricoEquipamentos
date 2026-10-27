@@ -1,3 +1,4 @@
+import { canManageVisits } from "../access-roles";
 import {saveVisitRecords} from "./records";
 import "server-only";
 import {storeContact} from "./contacts";
@@ -21,6 +22,7 @@ export async function visitIdentity(db: any, email: string) {
 export async function visitsData(email: string, db: any = database(), management = false) {
   email = email.toLowerCase();
   const user = await visitIdentity(db, email);
+  if (management && !canManageVisits(user.role)) throw new Forbidden();
   const historical = (await db.query("SELECT DISTINCT customer_key FROM web_sales_visits WHERE $2::boolean OR seller=$1",[email,management])).rows.map((r:any)=>r.customer_key);
   const rules = (
     await db.query(
@@ -151,7 +153,7 @@ export async function visitsData(email: string, db: any = database(), management
     ORDER BY u.display_name,u.email`, [email,management || user.role === "admin",management])).rows;
   const purposes = (await db.query("SELECT id::text,name,description,active,version FROM web_sales_visit_purposes WHERE active ORDER BY id")).rows;
   const assignees = management ? (await db.query("SELECT email AS id,COALESCE(NULLIF(display_name,''),email) AS name FROM web_user_access WHERE enabled ORDER BY display_name,email")).rows : undefined;
-  return { assignees, canEditVisits:true, purposes, name: user.display_name || email, customers, visits, sellers, canManage: true };
+  return { assignees, canEditVisits:canManageVisits(user.role), purposes, name: user.display_name || email, customers, visits, sellers, canManage: canManageVisits(user.role) };
 }
 function text(b: any, key: string, max: number, required = false) {
   const value = b?.[key];
@@ -183,13 +185,13 @@ export async function saveVisit(b: any, email: string) {
   const c = await database().connect();
   try {
     await c.query("BEGIN READ WRITE");
-    await visitIdentity(c, email);
+    const actor = await visitIdentity(c, email);
     await c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
       "visits:" + email,
     ]);
     const assigning = ["schedule", "history"].includes(b.action) && b.seller != null;
     const seller = assigning ? text(b, "seller", 254, true).toLowerCase() : email;
-    // Gestão de Visitas is available to active users; validate both actor and assignee.
+    if (assigning && seller !== email && !canManageVisits(actor.role)) throw new Forbidden();
     if (assigning && seller !== email) await visitIdentity(c, seller);
     const data = await visitsData(seller, c);
     let created=false;
@@ -334,6 +336,7 @@ export async function administerVisit(b:any,email:string) {
   try {
     await c.query('BEGIN READ WRITE');
     const user=await visitIdentity(c,email.toLowerCase());
+    if (!canManageVisits(user.role)) throw new Forbidden();
 
     const old=(await c.query('SELECT * FROM web_sales_visits WHERE id=$1 FOR UPDATE',[b.id])).rows[0];
     if(!old || old.version!==b.version)throw new AdminInputError('Visita alterada ou excluída. Atualize a lista.');

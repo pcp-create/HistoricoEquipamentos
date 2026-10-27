@@ -9,6 +9,7 @@ import { userTaskColor } from "@/lib/tasks/user-color";
 import { apiFetch, hasFreshApiResponse } from "@/lib/client-api-cache";
 import "./tasks.css";
 import OrderDetailLink from "./order-detail-link";
+import TaskChecklists from "./task-checklists";
 import TaskReminders from "./task-reminders";
 import TaskStageSelect from "./task-stage-select";
 import TaskCharts from "./task-charts";
@@ -349,6 +350,7 @@ export function TaskDrawer({
               <dl>
                 <dt>Origem</dt>
                 <dd>{t.origin}</dd>
+                {t.source_key?.startsWith("inspection:")&&<><dt>Plano de inspeção</dt><dd><a href={"/equipamentos/inspecoes?plan="+t.plan_id}>Abrir plano do cliente</a></dd></>}
                 {t.order_id && (
                   <>
                     <dt>OS vinculada</dt>
@@ -429,10 +431,11 @@ export function TaskDrawer({
                   </select>
                 </label>
                 <TaskStageSelect task={t} disabled={busy || t.status === "completed"} onChange={stageId=>void changeStage(stageId)} />
-                {t.source_key?.startsWith("manual:") && <div className="task-restriction-field"><label className="task-restriction-check"><input type="checkbox" checked={restricted} onChange={e=>setRestricted(e.target.checked)} /> Tarefa restrita</label><small>Oculta os detalhes da tarefa, mantendo sua existência e status visíveis.</small></div>}
-                <label className="task-check">
+                {t.source_key?.startsWith("manual:") && <div className="task-restriction-field"><label className="task-restriction-check task-switch"><input type="checkbox" role="switch" checked={restricted} onChange={e=>setRestricted(e.target.checked)} /> Tarefa restrita</label><small>Oculta os detalhes da tarefa, mantendo sua existência e status visíveis.</small></div>}
+                <label className="task-check task-switch">
                   <input
                     type="checkbox"
+                    role="switch"
                     checked={automatic}
                     onChange={(e) => setAutomatic(e.target.checked)}
                   />{" "}
@@ -448,6 +451,7 @@ export function TaskDrawer({
                 </p>
               )}
             </section>
+            <TaskChecklists key={id} taskId={id}/>
             <TaskReminders
               task={t}
               onChanged={() => void reload().catch((e) => setError(e.message))}
@@ -756,6 +760,7 @@ export default function TasksDashboard() {
   const activeStageRole=stageRoles.has(selectedStageRole)?selectedStageRole:"";
   const chartTasks = (data?.tasks || []).filter((t: any) =>
     (!mine || t.is_mine === true || (t.is_mine === undefined && t.assigned_to?.trim().toLowerCase() === data?.email?.trim().toLowerCase())) &&
+    (!params.get("inspection") || t.source_key === "inspection:"+params.get("inspection")) &&
     (!params.get("equipment") || String(t.equipment_id) === params.get("equipment")),
   );
   const rows = (data?.tasks || []).filter(
@@ -768,6 +773,7 @@ export default function TasksDashboard() {
             data.email?.trim().toLowerCase())) &&
       (!params.get("equipment") ||
         String(t.equipment_id) === params.get("equipment")) &&
+      (!params.get("inspection")||t.source_key==="inspection:"+params.get("inspection"))&&
       (originFilter === "all" || t.origin === originFilter) &&
       (period === "all" ||
         (() => {
@@ -1252,7 +1258,7 @@ export default function TasksDashboard() {
                     Vencimento
                     <input type="date" name="dueDate" />
                   </label>
-                  <div hidden={newTaskType === "approval"} className="task-restriction-field"><label className="task-restriction-check"><input type="checkbox" name="restricted" /> Tarefa restrita</label><small>Oculta os detalhes da tarefa, mantendo sua existência e status visíveis.</small></div>
+                  <div hidden={newTaskType === "approval"} className="task-restriction-field"><label className="task-restriction-check task-switch"><input type="checkbox" role="switch" name="restricted" /> Tarefa restrita</label><small>Oculta os detalhes da tarefa, mantendo sua existência e status visíveis.</small></div>
                   </div>
                 </div>
                 <label>

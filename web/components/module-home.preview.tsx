@@ -1,5 +1,6 @@
 "use client";
 
+import {useSessionAccess} from "./session-access";
 import Link from "next/link";
 import {equipmentSections} from "@/lib/equipment-sections";
 import {
@@ -41,7 +42,8 @@ const modules = [
       ["Gerar Relatório Análise de Vibração", "/analise-vibracao"],
       ["Gerar Relatório Caça Vazamento", "/caca-vazamento"],
       ["Catálogo do fabricante", "/fabricante"],
-      ["Controle de Preventivas", "/equipamentos/preventivas"],
+      ["Controle de Manutenções", "/equipamentos/preventivas"],
+      ["Controle de Inspeções", "/equipamentos/inspecoes"],
     ],
     next: "Próximas etapas: agenda, atendimento e apontamentos de campo.",
   },
@@ -78,6 +80,7 @@ const modules = [
 ];
 
 export default function ModuleHome({ moduleId }: { moduleId?: string }) {
+  const {visitManager} = useSessionAccess();
   const selected = modules.find((module) => module.id === moduleId);
   return (
     <div className="module-home">
@@ -102,7 +105,7 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
             className="module-menu-grid"
             aria-label={"Menus de " + selected.title}
           >
-            {selected.links.map(([label, href]) => (
+            {selected.links.filter(([, href]) => href !== "/visitas/gestao" || visitManager).map(([label, href]) => (
               <Link
                 prefetch={false}
                 className="module-menu-item"

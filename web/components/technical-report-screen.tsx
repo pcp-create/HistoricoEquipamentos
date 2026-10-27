@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import {useSearchParams} from "next/navigation";
 import { ArrowLeft, Activity } from "lucide-react";
 import SiteHeader from "./site-header";
 
@@ -17,6 +18,8 @@ export default function TechnicalReportScreen({
   source: string;
   messageType: string;
 }) {
+  const params=useSearchParams();
+  const report=params.get("report");
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(1100);
   useEffect(() => {
@@ -55,7 +58,7 @@ export default function TechnicalReportScreen({
       </main>
       <iframe
         ref={frame}
-        src={source}
+        src={active==="vibration"&&report?source+"?report="+encodeURIComponent(report):source}
         title={"Editor: " + title}
         style={{ display: "block", width: "100%", height, border: 0 }}
       />

@@ -237,6 +237,15 @@ test('management customer cards expose machines, scheduling and historical regis
  await page.goto('/visitas/gestao');
  await page.getByRole('button',{name:'Clientes (1)',exact:true}).click();
  const card=page.locator('.sales-customer');
+ for(const width of [445,320]){
+  await page.setViewportSize({width,height:844});
+  const actions=card.locator('.sales-customer-actions');
+  await expect(actions.getByRole('button',{name:'Histórico',exact:true})).toBeVisible();
+  await expect(actions.getByRole('button',{name:'Registrar',exact:true}).locator('svg')).toHaveCount(1);
+  expect(await actions.getByRole('button').evaluateAll(buttons=>buttons.every(button=>button.scrollWidth<=button.clientWidth))).toBe(true);
+ }
+ await page.setViewportSize({width:1440,height:1080});
+
  await expect(card.getByRole('button',{name:/Máquinas do cliente/})).toContainText('(1)');
  await card.getByRole('button',{name:/Máquinas do cliente/}).click();
  await expect(card).toContainText('GA22');

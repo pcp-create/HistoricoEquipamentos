@@ -1,9 +1,10 @@
 export const equipmentSections = {
   preventivas: {
-    title: 'Controle de Preventivas',
+    title: 'Controle de Manutenções',
     description: 'Planos de manutenção, vencimentos e próximas intervenções dos equipamentos.',
     href: '/equipamentos/preventivas',
   },
+  inspecoes: {title:'Controle de Inspeções',description:'Rotas, periodicidades e inspeções em todas as máquinas do cliente.',href:'/equipamentos/inspecoes'},
   locacao: {
     title: 'Controle de locação',
     description: 'Frota de locação, disponibilidade, contratos e máquinas em revisão.',

@@ -310,7 +310,8 @@ test('equipment submodules open preventive, rental and customer views',async({pa
  const rows=[{id:'100',name:'Máquina cliente',clients:[{id:'1',name:'Cliente A'}],plans:0,ownership:'customer'}, {id:'200',name:'Máquina locação',clients:[],plans:0,ownership:'own',rental:true,rentalStatus:{key:'available',label:'Disponível'}}];
  await page.route('**/api/equipment-management*',r=>r.fulfill({json:{rows,email:'test@example.com',counts:{equipment:2,overdue:0,soon:0,unplanned:2}}}));
  await page.goto('/modulos/equipamentos');
- await expect(page.getByRole('link',{name:'Controle de Preventivas',exact:true})).toBeVisible();
+ await expect(page.getByRole('link',{name:'Controle de Manutenções',exact:true})).toBeVisible();
+ await expect(page.getByRole('link',{name:'Controle de Inspeções',exact:true})).toHaveAttribute('href','/equipamentos/inspecoes?module=equipamentos');
  await expect(page.getByRole('link',{name:'Controle de locação',exact:true})).toBeVisible();
  await expect(page.getByRole('link',{name:'Cliente / Equipamento',exact:true})).toHaveAttribute('href','/equipamentos/clientes?module=equipamentos');
  await page.goto('/equipamentos/locacao');
@@ -320,7 +321,7 @@ test('equipment submodules open preventive, rental and customer views',async({pa
  await expect(page.getByText('Máquina cliente',{exact:true})).toHaveCount(0);
  await expect(page.getByRole('link',{name:'Relatório semanal (PDF)',exact:true})).toHaveCount(0);
  await page.goto('/equipamentos/preventivas');
- await expect(page.getByRole('heading',{name:'Controle de Preventivas',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Controle de Manutenções',exact:true})).toBeVisible();
  await expect(page.getByRole('link',{name:'Relatório semanal (PDF)',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:/Máquinas de Locação/})).toHaveCount(0);
 });

@@ -70,13 +70,12 @@ async function managersAvailable(db:any):Promise<boolean>{
 export async function setAccess(body: any, actor: AuthUser) {
   const email =
     typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
-  if (
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    email.length > 254 ||
-    !["admin", "user"].includes(body.role) ||
-    typeof body.enabled !== "boolean"
-  )
-    throw new AdminInputError("Informe e-mail, perfil e situação válidos.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)
+    throw new AdminInputError("Informe um e-mail válido.");
+  if (!["admin", "manager", "user"].includes(body?.role))
+    throw new AdminInputError("Selecione um perfil válido: Usuário, Gestor ou Administrador.");
+  if (typeof body?.enabled !== "boolean")
+    throw new AdminInputError("Selecione a situação do acesso: Liberado ou Bloqueado.");
   let employee;
   if (body.display_name !== undefined) {
     try {

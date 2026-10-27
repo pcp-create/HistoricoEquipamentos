@@ -1,5 +1,6 @@
 "use client";
 
+import {useSessionAccess} from "./session-access";
 import Link from "next/link";
 import {equipmentSections} from "@/lib/equipment-sections";
 import {
@@ -76,6 +77,7 @@ const modules = [
 ];
 
 export default function ModuleHome({ moduleId }: { moduleId?: string }) {
+  const {visitManager} = useSessionAccess();
   const selected = modules.find((module) => module.id === moduleId);
   return (
     <div className="module-home">
@@ -100,7 +102,7 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
             className="module-menu-grid"
             aria-label={"Menus de " + selected.title}
           >
-            {selected.links.map(([label, href]) => (
+            {selected.links.filter(([, href]) => href !== "/visitas/gestao" || visitManager).map(([label, href]) => (
               <Link
                 prefetch={false}
                 className="module-menu-item"

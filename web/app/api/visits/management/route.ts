@@ -18,7 +18,7 @@ export async function GET() {
       {
         error:
           status === 403
-            ? "O acesso à Gestão de Visitas exige um usuário ativo."
+            ? "O acesso à Gestão de Visitas é exclusiva para gestores e administradores."
             : status === 401
               ? "Sessão expirada."
               : "Não foi possível carregar a gestão de visitas.",

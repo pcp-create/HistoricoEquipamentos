@@ -25,3 +25,14 @@ test('initials use the registered first and last names', async () => {
   assert.equal(access.displayName, 'Guilherme Waltrick');
   assert.equal(access.admin, true);
 });
+
+test('only enabled managers and admins see visits management, without granting admin to managers', async () => {
+  const {resolveInitialSession} = await import('../lib/initial-access');
+  for (const role of ['user','manager','admin']) {
+    for (const enabled of [true,false]) {
+      const access = await resolveInitialSession('token', async () => Response.json(user), async () => ({role,enabled}));
+      assert.equal(access.visitManager, enabled && role !== 'user');
+      assert.equal(access.admin, enabled && role === 'admin');
+    }
+  }
+});

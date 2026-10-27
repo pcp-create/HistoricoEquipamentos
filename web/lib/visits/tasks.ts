@@ -1,3 +1,4 @@
+import { canManageVisits } from "../access-roles";
 import "server-only";
 import { database } from "../db";
 import { Forbidden } from "../auth";
@@ -29,7 +30,7 @@ export async function createVisitTask(b: any, user: AuthUser) {
     if (
       !access?.enabled ||
       !v ||
-      (v.seller !== user.email && access.role !== "admin")
+      (v.seller !== user.email && !canManageVisits(access.role))
     )
       throw new Forbidden();
     if (v.status === "cancelled")

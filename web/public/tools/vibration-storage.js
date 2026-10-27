@@ -26,7 +26,7 @@
  main.insertBefore(panel,editor);
  const status=document.createElement('p');status.id='storedSaveStatus';status.setAttribute('role','status');tabs.after(status);
  const actions=document.createElement('section');actions.className='panel';
- actions.innerHTML='<div class="flex between"><span id="storedCurrent"></span><div class="flex"><button class="btn" id="saveStoredReport">Salvar na base</button><button class="btn secondary" id="copyStoredReport" hidden>Salvar como novo</button></div></div>';
+ actions.innerHTML='<div class="flex between"><span id="storedCurrent"></span><div class="flex"><button class="btn" id="saveStoredReport">Salvar na base</button><button class="btn secondary" id="copyStoredReport" hidden>Salvar como novo</button><button class="btn secondary" id="inspectionPlan">Ir ao plano / criar plano de inspeção</button></div></div>';
  editor.prepend(actions);
  const customerField=document.createElement('div');customerField.className='v-customer-field';
  customerField.innerHTML='<label id="vCustomerLabel">Cliente do relatório <span aria-label="obrigatório">*</span></label><details id="vCustomerPicker"><summary aria-labelledby="vCustomerLabel vCustomerSelected"><span id="vCustomerSelected">Selecione um cliente cadastrado</span></summary><input id="vCustomerSearch" aria-label="Pesquisar cliente cadastrado" placeholder="Nome, documento ou cidade" autocomplete="off"><p id="vCustomerStatus" role="status"></p><div id="vCustomerResults"></div></details><small id="vCustomerHint">Selecione o cliente para vincular o relatório ao cadastro do sistema.</small>';
@@ -124,6 +124,7 @@
    }
   }catch(e){if(preview)preview.close();$('storedSaveStatus').textContent=e.message;}finally{lock(false);}
  }
+ $('inspectionPlan').onclick=()=>{if(!current||snapshot()!==savedSnapshot){$('storedSaveStatus').textContent='Salve o relatório na base antes de vincular a coleta ao plano de inspeção.';return;}window.top.location.href='/equipamentos/inspecoes?report='+encodeURIComponent(current.id);};
  $('saveStoredReport').onclick=()=>save();$('copyStoredReport').onclick=()=>save(true);
  $('searchStoredReports').onclick=()=>{offset=0;void list();};
  $('storedSearch').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();offset=0;void list();}};
@@ -135,4 +136,5 @@
  $('newStoredReport').onclick=()=>{if(!askDiscard())return;clear();for(const key of ['serviceOrder','technician','collector','general'])$(key).value='';$('title').value='Relatório Técnico de Análise de Vibrações';$('issued').value=new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});reset();reportCustomer=null;showCustomer();tab(true);$('storedSaveStatus').textContent='Novo relatório. Selecione o cliente e importe as medições para começar.';};
  $('openProject').addEventListener('change',()=>reset());
  reset();showCustomer();tab(false);void list();
+ const inspectionReport=new URLSearchParams(location.search).get('report');if(inspectionReport&&/^[0-9a-f-]{36}$/i.test(inspectionReport))void open(inspectionReport);
 })();

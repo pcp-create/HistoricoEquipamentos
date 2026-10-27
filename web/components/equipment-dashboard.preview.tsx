@@ -755,6 +755,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
       <main className="equipment-page catalog-settings">
         <section className="manual-card">
           <h1>{sectionInfo?.title || "Equipamentos"}</h1>
+          {(!section||section==="preventivas")&&<nav className="catalog-editor-actions" aria-label="Controles"><a href="/equipamentos/preventivas" aria-current="page">Controle de Manutenções</a><a href="/equipamentos/inspecoes">Controle de Inspeções</a></nav>}
           {(!section || section === "preventivas") && (
             <div className="catalog-editor-actions">
               <a

@@ -3,6 +3,7 @@ import 'server-only';
 import {createHash} from 'node:crypto';
 import sharp from 'sharp';
 import {database} from '../db';
+import {refreshReportInspections} from '../inspections/store';
 export class ReportInputError extends Error {}
 export class ReportConflict extends Error {}
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -54,6 +55,7 @@ export async function saveReport(body:any,email:string){
   if(!row)throw new ReportConflict('Este relatório foi alterado por outro usuário. Reabra a versão salva ou salve como novo.');
   await c.query('DELETE FROM web_vibration_report_image_links WHERE report_id=$1',[row.id]);
   for(const image of images)await c.query('INSERT INTO web_vibration_report_image_links(report_id,image_id) VALUES($1,$2)',[row.id,image]);
+  await refreshReportInspections(c,row.id,email);
   return row;
  });
 }

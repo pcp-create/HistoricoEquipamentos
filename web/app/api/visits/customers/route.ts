@@ -1,3 +1,4 @@
+import {canManageVisits} from "@/lib/access-roles";
 import {requireUser, Unauthorized, Forbidden} from '@/lib/auth';
 import {database} from '@/lib/db';
 import {visitIdentity} from '@/lib/visits/store';
@@ -6,10 +7,10 @@ export const runtime='nodejs';
 export async function GET(request:Request) {
  try {
   const user=await requireUser();
-  await visitIdentity(database(),user.email);
+  const actor = await visitIdentity(database(),user.email);
   const params=new URL(request.url).searchParams;
   const owner=(params.get("seller")||user.email).toLowerCase();
-  if(owner!==user.email)await visitIdentity(database(),owner);
+  if(owner!==user.email){ if(!canManageVisits(actor.role)) throw new Forbidden(); await visitIdentity(database(),owner); }
   const page=Math.max(1,Number.parseInt(params.get('page')||'1',10)||1);
   return Response.json(await visitCustomerDirectory(params.get('q'),page,owner),{headers:{'Cache-Control':'private, no-store'}});
  } catch(error) {

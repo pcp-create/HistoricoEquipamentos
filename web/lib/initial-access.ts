@@ -1,3 +1,4 @@
+import {canManageVisits} from "./access-roles";
 import "server-only";
 import { needsPasswordChange } from "./password-policy";
 import { cookies } from "next/headers";
@@ -23,7 +24,7 @@ export async function resolveInitialSession(
   request = authRequest,
   lookup = accessRecord,
 ) {
-  const empty = { admin: false, displayName: "", cacheScope: "" };
+  const empty = { admin: false, visitManager: false, displayName: "", cacheScope: "" };
   if (!token) return empty;
   try {
     const response = await request("user", undefined, token);
@@ -44,6 +45,7 @@ export async function resolveInitialSession(
           ? ""
           : user.id + ":" + (access?.role || "user"),
       admin: access?.enabled === true && access.role === "admin",
+      visitManager: access?.enabled === true && canManageVisits(access.role),
       displayName:
         access?.enabled === false
           ? ""

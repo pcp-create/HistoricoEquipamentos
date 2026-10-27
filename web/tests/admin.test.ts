@@ -8,6 +8,7 @@ test('admin access stays server controlled, blocking overrides allowlist and las
  const db=new PGlite(),g=globalThis as any,old=g.historyPool,env=process.env.WEB_ALLOWED_EMAILS;
  try{
  await db.exec('CREATE ROLE anon;CREATE ROLE authenticated');await db.exec(readFileSync(new URL('../sql/008_administration.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL("../sql/081_visit_manager_role.sql",import.meta.url),"utf8"));
  const query=db.query.bind(db);g.historyPool={query,connect:async()=>({query,release(){}})};
  const admin={id:'a',email:'guih.waltrick@gmail.com'},user={id:'u',email:'user@example.com',user_metadata:{role:'admin',full_name:'Usuário'}};
  process.env.WEB_ALLOWED_EMAILS=user.email;
@@ -16,6 +17,9 @@ test('admin access stays server controlled, blocking overrides allowlist and las
  await assert.rejects(()=>setAccess({email:user.email,role:'admin',enabled:true},user));
  await setAccess({email:user.email,role:'user',enabled:false},admin);assert.equal(await authorizedEmail(user.email),false);
  await assert.rejects(()=>setAccess({email:admin.email,role:'user',enabled:true},admin),/último administrador/);
+ await setAccess({email:user.email,role:'manager',enabled:true},admin);
+ assert.equal((await accessRecord(user.email)).role,'manager');
+ await assert.rejects(()=>setAccess({email:admin.email,role:'user',enabled:true},user));
  await setAccess({email:user.email,role:'admin',enabled:true},admin);
  assert.equal((await accessRecord(user.email)).role,'admin');
  const r=(await db.query('SELECT last_login_at,display_name FROM web_user_access WHERE email=$1',[user.email])).rows[0] as any;

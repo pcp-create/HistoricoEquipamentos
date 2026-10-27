@@ -30,6 +30,7 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     for (const file of [
       "008_administration",
       "009_employees",
+      "081_visit_manager_role",
       "013_task_territories",
       "014_task_territory_columns",
       "040_schedule_map",
@@ -114,7 +115,7 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     await db.exec(`INSERT INTO web_equipment_settings VALUES(100,'{"meter":1234,"meterDate":"2026-01-01"}',1)`);
     assert.equal((await visitsData("a@test.com")).customers[0].equipment?.[0].meter,1234);
     const meterUser = {email:"a@test.com"} as any;
-    await assert.rejects(() => saveVisitMeter({customer_key:"m8:1",equipment:"100",version:1,meter:1200},meterUser,true),/menor/);
+    await assert.rejects(() => saveVisitMeter({customer_key:"m8:1",equipment:"100",version:1,meter:1200},meterUser,true));
     await assert.rejects(() => saveVisitMeter({customer_key:"m8:1",equipment:"100",version:1,meter:1200},{email:"admin@test.com"} as any,true),/menor/);
 
     await assert.rejects(() => saveVisitMeter({customer_key:"m8:2",equipment:"102",version:null,meter:2000},meterUser));
@@ -195,6 +196,9 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     assert.equal((await visitsData("a@test.com")).customers.find(c=>c.lead)?.latitude,-27.8);
     assert.equal((await visitsData("a@test.com")).customers.length, 2);
     assert.equal((await visitsData("b@test.com")).customers.length, 1);
+    await assert.rejects(() => visitsData("a@test.com", undefined, true));
+    await assert.rejects(() => administerVisit({id:body.id,version:1,action:"admin_delete"}, "a@test.com"));
+    await db.exec("UPDATE web_user_access SET role='manager' WHERE email='a@test.com'");
     assert.equal((await visitsData("a@test.com",undefined,true)).visits.length, 2);
     await db.exec(`INSERT INTO web_sales_visits(id,seller,customer_key,scheduled_at,contact,phone,description,status)
       VALUES('99999999-9999-4999-8999-999999999999','b@test.com','m8:2',now(),'Contato','49999999999','Visita B','scheduled')`);
@@ -223,6 +227,8 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
       ).rows[0].seller,
       "Texto antigo",
     );
+    await assert.rejects(() => visitSettings("tech@test.com"));
+    await db.exec("UPDATE web_user_access SET role='manager' WHERE email='tech@test.com'");
     const purposes=await visitSettings("tech@test.com");
     assert.equal(purposes.length,10);
     await saveVisitPurpose({...purposes[0],name:"Prospecção atualizada",active:false},"tech@test.com");
@@ -273,6 +279,11 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     const savedTask=(await db.query<any>("SELECT * FROM web_tasks WHERE id=$1",[task.taskId])).rows[0];
     assert.equal(savedTask.assigned_to,"tech@test.com");assert.deepEqual(savedTask.followers,["a@test.com"]);
     assert.deepEqual((await db.query<any>("SELECT followers FROM web_sales_visits WHERE id=$1",[linked.id])).rows[0].followers,["a@test.com"]);
+    await db.exec("UPDATE web_user_access SET role='user' WHERE email='tech@test.com'");
+    await assert.rejects(() => createVisitTask({...demand,requestId:"dddddddd-dddd-4ddd-8ddd-dddddddddddd"},{email:"tech@test.com"} as any));
+    await db.exec("UPDATE web_user_access SET role='manager' WHERE email='tech@test.com'");
+    const managerTask = await createVisitTask({...demand,requestId:"dddddddd-dddd-4ddd-8ddd-dddddddddddd"},{email:"tech@test.com"} as any);
+    assert.ok(managerTask.taskId);
     await queueVisitAlert({query},linked.id,"a@test.com","2099-02-01T12:00");
     await saveVisit({action:"cancel",id:linked.id,version:1},"a@test.com");
     assert.equal((await db.query<any>("SELECT count(*) n FROM web_sales_visit_alerts WHERE state='pending'")).rows[0].n,0);
