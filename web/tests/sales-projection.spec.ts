@@ -91,6 +91,7 @@ test("periods, companies, document details and mobile layout", async ({
       },
     });
   });
+  await page.clock.install();
   await page.goto("/projection-test");
   await expect(
     page.getByRole("heading", { name: "Projeção de Vendas" }),
@@ -98,6 +99,10 @@ test("periods, companies, document details and mobile layout", async ({
   await expect(
     page.getByRole("columnheader", { name: /Devoluções/ }).first(),
   ).toBeVisible();
+  await expect(page.locator(".sp-target-gap")).toBeVisible();
+  const beforePoll = periods.length;
+  await page.clock.fastForward(60000);
+  await expect.poll(() => periods.length).toBeGreaterThan(beforePoll);
   await expect(page.locator(".sp-target-gap")).toBeVisible();
   await expect(page.locator(".sp-billing-review")).toHaveCount(0);
   await expect(page.getByRole("columnheader", { name: "Fat. OSs", exact: true })).toBeVisible();

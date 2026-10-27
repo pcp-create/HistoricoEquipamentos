@@ -1,9 +1,9 @@
 [Unit]
-Description=Executar sincronizacao M8 uma hora apos o ciclo anterior
+Description=Executar sincronizacao M8 detalhes em segundo plano apos cada lote
 
 [Timer]
 OnBootSec=5min
-OnUnitInactiveSec=1h
+OnUnitInactiveSec=30s
 Unit=m8-integrador.service
 
 [Install]

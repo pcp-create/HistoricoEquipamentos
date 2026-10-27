@@ -8,7 +8,7 @@ Type=oneshot
 User=m8-integrador
 Group=m8-integrador
 WorkingDirectory=/opt/m8-integrador
-ExecStart=/usr/bin/node /opt/m8-integrador/dist/scripts/syncCycle.js
+ExecStart=/usr/bin/node /opt/m8-integrador/dist/scripts/syncCycle.js --resume --max-orders=100
 TimeoutStartSec=infinity
 TimeoutStopSec=300
 KillSignal=SIGTERM

@@ -36,7 +36,9 @@ const date = (v: string) =>
 const finalized = (o: any) => ["reviewed", "completed"].includes(o.status);
 export default function CustomerFleet() {
   const [clients, setClients] = useState<any[]>([]),
-    [client, setClient] = useState(""),
+    [selectedClients, setSelectedClients] = useState<string[]>([]),
+    [clientQuery, setClientQuery] = useState(""),
+    [clientOpen, setClientOpen] = useState(false),
     [data, setData] = useState<any>(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -44,6 +46,7 @@ export default function CustomerFleet() {
     [filter, setFilter] = useState("all"),
     [query, setQuery] = useState(""),
     [expanded, setExpanded] = useState("");
+  const client = selectedClients.join(",");
   useEffect(() => {
     const c = new AbortController();
     fetch("/api/customer-fleet", { signal: c.signal })
@@ -51,7 +54,7 @@ export default function CustomerFleet() {
         const b = await r.json();
         if (!r.ok) throw Error(b.error);
         setClients(b.clients);
-        if (b.clients.length) setClient(b.clients[0].id);
+        if (b.clients.length) setSelectedClients([b.clients[0].id]);
         else setLoading(false);
       })
       .catch((e) => {
@@ -63,7 +66,7 @@ export default function CustomerFleet() {
     return () => c.abort();
   }, []);
   useEffect(() => {
-    if (!client) return;
+    if (!client) { setData(null); setLoading(false); return; }
     const c = new AbortController();
     setData(null);
     setLoading(true);
@@ -136,23 +139,40 @@ export default function CustomerFleet() {
           </div>
         </header>
         <div className="fleet-client-picker">
-          <label>
-            Cliente
-            <select
-              value={client}
-              onChange={(e) => {
-                setClient(e.target.value);
-                setQuery("");
-              }}
-            >
-              <option value="">Selecione um cliente</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
+          <div className="fleet-client-multi" onBlur={e => {
+            if (!e.currentTarget.contains(e.relatedTarget)) setClientOpen(false);
+          }}>
+            <label htmlFor="fleet-client-query">Clientes</label>
+            <div className="fleet-client-field">
+              {selectedClients.map(id => <span className="fleet-client-chip" key={id}>
+                {clients.find(c => c.id === id)?.name || id}
+                <button type="button" aria-label={"Remover cliente " + (clients.find(c => c.id === id)?.name || id)}
+                  onClick={() => setSelectedClients(ids => ids.filter(value => value !== id))}>×</button>
+              </span>)}
+              <input id="fleet-client-query" role="combobox" aria-expanded={clientOpen} aria-controls="fleet-client-options"
+                aria-autocomplete="list" placeholder="Digite o nome ou código do cliente"
+                value={clientQuery} onFocus={() => setClientOpen(true)}
+                onChange={e => {setClientQuery(e.target.value); setClientOpen(true);}}
+                onKeyDown={e => {
+                  if (e.key === "Escape") {setClientOpen(false); e.stopPropagation();}
+                  if (e.key === "ArrowDown") {e.preventDefault(); setClientOpen(true); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>("#fleet-client-options button")?.focus());}
+                }}/>
+              <button type="button" aria-label="Mostrar clientes" onClick={() => setClientOpen(!clientOpen)}><ChevronDown size={18}/></button>
+            </div>
+            {clientOpen && <div className="fleet-client-options" id="fleet-client-options" role="listbox" aria-label="Clientes disponíveis" aria-multiselectable="true">
+              {clients.filter(c => matchesSearch(c.id + " " + c.name, clientQuery)).map(c =>
+                <button type="button" role="option" aria-selected={selectedClients.includes(c.id)} key={c.id}
+                  onClick={() => {setSelectedClients(ids => ids.includes(c.id) ? ids.filter(id => id !== c.id) : [...ids, c.id]); setQuery("");}}
+                  onKeyDown={e => {
+                    if (e.key === "Escape") {document.getElementById("fleet-client-query")?.focus(); setClientOpen(false); e.stopPropagation();}
+                    if (e.key === "ArrowDown" || e.key === "ArrowUp") {e.preventDefault(); const target = e.key === "ArrowDown" ? e.currentTarget.nextElementSibling : e.currentTarget.previousElementSibling; (target as HTMLElement)?.focus();}
+                  }}>
+                  <span aria-hidden="true">{selectedClients.includes(c.id) ? "☑" : "☐"}</span>
                   {c.id} - {c.name} ({c.machines})
-                </option>
-              ))}
-            </select>
-          </label>
+                </button>)}
+              {!clients.some(c => matchesSearch(c.id + " " + c.name, clientQuery)) && <p>Nenhum cliente encontrado.</p>}
+            </div>}
+          </div>
           <span>
             <ShieldCheck size={17} />
             Visão gerencial de manutenção
@@ -164,12 +184,13 @@ export default function CustomerFleet() {
           </p>
         )}
         {loading && <p role="status">Carregando o parque de máquinas…</p>}
+        {!loading && !client && <p className="fleet-empty">Selecione um ou mais clientes para consultar as máquinas.</p>}
         {data && (
           <>
             <section className="fleet-hero">
               <div>
-                <span className="fleet-eyebrow">PANORAMA DO CLIENTE</span>
-                <h2>{data.customer.name}</h2>
+                <span className="fleet-eyebrow">PANORAMA DOS CLIENTES</span>
+                <h2>{clients.filter(c => selectedClients.includes(c.id)).map(c => c.name).join(" · ") || data.customer.name}</h2>
                 <p>
                   {attention
                     ? `${attention} ${attention === 1 ? "máquina precisa" : "máquinas precisam"} de atenção no planejamento de manutenção.`

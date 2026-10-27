@@ -20,6 +20,10 @@ async function main() {
   const config = m8Config(),
     db = await connectDatabase();
   try {
+    // Manual and scheduled runs serialize instead of failing on a collection lock.
+    await db.query("SET statement_timeout=0");
+    await db.query("SELECT pg_advisory_lock(81045,3)");
+    await db.query("SET statement_timeout=120000");
     for (const company of [1, 2, 27404]) {
       const client = new M8Client(config, company);
       for (const kind of Object.keys(commercialEndpoints) as CommercialKind[]) {
@@ -37,6 +41,7 @@ async function main() {
       }
     }
   } finally {
+    await db.query("SELECT pg_advisory_unlock(81045,3)").catch(() => undefined);
     await db.end();
   }
 }

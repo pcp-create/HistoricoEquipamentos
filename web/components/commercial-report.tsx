@@ -1,4 +1,5 @@
 "use client";
+import {tableFilterValues} from "@/lib/table-filter-values";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -176,25 +177,29 @@ export default function CommercialReport({
   const cols = kind === "contracts" ? contractCols : salesCols;
   useEffect(() => {
     const ctrl = new AbortController();
-    setBusy(true);
-    setError("");
+    let running = false;
     setData(null);
-    fetch("/api/sales-projection?period=" + period, {
-      signal: ctrl.signal,
-      cache: "no-store",
-    })
-      .then(async (r) => {
+    async function load(initial = false) {
+      if (running || ctrl.signal.aborted) return;
+      running = true;
+      if (initial) setBusy(true);
+      try {
+        const r = await fetch("/api/sales-projection?period=" + period, {signal:ctrl.signal,cache:"no-store"});
         const d = await r.json();
         if (!r.ok) throw Error(d.error);
-        setData(d);
-      })
-      .catch((e) => {
-        if (e.name !== "AbortError") setError(e.message);
-      })
-      .finally(() => {
-        if (!ctrl.signal.aborted) setBusy(false);
-      });
-    return () => ctrl.abort();
+        if (!ctrl.signal.aborted) {setData(d); setError("");}
+      } catch (e) {
+        if (!ctrl.signal.aborted) setError((e as Error).message);
+      } finally {
+        running = false;
+        if (!ctrl.signal.aborted && initial) setBusy(false);
+      }
+    }
+    void load(true);
+    const timer = setInterval(() => {if (!document.hidden) void load();}, 60000);
+    const visible = () => {if (!document.hidden) void load();};
+    document.addEventListener("visibilitychange", visible);
+    return () => {ctrl.abort();clearInterval(timer);document.removeEventListener("visibilitychange", visible);};
   }, [period, refresh]);
   const base = useMemo(
     () =>
@@ -206,6 +211,17 @@ export default function CommercialReport({
     [data, kind],
   );
   const billingCardsMode = kind === "sales" && status === "Processado";
+  const filterScope = useMemo(() => base.filter(r =>
+    (company === "all" || String(r.company) === company) &&
+    (kind === "contracts" || status === "all" || r.kind === (status === "Pendente" ? "salesPending" : "salesBilled")) &&
+    (kind === "contracts" || billingFilter === "all" || (r.billing?.state || "unanalyzed") === billingFilter) &&
+    fold(query).split(/\s+/).every(q => fold(cols.map(c=>String(reportValue(r,c.key))).join(" ")).includes(q)) &&
+    (kind !== "contracts" || contractFilter === "total" ||
+      (contractFilter === "pending" || contractFilter === "billed"
+        ? Math.round(Number(r.fields?.[contractFilter] || 0)*100)>0
+        : contractGroup(r) === contractFilter))
+  ),[base,company,status,kind,billingFilter,query,cols,contractFilter]);
+  const filterValues = (key:string) => tableFilterValues(filterScope,key,filters,(row,field)=>String(reportValue(row,field)));
   const ownerScope = useMemo(
     () =>
       base
@@ -384,6 +400,7 @@ export default function CommercialReport({
             </button>
           </div>
         </div>
+        {data && <p className="sp-subtitle">OSs: {data.ordersUpdatedAt ? new Date(data.ordersUpdatedAt).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo"}) : "Aguardando coleta rápida"} · Comercial: {data.updatedAt ? new Date(data.updatedAt).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo"}) : "Aguardando coleta"} · Atualização automática a cada minuto</p>}
         <CommercialPeriodFilter
           period={period}
           company={company}
@@ -671,11 +688,7 @@ export default function CommercialReport({
                           <ColumnFilter
                             arrowOnly
                             label={c.label}
-                            values={[
-                              ...new Set(
-                                base.map((r) => String(reportValue(r, c.key))),
-                              ),
-                            ].sort()}
+                            values={filterValues(c.key)}
                             selected={filters[c.key]}
                             onOpen={() => {}}
                             onSort={(dir) => setSort({ key: c.key, dir })}

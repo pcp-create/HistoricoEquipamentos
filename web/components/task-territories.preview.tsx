@@ -1,4 +1,5 @@
 "use client";
+import {tableFilterValues} from "@/lib/table-filter-values";
 import SheetFillCell from "./sheet-fill-cell";
 import TerritoryColumnFilter from "./territory-column-filter";
 import {useEffect,useMemo,useState} from "react";
@@ -78,7 +79,7 @@ export default function TaskTerritories(){
   <div className="territory-sheet-scroll" onCopy={e=>{if(selectedColumn===null)return;e.preventDefault();e.clipboardData.setData('text/plain',rows.map(row=>display(row,columns[selectedColumn][0])).join('\n'))}} onPaste={e=>{if(selectedColumn===null||busy)return;e.preventDefault();paste(e.clipboardData.getData('text/plain'),0,selectedColumn,true)}}>
    <table><thead><tr>{columns.map(([key,label],index)=><th key={key} aria-sort={sort.key===key?(sort.direction===1?'ascending':'descending'):'none'}>
     <div className="territory-column-heading"><button title="Shift + clique para selecionar a coluna" aria-pressed={selectedColumn===index} onClick={e=>{if(e.shiftKey){setSelectedColumn(index);return;}setSelectedColumn(null)}}>{label}</button>
-    <TerritoryColumnFilter onSort={direction=>setSort({key,direction})} onOpen={()=>setSelectedColumn(null)} label={label} values={[...new Set(draft.map(row=>String(display(originals.get(row.key)||row,key))))].sort((a,b)=>a.localeCompare(b,"pt-BR"))} selected={filters[key]} onApply={values=>{setSelectedColumn(null);setFilters(current=>({...current,[key]:values}))}}/></div>
+    <TerritoryColumnFilter onSort={direction=>setSort({key,direction})} onOpen={()=>setSelectedColumn(null)} label={label} values={tableFilterValues(draft,key,filters,(row,field)=>String(display(originals.get(row.key)||row,field)||""))} selected={filters[key]} onApply={values=>{setSelectedColumn(null);setFilters(current=>({...current,[key]:values}))}}/></div>
    </th>)}<th>Ações</th></tr></thead>
    <tbody>{rows.map((row,rowIndex)=><tr key={row.key} className={changed.includes(row)?'territory-dirty':''}>{columns.map(([key,label],columnIndex)=><SheetFillCell key={key} rowIndex={rowIndex} column={key} editable={!busy} className={selectedColumn===columnIndex?'territory-selected':''} onFill={last=>{const keys=new Set(rows.slice(rowIndex+1,last+1).map(item=>item.key));setDraft(current=>current.map(item=>keys.has(item.key)?{...item,[key]:row[key]}:item));setError('');setMessage('')}}>
     <input aria-label={`${label} ${row.city||'nova regra'}`} disabled={busy} value={display(row,key)} list={key==='seller_user'?'territory-sellers':key==='assignee'?'territory-users':undefined}

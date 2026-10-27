@@ -2,7 +2,7 @@
 Description=Sincronização periódica M8 comercial
 [Timer]
 OnBootSec=6min
-OnUnitInactiveSec=1h
+OnUnitInactiveSec=5min
 Unit=m8-comercial.service
 [Install]
 WantedBy=timers.target

@@ -12,10 +12,11 @@ export async function customerFleet(customer: string) {
         )
       ).rows,
     };
-  if (!/^[1-9]\d{0,17}$/.test(customer)) throw new Error("INVALID_CUSTOMER");
+  const customers = [...new Set(customer.split(","))];
+  if (customers.length > 200 || customers.some(id => !/^[1-9]\d{0,17}$/.test(id))) throw new Error("INVALID_CUSTOMER");
   const source = await equipmentList(new URLSearchParams({ all: "1" }));
   const equipment = source.rows.filter((e: any) =>
-    e.clients.some((c: any) => c.id === customer),
+    e.clients.some((c: any) => customers.includes(c.id)),
   );
   const ids = equipment.map((e: any) => e.id);
   const [ops, orders, workshops] = await Promise.all([
@@ -24,12 +25,12 @@ export async function customerFleet(customer: string) {
  (p.status IN ('reviewed','completed') AND p.document->'checklistRun' IS NOT NULL AND p.document->'checklistRun'<>'null'::jsonb) report,
  COALESCE(o.numero_sequencia,o.id_m8)::text order_number
  FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id
- WHERE p.document->>'equipmentId'=ANY($1::text[]) AND o.cliente_id=$2 AND lower(coalesce(o.status,'')) NOT IN ('cancelada','cancelado') ORDER BY p.document->>'date' DESC NULLS LAST,p.position`,
-      [ids, customer],
+ WHERE p.document->>'equipmentId'=ANY($1::text[]) AND o.cliente_id=ANY($2::bigint[]) AND lower(coalesce(o.status,'')) NOT IN ('cancelada','cancelado') ORDER BY p.document->>'date' DESC NULLS LAST,p.position`,
+      [ids, customers],
     ),
     db.query(
-      `SELECT DISTINCT l.equipment_id::text,o.id_m8::text id,o.company_id,COALESCE(o.numero_sequencia,o.id_m8)::text number FROM m8_equipment_linked l JOIN m8_ordens_servico o ON o.company_id=l.company_id AND o.id_m8=l.order_id WHERE l.equipment_id=ANY($1::bigint[]) AND o.cliente_id=$2 AND lower(trim(o.status))='pendente'`,
-      [ids, customer],
+      `SELECT DISTINCT l.equipment_id::text,o.id_m8::text id,o.company_id,COALESCE(o.numero_sequencia,o.id_m8)::text number FROM m8_equipment_linked l JOIN m8_ordens_servico o ON o.company_id=l.company_id AND o.id_m8=l.order_id WHERE l.equipment_id=ANY($1::bigint[]) AND o.cliente_id=ANY($2::bigint[]) AND lower(trim(o.status))='pendente'`,
+      [ids, customers],
     ),
     db.query(
       `SELECT equipment_id::text,stage,expected_at FROM web_workshop_visits WHERE equipment_id=ANY($1::bigint[]) AND exited_at IS NULL AND reconciled_out_at IS NULL`,
@@ -37,7 +38,7 @@ export async function customerFleet(customer: string) {
     ),
   ]);
   return {
-    customer: equipment[0]?.clients.find((c: any) => c.id === customer) || {
+    customer: equipment[0]?.clients.find((c: any) => customers.includes(c.id)) || {
       id: customer,
       name: "Cliente sem equipamentos vinculados",
     },

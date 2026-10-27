@@ -860,7 +860,7 @@
 .task-checklist-heading small, .task-checklist-empty { color: #708196; font-size: 12px; }
 .task-checklist { border-top: 1px solid #e4eaf1; margin-top: 16px; padding-top: 16px; }
 .task-checklist ul { list-style: none; padding: 0; margin: 10px 0; }
-.task-checklist li { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; font-size: 14px; }
+.task-checklist li { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; font-family: inherit; font-size: 13px; font-weight: 400; line-height: 1.5; color: #365975; }
 .task-checklist li > span { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .task-checklist li.is-completed > span { text-decoration: line-through; color: #788694; }
 .task-checklist-add { display: flex; align-items: end; gap: 8px; margin-top: 12px; }
@@ -973,3 +973,30 @@
 .task-checklist-title:focus-within .task-checklist-title-pencil { opacity: 1; }
 .task-checklist-title-pencil:focus-visible { outline: 2px solid #2878bd; outline-offset: 2px; }
 @media (hover: none) { .task-checklists .task-checklist-title-pencil { opacity: 1; } }
+
+.task-followup-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 22px; }
+.task-card .task-followup-actions > button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; line-height: 1.4; }
+.task-card .task-followup-actions .task-complete-action { background: #215e93; border: 1px solid #215e93; color: #fff; }
+.task-card .task-followup-actions .task-complete-action:hover:not(:disabled) { background: #194d7b; }
+.task-followup-actions > button:focus-visible { outline: 2px solid #377cb8; outline-offset: 3px; }
+.task-followup-actions > button:disabled { opacity: .55; }
+.task-followers .support-selected:empty { display: none; }
+.task-followers .support-picker { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; height: auto; width: 100%; min-width: 0; }
+.task-followers .support-picker > .support-add { position: static; top: auto; left: auto; }
+.task-followers .support-selected { height: auto; min-height: 30px; max-width: 100%; flex-wrap: wrap; padding: 4px; }
+.task-followers .support-selected > span { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
+.task-card .task-followers .support-add { border: 1px dashed #adc8e2; background: #f5f9fe; color: #265b88; border-radius: 8px; padding: 9px 12px; min-height: 38px; font-size: 13px; font-weight: 600; }
+.task-followers small { line-height: 1.5; }
+@media(max-width:600px) { .task-followup-actions > button { flex: 1 1 140px; } }
+
+.task-checklists button.task-checklist-item-text {
+  flex: 1; min-width: 0; padding: 0; min-height: 24px;
+  border: 0; background: transparent; box-shadow: none;
+  font: inherit; color: inherit; text-align: left;
+  white-space: pre-wrap; overflow-wrap: anywhere; cursor: text;
+}
+.task-checklist li.is-completed > .task-checklist-item-text { text-decoration: line-through; color: #788694; }
+.task-checklists .task-checklist-edit button.task-checklist-delete-icon {
+  border: 0; background: transparent; box-shadow: none; color: #b43c49;
+}
+.task-checklist-item-text:focus-visible { outline: 2px solid #2878bd; outline-offset: 3px; }

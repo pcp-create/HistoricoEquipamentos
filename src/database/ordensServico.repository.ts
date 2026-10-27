@@ -27,10 +27,13 @@ export function mapEntity(schema: EntitySchema, source: Record<string, unknown>,
 // Identifiers only come from the static schema/locally authored maintenance row.
 export async function upsert(db: Database, table: string, row: Record<string, unknown>, keys: string[]): Promise<boolean> {
   const columns = Object.keys(row);
-  const update = columns.filter(key => !keys.includes(key)).map(key => `${key}=EXCLUDED.${key}`);
+  const update = columns.filter(key => !keys.includes(key)).map(key =>
+    key === 'payload' && table === 'm8_ordens_servico' ? 'payload=m8_ordens_servico.payload || EXCLUDED.payload' : `${key}=EXCLUDED.${key}`);
+  const guard = table === 'm8_ordens_servico'
+    ? 'WHERE m8_ordens_servico.data_atualizacao IS NULL OR (EXCLUDED.data_atualizacao IS NOT NULL AND EXCLUDED.data_atualizacao>=m8_ordens_servico.data_atualizacao)' : '';
   const result = await db.query<{ inserted: boolean }>(
     `INSERT INTO public.${table} (${columns.join(',')}) VALUES (${columns.map((_, i) => `$${i + 1}`).join(',')})
-     ON CONFLICT (${keys.join(',')}) DO UPDATE SET ${update.join(',')}, sincronizado_em=now(), updated_at=now()
+     ON CONFLICT (${keys.join(',')}) DO UPDATE SET ${update.join(',')}, sincronizado_em=now(), updated_at=now() ${guard}
      RETURNING (xmax = 0) AS inserted`, Object.values(row));
   return result.rows[0]?.inserted === true;
 }

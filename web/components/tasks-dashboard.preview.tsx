@@ -14,6 +14,8 @@ import TaskReminders from "./task-reminders";
 import TaskStageSelect from "./task-stage-select";
 import TaskCharts from "./task-charts";
 import {
+  Save,
+  RotateCcw,
   Trash2,
   Paperclip,
   MessageSquarePlus,
@@ -462,17 +464,19 @@ export function TaskDrawer({
                 <span>Pessoas para notificação</span>
                 <SupportPicker label="Pessoas para notificação" filterLabel="Pesquisar pessoa" removeLabel="Remover pessoa" disabled={busy} users={users} selected={followers} onChange={setFollowers} />
                 <small>Recebem mudanças de responsável, alertas e conclusão. O responsável já recebe os avisos, sem duplicação.</small>
-                <button type="button" disabled={busy} onClick={()=>void save("followers")}>Salvar acompanhamento</button>
               </div>
-              {t.source_key?.startsWith("time-request:")&&<TimeRequestApproval task={t} onChanged={(message: string) => { onChanged?.(); onClose(message); }}/>}
+
+              <div className="task-followup-actions">
+                <button type="button" className="task-secondary-action" disabled={busy} onClick={()=>void save("followers")}><Save size={17}/>Salvar acompanhamento</button>
               {t.status === "completed" &&
                 t.source_key?.startsWith("manual:") && (
                   <button
                     type="button"
                     disabled={busy}
+                    className="task-secondary-action"
                     onClick={() => void save("reopen")}
                   >
-                    Reabrir tarefa
+                    <RotateCcw size={17}/>Reabrir tarefa
                   </button>
                 )}
               {t.status !== "completed" &&
@@ -480,11 +484,14 @@ export function TaskDrawer({
                   <button
                     type="button"
                     disabled={busy}
+                    className="task-complete-action"
                     onClick={() => void save("move")}
                   >
-                    Concluir tarefa
+                    <CircleCheck size={17}/>Concluir tarefa
                   </button>
                 )}
+              </div>
+              {t.source_key?.startsWith("time-request:")&&<TimeRequestApproval task={t} onChanged={(message: string) => { onChanged?.(); onClose(message); }}/>}
               <dl>
                 <dt>Status</dt>
                 <dd>

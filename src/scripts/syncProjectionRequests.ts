@@ -27,12 +27,12 @@ async function main() {
     heartbeat = setInterval(() => { void beat().catch(() => { stopped = true; child?.kill("SIGTERM"); }); }, 15000);
     // Owning the session lock proves a previous runner is no longer active.
     await db.query("UPDATE web_projection_sync_jobs SET state='failed',finished_at=now(),message='Integrador interrompido. Confira o log e solicite uma nova sincronização.' WHERE state='running'");
-    const job = (await db.query("UPDATE web_projection_sync_jobs SET state='running',started_at=now(),stage='Atualizando contratos, faturamentos e devoluções' WHERE id=(SELECT id FROM web_projection_sync_jobs WHERE state='queued' ORDER BY requested_at LIMIT 1) RETURNING id")).rows[0];
+    const job = (await db.query("UPDATE web_projection_sync_jobs SET state='running',started_at=now(),stage='Atualizando cabeçalhos das ordens de serviço' WHERE id=(SELECT id FROM web_projection_sync_jobs WHERE state='queued' ORDER BY requested_at LIMIT 1) RETURNING id")).rows[0];
     if (!job) return;
     jobId = job.id;
+    await run("./syncNewOrders.js");
+    await db.query("UPDATE web_projection_sync_jobs SET stage='Atualizando contratos, faturamentos e devoluções' WHERE id=$1", [jobId]);
     await run("./syncCommercialFacts.js");
-    await db.query("UPDATE web_projection_sync_jobs SET stage='Atualizando ordens de serviço' WHERE id=$1", [jobId]);
-    await run("./syncCycle.js");
     await db.query("UPDATE web_projection_sync_jobs SET state='complete',stage='Sincronização concluída',finished_at=now() WHERE id=$1", [jobId]);
   } catch (error) {
     if (jobId) await db.query("UPDATE web_projection_sync_jobs SET state='failed',finished_at=now(),message='Uma coleta falhou ou foi interrompida. Parte dos dados pode ter sido atualizada. Confira os logs do integrador.' WHERE id=$1", [jobId]).catch(() => undefined);

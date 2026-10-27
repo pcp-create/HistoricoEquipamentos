@@ -5,3 +5,17 @@
 .fleet-page .fleet-search { display:flex; flex-direction:row; align-items:center; }
 .fleet-page .fleet-search svg { flex-shrink:0; }
 .fleet-page .fleet-search input { margin:0; padding:4px 0; box-shadow:none; }
+
+.fleet-client-multi{position:relative;width:min(100%,875px);min-width:0}
+.fleet-client-multi>label{display:block;margin-bottom:8px;font-size:14px;font-weight:600}
+.fleet-client-field{display:flex;align-items:center;flex-wrap:wrap;gap:7px;background:white;border:1px solid #c8dcef;border-radius:11px;padding:9px 12px;min-height:54px}
+.fleet-client-field:focus-within{outline:2px solid #91bbd6;outline-offset:2px}
+.fleet-client-field input{flex:1 1 220px;min-width:100px;width:auto;border:0;outline:0;background:transparent;padding:6px;font:inherit;box-shadow:none}
+.fleet-client-field button{display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;color:#315e7c;cursor:pointer;padding:4px}
+.fleet-client-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;overflow-wrap:anywhere;background:#eaf3fb;border-radius:6px;padding:4px 7px;font-size:12px}
+.fleet-client-chip button{font-size:20px;flex-shrink:0}
+.fleet-client-options{position:absolute;z-index:20;top:100%;margin-top:6px;width:100%;max-height:320px;overflow:auto;background:white;border:1px solid #cadced;border-radius:10px;box-shadow:0 8px 24px #193b5220;padding:6px}
+.fleet-client-options button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:11px;border:0;background:white;font:inherit;font-size:13px;color:#315e7c;border-radius:6px;cursor:pointer}
+.fleet-client-options button[aria-selected=true]{background:#eaf3fb}
+.fleet-client-options button:hover{background:#f1f6fa}
+.fleet-client-options p{padding:10px;color:#70889b}

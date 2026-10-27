@@ -61,7 +61,7 @@ test('a failed collection cannot freeze Processado or partially commit children;
   await collectionCycle(makeClient(),integration,{resumeOnly:true});
   assert.equal((await db.query<{finalized:boolean}>('SELECT finalized FROM integracao_m8_os_sync')).rows[0]?.finalized,true);
 });
-test('transition during collection requires a final recheck and open OS are queued each cycle', async () => {
+test('transition during collection requires a final recheck and unchanged OS wait for the daily safety sweep', async () => {
   let headers=0;
   const delegate=makeClient();
   await collectionCycle({...base,get:async(path,params)=>{
@@ -72,6 +72,9 @@ test('transition during collection requires a final recheck and open OS are queu
   assert.deepEqual(result,{pending:true,finalized:false});
   await db.query('UPDATE integracao_m8_os_sync SET next_attempt_at=now()');
   await collectionCycle(makeClient('Pendente'),integration,{resumeOnly:true});
+  await repo.ingestHeaders(summaryHeaders({data:[{...header,status:'Pendente'}]}),new Date());
+  assert.equal(await repo.next(),null);
+  await db.query("UPDATE integracao_m8_os_sync SET last_detail_at=now()-interval '25 hours'");
   await repo.ingestHeaders(summaryHeaders({data:[{...header,status:'Pendente'}]}),new Date());
   assert.equal(await repo.next(),'10');
 });
@@ -92,4 +95,17 @@ test('oversized HTTP bodies are cancelled without retrying the same oversized re
   let calls=0;
   await assert.rejects(requestWithRetry('https://example.test/v1/test',{}, {timeoutMs:1000,maxAttempts:4,maxResponseBytes:4},async()=>{calls++;return new Response('12345');}),/limite de memória/);
   assert.equal(calls,1);
+});
+
+test('slow details cannot overwrite a newer fast header or clear its queue', async () => {
+  const old = summaryHeaders({data:[header]})[0]!;
+  await repo.ingestHeaders([old],new Date());
+  await repo.start('10');
+  const newer = summaryHeaders({data:[{...header,dataAtualizacao:'2026-10-27T12:00:00',dataEntregaPrevista:'2026-11-19T03:00:00'}]});
+  await repo.ingestHeaders(newer,new Date());
+  const logId=await integration.start(1,'TESTE',{from:new Date(),to:new Date()});
+  const children=Object.fromEntries(collectionNames.map(name=>[name,[]])) as unknown as Children;
+  await repo.persist(old,children,true,false,logId);
+  assert.equal((await db.query<{date:string}>("SELECT payload->>'dataEntregaPrevista' AS date FROM m8_ordens_servico")).rows[0]!.date,'2026-11-19T03:00:00');
+  assert.equal((await db.query<{pending:boolean}>('SELECT pending FROM integracao_m8_os_sync')).rows[0]!.pending,true);
 });

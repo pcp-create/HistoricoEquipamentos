@@ -68,25 +68,29 @@ export default function SalesProjection({
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const ctrl = new AbortController();
-    setLoading(true);
-    setError("");
+    let running = false;
     setData(null);
-    fetch("/api/sales-projection?period=" + period, {
-      signal: ctrl.signal,
-      cache: "no-store",
-    })
-      .then(async (r) => {
+    async function load(initial = false) {
+      if (running || ctrl.signal.aborted) return;
+      running = true;
+      if (initial) setLoading(true);
+      try {
+        const r = await fetch("/api/sales-projection?period=" + period, {signal:ctrl.signal,cache:"no-store"});
         const d = await r.json();
         if (!r.ok) throw Error(d.error);
-        setData(d);
-      })
-      .catch((e) => {
-        if (e.name !== "AbortError") setError(e.message);
-      })
-      .finally(() => {
-        if (!ctrl.signal.aborted) setLoading(false);
-      });
-    return () => ctrl.abort();
+        if (!ctrl.signal.aborted) {setData(d); setError("");}
+      } catch (e) {
+        if (!ctrl.signal.aborted) setError((e as Error).message);
+      } finally {
+        running = false;
+        if (!ctrl.signal.aborted && initial) setLoading(false);
+      }
+    }
+    void load(true);
+    const timer = setInterval(() => {if (!document.hidden) void load();}, 60000);
+    const visible = () => {if (!document.hidden) void load();};
+    document.addEventListener("visibilitychange", visible);
+    return () => {ctrl.abort();clearInterval(timer);document.removeEventListener("visibilitychange", visible);};
   }, [period, refresh]);
   const rows =
     data?.rows.filter(
@@ -487,6 +491,7 @@ export default function SalesProjection({
               </section>
             </div>
             <footer className="sp-footer">
+              <span>OSs: {data.ordersUpdatedAt ? new Date(data.ordersUpdatedAt).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo"}) : "Aguardando coleta rápida"} · Atualização automática da tela a cada minuto</span>
               <span>
                 <span className="sp-dot" />{" "}
                 {data.updatedAt

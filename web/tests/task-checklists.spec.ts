@@ -88,6 +88,16 @@ test("task checklist creates lists and items, completes to the bottom and reopen
   await expect(add).toBeVisible();
   await expect(page.locator('.task-drawer')).toBeVisible();
   await expect(block.locator('li')).toHaveCount(2);
+  await expect(block.locator('li').first()).toHaveCSS('font-size','13px');
+  const followers = page.locator('.task-followers');
+  for (const width of [1440,390]) {
+    await page.setViewportSize({width,height:1080});
+    const addBox = await followers.locator('.support-add').boundingBox();
+    const helpBox = await followers.locator('small').boundingBox();
+    expect(addBox).not.toBeNull();
+    expect(helpBox!.y).toBeGreaterThanOrEqual(addBox!.y + addBox!.height);
+  }
+  await page.setViewportSize({width:1440,height:1080});
   const style=await block.getByRole('button',{name:'Concluir item: Conferir dados',exact:true}).evaluate(el=>({border:getComputedStyle(el).borderTopWidth,background:getComputedStyle(el).backgroundColor}));
   expect(style).toEqual({border:'0px',background:'rgba(0, 0, 0, 0)'});
   expect(await block.locator('li').nth(1).evaluate(el=>getComputedStyle(el).borderTopWidth)).toBe('1px');
@@ -112,7 +122,7 @@ test("task checklist creates lists and items, completes to the bottom and reopen
   await expect(block.getByRole("button", {name: "Editar item: Conferir dados", exact: true})).toBeEnabled();
   await block.getByRole("button", {name: "Editar item: Conferir dados", exact: true}).click();
   await block.getByLabel("Editar título do item").fill("Conferir cadastro");
-  await block.getByRole("button", {name: "Salvar item", exact: true}).click();
+  await block.getByLabel("Editar título do item").press("Enter");
   await expect(block.getByText("Conferir cadastro", {exact: true})).toBeVisible();
   delayToggle = true; rejectToggle = true;
   await block.getByRole("button", {name: "Concluir item: Conferir cadastro", exact: true}).click();
@@ -121,8 +131,17 @@ test("task checklist creates lists and items, completes to the bottom and reopen
   releaseToggle!();
   await expect(block.getByRole("alert")).toContainText("Falha ao salvar");
   await expect(block.getByLabel("Progresso da lista")).toHaveText("0/2 concluídos");
+  await expect(block.getByRole("button", {name: "Remover item: Conferir cadastro", exact: true})).toHaveCount(0);
+  await block.getByRole("button", {name: "Editar item: Conferir cadastro", exact: true}).click();
+  await block.getByLabel("Editar título do item").fill("Descartar mudança");
+  await block.getByLabel("Editar título do item").press("Escape");
+  await expect(block.getByRole("button", {name: "Editar item: Conferir cadastro", exact: true})).toBeVisible();
+  await block.getByRole("button", {name: "Editar item: Conferir cadastro", exact: true}).click();
+  const trash = block.getByRole("button", {name: "Remover item: Conferir cadastro", exact: true});
+  await expect(trash).toHaveCSS("border-top-width", "0px");
+  await expect(trash).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   page.once("dialog", d => d.accept());
-  await block.getByRole("button", {name: "Remover item: Conferir cadastro", exact: true}).click();
+  await trash.click();
   await expect(block.locator("li")).toHaveCount(1);
   const pencil = block.getByRole("button", {name:"Editar título: Preparação",exact:true});
   await block.getByRole("heading", {name:"Preparação",exact:true}).hover();

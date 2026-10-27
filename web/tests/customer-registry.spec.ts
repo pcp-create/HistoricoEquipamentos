@@ -37,3 +37,31 @@ test('ERP customer table protects rows and only sends edited M8 fields after ena
  expect(writes).toHaveLength(2);expect(writes[1].seller_user).toBe('a@test');expect(writes[1].changes).toEqual({});expect(writes[1].editM8).toBe(false);
 
 });
+
+test('customer column options follow seller and region filters',async({page})=>{
+ const bundle=await build({stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import Table from './components/customer-registry';createRoot(document.getElementById('root')).render(<Table/>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,outdir:'out',jsx:'automatic'});
+ await page.route('**/customer-facets-test',r=>r.fulfill({contentType:'text/html',body:`<style>${bundle.outputFiles.find(f=>f.path.endsWith('.css'))!.text}</style><div id="root"></div><script>${bundle.outputFiles.find(f=>f.path.endsWith('.js'))!.text}</script>`}));
+ await page.route('**/api/customer-registry*',r=>r.fulfill({json:{rows:[
+  {id:'1',name:'Cliente A',seller:'Ana',mesoregion:'Sul',microregion:'Lages',version:1},
+  {id:'2',name:'Cliente B',seller:'Ana',mesoregion:'Norte',microregion:'Manaus',version:1},
+  {id:'3',name:'Cliente C',seller:'Bruno',mesoregion:'Sudeste',microregion:'São Paulo',version:1},
+ ],users:[]}}));
+ await page.goto('/customer-facets-test');
+ await page.getByRole('button',{name:'Filtrar Vendedor M8',exact:true}).click();
+ const seller=page.getByRole('dialog',{name:'Filtro de Vendedor M8',exact:true});
+ await seller.getByRole('checkbox',{name:'Selecionar tudo',exact:true}).uncheck();
+ await seller.getByRole('checkbox',{name:'Ana',exact:true}).check();
+ await seller.getByRole('button',{name:'Aplicar',exact:true}).click();
+ await page.getByRole('button',{name:'Filtrar Mesorregião',exact:true}).click();
+ const region=page.getByRole('dialog',{name:'Filtro de Mesorregião',exact:true});
+ await expect(region.getByRole('checkbox',{name:'Sudeste',exact:true})).toHaveCount(0);
+ await expect(region.getByRole('checkbox',{name:'Sul',exact:true})).toBeVisible();
+ await expect(region.getByRole('checkbox',{name:'Norte',exact:true})).toBeVisible();
+ await region.getByRole('checkbox',{name:'Norte',exact:true}).uncheck();
+ await region.getByRole('button',{name:'Aplicar',exact:true}).click();
+ await page.getByRole('button',{name:'Filtrar Microrregião',exact:true}).click();
+ const micro=page.getByRole('dialog',{name:'Filtro de Microrregião',exact:true});
+ await expect(micro.getByRole('checkbox',{name:'Lages',exact:true})).toBeVisible();
+ await expect(micro.getByRole('checkbox',{name:'Manaus',exact:true})).toHaveCount(0);
+ await expect(micro.getByRole('checkbox',{name:'São Paulo',exact:true})).toHaveCount(0);
+});

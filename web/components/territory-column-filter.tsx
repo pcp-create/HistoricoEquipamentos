@@ -9,7 +9,7 @@ export default function TerritoryColumnFilter({label,values,selected,onApply,onO
  const close=()=>{panel.current?.hidePopover();trigger.current?.focus()};
  return <>
  <button ref={trigger} type="button" className="territory-filter-trigger" data-filtered={selected ? "true" : undefined} aria-label={`Filtrar ${label}`} aria-haspopup="dialog" aria-controls={id} onClick={()=>{
-  onOpen();setQuery('');setChecked(selected??values);
+  onOpen();setQuery('');setChecked(selected ? selected.filter(value=>values.includes(value)) : values);
   const box=trigger.current!.getBoundingClientRect(),popup=panel.current!;
   popup.style.left=`${Math.max(8,Math.min(box.left,window.innerWidth-296))}px`;
   const height=Math.min(440,window.innerHeight-16);
@@ -26,7 +26,7 @@ export default function TerritoryColumnFilter({label,values,selected,onApply,onO
    <label><input type="checkbox" aria-label="Selecionar tudo" disabled={!options.length} checked={options.length>0&&options.every(value=>checked.includes(value))} ref={input=>{if(input)input.indeterminate=options.some(value=>checked.includes(value))&&!options.every(value=>checked.includes(value))}} onChange={e=>setChecked(current=>e.target.checked?[...new Set([...current,...options])]:current.filter(value=>!options.includes(value)))}/><span>(Selecionar tudo)</span></label>
    {options.map(value=><label key={value}><input type="checkbox" checked={checked.includes(value)} onChange={e=>setChecked(current=>e.target.checked?[...current,value]:current.filter(item=>item!==value))}/><span>{value||'(Vazios)'}</span></label>)}{!options.length&&<p>Nenhum valor encontrado.</p>}</div>
   <small>{checked.length} de {values.length} valores selecionados</small>
-  <div className="territory-filter-actions"><button type="button" onClick={()=>{onApply(undefined);close()}}>Limpar filtro</button><button type="button" onClick={close}>Cancelar</button><button type="button" className="territory-save" onClick={()=>{onApply(values.every(value=>checked.includes(value))?undefined:checked);close()}}>Aplicar</button></div>
+  <div className="territory-filter-actions"><button type="button" onClick={()=>{onApply(undefined);close()}}>Limpar filtro</button><button type="button" onClick={close}>Cancelar</button><button type="button" className="territory-save" onClick={()=>{onApply(values.length>0&&values.every(value=>checked.includes(value))?undefined:checked.filter(value=>values.includes(value)));close()}}>Aplicar</button></div>
  </div>
  </>;
 }

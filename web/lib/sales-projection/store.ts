@@ -11,7 +11,7 @@ export async function salesProjection(period: string) {
   const today = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "America/Sao_Paulo",
   }).format(new Date());
-  const [facts, orders, sync, invoices] = await Promise.all([
+  const [facts, orders, sync, invoices, headers] = await Promise.all([
     db.query<SourceRow>(
       `SELECT company_id,kind,id::text,payload FROM m8_commercial_facts WHERE present AND company_id IN(1,2,27404) AND (kind='fContratos' OR left(payload->>'emissao',7)=$1)`,
       [period],
@@ -25,6 +25,10 @@ export async function salesProjection(period: string) {
     db.query<SourceRow>(
       `SELECT company_id,kind,id::text,jsonb_build_object('empresaId',payload->'empresaId','pessoaId',payload->'pessoaId','observacao',payload->'observacao','totalGeral',payload->'totalGeral','status',payload->'status','estaExcluido',payload->'estaExcluido','emissao',payload->'emissao','documento',payload->'documento','documentoNfe',payload->'documentoNfe') AS payload FROM m8_commercial_facts WHERE present AND kind='fFaturamento' AND company_id IN(1,2,27404)`,
     ),
+    db.query("SELECT company_id,collected_at FROM integracao_m8_headers_sync WHERE company_id IN(1,2,27404)").catch((e) => {
+      if (e.code === "42P01") return {rows:[]};
+      throw e;
+    }),
   ]);
   const result = projection(facts.rows, orders.rows, period, today);
   // All invoice dates are needed: a complementary service invoice can be issued
@@ -72,6 +76,7 @@ export async function salesProjection(period: string) {
     ...result,
     period,
     target: (targets as Record<string, number>)[period] ?? null,
+    ordersUpdatedAt: headers.rows.length === 3 ? new Date(Math.min(...headers.rows.map((r:any) => new Date(r.collected_at).getTime()))).toISOString() : null,
     updatedAt: dates.length ? new Date(Math.min(...dates)).toISOString() : null,
     complete: sync.rows.length === 12,
     targetSource: "Metas do PBIX",

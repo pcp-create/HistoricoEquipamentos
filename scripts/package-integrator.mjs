@@ -11,7 +11,7 @@ const paths=['src','dist','supabase/migrations','deploy/systemd','package.json',
 try{
  execFileSync('npm',['run','build'],{cwd:root,stdio:'inherit'});
  for(const path of paths){mkdirSync(join(stage,path,'..'),{recursive:true});cpSync(join(root,path),join(stage,path),{recursive:true});}
- writeFileSync(join(stage,'RELEASE.json'),JSON.stringify({version,createdAt:new Date().toISOString(),companies:[1,2,27404],migrationsThrough:21,includes:['previous quotes/purchases update','shared customers and ERP sellers','four PBIX commercial facts','manual projection sync request worker'],excludes:['web application','credentials','PBIX source']},null,2)+'\n');
+ writeFileSync(join(stage,'RELEASE.json'),JSON.stringify({version,createdAt:new Date().toISOString(),companies:[1,2,27404],migrationsThrough:22,includes:['previous quotes/purchases update','shared customers and ERP sellers','four PBIX commercial facts','manual projection sync request worker','fast changed OS headers','background detail queue with daily safety sweep'],excludes:['web application','credentials','PBIX source']},null,2)+'\n');
  const name=`m8-integrador-${version}.tar.gz`,artifact=join(root,'artifacts',name);
  mkdirSync(join(root,'artifacts'),{recursive:true});
  execFileSync('tar',['-czf',artifact,'-C',stage,'.']);

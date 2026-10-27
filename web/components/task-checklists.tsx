@@ -222,27 +222,25 @@ export default function TaskChecklists({ taskId }: { taskId: string }) {
                       e.preventDefault();
                       if (await save({action: "edit_item", ...itemEditor})) setItemEditor(null);
                     }} onKeyDown={e => {
-                      if (e.key === "Escape") { e.stopPropagation(); if (!busy) setItemEditor(null); }
+                      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); if (!busy) setItemEditor(null); }
                     }}>
                       <input autoFocus aria-label="Editar título do item" required maxLength={500}
-                        disabled={busy} value={itemEditor.title}
+                        disabled={busy} value={itemEditor.title} enterKeyHint="done"
+                        onKeyDown={e => {if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault();}}
                         onChange={e => setItemEditor({...itemEditor, title: e.target.value})} />
-                      <button type="submit" aria-label="Salvar item" title="Salvar item" disabled={busy || !itemEditor.title.trim()}><Check size={16} /></button>
-                      <button type="button" aria-label="Cancelar edição" title="Cancelar edição" disabled={busy} onClick={() => setItemEditor(null)}><X size={16} /></button>
+                      <button type="button" className="task-checklist-delete-icon" aria-label={"Remover item: " + item.title} title="Excluir item"
+                        disabled={busy} onClick={async () => {
+                          if (window.confirm('Remover o item "' + item.title + '"?') &&
+                            await save({action: "delete_item", id: item.id, version: itemEditor.version}))
+                            setItemEditor(null);
+                        }}><Trash2 size={16}/></button>
                     </form>
                   ) : (
-                    <>
-                      <span>{item.title}</span>
-                      <div className="task-checklist-item-actions">
-                        <button type="button" aria-label={"Editar item: " + item.title} title="Editar item"
-                          disabled={busy} onClick={() => setItemEditor({id: item.id, title: item.title, version: item.version})}><Pencil size={16} /></button>
-                        <button type="button" className="task-checklist-delete" aria-label={"Remover item: " + item.title} title="Remover item"
-                          disabled={busy} onClick={() => {
-                            if (window.confirm('Remover o item "' + item.title + '"?'))
-                              void save({action: "delete_item", id: item.id, version: item.version});
-                          }}><Trash2 size={16} /></button>
-                      </div>
-                    </>
+                    <button type="button" className="task-checklist-item-text"
+                      aria-label={"Editar item: " + item.title} title="Clique para editar"
+                      disabled={busy} onClick={() => setItemEditor({id: item.id, title: item.title, version: item.version})}>
+                      {item.title}
+                    </button>
                   )}
                 </li>
               ))}
