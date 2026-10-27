@@ -1,5 +1,7 @@
 import {registerMachine,listMachines,saveMachineSettings,machineSettings} from '../lib/visits/machine-registration';
 import {createCustomerContact,listCustomerContacts} from "../lib/visits/contacts";
+import {syncTasks} from "../lib/tasks/store";
+import {claimNotifications} from "../lib/tasks/notifications";
 import {createVisitTask} from "../lib/visits/tasks";
 import {queueVisitAlert,claimVisitAlerts,acknowledgeVisitAlert} from "../lib/visits/alerts";
 import { test } from "node:test";
@@ -54,6 +56,9 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     await db.exec(readFileSync(new URL("../sql/072_visit_machine_registration.sql",import.meta.url),"utf8"));
     await db.exec(readFileSync(new URL("../sql/074_visit_disqualifications.sql",import.meta.url),"utf8"));
     for(const name of ["075_customer_registry","076_customer_seller"])await db.exec(readFileSync(new URL("../sql/"+name+".sql",import.meta.url),"utf8"));
+    await db.exec("CREATE TABLE web_equipment_events(equipment_id bigint,kind text,document jsonb,created_by text,display_name text)");
+    await db.exec(readFileSync(new URL("../sql/077_visit_machine_records.sql",import.meta.url),"utf8"));
+    await db.exec(readFileSync(new URL("../sql/078_visit_machine_observations.sql",import.meta.url),"utf8"));
     const query = async (sql: string, args?: any[]) => {
       if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
       return db.query(sql.replace("BEGIN READ WRITE", "BEGIN"), args);
@@ -237,7 +242,7 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     const edit={...external,action:"admin_edit",version:2,contact:"Contato corrigido"};
     await assert.rejects(()=>administerVisit(edit,"missing@test.com"));
     await assert.rejects(()=>administerVisit({...edit,action:"admin_delete"},"missing@test.com"));
-    await administerVisit(edit,"tech@test.com");
+    await administerVisit(edit,"a@test.com");
     assert.equal((await visitsData("tech@test.com")).visits[0].contact,"Contato corrigido");
     await assert.rejects(()=>administerVisit({...edit,action:"admin_delete"},"admin@test.com"),/alterada/);
     await administerVisit({...edit,version:3,action:"admin_delete"},"tech@test.com");
@@ -273,6 +278,7 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     assert.equal((await db.query<any>("SELECT count(*) n FROM web_sales_visit_alerts WHERE state='pending'")).rows[0].n,0);
 
 
+    assert.equal((await db.query<any>("SELECT status FROM web_tasks WHERE source_key=$1",['visit:'+linked.id])).rows[0].status,'completed');
     const registration={customer:'m8:5',requestId:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',equipmentType:'Compressor',model:'GA22',brand:'Atlas Copco',serial:'ABC123',meter:'1234,5'};
     await assert.rejects(()=>registerMachine(registration,{email:'a@test.com'} as any),/Defina o responsável/);
     await assert.rejects(()=>saveMachineSettings('a@test.com','b@test.com'),/WhatsApp/);
@@ -294,11 +300,44 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
 
     await db.exec("UPDATE web_user_access SET enabled=true WHERE email='b@test.com'");
     await db.exec("UPDATE web_sales_visit_purposes SET active=true WHERE id=1");
-    const delegated = {...body,id:"abababab-abab-4bab-8bab-abababababab",seller:"b@test.com"};
+    await db.exec("UPDATE web_task_notifications SET state='skipped'; UPDATE web_user_access SET phone='49888888888' WHERE email='b@test.com'");
+    const delegated = {...body,id:"abababab-abab-4bab-8bab-abababababab",seller:"b@test.com",whatsappAt:"2099-01-01T10:00"};
+    const invalidReminderId='afafafaf-afaf-4faf-8faf-afafafafafaf';
+    await assert.rejects(()=>saveVisit({...delegated,id:invalidReminderId,whatsappAt:'2020-01-01T10:00'},'a@test.com'),/futur/);
+    assert.equal((await db.query<any>("SELECT count(*) n FROM web_sales_visits WHERE id=$1",[invalidReminderId])).rows[0].n,0);
+    assert.equal((await db.query<any>("SELECT count(*) n FROM web_tasks WHERE source_key=$1",['visit:'+invalidReminderId])).rows[0].n,0);
     await saveVisit(delegated,"a@test.com");
     assert.equal((await db.query<any>("SELECT seller FROM web_sales_visits WHERE id=$1",[delegated.id])).rows[0].seller,"b@test.com");
     assert.ok((await visitsData("b@test.com")).visits.some((v:any)=>v.id===delegated.id));
     assert.ok(!(await visitsData("a@test.com")).visits.some((v:any)=>v.id===delegated.id));
+    const automatic=(await db.query<any>("SELECT * FROM web_tasks WHERE source_key=$1",['visit:'+delegated.id])).rows[0];
+    assert.equal(automatic.assigned_to,'b@test.com');assert.deepEqual(automatic.followers,['a@test.com']);assert.equal(automatic.created_by,'Sistema');
+    assert.equal((await visitsData("b@test.com")).visits.find((v:any)=>v.id===delegated.id).task_id,String(automatic.id));
+    assert.deepEqual((await db.query<any>("SELECT recipient FROM web_task_reminders WHERE task_id=$1",[automatic.id])).rows.map(r=>r.recipient),['b@test.com']);
+    await saveVisit(delegated,'a@test.com');
+    assert.equal((await db.query<any>("SELECT count(*) n FROM web_tasks WHERE source_key=$1",['visit:'+delegated.id])).rows[0].n,1);
+    assert.equal((await db.query<any>("SELECT count(*) n FROM web_task_reminders WHERE task_id=$1",[automatic.id])).rows[0].n,1);
+    const creationNotices=await claimNotifications('https://example.test');
+    assert.equal(creationNotices.length,2);
+    assert.deepEqual(new Set(creationNotices.map(n=>n.number)),new Set(['49999999999','49888888888']));
+    assert.ok(creationNotices.every(n=>n.text.includes('TAR-'+automatic.id)));
+    await syncTasks(async()=>[],{client:{query} as any});
+    assert.equal((await db.query<any>("SELECT status FROM web_tasks WHERE id=$1",[automatic.id])).rows[0].status,'not_started');
+    await saveVisit({action:'complete',id:delegated.id,version:1,completed_at:'2026-01-10T12:00:00Z',outcome:'Visita concluída pelo vendedor'},'b@test.com');
+    assert.equal((await db.query<any>("SELECT status FROM web_tasks WHERE id=$1",[automatic.id])).rows[0].status,'completed');
+    assert.equal((await db.query<any>("SELECT state FROM web_task_reminders WHERE task_id=$1",[automatic.id])).rows[0].state,'cancelled');
+    const closureNotices=await claimNotifications('https://example.test');
+    assert.equal(closureNotices.length,2);assert.ok(closureNotices.every(n=>n.text.includes('Tarefa concluída')));
+    assert.equal((await claimNotifications('https://example.test')).length,0);
+
+    const delegatedHistory={...delegated,id:"aeaeaeae-aeae-4eae-8eae-aeaeaeaeaeae",action:"history",scheduled_at:"2026-01-10T12:00:00Z",outcome:"Visita registrada pela gestão"};
+    await saveVisit(delegatedHistory,"a@test.com");
+    const historical=(await db.query<any>("SELECT seller,status,outcome FROM web_sales_visits WHERE id=$1",[delegatedHistory.id])).rows[0];
+    assert.deepEqual(historical,{seller:"b@test.com",status:"completed",outcome:"Visita registrada pela gestão"});
+    const historyTask=(await db.query<any>("SELECT * FROM web_tasks WHERE source_key=$1",['visit:'+delegatedHistory.id])).rows[0];
+    assert.equal(historyTask.status,'completed');
+    assert.deepEqual((await db.query<any>("SELECT DISTINCT kind FROM web_task_notifications WHERE task_id=$1 ORDER BY kind",[historyTask.id])).rows.map(r=>r.kind),['assignment','completed']);
+    await assert.rejects(()=>saveVisit({...delegatedHistory,seller:"tech@test.com"},"a@test.com"));
     const delegatedLead={...delegated,id:"acacacac-acac-4cac-8cac-acacacacacac",customer_key:"",lead:{id:"adadadad-adad-4dad-8dad-adadadadadad",name:"Lead SDR",city:"Lages",uf:"SC",address:"Rua A"}};
     await saveVisit(delegatedLead,"a@test.com");
     assert.equal((await db.query<any>("SELECT owner FROM web_sales_leads WHERE id=$1",[delegatedLead.lead.id])).rows[0].owner,"b@test.com");

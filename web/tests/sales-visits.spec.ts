@@ -77,7 +77,7 @@ test("sales portal displays portfolio, schedules visits and registers historical
   await page.getByRole('button',{name:'Salvar contato',exact:true}).click();
   await expect(page.getByRole('dialog',{name:'Novo contato',exact:true})).toHaveCount(0);
   await expect(page.getByLabel('Contato que receberá a visita')).toHaveValue('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
-  await page.getByLabel('Receber alerta no meu WhatsApp').check();
+  await page.getByLabel('Agendar lembrete da tarefa para o vendedor').check();
   await pickDateTime(page,'Data e hora do alerta (Brasília)','2027-11-20T09:00');
   await page.getByRole("combobox",{name:"Finalidade da Visita",exact:true}).fill("Prospec");
  await page.getByRole("listbox").getByRole("option").first().click();
@@ -478,3 +478,30 @@ test('full customer base finds COOPERSULCA by trade name on the visits page', as
   await page.getByRole('option').filter({hasText:'28667'}).click();
   await expect(page.getByRole('combobox',{name:'Cliente',exact:true})).toHaveValue(/COOPERSULCA/);
 });
+
+for (const status of ['scheduled','completed'] as const) {
+ test(`portal edits an existing ${status} visit`,async({page,context})=>{
+  await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
+  const customer={key:'m8:1',name:'Cliente técnico',document:'',city:'Lages',uf:'SC',lead:false,health:'overdue',latitude:null,longitude:null,lastVisit:null};
+  let visit={id:'11111111-1111-4111-8111-111111111111',customer_key:customer.key,status,version:1,scheduled_at:'2026-01-10T12:00:00Z',completed_at:status==='completed'?'2026-01-10T13:00:00Z':null,contact:'Contato antigo',phone:'49999999999',description:'Objetivo original',outcome:status==='completed'?'Registro original':'',purpose_id:'1'};
+  let saved:any;
+  await page.route('**/api/visits',async r=>{
+   if(r.request().method()==='POST') {saved=r.request().postDataJSON();visit={...visit,...saved,version:2};await r.fulfill({json:{saved:true}});}
+   else await r.fulfill({json:{name:'Técnico',canEditVisits:true,purposes,customers:[customer],visits:[visit]}});
+  });
+  await page.goto('/visitas');
+  await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
+  await page.getByRole('button',{name:'Lista',exact:true}).click();
+  await page.getByRole('button',{name:'Visitas (1)',exact:true}).click();
+  await expect(page.locator('.sales-visit summary')).toContainText('Cliente técnico');
+  await expect(page.locator('.sales-visit').getByRole('button',{name:'Editar',exact:true})).toBeHidden();
+  await page.locator('.sales-visit summary').click();
+  await page.locator('.sales-visit').getByRole('button',{name:'Editar',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Editar visita',exact:true});
+  await dialog.getByLabel('Pessoa de contato').fill('Contato corrigido');
+  await dialog.getByRole('button',{name:'Salvar alterações'}).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('.sales-visit')).toContainText('Contato corrigido');
+  expect(saved).toMatchObject({action:'admin_edit',id:visit.id,version:1,contact:'Contato corrigido',outcome:visit.outcome});
+ });
+}

@@ -1,7 +1,7 @@
 import {saveVisitRecords} from "./records";
 import "server-only";
 import {storeContact} from "./contacts";
-import {queueVisitAlert} from "./alerts";
+import {syncVisitTask} from "./automatic-task";
 import { database } from "../db";
 import { AdminInputError } from "../admin-store";
 import { Forbidden } from "../auth";
@@ -136,7 +136,7 @@ export async function visitsData(email: string, db: any = database(), management
   customers.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   const visits = (
     await db.query(
-      "SELECT v.*,p.name AS purpose_name FROM web_sales_visits v LEFT JOIN web_sales_visit_purposes p ON p.id=v.purpose_id WHERE $3::boolean OR (seller=$1 AND customer_key=ANY($2::text[])) ORDER BY scheduled_at DESC",
+      "SELECT v.*,(SELECT vt.task_id::text FROM web_sales_visit_tasks vt WHERE vt.request_id=v.id AND vt.visit_id=v.id) AS task_id,p.name AS purpose_name FROM web_sales_visits v LEFT JOIN web_sales_visit_purposes p ON p.id=v.purpose_id WHERE $3::boolean OR (seller=$1 AND customer_key=ANY($2::text[])) ORDER BY scheduled_at DESC",
       [email, keys, management],
     )
   ).rows;
@@ -187,11 +187,12 @@ export async function saveVisit(b: any, email: string) {
     await c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
       "visits:" + email,
     ]);
-    const assigning = b.action === "schedule" && b.seller != null;
+    const assigning = ["schedule", "history"].includes(b.action) && b.seller != null;
     const seller = assigning ? text(b, "seller", 254, true).toLowerCase() : email;
     // Gestão de Visitas is available to active users; validate both actor and assignee.
     if (assigning && seller !== email) await visitIdentity(c, seller);
     const data = await visitsData(seller, c);
+    let created=false;
     if (["schedule", "history"].includes(b.action)) {
       let key = text(b, "customer_key", 120);
       if (b.lead) {
@@ -247,8 +248,8 @@ export async function saveVisit(b: any, email: string) {
         throw new AdminInputError(
           "Uma visita realizada não pode ter data futura.",
         );
-      await c.query(
-        `INSERT INTO web_sales_visits(id,seller,customer_key,scheduled_at,contact,phone,description,status,completed_at,outcome,purpose_id,contact_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(id) DO NOTHING`,
+      const inserted=await c.query(
+        `INSERT INTO web_sales_visits(id,seller,customer_key,scheduled_at,contact,phone,description,status,completed_at,outcome,purpose_id,contact_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(id) DO NOTHING RETURNING id`,
         [
           b.id,
           seller,
@@ -264,6 +265,7 @@ export async function saveVisit(b: any, email: string) {
           selectedContact?.id||null,
         ],
       );
+      created=inserted.rows.length>0;
       const owner = (
         await c.query("SELECT seller FROM web_sales_visits WHERE id=$1", [b.id])
       ).rows[0];
@@ -290,7 +292,7 @@ export async function saveVisit(b: any, email: string) {
     }
     if(['history','complete'].includes(b.action))await saveVisitRecords(c,b,email,data.customers);
     if(b.action==='cancel')await c.query("UPDATE web_sales_visit_alerts SET state='cancelled' WHERE visit_id=$1 AND state='pending'",[b.id]);
-    else await queueVisitAlert(c,b.id,seller,b.whatsappAt);
+    await syncVisitTask(c,b.id,email,created,created?b.whatsappAt:undefined);
     await c.query(
       "INSERT INTO web_access_events(event,email,actor,details) VALUES('sales_visit',$1,$1,$2)",
       [email, JSON.stringify({ action: b.action, id: b.id, seller })],
@@ -336,7 +338,7 @@ export async function administerVisit(b:any,email:string) {
     const old=(await c.query('SELECT * FROM web_sales_visits WHERE id=$1 FOR UPDATE',[b.id])).rows[0];
     if(!old || old.version!==b.version)throw new AdminInputError('Visita alterada ou excluída. Atualize a lista.');
     let after=null;
-    if(b.action==='admin_delete')await c.query('DELETE FROM web_sales_visits WHERE id=$1',[b.id]);
+    if(b.action==='admin_delete'){await syncVisitTask(c,b.id,email,false,undefined,true);await c.query('DELETE FROM web_sales_visits WHERE id=$1',[b.id]);}
     else {
       const at=instant(b.scheduled_at),contact=text(b,'contact',160,true),phone=text(b,'phone',40,true),description=text(b,'description',10000);
       if(!/^[+()\d\s.-]{8,40}$/.test(phone))throw new AdminInputError('Informe um telefone válido.');
@@ -348,6 +350,7 @@ export async function administerVisit(b:any,email:string) {
       const outcome=old.status==='completed'?text(b,'outcome',10000,true):old.outcome;
       after=(await c.query(`UPDATE web_sales_visits SET scheduled_at=$2,contact=$3,phone=$4,description=$5,purpose_id=$6,completed_at=$7,outcome=$8,version=version+1,updated_at=now() WHERE id=$1 RETURNING *`,[b.id,at,contact,phone,description,purpose,completed,outcome])).rows[0];
     }
+    if(after)await syncVisitTask(c,b.id,email);
     await c.query("INSERT INTO web_access_events(event,email,actor,details) VALUES('sales_visit_admin',$1,$1,$2)",[email,JSON.stringify({action:b.action,before:old,after})]);
     await c.query('COMMIT');
   }catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}

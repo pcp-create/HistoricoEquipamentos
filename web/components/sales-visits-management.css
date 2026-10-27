@@ -292,3 +292,39 @@
  .sales-management { padding-bottom: 90px; }
  .sales-management .sales-management-tabs button { padding: 10px 12px; font-size: 12px; }
 }
+
+.sales-management .sales-kpi-card {
+  --kpi-color: #246194;
+  --kpi-tint: #edf4fb;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  padding: 20px 22px;
+  border: 1px solid #d5e1ee;
+  border-radius: 14px;
+  background: #fff;
+  color: #183b56;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 2px 5px #183b5605;
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+.sales-management .sales-kpi-card:hover { border-color: var(--kpi-color); box-shadow: 0 5px 16px #183b5610; transform: translateY(-2px); }
+.sales-management .sales-kpi-card:focus-visible { outline: 3px solid var(--kpi-color); outline-offset: 3px; }
+.sales-kpi-card.purple { --kpi-color: #7553a5; --kpi-tint: #f4effa; }
+.sales-kpi-card.green { --kpi-color: #237d60; --kpi-tint: #eaf6f0; }
+.sales-kpi-card.amber { --kpi-color: #a56a16; --kpi-tint: #fff5e5; }
+.sales-kpi-card.neutral { --kpi-color: #6b7889; --kpi-tint: #f0f3f6; }
+.sales-kpi-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; }
+.sales-management-kpis .sales-kpi-icon { display: inline-flex; padding: 10px; border-radius: 10px; color: var(--kpi-color); background: var(--kpi-tint); }
+.sales-management-kpis .sales-kpi-card strong { margin: 0; font-size: 34px; line-height: 1.15; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+.sales-kpi-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid #edf2f7; color: var(--kpi-color); }
+.sales-portfolio-filter { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; color: #60748a; font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { .sales-management .sales-kpi-card { transition: none; } }
+@media (max-width: 600px) {
+  .sales-management-kpis { grid-template-columns: minmax(0, 1fr); }
+  .sales-management .sales-kpi-card { padding: 18px; min-width: 0; }
+  .sales-kpi-heading > span:first-child { min-width: 0; }
+  .sales-portfolio-filter { align-items: flex-start; flex-direction: column; }
+}

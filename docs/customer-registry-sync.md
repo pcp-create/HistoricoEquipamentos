@@ -20,3 +20,9 @@ A interface usa o snapshot mais recente entre a sincronização manual e a autom
 Não confundir `indicadorVendaId` com `/vendedor`. A atribuição automática de usuários internos a partir dos vínculos do ERP ainda exige um mapeamento explícito `vendedorId -> usuário`. Nenhum vínculo é deduzido por semelhança de nomes.
 
 Pacote e instalação: [atualizacao-comercial.md](atualizacao-comercial.md).
+
+## Edição do vendedor no portal
+
+Em **Editar campos M8**, a coluna **Vendedor M8** permite selecionar um vendedor ativo do catálogo do ERP. A seleção é enviada a `POST /v1/configuracoes/cliente/{id}/vendedor` com `vendedorId` e `padrao: true`, conforme o contrato OpenAPI. O servidor compara o vendedor anterior para detectar edições concorrentes e consulta os vínculos novamente para confirmar um único vendedor padrão antes de informar sucesso. A mudança é auditada e os detalhes locais são atualizados.
+
+O campo **Vendedor vinculado** continua representando a atribuição interna da carteira. Alterar **Vendedor M8** não modifica esse vínculo interno. A edição não oferece exclusão de vínculos do ERP.

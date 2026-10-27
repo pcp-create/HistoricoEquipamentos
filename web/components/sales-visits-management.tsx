@@ -1,10 +1,16 @@
 "use client";
+import VisitListRow from "./visit-list-row";
 import { matchesSearch } from "@/lib/filters";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import SiteHeader from "./site-header";
 import {
+  CheckCircle2,
+  Clock3,
+  AlertCircle,
+  Ban,
+  ArrowUpRight,
   BarChart3,
   Users,
   UserPlus,
@@ -31,6 +37,7 @@ import { lastSeen } from "@/lib/last-seen";
 import VisitAdminActions from "./visit-admin-actions";
 import VisitsPeriodCalendar from "./visits-period-calendar";
 import VisitTaskButton from "./visit-task-button";
+import VisitCustomerMachines from "./visit-customer-machines";
 import SalesVisits from "./sales-visits";
 import SalesVisitsMap from "./sales-visits-map";
 import "./field-app.css";
@@ -77,6 +84,7 @@ export default function SalesVisitsManagement() {
     [day, setDay] = useState("");
   const [detail, setDetail] = useState<VisitCustomer | null>(null);
   const [page, setPage] = useState(0);
+  const [portfolioOnly,setPortfolioOnly]=useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [meterForm,setMeterForm] = useState<{customer:VisitCustomer;equipment:NonNullable<VisitCustomer["equipment"]>[number]} | null>(null);
   const [meterValue,setMeterValue]=useState("");
@@ -84,6 +92,11 @@ export default function SalesVisitsManagement() {
   const [meterError,setMeterError]=useState("");
   const [meterBusy,setMeterBusy]=useState(false);
   const [scheduling,setScheduling]=useState(false);
+  const [visitMode,setVisitMode]=useState<"schedule"|"history">("schedule");
+  const [visitCustomer,setVisitCustomer]=useState<VisitCustomer>();
+  const [online,setOnline]=useState(true);
+  useEffect(()=>{const update=()=>setOnline(navigator.onLine);update();window.addEventListener("online",update);window.addEventListener("offline",update);return()=>{window.removeEventListener("online",update);window.removeEventListener("offline",update)}},[]);
+  function openVisit(mode:"schedule"|"history",customer?:VisitCustomer){setVisitMode(mode);setVisitCustomer(customer);setScheduling(true)}
   const [message,setMessage]=useState("");
   const selectEquipment=useCallback((customer:VisitCustomer,equipment:NonNullable<VisitCustomer["equipment"]>[number])=>{
     setMeterForm({customer,equipment}); setMeterDate(brazilDay(new Date()));setMeterValue("");setMeterError("");setMessage("");
@@ -125,13 +138,12 @@ export default function SalesVisitsManagement() {
   const customerMatches = (c: VisitCustomer) =>
     matchesSearch(fold(`${c.name} ${c.tradeName || ""} ${c.document} ${c.city} ${c.uf}`), fold(query));
   const periodInvalid = !!(from && until && from > until);
-  const filteredVisits = visits.filter((v) => {
+  const scopedVisits = visits.filter((v) => {
     const c = customerMap.get(v.customer_key);
     const date = brazilDay(v.completed_at || v.scheduled_at);
     return (
       !periodInvalid &&
       (!seller || v.seller === seller) &&
-      (!status || v.status === status) &&
       (!query ||
         (c
           ? customerMatches(c)
@@ -140,9 +152,10 @@ export default function SalesVisitsManagement() {
       (!until || date <= until)
     );
   });
+  const filteredVisits = scopedVisits.filter(v=>!status||(status==="overdue"?v.status==="scheduled"&&Date.parse(v.scheduled_at)<now:v.status===status));
   const visibleCustomers=customers.filter(c=>(!seller || c.seller_ids?.includes(seller)) && customerMatches(c));
   const customerTabs={
-    customers:visibleCustomers.filter(c=>!c.lead&&!c.disqualification),
+    customers:visibleCustomers.filter(c=>!c.lead&&!c.disqualification&&(!portfolioOnly||c.in_portfolio!==false)),
     leads:visibleCustomers.filter(c=>c.lead&&!c.disqualification),
     disqualified:visibleCustomers.filter(c=>!!c.disqualification),
   };
@@ -156,7 +169,7 @@ export default function SalesVisitsManagement() {
   },[data,seller,query]);
   const portfolio = customers.filter(
     (c) =>
-      !c.lead && c.in_portfolio !== false &&
+      !c.lead && !c.disqualification && c.in_portfolio !== false &&
       (!seller || c.seller_ids?.includes(seller)) &&
       customerMatches(c),
   );
@@ -218,33 +231,7 @@ export default function SalesVisitsManagement() {
     setDay("");
   };
   const renderVisit = (v: SalesVisit) => (
-    <article className="sales-visit" key={v.id}>
-      <div className="sales-between">
-        <strong>
-          {customerMap.get(v.customer_key)?.name ||
-            "Cliente não disponível · " + v.customer_key}
-        </strong>
-        <span
-          className={
-            "sales-badge " +
-            (v.status === "completed"
-              ? "current"
-              : v.status === "cancelled"
-                ? "neutral"
-                : "scheduled")
-          }
-        >
-          {labels[v.status]}
-        </span>
-      </div>
-      <p>
-        <b>Vendedor:</b>{" "}
-        {sellerMap.get(v.seller || "")?.name || v.seller || "Não informado"}
-      </p>
-      <p>
-        <CalendarDays size={15} />
-        {dateTime(v.scheduled_at)}
-      </p>
+    <VisitListRow key={v.id} visit={v} customer={customerMap.get(v.customer_key)?.name || "Cliente não disponível · " + v.customer_key} seller={sellerMap.get(v.seller || "")?.name || v.seller || "Não informado"} date={dateTime(v.scheduled_at)}>
       {v.status === "scheduled" && Date.parse(v.scheduled_at) < now && (
         <p className="sales-management-overdue">Agendamento atrasado</p>
       )}
@@ -263,7 +250,7 @@ export default function SalesVisitsManagement() {
       )}
       {data?.canEditVisits && v.status !== "cancelled" && <VisitTaskButton visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key}/>}
       {data?.canEditVisits && <VisitAdminActions visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} purposes={data.purposes || []} onSaved={async message=>{setMessage(message);await reload()}}/>}
-    </article>
+    </VisitListRow>
   );
   const calendarVisits = filteredVisits
     .filter(
@@ -282,7 +269,8 @@ export default function SalesVisitsManagement() {
             <p>Acompanhe a carteira e as visitas de todos os vendedores.</p>
           </div>
           <div className="sales-actions">
-            <button className="sales-primary sales-management-create" onClick={()=>setScheduling(true)}><Plus size={18}/>Agendar visita</button>
+            <button className="sales-primary sales-management-create" onClick={()=>openVisit("schedule")}><Plus size={18}/>Agendar visita</button>
+            <button disabled={!online} onClick={()=>openVisit("history")}>Registrar visita realizada</button>
             <Link href="/visitas/gestao/configuracoes" title="Configurações de Visitas" aria-label="Configurações de Visitas"><Settings size={20}/></Link>
           </div>
         </header>
@@ -307,7 +295,7 @@ export default function SalesVisitsManagement() {
               {!filtersExpanded && <div className="sales-filter-summary">
                 {seller && <span>{sellerMap.get(seller)?.name || seller}</span>}
                 {query && <span>Cliente: {query}</span>}
-                {status && <span>{labels[status as keyof typeof labels]}</span>}
+                {status && <span>{status==="overdue"?"Agendamentos atrasados":labels[status as keyof typeof labels]}</span>}
                 {(from || until) && <span>{from ? from.split("-").reverse().join("/") : "Sem início"} até {until ? until.split("-").reverse().join("/") : "Sem fim"}</span>}
                 {![seller,query,status,from,until].some(Boolean) && <small>Todos os vendedores · Todos os períodos</small>}
                 {periodInvalid && <small role="alert">Período inválido. Expanda os filtros para corrigir as datas.</small>}
@@ -344,6 +332,7 @@ export default function SalesVisitsManagement() {
                   onChange={(e) => setStatus(e.target.value)}
                 >
                   <option value="">Todos</option>
+                  <option value="overdue">Agendamentos atrasados</option>
                   {Object.entries(labels).map(([key, label]) => (
                     <option key={key} value={key}>
                       {label}
@@ -378,6 +367,7 @@ export default function SalesVisitsManagement() {
                   setStatus("");
                   setFrom("");
                   setUntil("");
+                  setPortfolioOnly(false);
                 }}
                 className="sales-filter-reset"
               >
@@ -416,7 +406,7 @@ export default function SalesVisitsManagement() {
                   <button
                     key={String(key)}
                     aria-pressed={tab === key}
-                    onClick={() => setTab(String(key))}
+                    onClick={() => {setTab(String(key));setPortfolioOnly(false);}}
                   >
                     <I size={17} />
                     {String(label)}
@@ -427,6 +417,7 @@ export default function SalesVisitsManagement() {
             <button className="sales-management-next" aria-label="Ver mais abas de gestão" style={{visibility:moreTabs?"visible":"hidden"}} tabIndex={moreTabs?0:-1} aria-hidden={!moreTabs} onClick={()=>menuRef.current?.scrollBy({left:menuRef.current.clientWidth,behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"instant":"smooth"})}><ChevronRight size={18}/></button>
             </div>
             {listedCustomers && <section aria-label="Lista de clientes da gestão">
+              {portfolioOnly&&<div className="sales-portfolio-filter"><span>Somente clientes da carteira · {listedCustomers.length} clientes</span><button onClick={()=>setPortfolioOnly(false)}>Ver todos os clientes</button></div>}
               <div className="sales-customer-grid">
                 {listedCustomers.map(customer=><article key={customer.key} className={"sales-customer "+customer.health}>
                   <div className="sales-between"><strong>{customer.name}</strong><span className={"sales-badge "+customer.health}>{customer.disqualification?"Desqualificado":healthLabels[customer.health]}</span></div>
@@ -435,7 +426,9 @@ export default function SalesVisitsManagement() {
                   <p className="sales-muted">{customer.lastVisit?"Última visita: "+dateTime(customer.lastVisit):"Nenhuma visita realizada registrada"}</p>
                   <p className="sales-muted">Vendedor: {customer.seller_ids?.map(id=>sellerMap.get(id)?.name||id).join(", ")||"Não atribuído"}</p>
                   {customer.disqualification&&<p className="visit-disqualification-reason"><strong>Justificativa:</strong> {customer.disqualification.reason}</p>}
-                  <div className="sales-customer-actions"><button className="sales-history-button" onClick={()=>setDetail(customer)}>Ver histórico e equipamentos<ChevronRight size={15}/></button></div>
+                  {visits.some(v=>v.customer_key===customer.key&&v.status==="scheduled")&&<p className="sales-scheduled"><CalendarDays size={15}/>Possui visita agendada</p>}
+                  <div className="sales-customer-actions"><button className="sales-primary" disabled={!online} onClick={()=>openVisit("schedule",customer)}><CalendarDays size={17}/>Agendar</button><button className="sales-register-button" disabled={!online} onClick={()=>openVisit("history",customer)}>Registrar</button><button className="sales-history-button" onClick={()=>setDetail(customer)}>Ver histórico e equipamentos<ChevronRight size={15}/></button></div>
+                  <VisitCustomerMachines customer={customer} online={online} onSelectEquipment={selectEquipment}/>
                 </article>)}
               </div>
               {!listedCustomers.length&&<p className="sales-empty">Nenhum cadastro nos filtros selecionados.</p>}
@@ -463,24 +456,23 @@ export default function SalesVisitsManagement() {
               <>
                 <div className="sales-management-kpis">
                   {[
-                    [
-                      "Clientes na carteira",
-                      portfolio.filter((c) => !c.lead).length,
-                    ],
-                    ["Leads", customers.filter(c=>c.lead && (!seller || c.seller_ids?.includes(seller)) && customerMatches(c)).length],
-                    ["Visitas realizadas", completed.length],
-                    ["Agendadas em aberto", scheduled.length],
-                    ["Agendamentos atrasados", overdue.length],
-                    [
-                      "Visitas canceladas",
-                      filteredVisits.filter((v) => v.status === "cancelled")
-                        .length,
-                    ],
-                  ].map(([label, count]) => (
-                    <section className="sales-panel" key={label}>
-                      <span>{label}</span>
-                      <strong>{count}</strong>
-                    </section>
+                    {label:"Clientes na carteira",count:portfolio.length,icon:Users,tone:"blue",target:"customers",hint:"Ver clientes da carteira"},
+                    {label:"Leads",count:customerTabs.leads.length,icon:UserPlus,tone:"purple",target:"leads",hint:"Ver leads ativos"},
+                    {label:"Visitas realizadas",count:scopedVisits.filter(v=>v.status==="completed").length,icon:CheckCircle2,tone:"green",target:"completed",hint:"Ver visitas realizadas"},
+                    {label:"Agendadas em aberto",count:scopedVisits.filter(v=>v.status==="scheduled").length,icon:Clock3,tone:"blue",target:"scheduled",hint:"Ver agenda em aberto"},
+                    {label:"Agendamentos atrasados",count:scopedVisits.filter(v=>v.status==="scheduled"&&Date.parse(v.scheduled_at)<now).length,icon:AlertCircle,tone:"amber",target:"overdue",hint:"Ver visitas atrasadas"},
+                    {label:"Visitas canceladas",count:scopedVisits.filter(v=>v.status==="cancelled").length,icon:Ban,tone:"neutral",target:"cancelled",hint:"Ver visitas canceladas"},
+                  ].map(({label,count,icon:Icon,tone,target,hint})=>(
+                    <button className={"sales-kpi-card "+tone} key={target} onClick={()=>{
+                      setPage(0);
+                      setPortfolioOnly(target==="customers");
+                      if(target==="customers"||target==="leads")setTab(target);
+                      else {setStatus(target);setTab("visits");}
+                    }}>
+                      <span className="sales-kpi-heading"><span>{label}</span><span className="sales-kpi-icon"><Icon size={21}/></span></span>
+                      <strong>{count.toLocaleString("pt-BR")}</strong>
+                      <span className="sales-kpi-footer">{hint}<ArrowUpRight size={16}/></span>
+                    </button>
                   ))}
                 </div>
                 <div className="sales-management-charts">
@@ -601,7 +593,7 @@ export default function SalesVisitsManagement() {
                                   </div>
                                 </div>
                               </td>
-                              <td><div className="sales-portfolio-count"><b>{own.filter(c=>!c.lead).length}</b><span>clientes</span></div><small>{own.filter(c=>c.lead).length} Leads</small></td>
+                              <td><div className="sales-portfolio-count"><b>{own.filter(c=>!c.lead).length}</b><span>clientes</span></div><small>{visibleCustomers.filter(c=>c.lead && c.seller_ids?.includes(s.id)).length} Leads</small></td>
                               <td><div className="sales-health-counts">
                                 {(["current","due","overdue"] as const).map(health=><span className={"sales-health-count " + health} key={health}><b>{own.filter(c=>c.health===health).length}</b>{healthLabels[health]}</span>)}
                               </div></td>
@@ -764,7 +756,7 @@ export default function SalesVisitsManagement() {
             )}
           </>
         )}
-        {data&&<button className="sales-management-fab" aria-label="Agendar visita" title="Agendar visita" onClick={()=>setScheduling(true)}><Plus size={26}/></button>}
+        {data&&<button className="sales-management-fab" aria-label="Agendar visita" title="Agendar visita" onClick={()=>openVisit("schedule")}><Plus size={26}/></button>}
         <footer className="sales-footer">
           Gestão de Visitas · Horários de Brasília · Atualização automática a
           cada minuto
@@ -814,6 +806,7 @@ export default function SalesVisitsManagement() {
                   .join(", ") || "Sem vínculo"}
               </p>
               <p>Última visita: {dateTime(detail.lastVisit)}</p>
+              <VisitCustomerMachines customer={customers.find(c=>c.key===detail.key)||detail} online={online} onSelectEquipment={selectEquipment}/>
               <h3>Histórico de visitas</h3>
               {visits
                 .filter(
@@ -831,7 +824,7 @@ export default function SalesVisitsManagement() {
           </div>
         )}
       </main>
-      {scheduling && <SalesVisits scheduleOnly onClose={()=>setScheduling(false)} onScheduled={async()=>{setScheduling(false);setMessage("Visita agendada.");await reload();}}/>}
+      {scheduling && <SalesVisits scheduleOnly initialMode={visitMode} initialCustomer={visitCustomer} initialSeller={seller || visitCustomer?.seller_ids?.[0]} onClose={()=>setScheduling(false)} onScheduled={async()=>{setScheduling(false);setMessage(visitMode==="history"?"Visita realizada registrada.":"Visita agendada.");await reload();}}/>}
     </div>
   );
 }

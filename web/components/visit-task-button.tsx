@@ -27,6 +27,7 @@ export default function VisitTaskButton({
       })
       .catch((e) => setError(e.message));
   }, [open]);
+  if(visit.task_id)return <a className="sales-history-button" href={"/tarefas?task="+visit.task_id}>Abrir tarefa TAR-{visit.task_id}</a>;
   return (
     <>
       <button

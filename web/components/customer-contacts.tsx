@@ -19,6 +19,7 @@ export default function CustomerContacts({
   readonly?: boolean;
 }) {
   const dialog=useRef<HTMLDialogElement>(null);
+  const leadName=useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<any[]>([]),
     [adding, setAdding] = useState(false),
     [draft, setDraft] = useState({ name: "", phone: "" }),
@@ -71,9 +72,23 @@ export default function CustomerContacts({
   }
   return (
     <section className="visit-contacts">
+      <div className="visit-contacts-heading">
       <strong>
         {readonly ? "Contatos do cliente" : "Contato que receberá a visita"}
       </strong>
+      {(!adding || (!customer && !readonly)) && (
+        <button
+          type="button"
+          onClick={() => {
+            setAdding(true);
+            setError("");
+            leadName.current?.focus();
+          }}
+        >
+          + Novo contato
+        </button>
+      )}
+      </div>
       {error && !adding && <p role="alert">{error}</p>}
       {readonly ? (
         <ul>
@@ -112,22 +127,12 @@ export default function CustomerContacts({
           </>
         )
       )}
-      {!adding && (
-        <button
-          type="button"
-          onClick={() => {
-            setAdding(true);
-            setError("");
-          }}
-        >
-          + Novo contato
-        </button>
-      )}
       {adding && !customer && (
         <div className="visit-contact-new">
           <label>
             Nome do contato
             <input
+              ref={leadName}
               aria-label="Nome do contato"
               required
               maxLength={160}

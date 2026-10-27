@@ -46,7 +46,7 @@ export async function claimVisitAlerts(origin: string) {
     ).rows;
     const result = [];
     for (const r of rows) {
-      if (!r.enabled || !r.phone || r.status === "cancelled") {
+      if (!r.enabled || !r.phone || r.status !== "scheduled") {
         await c.query(
           "UPDATE web_sales_visit_alerts SET state='skipped' WHERE id=$1",
           [r.id],

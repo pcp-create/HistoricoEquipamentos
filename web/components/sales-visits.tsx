@@ -1,5 +1,8 @@
 "use client";
+import VisitListRow from "./visit-list-row";
+import VisitAdminActions from "./visit-admin-actions";
 import VisitRecordFields, {type MachineRecord} from "./visit-record-fields";
+import VisitCustomerMachines from "./visit-customer-machines";
 import VisitCustomerSwipe from "./visit-customer-swipe";
 import DateTimePicker from "./date-time-picker";
 import { matchesSearch } from "@/lib/filters";
@@ -8,7 +11,6 @@ import VisitMachineRegistration from "./visit-machine-registration";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart3,
-  Gauge,
   List,
   CalendarDays,
   CalendarPlus,
@@ -19,7 +21,6 @@ import {
   RefreshCw,
   LogOut,
   CheckCircle2,
-  Wrench,
   Clock3,
   Users,
   UserPlus,
@@ -96,7 +97,7 @@ type Form = {
   description: string;
   outcome: string;
 };
-export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{scheduleOnly?:boolean;onClose?:()=>void;onScheduled?:()=>void|Promise<void>} = {}) {
+export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,initialMode="schedule",initialCustomer,initialSeller}:{scheduleOnly?:boolean;onClose?:()=>void;onScheduled?:()=>void|Promise<void>;initialMode?:"schedule"|"history";initialCustomer?:VisitCustomer;initialSeller?:string} = {}) {
   const [calendarView,setCalendarView]=useState<'month'|'week'|'day'>('month');
   const [nextVisit,setNextVisit]=useState<(Form & {customerName:string})|null>(null);
   const [whatsapp,setWhatsapp]=useState(false);
@@ -163,7 +164,6 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
       setLeadAddressStatus("Localização identificada. Confira os dados abaixo.");
     }catch{if(!controller.signal.aborted)setLeadAddressStatus("Não foi possível consultar o endereço. A posição foi mantida; preencha os campos manualmente.");}
   }
-  const [equipmentCustomer,setEquipmentCustomer]=useState<string|null>(null);
   const [detail, setDetail] = useState<VisitCustomer | null>(null);
   const [meterForm, setMeterForm] = useState<{customer: VisitCustomer; equipment: NonNullable<VisitCustomer["equipment"]>[number]} | null>(null);
   const [meterValue, setMeterValue] = useState("");
@@ -284,6 +284,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
       setEditingLeadAddress(false);setLeadAddressStatus("");leadAddressRequest.current?.abort();
       setOutsidePortfolio(false);setWhatsapp(false);
       setForm({
+        seller: scheduleOnly ? initialSeller : undefined,
         contact_id:v?.contact_id,
         purpose_id: v?.purpose_id || "",
         mode,
@@ -308,10 +309,10 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
         outcome: "",
       });
     },
-    [selectedDay],
+    [selectedDay,scheduleOnly,initialSeller],
   );
-  useEffect(()=>{if(scheduleOnly)openForm("schedule")},[scheduleOnly,openForm]);
-  const formCustomer = customers.find(c=>c.key===form?.customer_key) || allCustomers.find(c=>c.key===form?.customer_key);
+  useEffect(()=>{if(scheduleOnly)openForm(initialMode,initialCustomer)},[scheduleOnly,openForm,initialMode,initialCustomer]);
+  const formCustomer = (initialCustomer?.key===form?.customer_key?initialCustomer:undefined) || customers.find(c=>c.key===form?.customer_key) || allCustomers.find(c=>c.key===form?.customer_key);
   const selectMap = useCallback((c: VisitCustomer) => setDetail(c), []);
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -437,31 +438,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
     ];
   }, [month]);
   const renderVisit = (v: SalesVisit) => (
-    <article className="sales-visit" key={v.id}>
-      <div className="sales-between">
-        <strong>{customerMap.get(v.customer_key)?.name}</strong>
-        {v.purpose_name && <p>Finalidade: {v.purpose_name}</p>}
-        <span
-          className={
-            "sales-badge " +
-            (v.status === "completed"
-              ? "current"
-              : v.status === "cancelled"
-                ? "neutral"
-                : "planned")
-          }
-        >
-          {v.status === "completed"
-            ? "Realizada"
-            : v.status === "cancelled"
-              ? "Cancelada"
-              : "Agendada"}
-        </span>
-      </div>
-      <p>
-        <CalendarDays size={15} />
-        {display(v.scheduled_at)}
-      </p>
+    <VisitListRow key={v.id} visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} date={display(v.scheduled_at)}>
+      {v.purpose_name && <p>Finalidade: {v.purpose_name}</p>}
       <p>
         {v.contact} ·{" "}
         <a href={"tel:" + v.phone.replace(/[^+\d]/g, "")}>{v.phone}</a>
@@ -476,6 +454,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
         </p>
       )}
       {v.status!=="cancelled"&&<VisitTaskButton visit={v} customer={customerMap.get(v.customer_key)?.name||v.customer_key}/>}
+      {data?.canEditVisits && online && <VisitAdminActions visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} purposes={data.purposes || []} allowDelete={false} onSaved={async message=>{setMessage(message);await reload();}}/>}
       {v.status === "scheduled" && (
         <div className="sales-visit-actions">
           <button
@@ -494,7 +473,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
           </button>
         </div>
       )}
-    </article>
+    </VisitListRow>
   );
   return (
     <div className={scheduleOnly ? "sales-schedule-modal" : "sales-shell"}>
@@ -847,16 +826,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                             Histórico
                           </button>
                         </div>
-                        <div className="visit-record-machines sales-card-machines">
-                          <button type="button" className="sales-card-machines-heading" aria-expanded={equipmentCustomer===c.key} onClick={()=>setEquipmentCustomer(equipmentCustomer===c.key?null:c.key)}>
-                            <Wrench size={20} aria-hidden="true"/><span className="visit-record-machines-title">Máquinas do cliente <span className="visit-machine-count">({c.equipment?.length || 0})</span><small>Consulte as máquinas ou cadastre uma nova</small></span><ChevronDown size={18} aria-hidden="true"/>
-                          </button>
-                          {equipmentCustomer===c.key && <section className="visit-record-machines-body sales-client-machines" aria-label={"Máquinas de "+c.name}>
-                            {!c.equipment?.length && <p>Nenhuma máquina integrada para este cliente.</p>}
-                            {c.equipment?.map(item=><article className="visit-machine-record-card" key={item.id}><strong>{item.name}</strong><p>Modelo: {item.model || "Não informado"}</p><p>Série: {item.serial || "Não informada"}</p><p>Horímetro: <b>{item.meter == null?"Não informado":item.meter.toLocaleString("pt-BR")+" h"}</b> · Coleta: {item.meterDate?item.meterDate.split("-").reverse().join("/"):"Não registrada"}</p><button disabled={!online} onClick={()=>selectEquipment(c,item)}><Gauge size={16}/>Registrar horímetro</button></article>)}
-                            <VisitMachineRegistration customer={c.key} name={c.name} online={online}/>
-                          </section>}
-                        </div>
+                        <VisitCustomerMachines customer={c} online={online} onSelectEquipment={selectEquipment}/>
                       </article>
                       </VisitCustomerSwipe>
                     ))}
@@ -1069,7 +1039,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                 {error}
               </p>
             )}
-            {scheduleOnly && <div className="sales-customer-picker-row">
+            {scheduleOnly && <div className="sales-visit-seller-field">
               <label>Vendedor responsável</label>
               <OrderSearchSelect label="Vendedor responsável" value={form.seller || ""}
                 placeholder="Selecione ou pesquise o usuário" disabled={loading || busy}
@@ -1236,8 +1206,9 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
             {form.mode !== "schedule" && equipmentLoading && <p role="status">Carregando máquinas do cliente…</p>}
             {form.mode !== "schedule" && equipmentError && <p role="alert">{equipmentError}</p>}
             {form.mode !== "schedule" && <VisitRecordFields customer={form.lead?undefined:form.customer_key} customerName={formCustomer?.name} online={online} equipment={selectedEquipment} records={machineRecords} photos={visitPhotos} onRecords={setMachineRecords} onPhotos={setVisitPhotos} onBusy={setPreparingPhotos} disabled={busy}/>}
-            <label className="sales-check visit-alert-toggle"><input type="checkbox" checked={whatsapp} onChange={e=>setWhatsapp(e.target.checked)}/>Receber alerta no meu WhatsApp</label>
-            {whatsapp&&<label>Data e hora do alerta (Brasília)<DateTimePicker label="Data e hora do alerta (Brasília)" required value={form.whatsappAt||''} onChange={value=>setForm({...form,whatsappAt:value})}/><small>Será enviado para o WhatsApp cadastrado no seu usuário.</small></label>}
+            <p className="sales-muted">A visita gera uma tarefa automática para o vendedor responsável. Quem cria a visita fica em Acompanhamento. A tarefa é concluída ao registrar a realização, com notificações de criação e encerramento por WhatsApp.</p>
+            {form.mode==="schedule"&&<><label className="sales-check visit-alert-toggle"><input type="checkbox" checked={whatsapp} onChange={e=>setWhatsapp(e.target.checked)}/>Agendar lembrete da tarefa para o vendedor</label>
+            {whatsapp&&<label>Data e hora do alerta (Brasília)<DateTimePicker label="Data e hora do alerta (Brasília)" required value={form.whatsappAt||''} onChange={value=>setForm({...form,whatsappAt:value})}/><small>O lembrete será enviado ao WhatsApp do vendedor responsável pela visita.</small></label>}</>}
             <p className="sales-muted">
               Horários de Brasília. Visitas anteriores podem ser registradas com
               a data real de realização.

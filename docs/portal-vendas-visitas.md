@@ -76,3 +76,11 @@ Na lista de clientes, expanda **Máquinas** e escolha **Cadastrar máquina**. In
 Em **Configurações de Visitas → Tarefas automáticas**, selecione o responsável pelo cadastro de equipamentos (inicialmente Danieli Oliveira). O destinatário deve estar ativo e ter WhatsApp cadastrado. O criador acompanha a tarefa automaticamente. Registro e tarefa são gravados na mesma transação; reenvios da mesma solicitação não duplicam tarefas. A criação usa a fila de notificações já existente.
 
 Aplicar `web/sql/072_visit_machine_registration.sql` nos ambientes antes da publicação desta funcionalidade.
+
+### Tarefa automática por visita
+
+Cada novo agendamento cria, na mesma transação, uma tarefa automática com origem **Visita comercial**, responsável igual ao vendedor selecionado e vencimento na data da visita (Brasília). O criador entra em **Acompanhamento**, mesmo quando agenda para outro usuário. O cadastro de uma visita já realizada cria e encerra a tarefa na mesma operação. Repetir uma submissão não duplica tarefas nem lembretes. Visitas anteriores à mudança não são convertidas retroativamente.
+
+Ao registrar a realização, a tarefa vinculada é concluída automaticamente e os lembretes pendentes são cancelados. Cancelar ou excluir a visita também encerra sua tarefa, com justificativa no histórico. Alterar o agendamento atualiza o vencimento da tarefa. A sincronização de tarefas de equipamentos não encerra tarefas de visitas; o ciclo é controlado pelo registro da visita. Responsável e acompanhamento do criador são preservados nas ações do módulo de tarefas.
+
+Criação e encerramento usam a fila de notificações de WhatsApp das tarefas, incluindo o vendedor e quem acompanha, conforme cadastro ativo e telefone configurado. A opção **Agendar lembrete da tarefa para o vendedor** apenas acrescenta um lembrete em `web_task_reminders`, com destinatário igual ao vendedor, e não condiciona a criação da tarefa. A entrega usa o worker e as confirmações já existentes; o portal não envia mensagens diretamente durante a requisição. Novas visitas exibem **Abrir tarefa TAR-…** em seus detalhes.

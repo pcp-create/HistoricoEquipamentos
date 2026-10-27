@@ -54,6 +54,7 @@ export type VisitCustomer = {
   health: VisitHealth;
 };
 export type SalesVisit = {
+  task_id?:string;
   machine_records?:{equipment:string;name:string;note:string;meter?:number;meterDate?:string}[];
   photos?:string[];
   contact_id?:string;

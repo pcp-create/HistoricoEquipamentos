@@ -121,7 +121,7 @@ export async function syncTasks(
       )
     ).rows;
     for (const t of closed) {
-      if (t.source_key.startsWith("manual:") || t.source_key.startsWith("time-request:")) continue;
+      if (t.source_key.startsWith("manual:") || t.source_key.startsWith("time-request:") || t.source_key.startsWith("visit:")) continue;
       const source = byKey.get(t.source_key);
       if (!source || source.resolved || source.cycle !== t.cycle) {
         await c.query("UPDATE web_tasks SET source_resolved=true WHERE id=$1", [
@@ -130,7 +130,7 @@ export async function syncTasks(
       } else active.add(t.source_key);
     }
     for (const t of open) {
-      if (t.source_key.startsWith("manual:") || t.source_key.startsWith("time-request:")) continue;
+      if (t.source_key.startsWith("manual:") || t.source_key.startsWith("time-request:") || t.source_key.startsWith("visit:")) continue;
       const source = byKey.get(t.source_key);
       if (!source || source.resolved || source.cycle !== t.cycle) {
         let reason = !source
@@ -374,6 +374,10 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
     } else if (body.action === "followers") {
       if (!Array.isArray(body.followers) || body.followers.length>100 || body.followers.some((email:unknown)=>typeof email!=="string")) throw new TaskInputError("Selecione os usuários para acompanhamento.");
       const followers = [...new Set<string>(body.followers.map((email:string)=>email.trim().toLowerCase()))];
+      if(t.source_key.startsWith("visit:")){
+        const creator=(await c.query("SELECT created_by FROM web_sales_visit_tasks WHERE task_id=$1 LIMIT 1",[id])).rows[0]?.created_by;
+        if(creator&&!followers.includes(creator))throw new TaskInputError("Mantenha o criador da visita em Acompanhamento.");
+      }
       const recipients = (await c.query("SELECT email,display_name,enabled,phone,role FROM web_user_access WHERE email=ANY($1::text[]) FOR SHARE",[followers])).rows;
       if (recipients.length!==followers.length || recipients.some(u=>!u.enabled || !/^\d{10,15}$/.test(u.phone || ""))) throw new TaskInputError("Selecione usuários ativos com WhatsApp cadastrado.");
       if (t.restricted && recipients.some(u=>u.role!=="admin")) throw new TaskInputError("Tarefas restritas só podem notificar administradores.");
@@ -434,6 +438,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
         );
       if (body.column === "in_progress") {
         const actorEmail = user.email.trim().toLowerCase();
+        if(t.source_key.startsWith("visit:")&&body.assignment==="self"&&t.assigned_to!==actorEmail)throw new TaskInputError("O responsável desta tarefa é o vendedor da visita. Mantenha o responsável atual.");
         if (
           t.assigned_to &&
           t.assigned_to !== actorEmail &&
@@ -501,6 +506,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
         user,
       );
     } else if (body.action === "update") {
+      if(t.source_key.startsWith("visit:")&&String(body.assignedTo||"").trim().toLowerCase()!==t.assigned_to)throw new TaskInputError("O responsável desta tarefa é definido na visita e não pode ser alterado pela tarefa.");
       if (t.status === "completed")
         throw new TaskInputError(
           "Tarefas concluídas não são reabertas nem reatribuídas.",
