@@ -254,6 +254,8 @@ export default function SalesVisitsManagement() {
       {v.purpose_name && <p>Finalidade: {v.purpose_name}</p>}
       {v.description && <p className="sales-long">{v.description}</p>}
       {v.completed_at && <p>Realizada em {dateTime(v.completed_at)}</p>}
+      {v.machine_records?.map(r=><p key={r.equipment}><b>{r.name}:</b> <span style={{whiteSpace:'pre-wrap'}}>{r.note}</span>{r.meter!=null&&<small style={{display:"block"}}>Horímetro: {r.meter.toLocaleString("pt-BR")} h · Coleta: {r.meterDate?.split("-").reverse().join("/")}</small>}</p>)}
+      {!!v.photos?.length&&<div>{v.photos.map((id,i)=><a key={id} href={`/api/visits/photos/${id}`} target="_blank" rel="noreferrer"><img src={`/api/visits/photos/${id}`} alt={`Foto ${i+1} da visita`} width={100} height={80} style={{objectFit:'cover',margin:4}}/></a>)}</div>}
       {v.outcome && (
         <p className="sales-long">
           <b>Registro da visita:</b> {v.outcome}

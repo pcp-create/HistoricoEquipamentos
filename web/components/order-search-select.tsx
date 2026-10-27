@@ -1,7 +1,7 @@
 "use client";
 import { matchesSearch } from "@/lib/filters";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
 import "./order-search-select.css";
 export type OrderChoice = {
@@ -20,6 +20,7 @@ const fold = (s: string) =>
     .toLowerCase();
 export default function OrderSearchSelect({
   label,
+  menuHeader,
   value,
   selectedLabel,
   options = [],
@@ -29,6 +30,7 @@ export default function OrderSearchSelect({
   onChange,
 }: {
   label: string;
+  menuHeader?: ReactNode;
   value: string;
   selectedLabel?: string;
   options?: OrderChoice[];
@@ -63,7 +65,8 @@ export default function OrderSearchSelect({
     return () => document.removeEventListener("pointerdown", outside);
   }, [open]);
   useEffect(() => {
-    setOpen(false);
+    if(disabled)setOpen(false);
+    setActive(-1);
     setRemote([]);
     setPage(1);
   }, [endpoint, disabled]);
@@ -172,6 +175,7 @@ export default function OrderSearchSelect({
       />
       {open && (
         <div className="order-search-menu">
+          {menuHeader && <div className="order-search-menu-header">{menuHeader}</div>}
           <div
             ref={list}
             id={id}

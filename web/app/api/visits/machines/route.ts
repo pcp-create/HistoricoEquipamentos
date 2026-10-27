@@ -1,3 +1,5 @@
+import {customerEquipment} from "@/lib/visits/customer-equipment";
+import {database} from "@/lib/db";
 import { requireUser, sameOrigin, Forbidden, Unauthorized } from "@/lib/auth";
 import { AdminInputError } from "@/lib/admin-store";
 import { TaskInputError } from "@/lib/tasks/store";
@@ -30,12 +32,10 @@ function fail(e: unknown) {
 export async function GET(r: Request) {
   try {
     const u = await requireUser();
-    return json({
-      machines: await listMachines(
-        new URL(r.url).searchParams.get("customer") || "",
-        u.email,
-      ),
-    });
+    const key=new URL(r.url).searchParams.get("customer")||"";
+    const machines=await listMachines(key,u.email);
+    if(new URL(r.url).searchParams.get("equipment")==="1")return json({machines,equipment:await customerEquipment(database(),key)});
+    return json({machines});
   } catch (e) {
     return fail(e);
   }

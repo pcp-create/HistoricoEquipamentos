@@ -1,5 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {formatContactPhone} from "@/lib/contact-phone";
+import {createPortal} from "react-dom";
+import "./create-linked-task.css";
 export default function CustomerContacts({
   customer,
   value = "",
@@ -15,6 +18,7 @@ export default function CustomerContacts({
   onSelect?: (c: { id: string; name: string; phone: string }) => void;
   readonly?: boolean;
 }) {
+  const dialog=useRef<HTMLDialogElement>(null);
   const [rows, setRows] = useState<any[]>([]),
     [adding, setAdding] = useState(false),
     [draft, setDraft] = useState({ name: "", phone: "" }),
@@ -40,6 +44,7 @@ export default function CustomerContacts({
       });
     return () => c.abort();
   }, [customer, readonly]);
+  useEffect(()=>{if(adding&&customer)dialog.current?.showModal();},[adding,customer]);
   async function add() {
     setBusy(true);
     setError("");
@@ -69,7 +74,7 @@ export default function CustomerContacts({
       <strong>
         {readonly ? "Contatos do cliente" : "Contato que receberá a visita"}
       </strong>
-      {error && <p role="alert">{error}</p>}
+      {error && !adding && <p role="alert">{error}</p>}
       {readonly ? (
         <ul>
           {rows.map((c) => (
@@ -112,13 +117,13 @@ export default function CustomerContacts({
           type="button"
           onClick={() => {
             setAdding(true);
-            if (!readonly) onSelect?.({ id: "", name: "", phone: "" });
+            setError("");
           }}
         >
           + Novo contato
         </button>
       )}
-      {adding && (
+      {adding && !customer && (
         <div className="visit-contact-new">
           <label>
             Nome do contato
@@ -139,13 +144,13 @@ export default function CustomerContacts({
             <input
               aria-label="Telefone do contato"
               required
-              type="tel"
+              type="tel" inputMode="tel" placeholder="(DD) 99999-9999"
               maxLength={40}
-              value={customer ? draft.phone : phone}
+              value={formatContactPhone(customer ? draft.phone : phone)}
               onChange={(e) =>
                 customer
-                  ? setDraft({ ...draft, phone: e.target.value })
-                  : onSelect?.({ id: "", name, phone: e.target.value })
+                  ? setDraft({ ...draft, phone: formatContactPhone(e.target.value) })
+                  : onSelect?.({ id: "", name, phone: formatContactPhone(e.target.value) })
               }
             />
           </label>
@@ -169,6 +174,21 @@ export default function CustomerContacts({
             </small>
           )}
         </div>
+      )}
+      {adding && customer && createPortal(
+        <dialog ref={dialog} className="linked-task-dialog customer-contact-dialog" aria-label="Novo contato" onCancel={e=>{if(busy)e.preventDefault();else setAdding(false);}}>
+          <form onSubmit={e=>{e.preventDefault();e.stopPropagation();void add();}}>
+            <h2>Novo contato</h2>
+            <p>Salve o contato para continuar o agendamento da visita.</p>
+            {error && <p role="alert">{error}</p>}
+            <label>Nome do contato<input autoFocus required maxLength={160} value={draft.name} disabled={busy} onChange={e=>setDraft({...draft,name:e.target.value})}/></label>
+            <label>Telefone do contato<input required type="tel" inputMode="tel" placeholder="(DD) 99999-9999" maxLength={40} value={draft.phone} disabled={busy} onChange={e=>setDraft({...draft,phone:formatContactPhone(e.target.value)})}/></label>
+            <footer>
+              <button type="button" disabled={busy} onClick={()=>{setAdding(false);setError('');setDraft({name:'',phone:''});}}>Cancelar</button>
+              <button type="submit" disabled={busy||!draft.name.trim()||!draft.phone.trim()}>{busy?'Salvando…':'Salvar contato'}</button>
+            </footer>
+          </form>
+        </dialog>,document.body
       )}
     </section>
   );

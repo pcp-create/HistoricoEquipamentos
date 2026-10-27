@@ -7,3 +7,6 @@
 .order-search-select .order-search-options button[data-active=true],.order-search-select .order-search-options button:hover{background:#edf5fc}
 .order-search-select .order-choice-content{min-width:0;flex:1}.order-search-select .order-choice-line{display:block;white-space:normal;overflow-wrap:anywhere}.order-search-select .order-choice-line strong{display:inline;font-size:13px}.order-search-select .order-choice-id{font-size:12px}.order-search-select .order-choice-separator{margin:0 4px}.order-search-select small{display:block;color:#748b9e;font-size:11px;margin-top:4px}.order-search-select .order-search-more{width:100%;min-height:44px}.order-search-select p{padding:6px;font-size:12px}
 @media(max-width:640px){.order-search-select .order-search-direct{font-size:16px!important}.order-search-select .order-search-menu{max-height:40dvh}}
+.order-search-menu-header { position: sticky; top: -6px; z-index: 1; padding: 10px 6px; margin-bottom: 6px; border-bottom: 1px solid #dce6f0; background: #fff; }
+.order-search-menu-header .sales-customer-scope { display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 0; font-size: 12px; cursor: pointer; }
+.order-search-menu-header input[type=checkbox] { width: 16px; height: 16px; flex: 0 0 16px; margin: 0; }

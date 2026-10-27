@@ -187,3 +187,9 @@ journalctl -u m8-clientes.service -n 100 -f
 ```
 
 Durante a carga inicial, o serviço pode permanecer em execução por bastante tempo. Use Ctrl+C para sair dos logs sem parar o serviço. O resumo de quantidades é registrado ao concluir. O botão manual da tela não é necessário para essa carga.
+
+## Aplicação web — registros de visita nas máquinas e fotos
+
+Antes de publicar a aplicação web com esse recurso, aplicar `web/sql/077_visit_machine_records.sql` no banco da aplicação (já aplicada no ambiente conectado durante a implementação). Não faz parte do pacote do integrador. A visita realizada aceita registros por máquina integrada do cliente e até seis fotos JPG/PNG/WebP. As imagens são reduzidas no navegador, reprocessadas no servidor e armazenadas no banco; a consulta exige autenticação e acesso ao cliente. Os registros e fotos são gravados na mesma transação da visita. Cada máquina selecionada recebe um evento de visita em seu histórico.
+
+O campo de observações do cadastro pendente de máquinas utiliza `web/sql/078_visit_machine_observations.sql`, também aplicada no ambiente conectado.

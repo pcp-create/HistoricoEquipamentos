@@ -46,7 +46,7 @@ export async function POST(r: Request) {
   try {
     const u = await requireUser();
     const raw = await r.text();
-    if (raw.length > 30000)
+    if (raw.length > 4000000)
       return json({ error: "Conteúdo muito grande." }, 413);
     let body;
     try {

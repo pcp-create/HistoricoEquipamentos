@@ -1,3 +1,4 @@
+import {saveVisitRecords} from "./records";
 import "server-only";
 import {storeContact} from "./contacts";
 import {queueVisitAlert} from "./alerts";
@@ -287,6 +288,7 @@ export async function saveVisit(b: any, email: string) {
         ],
       );
     }
+    if(['history','complete'].includes(b.action))await saveVisitRecords(c,b,email,data.customers);
     if(b.action==='cancel')await c.query("UPDATE web_sales_visit_alerts SET state='cancelled' WHERE visit_id=$1 AND state='pending'",[b.id]);
     else await queueVisitAlert(c,b.id,seller,b.whatsappAt);
     await c.query(

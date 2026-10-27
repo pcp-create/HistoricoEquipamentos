@@ -165,7 +165,7 @@ export async function orderDetail(company: string, id: string) {
   const result = await database().query(
     `SELECT to_jsonb(o)-'payload' AS "order",o.payload->>'dataAtualizacao' AS source_updated_at,
     (SELECT COALESCE(jsonb_agg(to_jsonb(p)-'payload' ORDER BY p.id_m8),'[]'::jsonb) FROM public.m8_os_produtos p WHERE ${productLink}) AS materials,
-    (SELECT COALESCE(jsonb_agg(to_jsonb(s)-'payload' ORDER BY s.id_m8),'[]'::jsonb) FROM public.m8_os_servicos s WHERE s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8) AS services,
+    (SELECT COALESCE(jsonb_agg((to_jsonb(s)-'payload') || jsonb_build_object('observacao',s.payload->>'observacao','observacao_interna',s.payload->>'observacaoInterna') ORDER BY s.id_m8),'[]'::jsonb) FROM public.m8_os_servicos s WHERE s.company_id=o.company_id AND s.ordem_servico_id=o.id_m8) AS services,
     (SELECT COALESCE(jsonb_agg(to_jsonb(e)-'payload' ORDER BY e.id_m8),'[]'::jsonb) FROM public.m8_equipamentos e WHERE ${equipmentLink}) AS equipment,
     (SELECT COALESCE(jsonb_agg(jsonb_build_object('equipment_id',l.equipment_id::text,'name',c.name,'model',c.model,'serial',c.serial,'serial_source',c.serial_source,'method',l.method,'evidence',l.evidence,'collected_at',c.collected_at) ORDER BY l.equipment_id),'[]'::jsonb) FROM public.m8_order_equipment_links l JOIN public.m8_equipment_catalog c ON c.equipment_id=l.equipment_id WHERE ${linkedOrder} AND NOT l.stale AND c.present) AS equipment_links,
     (SELECT last_detail_at FROM public.integracao_m8_os_sync WHERE company_id=o.company_id AND ordem_servico_id=o.id_m8) AS detail_at

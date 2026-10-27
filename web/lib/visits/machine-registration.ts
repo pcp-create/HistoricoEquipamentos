@@ -54,14 +54,14 @@ export async function listMachines(key: string, email: string) {
   await contactAccess(db, key, email);
   return (
     await db.query(
-      "SELECT id,equipment_type,model,brand,serial,meter,task_id::text FROM web_visit_machine_registrations WHERE customer_key=$1 ORDER BY created_at,id",
+      "SELECT id,equipment_type,model,brand,serial,meter,observations,task_id::text FROM web_visit_machine_registrations WHERE customer_key=$1 ORDER BY created_at,id",
       [key],
     )
   ).rows;
 }
 export async function registerMachine(b: any, user: AuthUser) {
   if (
-    !/^m8:\d+$/.test(b.customer || "") ||
+    !/^(?:m8:\d+|lead:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(b.customer || "") ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       b.requestId || "",
     )
@@ -82,6 +82,8 @@ export async function registerMachine(b: any, user: AuthUser) {
     Number(b.meter.replace(",", ".")) > 1e9
   )
     throw new AdminInputError("Informe um horímetro válido.");
+  if(b.observations != null && (typeof b.observations !== "string" || b.observations.length>2000))throw new AdminInputError("Observações devem ter até 2.000 caracteres.");
+  const observations=(b.observations||"").trim();
   const c = await database().connect();
   try {
     await c.query("BEGIN READ WRITE");
@@ -110,20 +112,23 @@ export async function registerMachine(b: any, user: AuthUser) {
       );
     const customer = (
       await c.query(
-        "SELECT name,document FROM m8_customer_directory WHERE person_id=$1 ORDER BY collected_at DESC LIMIT 1",
-        [b.customer.slice(3)],
+        b.customer.startsWith("lead:")
+          ? "SELECT name,'' AS document FROM web_sales_leads WHERE id=$1"
+          : "SELECT name,document FROM m8_customer_directory WHERE person_id=$1 ORDER BY collected_at DESC LIMIT 1",
+        [b.customer.slice(b.customer.startsWith("lead:") ? 5 : 3)],
       )
     ).rows[0];
     const description = [
       `Solicitação de cadastro de equipamento`,
       `Cliente: ${customer.name} (${customer.document || ""})`,
-      `ID do cliente: ${b.customer.slice(3)}`,
+      `Vínculo: ${b.customer}`,
       `Tipo de equipamento: ${b.equipmentType.trim()}`,
       `Modelo: ${b.model.trim()}`,
       `Marca: ${b.brand.trim()}`,
       `Número de série: ${b.serial.trim()}`,
       `Horímetro: ${b.meter} h`,
       `Registro: ${b.requestId}`,
+      ...(observations ? [`Observações: ${observations}`] : []),
     ].join("\n");
     const result = await createTask(
       {
@@ -142,7 +147,7 @@ export async function registerMachine(b: any, user: AuthUser) {
       [taskId, customer.name, `${b.equipmentType.trim()} - ${b.model.trim()}`],
     );
     await c.query(
-      "INSERT INTO web_visit_machine_registrations(id,customer_key,equipment_type,model,brand,serial,meter,task_id,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+      "INSERT INTO web_visit_machine_registrations(id,customer_key,equipment_type,model,brand,serial,meter,task_id,created_by,observations) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
       [
         b.requestId,
         b.customer,
@@ -153,6 +158,7 @@ export async function registerMachine(b: any, user: AuthUser) {
         b.meter.replace(",", "."),
         taskId,
         user.email,
+        observations,
       ],
     );
     await c.query("COMMIT");

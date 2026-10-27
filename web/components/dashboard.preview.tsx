@@ -986,8 +986,8 @@ function FieldList({ fields }: { fields: Record<string, unknown> }) {
         .filter(([key]) => key !== "current")
         .map(([key, value]) => (
           <div key={key}>
-            <dt>{key.replaceAll("_", " ")}</dt>
-            <dd>
+            <dt>{key === "observacao" ? "Observações" : key === "observacao_interna" ? "Observações internas" : key.replaceAll("_", " ")}</dt>
+            <dd style={key === "observacao" || key === "observacao_interna" ? {whiteSpace:"pre-wrap",overflowWrap:"anywhere"} : undefined}>
               {/^(data_|emissao|sincronizado_em|created_at|updated_at)/.test(
                 key,
               )

@@ -1623,6 +1623,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                                   : e.document.action === "quote"
                                   ? "Orçamento criado"
                                   : {
+                                      visit: "Visita realizada",
                                       settings: "Operação atualizada",
                                       plan: "Plano salvo",
                                       maintenance: "Manutenção realizada",
@@ -1635,7 +1636,8 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                                   Revisão da OS {e.source_order_number || e.document.orderNumber || e.document.orderId}/{operationNumber(e.source_operation_position || e.document.operationPosition) || "—"}
                                   {e.kind === "settings" && <small>Horímetro: {e.document.before?.meter == null ? "—" : Number(e.document.before.meter).toLocaleString("pt-BR")} → {Number(e.document.after?.meter).toLocaleString("pt-BR")} h</small>}
                                   {e.kind !== "settings" && <small>{e.document.after?.name || e.document.planName}</small>}
-                                </> : e.document.planName || e.document.after?.name || "Configuração do equipamento"}
+                                </> : e.kind === "visit" ? "Registro da visita" : e.document.planName || e.document.after?.name || "Configuração do equipamento"}
+                                {e.kind === "visit" && <div><small>Data da visita: {date(e.document.visitDate)}</small><p style={{whiteSpace:'pre-wrap'}}>{e.document.note}</p>{e.document.meter!=null&&<small>Horímetro: {Number(e.document.meter).toLocaleString("pt-BR")} h · Coleta: {date(e.document.meterDate)}</small>}{e.document.photos?.map((id:string,i:number)=><a key={id} href={`/api/visits/photos/${id}`} target="_blank" rel="noreferrer">Foto {i+1} </a>)}</div>}
                                 {e.document.quoteId && (
                                   <small>
                                     {e.quote_deleted_at ? (

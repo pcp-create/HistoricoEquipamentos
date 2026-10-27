@@ -625,3 +625,35 @@
 .cr-table [data-column="seller"] { min-width: 180px; max-width: 240px; }
 .cr-table td .cr-client-equipment { font-size: 10px; line-height: 1.5; margin-top: 5px; color: #71839a; white-space: normal; }
 .cr-table [data-column="inWorkshop"] { min-width: 110px; text-align: center; }
+
+/* Match the service-order list link without changing the shared detail link. */
+.cr-code a.quote-order-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-weight: 700;
+  color: #2c649f;
+  font-size: 11px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.cr-code a.quote-order-link:hover {
+  color: #2c649f;
+  text-decoration: underline;
+  text-decoration-thickness: auto;
+  text-underline-offset: auto;
+}
+
+.cr-filter-panel .cr-filter-reset {
+  justify-self: end;
+  align-self: end;
+  width: auto;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #f7faff;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

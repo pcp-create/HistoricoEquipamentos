@@ -2,11 +2,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Download, Pencil, RefreshCw, SlidersHorizontal, ChevronRight } from "lucide-react";
+import { ArrowLeft, Download, Pencil, RefreshCw, SlidersHorizontal, ChevronRight, X } from "lucide-react";
 import ProjectionSyncButton from "./projection-sync-button";
 import SiteHeader from "./site-header";
+import OrderSearchSelect from "./order-search-select";
 import CommercialPeriodFilter from "./commercial-period-filter";
 import HistoryProgrammingAction from "./history-programming-action";
+import OrderDetailLink from "./order-detail-link";
 import OrderQuickEdit from "./order-quick-edit";
 import OrderBillingDialog from "./order-billing-dialog";
 import { billingLabels } from "@/lib/sales-projection/billing";
@@ -436,7 +438,19 @@ export default function CommercialReport({
           {cols.filter((c) => !["company", "status", "billingState"].includes(c.key)).map((c) => (
             <label key={c.key}>
               {c.label}
-              <select
+              {c.key === "name" ? <OrderSearchSelect
+                label={c.label}
+                placeholder="Digite para pesquisar cliente ou equipamento"
+                value={filters[c.key]?.length === 1 ? filters[c.key]![0] : "__all__"}
+                selectedLabel={filters[c.key] && filters[c.key]!.length !== 1 ? "Seleção do filtro da coluna" : undefined}
+                options={[
+                  {id:"__all__",name:"Todos",displayId:""},
+                  ...[...new Map(base.map(r => [String(reportValue(r,c.key)),display(r,c)])).entries()]
+                    .sort((a,b)=>a[1].localeCompare(b[1],"pt-BR",{numeric:true}))
+                    .map(([id,name])=>({id,name:name||"Não informado",displayId:""}))
+                ]}
+                onChange={row=>setFilters(f=>({...f,[c.key]:row.id==="__all__"?undefined:[row.id]}))}
+              /> : <select
                 value={filters[c.key]?.length === 1 ? filters[c.key]![0] : filters[c.key] ? "__multiple__" : "__all__"}
                 onChange={(e) => setFilters((f) => ({ ...f, [c.key]: e.target.value === "__all__" ? undefined : [e.target.value] }))}
               >
@@ -445,11 +459,11 @@ export default function CommercialReport({
                 {[...new Map(base.map((r) => [String(reportValue(r, c.key)), display(r, c)])).entries()]
                   .sort((a, b) => a[1].localeCompare(b[1], "pt-BR", { numeric: true }))
                   .map(([value, label]) => <option key={value} value={value}>{label || "Não informado"}</option>)}
-              </select>
+              </select>}
             </label>
           ))}
           <button
-            className="button"
+            className="button cr-filter-reset"
             onClick={() => {
               setFilters({});
               setContractFilter("total");
@@ -459,7 +473,7 @@ export default function CommercialReport({
               setBillingFilter("all");
             }}
           >
-            Limpar filtros
+            <X size={16} aria-hidden="true"/> Limpar filtros
           </button>
           </section>
         </details>
@@ -710,8 +724,11 @@ export default function CommercialReport({
                             <div>{r.name}<small className="cr-client-equipment">{r.fields?.equipment || "Equipamento não informado"}</small></div>
                           ) : c.key === "id" ? (
                             <span className="cr-code">
-                              {kind === "sales" ? "OS-" : ""}
-                              {display(r, c)}
+                              {kind === "sales" ? (
+                                <OrderDetailLink id={r.id} company={r.fields?.sourceCompany || r.company} number={display(r,c)}>
+                                  OS-{display(r,c)}
+                                </OrderDetailLink>
+                              ) : display(r,c)}
                             </span>
                           ) : c.key === "company" ? (
                             <span className="cr-company">{display(r, c)}</span>

@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import {pickDateTime} from "./helpers/pick-date-time";
 import { test, expect } from "@playwright/test";
 test.setTimeout(90000);
@@ -19,6 +20,7 @@ test("sales portal displays portfolio, schedules visits and registers historical
     key: "m8:1",
     name: "Cliente de teste",
     tradeName: "COOPERSULCA",
+    equipment:[{id:"123",name:"Compressor de teste",model:"GA22",serial:"ABC"}],
     document: "123",
     city: "Lages",
     uf: "SC",
@@ -29,6 +31,7 @@ test("sales portal displays portfolio, schedules visits and registers historical
     lastVisit: null,
     health: "overdue",
   };
+  await page.route('**/api/visits/machines*',r=>r.fulfill({json:{machines:[],equipment:customer.equipment}}));
   const writes: any[] = [];
   await page.route("**/api/visits", async (r) => {
     if (r.request().method() === "POST") {
@@ -68,8 +71,11 @@ test("sales portal displays portfolio, schedules visits and registers historical
   await page.getByRole("option", { name: /Cliente de teste/ }).click();
   await pickDateTime(page,"Data e hora agendada","2026-11-20T10:00");
   await page.getByRole('button',{name:'+ Novo contato',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'Novo contato',exact:true})).toBeVisible();
+  expect(await page.getByRole('dialog',{name:'Novo contato',exact:true}).evaluate(el=>el.matches(':modal'))).toBe(true);
   await page.getByLabel('Nome do contato').fill('João');await page.getByLabel('Telefone do contato').fill('49999999999');
   await page.getByRole('button',{name:'Salvar contato',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'Novo contato',exact:true})).toHaveCount(0);
   await expect(page.getByLabel('Contato que receberá a visita')).toHaveValue('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
   await page.getByLabel('Receber alerta no meu WhatsApp').check();
   await pickDateTime(page,'Data e hora do alerta (Brasília)','2027-11-20T09:00');
@@ -110,11 +116,28 @@ test("sales portal displays portfolio, schedules visits and registers historical
     .fill("Cliente visitado, retornar com proposta.");
   await page.getByRole("combobox",{name:"Finalidade da Visita",exact:true}).fill("Prospec");
  await page.getByRole("listbox").getByRole("option").first().click();
+  await page.locator('.visit-record-machines > summary').click();
+  await page.route('**/api/visits/machines*',r=>r.fulfill({json:r.request().method()==='POST'?{taskId:'999'}:{machines:[]}}));
+  await page.getByRole('button',{name:'Cadastrar máquina',exact:true}).click();
+  const machineDialog=page.getByRole('dialog',{name:'Cadastrar máquina',exact:true});
+  for(const [label,value] of [['Tipo de equipamento','Compressor'],['Modelo','GA22'],['Marca','Atlas'],['Número de série','ABC'],['Horímetro (h)','10']])await machineDialog.getByLabel(label,{exact:true}).fill(value);
+  await machineDialog.getByRole('button',{name:'Salvar e gerar tarefa'}).click();
+  await expect(machineDialog).toHaveCount(0);
+  expect(writes).toHaveLength(1);
+  await expect(page.getByLabel('Registro da visita e próximos passos')).toHaveValue('Cliente visitado, retornar com proposta.');
+  await page.getByRole('checkbox',{name:/Compressor de teste/}).check();
+  await page.getByLabel('Registro na máquina 123').fill('Verificado vazamento na conexão.');
+  await page.getByLabel('Horímetro (h)',{exact:true}).fill('1234.5');
+  await page.getByLabel('Data da coleta',{exact:true}).fill('2026-01-15');
+  await page.getByLabel('Fotos da visita (até 6)').setInputFiles({name:'foto.png',mimeType:'image/png',buffer:await sharp({create:{width:16,height:16,channels:3,background:'white'}}).png().toBuffer()});
+  await expect(page.getByAltText('Foto 1 da visita')).toBeVisible();
   await page.getByRole("button", { name: "Salvar visita realizada" }).click();
   await expect(page.getByRole("status")).toContainText(
     "Visita realizada registrada",
   );
   expect(writes[1].action).toBe("history");
+  expect(writes[1].machineRecords).toEqual([{equipment:'123',note:'Verificado vazamento na conexão.',meter:'1234.5',meterDate:'2026-01-15'}]);
+  expect(writes[1].photos[0]).toMatch(/^data:image\/jpeg;base64,/);
   await expect(page.getByRole('dialog',{name:'Agendar próxima visita'})).toBeVisible();
   await page.getByRole('button',{name:'Agendar próxima visita',exact:true}).click();
   await expect(page.getByLabel('Data e hora agendada')).toHaveValue('');
@@ -288,11 +311,13 @@ test('user without territory schedules an external customer with a purpose',asyn
  let saved:any;
  await page.route('**/api/activity',r=>r.fulfill({json:{}}));
  await page.route('**/api/visits',r=>{if(r.request().method()==='POST'){saved=r.request().postDataJSON();return r.fulfill({json:{saved:true}})}return r.fulfill({json:{purposes,name:'Técnico',customers:[],visits:[]}})});
- await page.route('**/api/visits/customers',r=>r.fulfill({json:{customers:[{key:'m8:99',name:'Cliente fora da carteira',document:'99',city:'Lages',uf:'SC',address:'',latitude:null,longitude:null,lead:false,lastVisit:null,health:'overdue'}]}}));
+ await page.route('**/api/visits/customers*',r=>r.fulfill({json:{rows:[{id:'m8:99',name:'Cliente fora da carteira',data:{key:'m8:99',name:'Cliente fora da carteira',city:'Lages',uf:'SC',lead:false}}],customers:[{key:'m8:99',name:'Cliente fora da carteira',document:'99',city:'Lages',uf:'SC',address:'',latitude:null,longitude:null,lead:false,lastVisit:null,health:'overdue'}]}}));
  await page.route('https://tile.openstreetmap.org/**',r=>r.abort());
  await page.goto('/visitas');await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
  await page.getByRole('button',{name:'Agendar visita',exact:true}).click();
+ await page.getByRole('combobox',{name:'Cliente',exact:true}).click();
  await page.getByLabel('Base completa de clientes',{exact:true}).check();
+ await expect(page.getByRole('combobox',{name:'Cliente',exact:true})).toHaveAttribute('aria-expanded','true');
  await expect(page.getByRole('status').filter({hasText:'Carregando clientes'})).toHaveCount(0);
  await page.getByRole('combobox',{name:'Cliente',exact:true}).click();
  await page.getByRole('option',{name:/Cliente fora da carteira/}).click();
@@ -392,22 +417,26 @@ test('customer list opens machines and records meter; mobile history actions sta
  await page.screenshot({path:'/tmp/visitas-mapa-mobile.png',fullPage:true});
 });
 
-test('customer machine registration creates task and displays pending machine',async({page,context})=>{
+for(const lead of [false,true])test(`customer machine registration creates task and displays pending machine (lead=${lead})`,async({page,context})=>{
  await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
- await page.route('**/api/visits',r=>r.fulfill({json:{name:'Vendedor',customers:[{key:'m8:1',name:'Cliente sem máquina',document:'123',city:'Lages',uf:'SC',address:'',lead:false,in_portfolio:true,latitude:null,longitude:null,lastVisit:null,health:'overdue',equipment:[]}],visits:[],purposes}}));
+ await page.route('**/api/visits',r=>r.fulfill({json:{name:'Vendedor',customers:[{key:lead?'lead:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa':'m8:1',name:'Cliente sem máquina',document:'123',city:'Lages',uf:'SC',address:'',lead,in_portfolio:!lead,latitude:null,longitude:null,lastVisit:null,health:'overdue',equipment:[]}],visits:[],purposes}}));
  let machines:any[]=[];let payload:any;
- await page.route('**/api/visits/machines*',r=>{if(r.request().method()==='POST'){payload=r.request().postDataJSON();machines=[{id:payload.requestId,equipment_type:payload.equipmentType,model:payload.model,brand:payload.brand,serial:payload.serial,meter:payload.meter,task_id:'321'}];return r.fulfill({json:{taskId:'321'}})}return r.fulfill({json:{machines}})});
+ await page.route('**/api/visits/machines*',r=>{if(r.request().method()==='POST'){payload=r.request().postDataJSON();machines=[{id:payload.requestId,equipment_type:payload.equipmentType,model:payload.model,brand:payload.brand,serial:payload.serial,meter:payload.meter,observations:payload.observations,task_id:'321'}];return r.fulfill({json:{taskId:'321'}})}return r.fulfill({json:{machines}})});
  await page.goto('/visitas');await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
  await page.getByRole('button',{name:'Lista',exact:true}).click();
+ if(lead)await page.getByRole('button',{name:/^Leads/}).click();
  await page.getByRole('button',{name:/Máquinas \(0\)/}).click();
  await page.getByRole('button',{name:'Cadastrar máquina',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Cadastrar máquina'});
  await expect(dialog).toContainText('Cliente sem máquina');
  for(const [label,value] of [['Tipo de equipamento','Compressor'],['Modelo','GA22'],['Marca','Atlas Copco'],['Número de série','ABC123'],['Horímetro (h)','1200']])await dialog.getByLabel(label,{exact:true}).fill(value);
+ await dialog.getByLabel('Observações',{exact:true}).fill('Máquina com vazamento de óleo.');
  await dialog.getByRole('button',{name:'Salvar e gerar tarefa'}).click();
  await expect(dialog).toHaveCount(0);await expect(page.getByText('Cadastro pendente',{exact:true})).toBeVisible();
  await expect(page.getByRole('link',{name:'Tarefa TAR-321'})).toHaveAttribute('href','/tarefas?task=321');
- expect(payload.customer).toBe('m8:1');expect(payload.requestId).toMatch(/^[a-f0-9-]{36}$/);
+ await expect(page.getByText('Máquina com vazamento de óleo.',{exact:false})).toBeVisible();
+ expect(payload.observations).toBe('Máquina com vazamento de óleo.');
+ expect(payload.customer).toBe(lead?'lead:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa':'m8:1');expect(payload.requestId).toMatch(/^[a-f0-9-]{36}$/);
 });
 
 test('mobile navigation stays at bottom and floating button expands visit actions',async({page,context})=>{
@@ -440,6 +469,7 @@ test('full customer base finds COOPERSULCA by trade name on the visits page', as
   await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
   await page.getByRole('button',{name:'Abrir ações de visita'}).click();
   await page.getByRole('button',{name:'Agendar visita',exact:true}).click();
+  await page.getByRole('combobox',{name:'Cliente',exact:true}).click();
   await page.getByRole('checkbox',{name:'Base completa de clientes'}).check();
   await page.getByRole('combobox',{name:'Cliente',exact:true}).fill('coopersulca');
   await expect(page.getByRole('listbox').getByRole('option')).toHaveCount(2);

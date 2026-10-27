@@ -1,4 +1,5 @@
 "use client";
+import VisitRecordFields, {type MachineRecord} from "./visit-record-fields";
 import VisitCustomerSwipe from "./visit-customer-swipe";
 import DateTimePicker from "./date-time-picker";
 import { matchesSearch } from "@/lib/filters";
@@ -117,6 +118,23 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
   const [outsidePortfolio,setOutsidePortfolio] = useState(false);
   const [customerLoading,setCustomerLoading] = useState(false);
   const loadAllCustomers = useCallback(async () => {setCustomerLoading(true);try{const r=await fetch('/api/visits/customers',{cache:'no-store'});const b=await r.json();if(!r.ok)throw Error(b.error);setAllCustomers(b.customers)}catch(e){setError((e as Error).message)}finally{setCustomerLoading(false)}}, []);
+  const [machineRecords,setMachineRecords]=useState<MachineRecord[]>([]);
+  const [visitPhotos,setVisitPhotos]=useState<string[]>([]);
+  const [preparingPhotos,setPreparingPhotos]=useState(false);
+  useEffect(()=>{setMachineRecords([]);setVisitPhotos([]);},[form?.id,form?.customer_key]);
+  const [selectedEquipment,setSelectedEquipment]=useState<{id:string;name:string;model:string;serial:string}[]>([]);
+  const [equipmentLoading,setEquipmentLoading]=useState(false);
+  const [equipmentError,setEquipmentError]=useState('');
+  useEffect(()=>{
+    setSelectedEquipment([]);setEquipmentError('');setEquipmentLoading(false);
+    if(!form?.customer_key||form.lead)return;
+    const controller=new AbortController();setEquipmentLoading(true);
+    fetch('/api/visits/machines?equipment=1&customer='+encodeURIComponent(form.customer_key),{signal:controller.signal,cache:'no-store'})
+      .then(async r=>{const b=await r.json();if(!r.ok)throw Error(b.error||'Não foi possível carregar as máquinas.');if(!controller.signal.aborted)setSelectedEquipment(b.equipment||[]);})
+      .catch(e=>{if(!controller.signal.aborted)setEquipmentError(e.message);})
+      .finally(()=>{if(!controller.signal.aborted)setEquipmentLoading(false);});
+    return()=>controller.abort();
+  },[form?.customer_key,form?.lead]);
   const customerPickerOpen = Boolean(form && !form.lead);
   useEffect(() => {
     if (customerPickerOpen && outsidePortfolio) void loadAllCustomers();
@@ -296,7 +314,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
   const selectMap = useCallback((c: VisitCustomer) => setDetail(c), []);
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (!form || busy) return;
+    if (!form || busy || preparingPhotos) return;
     if (scheduleOnly && !form.seller) { setError("Selecione o vendedor responsável."); return; }
     if(form.lead && !form.city.trim()){setEditingLeadAddress(true);setError("Informe a cidade do Lead ou selecione uma localização no mapa.");return;}
     if (!form.lead && !form.customer_key) { setError("Selecione o cliente."); return; }
@@ -320,6 +338,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
         phone: form.phone,
         description: form.description,
         outcome: form.outcome,
+        machineRecords: form.mode === "schedule" ? [] : machineRecords,
+        photos: form.mode === "schedule" ? [] : visitPhotos,
         ...(form.lead
           ? {
               lead: {
@@ -447,6 +467,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
       </p>
       {v.description && <p className="sales-long">{v.description}</p>}
       {v.completed_at && <p>Realizada em {display(v.completed_at)}</p>}
+      {v.machine_records?.map(r=><p key={r.equipment}><b>{r.name}:</b> <span style={{whiteSpace:'pre-wrap'}}>{r.note}</span>{r.meter!=null&&<small style={{display:"block"}}>Horímetro: {r.meter.toLocaleString("pt-BR")} h · Coleta: {r.meterDate?.split("-").reverse().join("/")}</small>}</p>)}
+      {!!v.photos?.length&&<div>{v.photos.map((id,i)=><a key={id} href={`/api/visits/photos/${id}`} target="_blank" rel="noreferrer"><img src={`/api/visits/photos/${id}`} alt={`Foto ${i+1} da visita`} width={100} height={80} style={{objectFit:'cover',margin:4}}/></a>)}</div>}
       {v.outcome && (
         <p className="sales-long">
           <b>Registro da visita:</b> {v.outcome}
@@ -821,7 +843,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                             Ver histórico
                             <ChevronRight size={15}/>
                           </button>
-                          {!c.lead && <button className="sales-equipment-toggle" aria-expanded={equipmentCustomer===c.key} onClick={()=>setEquipmentCustomer(equipmentCustomer===c.key?null:c.key)}><Gauge size={17}/>Máquinas ({c.equipment?.length || 0})<ChevronDown size={15}/></button>}
+                          {<button className="sales-equipment-toggle" aria-expanded={equipmentCustomer===c.key} onClick={()=>setEquipmentCustomer(equipmentCustomer===c.key?null:c.key)}><Gauge size={17}/>Máquinas ({c.equipment?.length || 0})<ChevronDown size={15}/></button>}
                         </div>
                         {equipmentCustomer===c.key && <section className="sales-client-machines" aria-label={"Máquinas de "+c.name}>
                           <VisitMachineRegistration customer={c.key} name={c.name} online={online}/>{!c.equipment?.length && <p>Nenhuma máquina integrada para este cliente.</p>}
@@ -1128,9 +1150,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                 ) : (
                   <>
                     <div className="sales-customer-picker-row">
-                      <SalesCustomerSelect fullBase={outsidePortfolio} onSelectCustomer={customer=>setAllCustomers(current=>[...current.filter(c=>c.key!==customer.key),customer])} customers={(outsidePortfolio ? allCustomers : customers).filter(customer=>!scheduleOnly || !customer.lead || customer.seller_ids?.includes(form.seller || ""))} value={form.customer_key}
+                      <SalesCustomerSelect onFullBaseChange={checked=>{setOutsidePortfolio(checked);setForm({...form,customer_key:"",contact_id:"",contact:"",phone:""});}} seller={scheduleOnly?form.seller:undefined} fullBase={outsidePortfolio} onSelectCustomer={customer=>setAllCustomers(current=>[...current.filter(c=>c.key!==customer.key),customer])} customers={(outsidePortfolio ? allCustomers : customers).filter(customer=>!scheduleOnly || !customer.lead || customer.seller_ids?.includes(form.seller || ""))} value={form.customer_key}
                         onChange={customer_key => setForm({ ...form, customer_key, contact_id:"", contact:"", phone:"" })} />
-                      <label className="sales-customer-scope"><input type="checkbox" aria-label="Base completa de clientes" checked={outsidePortfolio} onChange={e=>{setOutsidePortfolio(e.target.checked);setForm({...form,customer_key:"",contact_id:"",contact:"",phone:""});}}/><span>Base completa de clientes</span></label>
                     </div>
                     {customerLoading && <p role="status">Carregando clientes…</p>}
                   </>
@@ -1202,6 +1223,9 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
                 />
               </label>
             )}
+            {form.mode !== "schedule" && equipmentLoading && <p role="status">Carregando máquinas do cliente…</p>}
+            {form.mode !== "schedule" && equipmentError && <p role="alert">{equipmentError}</p>}
+            {form.mode !== "schedule" && <VisitRecordFields customer={form.lead?undefined:form.customer_key} customerName={formCustomer?.name} online={online} equipment={selectedEquipment} records={machineRecords} photos={visitPhotos} onRecords={setMachineRecords} onPhotos={setVisitPhotos} onBusy={setPreparingPhotos} disabled={busy}/>}
             <label className="sales-check visit-alert-toggle"><input type="checkbox" checked={whatsapp} onChange={e=>setWhatsapp(e.target.checked)}/>Receber alerta no meu WhatsApp</label>
             {whatsapp&&<label>Data e hora do alerta (Brasília)<DateTimePicker label="Data e hora do alerta (Brasília)" required value={form.whatsappAt||''} onChange={value=>setForm({...form,whatsappAt:value})}/><small>Será enviado para o WhatsApp cadastrado no seu usuário.</small></label>}
             <p className="sales-muted">
@@ -1211,7 +1235,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled}:{sc
             <button
               type="submit"
               className="sales-primary"
-              disabled={busy || !online || loading || !data}
+              disabled={busy || preparingPhotos || !online || loading || !data}
             >
               {busy
                 ? "Salvando…"

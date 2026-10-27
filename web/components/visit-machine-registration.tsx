@@ -1,14 +1,17 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import {createPortal} from "react-dom";
 import { Plus, Wrench } from "lucide-react";
 export default function VisitMachineRegistration({
   customer,
   name,
   online,
+  renderVisitRecord,
 }: {
   customer: string;
   name: string;
   online: boolean;
+  renderVisitRecord?: (machine:{id:string;model:string})=>ReactNode;
 }) {
   const [machines, setMachines] = useState<any[]>([]),
     [open, setOpen] = useState(false),
@@ -34,21 +37,7 @@ export default function VisitMachineRegistration({
   }, [open]);
   return (
     <>
-      <button
-        type="button"
-        className="sales-machine-create"
-        disabled={!online || busy}
-        onClick={() => {
-          request.current = crypto.randomUUID();
-          setError("");
-          setMessage("");
-          setOpen(true);
-        }}
-      >
-        <span className="sales-machine-create-icon" aria-hidden="true"><Wrench size={18} /></span>
-        <span>Cadastrar máquina</span>
-        <Plus size={17} aria-hidden="true" />
-      </button>
+
       {message && <p role="status">{message}</p>}
       {error && !open && <p role="alert">{error}</p>}
       {machines.length > 0 && (
@@ -65,11 +54,28 @@ export default function VisitMachineRegistration({
             Marca: {m.brand} · Série: {m.serial}
           </p>
           <p>Horímetro: {Number(m.meter).toLocaleString("pt-BR")} h</p>
+          {m.observations && <p style={{whiteSpace:"pre-wrap"}}><strong>Observações:</strong> {m.observations}</p>}
           <small>Cadastro pendente</small> ·{" "}
           <a href={"/tarefas?task=" + m.task_id}>Tarefa TAR-{m.task_id}</a>
+          {renderVisitRecord?.(m)}
         </article>
       ))}
-      {open && (
+      <button
+        type="button"
+        className="sales-machine-create"
+        disabled={!online || busy}
+        onClick={() => {
+          request.current = crypto.randomUUID();
+          setError("");
+          setMessage("");
+          setOpen(true);
+        }}
+      >
+        <span className="sales-machine-create-icon" aria-hidden="true"><Wrench size={18} /></span>
+        <span>Cadastrar máquina</span>
+        <Plus size={17} aria-hidden="true" />
+      </button>
+      {open && createPortal(
         <dialog
           ref={dialog}
           className="sales-dialog visit-task-dialog"
@@ -88,6 +94,7 @@ export default function VisitMachineRegistration({
           <form
             onSubmit={async (e) => {
               e.preventDefault();
+              e.stopPropagation();
               const values = Object.fromEntries(new FormData(e.currentTarget));
               setBusy(true);
               setError("");
@@ -143,6 +150,8 @@ export default function VisitMachineRegistration({
                 disabled={busy}
               />
             </label>
+            <label>Observações<textarea name="observations" rows={3} maxLength={2000} disabled={busy} placeholder="Informações adicionais sobre a máquina (opcional)"/></label>
+            <div className="visit-machine-actions">
             <button type="submit" disabled={busy}>
               {busy ? "Salvando…" : "Salvar e gerar tarefa"}
             </button>
@@ -153,8 +162,9 @@ export default function VisitMachineRegistration({
             >
               Cancelar
             </button>
+            </div>
           </form>
-        </dialog>
+        </dialog>, document.body
       )}
     </>
   );
