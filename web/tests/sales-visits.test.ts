@@ -248,12 +248,22 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     const edit={...external,action:"admin_edit",version:2,contact:"Contato corrigido"};
     await assert.rejects(()=>administerVisit(edit,"missing@test.com"));
     await assert.rejects(()=>administerVisit({...edit,action:"admin_delete"},"missing@test.com"));
-    await administerVisit(edit,"a@test.com");
+    for(const [index,role] of ['user','manager','admin'].entries()){
+      await db.query("UPDATE web_user_access SET role=$1 WHERE email='tech@test.com'",[role]);
+      assert.equal((await visitsData('tech@test.com')).canEditVisits,true);
+      await administerVisit({...edit,version:2+index},'tech@test.com');
+    }
+    await db.exec("UPDATE web_user_access SET role='user' WHERE email='tech@test.com'");
+    await db.exec("INSERT INTO web_user_access(email,display_name,job_title,updated_by) VALUES('ordinary@test.com','Usuário comum','Administrativo','test')");
+    await assert.rejects(()=>administerVisit({...edit,version:5},'ordinary@test.com'));
+    await db.exec("UPDATE web_user_access SET enabled=false WHERE email='tech@test.com'");
+    await assert.rejects(()=>administerVisit({...edit,version:5},'tech@test.com'));
+    await db.exec("UPDATE web_user_access SET enabled=true,role='manager' WHERE email='tech@test.com'");
     assert.equal((await visitsData("tech@test.com")).visits[0].contact,"Contato corrigido");
     await assert.rejects(()=>administerVisit({...edit,action:"admin_delete"},"admin@test.com"),/alterada/);
-    await administerVisit({...edit,version:3,action:"admin_delete"},"tech@test.com");
+    await administerVisit({...edit,version:5,action:"admin_delete"},"tech@test.com");
     assert.equal((await visitsData("tech@test.com")).visits.length,0);
-    assert.equal((await db.query("SELECT * FROM web_access_events WHERE event='sales_visit_admin'")).rows.length,2);
+    assert.equal((await db.query("SELECT * FROM web_access_events WHERE event='sales_visit_admin'")).rows.length,4);
 
     assert.equal((await visitsData("a@test.com")).customers.find(c=>c.lead)?.in_portfolio,false);
     const contact=await createCustomerContact("m8:1",{name:"Contato reutilizável",phone:"49999999999"},"a@test.com");
@@ -305,6 +315,25 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     assert.deepEqual(machineTask.followers,['a@test.com']);
     await assert.rejects(()=>registerMachine({...registration,meter:'-1'},{email:'a@test.com'} as any),/horímetro/);
     await assert.rejects(()=>registerMachine({...registration,customer:'m8:999'},{email:'a@test.com'} as any));
+    for(const action of ['schedule','history']){
+      const draftId=crypto.randomUUID(),leadId=crypto.randomUUID(),visitId=crypto.randomUUID();
+      const staged={...lead,id:visitId,action,purpose_id:'2',seller:'tech@test.com',scheduled_at:action==='history'?'2026-01-10T12:00:00Z':'2026-11-20T12:00:00Z',outcome:action==='history'?'Máquina conferida':'',lead:{...lead.lead,id:leadId,name:'Novo Lead com máquina'},newMachines:[{requestId:draftId,equipmentType:'Compressor',model:'GA30',brand:'Atlas Copco',serial:'NOVO-123',meter:'100',observations:'Máquina do novo Lead'}],machineRecords:action==='history'?[{equipment:'pending:'+draftId,note:'Inspeção na máquina recém-cadastrada'}]:[]};
+      await saveVisit(staged,'a@test.com');
+      const registrations=(await db.query<any>('SELECT * FROM web_visit_machine_registrations WHERE customer_key=$1',['lead:'+leadId])).rows;
+      assert.equal(registrations.length,1);assert.equal(registrations[0].created_by,'a@test.com');
+      const task=(await db.query<any>('SELECT assigned_to,followers FROM web_tasks WHERE id=$1',[registrations[0].task_id])).rows[0];
+      assert.equal(task.assigned_to,'tech@test.com');assert.deepEqual(task.followers,['a@test.com']);
+      if(action==='history')assert.equal((await db.query<any>('SELECT machine_records FROM web_sales_visits WHERE id=$1',[visitId])).rows[0].machine_records[0].equipment,'pending:'+draftId);
+      await saveVisit(staged,'a@test.com');
+      assert.equal((await db.query<any>('SELECT count(*) n FROM web_visit_machine_registrations WHERE customer_key=$1',['lead:'+leadId])).rows[0].n,1);
+    }
+    const failedLead=crypto.randomUUID(),failedVisit=crypto.randomUUID(),firstMachine=crypto.randomUUID();
+    const taskCount=(await db.query<any>('SELECT count(*) n FROM web_tasks')).rows[0].n;
+    await assert.rejects(()=>saveVisit({...lead,id:failedVisit,purpose_id:'2',lead:{...lead.lead,id:failedLead},newMachines:[{...registration,requestId:firstMachine},{...registration,requestId:crypto.randomUUID(),meter:'-1'}]},'a@test.com'),/horímetro/);
+    assert.equal((await db.query<any>('SELECT count(*) n FROM web_sales_leads WHERE id=$1',[failedLead])).rows[0].n,0);
+    assert.equal((await db.query<any>('SELECT count(*) n FROM web_sales_visits WHERE id=$1',[failedVisit])).rows[0].n,0);
+    assert.equal((await db.query<any>('SELECT count(*) n FROM web_visit_machine_registrations WHERE id=$1',[firstMachine])).rows[0].n,0);
+    assert.equal((await db.query<any>('SELECT count(*) n FROM web_tasks')).rows[0].n,taskCount);
     await db.exec("UPDATE web_user_access SET enabled=false WHERE email='tech@test.com'");
     await assert.rejects(()=>registerMachine({...registration,requestId:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'},{email:'a@test.com'} as any),/ativo/);
     assert.equal((await listMachines('m8:5','a@test.com')).length,1);
@@ -347,7 +376,12 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     assert.deepEqual(historical,{seller:"b@test.com",status:"completed",outcome:"Visita registrada pela gestão"});
     const historyTask=(await db.query<any>("SELECT * FROM web_tasks WHERE source_key=$1",['visit:'+delegatedHistory.id])).rows[0];
     assert.equal(historyTask.status,'completed');
-    assert.deepEqual((await db.query<any>("SELECT DISTINCT kind FROM web_task_notifications WHERE task_id=$1 ORDER BY kind",[historyTask.id])).rows.map(r=>r.kind),['assignment','completed']);
+    assert.deepEqual((await db.query<any>("SELECT DISTINCT kind FROM web_task_notifications WHERE task_id=$1 ORDER BY kind",[historyTask.id])).rows.map(r=>r.kind),['completed']);
+    const directNotices=await claimNotifications('https://example.test');
+    assert.equal(directNotices.length,2);
+    assert.ok(directNotices.every(n=>n.text.includes('Tarefa concluída')));
+    await saveVisit(delegatedHistory,"a@test.com");
+    assert.equal((await claimNotifications('https://example.test')).length,0);
     await assert.rejects(()=>saveVisit({...delegatedHistory,seller:"tech@test.com"},"a@test.com"));
     const delegatedLead={...delegated,id:"acacacac-acac-4cac-8cac-acacacacacac",customer_key:"",lead:{id:"adadadad-adad-4dad-8dad-adadadadadad",name:"Lead SDR",city:"Lages",uf:"SC",address:"Rua A"}};
     await saveVisit(delegatedLead,"a@test.com");

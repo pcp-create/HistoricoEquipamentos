@@ -4,7 +4,7 @@ import {useState} from 'react';
 import {Pencil,Trash2,X,Save} from 'lucide-react';
 import {brazilDay,type SalesVisit,type VisitPurpose} from '@/lib/visits/model';
 const local=(v:string)=>brazilDay(v)+'T'+new Date(v).toLocaleTimeString('en-GB',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
-export default function VisitAdminActions({visit,customer,purposes,onSaved,allowDelete=true}:{visit:SalesVisit;customer:string;purposes:VisitPurpose[];onSaved:(message:string)=>Promise<void>;allowDelete?:boolean}){
+export default function VisitAdminActions({visit,customer,purposes,onSaved,allowDelete=true,inline=false}:{visit:SalesVisit;customer:string;purposes:VisitPurpose[];onSaved:(message:string)=>Promise<void>;allowDelete?:boolean;inline?:boolean}){
  const [editing,setEditing]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const [form,setForm]=useState({scheduled_at:'',completed_at:'',contact:'',phone:'',description:'',outcome:'',purpose_id:''});
  function open(){setForm({scheduled_at:local(visit.scheduled_at),completed_at:visit.completed_at?local(visit.completed_at):'',contact:visit.contact,phone:visit.phone,description:visit.description,outcome:visit.outcome,purpose_id:String(visit.purpose_id||'')});setError('');setEditing(true)}
@@ -18,7 +18,7 @@ export default function VisitAdminActions({visit,customer,purposes,onSaved,allow
    }catch(e){setError((e as Error).message)}finally{setBusy(false)}
  }
  return <>
- <div className="sales-visit-actions"><button disabled={busy} onClick={open}><Pencil size={16}/>Editar</button>{allowDelete&&<button disabled={busy} onClick={()=>void submit(true)}><Trash2 size={16}/>Excluir</button>}</div>
+ <div className={inline?"sales-visit-admin-inline":"sales-visit-actions"}><button disabled={busy} onClick={open}><Pencil size={16}/>Editar</button>{allowDelete&&<button disabled={busy} onClick={()=>void submit(true)}><Trash2 size={16}/>Excluir</button>}</div>
  {error&&!editing&&<p role="alert" className="sales-error">{error}</p>}
  {editing&&<div className="sales-overlay"><form className="sales-dialog" role="dialog" aria-modal="true" aria-label="Editar visita" onSubmit={e=>{e.preventDefault();void submit()}}>
  <div className="sales-between"><h2>Editar visita</h2><button type="button" disabled={busy} aria-label="Fechar edição" onClick={()=>setEditing(false)}><X/></button></div><p>{customer}</p>

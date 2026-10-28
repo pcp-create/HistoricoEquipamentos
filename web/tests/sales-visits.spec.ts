@@ -396,7 +396,7 @@ test('customer list opens machines and records meter; mobile history actions sta
  await page.goto('/visitas');await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
  await page.setViewportSize({width:390,height:844});
  await page.getByRole('button',{name:'Lista',exact:true}).click();
- await page.getByRole('button',{name:'Máquinas (1)',exact:true}).click();
+ await page.getByRole('button',{name:/Máquinas do cliente \(1\)/}).click();
  const machines=page.getByRole('region',{name:'Máquinas de Cliente máquinas'});
  await expect(machines).toContainText('1.200 h');await expect(machines).toContainText('ABC');
  await machines.getByRole('button',{name:'Registrar horímetro',exact:true}).click();
@@ -404,8 +404,9 @@ test('customer list opens machines and records meter; mobile history actions sta
  await meter.getByLabel('Horímetro atual (h)').fill('1300');await meter.getByLabel('Data da coleta').fill('2026-10-01');
  await meter.getByRole('button',{name:'Salvar horímetro',exact:true}).click();
  await expect(meter).toHaveCount(0);await expect(machines).toContainText('1.300 h');expect(saved).toMatchObject({action:'meter',customer_key:'m8:1',equipment:'100',meter:1300});
- await page.getByRole('button',{name:'Ver histórico',exact:true}).click();
+ await page.getByRole('button',{name:'Histórico',exact:true}).click();
  const history=page.getByRole('dialog',{name:'Histórico do cliente'});
+ await history.locator('.sales-visit summary').click();
  await expect(history.getByRole('button',{name:'Cancelar visita',exact:true})).toHaveCSS('color','rgb(180, 35, 53)');
  const close=history.getByRole('button',{name:'Fechar histórico'});expect((await close.boundingBox())!.width).toBeLessThanOrEqual(40);
  await close.click();await page.getByRole('button',{name:'Mapa',exact:true}).click();
@@ -496,6 +497,13 @@ for (const status of ['scheduled','completed'] as const) {
   await expect(page.locator('.sales-visit summary')).toContainText('Cliente técnico');
   await expect(page.locator('.sales-visit').getByRole('button',{name:'Editar',exact:true})).toBeHidden();
   await page.locator('.sales-visit summary').click();
+  if(status==='scheduled'){
+    await page.setViewportSize({width:390,height:844});
+    const editBox=await page.locator('.sales-visit').getByRole('button',{name:'Editar',exact:true}).boundingBox();
+    const completeBox=await page.locator('.sales-visit').getByRole('button',{name:'Registrar realização',exact:true}).boundingBox();
+    expect(Math.abs(editBox!.y-completeBox!.y)).toBeLessThan(1);
+    expect(editBox!.x).toBeGreaterThan(completeBox!.x);
+  }
   await page.locator('.sales-visit').getByRole('button',{name:'Editar',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Editar visita',exact:true});
   await dialog.getByLabel('Pessoa de contato').fill('Contato corrigido');
@@ -514,4 +522,50 @@ test("expired seller session offers a route back to sign in", async ({page, cont
   await expect(page.getByRole("link",{name:"Entrar novamente"})).toHaveAttribute("href","/vendas/entrar");
   await page.getByRole("link",{name:"Entrar novamente"}).click();
   await expect(page).toHaveURL(/\/vendas\/entrar$/);
+});
+
+test('new lead stages machines before saving the visit and retains them after a failed save',async({page,context})=>{
+ await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
+ const purposes=[{id:'1',name:'Prospecção',description:'',active:true,version:1}];
+ const writes:any[]=[];let machineWrites=0,fail=true;
+ await page.route('**/api/visits/machines**',r=>{if(r.request().method()==='POST')machineWrites++;return r.fulfill({json:{machines:[],equipment:[]}})});
+ await page.route('**/api/visits',r=>{if(r.request().method()==='GET')return r.fulfill({json:{name:'Vendedor',purposes,customers:[],visits:[]}});writes.push(r.request().postDataJSON());if(fail){fail=false;return r.fulfill({status:400,json:{error:'Confira o cadastro antes de salvar.'}})}return r.fulfill({json:{saved:true}})});
+ await page.route('https://tile.openstreetmap.org/**',r=>r.abort());
+ await page.goto('/visitas');
+ await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
+ await page.getByRole('button',{name:'Agendar visita',exact:true}).click();
+ const form=page.getByRole('dialog',{name:'Formulário de visita'});
+ await form.getByLabel('Novo cliente fora da base (Lead)').check();
+ await form.getByLabel('Nome do Lead',{exact:true}).fill('Lead com máquinas');
+ await form.getByRole('button',{name:'Editar endereço',exact:true}).click();
+ await form.getByLabel('Cidade',{exact:true}).fill('Lages');
+ await form.getByLabel('Nome do contato').fill('Contato Lead');
+ await form.getByLabel('Telefone do contato').fill('49999999999');
+ await pickDateTime(page,'Data e hora agendada','2026-11-20T10:00');
+ await form.getByRole('combobox',{name:'Finalidade da Visita',exact:true}).fill('Prospec');
+ await form.getByRole('listbox').getByRole('option').first().click();
+ for(const model of ['GA22','GA30']){
+  await form.getByRole('button',{name:'Cadastrar máquina',exact:true}).click();
+  const machine=page.getByRole('dialog',{name:'Cadastrar máquina',exact:true});
+  await machine.getByLabel('Tipo de equipamento').fill('Compressor');
+  await machine.getByLabel('Modelo',{exact:true}).fill(model);
+  await machine.getByLabel('Marca',{exact:true}).fill('Atlas Copco');
+  await machine.getByLabel('Número de série').fill('SERIE-'+model);
+  await machine.getByLabel('Horímetro (h)').fill('100');
+  await machine.getByRole('button',{name:'Adicionar ao Lead',exact:true}).click();
+  await expect(machine).toHaveCount(0);
+ }
+ expect(writes).toHaveLength(0);expect(machineWrites).toBe(0);
+ await form.getByRole('button',{name:'Remover máquina GA30',exact:true}).click();
+ await expect(form).toContainText('Máquinas do novo Lead (1)');
+ await form.getByRole('button',{name:'Salvar agendamento',exact:true}).click();
+ await expect(form.getByRole('alert')).toContainText('Confira o cadastro');
+ await expect(form).toContainText('Compressor - GA22');
+ await form.getByRole('button',{name:'Salvar agendamento',exact:true}).click();
+ await expect(form).toHaveCount(0);
+ expect(writes).toHaveLength(2);expect(machineWrites).toBe(0);
+ expect(writes[1].newMachines).toHaveLength(1);
+ expect(writes[1].newMachines[0]).toMatchObject({equipmentType:'Compressor',model:'GA22',brand:'Atlas Copco',serial:'SERIE-GA22',meter:'100'});
+ expect(writes[1].newMachines[0].requestId).toBe(writes[0].newMachines[0].requestId);
+ expect(writes[1].lead.name).toBe('Lead com máquinas');
 });

@@ -59,7 +59,7 @@ export async function listMachines(key: string, email: string) {
     )
   ).rows;
 }
-export async function registerMachine(b: any, user: AuthUser) {
+export async function registerMachine(b: any, user: AuthUser, transaction?: any) {
   if (
     !/^(?:m8:\d+|lead:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(b.customer || "") ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -84,9 +84,9 @@ export async function registerMachine(b: any, user: AuthUser) {
     throw new AdminInputError("Informe um horímetro válido.");
   if(b.observations != null && (typeof b.observations !== "string" || b.observations.length>2000))throw new AdminInputError("Observações devem ter até 2.000 caracteres.");
   const observations=(b.observations||"").trim();
-  const c = await database().connect();
+  const c = transaction || await database().connect();
   try {
-    await c.query("BEGIN READ WRITE");
+    if(!transaction)await c.query("BEGIN READ WRITE");
     await contactAccess(c, b.customer, user.email);
     await c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [b.requestId]);
     const old = (
@@ -98,7 +98,7 @@ export async function registerMachine(b: any, user: AuthUser) {
     if (old) {
       if (old.customer_key !== b.customer || old.created_by !== user.email)
         throw new AdminInputError("Solicitação já utilizada.");
-      await c.query("COMMIT");
+      if(!transaction)await c.query("COMMIT");
       return { taskId: old.task_id };
     }
     const assignee = (
@@ -161,12 +161,12 @@ export async function registerMachine(b: any, user: AuthUser) {
         observations,
       ],
     );
-    await c.query("COMMIT");
+    if(!transaction)await c.query("COMMIT");
     return { taskId };
   } catch (e) {
-    await c.query("ROLLBACK");
+    if(!transaction)await c.query("ROLLBACK");
     throw e;
   } finally {
-    c.release();
+    if(!transaction)c.release();
   }
 }

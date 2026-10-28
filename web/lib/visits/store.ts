@@ -1,4 +1,5 @@
 import { canManageVisits } from "../access-roles";
+import {registerMachine} from "./machine-registration";
 import {saveVisitRecords} from "./records";
 import "server-only";
 import {storeContact} from "./contacts";
@@ -153,7 +154,7 @@ export async function visitsData(email: string, db: any = database(), management
     ORDER BY u.display_name,u.email`, [email,management || user.role === "admin",management])).rows;
   const purposes = (await db.query("SELECT id::text,name,description,active,version FROM web_sales_visit_purposes WHERE active ORDER BY id")).rows;
   const assignees = management ? (await db.query("SELECT email AS id,COALESCE(NULLIF(display_name,''),email) AS name FROM web_user_access WHERE enabled ORDER BY display_name,email")).rows : undefined;
-  return { assignees, canEditVisits:canManageVisits(user.role), purposes, name: user.display_name || email, customers, visits, sellers, canManage: canManageVisits(user.role) };
+  return { assignees, canEditVisits:true, purposes, name: user.display_name || email, customers, visits, sellers, canManage: canManageVisits(user.role) };
 }
 function text(b: any, key: string, max: number, required = false) {
   const value = b?.[key];
@@ -292,6 +293,15 @@ export async function saveVisit(b: any, email: string) {
         ],
       );
     }
+    if(b.newMachines!==undefined){
+      if(!Array.isArray(b.newMachines)||b.newMachines.length>20||(!b.lead&&b.newMachines.length))throw new AdminInputError('Inclua até 20 máquinas junto ao novo Lead.');
+      const ids=new Set();
+      for(const machine of b.newMachines){
+        if(!machine||typeof machine!=='object'||ids.has(machine.requestId))throw new AdminInputError('Confira as máquinas do novo Lead.');
+        ids.add(machine.requestId);
+        if(created)await registerMachine({...machine,customer:'lead:'+b.lead.id},{email} as any,c);
+      }
+    }
     if(['history','complete'].includes(b.action))await saveVisitRecords(c,b,email,data.customers);
     if(b.action==='cancel')await c.query("UPDATE web_sales_visit_alerts SET state='cancelled' WHERE visit_id=$1 AND state='pending'",[b.id]);
     await syncVisitTask(c,b.id,email,created,created?b.whatsappAt:undefined);
@@ -336,9 +346,10 @@ export async function administerVisit(b:any,email:string) {
   try {
     await c.query('BEGIN READ WRITE');
     const user=await visitIdentity(c,email.toLowerCase());
-    if (!canManageVisits(user.role)) throw new Forbidden();
+    if (b.action==='admin_delete'&&!canManageVisits(user.role)) throw new Forbidden();
 
     const old=(await c.query('SELECT * FROM web_sales_visits WHERE id=$1 FOR UPDATE',[b.id])).rows[0];
+    if(old&&!canManageVisits(user.role)&&old.seller!==email.toLowerCase())throw new Forbidden();
     if(!old || old.version!==b.version)throw new AdminInputError('Visita alterada ou excluída. Atualize a lista.');
     let after=null;
     if(b.action==='admin_delete'){await syncVisitTask(c,b.id,email,false,undefined,true);await c.query('DELETE FROM web_sales_visits WHERE id=$1',[b.id]);}

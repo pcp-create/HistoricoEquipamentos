@@ -1,6 +1,7 @@
 "use client";
 import VisitListRow from "./visit-list-row";
 import VisitAdminActions from "./visit-admin-actions";
+import type {DraftMachine} from "@/lib/visits/draft-machines";
 import VisitRecordFields, {type MachineRecord} from "./visit-record-fields";
 import VisitCustomerMachines from "./visit-customer-machines";
 import VisitCustomerSwipe from "./visit-customer-swipe";
@@ -121,10 +122,12 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
   const [outsidePortfolio,setOutsidePortfolio] = useState(false);
   const [customerLoading,setCustomerLoading] = useState(false);
   const loadAllCustomers = useCallback(async () => {setCustomerLoading(true);try{const r=await fetch('/api/visits/customers',{cache:'no-store'});const b=await r.json();if(!r.ok)throw Error(b.error);setAllCustomers(b.customers)}catch(e){setError((e as Error).message)}finally{setCustomerLoading(false)}}, []);
+  const [draftMachines,setDraftMachines]=useState<DraftMachine[]>([]);
+  function updateDraftMachines(machines:DraftMachine[]){setDraftMachines(machines);setMachineRecords(records=>records.filter(r=>!r.equipment.startsWith("pending:")||machines.some(m=>"pending:"+m.requestId===r.equipment)));}
   const [machineRecords,setMachineRecords]=useState<MachineRecord[]>([]);
   const [visitPhotos,setVisitPhotos]=useState<string[]>([]);
   const [preparingPhotos,setPreparingPhotos]=useState(false);
-  useEffect(()=>{setMachineRecords([]);setVisitPhotos([]);},[form?.id,form?.customer_key]);
+  useEffect(()=>{setMachineRecords([]);setVisitPhotos([]);setDraftMachines([]);},[form?.id,form?.customer_key,form?.lead]);
   const [selectedEquipment,setSelectedEquipment]=useState<{id:string;name:string;model:string;serial:string}[]>([]);
   const [equipmentLoading,setEquipmentLoading]=useState(false);
   const [equipmentError,setEquipmentError]=useState('');
@@ -343,6 +346,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
         phone: form.phone,
         description: form.description,
         outcome: form.outcome,
+        newMachines:form.lead?draftMachines:undefined,
         machineRecords: form.mode === "schedule" ? [] : machineRecords,
         photos: form.mode === "schedule" ? [] : visitPhotos,
         ...(form.lead
@@ -459,9 +463,9 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
         </p>
       )}
       {v.status!=="cancelled"&&<VisitTaskButton visit={v} customer={customerMap.get(v.customer_key)?.name||v.customer_key}/>}
-      {data?.canEditVisits && online && <VisitAdminActions visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} purposes={data.purposes || []} allowDelete={false} onSaved={async message=>{setMessage(message);await reload();}}/>}
+      {v.status!=="scheduled" && data?.canEditVisits && online && <VisitAdminActions visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} purposes={data.purposes || []} allowDelete={false} onSaved={async message=>{setMessage(message);await reload();}}/>}
       {v.status === "scheduled" && (
-        <div className="sales-visit-actions">
+        <div className="sales-visit-actions sales-scheduled-actions">
           <button
             className="sales-primary"
             disabled={busy || !online}
@@ -472,6 +476,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
             <CheckCircle2 size={16} />
             Registrar realização
           </button>
+          {data?.canEditVisits && online && <VisitAdminActions inline visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} purposes={data.purposes || []} allowDelete={false} onSaved={async message=>{setMessage(message);await reload();}}/>}
           <button className="sales-cancel-visit" disabled={busy || !online} onClick={() => void cancel(v)}>
             <X size={17} />
             Cancelar visita
@@ -1217,7 +1222,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
             )}
             {form.mode !== "schedule" && equipmentLoading && <p role="status">Carregando máquinas do cliente…</p>}
             {form.mode !== "schedule" && equipmentError && <p role="alert">{equipmentError}</p>}
-            {form.mode !== "schedule" && <VisitRecordFields customer={form.lead?undefined:form.customer_key} customerName={formCustomer?.name} online={online} equipment={selectedEquipment} records={machineRecords} photos={visitPhotos} onRecords={setMachineRecords} onPhotos={setVisitPhotos} onBusy={setPreparingPhotos} disabled={busy}/>}
+            {form.lead&&form.mode==="schedule"&&<section className="visit-record-machines"><h3>Máquinas do novo Lead ({draftMachines.length})</h3><VisitMachineRegistration customer={'lead:'+form.leadId} name={form.leadName||'Novo Lead'} online={online&&!busy} draftMachines={draftMachines} onDraftMachines={updateDraftMachines}/></section>}
+            {form.mode !== "schedule" && <VisitRecordFields draftMachines={form.lead?draftMachines:undefined} onDraftMachines={form.lead?updateDraftMachines:undefined} customer={form.lead?undefined:form.customer_key} customerName={form.lead?form.leadName:formCustomer?.name} online={online} equipment={selectedEquipment} records={machineRecords} photos={visitPhotos} onRecords={setMachineRecords} onPhotos={setVisitPhotos} onBusy={setPreparingPhotos} disabled={busy}/>}
             <p className="sales-muted">A visita gera uma tarefa automática para o vendedor responsável. Quem cria a visita fica em Acompanhamento. A tarefa é concluída ao registrar a realização, com notificações de criação e encerramento por WhatsApp.</p>
             {form.mode==="schedule"&&<><label className="sales-check visit-alert-toggle"><input type="checkbox" checked={whatsapp} onChange={e=>setWhatsapp(e.target.checked)}/>Agendar lembrete da tarefa para o vendedor</label>
             {whatsapp&&<label>Data e hora do alerta (Brasília)<DateTimePicker label="Data e hora do alerta (Brasília)" required value={form.whatsappAt||''} onChange={value=>setForm({...form,whatsappAt:value})}/><small>O lembrete será enviado ao WhatsApp do vendedor responsável pela visita.</small></label>}</>}

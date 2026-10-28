@@ -56,7 +56,8 @@ export async function syncVisitTask(
         `Visita criada por ${actor}. Responsável: ${visit.seller}. Agendada para ${new Date(visit.scheduled_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}.\nContato: ${visit.contact} · ${visit.phone}\n${visit.description}`,
       ],
     );
-    await c.query(
+    // Direct visit records are already completed; only queue their completion notice.
+    if (visit.status === "scheduled") await c.query(
       "INSERT INTO web_task_notifications(task_id,task_version,recipient) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",
       [task.id, task.version, visit.seller],
     );
