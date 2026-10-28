@@ -140,15 +140,20 @@ async function api(url: string, body?: unknown) {
   return b;
 }
 let taskSnapshotRequest: Promise<any> | null = null;
-function taskSnapshot(force = false) {
-  if (taskSnapshotRequest) return taskSnapshotRequest;
-  taskSnapshotRequest = (async () => {
-    if (force || !hasFreshApiResponse("/api/tasks"))
+async function taskSnapshot(force = false, onInitial?: (snapshot: any) => void) {
+  const needsSync = force || !hasFreshApiResponse("/api/tasks");
+  // Display persisted tasks without waiting for the complete equipment/alert scan.
+  const initial = await api("/api/tasks");
+  onInitial?.(initial);
+  if (!needsSync) return initial;
+  if (!taskSnapshotRequest) {
+    taskSnapshotRequest = (async () => {
       await api("/api/tasks", { action: "sync" });
-    return api("/api/tasks");
-  })().finally(() => {
-    taskSnapshotRequest = null;
-  });
+      return api("/api/tasks");
+    })().finally(() => {
+      taskSnapshotRequest = null;
+    });
+  }
   return taskSnapshotRequest;
 }
 export function TaskDrawer({
@@ -730,7 +735,9 @@ export default function TasksDashboard() {
     setError("");
     try {
       const revision = snapshotRevision.current;
-      const snapshot = await taskSnapshot(force);
+      const snapshot = await taskSnapshot(force, initial => {
+        if (revision === snapshotRevision.current) applySnapshot(initial);
+      });
       if (revision === snapshotRevision.current) applySnapshot(snapshot);
     } catch (e) {
       setError((e as Error).message);
@@ -1160,6 +1167,8 @@ export default function TasksDashboard() {
             <h1>Tarefas</h1>
             <p>Alertas, responsáveis e histórico das tratativas.</p>
             <small>Última verificação: {date(data?.syncedAt)}</small>
+            {!data && <p role="status">Carregando tarefas…</p>}
+            {data && busy && <p role="status">Atualizando tarefas…</p>}
           </div>
           <div className="task-heading-actions">
             <button
@@ -1895,7 +1904,9 @@ export function EquipmentTaskProvider({ children }: { children: ReactNode }) {
     let alive = true;
     async function refresh() {
       try {
-        const b = await taskSnapshot();
+        const b = await taskSnapshot(false, initial => {
+          if (alive) setTasks(initial.tasks);
+        });
         if (alive) {
           setTasks(b.tasks);
           setError("");

@@ -238,22 +238,21 @@ export async function listTasks(p: URLSearchParams, user: AuthUser) {
   if (equipment) idValue(equipment);
   const orderId=p.get("orderId"),orderCompany=p.get("orderCompany");
   if(orderId||orderCompany){if(!orderId||!orderCompany)throw new TaskInputError("Informe a OS e a empresa.");idValue(orderId);idValue(orderCompany);}
-  const rows = (
-    await database().query(
+  const db = database();
+  const [taskResult, userResult, syncResult, administrator] = await Promise.all([
+    db.query(
       `SELECT t.*,u.display_name assignee_name,to_jsonb(u)->>'task_color' assignee_color,m.display_name modifier_name,creator.display_name creator_name,u.enabled assignee_enabled FROM web_tasks t LEFT JOIN web_user_access u ON u.email=t.assigned_to LEFT JOIN web_user_access m ON m.email=t.updated_by LEFT JOIN web_user_access creator ON lower(creator.email)=lower(trim(t.created_by)) WHERE ($1::text IS NULL OR t.assigned_to=$1) AND ($2::bigint IS NULL OR t.equipment_id=$2) AND ($4::bigint IS NULL OR t.order_id=$4) AND ($5::bigint IS NULL OR t.order_company=$5) AND (t.source_key NOT LIKE 'time-request:%' OR EXISTS(SELECT 1 FROM web_user_access a WHERE a.email=$3 AND a.enabled)) ORDER BY t.created_at DESC,t.id DESC`,
       [p.get("mine") === "true" ? user.email.toLowerCase() : null, equipment, user.email, orderId, orderCompany],
-    )
-  ).rows;
-  const users = (
-    await database().query(
+    ),
+    db.query(
       "SELECT email,display_name,phone,to_jsonb(web_user_access)->>'job_title' job_title,to_jsonb(web_user_access)->>'task_color' task_color FROM web_user_access WHERE enabled ORDER BY COALESCE(display_name,email),email",
-    )
-  ).rows;
-  const sync = (
-    await database().query("SELECT synced_at FROM web_task_sync WHERE id=1")
-  ).rows[0];
+    ),
+    db.query("SELECT synced_at FROM web_task_sync WHERE id=1"),
+    taskAdministrator(user.email),
+  ]);
+  const rows = taskResult.rows, users = userResult.rows, sync = syncResult.rows[0];
   return {
-    tasks: (await taskAdministrator(user.email)) ? rows : rows.map(t => t.restricted ? restrictedTaskSummary(t) : t),
+    tasks: administrator ? rows : rows.map(t => t.restricted ? restrictedTaskSummary(t) : t),
     users,
     email: user.email,
     syncedAt: sync?.synced_at || null,

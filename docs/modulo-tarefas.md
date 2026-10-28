@@ -154,3 +154,7 @@ A migração `044_task_followers.sql` adiciona os acompanhantes e as notificaç�
 ## Assistente RJ (DSU) pelo WhatsApp
 
 O fluxo inicial na instância BotDemandas permite criar tarefas, consultar as próprias tarefas e confirmar a conclusão de tarefas manuais com listas e botões interativos. Configuração, limites e implantação estão em [Assistente RJ (DSU)](assistente-rj-dsu.md).
+
+### Carregamento da lista
+
+A abertura do módulo consulta primeiro as tarefas já gravadas e as exibe antes da sincronização das fontes automáticas (equipamentos, planos e alertas). A sincronização continua com uma indicação de atualização e, ao terminar, substitui a lista pelo resultado atualizado. Uma falha na sincronização mantém a lista disponível e apresenta o erro. Requisições simultâneas compartilham a sincronização; a verificação de versão local continua protegendo alterações otimistas. A consulta da lista busca tarefas, usuários, última sincronização e permissão administrativa em paralelo, preservando a ocultação de detalhes das tarefas restritas.
