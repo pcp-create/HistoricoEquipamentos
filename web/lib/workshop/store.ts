@@ -2,7 +2,9 @@ import {searchPatterns} from "@/lib/filters";
 import 'server-only';
 import {randomUUID} from 'node:crypto';
 import {database} from '../db';
-import {effectiveStage,stageOptions} from './model';
+import {effectiveStage,stageOptions,isRentalSource} from './model';
+import {listWorkshopEvents} from './task-history';
+import {workshopFinancial,workshopFinancialOrders,workshopOrderItems} from './financial';
 export class WorkshopInputError extends Error{}
 export class WorkshopConflict extends Error{}
 const text=(v:unknown,max=4000)=>{if(typeof v!=='string'||v.trim().length>max)throw new WorkshopInputError('Confira os campos informados.');return v.trim();};
@@ -22,19 +24,20 @@ export async function workshopSearch(q:string,quotes=false){
 export async function workshopData(email:string){
  const db=database();const admin=(await db.query("SELECT role='admin' AS admin FROM web_user_access WHERE email=$1",[email])).rows[0]?.admin===true;
  const workshops=(await db.query('SELECT id::text,name,active FROM web_workshops ORDER BY id')).rows;
- const visits=(await db.query(`SELECT v.*,v.equipment_id::text,COALESCE(e.name,v.source->>'equipment_description') name,e.model,e.serial,COALESCE(w.name,'Oficina a confirmar') workshop,
+ const visits=(await db.query(`SELECT v.*,v.equipment_id::text,COALESCE(e.payload->>'familiaId'='3',false) rental,COALESCE(e.name,v.source->>'equipment_description') name,e.model,e.serial,COALESCE(w.name,'Oficina a confirmar') workshop,
  COALESCE(NULLIF(v.source->>'customer',''),(SELECT max(person_name) FROM m8_person_equipment p WHERE p.equipment_id=v.equipment_id AND p.present)) client,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',o.id_m8::text,'company',o.company_id,'number',COALESCE(o.numero_sequencia,o.id_m8)::text,'status',o.status,'status_lancamento_nome',o.status_lancamento_nome)) FROM m8_ordens_servico o WHERE o.status IN ('Pendente','Aprovado') AND ${orderLink}),'[]') orders,
- COALESCE((SELECT jsonb_agg(jsonb_build_object('id',t.id::text,'title',t.title,'status',t.status)) FROM web_tasks t WHERE t.status<>'completed' AND (NOT t.restricted OR $1::boolean) AND (t.equipment_id=v.equipment_id OR EXISTS(SELECT 1 FROM m8_ordens_servico o WHERE o.company_id=t.order_company AND o.id_m8=t.order_id AND ${orderLink}))),'[]') tasks,
+ COALESCE((SELECT jsonb_agg(jsonb_build_object('id',t.id::text,'title',t.title,'status',t.status)) FROM web_tasks t WHERE t.status<>'completed' AND (NOT t.restricted OR $1::boolean) AND (t.source_key LIKE 'manual:workshop:'||v.id::text||':%' OR t.equipment_id=v.equipment_id OR EXISTS(SELECT 1 FROM m8_ordens_servico o WHERE o.company_id=t.order_company AND o.id_m8=t.order_id AND ${orderLink}))),'[]') tasks,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',q.id::text,'company',q.company_id,'number',q.number,'status',q.status)) FROM web_workshop_quotes l JOIN m8_quotes q ON q.company_id=l.company_id AND q.id=l.quote_id WHERE l.visit_id=v.id),'[]') quotes,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',q.id,'number',q.number,'client',q.client_name)) FROM web_quotes q WHERE q.document->>'equipmentId'=v.equipment_id::text AND q.document->>'deletedAt' IS NULL),'[]') drafts
  FROM web_workshop_visits v LEFT JOIN web_workshops w ON w.id=v.workshop_id LEFT JOIN m8_equipment_catalog e ON e.equipment_id=v.equipment_id
  ORDER BY v.entered_at DESC`,[admin])).rows;
+ const financialOrders=await workshopFinancialOrders(db,[...new Set<string>(visits.map(v=>v.equipment_id).filter(Boolean))]);
+ for(const v of visits){v.rental=v.rental||isRentalSource(v.source);v.financial=workshopFinancial(financialOrders.get(v.equipment_id)||[],v.rental,!!v.equipment_id);}
  const ids=visits.map(v=>v.id);
  const external=(await db.query('SELECT * FROM web_workshop_external ORDER BY sent_at DESC')).rows;
- const events=(await db.query(`SELECT e.*,COALESCE(u.display_name,e.actor) actor_name FROM web_workshop_events e LEFT JOIN web_user_access u ON u.email=e.actor WHERE visit_id=ANY($1::uuid[]) ORDER BY e.created_at DESC,e.id DESC`,[ids])).rows;
- const imports=(await db.query("SELECT id,sheet,row_number,document,reason FROM web_workshop_imports WHERE state='pending' ORDER BY sheet,row_number")).rows;
- return {workshops,imports,external:external.filter(e=>!e.returned_at&&!e.reconciled_out_at).map(e=>{const v=visits.find(v=>v.id===e.visit_id);return {...e,machine:v||{id:null,equipment_id:e.source?.equipmentId||null,name:e.source?.equipment_description||e.component,client:e.source?.customer||'Cliente a confirmar',model:null,serial:null,workshop_id:e.source?.workshopId||null,workshop:'Oficina a confirmar',orders:[],tasks:[],external:[]}};}),visits:visits.map(v=>({...v,effective_stage:effectiveStage(v.stage,v.orders,v.source),external:external.filter(e=>e.visit_id===v.id&&!e.reconciled_out_at),events:events.filter(e=>e.visit_id===v.id)}))};
+ const events=await listWorkshopEvents(db,ids,admin);
+ return {workshops,external:external.filter(e=>!e.returned_at&&!e.reconciled_out_at).map(e=>{const v=visits.find(v=>v.id===e.visit_id);return {...e,machine:v||{id:null,equipment_id:e.source?.equipmentId||null,name:e.source?.equipment_description||e.component,client:e.source?.customer||'Cliente a confirmar',model:null,serial:null,workshop_id:e.source?.workshopId||null,workshop:'Oficina a confirmar',orders:[],tasks:[],external:[]}};}),visits:visits.map(v=>({...v,effective_stage:effectiveStage(v.stage,v.orders,v.source),external:external.filter(e=>e.visit_id===v.id&&!e.reconciled_out_at),events:events.filter(e=>e.visit_id===v.id)}))};
 }
 export async function workshopMutate(b:any,email:string){
  if(!b||typeof b.action!=='string')throw new WorkshopInputError('Ação inválida.');
@@ -102,4 +105,13 @@ export async function workshopMutate(b:any,email:string){
   }
   await c.query('COMMIT');return {saved:true,...(confirmedVisit?{visit:confirmedVisit}:{})};
  }catch(e){await c.query('ROLLBACK');if((e as any).code==='23505')throw new WorkshopConflict('Essa máquina já possui uma entrada aberta na oficina.');throw e;}finally{c.release();}
+}
+
+export async function workshopFinancialDetail(id:string){
+ const db=database();
+ const visit=(await db.query(`SELECT v.equipment_id::text,v.source,COALESCE(e.payload->>'familiaId'='3',false) rental FROM web_workshop_visits v LEFT JOIN m8_equipment_catalog e ON e.equipment_id=v.equipment_id WHERE v.id=$1`,[uuid(id)])).rows[0];
+ if(!visit)throw new WorkshopInputError('Entrada da oficina não encontrada.');
+ const grouped=await workshopFinancialOrders(db,visit.equipment_id?[visit.equipment_id]:[]);
+ const financial=workshopFinancial(grouped.get(visit.equipment_id)||[],visit.rental||isRentalSource(visit.source),!!visit.equipment_id);
+ return {financial,orders:await workshopOrderItems(db,financial.orders)};
 }

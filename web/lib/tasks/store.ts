@@ -1,3 +1,4 @@
+import {recordWorkshopTaskEvent} from "../workshop/task-history";
 import {repairOrderReportTasks} from "./order-task-repair";
 import { assertTaskAccess, taskAdministrator, restrictedTaskSummary } from "./privacy";
 import { creationContext, TaskContextError } from "./creation-context";
@@ -346,6 +347,10 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
       await c.query("SELECT * FROM web_tasks WHERE id=$1 FOR UPDATE", [id])
     ).rows[0];
     if (!t) throw new TaskInputError("Tarefa não encontrada.");
+    const recordNote:typeof note=async(client,taskId,title,description,actor)=>{
+      await note(client,taskId,title,description,actor);
+      await recordWorkshopTaskEvent(client,String(taskId),t.source_key,title,description,actor?.email||'Sistema');
+    };
     if (t.restricted && !(await taskAdministrator(user.email, transaction))) throw new Forbidden();
     if (t.version !== body.version)
       throw new TaskConflict(
@@ -358,19 +363,19 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
       if(t.assigned_to!==user.email||t.approval_approver!==user.email)throw new Forbidden();
       if(!['approved','rejected'].includes(body.decision))throw new TaskInputError('Decisão inválida.');
       const reason=typeof body.reason==='string'?body.reason.trim():'';
-      if(reason.length>2000||(body.decision==='rejected'&&!reason))throw new TaskInputError('Informe a justificativa da reprovação (até 2.000 caracteres).');
+      if(!reason||reason.length>2000)throw new TaskInputError(`Informe a justificativa da ${body.decision==='approved'?'aprovação':'reprovação'} (até 2.000 caracteres).`);
       const requester=(await c.query('SELECT enabled FROM web_user_access WHERE email=$1 FOR SHARE',[t.created_by])).rows[0];
       if(!requester?.enabled)throw new TaskInputError('O solicitante está inativo. Regularize o cadastro antes de devolver a tarefa.');
       const approved=body.decision==='approved';
-      await c.query("UPDATE web_tasks SET approval_state=$2,approval_reason=$3,approval_decided_by=$4,approval_decided_at=now(),assigned_to=created_by,status='in_progress',kanban_column=NULL WHERE id=$1",[id,body.decision,approved?(reason||'De acordo. Pode seguir com o processo.'):reason,user.email]);
-      const result=approved?'Aprovada — de acordo para seguir com o processo.':'Reprovada — '+reason;
-      await note(c,id,approved?'Solicitação aprovada':'Solicitação reprovada',result+(approved&&reason?' '+reason:''),user);
+      await c.query("UPDATE web_tasks SET approval_state=$2,approval_reason=$3,approval_decided_by=$4,approval_decided_at=now(),assigned_to=created_by,status='in_progress',kanban_column=NULL WHERE id=$1",[id,body.decision,reason,user.email]);
+      const result=approved?'Aprovada — de acordo para seguir com o processo. '+reason:'Reprovada — '+reason;
+      await recordNote(c,id,approved?'Solicitação aprovada':'Solicitação reprovada',result,user);
       await c.query("INSERT INTO web_task_notifications(task_id,task_version,recipient,assignment_reason) VALUES($1,$2,$3,$4)",[id,t.version+1,t.created_by,result]);
     } else if (body.action === 'approval_close') {
       if(t.task_type!=='approval'||t.approval_state==='pending'||t.status==='completed')throw new TaskConflict('A solicitação ainda não foi decidida ou já está concluída.');
       if(t.created_by!==user.email)throw new Forbidden();
       await c.query("UPDATE web_tasks SET status='completed',completed_at=now() WHERE id=$1",[id]);
-      await note(c,id,'Tratativa encerrada pelo solicitante','Resultado da aprovação recebido. Tratativa concluída.',user);
+      await recordNote(c,id,'Tratativa encerrada pelo solicitante','Resultado da aprovação recebido. Tratativa concluída.',user);
     } else if (body.action === "followers") {
       if (!Array.isArray(body.followers) || body.followers.length>100 || body.followers.some((email:unknown)=>typeof email!=="string")) throw new TaskInputError("Selecione os usuários para acompanhamento.");
       const followers = [...new Set<string>(body.followers.map((email:string)=>email.trim().toLowerCase()))];
@@ -382,7 +387,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
       if (recipients.length!==followers.length || recipients.some(u=>!u.enabled || !/^\d{10,15}$/.test(u.phone || ""))) throw new TaskInputError("Selecione usuários ativos com WhatsApp cadastrado.");
       if (t.restricted && recipients.some(u=>u.role!=="admin")) throw new TaskInputError("Tarefas restritas só podem notificar administradores.");
       await c.query("UPDATE web_tasks SET followers=$2 WHERE id=$1",[id,followers]);
-      await note(c,id,"Pessoas para notificação atualizadas",recipients.length ? recipients.map(u=>u.display_name || u.email).join(", ") : "Nenhuma pessoa adicional selecionada.",user);
+      await recordNote(c,id,"Pessoas para notificação atualizadas",recipients.length ? recipients.map(u=>u.display_name || u.email).join(", ") : "Nenhuma pessoa adicional selecionada.",user);
     } else if (body.action === "reopen") {
       if (!t.source_key.startsWith("manual:") || t.status !== "completed")
         throw new TaskInputError(
@@ -392,7 +397,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
         "UPDATE web_tasks SET status='not_started',kanban_column=NULL,completed_at=NULL,source_resolved=false WHERE id=$1",
         [id],
       );
-      await note(
+      await recordNote(
         c,
         id,
         "Tarefa reaberta",
@@ -408,7 +413,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
         const old=t.stage_id?(await c.query("SELECT * FROM web_task_stages WHERE id=$1",[t.stage_id])).rows[0]:null;
         const label=(s:any)=>s?`${s.job_title} · ${s.sort_order}. ${s.name}`:"Sem etapa";
         await c.query("UPDATE web_tasks SET stage_id=$2,status=CASE WHEN status='not_started' THEN 'in_progress' ELSE status END,kanban_column=CASE WHEN status='not_started' THEN 'in_progress' ELSE kanban_column END WHERE id=$1",[id,body.stageId]);
-        await note(c,id,"Etapa alterada",`De: ${label(old)}. Para: ${label(stage)}.`,user);
+        await recordNote(c,id,"Etapa alterada",`De: ${label(old)}. Para: ${label(stage)}.`,user);
       }
     } else if (body.action === "note") {
       if (
@@ -422,7 +427,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
         throw new TaskInputError(
           "Informe título (até 160 caracteres) e descrição (até 12.000).",
         );
-      await note(c, id, body.title.trim(), body.description.trim(), user);
+      await recordNote(c, id, body.title.trim(), body.description.trim(), user);
       await c.query("UPDATE web_tasks SET status='in_progress',kanban_column='in_progress' WHERE id=$1 AND status='not_started'", [id]);
     } else if (body.action === "move") {
       if (t.status === "completed")
@@ -470,7 +475,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
             "UPDATE web_tasks SET assigned_to=$2,first_assigned_at=COALESCE(first_assigned_at,now()) WHERE id=$1",
             [id, actorEmail],
           );
-          await note(
+          await recordNote(
             c,
             id,
             "Responsável alterado",
@@ -498,7 +503,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
           completed ? null : body.column,
         ],
       );
-      await note(
+      await recordNote(
         c,
         id,
         "Status de execução alterado",
@@ -521,7 +526,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
         if (typeof body.restricted !== "boolean" || !t.source_key.startsWith("manual:")) throw new TaskInputError("Visibilidade inválida.");
         if (body.restricted !== !!t.restricted) {
           await c.query("UPDATE web_tasks SET restricted=$2 WHERE id=$1",[id,body.restricted]);
-          await note(c,id,"Visibilidade alterada",body.restricted ? "Tarefa marcada como restrita." : "Restrição da tarefa removida.",user);
+          await recordNote(c,id,"Visibilidade alterada",body.restricted ? "Tarefa marcada como restrita." : "Restrição da tarefa removida.",user);
         }
       }
       const assigned = body.assignedTo.trim().toLowerCase() || null;
@@ -547,7 +552,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
         "UPDATE web_tasks SET assigned_to=$2,kanban_column=CASE WHEN assigned_to IS DISTINCT FROM $2 THEN NULL ELSE kanban_column END,status=CASE WHEN assigned_to IS NOT DISTINCT FROM $2 THEN status WHEN $2::text IS NULL THEN 'not_started' ELSE 'in_progress' END,first_assigned_at=CASE WHEN $2::text IS NOT NULL THEN COALESCE(first_assigned_at,now()) ELSE first_assigned_at END,priority=$3,priority_manual=$4 WHERE id=$1",
         [id, assigned, body.priority, !body.automaticPriority],
       );
-      await note(
+      await recordNote(
         c,
         id,
         "Responsável / prioridade atualizados",
@@ -673,7 +678,7 @@ export async function createTask(body: any, user: AuthUser, transaction?: PoolCl
       initialStage=(await c.query('SELECT * FROM web_task_stages WHERE id=$1 FOR SHARE',[body.stageId])).rows[0];
       if(!initialStage)throw new TaskInputError('Etapa removida. Atualize a lista.');
     }
-    const context = await creationContext(c, body);
+    const context = await creationContext(c, body, true);
     if (assigned) {
       const employee = (
         await c.query(
@@ -694,13 +699,13 @@ export async function createTask(body: any, user: AuthUser, transaction?: PoolCl
           `INSERT INTO web_tasks(source_key,cycle,origin,title,equipment_name,source_status,priority,priority_manual,assigned_to,due_date,first_assigned_at,created_by,updated_by,order_company,order_id,order_number,equipment_id,customer,followers)
       VALUES($1,'manual',$7,$2,$8,'manual',$3,true,$4,$5,CASE WHEN $4::text IS NOT NULL THEN now() END,$6,$6,$9,$10,$11,$12,$13,ARRAY[lower($6)]) RETURNING id`,
           [
-            "manual:" + randomUUID(),
+            context.workshop ? `manual:workshop:${context.workshop.id}:${randomUUID()}` : "manual:" + randomUUID(),
             body.title.trim(),
             body.priority,
             assigned,
             due,
             user.email,
-            context.order
+            context.workshop ? "Oficina" : context.order
               ? "Ordem de Serviço"
               : context.equipment
                 ? "Equipamento"
@@ -723,12 +728,14 @@ export async function createTask(body: any, user: AuthUser, transaction?: PoolCl
       id,
       "Tarefa manual criada",
       (body.description.trim() || "Tarefa cadastrada manualmente.") +
+        (context.workshop?`\nOficina: ${context.workshop.workshop||'Não informada'}. Equipamento: ${context.equipmentName}${context.equipment?' ('+context.equipment.id+')':''}. Cliente: ${context.customer||'Não informado'}. Entrada: ${context.workshop.id}.`:"") +
         (initialStage?`\nEtapa inicial: ${initialStage.job_title} · ${initialStage.name}.`:"") +
         (context.order
           ? `\nVinculada à OS ${context.order.number}, empresa ${context.order.company_id}.`
           : ""),
       user,
     );
+    if(context.workshop)await recordWorkshopTaskEvent(c,id,`manual:workshop:${context.workshop.id}:`,taskType==='approval'?'Solicitação de aprovação criada':'Tarefa criada',body.description.trim()||'Tarefa cadastrada pela oficina.',user.email);
     if (assigned)
       await c.query(
         "INSERT INTO web_task_notifications(task_id,task_version,recipient) VALUES($1,1,$2)",

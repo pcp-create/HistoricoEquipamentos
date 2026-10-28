@@ -60,3 +60,31 @@ Mantidos estados reais do histórico, inclusive Serviço agendado e Aguardando d
 ## Tempo acumulado por etapa
 
 Lista e Kanban exibem o acumulado da etapa manual atual; a ficha detalha todas as etapas e o início do período corrente. Retornos à mesma etapa somam os períodos anteriores. Eventos novos guardam etapa anterior e próxima; o cálculo também reconhece eventos antigos de entrada, mudança manual, importação e conferência. Observações de importação contam somente a partir da data em que a situação foi registrada, sem retroagir à entrada. Períodos sem evidência ficam separados. Saída/reconciliação interrompe a contagem e salvar a mesma etapa não reinicia seu período. A indicação automática de falta de peças da OS continua separada das etapas manuais cronometradas, com explicação na ficha. Atualização visual a cada minuto.
+
+### Valor envolvido por equipamento
+
+O painel, a lista de equipamentos e os cards do Kanban exibem o valor das OSs **em aberto** vinculadas ao equipamento: status M8 `Pendente` ou `Aprovado`. Para equipamentos de clientes, soma `total_geral` das OSs com situação de Cobrança. Para a frota de locação, soma `total_geral` das OSs com situação de Custo (incluindo Custo de Locação); não utiliza a estimativa de lucro de materiais e mão de obra. A frota é identificada pela família 3 do cadastro M8 ou pela origem da planilha de locação.
+
+A ficha detalha cada OS que participa do valor, com número, empresa, situação e link para o histórico. A soma respeita vínculos diretos ou complementares não obsoletos, deduplicados por equipamento, empresa e OS. Não inclui OSs processadas ou canceladas, nem presume vínculos pelo nome ou pelo cliente. Sem OS elegível, o total é zero; sem vínculo do equipamento ou com valor ausente/inválido em uma OS, apresenta “Não disponível” e o motivo, evitando exibir uma soma parcial como completa. Os valores acompanham a sincronização M8 e a atualização da oficina; não são congelados na entrada ou saída.
+
+A aba **Produtos e serviços** da ficha consulta os itens somente quando aberta, nas mesmas OSs elegíveis do valor do equipamento. As subabas mostram produtos e serviços por OS/empresa, com descrição, referência, quantidade, unidade, valor unitário, total e situação. Itens excluídos ou reprovados permanecem visíveis e identificados, sem compor os subtotais. O total da OS permanece o informado pelo M8; diferenças em relação aos itens são apresentadas. Detalhes ainda não sincronizados geram aviso de relação possivelmente incompleta e não são tratados como subtotais zero.
+
+O indicador **Valor parado em oficina** soma as OSs de Cobrança abertas dos equipamentos de clientes ainda presentes na oficina selecionada. Exclui frota, saídas e posições encerradas por reconciliação. Uma OS vinculada a vários equipamentos é contada uma vez por empresa/OS. Dados ausentes sinalizam o valor como parcial. O indicador acompanha o filtro da oficina, tal como a quantidade de Equipamentos de Clientes.
+
+### Criar tarefas pela ficha
+
+Em **Tarefas em aberto**, o botão **Criar tarefa** abre a seleção obrigatória entre tarefa normal e tarefa de aprovação, com título, responsável, prioridade, vencimento e descrição. Aprovações exigem responsável e descrição e seguem o fluxo existente de decisão e retorno ao solicitante. A atribuição usa as notificações existentes do módulo de tarefas.
+
+O servidor resolve máquina, cliente e oficina a partir da entrada selecionada, sem aceitar substituição desses vínculos pelo navegador. A tarefa preserva a referência explícita à entrada na chave `manual:workshop:<entrada>:<identificador>`, além dos campos de máquina e cliente e do contexto no histórico. Isso permite localizar a tarefa na ficha mesmo quando a entrada importada ainda não tem código de equipamento. Entradas já encerradas não aceitam novas tarefas. O vínculo é validado e bloqueado para leitura dentro da transação de criação, evitando criar uma tarefa após uma saída concorrente. Nenhuma migração adicional é necessária.
+
+### Resumo de atenção e conferência
+
+O aviso de linhas pendentes e a aba Conferência foram removidos da interface. Os registros de importação continuam preservados no banco e nos instrumentos de auditoria; a consulta inicial do portal não carrega mais essa relação. O resumo **MÁQUINAS EM OFICINA • POR TEMPO / O que precisa de atenção hoje** ocupa o espaço acima das abas de visualização, com os filtros de oficina, origem e pesquisa. A lista e os gráficos permanecem no Painel; o resumo não se repete. O painel de terceiros mantém seu próprio resumo.
+
+Não foram ativadas novas regras de prioridade. A análise inicial e as propostas para discussão estão em [Análise para priorização da oficina — 28/10/2026](oficina-prioridades-analise-2026-10-28.md).
+
+### Justificativas e histórico de tarefas
+
+Aprovar e reprovar exigem justificativa não vazia, de até 2.000 caracteres, validada no servidor. O botão abre o campo correspondente e a confirmação só é habilitada após o preenchimento. A decisão permanece visível na tarefa e retorna ao solicitante para tratativa, com notificação contendo o motivo.
+
+Tarefas criadas pela ficha da oficina registram seus eventos na entrada explicitamente vinculada: criação, alterações de etapa/status, observações, decisão de aprovação/reprovação e encerramento da tratativa. O registro da tarefa e o evento da oficina compartilham a mesma transação. O histórico mostra data, autor, motivo e link para a tarefa; repetir uma decisão já registrada não duplica o evento. A etapa operacional da máquina não é alterada automaticamente. Eventos de tarefas atualmente restritas são ocultados de usuários sem perfil administrativo, preservando os detalhes confidenciais também no histórico da oficina.

@@ -1,3 +1,4 @@
+import {listWorkshopEvents} from "../lib/workshop/task-history";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PGlite } from "@electric-sql/pglite";
@@ -565,9 +566,65 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     approval=await updateTask({action:'approval_close',id:aid,version:2},user);
     assert.equal(approval.task.status,'completed');
     let approved=await createTask({taskType:'approval',title:'Autorizar serviço',description:'Autorizar revisão.',assignedTo:approver.email,priority:'normal',dueDate:''},user);
-    approved=await updateTask({action:'approval_decide',id:String(approved.task.id),version:1,decision:'approved'},approver);
+    await assert.rejects(()=>updateTask({action:'approval_decide',id:String(approved.task.id),version:1,decision:'approved',reason:' '},approver),/justificativa da aprovação/);
+    approved=await updateTask({action:'approval_decide',id:String(approved.task.id),version:1,decision:'approved',reason:'De acordo com a proposta apresentada.'},approver);
     assert.equal(approved.task.approval_state,'approved');assert.equal(approved.task.assigned_to,user.email);assert.match(approved.task.approval_reason,/De acordo/);
     const approvalNotices=await claimNotifications('https://example.com');assert.ok(approvalNotices.some(n=>n.text.includes('Solicitação aprovada — de acordo')));
+
+    await db.exec(`CREATE TABLE m8_equipment_catalog(equipment_id bigint,name text,model text,serial text);
+      CREATE TABLE m8_person_equipment(equipment_id bigint,person_name text,present boolean);
+      CREATE TABLE web_workshop_events(id bigint GENERATED ALWAYS AS IDENTITY,visit_id uuid,action text,actor text,document jsonb,created_at timestamptz DEFAULT now());
+      CREATE TABLE web_workshops(id bigint,name text);
+      CREATE TABLE web_workshop_visits(id uuid,equipment_id bigint,workshop_id bigint,source jsonb,exited_at timestamptz,reconciled_out_at timestamptz);
+      INSERT INTO m8_equipment_catalog VALUES(77,'Compressor oficina','GA22','SER123');
+      INSERT INTO m8_person_equipment VALUES(77,'Cliente cadastro',true);
+      INSERT INTO web_workshops VALUES(1,'Oficina RJ');
+      INSERT INTO web_workshop_visits VALUES('12345678-1234-4234-8234-123456789abc',77,1,'{"customer":"Cliente oficina"}',NULL,NULL),('22345678-1234-4234-8234-123456789abc',NULL,1,'{"customer":"Cliente sem código","equipment_description":"Motor importado"}',NULL,NULL);`);
+    for(const taskType of ['standard','approval']){
+      const created=await createTask({taskType,workshopVisitId:'12345678-1234-4234-8234-123456789abc',title:'Revisar compressor',description:'Analisar o motor',priority:'normal',assignedTo:approver.email,dueDate:'',customer:'Cliente adulterado'},user);
+      assert.match(created.task.source_key,/^manual:workshop:12345678-1234-4234-8234-123456789abc:/);
+      assert.equal(String(created.task.equipment_id),'77');
+      assert.equal(created.task.equipment_name,'Compressor oficina');assert.equal(created.task.customer,'Cliente oficina');
+      assert.equal(created.task.task_type,taskType);assert.equal(created.task.assigned_to,approver.email);
+      assert.equal(created.task.origin,taskType==='approval'?'Aprovação':'Oficina');
+      assert.ok(created.notes.some(n=>n.description.includes('Oficina RJ')));
+      if(taskType==='approval')assert.equal(created.task.approval_state,'pending');
+      const creationEvent=(await db.query<any>("SELECT * FROM web_workshop_events WHERE document->>'taskId'=$1",[String(created.task.id)])).rows[0];
+      assert.equal(creationEvent.visit_id,'12345678-1234-4234-8234-123456789abc');assert.equal(creationEvent.actor,user.email);
+      if(taskType==='approval'){
+        await assert.rejects(()=>updateTask({action:'approval_decide',id:String(created.task.id),version:1,decision:'approved',reason:''},approver),/justificativa/);
+        const decision=await updateTask({action:'approval_decide',id:String(created.task.id),version:1,decision:'approved',reason:'Compra necessária para liberar a máquina.'},approver);
+        const event=(await db.query<any>("SELECT * FROM web_workshop_events WHERE document->>'taskId'=$1 ORDER BY id DESC LIMIT 1",[String(created.task.id)])).rows[0];
+        assert.match(event.action,/Solicitação aprovada/);assert.match(event.document.notes,/Compra necessária/);assert.equal(event.actor,approver.email);assert.equal(event.document.approvalState,'approved');
+        await updateTask({action:'approval_close',id:String(created.task.id),version:decision.task.version},user);
+        assert.equal((await db.query<any>("SELECT count(*) n FROM web_workshop_events WHERE document->>'taskId'=$1",[String(created.task.id)])).rows[0].n,3);
+      }else{
+        await updateTask({action:'move',id:String(created.task.id),version:1,column:'completed',assignmentReason:'Serviço concluído'},user);
+        const event=(await db.query<any>("SELECT document FROM web_workshop_events WHERE document->>'taskId'=$1 ORDER BY id DESC LIMIT 1",[String(created.task.id)])).rows[0];
+        assert.equal(event.document.status,'completed');
+        assert.ok((await listWorkshopEvents({query:q},['12345678-1234-4234-8234-123456789abc'],false)).some(e=>e.document.taskId===String(created.task.id)));
+        await db.query('UPDATE web_tasks SET restricted=true WHERE id=$1',[created.task.id]);
+        assert.ok(!(await listWorkshopEvents({query:q},['12345678-1234-4234-8234-123456789abc'],false)).some(e=>e.document.taskId===String(created.task.id)));
+        assert.ok((await listWorkshopEvents({query:q},['12345678-1234-4234-8234-123456789abc'],true)).some(e=>e.document.taskId===String(created.task.id)));
+
+      }
+
+      const orphan=await createTask({taskType,workshopVisitId:'22345678-1234-4234-8234-123456789abc',title:'Conferir motor',description:'Analisar retorno',priority:'normal',assignedTo:approver.email,dueDate:''},user);
+      assert.equal(orphan.task.equipment_id,null);assert.equal(orphan.task.customer,'Cliente sem código');assert.equal(orphan.task.equipment_name,'Motor importado');
+      if(taskType==='approval'){
+        const rejected=await updateTask({action:'approval_decide',id:String(orphan.task.id),version:1,decision:'rejected',reason:'Revisar o valor e enviar nova proposta.'},approver);
+        const event=(await db.query<any>("SELECT * FROM web_workshop_events WHERE document->>'taskId'=$1 ORDER BY id DESC LIMIT 1",[String(orphan.task.id)])).rows[0];
+        assert.equal(event.visit_id,'22345678-1234-4234-8234-123456789abc');assert.equal(event.document.approvalState,'rejected');assert.match(event.document.notes,/Revisar o valor/);assert.equal(rejected.task.assigned_to,user.email);
+        await assert.rejects(()=>updateTask({action:'approval_decide',id:String(orphan.task.id),version:rejected.task.version,decision:'rejected',reason:'Repetido'},approver),/já foi decidida/);
+        assert.equal((await db.query<any>("SELECT count(*) n FROM web_workshop_events WHERE document->>'taskId'=$1",[String(orphan.task.id)])).rows[0].n,2);
+      }
+
+    }
+    const workshopBody={taskType:'standard',workshopVisitId:'12345678-1234-4234-8234-123456789abc',title:'Conferir',description:'Conferir',priority:'normal',assignedTo:'',dueDate:''};
+    await assert.rejects(()=>createTask({...workshopBody,equipmentId:'999'},user),/Vínculo de oficina inválido/);
+    await assert.rejects(()=>createTask({...workshopBody,workshopVisitId:'33345678-1234-4234-8234-123456789abc'},user),/não encontrada/);
+    await db.query('UPDATE web_workshop_visits SET exited_at=now()');
+    await assert.rejects(()=>createTask(workshopBody,user),/já foi encerrada/);
 
   } finally {
     g.historyPool = old;

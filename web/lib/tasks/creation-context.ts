@@ -4,7 +4,43 @@ export class TaskContextError extends Error {}
 export async function creationContext(
   c: Pick<PoolClient, "query">,
   input: any,
+  lockWorkshop = false,
 ) {
+  if (input.workshopVisitId != null) {
+    if (
+      typeof input.workshopVisitId !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        input.workshopVisitId,
+      ) ||
+      input.orderId ||
+      input.orderCompany ||
+      input.equipmentId
+    )
+      throw new TaskContextError("Vínculo de oficina inválido.");
+    const visit = (
+      await c.query(
+        `SELECT v.id::text,v.equipment_id::text,v.exited_at,v.reconciled_out_at,COALESCE(e.name,v.source->>'equipment_description','Equipamento em oficina') name,e.model,e.serial,
+      COALESCE(NULLIF(v.source->>'customer',''),(SELECT string_agg(DISTINCT p.person_name,' / ') FROM m8_person_equipment p WHERE p.equipment_id=v.equipment_id AND p.present),'') customer,w.name workshop
+      FROM web_workshop_visits v LEFT JOIN m8_equipment_catalog e ON e.equipment_id=v.equipment_id LEFT JOIN web_workshops w ON w.id=v.workshop_id WHERE v.id=$1 ${lockWorkshop ? "FOR SHARE OF v" : ""}`,
+        [input.workshopVisitId],
+      )
+    ).rows[0];
+    if (!visit)
+      throw new TaskContextError("Entrada da oficina não encontrada.");
+    if (visit.exited_at || visit.reconciled_out_at)
+      throw new TaskContextError("A entrada da oficina já foi encerrada.");
+    const equipment = visit.equipment_id
+      ? { id: visit.equipment_id, name: visit.name }
+      : null;
+    return {
+      order: null,
+      equipment,
+      equipments: equipment ? [equipment] : [],
+      customer: visit.customer,
+      equipmentName: visit.name,
+      workshop: visit,
+    };
+  }
   const orderId = input.orderId == null ? "" : String(input.orderId),
     company = String(input.orderCompany ?? ""),
     equipmentId = input.equipmentId == null ? "" : String(input.equipmentId);
@@ -37,7 +73,8 @@ export async function creationContext(
       equipment = equipments.find((e) => e.id === equipmentId);
       if (!equipment)
         throw new TaskContextError("Equipamento não vinculado a esta OS.");
-    } else if (input.equipmentId == null && equipments.length === 1) equipment = equipments[0];
+    } else if (input.equipmentId == null && equipments.length === 1)
+      equipment = equipments[0];
   } else if (equipmentId) {
     equipment = (
       await c.query(
@@ -58,6 +95,7 @@ export async function creationContext(
         )
       ).rows[0]?.name || "";
   return {
+    workshop: null,
     order,
     equipment,
     equipments,

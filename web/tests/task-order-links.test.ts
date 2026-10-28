@@ -19,6 +19,15 @@ test("manual tasks persist verified OS/company/equipment links and preserve manu
       "011_task_kanban",
       "012_manual_tasks",
       "016_task_order_links",
+      "018_task_assignment_reason",
+      "041_task_completion_notifications",
+      "042_restricted_tasks",
+      "024_task_stages",
+      "027_task_stage_assignment",
+      "017_task_reminders",
+      "023_task_reminder_recurrence",
+      "044_task_followers",
+      "073_task_approvals",
     ])
       await db.exec(
         readFileSync(new URL("../sql/" + f + ".sql", import.meta.url), "utf8"),

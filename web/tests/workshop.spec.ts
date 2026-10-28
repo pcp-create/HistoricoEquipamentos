@@ -10,6 +10,12 @@ test('workshop board filters locations, opens linked records and records an entr
  await page.goto('/oficina');
  await expect(page.getByRole('heading',{name:'Gestão de Oficina',exact:true})).toBeVisible();
  await expect(page.getByRole('heading',{name:'O que precisa de atenção hoje'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'O que precisa de atenção hoje'})).toHaveCount(1);
+ await expect(page.locator('.ws-import-notice')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:/Conferência|Conferir registros/})).toHaveCount(0);
+ const attentionBox=await page.getByRole('region',{name:'Atenção da oficina'}).boundingBox();
+ const toolbarBox=await page.getByRole('navigation',{name:'Visualização',exact:true}).boundingBox();
+ expect(attentionBox!.y+attentionBox!.height).toBeLessThan(toolbarBox!.y);
  await page.getByRole('button',{name:'Aguardando peça: 1',exact:true}).click();
  await expect(page.locator('.ws-priority tbody tr')).toHaveCount(1);
  await page.getByRole('button',{name:'Limpar filtros',exact:true}).click();
@@ -49,7 +55,8 @@ test('workshop board filters locations, opens linked records and records an entr
  expect(saved).toMatchObject({id:base.id,version:1,notes:'Inspeção revisada.\nAguardando aprovação.'});
  await expect(page.getByRole('textbox',{name:'Observações do equipamento'})).toHaveValue('Inspeção revisada.\nAguardando aprovação.');
  await page.getByRole('button',{name:'Fechar ficha'}).click();
- await page.getByRole('button',{name:'Conferir registros'}).click();await expect(page.locator('.ws-import-list')).toContainText('Motor sem código');
+ await expect(page.getByRole('button',{name:'Conferir registros'})).toHaveCount(0);
+ await expect(page.locator('.ws-import-list')).toHaveCount(0);
  await page.getByRole('button',{name:'Kanban',exact:true}).click();
  await page.screenshot({path:'/tmp/workshop-desktop.png',fullPage:true});
  await page.getByRole('button',{name:'Registrar entrada',exact:true}).click();

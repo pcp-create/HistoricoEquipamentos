@@ -1,7 +1,7 @@
 import {requireUser,sameOrigin,Unauthorized,Forbidden} from '@/lib/auth';
-import {workshopData,workshopSearch,workshopMutate,WorkshopInputError,WorkshopConflict} from '@/lib/workshop/store';
+import {workshopData,workshopFinancialDetail,workshopSearch,workshopMutate,WorkshopInputError,WorkshopConflict} from '@/lib/workshop/store';
 export const runtime='nodejs';
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'private, no-store'}});
 function failure(e:unknown){if(e instanceof Unauthorized)return json({error:'Entre novamente para continuar.'},401);if(e instanceof Forbidden)return json({error:'Acesso não permitido.'},403);if(e instanceof WorkshopInputError||e instanceof WorkshopConflict)return json({error:e.message},e instanceof WorkshopConflict?409:400);console.error('WORKSHOP_FAILED');return json({error:'Não foi possível carregar ou salvar a oficina.'},503);}
-export async function GET(req:Request){try{const u=await requireUser(),p=new URL(req.url).searchParams;return json(p.has('q')?{rows:await workshopSearch(p.get('q')!,p.get('kind')==='quotes')}:await workshopData(u.email));}catch(e){return failure(e);}}
+export async function GET(req:Request){try{const u=await requireUser(),p=new URL(req.url).searchParams;return json(p.has('financial')?await workshopFinancialDetail(p.get('financial')!):p.has('q')?{rows:await workshopSearch(p.get('q')!,p.get('kind')==='quotes')}:await workshopData(u.email));}catch(e){return failure(e);}}
 export async function POST(req:Request){if(!sameOrigin(req))return json({error:'Origem inválida.'},403);try{const u=await requireUser(),raw=await req.text();if(raw.length>20000)return json({error:'Dados excedem o limite.'},413);let b;try{b=JSON.parse(raw);}catch{throw new WorkshopInputError('Dados inválidos.');}return json(await workshopMutate(b,u.email));}catch(e){return failure(e);}}
