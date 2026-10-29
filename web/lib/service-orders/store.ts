@@ -106,7 +106,7 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
     return r;
   };
   const service = reg("service-types", draft.serviceType);
-  reg("service-origins", draft.origin);
+  if (draft.origin) reg("service-origins", draft.origin);
   reg("payment-terms", draft.payment);
   reg("order-statuses", draft.situation);
   reg("flow-statuses", draft.flowStatus);
@@ -155,7 +155,7 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
     dataEntregaPrevista: draft.expected + "T00:00:00-03:00",
     dataEntrega: draft.delivery + "T00:00:00-03:00",
     tipoAtendimentoId: Number(draft.serviceType),
-    origemId: Number(draft.origin),
+    ...(draft.origin ? { origemId: Number(draft.origin) } : {}),
     situacaoId: Number(draft.situation),
     freteId: Number(draft.freight),
     tipoGarantiaId: service.warranty_id,

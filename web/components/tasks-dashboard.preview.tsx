@@ -1,4 +1,5 @@
 "use client";
+import { taskOriginGroup } from "@/lib/tasks/origin-group";
 import { matchesSearch } from "@/lib/filters";
 
 import TaskApproval from "./task-approval";
@@ -850,6 +851,7 @@ export default function TasksDashboard() {
     } as CSSProperties;
   }
   function boardColumn(t: any): string {
+    if (kanbanView === "origin") return taskOriginGroup(t);
     if(kanbanView === "stage")return t.stage_id || "no-stage";
     if (kanbanView === "responsible")
       return t.assigned_to?.toLowerCase() || "unassigned";
@@ -883,6 +885,7 @@ export default function TasksDashboard() {
             ["in_progress", "Em andamento"],
             ["completed", "Concluído"],
           ];
+  if (kanbanView === "origin") boardColumns = [...new Set<string>(rows.map((t:any) => taskOriginGroup(t)))].sort((a,b)=>a.localeCompare(b,"pt-BR")).map(origin=>[origin,origin]);
   if(kanbanView === "stage"){
     boardColumns=[["no-stage","Sem etapa"],...([...stages].filter(s=>!activeStageRole||s.job_title.trim().toLowerCase()===activeStageRole).sort((a,b)=>a.job_title.localeCompare(b.job_title,'pt-BR')||a.sort_order-b.sort_order).map(s=>[s.id,s.name] as [string,string]))];
     for(const task of rows)if(task.stage_id&&!boardColumns.some(([key])=>key===task.stage_id))boardColumns.push([task.stage_id,stagesLoading?"Carregando etapa…":"Etapa indisponível"]);
@@ -910,6 +913,7 @@ export default function TasksDashboard() {
     });
   }
   async function dropTask(id: string, column: string) {
+    if (kanbanView === "origin") return;
     const task = data?.tasks.find((t: any) => String(t.id) === id);
     if (
       !task ||
@@ -1445,7 +1449,7 @@ export default function TasksDashboard() {
               </div>
               <div className="task-display-controls" hidden={view === "chart"}>
                 {view === "kanban" && (
-                  <label className="task-compact-select" title={`Agrupar por: ${{progress: "Andamento", deadline: "Prazo", responsible: "Responsável", stage: "Etapa"}[kanbanView]}`}>
+                  <label className="task-compact-select" title={`Agrupar por: ${{progress: "Andamento", deadline: "Prazo", responsible: "Responsável", stage: "Etapa", origin: "Origem"}[kanbanView]}`}>
                     <Columns3 size={16} aria-hidden="true" />
                     <span>Agrupar por</span>
                     <ChevronDown size={14} aria-hidden="true" />
@@ -1458,6 +1462,7 @@ export default function TasksDashboard() {
                       <option value="deadline">Prazo</option>
                       <option value="responsible">Responsável</option>
                       <option value="stage">Etapa</option>
+                      <option value="origin">Origem da tarefa</option>
                     </select>
                   </label>
                 )}
@@ -1494,7 +1499,7 @@ export default function TasksDashboard() {
               <>
                 <div className="task-kanban-controls">
                   <small>
-                    {kanbanView === "stage" ? "Arraste para alterar a etapa. As colunas seguem a ordem configurada por cargo; tarefas concluídas não podem ser movimentadas." : kanbanView === "deadline"
+                    {kanbanView === "origin" ? "Tarefas agrupadas automaticamente pelo processo de origem. Abra uma tarefa para consultar ou atualizar seu andamento." : kanbanView === "stage" ? "Arraste para alterar a etapa. As colunas seguem a ordem configurada por cargo; tarefas concluídas não podem ser movimentadas." : kanbanView === "deadline"
                       ? "Prazo calculado pelo vencimento. Somente tarefas manuais podem ser arrastadas para Concluído."
                       : kanbanView === "responsible"
                         ? "Arraste para alterar o responsável. Tarefas concluídas permanecem no histórico."
@@ -1604,7 +1609,7 @@ export default function TasksDashboard() {
                                   return;
                                 open(t.id);
                               }}
-                              draggable={!busy && !t.redacted && t.status !== "completed"}
+                              draggable={kanbanView !== "origin" && !busy && !t.redacted && t.status !== "completed"}
                               onDragStart={(e) => {
                                 e.dataTransfer.setData(
                                   "text/plain",
@@ -1723,7 +1728,7 @@ export default function TasksDashboard() {
                             <p className="task-kanban-empty">Nenhuma tarefa</p>
                           )}
                         </div>
-                        <button
+                        {kanbanView !== "origin" && <button
                           type="button"
                           className="task-kanban-add"
                           disabled={busy}
@@ -1743,7 +1748,7 @@ export default function TasksDashboard() {
                           }}
                         >
                           + Adicionar tarefa
-                        </button>
+                        </button>}
                       </section>
                     );
                   })}

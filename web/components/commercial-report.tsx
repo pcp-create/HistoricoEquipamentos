@@ -775,6 +775,7 @@ export default function CommercialReport({
                               <Pencil size={13} />
                             </button>
                           )}
+                          {c.key === "inWorkshop" && r.workshop && <a className="cr-workshop-stage" href="/oficina" title={`${r.workshop.name} · Etapa da máquina na oficina`}><span style={{background:r.workshop.color}} aria-hidden="true"/>{r.workshop.label}</a>}
                           {kind === "sales" && r.linkedOrder && ["id", "orderType", "flowStatus"].includes(c.key) && (
                             <small className={`cr-linked-order-comment${c.key === "id" ? " cr-linked-order-number" : ""}`} title={`OS vinculada · ${r.linkedOrder.number}`}>
                               <Link2 size={12} aria-hidden="true"/>

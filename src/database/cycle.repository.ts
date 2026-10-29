@@ -13,7 +13,7 @@ export class CycleRepository {
   constructor(readonly db: Database, readonly company: number, readonly timeZone: string) {}
   async ingestHeaders(headers: HeaderSnapshot[], seenAt: Date) {
     const columns = ['company_id','id_m8', ...schemas[0].fields.map(field => field[0]), 'payload'];
-    const update = schemas[0].fields.map(([column,field]) => `${column}=CASE WHEN EXCLUDED.payload ? '${field}' THEN EXCLUDED.${column} ELSE m8_ordens_servico.${column} END`);
+    const update = schemas[0].fields.map(([column,field]) => column==='data_atualizacao' ? 'data_atualizacao=GREATEST(m8_ordens_servico.data_atualizacao,EXCLUDED.data_atualizacao)' : `${column}=CASE WHEN EXCLUDED.payload ? '${field}' THEN EXCLUDED.${column} ELSE m8_ordens_servico.${column} END`);
     let changedCount = 0;
     for (let offset = 0; offset < headers.length; offset += 1000) {
       const batch = headers.slice(offset, offset + 1000).map(({header,fiscalDocumentIds}) => ({
@@ -25,7 +25,10 @@ export class CycleRepository {
           ON CONFLICT(company_id,id_m8) DO UPDATE SET ${update.join(',')},
           payload=m8_ordens_servico.payload || EXCLUDED.payload,sincronizado_em=now(),updated_at=now()
           WHERE (m8_ordens_servico.data_atualizacao IS NULL OR
-            (EXCLUDED.data_atualizacao IS NOT NULL AND EXCLUDED.data_atualizacao>=m8_ordens_servico.data_atualizacao))
+            (EXCLUDED.data_atualizacao IS NOT NULL AND (
+              EXCLUDED.data_atualizacao>=m8_ordens_servico.data_atualizacao OR
+              (EXCLUDED.payload->>'dataAtualizacao' !~ '[.][0-9]' AND EXCLUDED.data_atualizacao>=date_trunc('second',m8_ordens_servico.data_atualizacao))
+            )))
             AND NOT (m8_ordens_servico.payload - 'documentoFiscalId') @> (EXCLUDED.payload - 'documentoFiscalId')
           RETURNING id_m8,status`, [JSON.stringify(batch)]);
         changedCount += changed.rows.length;
@@ -65,10 +68,16 @@ export class CycleRepository {
       const current = (await this.db.query<{data_atualizacao:Date|null}>(
         'SELECT data_atualizacao FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2 FOR UPDATE',[this.company,parent])).rows[0];
       if (current?.data_atualizacao && (!mapped.data_atualizacao ||
-          new Date(String(mapped.data_atualizacao)).getTime()<new Date(current.data_atualizacao).getTime())) {
+          new Date(String(mapped.data_atualizacao)).getTime()<
+            (typeof header.dataAtualizacao==='string' && !/\.\d/.test(header.dataAtualizacao)
+              ? Math.floor(new Date(current.data_atualizacao).getTime()/1000)*1000
+              : new Date(current.data_atualizacao).getTime()))) {
         await this.db.query("UPDATE integracao_m8_os_sync SET pending=true,finalized=false,next_attempt_at=now()+interval '1 minute' WHERE company_id=$1 AND ordem_servico_id=$2",[this.company,parent]);
         return;
       }
+      if (current?.data_atualizacao && mapped.data_atualizacao &&
+          new Date(String(mapped.data_atualizacao)).getTime()<new Date(current.data_atualizacao).getTime())
+        mapped.data_atualizacao=new Date(current.data_atualizacao).toISOString();
       await upsert(this.db, schemas[0].table, mapped, ['company_id','id_m8']);
       for (const documentId of fiscalDocumentIds) {
         await this.db.query(`INSERT INTO public.m8_os_documentos_fiscais(company_id,ordem_servico_id,documento_fiscal_id)

@@ -1,4 +1,5 @@
 "use client";
+import "./rental-equipment.css";
 import { matchesSearch } from "@/lib/filters";
 
 import { orderPreventivePlans, nextPreventivePlanId } from "@/lib/equipment-management/plan-order";
@@ -134,7 +135,7 @@ function EquipmentPhoto({ id, name }: { id: string; name: string }) {
     </div>
   );
 }
-function RentalBadge({ status }: { status: any }) {
+function RentalBadge({ status, compact = false }: { status: any; compact?: boolean }) {
   if (!status) return null;
   return (
     <span className="equipment-rental-context">
@@ -151,7 +152,7 @@ function RentalBadge({ status }: { status: any }) {
       {status.stockNote && (
         <span className="equipment-stock-note">· {status.stockNote}</span>
       )}
-      {status.order && status.key !== "available" && (
+      {!compact && status.order && status.key !== "available" && (
         <span
           className="equipment-rental-customer"
           title={`Cliente da OS ${status.order}`}
@@ -752,7 +753,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
   return (
     <EquipmentTaskProvider>
       <SiteHeader active={section === "preventivas" ? "equipmentPreventives" : section === "locacao" ? "equipmentRental" : section === "clientes" ? "equipmentClients" : "equipment"} email={result?.email} />
-      <main className="equipment-page catalog-settings">
+      <main className={`equipment-page catalog-settings${rentalOnly ? " rental-fleet-page" : ""}`}>
         <section className="manual-card">
           <h1>{sectionInfo?.title || "Equipamentos"}</h1>
           {(!section||section==="preventivas")&&<nav className="catalog-editor-actions" aria-label="Controles"><a href="/equipamentos/preventivas" aria-current="page">Controle de Manutenções</a><a href="/equipamentos/inspecoes">Controle de Inspeções</a></nav>}
@@ -812,7 +813,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
         )}
         {message && <p role="status">{message}</p>}
         {!selected ? (
-          <section className="manual-card">
+          <section className="manual-card rental-fleet-panel">
             {(!section || section === "locacao") && <nav
               className="equipment-view-tabs app-section-tabs"
               aria-label="Visão dos equipamentos"
@@ -866,7 +867,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                       setPage(1);
                     }}
                   >
-                    {label} <strong>{count}</strong>
+                    <span>{label}</span> <strong>{count}</strong>
                   </button>
                 ))}
                 <small>Quantidades conforme os demais filtros da lista.</small>
@@ -990,15 +991,16 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
             </nav>
             {equipmentView === "clients" && <p className="equipment-group-hint">{clientGroups.length} grupos · Equipamentos com mais de um vínculo aparecem em cada cliente. Quantidades conforme os filtros selecionados.</p>}
             {loading && <p role="status">Consultando equipamentos…</p>}
-            <div className="equipment-table">
+            {rentalOnly && <div className="fleet-list-heading"><div><h2>Equipamentos da frota</h2><p>Consulte a localização, os contratos e a manutenção de cada máquina.</p></div><span>{result?.total || 0} equipamentos encontrados</span></div>}
+            <div className={`equipment-table${rentalOnly ? " fleet-table" : ""}`}>
               <table>
                 <thead>
                   <tr>
                     <th>Equipamento / modelo</th>
-                    <th>Número de série</th>
-                    <th>Cliente atribuído</th>
-                    <th>Última OS vinculada</th>
-                    <th>Preventiva prioritária</th>
+                    {!rentalOnly && <th>Número de série</th>}
+                    <th>{rentalOnly ? "Cliente / localização" : "Cliente atribuído"}</th>
+                    {!rentalOnly && <th>Última OS vinculada</th>}
+                    <th>{rentalOnly ? "Manutenção" : "Preventiva prioritária"}</th>
                     <th>Situação</th>
                     <th>Ações</th>
                   </tr>
@@ -1006,7 +1008,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                 <tbody>
                   {displayRows.map((e: any) => e.group ? (
                     <tr key={e.key} className="equipment-client-group">
-                      <td colSpan={7}>
+                      <td colSpan={rentalOnly ? 5 : 7}>
                         <button type="button" aria-expanded={expandedClients.has(e.group.id)} onClick={() => setExpandedClients(previous => {
                           const next = new Set(previous);
                           if (next.has(e.group.id)) next.delete(e.group.id); else next.add(e.group.id);
@@ -1022,14 +1024,15 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                       </td>
                     </tr>
                   ) : (
-                    <tr key={e.key || e.id}>
-                      <td>
+                    <tr key={e.key || e.id} className="fleet-equipment-row">
+                      <td data-label="Equipamento">
                         <div className="equipment-identity">
                           {rentalOnly && (
                             <EquipmentPhoto id={e.id} name={e.name} />
                           )}
                           <div>
                             <strong>{e.name}</strong>{e.workshop&&<small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>{e.rental ? "Em Revisão" : "Em Oficina"} · {e.workshop.workshop}</small>}{!e.workshop && e.rentalStatus?.key === "available" && <small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>Disponível · {e.location || (e.rental ? "RJ Compressores" : "Localização não informada")}</small>}
+                            {rentalOnly && <span className="fleet-serial">Série <b>{e.serial || "Não informada"}</b></span>}
                             <small>
                               {e.brand || "Marca não informada"} ·{" "}
                               {e.model || "Modelo não informado"} · Cód. {e.id}
@@ -1053,17 +1056,18 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                           </div>
                         </div>
                       </td>
-                      <td>{e.serial || "Não informada"}</td>
-                      <td>
-                        {e.clients.length
+                      {!rentalOnly && <td>{e.serial || "Não informada"}</td>}
+                      <td data-label="Cliente / localização">
+                        {rentalOnly && e.rentalStatus?.customer ? <strong className="fleet-customer">{e.rentalStatus.customer}</strong> : e.clients.length
                           ? e.clients.map((c: any) => (
                               <small key={c.id}>
                                 {c.name || `Cliente ${c.id}`}
                               </small>
                             ))
-                          : "Sem vínculo no cadastro"}
+                          : <span className="fleet-empty">{rentalOnly ? "Sem cliente atribuído" : "Sem vínculo no cadastro"}</span>}
+                        {rentalOnly && !e.workshop && e.rentalStatus?.key !== "available" && <small className="fleet-location">{e.workshop?.workshop || e.location || "RJ Compressores"}</small>}
                       </td>
-                      <td>
+                      {!rentalOnly && <td>
                         {e.latest ? (
                           <>
                             <OrderLink
@@ -1077,21 +1081,22 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                         ) : (
                           "Sem OS vinculada"
                         )}
-                      </td>
-                      <td>
+                      </td>}
+                      <td data-label="Manutenção">
                         <Forecast value={e.forecast} />
+                        {rentalOnly && <details className="fleet-order-details"><summary>Última OS</summary>{e.latest ? <div><OrderLink id={e.latest.order_id} company={e.latest.company_id}/><small>{date(e.latest.date)} · {e.latest.status}</small><small>{e.latest.tipo_nome}</small></div> : <small>Sem OS vinculada</small>}</details>}
                       </td>
-                      <td className="equipment-situation-cell">
+                      <td className="equipment-situation-cell" data-label="Situação / contrato">
                         {e.rental ? (
                           <>
-                            <RentalBadge status={e.rentalStatus} />
+                            <RentalBadge status={e.rentalStatus} compact={rentalOnly} />
                             <EquipmentTaskLinks equipment={String(e.id)} />
                           </>
                         ) : (
                           "—"
                         )}
                       </td>
-                      <td>
+                      <td data-label="Ações">
                         <div className="order-row-actions equipment-row-actions">
                         <button
                           type="button"
@@ -1116,10 +1121,11 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                         </button>
                         <CreateLinkedTask equipmentId={String(e.id)}/>
                         </div>
-                        <small className="equipment-plan-updated" title="Última alteração entre os planos preventivos ativos deste equipamento">
+                        {rentalOnly && <details className="fleet-plan-audit"><summary>Atualização dos planos</summary><small>{e.plansUpdatedAt ? new Date(e.plansUpdatedAt).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo"}) : "Sem alteração registrada"}</small>{e.plansUpdatedAt && <small>{e.lastModifiedPlanName || "Plano preventivo"} · {e.plansUpdatedBy || "Não informado"}</small>}</details>}
+                        {!rentalOnly && <small className="equipment-plan-updated" title="Última alteração entre os planos preventivos ativos deste equipamento">
                           {e.plansUpdatedAt ? `Planos atualizados: ${new Date(e.plansUpdatedAt).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo",dateStyle:"short",timeStyle:"short"})}` : "Planos: sem alteração registrada"}
                           {e.plansUpdatedAt && <><br />{e.lastModifiedPlanName || "Plano preventivo"}<br />Por: {e.plansUpdatedBy || "Não informado"}</>}
-                        </small>
+                        </small>}
                       </td>
                     </tr>
                   ))}

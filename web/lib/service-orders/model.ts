@@ -55,15 +55,9 @@ export function parseOrder(value: unknown, editing = false): OrderDraft {
     flowStatus: "o Status Fluxo",
   }))
     if (
-      editing &&
-      [
-        "equipment",
-        "serviceType",
-        "origin",
-        "situation",
-        "flowStatus",
-      ].includes(k) &&
-      !b[k]
+      !b[k] &&
+      (k === "origin" ||
+        (editing && ["equipment", "serviceType", "situation", "flowStatus"].includes(k)))
     )
       out[k] = "";
     else out[k] = String(positiveId(b[k], label));
@@ -98,15 +92,16 @@ export function parseOrder(value: unknown, editing = false): OrderDraft {
     out[k] = d;
   }
   for (const k of ["notes", "internalNotes"]) {
+    const value = k === "internalNotes" && b[k] == null ? "" : b[k];
     if (
-      typeof b[k] !== "string" ||
-      (!editing && !(b[k] as string).trim()) ||
-      (b[k] as string).length > 20000
+      typeof value !== "string" ||
+      (!editing && k === "notes" && !value.trim()) ||
+      value.length > 20000
     )
       throw new OrderInputError(
-        "Preencha as observações e observações internas (até 20.000 caracteres).",
+        k === "notes" ? "Preencha as observações (até 20.000 caracteres)." : "Use até 20.000 caracteres nas observações internas.",
       );
-    out[k] = (b[k] as string).trim();
+    out[k] = (value as string).trim();
   }
   if (!Array.isArray(b.items) || b.items.length > 200)
     throw new OrderInputError("Use até 200 produtos e serviços.");

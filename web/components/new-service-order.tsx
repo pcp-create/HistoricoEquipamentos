@@ -358,7 +358,7 @@ export default function NewServiceOrder({
     <label>
       <span className="os-field-title">
         {label}{" "}
-        {key !== "technician" &&
+        {key !== "technician" && key !== "origin" &&
           (!editing ||
             ["type", "customer", "payment", "seller"].includes(key)) && (
             <b>*</b>
@@ -704,10 +704,9 @@ export default function NewServiceOrder({
                   </label>
                   <label className="os-wide">
                     <span className="os-field-title">
-                      Observações Internas {!editing && <b>*</b>}
+                      Observações Internas
                     </span>
                     <textarea
-                      required={!editing}
                       maxLength={20000}
                       rows={4}
                       value={form.internalNotes}

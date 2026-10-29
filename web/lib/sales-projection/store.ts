@@ -1,4 +1,5 @@
 import "server-only";
+import { effectiveStage, stages } from "../workshop/model";
 import { attachLinkedOrders } from "./order-links";
 import { historyScheduleStatuses } from "../service-scheduling/history-status";
 import { database } from "../db";
@@ -54,26 +55,42 @@ export async function salesProjection(period: string) {
     detail.programming = schedules.get(`${detail.fields?.sourceCompany || detail.company}:${detail.id}`);
   }
   // Same active visit and explicit equipment links used by the Workshop panel.
-  const workshopOrders = await db.query<{ company: string; id: string }>(`
-    SELECT DISTINCT o.company_id::text company, o.id_m8::text id
-    FROM m8_ordens_servico o
-    JOIN jsonb_to_recordset($1::jsonb) k(company_id bigint, order_id bigint)
-      ON k.company_id=o.company_id AND k.order_id=o.id_m8
-    WHERE EXISTS (
-      SELECT 1 FROM web_workshop_visits v
-      WHERE v.exited_at IS NULL AND v.reconciled_out_at IS NULL
-        AND (v.equipment_id=o.produto_equipamento_id OR EXISTS (
-          SELECT 1 FROM m8_order_equipment_links l
-          WHERE l.company_id=o.company_id AND l.order_id=o.id_m8
-            AND l.equipment_id=v.equipment_id AND NOT l.stale
-        ))
-    )`, [JSON.stringify(sales.map((detail) => ({
-      company_id: Number(detail.fields?.sourceCompany || detail.company), order_id: detail.id,
-    })))]);
-  const inWorkshop = new Set(workshopOrders.rows.map((row) => `${row.company}:${row.id}`));
+  const workshopOrders = await db.query<{
+    company: string; id: string; visit: string; workshop: string; stage: string;
+    source: {sheet?: string}; flows: {status_lancamento_nome: string}[];
+  }>(`
+    SELECT DISTINCT ON(k.company_id,k.order_id) k.company_id::text company,k.order_id::text id,
+      v.id::text visit,w.name workshop,v.stage,v.source,
+      COALESCE((SELECT jsonb_agg(jsonb_build_object('status_lancamento_nome',related.status_lancamento_nome))
+        FROM m8_ordens_servico related
+        WHERE related.status IN('Pendente','Aprovado') AND (
+          related.produto_equipamento_id=v.equipment_id OR EXISTS (
+            SELECT 1 FROM m8_order_equipment_links el WHERE el.company_id=related.company_id
+              AND el.order_id=related.id_m8 AND el.equipment_id=v.equipment_id AND NOT el.stale
+          )
+        )), '[]'::jsonb) flows
+    FROM jsonb_to_recordset($1::jsonb) k(company_id bigint,order_id bigint)
+    JOIN m8_ordens_servico o ON o.company_id=k.company_id AND o.id_m8=k.order_id
+    JOIN web_workshop_visits v ON v.exited_at IS NULL AND v.reconciled_out_at IS NULL AND (
+      v.equipment_id=o.produto_equipamento_id OR EXISTS (
+        SELECT 1 FROM m8_order_equipment_links l WHERE l.company_id=o.company_id
+          AND l.order_id=o.id_m8 AND l.equipment_id=v.equipment_id AND NOT l.stale
+      )
+    )
+    LEFT JOIN web_workshops w ON w.id=v.workshop_id
+    ORDER BY k.company_id,k.order_id,v.entered_at DESC,v.id
+  `, [JSON.stringify(sales.map(detail => ({
+    company_id: Number(detail.fields?.sourceCompany || detail.company), order_id: detail.id,
+  })))]);
+  const workshopByOrder = new Map(workshopOrders.rows.map(row => [`${row.company}:${row.id}`,row]));
   for (const detail of sales) {
-    if (detail.fields) detail.fields.inWorkshop =
-      inWorkshop.has(`${detail.fields.sourceCompany || detail.company}:${detail.id}`) ? "Sim" : "Não";
+    const visit = workshopByOrder.get(`${detail.fields?.sourceCompany || detail.company}:${detail.id}`);
+    if (detail.fields) detail.fields.inWorkshop = visit ? "Sim" : "Não";
+    if (visit) {
+      const stage = effectiveStage(visit.stage,visit.flows,visit.source);
+      const option = stages.find(s => s.id === stage);
+      detail.workshop = { visit: visit.visit, name: visit.workshop, stage, label: option?.label || stage, color: option?.color || "#547c99" };
+    }
   }
   await attachLinkedOrders(sales);
   const dates = sync.rows.map((r) => new Date(r.collected_at).getTime());

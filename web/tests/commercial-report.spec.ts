@@ -64,6 +64,7 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
       id: "101",
       kind: "salesPending",
       name: "Cliente pendente",
+      workshop: {visit:"visit-1",name:"RJ Compressores",stage:"repair",label:"Em execução",color:"#237ca3"},
       linkedOrder: { company: 2, id: "901", number: "15901", orderType: "Revisão vinculada", flowStatus: "Aguardando aprovação vinculada" },
       date: "2026-10-30",
       amount: 100,
@@ -132,6 +133,8 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
   await page.goto("/report-test?period=2026-10");
   await page.locator(".cr-filter-panel > summary").click();
   await expect(page.locator(".cr-table tbody tr")).toHaveCount(2);
+  await expect(page.locator(".cr-workshop-stage")).toContainText("Em execução");
+  await expect(page.locator(".cr-workshop-stage")).toHaveAttribute("href","/oficina");
   const linkedComments = page.locator(".cr-table tbody tr").filter({has: page.getByRole("link",{name:"Editar OS 101",exact:true})}).locator(".cr-linked-order-comment");
   await expect(linkedComments).toHaveCount(3);
   await expect(linkedComments.nth(0)).toContainText("OS-15901");

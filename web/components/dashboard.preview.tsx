@@ -205,7 +205,7 @@ export default function Dashboard() {
     const params = new URLSearchParams(window.location.search);
     const createdCompany = params.get("createdCompany"), createdOrder = params.get("createdOrder");
     if (createdCompany && ["1","2","27404"].includes(createdCompany) && createdOrder && /^[1-9]\d{0,9}$/.test(createdOrder))
-      setSelection({company_id:Number(createdCompany),id:createdOrder,number:""});
+      setSelection({company_id:Number(createdCompany),id:createdOrder,number:createdOrder});
     const input = { ...initial };
     for (const key of Object.keys(input) as (keyof Inputs)[])
       input[key] = params.get(key) || "";
@@ -1109,7 +1109,7 @@ export function OrderDetails({
             <span className="eyebrow">
               ORDEM DE SERVIÇO · {companyName(selection?.company_id)}
             </span>
-            <h2>{detail?.order.numero_sequencia ? `OS-${String(detail.order.numero_sequencia).padStart(5,"0")}` : selection.number ? `OS-${selection.number.padStart(5,"0")}` : "Nova Ordem de Serviço"} <CreateLinkedTask orderStatus={detail ? String(detail.order.status || "") : undefined} orderId={selection.id} orderCompany={selection.company_id} number={String(detail?.order.numero_sequencia || selection.number)}/></h2>
+            <h2>{detail?.order.numero_sequencia ? `OS-${String(detail.order.numero_sequencia).padStart(5,"0")}` : selection.number ? `OS-${selection.number.padStart(5,"0")}` : `OS-${selection.id.padStart(5,"0")}`} <CreateLinkedTask orderStatus={detail ? String(detail.order.status || "") : undefined} orderId={selection.id} orderCompany={selection.company_id} number={String(detail?.order.numero_sequencia || selection.number || selection.id)}/></h2>
             <OrderLinkCaption company={selection.company_id} id={selection.id}/>
           </div>
           <button

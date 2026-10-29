@@ -138,6 +138,16 @@ export function toEditDraft(
     ),
   };
 }
+export async function resolveEditEquipment(source: any, company: string, id: string, session = m8Session) {
+  const direct = source.equipamentoProduto?.equipamentoProdutoId || source.produtoEquipamentoId;
+  if (direct) return { id: text(direct), name: text(source.equipamento) };
+  if (!source.equipamentoProduto?.equipamentoId) return { id: "", name: text(source.equipamento) };
+  const m8 = await session(Number(company));
+  const rows = await m8(`/v1/assistenciatecnica/ordemservico?Id=${id}&Page=1&PageSize=1`);
+  if (!Array.isArray(rows) || rows.length !== 1 || text(rows[0]?.id) !== id || !rows[0].produtoEquipamentoId)
+    throw new OrderInputError("Não foi possível identificar o equipamento atual da OS. Confira o cadastro no M8 antes de editar.");
+  return { id: text(rows[0].produtoEquipamentoId), name: text(rows[0].equipamento) };
+}
 export async function loadEdit(company: string, id: string) {
   const source = await readEditSource(company, id);
   const users = (
@@ -145,19 +155,16 @@ export async function loadEdit(company: string, id: string) {
       "SELECT email,m8_employee_id FROM web_user_access WHERE enabled AND m8_employee_id IS NOT NULL",
     )
   ).rows;
+  const equipment = await resolveEditEquipment(source, company, id);
+  const catalog = equipment.id ? (await database().query("SELECT name,model,serial FROM m8_equipment_catalog WHERE equipment_id=$1", [equipment.id])).rows[0] : null;
   return {
     version: fingerprint(source),
     number: text(source.numeroSequencia || source.id),
-    draft: toEditDraft(source, company, users),
+    draft: { ...toEditDraft(source, company, users), equipment: equipment.id },
     names: {
       customer: text(source.clienteNome),
-      equipment: [
-        source.equipamento,
-        source.modeloEquipamento,
-        source.numeroSerie,
-      ]
-        .filter(Boolean)
-        .join(" - "),
+      equipment: equipment.name || (catalog ? [catalog.name,catalog.model,catalog.serial].filter(Boolean).join(" · ") : equipment.id ? `Equipamento ${equipment.id}` : ""),
+
     },
     technicianOption: source.responsavelTecnicoId
       ? {
@@ -277,7 +284,7 @@ export async function prepareEdit(
       "SELECT email,m8_employee_id FROM web_user_access WHERE enabled AND m8_employee_id IS NOT NULL",
     )
   ).rows;
-  const initial = toEditDraft(source, company, users);
+  const initial = { ...toEditDraft(source, company, users), equipment: (await resolveEditEquipment(source, company, orderId, session)).id };
   const reason = typeof (input as any)?.deliveryChangeReason === "string" ? (input as any).deliveryChangeReason.trim() : "";
   if (draft.expected !== initial.expected && (!reason || reason.length > 2000))
     throw new OrderInputError("Informe uma justificativa de até 2.000 caracteres para alterar a entrega prevista.");

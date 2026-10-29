@@ -109,3 +109,11 @@ test('slow details cannot overwrite a newer fast header or clear its queue', asy
   assert.equal((await db.query<{date:string}>("SELECT payload->>'dataEntregaPrevista' AS date FROM m8_ordens_servico")).rows[0]!.date,'2026-11-19T03:00:00');
   assert.equal((await db.query<{pending:boolean}>('SELECT pending FROM integracao_m8_os_sync')).rows[0]!.pending,true);
 });
+
+test('second-precision ERP timestamps still update status over stored milliseconds', async () => {
+  await repo.ingestHeaders(summaryHeaders({data:[{...header,status:'Pendente',dataAtualizacao:'2026-10-29T12:06:24.313'}]}),new Date());
+  await repo.ingestHeaders(summaryHeaders({data:[{...header,status:'Processado',dataAtualizacao:'2026-10-29T12:06:24'}]}),new Date());
+  assert.equal((await db.query<{status:string}>('SELECT status FROM m8_ordens_servico')).rows[0]!.status,'Processado');
+  await repo.ingestHeaders(summaryHeaders({data:[{...header,status:'Pendente',dataAtualizacao:'2026-10-29T12:06:24.100'}]}),new Date());
+  assert.equal((await db.query<{status:string}>('SELECT status FROM m8_ordens_servico')).rows[0]!.status,'Processado');
+});

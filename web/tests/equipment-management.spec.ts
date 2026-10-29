@@ -220,6 +220,7 @@ test("rental views show a compact photo carousel, popup and separate situation c
   await expect(page.getByRole("button", { name: "Gerenciar" })).toBeVisible();
   expect(photos).toBe(0);
   const initial = reads;
+  await page.locator(".equipment-search-filter-panel > summary").click();
   await page
     .getByPlaceholder("Nome, modelo, série, cliente ou código")
     .fill("inexistente");
@@ -233,6 +234,7 @@ test("rental views show a compact photo carousel, popup and separate situation c
   expect(reads).toBe(initial);
 
   await page.getByRole("button", { name: /^Máquinas de Locação \(/ }).click();
+  await page.locator(".equipment-photo-slot").scrollIntoViewIfNeeded();
   await expect(
     page.getByRole("button", { name: "Ampliar foto 1", exact: true }),
   ).toBeVisible();
@@ -326,4 +328,33 @@ test('equipment submodules open preventive, rental and customer views',async({pa
  await expect(page.getByRole('heading',{name:'Controle de Manutenções',exact:true})).toBeVisible();
  await expect(page.getByRole('link',{name:'Relatório semanal (PDF)',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:/Máquinas de Locação/})).toHaveCount(0);
+});
+
+test("rental fleet consultation is organized and usable on desktop and mobile", async ({page,context}) => {
+ await context.addCookies([{name:"m8-access",value:"test",domain:"localhost",path:"/"}]);
+ const base={rental:true,clients:[],plans:0,brand:"ATLAS COPCO",model:"GA55",serial:"BQ123456",ownership:"own"};
+ const rows=[
+  {...base,id:"100",name:"COMPRESSOR DE PARAFUSO GA55",location:"Filial Serrana",rentalStatus:{key:"available",label:"Disponível"}},
+  {...base,id:"101",name:"COMPRESSOR ROTORPLUS 15",rentalStatus:{key:"available",label:"Disponível"}},
+  {...base,id:"102",name:"COMPRESSOR GA75 VSD",rentalStatus:{key:"rented",label:"Locado",customer:"Indústria de Alimentos Santa Clara",order:"12000",company:1,contract:{key:"overdue",label:"Vencido",start:"2026-07-01",end:"2026-10-01",duration:92,remaining:-28}},latest:{order_id:"12000",company_id:1,date:"2026-07-01",tipo_nome:"8 - EQUIPAMENTOS LOCADOS",status:"Pendente"}},
+  {...base,id:"103",name:"COMPRESSOR METALPLAN ROTOR 15",workshop:{workshop:"RJ Compressores"},rentalStatus:{key:"in_review",label:"Em Revisão"}}
+ ];
+ await page.route("**/api/activity",r=>r.fulfill({json:{admin:false}}));
+ await page.route("**/api/equipment-management*",r=>r.fulfill({json:{rows,email:"test@example.com",counts:{equipment:4,unplanned:4}}}));
+ await page.route("**/api/products/*/*/images",r=>r.fulfill({json:{images:[],unsupported:0}}));
+ await page.goto("/equipamentos/locacao");
+ await expect(page.locator(".fleet-equipment-row")).toHaveCount(4);
+ await expect(page.locator(".fleet-table th")).toHaveCount(5);
+ await expect(page.getByText("Disponível · Filial Serrana",{exact:true})).toBeVisible();
+ await expect(page.getByText("Disponível · RJ Compressores",{exact:true})).toBeVisible();
+ await expect(page.getByText("Indústria de Alimentos Santa Clara",{exact:true})).toBeVisible();
+ await page.screenshot({path:"test-results/rental-fleet-desktop.png",fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ const cells = await page.locator(".fleet-equipment-row").first().locator("td").evaluateAll(nodes => nodes.map(node => {const r=node.getBoundingClientRect();return {top:r.top,bottom:r.bottom};}));
+ expect(cells[1].top).toBeGreaterThanOrEqual(cells[0].bottom-1);
+ expect(cells[3].top).toBeGreaterThanOrEqual(Math.max(cells[1].bottom,cells[2].bottom)-1);
+ await page.screenshot({path:"test-results/rental-fleet-mobile.png",fullPage:true});
+ await page.getByRole("group",{name:"Status das máquinas de locação"}).getByRole("button",{name:"Disponível 2",exact:true}).click();
+ await expect(page.locator(".fleet-equipment-row")).toHaveCount(2);
 });

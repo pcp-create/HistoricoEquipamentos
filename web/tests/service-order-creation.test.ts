@@ -67,11 +67,13 @@ test("validates required headers, dates, item IDs, quantities and totals", () =>
 
   assert.equal(parseOrder({ ...draft, freight: "0" }).freight, "0");
   assert.throws(() => parseOrder({ ...draft, freight: "" }));
+  assert.equal(parseOrder({...draft,origin:"",internalNotes:""}).origin,"");
+  assert.equal(parseOrder({...draft,origin:"",internalNotes:""}).internalNotes,"");
+  assert.throws(() => parseOrder({...draft,origin:"inválida"}));
   for (const change of [
     { company: "3" },
     { notes: "" },
     { flowStatus: "" },
-    { internalNotes: "" },
     { equipment: "1.5" },
     { expected: "2026-02-30" },
     { items: [{ ...draft.items[0], quantity: "0" }] },
@@ -208,6 +210,8 @@ test("creation uses customer equipment rule, persists progress, isolates users a
     await prepareOrder("optional-user", withoutTech, {
       ...draft,
       technician: "",
+      origin: "",
+      internalNotes: "",
     });
     const optional = (
       await db.query<any>(
@@ -216,6 +220,8 @@ test("creation uses customer equipment rule, persists progress, isolates users a
       )
     ).rows[0];
     assert.ok(!("responsavelTecnicoId" in optional.header));
+    assert.ok(!("origemId" in optional.header));
+    assert.equal(optional.header.observacaoInterna,"");
     assert.ok(!("tecnicoId" in optional.items[0].payload));
     assert.ok(
       !(

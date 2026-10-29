@@ -10,6 +10,7 @@ import {
   toEditDraft,
   fingerprint,
   deliveryHistory,
+  resolveEditEquipment,
 } from "../lib/service-orders/edit";
 import { M8RequestError } from "../lib/service-orders/m8";
 import { processedOrder } from "../lib/service-orders/edit-status";
@@ -91,6 +92,11 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
     assert.equal(processedOrder("Processada"), true);
     assert.equal(processedOrder("Processado"), true);
     const draft = toEditDraft(source, "2");
+    const legacyEquipment = await resolveEditEquipment({equipamentoProduto:{equipamentoId:2383}}, "2", "800", (async()=>async()=>[{id:800,produtoEquipamentoId:23434,equipamento:"2383 - Compressor R160N"}]) as any);
+    assert.equal(legacyEquipment.id,"23434");
+    assert.equal(legacyEquipment.name,"2383 - Compressor R160N");
+    await assert.rejects(resolveEditEquipment({equipamentoProduto:{equipamentoId:2383}},"2","800",(async()=>async()=>[{id:801,produtoEquipamentoId:23434}]) as any), /equipamento atual/);
+
     assert.equal(draft.technician, "m8:99");
     assert.equal(draft.items[0].id, "101");
     const dateEditId = randomUUID();

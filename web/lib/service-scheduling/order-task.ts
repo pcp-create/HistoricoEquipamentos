@@ -27,7 +27,7 @@ export async function createOrderTask(body:any,email:string){
   const order=(await c.query('SELECT numero_sequencia FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2',[schedule.company_id,schedule.order_id])).rows[0];
   const result=await createTask({title:`Tarefa da OS ${order?.numero_sequencia||schedule.order_id}`,description:input.description,assignedTo:input.assignedTo,priority:'normal',dueDate:'',orderCompany:String(schedule.company_id),orderId:String(schedule.order_id)}, {id:email,email,user_metadata:{display_name:user.display_name||email}},c);
   const taskId=String(result.task.id);
-  await c.query('UPDATE web_tasks SET source_key=$2 WHERE id=$1',[taskId,source]);
+  await c.query("UPDATE web_tasks SET source_key=$2,origin='Revisão de relatório' WHERE id=$1",[taskId,source]);
   await c.query('INSERT INTO web_task_attachments(task_id,filename,content_type,content,created_by,created_name) VALUES($1,$2,$3,$4,$5,$6)',[taskId,pdf.filename,'application/pdf',Buffer.from(pdf.bytes),email,user.display_name||email]);
   await c.query('COMMIT');return {taskId};
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}

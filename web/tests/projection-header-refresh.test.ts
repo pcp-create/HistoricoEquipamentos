@@ -16,5 +16,10 @@ test("web header refresh compares ERP local timestamps in the same zone as the i
   await refreshProjectionOrder(1,"15151",session("2026-10-27T16:00:00","2026-10-31T03:00:00") as any);
   row=(await db.query<any>("SELECT * FROM m8_ordens_servico")).rows[0];
   assert.equal(row.payload.dataEntregaPrevista,"2026-11-19T03:00:00");
+
+  await db.query("UPDATE m8_ordens_servico SET data_atualizacao='2026-10-29T15:06:24.313Z'");
+  const processed=async()=>async()=>[{id:15151,status:"Processado",totalGeral:10,dataAtualizacao:"2026-10-29T12:06:24"}];
+  await refreshProjectionOrder(1,"15151",processed as any);
+  assert.equal((await db.query<any>("SELECT status FROM m8_ordens_servico")).rows[0].status,"Processado");
  }finally{g.historyPool=old;await db.close();}
 });

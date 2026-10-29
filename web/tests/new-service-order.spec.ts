@@ -24,7 +24,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
         order: {
           company_id: 2,
           id_m8: "800",
-          numero_sequencia: "15099",
+          numero_sequencia: null,
           cliente_nome: "Cliente recém criado",
         },
         materials: [],
@@ -195,7 +195,6 @@ test("new OS selects company, filters equipment, fills seller and submits header
   await choose("Tipo Atendimento", "1");
   await expect(page.getByLabel("Prazo Garantia")).toHaveValue("90 dias");
   for (const label of [
-    "Origem Atendimento",
     "Condição de Pagamento",
     "Situação Ordem Serviço",
   ])
@@ -214,7 +213,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
   await page
     .getByLabel("Observações *", { exact: true })
     .fill("Teste de observação");
-  await page.getByLabel("Observações Internas").fill("Teste interno");
+  await expect(page.getByLabel("Observações Internas")).not.toHaveAttribute("required","");
   await page.getByLabel("Contato", { exact: true }).fill("Contato técnico");
   await page
     .getByText("Outras informações (opcionais)", { exact: true })
@@ -248,11 +247,13 @@ test("new OS selects company, filters equipment, fills seller and submits header
   await page.getByRole("button", { name: "Criar OS no M8" }).click();
   await expect(page).toHaveURL(/\/historico\?/, {timeout:30000});
   await expect(page.getByRole("dialog")).toBeVisible();
-  await expect(page.getByRole("heading", { name: /OS-15099/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /OS-00800/ })).toBeVisible();
   await expect(
     page.getByRole("heading", {name:"Cliente recém criado", exact:true}),
   ).toBeVisible();
   expect(saved.company).toBe("2");
+  expect(saved.origin).toBe("");
+  expect(saved.internalNotes).toBe("");
   expect(saved.extra.contato).toBe("Contato técnico");
   expect(saved.freight).toBe("0");
   expect(saved.items).toHaveLength(2);
