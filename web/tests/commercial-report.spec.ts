@@ -64,6 +64,7 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
       id: "101",
       kind: "salesPending",
       name: "Cliente pendente",
+      linkedOrder: { company: 2, id: "901", number: "15901", orderType: "Revisão vinculada", flowStatus: "Aguardando aprovação vinculada" },
       date: "2026-10-30",
       amount: 100,
       fields: {
@@ -131,6 +132,12 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
   await page.goto("/report-test?period=2026-10");
   await page.locator(".cr-filter-panel > summary").click();
   await expect(page.locator(".cr-table tbody tr")).toHaveCount(2);
+  const linkedComments = page.locator(".cr-table tbody tr").filter({has: page.getByRole("link",{name:"Editar OS 101",exact:true})}).locator(".cr-linked-order-comment");
+  await expect(linkedComments).toHaveCount(3);
+  await expect(linkedComments.nth(0)).toContainText("OS-15901");
+  await expect(linkedComments.nth(1)).toContainText("Revisão vinculada");
+  await expect(linkedComments.nth(2)).toContainText("Aguardando aprovação vinculada");
+  await expect(page.locator(".cr-table tbody tr").filter({hasText:"Cliente faturado"}).locator(".cr-linked-order-comment")).toHaveCount(0);
   const originalDraft = { expected: "2026-10-20", flowStatus: "18", notes: "Preservar", items: [] };
   const submittedDrafts: any[] = [];
   await page.route("**/api/service-orders**", (route) => {
@@ -153,11 +160,14 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
     await page.getByRole("button", { name: `Editar ${label} da OS 101`, exact: true }).click();
     const editor = page.locator(".cr-quick-dialog");
     await expect(editor).toBeVisible();
-    if (field === "expected") await editor.getByLabel(label, { exact: true }).fill(value);
+    if (field === "expected") {
+      await editor.getByLabel(label, { exact: true }).fill(value);
+      await editor.getByLabel("Justificativa da alteração", { exact: true }).fill("Aguardando peça");
+    }
     else await editor.getByLabel(label, { exact: true }).selectOption(value);
     await editor.getByRole("button", { name: "Salvar no ERP" }).click();
     await expect(editor).toHaveCount(0);
-    expect(submittedDrafts.at(-1).draft).toEqual({ ...originalDraft, [field]: value });
+    expect(submittedDrafts.at(-1).draft).toEqual({ ...originalDraft, [field]: value, ...(field === "expected" ? { deliveryChangeReason: "Aguardando peça" } : {}) });
     expect(submittedDrafts.at(-1).version).toBe("current-version");
   }
   await expect(page.locator(".cr-table tbody tr").filter({ has: page.getByRole("link", { name: "Editar OS 101", exact: true }) }).locator('[data-column="expected"]')).toContainText("05/11/2026");
@@ -169,6 +179,7 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
   });
   await page.getByRole("button", { name: "Editar Entrega prevista da OS 101", exact: true }).click();
   await page.locator(".cr-quick-dialog").getByLabel("Entrega prevista", { exact: true }).fill("2026-12-01");
+  await page.locator(".cr-quick-dialog").getByLabel("Justificativa da alteração", { exact: true }).fill("Nova previsão do fornecedor");
   await page.locator(".cr-quick-dialog").getByRole("button", { name: "Salvar no ERP" }).click();
   await expect(page.locator(".cr-quick-dialog")).toHaveCount(0);
   await expect(page.getByText("Salvando no ERP…", { exact: true })).toBeVisible();

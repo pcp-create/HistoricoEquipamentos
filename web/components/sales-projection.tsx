@@ -161,7 +161,6 @@ export default function SalesProjection({
           </div>
           <div className="sp-actions">
             <Link className="button" href="/comercial/resumo">Resumo gerencial</Link>
-            <Link className="button" href="/comercial/parciais">Parciais e movimentações</Link>
             <button
               className="button"
               onClick={exportCsv}

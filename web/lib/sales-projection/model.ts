@@ -22,6 +22,7 @@ export type Detail = {
   sourceKind?: string;
   billing?: BillingCheck;
   programming?: { id?: string; status: string; label: string };
+  linkedOrder?: { company: number; id: string; number: string; orderType: string; flowStatus: string };
   fields?: Record<string, string | number>;
 };
 export type Summary = {

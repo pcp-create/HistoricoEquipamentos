@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import OrderDeliveryHistory from "./order-delivery-history";
 import { X } from "lucide-react";
 import type { Detail } from "@/lib/sales-projection/model";
 import type { OrderDraft } from "@/lib/service-orders/model";
@@ -19,6 +20,7 @@ export default function OrderQuickEdit({ row, field, onClose, onStart, onResult 
   const dialog = useRef<HTMLDialogElement>(null);
   const [source, setSource] = useState<Source | null>(null);
   const [options, setOptions] = useState<{id: string; name: string}[]>([]);
+  const [reason, setReason] = useState("");
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -41,6 +43,7 @@ export default function OrderQuickEdit({ row, field, onClose, onStart, onResult 
   }, [company, row.id, field]);
   async function save() {
     if (!source || busy || submitted) return;
+    if (field === "expected" && !reason.trim()) { setError("Informe a justificativa da alteração."); return; }
     setBusy(true); setError("");
     const id = crypto.randomUUID();
     setSubmitted(true);
@@ -48,7 +51,7 @@ export default function OrderQuickEdit({ row, field, onClose, onStart, onResult 
     onClose();
     try {
       let result = await api("", { action: "edit-prepare", id, company, order: row.id,
-        version: source.version, draft: { ...source.draft, [field]: value } });
+        version: source.version, draft: { ...source.draft, [field]: value, ...(field === "expected" ? {deliveryChangeReason: reason.trim()} : {}) } });
       while (result.state === "ready") result = await api("", { action: "edit-advance", id });
       if (result.state !== "complete") throw new Error(result.message || "Envio não confirmado. Confira a OS no ERP antes de tentar novamente.");
       onResult({
@@ -72,8 +75,10 @@ export default function OrderQuickEdit({ row, field, onClose, onStart, onResult 
             {options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select>}
       </label>
+      {field === "expected" && <label>Justificativa da alteração<textarea required maxLength={2000} value={reason} disabled={busy || submitted} onChange={e => setReason(e.target.value)} placeholder="Explique o motivo da mudança da entrega prevista"/></label>}
       <div className="cr-quick-actions"><button type="button" className="button" disabled={busy} onClick={onClose}>Cancelar</button>
-        <button className="button primary" disabled={busy || submitted || value === source.draft[field]}>{busy ? "Salvando…" : "Salvar no ERP"}</button></div>
+        <button className="button primary" disabled={busy || submitted || value === source.draft[field] || (field === "expected" && !reason.trim())}>{busy ? "Salvando…" : "Salvar no ERP"}</button></div>
     </form>}
+    <OrderDeliveryHistory company={company} order={row.id}/>
   </dialog>;
 }

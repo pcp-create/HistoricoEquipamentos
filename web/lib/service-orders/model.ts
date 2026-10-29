@@ -17,6 +17,7 @@ export type OrderItem = {
   internalNotes?: string;
 };
 export type OrderDraft = {
+  deliveryChangeReason?: string;
   company: string;
   type: string;
   customer: string;

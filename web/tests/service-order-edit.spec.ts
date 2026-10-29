@@ -176,7 +176,7 @@ test("More actions edits non-processed OS, preserves seller and returns to its d
   ).toBeDisabled();
   await expect(
     page.getByRole("combobox", { name: "Vendedor", exact: true }),
-  ).toHaveText("Vendedor atual");
+  ).toHaveValue("Vendedor atual");
   await page
     .getByRole("textbox", { name: "Observações", exact: true })
     .fill("Texto revisado");

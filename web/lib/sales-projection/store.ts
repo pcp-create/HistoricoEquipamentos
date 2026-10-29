@@ -1,4 +1,5 @@
 import "server-only";
+import { attachLinkedOrders } from "./order-links";
 import { historyScheduleStatuses } from "../service-scheduling/history-status";
 import { database } from "../db";
 import { projection, type SourceRow } from "./model";
@@ -74,6 +75,7 @@ export async function salesProjection(period: string) {
     if (detail.fields) detail.fields.inWorkshop =
       inWorkshop.has(`${detail.fields.sourceCompany || detail.company}:${detail.id}`) ? "Sim" : "Não";
   }
+  await attachLinkedOrders(sales);
   const dates = sync.rows.map((r) => new Date(r.collected_at).getTime());
   return {
     ...result,

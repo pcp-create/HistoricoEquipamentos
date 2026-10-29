@@ -10,6 +10,7 @@ import {
   prepareEdit,
   advanceEdit,
   editStatus,
+  deliveryHistory,
 } from "@/lib/service-orders/edit";
 import { OrderInputError } from "@/lib/service-orders/model";
 export const runtime = "nodejs";
@@ -37,7 +38,9 @@ export async function GET(r: Request) {
     const u = await requireUser(),
       p = new URL(r.url).searchParams;
     return json(
-      p.has("edit")
+      p.has("deliveryHistory")
+        ? { rows: await deliveryHistory(p.get("company") || "", p.get("order") || "") }
+        : p.has("edit")
         ? await loadEdit(p.get("company") || "", p.get("order") || "")
         : p.has("editStatus")
           ? await editStatus(u.email, p.get("editStatus") || "")

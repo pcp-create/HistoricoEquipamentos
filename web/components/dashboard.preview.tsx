@@ -1,4 +1,5 @@
 "use client";
+import OrderDeliveryHistory from "./order-delivery-history";
 import {formatOrderDetailDate} from "@/lib/order-detail-dates";
 import OrderLinkCaption from "./order-link-caption";
 import {OrderPendingTaskLinks} from "./tasks-dashboard";
@@ -1130,7 +1131,8 @@ export function OrderDetails({
           </div>
         ) : (
           <div className="drawer-body">
-            <section aria-label="Tarefas pendentes"><h3>Tarefas pendentes da OS</h3><OrderPendingTaskLinks company={selection.company_id} orderId={selection.id}/></section>
+            <OrderPendingTaskLinks company={selection.company_id} orderId={selection.id} compact/>
+            <OrderDeliveryHistory key={`delivery-history:${selection.company_id}:${selection.id}`} company={String(selection.company_id)} order={selection.id}/>
             <div className="detail-summary">
               <Badge status={String(detail.order.status || "")} />
               <span>
@@ -1337,7 +1339,7 @@ export function OrderDetails({
               </p>
             )}
             <OrderAmounts
-              key={`${selection?.company_id}:${selection?.id}`}
+              key={`order-amounts:${selection?.company_id}:${selection?.id}`}
               detail={detail}
             />
             <details className="all-fields">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Save, Trash2, RefreshCw, Plus } from "lucide-react";
 import SiteHeader from "./site-header";
 import OrderSearchSelect from "./order-search-select";
+import OrderDeliveryHistory from "./order-delivery-history";
 import CurrencyInput from "./currency-input";
 import QuoteCatalogPicker from "./quote-catalog-picker";
 import type { QuoteItem } from "@/lib/quotes/types";
@@ -242,6 +243,8 @@ export default function NewServiceOrder({
     setError("");
     try {
       parseOrder(form, Boolean(editing));
+      if (editing && editData && form.expected !== editData.draft.expected && !form.deliveryChangeReason?.trim())
+        throw new Error("Informe a justificativa da alteração da entrega prevista.");
     } catch (e) {
       setTab("header");
       setError(e instanceof Error ? e.message : "Confira os campos.");
@@ -652,6 +655,8 @@ export default function NewServiceOrder({
                       onChange={(e) => set("expected", e.target.value)}
                     />
                   </label>
+                  {editing && editData && form.expected !== editData.draft.expected && <label>Justificativa da alteração da entrega prevista <b>*</b><textarea required maxLength={2000} value={form.deliveryChangeReason || ""} onChange={e => set("deliveryChangeReason", e.target.value)}/></label>}
+                  {editing && <OrderDeliveryHistory company={editing.company} order={editing.id}/>}
                   <label>
                     <span className="os-field-title">
                       Data Entrega <b>*</b>

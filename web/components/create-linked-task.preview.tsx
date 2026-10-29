@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { MoreVertical, ClipboardPlus, Link2, Pencil } from "lucide-react";
+import { MoreVertical, ClipboardPlus, Link2, Pencil, X } from "lucide-react";
 import { apiFetch } from "@/lib/client-api-cache";
 import Link from "next/link";
 import {processedOrder} from "@/lib/service-orders/edit-status";
@@ -67,8 +67,8 @@ export default function CreateLinkedTask(props: LinkContext) {
           <button type="button" onClick={() => { menu.current?.hidePopover(); setLinking(true); }}><Link2 size={17} aria-hidden="true"/> Vincular OS</button>
         </>}
       </div>
-      {linking && props.orderId && props.orderCompany && <dialog ref={linkDialog} className="linked-task-dialog" aria-label="Vincular OS" onCancel={() => setLinking(false)}>
-        <header><h2>Vincular OS</h2><button type="button" onClick={() => { linkDialog.current?.close(); setLinking(false); }}>Fechar</button></header>
+      {linking && props.orderId && props.orderCompany && <dialog ref={linkDialog} className="linked-task-dialog order-link-dialog" aria-label="Vincular OS" onCancel={() => setLinking(false)}>
+        <header className="order-link-dialog-heading"><span className="order-link-heading-icon"><Link2 size={22}/></span><div><h2>Vincular OS</h2><p>Relacione outra ordem de serviço a esta OS.</p></div><button type="button" aria-label="Fechar vínculo de OS" onClick={() => { linkDialog.current?.close(); setLinking(false); }}><X size={20}/></button></header>
         <LinkOrder company={props.orderCompany} id={props.orderId} initiallyOpen/>
       </dialog>}
       {creating && (

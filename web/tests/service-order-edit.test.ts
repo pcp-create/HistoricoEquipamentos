@@ -9,6 +9,7 @@ import {
   readEditSource,
   toEditDraft,
   fingerprint,
+  deliveryHistory,
 } from "../lib/service-orders/edit";
 import { M8RequestError } from "../lib/service-orders/m8";
 import { processedOrder } from "../lib/service-orders/edit-status";
@@ -92,6 +93,21 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
     const draft = toEditDraft(source, "2");
     assert.equal(draft.technician, "m8:99");
     assert.equal(draft.items[0].id, "101");
+    const dateEditId = randomUUID();
+    const rescheduled = { ...draft, expected: "2026-11-10" };
+    await assert.rejects(() => prepareEdit("user", dateEditId, "2", "800", fingerprint(source), rescheduled, session), /justificativa/);
+    await assert.rejects(() => prepareEdit("user", dateEditId, "2", "800", fingerprint(source), {...rescheduled, deliveryChangeReason: "   "}, session), /justificativa/);
+    await prepareEdit("user", dateEditId, "2", "800", fingerprint(source), {...rescheduled, deliveryChangeReason: "  Aguardando peça do fornecedor  "}, session);
+    const dateHistory = await deliveryHistory("2", "800");
+    assert.equal(dateHistory.length, 1);
+    assert.deepEqual(dateHistory[0].change, { before: draft.expected, after: "2026-11-10", reason: "Aguardando peça do fornecedor" });
+    assert.equal(dateHistory[0].created_by, "user");
+    assert.equal(dateHistory[0].state, "ready");
+    assert.equal((await deliveryHistory("1", "800")).length, 0);
+    const dateSubmission = (await db.query<any>("SELECT steps FROM service_order_edits WHERE id=$1", [dateEditId])).rows[0];
+    assert.equal(dateSubmission.steps[0].payload.deliveryChangeReason, undefined);
+    await db.query("DELETE FROM service_order_edits WHERE id=$1", [dateEditId]);
+
     const id = randomUUID(),
       changed = { ...draft, notes: "Revisada", items: draft.items.map(i => i.kind === "service" ? {...i, notes: "Nota revisada", internalNotes: ""} : i) };
     assert.equal(draft.items[1].notes, "Nota existente");

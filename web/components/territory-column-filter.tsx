@@ -8,7 +8,7 @@ export default function TerritoryColumnFilter({label,values,selected,onApply,onO
  const options=values.filter(value=>fold(value||'(Vazios)').includes(fold(query)));
  const close=()=>{panel.current?.hidePopover();trigger.current?.focus()};
  return <>
- <button ref={trigger} type="button" className="territory-filter-trigger" data-filtered={selected ? "true" : undefined} aria-label={`Filtrar ${label}`} aria-haspopup="dialog" aria-controls={id} onClick={()=>{
+ <button ref={trigger} type="button" className="territory-filter-trigger" data-filtered={selected ? "true" : undefined} title={selected ? `Filtro ativo: ${label}` : `Filtrar ${label}`} aria-label={`Filtrar ${label}`} aria-haspopup="dialog" aria-controls={id} onClick={()=>{
   onOpen();setQuery('');setChecked(selected ? selected.filter(value=>values.includes(value)) : values);
   const box=trigger.current!.getBoundingClientRect(),popup=panel.current!;
   popup.style.left=`${Math.max(8,Math.min(box.left,window.innerWidth-296))}px`;
@@ -16,7 +16,7 @@ export default function TerritoryColumnFilter({label,values,selected,onApply,onO
   popup.style.maxHeight=`${height}px`;
   popup.style.top=`${Math.max(8,Math.min(box.bottom+4,window.innerHeight-height-8))}px`;
   popup.showPopover();
- }}>{selected&&!arrowOnly?<Filter size={13}/>:<ChevronDown size={13}/>}</button>
+ }}>{selected?<Filter size={arrowOnly ? 14 : 13} aria-hidden="true"/>:<ChevronDown size={13} aria-hidden="true"/>}</button>
  <div ref={panel} id={id} popover="auto" role="dialog" aria-label={`Filtro de ${label}`} className="territory-column-filter">
   <strong>{label}</strong>
   <button type="button" className="territory-filter-sort" onClick={()=>{onSort(1);close()}}><ArrowDownAZ size={16}/>Classificar de A a Z</button>

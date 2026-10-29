@@ -3,7 +3,7 @@ import {tableFilterValues} from "@/lib/table-filter-values";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Download, Pencil, RefreshCw, SlidersHorizontal, ChevronRight, X } from "lucide-react";
+import { ArrowLeft, Download, Pencil, RefreshCw, SlidersHorizontal, ChevronRight, Link2, X } from "lucide-react";
 import CommercialUpdateStatus from "./commercial-update-status";
 import SiteHeader from "./site-header";
 import OrderSearchSelect from "./order-search-select";
@@ -142,7 +142,7 @@ export default function CommercialReport({
       ? params.get("billing")!
       : "all",
   );
-  const [contractFilter, setContractFilter] = useState("total");
+  const [contractFilter, setContractFilter] = useState(params.get("filter") === "pending" ? "pending" : "total");
   const [quickUpdates, setQuickUpdates] = useState<Record<string, { busy?: boolean; value?: string; error?: string }>>({});
   const quickKey = (row: Detail, field: string) => `${row.fields?.sourceCompany || row.company}:${row.id}:${field}`;
   const [quickEdit, setQuickEdit] = useState<{ row: Detail; field: "expected" | "flowStatus" } | null>(null);
@@ -682,7 +682,7 @@ export default function CommercialReport({
                 <thead>
                   <tr>
                     {cols.map((c) => (
-                      <th key={c.key} data-column={c.key}>
+                      <th key={c.key} data-column={c.key} data-filtered={filters[c.key] ? "true" : undefined}>
                         <div className="cr-column">
                           <span>{c.label}</span>
                           <ColumnFilter
@@ -774,6 +774,13 @@ export default function CommercialReport({
                               onClick={() => setQuickEdit({ row: r, field: c.key as "expected" | "flowStatus" })}>
                               <Pencil size={13} />
                             </button>
+                          )}
+                          {kind === "sales" && r.linkedOrder && ["id", "orderType", "flowStatus"].includes(c.key) && (
+                            <small className={`cr-linked-order-comment${c.key === "id" ? " cr-linked-order-number" : ""}`} title={`OS vinculada · ${r.linkedOrder.number}`}>
+                              <Link2 size={12} aria-hidden="true"/>
+                              {c.key === "id" ? <OrderDetailLink id={r.linkedOrder.id} company={r.linkedOrder.company} number={r.linkedOrder.number}>OS-{r.linkedOrder.number}</OrderDetailLink>
+                                : <span>{c.key === "orderType" ? r.linkedOrder.orderType || "Tipo não informado" : r.linkedOrder.flowStatus || "Status do fluxo não informado"}</span>}
+                            </small>
                           )}
                           {quickUpdates[quickKey(r, c.key)]?.busy && <small role="status">Salvando no ERP…</small>}
                           {quickUpdates[quickKey(r, c.key)]?.error && <small role="alert" className="cr-quick-error">{quickUpdates[quickKey(r, c.key)].error}</small>}

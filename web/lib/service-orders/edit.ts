@@ -278,6 +278,10 @@ export async function prepareEdit(
     )
   ).rows;
   const initial = toEditDraft(source, company, users);
+  const reason = typeof (input as any)?.deliveryChangeReason === "string" ? (input as any).deliveryChangeReason.trim() : "";
+  if (draft.expected !== initial.expected && (!reason || reason.length > 2000))
+    throw new OrderInputError("Informe uma justificativa de até 2.000 caracteres para alterar a entrega prevista.");
+
   const regs = (
     await database().query(
       "SELECT * FROM service_order_registries WHERE active",
@@ -477,7 +481,9 @@ export async function prepareEdit(
     )
       throw new OrderInputError("Item não consta no catálogo.");
   }
-  const steps = [{ path: base, method: "PUT", payload: header }, ...removals];
+  const steps = [{ path: base, method: "PUT", payload: header,
+    ...(draft.expected !== initial.expected ? { deliveryChange: { before: initial.expected, after: draft.expected, reason } } : {}),
+  }, ...removals];
   if (draft.flowStatus !== initial.flowStatus && draft.flowStatus)
     steps.push({
       path: base + "/statusfluxo",
@@ -596,4 +602,17 @@ export async function advanceEdit(
       ).rows[0],
     ),
   );
+}
+
+
+export async function deliveryHistory(company: string, orderId: string) {
+  target(company, orderId);
+  return (await database().query(
+    `SELECT id,created_by,created_at,updated_at,state,next_step,
+       steps->0->'deliveryChange' AS change
+     FROM service_order_edits
+     WHERE company_id=$1 AND m8_id=$2 AND steps->0->'deliveryChange' IS NOT NULL
+     ORDER BY created_at DESC,id DESC`,
+    [company, orderId],
+  )).rows;
 }

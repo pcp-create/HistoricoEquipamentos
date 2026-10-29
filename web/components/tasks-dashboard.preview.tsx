@@ -1987,12 +1987,13 @@ export function EquipmentTaskLinks({
   );
 }
 
-export function OrderPendingTaskLinks({company, orderId}: {company: string | number; orderId: string}) {
+export function OrderPendingTaskLinks({company, orderId, compact = false}: {company: string | number; orderId: string; compact?: boolean}) {
   const {tasks, open} = useContext(TaskContext);
   const rows = tasks.filter(task => task.status !== "completed" && String(task.order_company) === String(company) && String(task.order_id) === String(orderId));
+  if (compact && !rows.length) return null;
   return <div className="equipment-task-links" aria-label="Tarefas pendentes da OS">
     {rows.length ? rows.map(task => <a href={"/tarefas?task=" + task.id} key={task.id} onClick={event => {event.preventDefault(); open(task.id);}}>
-      TAR-{task.id} · <TaskStatus task={task} />
+      TAR-{task.id}{!compact && <> · <TaskStatus task={task} /></>}
     </a>) : <span className="muted">Nenhuma tarefa pendente</span>}
   </div>;
 }
