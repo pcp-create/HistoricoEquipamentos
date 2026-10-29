@@ -11,6 +11,15 @@ for (const rental of [false, true])
     const financial = {
       kind: rental ? "cost" : "sale",
       total: 1234.56,
+      breakdown: {
+        approved: {
+          total: rental ? 0 : 1234.56,
+          missing: 0,
+          count: rental ? 0 : 1,
+        },
+        quotation: { total: 500, missing: 0, count: 1 },
+        cost: { total: rental ? 1234.56 : 100, missing: 0, count: 1 },
+      },
       missing: 0,
       unlinked: false,
       orders: [
@@ -113,10 +122,15 @@ for (const rental of [false, true])
     await expect(kpi).toContainText(rental ? "0,00" : "1.234,56");
     expect(detailReads).toBe(0);
     await expect(page.locator(".ws-priority tbody tr")).toContainText(
+      "Em orçamento",
+    );
+    await expect(page.locator(".ws-priority tbody tr")).toContainText("500,00");
+
+    await expect(page.locator(".ws-priority tbody tr")).toContainText(
       "1.234,56",
     );
     await expect(page.locator(".ws-priority tbody tr")).toContainText(
-      rental ? "Custo das OSs abertas" : "Venda das OSs de cobrança abertas",
+      rental ? "Custo" : "Aprovado",
     );
     await page
       .getByRole("button", { name: "Equipamentos", exact: true })
@@ -146,7 +160,7 @@ for (const rental of [false, true])
     await expect(items).toContainText("Filtro excluído");
     await expect(items.locator(".ws-item-excluded")).toContainText("Excluído");
     await expect(items).toContainText("1.000,00");
-    const readsBeforeSwitch=detailReads;
+    const readsBeforeSwitch = detailReads;
     await items.getByRole("tab", { name: "Serviços", exact: true }).click();
     await expect(items).toContainText("Revisão preventiva");
     await expect(items).not.toContainText("Filtro de óleo");

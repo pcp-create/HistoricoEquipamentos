@@ -6,62 +6,122 @@ export type WorkshopFinancialOrder = {
   situation: string;
   amount: number | null;
 };
+export type WorkshopFinancialQuote = {
+  id: string;
+  company: number;
+  number: string;
+  status: string;
+  amount: number | null;
+};
+export type WorkshopFinancialBucket = {
+  total: number | null;
+  missing: number;
+  count: number;
+};
 export type WorkshopFinancial = {
   kind: "sale" | "cost";
   total: number | null;
   missing: number;
   unlinked: boolean;
   orders: WorkshopFinancialOrder[];
+  breakdown?: {
+    approved: WorkshopFinancialBucket;
+    quotation: WorkshopFinancialBucket;
+    cost: WorkshopFinancialBucket;
+  };
+  approvedOrders?: WorkshopFinancialOrder[];
+  costOrders?: WorkshopFinancialOrder[];
+  quotes?: WorkshopFinancialQuote[];
 };
-
+export const isOpenWorkshopQuote = (status: string) =>
+  ["EmAndamento", "Processado", "Pendente", "Aprovado"].includes(status);
+const normalize = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+function sumValues(
+  rows: { amount: number | null }[],
+  available = true,
+): WorkshopFinancialBucket {
+  let cents = 0,
+    missing = 0;
+  for (const row of rows) {
+    const n =
+        row.amount == null || String(row.amount).trim() === ""
+          ? NaN
+          : Number(row.amount),
+      value = Math.round(n * 100);
+    if (
+      !Number.isFinite(n) ||
+      n < 0 ||
+      !Number.isSafeInteger(value) ||
+      !Number.isSafeInteger(cents + value)
+    ) {
+      row.amount = null;
+      missing++;
+      continue;
+    }
+    row.amount = value / 100;
+    cents += value;
+  }
+  return {
+    total: available && !missing ? cents / 100 : null,
+    missing,
+    count: rows.length,
+  };
+}
 export function workshopFinancial(
   orders: WorkshopFinancialOrder[],
   rental: boolean,
   linked: boolean,
+  quotes: WorkshopFinancialQuote[] = [],
 ): WorkshopFinancial {
-  const normalize = (s: string) =>
-    s
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
-  const unique = new Map<string, WorkshopFinancialOrder>();
-  for (const order of orders) {
-    if (!["Pendente", "Aprovado"].includes(order.status)) continue;
-    if (
-      !normalize(order.situation || "").includes(rental ? "custo" : "cobranca")
-    )
-      continue;
-    unique.set(`${order.company}:${order.id}`, { ...order });
-  }
-  const included = [...unique.values()];
-  let cents = 0,
-    missing = 0;
-  for (const order of included) {
-    const value =
-      order.amount == null || String(order.amount).trim() === ""
-        ? NaN
-        : Number(order.amount);
-    const rounded = Math.round(value * 100);
-    if (
-      !Number.isFinite(value) ||
-      value < 0 ||
-      !Number.isSafeInteger(rounded) ||
-      !Number.isSafeInteger(cents + rounded)
-    ) {
-      order.amount = null;
-      missing++;
-      continue;
-    }
-    order.amount = rounded / 100;
-    cents += rounded;
-  }
+  const group = (kind: string) => [
+    ...new Map(
+      orders
+        .filter(
+          (o) =>
+            ["Pendente", "Aprovado"].includes(o.status) &&
+            normalize(o.situation || "").includes(kind),
+        )
+        .map((o) => [`${o.company}:${o.id}`, { ...o }]),
+    ).values(),
+  ];
+  const approvedOrders = group("cobranca"),
+    costOrders = group("custo");
+  const openQuotes = [
+    ...new Map(
+      quotes
+        .filter((q) => isOpenWorkshopQuote(q.status))
+        .map((q) => [`${q.company}:${q.id}`, { ...q }]),
+    ).values(),
+  ];
+  const approved = sumValues(approvedOrders, linked),
+    cost = sumValues(costOrders, linked),
+    quotation = sumValues(openQuotes);
+  const primary = rental ? cost : approved;
   return {
     kind: rental ? "cost" : "sale",
-    total: linked && !missing ? cents / 100 : null,
-    missing,
+    total: primary.total,
+    missing: primary.missing,
     unlinked: !linked,
-    orders: included,
+    orders: rental ? costOrders : approvedOrders,
+    approvedOrders,
+    costOrders,
+    quotes: openQuotes,
+    breakdown: { approved, quotation, cost },
   };
+}
+export function financialDetailOrders(financial: WorkshopFinancial) {
+  return [
+    ...new Map(
+      [
+        ...(financial.approvedOrders || financial.orders),
+        ...(financial.costOrders || []),
+      ].map((o) => [`${o.company}:${o.id}`, o]),
+    ).values(),
+  ];
 }
 
 /** Both M8 links are explicit; UNION avoids counting a direct and extra link twice. */

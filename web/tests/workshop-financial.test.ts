@@ -92,3 +92,76 @@ test("workshop values use only open billing/cost orders, explicit equipment link
     await db.close();
   }
 });
+
+test("approved billing, open M8 quotations and cost are independent amounts for either machine origin", () => {
+  const orders = [
+    {
+      id: "1",
+      company: 1,
+      number: "1",
+      status: "Pendente",
+      situation: "COBRANÇA A.T.",
+      amount: 100,
+    },
+    {
+      id: "2",
+      company: 1,
+      number: "2",
+      status: "Aprovado",
+      situation: "COBRANÇA CRM/AT",
+      amount: 50,
+    },
+    {
+      id: "3",
+      company: 1,
+      number: "3",
+      status: "Pendente",
+      situation: "CUSTO DE LOCAÇÃO",
+      amount: 20,
+    },
+    {
+      id: "4",
+      company: 1,
+      number: "4",
+      status: "Processado",
+      situation: "COBRANÇA A.T.",
+      amount: 999,
+    },
+  ];
+  const quotes = [
+    { id: "1", company: 1, number: "ORC-1", status: "EmAndamento", amount: 80 },
+    { id: "1", company: 2, number: "ORC-2", status: "Processado", amount: 40 },
+    ...[
+      "Concretizado",
+      "Perdido",
+      "Cancelado",
+      "GeradoRevisao",
+      "Finalizado",
+    ].map((status, i) => ({
+      id: String(i + 10),
+      company: 1,
+      number: "Fechado",
+      status,
+      amount: 999,
+    })),
+  ];
+  for (const rental of [false, true]) {
+    const f = workshopFinancial(orders, rental, true, [...quotes, quotes[0]]);
+    assert.deepEqual(f.breakdown, {
+      approved: { total: 150, missing: 0, count: 2 },
+      quotation: { total: 120, missing: 0, count: 2 },
+      cost: { total: 20, missing: 0, count: 1 },
+    });
+    assert.equal(f.quotes!.length, 2);
+  }
+  const f = workshopFinancial(orders, false, true, [
+    { ...quotes[0], amount: null },
+  ]);
+  assert.equal(f.breakdown!.quotation.total, null);
+  assert.equal(f.breakdown!.approved.total, 150);
+  assert.equal(f.breakdown!.cost.total, 20);
+  const unlinked = workshopFinancial([], false, false, [quotes[0]]);
+  assert.equal(unlinked.breakdown!.approved.total, null);
+  assert.equal(unlinked.breakdown!.cost.total, null);
+  assert.equal(unlinked.breakdown!.quotation.total, 80);
+});

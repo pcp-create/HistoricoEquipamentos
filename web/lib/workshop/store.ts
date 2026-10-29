@@ -5,7 +5,7 @@ import {database} from '../db';
 import {effectiveStage,stageOptions,isRentalSource} from './model';
 import {workshopVisits} from './visits';
 import {listWorkshopEvents} from './task-history';
-import {workshopFinancial,workshopFinancialOrders,workshopOrderItems} from './financial';
+import {workshopFinancial,workshopFinancialOrders,workshopOrderItems,financialDetailOrders} from './financial';
 export class WorkshopInputError extends Error{}
 export class WorkshopConflict extends Error{}
 const text=(v:unknown,max=4000)=>{if(typeof v!=='string'||v.trim().length>max)throw new WorkshopInputError('Confira os campos informados.');return v.trim();};
@@ -34,7 +34,7 @@ export async function workshopData(email:string){
   workshopFinancialOrders(db,[...new Set<string>(visits.map(v=>v.equipment_id).filter(Boolean))]),
   listWorkshopEvents(db,visits.map(v=>v.id),admin),
  ]);
- for(const v of visits){v.rental=v.rental||isRentalSource(v.source);v.financial=workshopFinancial(financialOrders.get(v.equipment_id)||[],v.rental,!!v.equipment_id);}
+ for(const v of visits){v.rental=v.rental||isRentalSource(v.source);v.financial=workshopFinancial(financialOrders.get(v.equipment_id)||[],v.rental,!!v.equipment_id,v.quotes);}
  return {workshops,external:external.filter(e=>!e.returned_at&&!e.reconciled_out_at).map(e=>{const v=visits.find(v=>v.id===e.visit_id);return {...e,machine:v||{id:null,equipment_id:e.source?.equipmentId||null,name:e.source?.equipment_description||e.component,client:e.source?.customer||'Cliente a confirmar',model:null,serial:null,workshop_id:e.source?.workshopId||null,workshop:'Oficina a confirmar',orders:[],tasks:[],external:[]}};}),visits:visits.map(v=>({...v,effective_stage:effectiveStage(v.stage,v.orders,v.source),external:external.filter(e=>e.visit_id===v.id&&!e.reconciled_out_at),events:events.filter(e=>e.visit_id===v.id)}))};
 }
 export async function workshopMutate(b:any,email:string){
@@ -110,6 +110,7 @@ export async function workshopFinancialDetail(id:string){
  const visit=(await db.query(`SELECT v.equipment_id::text,v.source,COALESCE(e.payload->>'familiaId'='3',false) rental FROM web_workshop_visits v LEFT JOIN m8_equipment_catalog e ON e.equipment_id=v.equipment_id WHERE v.id=$1`,[uuid(id)])).rows[0];
  if(!visit)throw new WorkshopInputError('Entrada da oficina não encontrada.');
  const grouped=await workshopFinancialOrders(db,visit.equipment_id?[visit.equipment_id]:[]);
- const financial=workshopFinancial(grouped.get(visit.equipment_id)||[],visit.rental||isRentalSource(visit.source),!!visit.equipment_id);
- return {financial,orders:await workshopOrderItems(db,financial.orders)};
+ const quotes=(await db.query("SELECT q.id::text,q.company_id company,q.number,q.status,q.total amount FROM web_workshop_quotes l JOIN m8_quotes q ON q.company_id=l.company_id AND q.id=l.quote_id WHERE l.visit_id=$1",[id])).rows;
+ const financial=workshopFinancial(grouped.get(visit.equipment_id)||[],visit.rental||isRentalSource(visit.source),!!visit.equipment_id,quotes);
+ return {financial,orders:await workshopOrderItems(db,financialDetailOrders(financial))};
 }

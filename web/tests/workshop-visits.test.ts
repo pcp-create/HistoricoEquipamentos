@@ -15,7 +15,7 @@ test("batched workshop list preserves exact OS links, task privacy, imports and 
  CREATE TABLE m8_order_equipment_links(company_id int,order_id bigint,equipment_id bigint,stale boolean);
  CREATE TABLE web_tasks(id bigint,title text,status text,equipment_id bigint,order_company int,order_id bigint,source_key text,restricted boolean);
  CREATE TABLE web_workshop_quotes(visit_id uuid,company_id int,quote_id bigint);
- CREATE TABLE m8_quotes(company_id int,id bigint,number text,status text);
+ CREATE TABLE m8_quotes(company_id int,id bigint,number text,status text,total numeric);
  CREATE TABLE web_quotes(id bigint,number text,client_name text,document jsonb);
  INSERT INTO web_workshops VALUES(1,'Oficina RJ');
  INSERT INTO m8_equipment_catalog VALUES(7,'Compressor','GA22','SER1','{}'),(8,'Secador','FD','SER2','{"familiaId":3}');
@@ -37,7 +37,7 @@ test("batched workshop list preserves exact OS links, task privacy, imports and 
  (7,'Vínculo obsoleto','not_started',NULL,1,102,'manual:7',false),
  (8,'Dois vínculos','not_started',7,1,100,'manual:workshop:00000000-0000-4000-8000-000000000001:8',false),
  (9,'Outra empresa','not_started',NULL,27404,100,'manual:9',false);
- INSERT INTO m8_quotes VALUES(1,10,'ORC-1','Pendente'),(2,10,'ORC-2','Aprovado');
+ INSERT INTO m8_quotes VALUES(1,10,'ORC-1','Pendente',100),(2,10,'ORC-2','Aprovado',250);
  INSERT INTO web_workshop_quotes VALUES('00000000-0000-4000-8000-000000000001',2,10);
  INSERT INTO web_quotes VALUES(1,'LOCAL-1','Cliente rascunho','{"equipmentId":"7"}'),(2,'LOCAL-2','Excluído','{"equipmentId":"7","deletedAt":"2026-10-01"}');
  `);
@@ -63,6 +63,7 @@ test("batched workshop list preserves exact OS links, task privacy, imports and 
     assert.equal(old.client, "Zelia");
     assert.equal(first.quotes[0].number, "ORC-2");
     assert.equal(first.quotes[0].company, 2);
+    assert.equal(first.quotes[0].amount, 250);
     assert.deepEqual(
       first.drafts.map((d: any) => d.id),
       [1],

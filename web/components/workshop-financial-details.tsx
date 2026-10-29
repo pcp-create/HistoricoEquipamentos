@@ -59,12 +59,31 @@ export default function WorkshopFinancialDetails({
         <>
           <WorkshopValue financial={data.financial} />
           <p>
-            Somente OSs abertas de{" "}
-            {data.financial.kind === "cost" ? "Custo" : "Cobrança"} vinculadas
-            ao equipamento. Os valores dos itens são os registrados no M8. Itens
-            excluídos ou reprovados aparecem identificados e não entram nos
-            subtotais.
+            Somente OSs abertas de Cobrança e Custo vinculadas ao equipamento.
+            Os valores dos itens são os registrados no M8. Itens excluídos ou
+            reprovados aparecem identificados e não entram nos subtotais.
           </p>
+          {!!data.financial.quotes?.length && (
+            <div className="ws-open-quotes">
+              <h4>Orçamentos M8 em aberto</h4>
+              {data.financial.quotes.map((q: any) => (
+                <a
+                  key={q.company + ":" + q.id}
+                  href={
+                    "/orcamentos?number=" +
+                    encodeURIComponent(q.number) +
+                    "&company=" +
+                    q.company
+                  }
+                >
+                  <span>
+                    {q.number} · Empresa {q.company}
+                  </span>
+                  <b>{money(q.amount)}</b>
+                </a>
+              ))}
+            </div>
+          )}
           <div
             className="ws-item-tabs"
             role="tablist"
