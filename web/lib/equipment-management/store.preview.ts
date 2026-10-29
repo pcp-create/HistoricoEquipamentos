@@ -53,6 +53,7 @@ export async function equipmentList(params: URLSearchParams) {
   const rows = (
     await db.query(`SELECT e.equipment_id::text AS id,e.name,e.brand,COALESCE(NULLIF(e.model,''),array_to_string(e.models,' / ')) AS model,e.serial,e.blocked,
  COALESCE(e.payload->>'familiaId'='3',false) AS rental,
+ NULLIF(btrim(e.payload->>'localizacao'),'') AS location,
  ${internalCodeSql} AS internal_code,
  COALESCE(s.document,'{}') AS settings,
  COALESCE(c.clients,'[]') AS clients
@@ -187,7 +188,7 @@ export async function equipmentDetail(raw: string) {
     db = database();
   const equipment = (
     await db.query(
-      `SELECT equipment_id::text AS id,name,brand,COALESCE(NULLIF(model,''),array_to_string(models,' / ')) AS model,serial,blocked,collected_at,present,COALESCE(payload->>'familiaId'='3',false) AS rental,${internalCodeSql} AS internal_code FROM m8_equipment_catalog e WHERE equipment_id=$1`,
+      `SELECT equipment_id::text AS id,name,brand,COALESCE(NULLIF(model,''),array_to_string(models,' / ')) AS model,serial,blocked,collected_at,present,COALESCE(payload->>'familiaId'='3',false) AS rental,NULLIF(btrim(payload->>'localizacao'),'') AS location,${internalCodeSql} AS internal_code FROM m8_equipment_catalog e WHERE equipment_id=$1`,
       [id],
     )
   ).rows[0];
