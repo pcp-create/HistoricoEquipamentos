@@ -12,6 +12,7 @@ test("packaged interface persists to SQLite and opens with suspended server", as
   sqlite.exec(
     "CREATE TABLE records (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
   );
+  const appVersion=readFileSync(path.resolve("../android/app/build.gradle"),"utf8").match(/versionName\s+['"]([^'"]+)['"]/)![1];
   const assets = path.resolve("../android/app/build/generated/portalAssets");
   const nativeSource = readFileSync(path.resolve("../android/app/src/main/java/app/rjcompressores/tecnico/PortalActivity.java"),"utf8");
   const policy = nativeSource.match(/headers.put\("Content-Security-Policy","([^"]+)"\)/)![1];
@@ -36,7 +37,7 @@ test("packaged interface persists to SQLite and opens with suspended server", as
       ...row,
       document: {
         responsible: "tech",
-        support: [],
+        support: ["helper"],
         checklistId: "c",
         checklistRun: {
           template: {
@@ -55,6 +56,8 @@ test("packaged interface persists to SQLite and opens with suspended server", as
         },
       },
     },
+    teamAvailable:true,
+    supportMembers:[{email:"helper",display_name:"Ana Apoio"}],
     infoRead: true,
     checked: true,
     progress: {},
@@ -192,7 +195,7 @@ test("packaged interface persists to SQLite and opens with suspended server", as
     const page = await context.newPage();
     page.on("pageerror", (error) => console.log("NATIVE PAGE", error.message));
     await page.goto(origin + "/tecnico");
-    await expect(page.getByText("Portal Técnico RJ · Versão 2.2.4",{exact:true})).toBeVisible();
+    await expect(page.getByText("Portal Técnico RJ · Versão "+appVersion,{exact:true})).toBeVisible();
     await expect
       .poll(
         () =>
@@ -222,6 +225,7 @@ test("packaged interface persists to SQLite and opens with suspended server", as
     await expect(
       dialog.getByText("Sem internet", { exact: true }),
     ).toBeVisible();
+    await expect(dialog.getByRole("button",{name:"Iniciar com equipe",exact:true})).toBeVisible();
     await dialog
       .getByRole("button", { name: "Iniciar atividade", exact: false })
       .click({ timeout: 5000 });
