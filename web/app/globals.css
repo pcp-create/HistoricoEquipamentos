@@ -4219,7 +4219,7 @@ body.operational-ui :is(.admin-page,.tasks-page,.equipment-page,.results-toolbar
 }
 .equipment-rental-status-cards button strong { font-size: 24px; line-height: 1.1; }
 .equipment-rental-status-cards small { grid-column: 1 / -1; font-size: 11px; }
-.equipment-rental-spec-filters { gap: 16px; align-items: stretch; }
+.equipment-rental-spec-filters { grid-template-columns: minmax(0,1.2fr) minmax(0,2fr) minmax(160px,.65fr); gap: 16px; align-items: stretch; }
 .equipment-rental-spec-filters .equipment-spec-card {
   padding: 18px;
   border: 1px solid #d6e5f8;
@@ -4319,3 +4319,11 @@ button.history-programming-action[class] {
 
 .history-programming-action.cancelled { background:transparent; border:0; cursor:default; color:#8c98a6; }
 .history-programming-action.cancelled:hover { filter:none; text-decoration:none; }
+
+@media (min-width: 1280px) {
+  .equipment-spec-pcm .equipment-spec-range-buttons { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); }
+  .equipment-page .equipment-spec-pcm .equipment-spec-range-buttons button { padding-inline: 6px; font-size: 12px; white-space: nowrap; }
+}
+
+.equipment-spec-title-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.equipment-spec-title-row .equipment-spec-heading { flex-shrink: 0; }

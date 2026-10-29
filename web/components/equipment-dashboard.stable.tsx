@@ -1,8 +1,9 @@
 "use client";
+import RentalRatingFilter from "./rental-rating-filter";
 import { matchesSearch } from "@/lib/filters";
 
 import { orderPreventivePlans, nextPreventivePlanId } from "@/lib/equipment-management/plan-order";
-import { rentalSpecifications, rentalSpecificationRanges, matchesRentalSpecification, type RentalSpecification } from "@/lib/equipment-management/rental-specifications";
+import { rentalSpecifications, rentalSpecificationRanges, rentalPcmRanges, matchesRentalSpecification, type RentalSpecification } from "@/lib/equipment-management/rental-specifications";
 import CopyPreventivePlan from "./copy-preventive-plan";
 import EquipmentDetailsDrawer from "./equipment-details-drawer";
 import OrderDetailLink from "./order-detail-link";
@@ -861,6 +862,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                     }}
                   >
                     <span>{label}</span> <strong>{count}</strong>
+                    {!key && <span className="equipment-sold-note">Exceto vendidos</span>}
                   </button>
                 ))}
                 <small>Quantidades conforme os demais filtros da lista.</small>
@@ -977,9 +979,9 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                   {specificationOptions(key).map(value=><option key={value} value={value}>{value.replace('.',',')}</option>)}
                   <option value="missing">Não informado no nome</option>
                 </select>
-              </label> : <div key={key} className="equipment-spec-range equipment-spec-card" role="group" aria-label={label}><div className="equipment-spec-heading">{key === "hp" ? <Settings2 size={18} aria-hidden="true" /> : <Wind size={18} aria-hidden="true" />}{label}</div>
+              </label> : <div key={key} className={`equipment-spec-range equipment-spec-card equipment-spec-${key}`} role="group" aria-label={label}><div className="equipment-spec-title-row"><div className="equipment-spec-heading">{key === "hp" ? <Settings2 size={18} aria-hidden="true" /> : <Wind size={18} aria-hidden="true" />}{label}</div><RentalRatingFilter unit={key.toUpperCase()} options={specificationOptions(key)} value={specFilters[key]} onChange={value=>{setSpecFilters(previous=>({...previous,[key]:value}));setPage(1);}}/></div>
                 <div className="equipment-spec-range-buttons">
-                  {[{id:"",label:"Todos"},...rentalSpecificationRanges.map(range=>({id:range.id,label:`${range.label} ${key.toUpperCase()}`})),{id:"missing",label:"Não informado"}].map(option=><button type="button" key={option.id} aria-pressed={specFilters[key] === option.id} onClick={()=>{setSpecFilters(previous=>({...previous,[key]:previous[key] === option.id ? "" : option.id}));setPage(1);}}>{option.label}</button>)}
+                  {[{id:"",label:"Todos"},...(key === "pcm" ? rentalPcmRanges : rentalSpecificationRanges).map(range=>({id:range.id,label:`${range.label} ${key.toUpperCase()}`})),{id:"missing",label:"Não informado"}].map(option=><button type="button" key={option.id} aria-pressed={specFilters[key] === option.id} onClick={()=>{setSpecFilters(previous=>({...previous,[key]:previous[key] === option.id ? "" : option.id}));setPage(1);}}>{option.label}</button>)}
                 </div>
               </div>)}
             </div>}

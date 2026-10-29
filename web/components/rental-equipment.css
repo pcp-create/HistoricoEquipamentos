@@ -3,7 +3,7 @@
 .rental-fleet-page .equipment-counters { display:none; }
 .rental-fleet-page .rental-fleet-panel { border:1px solid #e0e8f0; border-radius:16px; box-shadow:0 4px 20px #17385405; }
 .rental-fleet-page .equipment-rental-status-cards:not(.equipment-contract-filter-group) {
-  grid-template-columns:repeat(9,minmax(0,1fr)); gap:10px; padding:20px 0; background:transparent; border-radius:0;
+  grid-template-columns:repeat(9,minmax(0,1fr)); gap:10px; padding:20px 0 8px; margin-bottom:0; background:transparent; border-radius:0;
 }
 .rental-fleet-page .equipment-rental-status-cards h3 { font-size:11px; color:#60788e; letter-spacing:.08em; margin-bottom:4px; }
 .rental-fleet-page .equipment-rental-status-cards button {
@@ -81,13 +81,27 @@
  .rental-fleet-page .fleet-table td { height:auto; min-height:0; }
  .rental-fleet-page .fleet-equipment-row { height:auto; grid-auto-rows:auto; align-items:start; }
 }
-.equipment-clear-filters { display:flex; justify-content:flex-end; margin:12px 0; }
-.equipment-clear-filters button { border:1px solid #d5e3f0; border-radius:8px; padding:8px 14px; background:white; color:#25639b; cursor:pointer; }
-.rental-fleet-page .equipment-rental-status-cards .rental-filter-sold { padding-top:4px; padding-bottom:22px; }
+.equipment-clear-filters { display:flex; justify-content:flex-end; margin:0 0 2px; }
+.equipment-page .equipment-clear-filters button { border:0; border-radius:4px; padding:3px 6px; min-height:26px; background:transparent; box-shadow:none; color:#71839a; font-size:11px; font-weight:400; cursor:pointer; }
+.equipment-page .equipment-clear-filters button:hover { background:#f1f5f9; color:#34577f; }
+.equipment-page .equipment-clear-filters button:focus-visible { outline:2px solid #3874aa; outline-offset:2px; }
+.rental-fleet-page .equipment-contract-filter-row { margin-bottom:4px; }
+.rental-fleet-page .equipment-rental-status-cards :is(.rental-filter-sold,.rental-filter-all) { padding-top:4px; padding-bottom:22px; }
 .rental-fleet-page .equipment-rental-status-cards .equipment-sold-note { position:absolute; left:14px; right:10px; bottom:5px; display:block; font-size:9px; line-height:11px; font-weight:400; margin:0; white-space:nowrap; }
-@media(max-width:760px) { .rental-fleet-page .equipment-rental-status-cards .rental-filter-sold { padding-top:2px; padding-bottom:18px; } .rental-fleet-page .equipment-rental-status-cards .equipment-sold-note { left:10px; right:6px; bottom:3px; } }
+@media(max-width:760px) { .rental-fleet-page .equipment-rental-status-cards :is(.rental-filter-sold,.rental-filter-all) { padding-top:2px; padding-bottom:18px; } .rental-fleet-page .equipment-rental-status-cards .equipment-sold-note { left:10px; right:6px; bottom:3px; } }
 .rental-fleet-page .equipment-rental-status-cards .contract-filter-current { --fleet-tone:#168367; }
 .rental-fleet-page .equipment-rental-status-cards .contract-filter-soon { --fleet-tone:#b7842e; }
 .rental-fleet-page .equipment-rental-status-cards .contract-filter-overdue { --fleet-tone:#bd5560; }
 .rental-fleet-page .equipment-rental-status-cards .contract-filter-incomplete { --fleet-tone:#8b6bb0; }
 .equipment-rental-status-cards .equipment-sold-note::before { display:none; }
+
+.rental-rating-filter { position: relative; margin: 0; font-size: 12px; }
+.rental-rating-filter > summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; padding: 5px 8px; min-height: 30px; border: 1px solid #d6e5f8; border-radius: 7px; color: #245f91; background: white; }
+.rental-rating-filter > summary::-webkit-details-marker { display: none; }
+.rental-rating-filter > summary:focus-visible { outline: 2px solid #245f91; outline-offset: 2px; }
+.rental-rating-options { position: absolute; z-index: 20; right: 0; top: calc(100% + 5px); width: 185px; max-width: 75vw; padding: 8px; border: 1px solid #d6e5f8; border-radius: 9px; background: white; box-shadow: 0 8px 24px #163f6526; }
+.rental-rating-options-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.equipment-page .rental-rating-options-header button { padding: 3px 6px; font-size: 11px; min-height: 24px; }
+.rental-rating-options-list { max-height: 220px; overflow-y: auto; }
+.equipment-rental-spec-filters .rental-rating-options-list label { display: flex; flex-direction: row; align-items: center; gap: 8px; padding: 6px; margin: 0; cursor: pointer; }
+.equipment-page .rental-rating-options-list input { width: 15px; height: 15px; min-height: 0; padding: 0; margin: 0; accent-color: #245f91; }

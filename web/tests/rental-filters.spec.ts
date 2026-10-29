@@ -8,7 +8,7 @@ test('rental filters combine statuses, retain sold equipment and clear all filte
  await page.route('**/api/activity',r=>r.fulfill({json:{}}));
  await page.goto('/equipamentos/locacao');
  const group=page.getByRole('group',{name:'Status das máquinas de locação'});
- await expect(group.getByRole('button',{name:'Todos 2',exact:true})).toBeVisible();
+ await expect(group.getByRole('button',{name:'Todos 2 Exceto vendidos',exact:true})).toBeVisible();
  const available=group.getByRole('button',{name:'Disponível 1',exact:true}), rented=group.getByRole('button',{name:'Locado 1',exact:true});
  const table=page.locator('tbody');
  await expect(table.getByText('Máquina sold',{exact:true})).toBeVisible();
@@ -19,7 +19,7 @@ test('rental filters combine statuses, retain sold equipment and clear all filte
  await expect(table.getByText('Máquina sold',{exact:true})).toHaveCount(0);
  await available.click();await expect(table.getByText('Máquina available',{exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'Limpar filtros',exact:true}).click();
- await expect(group.getByRole('button',{name:'Todos 2',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(group.getByRole('button',{name:'Todos 2 Exceto vendidos',exact:true})).toHaveAttribute('aria-pressed','true');
  await expect(table.getByText('Máquina sold',{exact:true})).toBeVisible();
  await group.getByRole('button',{name:/Vendido 1/}).click();
  await expect(table.getByText('Máquina sold',{exact:true})).toBeVisible();
@@ -30,4 +30,32 @@ test('rental filters combine statuses, retain sold equipment and clear all filte
  expect(await light.evaluate(el=>getComputedStyle(el,'::before').backgroundColor)).toBe('rgb(57, 123, 179)');
  const deadline=page.getByRole('group',{name:'Situação do contrato de locação ou empréstimo'}).getByRole('button',{name:'Vencido 0',exact:true}).locator('span');
  expect(await deadline.evaluate(el=>getComputedStyle(el,'::before').backgroundColor)).toBe('rgb(189, 85, 96)');
+});
+
+test('specific HP and PCM selectors replace ranges and clear with the other filters',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/**',r=>r.fulfill({json:{}}));
+ await page.route('**/api/tasks**',r=>r.fulfill({json:{tasks:[],users:[]}}));
+ const rows=['Compressor 30 HP 120 PCM','Compressor 60 HP 250 PCM'].map((name,i)=>({id:String(i+1),name,serial:'ABC'+i,rental:true,ownership:'own',clients:[],plans:0,rentalStatus:{key:'available',label:'Disponível'}}));
+ await page.route('**/api/equipment-management*',r=>r.fulfill({json:{rows,types:[]}}));
+ await page.goto('/equipamentos/locacao');
+ await page.getByText('Filtros de pesquisa',{exact:true}).click();
+ const hp=page.getByLabel('Valores específicos de HP',{exact:true}),pcm=page.getByLabel('Valores específicos de PCM',{exact:true});
+ await hp.click();
+ await page.getByRole('checkbox',{name:'30 HP',exact:true}).check();
+ await expect(page.locator('tbody').getByText(rows[0].name,{exact:true})).toBeVisible();
+ await expect(page.locator('tbody').getByText(rows[1].name,{exact:true})).toHaveCount(0);
+ await page.getByRole('checkbox',{name:'60 HP',exact:true}).check();
+ await expect(page.locator('tbody tr')).toHaveCount(2);
+ await expect(hp).toContainText('2 selecionados');
+ await page.keyboard.press('Escape');
+ await pcm.click();
+ await page.getByRole('checkbox',{name:'250 PCM',exact:true}).check();
+ await page.keyboard.press('Escape');
+ await expect(page.locator('tbody').getByText(rows[1].name,{exact:true})).toBeVisible();
+ await expect(page.locator('tbody').getByText(rows[0].name,{exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'Limpar filtros',exact:true}).click();
+ await expect(pcm).toHaveText('Valores');
+ await expect(hp).toHaveText('Valores');
+ await expect(page.locator('tbody tr')).toHaveCount(2);
 });
