@@ -899,121 +899,76 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
   );
 }
 function Parts({ data, busy, save, readOnly=false }: any) {
-  const [values, setValues] = useState<Record<string, string>>({}),
-    [confirmed, setConfirmed] = useState(false);
-  const items = data.materials.items;
-  const key = (i: any) => `${i.item_company}:${i.item_order}:${i.id_m8}`;
-  useEffect(() => {
-    setValues(
-      Object.fromEntries(
-        items.map((i: any) => [key(i), String(materialBalance(i, data.operation.id).own)]),
-      ),
-    );
-    setConfirmed(false);
-  }, [JSON.stringify(items)]);
-  return (
-    <section className="field-panel">
-      <h3>Conferência de peças da OS</h3>
-      <p>
-        {readOnly ? "Peças desta operação · somente visualização." : "Informe a retirada desta operação. Devoluções liberam saldo para outras operações."}
-      </p>
-      {!data.materials.complete && (
-        <p className="field-error">
-          Os materiais ainda estão sendo importados. A conferência será liberada
-          quando a coleta terminar.
-        </p>
-      )}
-      {!items.length && <p>Nenhuma peça cadastrada nesta OS.</p>}
-      {items.map((i: any) => {
-        const balance = materialBalance(i, data.operation.id);
-        const blocked = balance.available === 0 && balance.own === 0;
-        const canReturn = balance.own > 0 && balance.total - balance.own >= Number(i.usage?.used || 0);
-        return (
-        <div
-          className={"field-part " + (i.source_linked ? "linked" : "")}
-          key={key(i)}
-        >
-          <div className="field-part-info">
-          <b>
-            {i.produto_id} · {i.produto_nome}
-          </b>
-          <small className="field-part-unit">Unidade: {i.unidade_nome}</small>
-          {i.quantity_inconsistency && <small className="field-error">Quantidade divergente na OS vinculada.</small>}
-          <dl className="field-part-balances">
-            <div><dt>Reservado</dt><dd>{balance.reserved.toLocaleString("pt-BR")}</dd></div>
-            <div><dt>Retirado</dt><dd>{balance.total.toLocaleString("pt-BR")}</dd></div>
-            <div className="field-part-available"><dt>Disponível</dt><dd>{balance.available.toLocaleString("pt-BR")}</dd></div>
+  const [values,setValues]=useState<Record<string,string>>({});
+  const [returns,setReturns]=useState<Record<string,string>>({});
+  const [confirmed,setConfirmed]=useState(false);
+  const [returnItem,setReturnItem]=useState<any>(null);
+  const [returnQty,setReturnQty]=useState("");
+  const [returnError,setReturnError]=useState("");
+  const dialog=useRef<HTMLDialogElement>(null);
+  const items=data.materials.items;
+  const key=(i:any)=>`${i.item_company}:${i.item_order}:${i.id_m8}`;
+  const qty=(v:number)=>v.toLocaleString('pt-BR',{maximumFractionDigits:3});
+  useEffect(()=>{setValues({});setReturns({});setConfirmed(false);},[JSON.stringify(items)]);
+  useEffect(()=>{if(returnItem)dialog.current?.showModal();else dialog.current?.close();},[returnItem]);
+  const planned=(i:any)=>{const balance=materialBalance(i,data.operation.id);return {balance,gross:values[key(i)]?.trim()?Number(values[key(i)]):balance.ownGross,returned:returns[key(i)]?.trim()?Number(returns[key(i)]):balance.ownReturned};};
+  const returnMaximum=(i:any)=>{const p=planned(i);return Number.isFinite(p.gross)?Math.max(p.balance.ownReturned,Math.min(p.gross,p.balance.total+p.gross-p.balance.own-Number(i.usage?.used||0))):p.balance.ownReturned;};
+  const invalid=(i:any)=>{
+    const p=planned(i),maximum=p.balance.withdrawalMaximum;
+    if(p.gross>maximum)return `A retirada acumulada (${qty(p.balance.gross-p.balance.ownGross+p.gross)} ${i.unidade_nome}) ultrapassa o reservado (${qty(p.balance.reserved)} ${i.unidade_nome}). Solicite o ajuste da reserva antes de continuar.`;
+    if(!Number.isFinite(p.gross)||p.gross<p.balance.ownGross||p.gross>maximum)return `A retirada deve ficar entre ${qty(p.balance.ownGross)} e ${qty(maximum)} ${i.unidade_nome}. Confira o saldo disponível.`;
+    if(!Number.isFinite(p.returned)||p.returned<p.balance.returnMinimum||p.returned>returnMaximum(i))return `A devolução deve ficar entre ${qty(p.balance.returnMinimum)} e ${qty(returnMaximum(i))} ${i.unidade_nome}. O que já foi recebido pelo almoxarifado é preservado.`;
+    if([p.gross,p.returned].some(v=>Math.abs(v-Math.round(v*1000)/1000)>1e-9))return 'Informe as quantidades com até três casas decimais.';
+    return '';
+  };
+  return <section className="field-panel">
+    <h3>Conferência de peças da OS</h3>
+    <p>{readOnly?"Peças desta operação · somente visualização.":"Confira os saldos e informe a retirada e a devolução desta operação. Você pode ajustar os valores antes de confirmar."}</p>
+    {!data.materials.complete&&<p className="field-error">Os materiais ainda estão sendo importados. Aguarde a conclusão da coleta.</p>}
+    {!items.length&&<p>Nenhuma peça cadastrada nesta OS.</p>}
+    {items.map((i:any,index:number)=>{
+      const {balance,gross,returned}=planned(i);
+      const blocked=balance.available===0&&balance.own===0;
+      const delivery=i.delivery,maximum=returnMaximum(i),error=invalid(i);
+      const pendingReturn=Math.abs(returned-balance.ownReturned)>1e-9;
+      const grossInvalid=!Number.isFinite(gross)||gross<balance.ownGross||gross>balance.withdrawalMaximum||Math.abs(gross-Math.round(gross*1000)/1000)>1e-9;
+      const errorId=`field-material-error-${index}`;
+      return <div className={"field-part "+(i.source_linked?"linked":"")} key={key(i)}>
+        <div className="field-part-info"><b>{i.produto_id} · {i.produto_nome}</b><small className="field-part-unit">Unidade: {i.unidade_nome}</small>
+          {i.quantity_inconsistency&&<p className="field-error field-part-alert" role="alert">Quantidade divergente na OS vinculada.</p>}
+          <dl className="field-part-balances" aria-label="Saldos registrados na OS">
+            <div><dt><button type="button" className="field-reserved-fill" disabled={readOnly||busy||blocked} title="Preencher retirada com o saldo reservado disponível" onClick={()=>{setValues(v=>({...v,[key(i)]:String(Math.round((balance.withdrawalMaximum)*1000)/1000)}));setConfirmed(false);}}>Reservado</button></dt><dd>{qty(balance.reserved)}</dd></div>
+            <div><dt>Retirado</dt><dd>{qty(balance.gross)}</dd></div>
+            <div><dt>Devolvido</dt><dd>{qty(balance.returned)}</dd></div>
+            <div className="field-part-available"><dt>Disponível</dt><dd>{qty(balance.available)}</dd></div>
           </dl>
-          {blocked && <p className="field-material-held" role="status">
-            Quantidade reservada totalmente retirada. Uma devolução na operação de origem libera saldo para nova retirada.
-          </p>}
-          </div>
-          <div className="field-part-quantity">
-          <label>
-            Retirado nesta operação
-            <input
-              disabled={readOnly || busy || Boolean(blocked)}
-              type="number"
-              min="0"
-              max={balance.maximum}
-              step="0.001"
-              inputMode="decimal"
-              value={values[key(i)] ?? ""}
-              onChange={(e) =>
-                setValues({ ...values, [key(i)]: e.target.value })
-              }
-            />
-          </label>
-          {canReturn && !readOnly && <button className="field-part-return" type="button" disabled={busy || values[key(i)] === "0"} onClick={() => {
-            setValues({ ...values, [key(i)]: "0" });
-            setConfirmed(false);
-          }}>Devolver peça</button>}
-          </div>
-          {balance.withdrawals.some(row => row.quantity > 0) && <details className="field-part-history" open={blocked || undefined}>
-            <summary>Ver retiradas ({balance.withdrawals.filter(row => row.quantity > 0).length})</summary>
-            {balance.withdrawals.filter(row => row.quantity > 0).map((row, index) => <div className="field-part-withdrawal" key={row.operationId || index}>
-              <strong>{row.position ? `Operação ${operationNumber(row.position)}` : "Planejamento"} · {row.quantity.toLocaleString("pt-BR")} {i.unidade_nome}</strong>
-              <span>{row.name || row.by}</span>
-              {row.at && <time dateTime={row.at}>{new Date(row.at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })}</time>}
-            </div>)}
-          </details>}
-          {Number(values[key(i)] || 0) > balance.maximum && <small className="field-error">Quantidade acima do saldo. Esta operação pode retirar até {balance.maximum.toLocaleString("pt-BR")}.</small>}
-          {canReturn && values[key(i)] === "0" && <small>Devolução pendente. Confirme a conferência para liberar esta peça.</small>}
+          <small className="field-warehouse-note">{delivery ? <>Almoxarifado: {Number(delivery.quantity).toLocaleString("pt-BR")} {i.unidade_nome} entregues.{delivery.technicians?.map((t:any)=><span key={t.email}> {t.name}: {Number(t.quantity).toLocaleString("pt-BR")};</span>)}</> : "Almoxarifado: sem entrega registrada."}</small>
+          {blocked&&<p className="field-material-held" role="status">Saldo reservado retirado por outras operações. Solicite o ajuste da reserva para uma nova retirada.</p>}
         </div>
-      );})}
-      <label className="field-confirm" hidden={readOnly}>
-        <input
-          type="checkbox"
-          disabled={readOnly}
-          checked={confirmed}
-          onChange={(e) => setConfirmed(e.target.checked)}
-        />
-        <span>Conferi as peças e confirmo as quantidades, inclusive quando não houve
-        retirada.</span>
-      </label>
-      <button hidden={readOnly}
-        disabled={readOnly || busy || !confirmed || !data.materials.complete || items.some((item: any) => {
-          const value = Number(values[key(item)] || 0);
-          return !Number.isFinite(value) || value < 0 || value > materialBalance(item, data.operation.id).maximum;
-        })}
-        onClick={() =>
-          void save({
-            action: "materials",
-            quantityScope: "operation",
-            items: items.map((i: any) => ({
-              id_m8: i.id_m8,
-              item_company: i.item_company,
-              item_order: i.item_order,
-              version: i.usage?.version ?? null,
-              withdrawn: values[key(i)] === "" ? null : Number(values[key(i)]),
-            })),
-          })
-        }
-      >
-        <CheckCircle2 size={18} /> Confirmar conferência
-      </button>
-    </section>
-  );
+        <div className="field-part-editor">
+          <h4>Nesta operação</h4>
+          <div className="field-part-quantity field-part-quantity-columns">
+            <label>Retirada<input aria-label="Retirado nesta operação" aria-invalid={grossInvalid} aria-describedby={error?errorId:undefined} disabled={readOnly||busy||blocked} type="number" min={balance.ownGross} max={balance.withdrawalMaximum} step="0.001" inputMode="decimal" value={values[key(i)]??""} placeholder={qty(balance.available)} onChange={e=>{setValues(v=>({...v,[key(i)]:e.target.value}));setConfirmed(false);}}/><small>Disponível: {qty(balance.available)} {i.unidade_nome}<br/>Registrado: {qty(balance.ownGross)} {i.unidade_nome}</small></label>
+            {returned>0&&<div className="field-returned-column"><small>Devolução informada</small><strong>{qty(returned)} {i.unidade_nome}</strong><small>Recebido pelo almoxarifado: {qty(Number(i.received?.quantity||0))} {i.unidade_nome}</small></div>}
+          </div>
+          {!readOnly&&<div className="field-part-editor-actions">{pendingReturn&&<small>Devolução ajustada · ainda não salva</small>}{(maximum>balance.returnMinimum||pendingReturn)&&<button className="field-part-return" type="button" disabled={busy} onClick={()=>{setReturnItem(i);setReturnQty(String(returned));setReturnError("");}}>{returned>0?'Ajustar devolução':'Devolver peça'}</button>}</div>}
+        </div>
+        {error&&<p className="field-error field-part-alert" id={errorId} role="alert">{error}</p>}
+        {balance.withdrawals.some(row=>Number(row.gross??row.quantity)>0)&&<details className="field-part-history"><summary>Histórico de retiradas e devoluções</summary>{balance.withdrawals.map((row,index)=><div className="field-part-withdrawal" key={row.operationId||index}><strong>{row.position?`Operação ${operationNumber(row.position)}`:"Planejamento"} · Retirado: {Number(row.gross??row.quantity).toLocaleString("pt-BR")} · Devolvido: {Number(row.returned||0).toLocaleString("pt-BR")}</strong><span>{row.name||row.by}</span>{row.at&&<time dateTime={row.at}>{new Date(row.at).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</time>}</div>)}</details>}
+      </div>;
+    })}
+    <label className="field-confirm" hidden={readOnly}><input type="checkbox" checked={confirmed} disabled={readOnly||busy} onChange={e=>setConfirmed(e.target.checked)}/><span>Conferi as peças e confirmo as quantidades, inclusive quando não houve retirada.</span></label>
+    <button hidden={readOnly} disabled={readOnly||busy||!confirmed||!data.materials.complete||items.some((i:any)=>!!invalid(i))}
+      onClick={()=>void save({action:"materials",quantityScope:"operation",quantityMode:"gross",items:items.map((i:any)=>({id_m8:i.id_m8,item_company:i.item_company,item_order:i.item_order,version:i.usage?.version??null,withdrawn:values[key(i)]?.trim()?Number(values[key(i)]):null,returned:planned(i).returned}))})}><CheckCircle2 size={18}/>Confirmar conferência</button>
+    <dialog ref={dialog} className="field-return-dialog" onCancel={e=>{e.preventDefault();setReturnItem(null);}}>
+      <form onSubmit={e=>{e.preventDefault();const quantity=Number(returnQty),p=returnItem?planned(returnItem):null;if(!returnItem||!p||!Number.isFinite(quantity)||quantity<p.balance.returnMinimum||quantity>returnMaximum(returnItem)||Math.abs(quantity-Math.round(quantity*1000)/1000)>1e-9){setReturnError("Informe uma quantidade entre o já recebido pelo almoxarifado e o saldo que pode ser devolvido, com até três casas decimais.");return;}setReturns(v=>({...v,[key(returnItem)]:String(Math.round(quantity*1000)/1000)}));setConfirmed(false);setReturnItem(null);}}>
+        <h3>Ajustar devolução</h3><p>{returnItem?.produto_nome}</p>
+        <label>Quantidade a devolver<input autoFocus required type="number" min={returnItem?planned(returnItem).balance.returnMinimum:0} max={returnItem?returnMaximum(returnItem):0} step="0.001" inputMode="decimal" value={returnQty} onChange={e=>setReturnQty(e.target.value)}/></label>
+        <small>{returnItem&&<>Devolvido já salvo: {qty(planned(returnItem).balance.ownReturned)} {returnItem.unidade_nome}. Mínimo permitido: {qty(planned(returnItem).balance.returnMinimum)} {returnItem.unidade_nome}. </>}O retirado será preservado. Ajuste a devolução que ainda não foi recebida pelo almoxarifado; a quantidade já recebida não pode ser reduzida. A alteração será salva ao confirmar a conferência.</small>{returnError&&<p role="alert" className="field-error">{returnError}</p>}
+        <div><button type="button" onClick={()=>setReturnItem(null)}>Cancelar</button><button type="submit">Registrar devolução</button></div>
+      </form>
+    </dialog>
+  </section>;
 }
 
 function PauseReminder({ session, refresh }: any) {

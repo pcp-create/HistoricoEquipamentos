@@ -759,7 +759,7 @@ export async function deleteTaskNote(body:any,user:AuthUser){
  try{
  await c.query('BEGIN READ WRITE');
  const access=(await c.query('SELECT role,enabled FROM web_user_access WHERE email=$1 FOR SHARE',[user.email])).rows[0];
- if(!access?.enabled)throw new Forbidden();
+ if(!access?.enabled || access.role !== "admin")throw new Forbidden();
  const task=(await c.query('SELECT id,task_type FROM web_tasks WHERE id=$1 FOR UPDATE',[id])).rows[0];
  if(!task)throw new TaskInputError('Tarefa não encontrada.');
  if(task.task_type==='approval')throw new TaskInputError('O histórico de aprovação não pode ser removido.');

@@ -1,4 +1,5 @@
 "use client";
+import MaterialSupply from "./material-supply";
 import {formatOrderDetailDate} from "@/lib/order-detail-dates";
 import HistoryProgrammingAction from "./history-programming-action";
 import CreateLinkedTask from "./create-linked-task";
@@ -1246,6 +1247,7 @@ export function OrderDetails({
                         </small>
                       )}
                       <small>Código: {shown(p.produto_id)}</small>
+                      <MaterialSupply supply={p.supply} purchases={p.purchases as any}/>
                       <small>
                         Ref. fabricante: {shown(p.referencia_fabricante)}
                       </small>

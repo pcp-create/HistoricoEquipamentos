@@ -1,4 +1,5 @@
 "use client";
+import MaterialSupply from "./material-supply";
 import OrderDeliveryHistory from "./order-delivery-history";
 import {formatOrderDetailDate} from "@/lib/order-detail-dates";
 import OrderLinkCaption from "./order-link-caption";
@@ -1257,6 +1258,7 @@ export function OrderDetails({
                         </small>
                       )}
                       <small>Código: {shown(p.produto_id)}</small>
+                      <MaterialSupply supply={p.supply} purchases={p.purchases as any}/>
                       <small>
                         Ref. fabricante: {shown(p.referencia_fabricante)}
                       </small>

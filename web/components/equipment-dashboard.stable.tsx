@@ -212,7 +212,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
   const [query, setQuery] = useState(""),
     [ownership, setOwnership] = useState(""),
     [equipmentTab, setEquipmentTab] = useState(section === "locacao" ? "rental" : "all"),
-    [rentalStatus, setRentalStatus] = useState(""),
+    [rentalStatus, setRentalStatus] = useState<string[]>([]),
     [contractStatus, setContractStatus] = useState(""),
     [contractType, setContractType] = useState("all"),
     [state, setState] = useState(""),
@@ -291,7 +291,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
   ].map(([key, label]) => ({
     key,
     label,
-    count: rentalRows.filter((e: any) => !key || e.rentalStatus?.key === key)
+    count: rentalRows.filter((e: any) => key ? e.rentalStatus?.key === key : e.rentalStatus?.key !== "sold")
       .length,
   }));
   const contractFilterVisible = equipmentTab === "status";
@@ -331,7 +331,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
     if (equipmentTab === "all") return true;
     if (!e.rental) return false;
     if (equipmentTab === "rental")
-      return !rentalStatus || e.rentalStatus?.key === rentalStatus;
+      return !rentalStatus.length || rentalStatus.includes(e.rentalStatus?.key);
     return (
       ["rented", "loaned"].includes(e.rentalStatus?.key) &&
       (contractType === "all" || e.rentalStatus.key === contractType) &&
@@ -824,7 +824,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                     setEquipmentTab(key);
                     setSpecFilters({hp:"",pcm:"",pressure:""});
                     setContractType("all");
-                    setRentalStatus("");
+                    setRentalStatus([]);
                     setContractStatus("");
                     setPage(1);
                   }}
@@ -853,14 +853,14 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                     key={key}
                     className={`rental-filter-${key || "all"}`}
                     type="button"
-                    aria-pressed={rentalStatus === key}
+                    aria-pressed={key ? rentalStatus.includes(key) : !rentalStatus.length}
                     onClick={() => {
-                      setRentalStatus(key);
+                      setRentalStatus(current => !key ? [] : current.includes(key) ? current.filter(status => status !== key) : [...current, key]);
                       setContractStatus("");
                       setPage(1);
                     }}
                   >
-                    {label} <strong>{count}</strong>
+                    <span>{label}</span> <strong>{count}</strong>
                   </button>
                 ))}
                 <small>Quantidades conforme os demais filtros da lista.</small>
@@ -873,7 +873,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                   role="group"
                   aria-label="Tipo de contrato"
                 >
-                  <h3>Tipo</h3>
+                  <h3>Situação dos equipamentos</h3>
                   {contractTypeOptions.map(({ key, label, count }) => (
                     <button
                       type="button"
@@ -885,7 +885,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                         setPage(1);
                       }}
                     >
-                      {label} <strong>{count}</strong>
+                      <span>{label}</span> <strong>{count}</strong>
                     </button>
                   ))}
                 </div>
@@ -909,12 +909,19 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                         setPage(1);
                       }}
                     >
-                      {label} <strong>{count}</strong>
+                      <span>{label}</span> <strong>{count}</strong>
                     </button>
                   ))}
                 </div>
               </div>
             )}
+            <div className="equipment-clear-filters">
+              <button type="button" onClick={() => {
+                setQuery(""); setOwnership(""); setState(""); setRentalStatus([]);
+                setContractStatus(""); setContractType("all");
+                setSpecFilters({hp:"",pcm:"",pressure:""}); setPage(1);
+              }}>Limpar filtros</button>
+            </div>
             <details className="equipment-search-filter-panel">
               <summary><Settings2 size={18} aria-hidden="true" /><span>Filtros de pesquisa</span><ChevronDown size={18} className="equipment-filter-chevron" aria-hidden="true" /></summary>
               <div className="equipment-search-filter-content">

@@ -95,7 +95,7 @@ test("mobile technician confirms pieces before starting work with location", asy
   await page.getByRole("button", { name: "Informações", exact: true }).click();
   await page.getByRole("button", { name: "Li e compreendi as informações" }).click();
   await page.getByRole("button", { name: "Peças", exact: true }).click();
-  await page.getByRole("checkbox").check();
+  await page.getByRole("checkbox", {name:/Conferi as peças/}).check();
   await page.getByRole("button", { name: "Confirmar conferência" }).click();
   await expect(page.getByRole("heading", { name: "Conferência de peças da OS" })).toBeHidden();
   await expect(page.getByRole("button", { name: "Informações", exact: true })).toBeVisible();
@@ -224,7 +224,7 @@ test("orders and operations open one at a time and scroll to their heading", asy
   await firstOrder.locator("summary").click();
   await nearTop(firstOrder);
   const firstOperation = firstOrder.getByRole("button", { name: /OP01/ });
-  const secondOperation = firstOrder.getByRole("button", { name: /Operação 02/ });
+  const secondOperation = firstOrder.getByRole("button", { name: /OP02|Operação 02/ });
   await firstOperation.click();
   await expect(firstOperation).toHaveAttribute("aria-expanded", "true");
   await nearTop(firstOperation);
@@ -266,20 +266,27 @@ test("partial material withdrawals allow only the remaining reserved balance", a
   await page.goto("/tecnico");
   await page.getByRole("button", { name: "Programação" }).click();
   await page.getByText("OS 100", { exact: true }).click();
-  await page.getByRole("button", { name: /Operação 02/ }).click();
+  await page.getByRole("button", { name: /OP02|Operação 02/ }).click();
   await page.getByRole("button", { name: "Peças", exact: true }).click();
   const amount = page.getByRole("spinbutton", { name: "Retirado nesta operação" });
   await expect(amount).toBeEnabled();
-  await expect(amount).toHaveValue("0");
-  await expect(page.locator(".field-part-balances dd")).toHaveText(["1", "0,5", "0,5"]);
-  await page.getByText("Ver retiradas (1)", { exact: true }).click();
+  await expect(amount).toHaveValue("");
+  await expect(page.locator(".field-part-balances dd")).toHaveText(["1", "0,5", "0", "0,5"]);
+  await page.getByText("Histórico de retiradas e devoluções", { exact: true }).click();
   await expect(page.getByText("Ana", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "/tmp/field-material-layout.png", fullPage: true });
   await amount.fill("0.6");
-  await page.getByRole("checkbox").check();
+  const quantityAlert=page.locator('.field-part-alert');
+  await expect(quantityAlert).toContainText('Solicite o ajuste da reserva antes de continuar.');
+  const alertBox=await quantityAlert.boundingBox(), editorBox=await page.locator('.field-part-editor').boundingBox();
+  expect(alertBox!.y).toBeGreaterThanOrEqual(editorBox!.y+editorBox!.height);
+  await page.screenshot({path:'test-results/field-material-validation.png',fullPage:true});
+  await page.getByRole("checkbox", {name:/Conferi as peças/}).check();
   await expect(page.getByRole("button", { name: "Confirmar conferência" })).toBeDisabled();
-  await amount.fill("0.5");
+  await page.getByRole("button", {name:"Reservado",exact:true}).click();
+  await expect(amount).toHaveValue("0.5");
+  await page.getByRole("checkbox", {name:/Conferi as peças/}).check();
   await page.getByRole("button", { name: "Confirmar conferência" }).click();
   await expect(page.getByRole("button", { name: "Peças", exact: true })).toBeVisible();
   expect(saved.quantityScope).toBe("operation");
@@ -288,7 +295,7 @@ test("partial material withdrawals allow only the remaining reserved balance", a
   item.usage.allocations[0].quantity = 1;
   await page.getByRole("button", { name: "Peças", exact: true }).click();
   await expect(amount).toBeDisabled();
-  await expect(page.getByText(/Quantidade reservada totalmente retirada/)).toBeVisible();
+  await expect(page.getByText(/Saldo reservado retirado por outras operações/)).toBeVisible();
 });
 
 test("operation completion requires all modules and confirms material returns", async ({ page, context }) => {
@@ -336,4 +343,54 @@ test("operation completion requires all modules and confirms material returns", 
   await finish.click();
   await dialog.getByRole("button", { name: "Não, finalizar operação" }).click();
   await expect.poll(() => actions).toEqual(["finish_full"]);
+});
+
+test("material return dialog records a separate quantity without replacing the withdrawal",async({page,context})=>{
+ await context.addCookies([{name:"m8-access",value:"test",domain:"localhost",path:"/"}]);
+ await context.grantPermissions(["geolocation"]);await context.setGeolocation({latitude:-27,longitude:-49});
+ const row={id:"operation",schedule_id:1,number:100,position:1,description:"Manutenção",status:"executing"};
+ const item={id_m8:"55",item_company:1,item_order:"100",produto_id:"7",produto_nome:"Filtro",quantidade:5,unidade_nome:"UN",usage:{withdrawn:3,version:1,allocations:[{operationId:row.id,quantity:3,gross:3,returned:0,by:"tech",name:"Técnico",at:"2026-10-29T10:00:00Z"}]},delivery:{quantity:3,technicians:[{email:"tech",name:"Técnico",quantity:3}]}};
+ let saved:any;
+ await page.route("**/api/activity",r=>r.fulfill({json:{}}));
+ await page.route("**/api/field*",r=>{
+  if(r.request().method()==="POST"){saved=r.request().postDataJSON();return r.fulfill({json:{saved:true}});}
+  return r.fulfill({json:new URL(r.request().url()).searchParams.has("operation")?{operation:{...row,document:{}},infoRead:true,checked:true,settings:{document:{vehicles:[],pauseReasons:[],checklists:[]}},materials:{complete:true,items:[item]},history:[]}:{rows:[row],active:null}});
+ });
+ await page.goto("/tecnico");
+ await page.getByRole("button",{name:"Programação"}).click();
+ await page.getByText("OS 100",{exact:true}).click();
+ await page.getByRole("button",{name:/OP01|Operação 01/}).click();
+ await page.getByRole("button",{name:"Peças",exact:true}).click();
+ await expect(page.getByRole("spinbutton",{name:/Retirado nesta operação/})).toHaveValue("");
+ await expect(page.getByText(/Almoxarifado: 3/)).toBeVisible();
+ await expect(page.getByLabel("Quantidade a devolver")).not.toBeVisible();
+ await expect(page.getByRole("spinbutton",{name:"Devolvido nesta operação",exact:true})).toHaveCount(0);
+ await page.getByRole("button",{name:"Devolver peça",exact:true}).click();
+ await page.getByLabel("Quantidade a devolver").fill("1");
+ await page.getByRole("button",{name:"Registrar devolução",exact:true}).click();
+ await expect(page.getByText('1 UN',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Ajustar devolução',exact:true}).click();
+ await expect(page.getByLabel('Quantidade a devolver')).toHaveValue('1');
+ await page.getByLabel('Quantidade a devolver').fill('2');
+ await page.getByRole('button',{name:'Registrar devolução',exact:true}).click();
+ await expect(page.getByText('2 UN',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Ajustar devolução',exact:true}).click();
+ await page.getByLabel('Quantidade a devolver').fill('0');
+ await page.getByRole('button',{name:'Registrar devolução',exact:true}).click();
+ await expect(page.getByText('Devolução ajustada · ainda não salva',{exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'Devolver peça',exact:true}).click();
+ await page.getByLabel('Quantidade a devolver').fill('1');
+ await page.getByRole('button',{name:'Registrar devolução',exact:true}).click();
+ await page.getByRole('checkbox',{name:/Conferi as peças/}).check();
+ await page.getByRole('button',{name:'Ajustar devolução',exact:true}).click();
+ await page.getByLabel('Quantidade a devolver').fill('0.5');
+ await page.getByRole('button',{name:'Registrar devolução',exact:true}).click();
+ await expect(page.getByRole('checkbox',{name:/Conferi as peças/})).not.toBeChecked();
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:'test-results/field-material-returns.png',fullPage:true});
+ await page.getByRole("checkbox", {name:/Conferi as peças/}).check();
+ await page.getByRole("button",{name:"Confirmar conferência"}).click();
+ await expect.poll(()=>saved?.quantityMode).toBe("gross");
+ expect(saved.items[0]).toMatchObject({withdrawn:null,returned:0.5});
 });

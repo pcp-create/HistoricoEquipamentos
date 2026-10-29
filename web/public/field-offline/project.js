@@ -51,26 +51,33 @@ function projectField(home, detail, body) {
                   ]
                 : []),
             ];
-        const own = Number(
-          allocations.find((a) => a.operationId === op.id)?.quantity || 0,
-        );
-        if (patch.withdrawn === null || Number(patch.withdrawn) === own)
-          continue;
-        const remaining = allocations.filter((a) => a.operationId !== op.id);
-        if (patch.withdrawn > 0)
-          remaining.push({
-            operationId: op.id,
-            position: op.position,
-            quantity: patch.withdrawn,
-            by: home.email,
-            name: home.displayName,
-            at,
-          });
+        const previous = allocations.find(a => a.operationId === op.id);
+        const own = Number(previous?.quantity || 0);
+        const oldReturned = Number(previous?.returned || 0);
+        const oldGross = Number(previous?.gross ?? own + oldReturned);
+        const allReturned=allocations.reduce((sum,a)=>sum+Number(a.returned||0),0);
+        const returnMinimum=Math.min(oldReturned,Math.max(0,Math.round((Number(item.received?.quantity||0)-(Number(item.returnedTotal??allReturned)-oldReturned))*1000)/1000));
+        const raw = patch.withdrawn;
+        const gross = raw == null ? oldGross : body.quantityMode === "gross" ? raw : raw >= own ? oldGross + raw - own : oldGross;
+        const returned = body.quantityMode === "gross" ? (patch.returned ?? oldReturned) : raw == null ? oldReturned : oldReturned + Math.max(0,own - raw);
+        if ([gross,returned].some(v=>typeof v!=="number"||!Number.isFinite(v)||v<0||v>1e9||Math.abs(v-Math.round(v*1000)/1000)>1e-9)||gross<oldGross||returned<returnMinimum||returned>gross)
+          throw Error("Confira as quantidades retiradas e devolvidas.");
+        const accumulated = Math.round((allocations.reduce((sum,a)=>sum+Number(a.gross??Number(a.quantity||0)+Number(a.returned||0)),0)-oldGross+gross)*1000)/1000;
+        if(gross>oldGross && accumulated>Number(item.quantidade))throw Error("A retirada acumulada ultrapassa a quantidade reservada. Solicite o ajuste da reserva antes de continuar.");
+        if(gross===oldGross&&returned===oldReturned)continue;
+        const net = Math.round((gross-returned)*1000)/1000;
+        const nextTotal = Math.round((Number(usage?.withdrawn||0)-own+net)*1000)/1000;
+        if(net>own && nextTotal>Number(item.quantidade))throw Error("Saldo insuficiente para esta retirada.");
+        if(nextTotal<Number(usage?.used||0))throw Error("Não é possível devolver uma quantidade já utilizada.");
+        const remaining = allocations.filter(a=>a.operationId!==op.id);
+        remaining.push({operationId:op.id,position:op.position,quantity:net,gross,returned,
+          by:previous?.by||home.email,name:previous?.name||home.displayName,at:previous?.at||at});
+        item.returnedTotal = Math.round((Number(item.returnedTotal??allReturned)-oldReturned+returned)*1000)/1000;
         item.usage = {
           ...usage,
           withdrawn:
             Math.round(
-              (Number(usage?.withdrawn || 0) - own + patch.withdrawn) * 1000,
+              (Number(usage?.withdrawn || 0) - own + net) * 1000,
             ) / 1000,
           allocations: remaining,
           operation_id: op.id,

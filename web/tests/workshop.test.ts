@@ -1,8 +1,8 @@
 import {equipmentWorkshopStatus} from "../lib/workshop/equipment-status";
 import {resolveRentalStatus} from "../lib/equipment-management/rental-status";
 import {test} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {PGlite} from '@electric-sql/pglite';
-import {workshopMutate} from '../lib/workshop/store';import {effectiveStage,daysInWorkshop,stageOptions} from '../lib/workshop/model';
-test('workshop computes elapsed days and follows explicit OS material shortages',()=>{assert.equal(effectiveStage('repair',[{status_lancamento_nome:'22 - O.S FALTANDO PEÇAS'}]),'parts');assert.equal(effectiveStage('repair',[]),'repair');assert.equal(daysInWorkshop('2026-10-20T12:00:00Z','2026-10-22T12:00:00Z'),2);});
+import {workshopMutate} from '../lib/workshop/store';import {hasPartsShortage,effectiveStage,daysInWorkshop,stageOptions} from '../lib/workshop/model';
+test('workshop computes elapsed days and follows explicit OS material shortages',()=>{assert.equal(effectiveStage('repair',[{status_lancamento_nome:'22 - O.S FALTANDO PEÇAS'}]),'repair');assert.equal(effectiveStage('repair',[]),'repair');assert.equal(daysInWorkshop('2026-10-20T12:00:00Z','2026-10-22T12:00:00Z'),2);});
 test('entries prevent duplicates; external parts block exit; version conflicts and history are preserved',async()=>{
  const db=new PGlite(),g=globalThis as any,old=g.historyPool;
  const query=(sql:string,args?:any[])=>db.query(sql.replace('BEGIN READ WRITE','BEGIN'),args);g.historyPool={query,connect:async()=>({query,release(){}})};
@@ -83,6 +83,39 @@ test('approval groups and selectable labels follow machine origin without changi
  assert.equal(effectiveStage('approval',[],{sheet:'Equipamentos em Oficina'}),'approval');
  assert.equal(stageOptions(rental).find(s=>s.id==='approval')?.label,'Aguardando aprovação interna');
  assert.equal(stageOptions().find(s=>s.id==='approval')?.label,'Aguardando aprovação do cliente');
- assert.equal(effectiveStage('approval',[{status_lancamento_nome:'Aguardando peças'}],rental),'parts');
+ assert.equal(effectiveStage('approval',[{status_lancamento_nome:'Aguardando peças'}],rental),'approval_internal');
  assert.ok(!stageOptions(rental).some(s=>s.id==='approval_internal'));
+});
+
+test('parts shortages remain flagged while the machine advances through recorded stages',()=>{
+ const orders=[{status_lancamento_nome:'22 - O.S FALTANDO PEÇAS'}];
+ assert.equal(hasPartsShortage(orders),true);
+ for(const stage of ['parts','diagnosis','repair','ready']) assert.equal(effectiveStage(stage,orders),stage);
+ assert.equal(hasPartsShortage([{status_lancamento_nome:'Serviço executado'}]),false);
+});
+
+test('entry reversal preserves audit history, frees equipment and requires reason and returned external parts',async()=>{
+ const db=new PGlite(),g=globalThis as any,old=g.historyPool;
+ const query=(sql:string,args?:any[])=>db.query(sql.replace('BEGIN READ WRITE','BEGIN'),args);g.historyPool={query,connect:async()=>({query,release(){}})};
+ try {
+  await db.exec('CREATE ROLE anon;CREATE ROLE authenticated;CREATE TABLE m8_equipment_catalog(equipment_id bigint,present boolean);INSERT INTO m8_equipment_catalog VALUES(100,true);');
+  for(const f of ['067_workshop','068_workshop_reconciliation','069_workshop_external_position','070_workshop_rental_stages'])await db.exec(readFileSync(new URL('../sql/'+f+'.sql',import.meta.url),'utf8'));
+  const entry={action:'entry',equipmentId:'100',workshopId:'1',enteredAt:'2026-01-01T12:00:00Z'};
+  await workshopMutate(entry,'planner');
+  const v=(await db.query<any>('SELECT * FROM web_workshop_visits')).rows[0];
+  await assert.rejects(()=>workshopMutate({action:'reverse',id:v.id,version:1,notes:'  '},'planner'),/justificativa/);
+  await workshopMutate({action:'external',id:v.id,version:1,component:'Motor',supplier:'Prestador'},'planner');
+  await assert.rejects(()=>workshopMutate({action:'reverse',id:v.id,version:2,notes:'Duplicidade'},'planner'),/retorno/);
+  const ext=(await db.query<any>('SELECT id FROM web_workshop_external')).rows[0];
+  await workshopMutate({action:'return',id:v.id,version:2,externalId:ext.id},'planner');
+  await assert.rejects(()=>workshopMutate({action:'reverse',id:v.id,version:2,notes:'Duplicidade'},'planner'),/mudou/);
+  await workshopMutate({action:'reverse',id:v.id,version:3,notes:'Entrada registrada por engano'},'planner');
+  const reversed=(await db.query<any>('SELECT * FROM web_workshop_visits WHERE id=$1',[v.id])).rows[0];
+  assert.equal(reversed.exited_at,null);assert.ok(reversed.reconciled_out_at);assert.equal(reversed.source.entry_reversed,true);assert.equal(reversed.version,4);
+  assert.equal((await equipmentWorkshopStatus(['100'])).size,0);
+  const event=(await db.query<any>("SELECT * FROM web_workshop_events WHERE visit_id=$1 AND action='Entrada estornada'",[v.id])).rows[0];
+  assert.equal(event.actor,'planner');assert.equal(event.document.notes,'Entrada registrada por engano');
+  await assert.rejects(()=>workshopMutate({action:'reverse',id:v.id,version:4,notes:'Repetido'},'planner'),/mudou/);
+  await workshopMutate(entry,'planner');assert.equal((await db.query('SELECT * FROM web_workshop_visits')).rows.length,2);
+ } finally {g.historyPool=old;await db.close();}
 });

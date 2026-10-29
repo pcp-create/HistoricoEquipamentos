@@ -1,5 +1,5 @@
 import "server-only";
-import { effectiveStage, stages } from "../workshop/model";
+import { hasPartsShortage, effectiveStage, stages } from "../workshop/model";
 import { attachLinkedOrders } from "./order-links";
 import { historyScheduleStatuses } from "../service-scheduling/history-status";
 import { database } from "../db";
@@ -89,7 +89,7 @@ export async function salesProjection(period: string) {
     if (visit) {
       const stage = effectiveStage(visit.stage,visit.flows,visit.source);
       const option = stages.find(s => s.id === stage);
-      detail.workshop = { visit: visit.visit, name: visit.workshop, stage, label: option?.label || stage, color: option?.color || "#547c99" };
+      detail.workshop = { visit: visit.visit, name: visit.workshop, stage, label: option?.label || stage, color: option?.color || "#547c99", partsPending: hasPartsShortage(visit.flows) };
     }
   }
   await attachLinkedOrders(sales);

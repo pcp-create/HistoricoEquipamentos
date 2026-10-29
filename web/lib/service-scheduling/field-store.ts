@@ -3,6 +3,7 @@ import {validateRunAlertComments} from './checklists';
 import { offlineTime } from "./offline-action";
 import {requireReportActivity} from './report-activity';
 import "server-only";
+import { warehouseDeliveryTotals } from "../warehouse/store";
 import { randomUUID } from "node:crypto";
 import { database } from "../db";
 import { Forbidden } from "../auth";
@@ -98,11 +99,20 @@ async function materials(c: any, s: any) {
       ),
     )
   ).every(Boolean);
+  const delivered = await warehouseDeliveryTotals(c,items);
+  const received = await warehouseDeliveryTotals(c,items,"receipt");
+  const returnedTotals = (await c.query(`SELECT item_company,item_order::text,item_id::text,
+    SUM(COALESCE((SELECT SUM(COALESCE((a->>'returned')::numeric,0)) FROM jsonb_array_elements(COALESCE(allocations,'[]')) a),0))::float8 returned
+    FROM web_service_item_usage u WHERE EXISTS(SELECT 1 FROM jsonb_to_recordset($1::jsonb) k(company int,ord bigint,item bigint) WHERE k.company=u.item_company AND k.ord=u.item_order AND k.item=u.item_id) GROUP BY item_company,item_order,item_id`,[JSON.stringify(items.map((i:any)=>({company:i.item_company,ord:i.item_order,item:i.id_m8})))])).rows;
+
   return {
     complete,
     items: items.map((i: any) => ({
       ...i,
       usage: usage.find((v: any) => key(v) === key(i)) || null,
+      delivery: delivered.get(key(i)) || null,
+      received: received.get(key(i)) || null,
+      returnedTotal: Number(returnedTotals.find((r:any)=>key({...r,id_m8:r.item_id})===key(i))?.returned||0),
     })),
   };
 }
@@ -334,6 +344,7 @@ export async function fieldAction(b: any, email: string) {
       if(reportSubmission(p.document.checklistRun))throw new FieldError("Relatório enviado. As peças estão disponíveis somente para consulta.");
       if (b.quantityScope !== "operation")
         throw new FieldError("O controle de retiradas mudou. Atualize a página e reabra a conferência.");
+      await c.query("SELECT pg_advisory_xact_lock(829201,0)");
       const current = await materials(c, s);
       if (!current.complete)
         throw new FieldError(
@@ -349,26 +360,23 @@ export async function fieldAction(b: any, email: string) {
       for (const item of current.items) {
         const patch = b.items.find((v: any) => key(v) === key(item));
         if (!patch) throw new FieldError("Confira todos os materiais da OS.");
-        const withdrawn = patch.withdrawn;
-        if (
-          withdrawn !== null &&
-          (typeof withdrawn !== "number" ||
-            !Number.isFinite(withdrawn) ||
-            withdrawn < 0 ||
-            withdrawn > 1e9)
-        )
-          throw new FieldError("Quantidade retirada inválida.");
-        if ((item.usage?.version ?? null) !== patch.version)
-          throw new FieldError(
-            "Outro técnico atualizou as peças. Reabra a conferência para ver os valores atuais.",
-          );
         const balance = materialBalance(item, p.id);
-        if (withdrawn === null && !balance.own) continue;
-        if (withdrawn === null)
-          throw new FieldError("Informe zero para devolver a retirada desta operação.");
-        if (Math.abs(withdrawn - materialQuantity(withdrawn)) > 1e-9)
-          throw new FieldError("Informe a quantidade com até três casas decimais.");
-        if (balance.own === withdrawn) continue;
+        const grossMode = b.quantityMode === "gross";
+        const raw = patch.withdrawn;
+        if (raw != null && typeof raw !== "number") throw new FieldError("Quantidade retirada inválida.");
+        const gross = raw == null ? balance.ownGross : grossMode ? raw : raw >= balance.own ? balance.ownGross + raw - balance.own : balance.ownGross;
+        const returned = grossMode ? (patch.returned ?? balance.ownReturned) : raw == null ? balance.ownReturned : balance.ownReturned + Math.max(0, balance.own - raw);
+        if ([gross,returned].some(v => typeof v !== "number" || !Number.isFinite(v) || v < 0 || v > 1e9 || Math.abs(v - materialQuantity(v)) > 1e-9))
+          throw new FieldError("Informe quantidades válidas com até três casas decimais.");
+        if ((item.usage?.version ?? null) !== patch.version)
+          throw new FieldError("Outro técnico atualizou as peças. Reabra a conferência para ver os valores atuais.");
+        if (gross < balance.ownGross || returned < balance.returnMinimum)
+          throw new FieldError("A retirada registrada e a devolução já recebida pelo almoxarifado não podem ser reduzidas.");
+        if (gross > balance.ownGross && materialQuantity(balance.gross-balance.ownGross+gross) > balance.reserved)
+          throw new FieldError("A retirada acumulada ultrapassa a quantidade reservada. Solicite o ajuste da reserva antes de continuar.");
+        if (returned > gross) throw new FieldError("A devolução não pode ultrapassar a quantidade retirada.");
+        const withdrawn = materialQuantity(gross - returned);
+        if (balance.ownGross === gross && balance.ownReturned === returned) continue;
         const total = materialQuantity(balance.total - balance.own + withdrawn);
         if (withdrawn > balance.own && total > balance.reserved)
           throw new FieldError(`Saldo insuficiente. Disponível para retirada: ${balance.available}. Outra operação pode ter retirado este material.`);
@@ -376,11 +384,10 @@ export async function fieldAction(b: any, email: string) {
           throw new FieldError("Não é possível devolver uma quantidade já utilizada. Confira a utilização com o planejamento.");
         const allocations = balance.withdrawals.filter(row => row.operationId !== p.id);
         const previous = balance.withdrawals.find(row => row.operationId === p.id);
-        if (withdrawn > 0) allocations.push({ operationId: p.id, position: p.position,
-          quantity: withdrawn,
-          by: withdrawn < balance.own && previous ? previous.by : email,
-          name: withdrawn < balance.own && previous ? previous.name : actor.display_name || email,
-          at: withdrawn < balance.own && previous ? previous.at : occurredAt });
+        allocations.push({ operationId: p.id, position: p.position, quantity: withdrawn,
+          gross: materialQuantity(gross), returned: materialQuantity(returned),
+          by: previous?.by || email, name: previous?.name || actor.display_name || email,
+          at: previous?.at || occurredAt });
         await c.query(
           `INSERT INTO web_service_item_usage(schedule_id,item_company,item_order,item_id,withdrawn,updated_by,operation_id,allocations) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
      ON CONFLICT(schedule_id,item_company,item_order,item_id) DO UPDATE SET withdrawn=$5,updated_by=$6,operation_id=$7,allocations=$8::jsonb,updated_at=now(),version=web_service_item_usage.version+1`,
@@ -401,6 +408,7 @@ export async function fieldAction(b: any, email: string) {
           after: total,
           operationBefore: balance.own,
           operationAfter: withdrawn,
+          grossBefore: balance.ownGross, grossAfter: gross, returnedBefore: balance.ownReturned, returnedAfter: returned,
           allocations,
         });
       }
@@ -408,7 +416,7 @@ export async function fieldAction(b: any, email: string) {
         "INSERT INTO web_field_material_checks(operation_id,actor) VALUES($1,$2) ON CONFLICT(operation_id,actor) DO UPDATE SET confirmed_at=now()",
         [p.id, email],
       );
-      details.noWithdrawal = b.items.every((v: any) => !v.withdrawn);
+      details.noWithdrawal = current.items.every((item:any) => (details.changes.find((change:any)=>change.item===key(item))?.operationAfter ?? materialBalance(item,p.id).own) === 0);
     } else if (b.action === "start_work" || b.action === "start_travel") {
       if (active)
         throw new FieldError(

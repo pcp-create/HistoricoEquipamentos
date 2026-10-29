@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 test('workshop board filters locations, opens linked records and records an entry',async({page,context})=>{
  await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
- const base={id:'10000000-0000-4000-8000-000000000001',equipment_id:'16929',name:'COMPRESSOR DE PARAFUSO',model:'GA75VSD AFF',serial:'BRP063138',client:'Cliente exemplo',workshop_id:'1',workshop:'RJ Compressores',entered_at:'2026-10-10T12:00:00Z',exited_at:null,expected_at:'2026-11-01',stage:'repair',effective_stage:'parts',notes:'Inspeção inicial registrada.',version:1,orders:[{id:'400',company:1,number:'15119',status_lancamento_nome:'22 - O.S FALTANDO PEÇAS'}],quotes:[],drafts:[],tasks:[{id:'16',title:'Conferir peças'}],external:[],events:[]};
+ const base={id:'10000000-0000-4000-8000-000000000001',equipment_id:'16929',name:'COMPRESSOR DE PARAFUSO',model:'GA75VSD AFF',serial:'BRP063138',client:'Cliente exemplo',workshop_id:'1',workshop:'RJ Compressores',entered_at:'2026-10-10T12:00:00Z',exited_at:null,expected_at:'2026-11-01',stage:'parts',effective_stage:'parts',notes:'Inspeção inicial registrada.',version:1,orders:[{id:'400',company:1,number:'15119',status_lancamento_nome:'22 - O.S FALTANDO PEÇAS'}],quotes:[],drafts:[],tasks:[{id:'16',title:'Conferir peças'}],external:[],events:[]};
  const data:any={workshops:[{id:'1',name:'RJ Compressores',active:true},{id:'2',name:'RJ Serrana',active:true},{id:'3',name:'Criciúma',active:true}],visits:[base,{...base,id:'20000000-0000-4000-8000-000000000002',equipment_id:'20000',name:'SECADOR DE AR',source:{sheet:'Equipamentos Locação em revisão',fleet_code:170},workshop_id:'2',workshop:'RJ Serrana',stage:'ready',effective_stage:'ready',orders:[],tasks:[]}],imports:[{id:'x',sheet:'Equipamentos em Oficina',row_number:5,document:{equipment_description:'Motor sem código',customer:'Cliente',original_status:'AGUARDANDO PEÇAS'},reason:'Equipamento não identificado'}]};
  data.external=[{id:'30000000-0000-4000-8000-000000000003',visit_id:null,component:'Motor externo',supplier:'Fornecedor teste',status:'approval',version:1,sent_at:'2026-01-01T03:00:00Z',expected_at:null,machine:{id:null,name:'Máquina externa',client:'Cliente externo',workshop_id:null,orders:[],tasks:[]}}];
  let saved:any;
@@ -72,7 +72,7 @@ test('workshop board filters locations, opens linked records and records an entr
 
 test('kanban drag saves stage and version, maps rental approval and preserves card on failure',async({page,context})=>{
  await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
- const machine={id:'10000000-0000-4000-8000-000000000001',equipment_id:'100',name:'Máquina locação',source:{sheet:'Equipamentos Locação em revisão'},workshop_id:'1',workshop:'RJ',entered_at:'2026-10-01T12:00:00Z',stage:'received',effective_stage:'received',version:1,orders:[],quotes:[],drafts:[],tasks:[],external:[],events:[]};
+ const machine={id:'10000000-0000-4000-8000-000000000001',equipment_id:'100',name:'Máquina locação',source:{sheet:'Equipamentos Locação em revisão'},workshop_id:'1',workshop:'RJ',entered_at:'2026-10-01T12:00:00Z',stage:'received',effective_stage:'received',version:1,orders:[{status_lancamento_nome:'22 - O.S FALTANDO PEÇAS'}],quotes:[],drafts:[],tasks:[],external:[],events:[]};
  const writes:any[]=[];let reject=false;
  await page.route('**/api/**',r=>r.fulfill({json:{admin:true}}));
  await page.route('**/api/workshop',r=>{if(r.request().method()==='POST'){const b=r.request().postDataJSON();writes.push(b);if(reject)return r.fulfill({status:503,json:{error:'Falha ao salvar etapa'}});machine.stage=b.stage;machine.effective_stage=b.stage==='approval'?'approval_internal':b.stage;machine.version++;return r.fulfill({json:{saved:true}})}return r.fulfill({json:{visits:[machine],workshops:[{id:'1',name:'RJ',active:true}],imports:[]}})});
@@ -83,6 +83,7 @@ test('kanban drag saves stage and version, maps rental approval and preserves ca
  expect(writes[0]).toMatchObject({action:'stage',id:machine.id,version:1,stage:'repair'});
  await expect(page.getByRole('dialog',{name:'Ficha da máquina'})).toHaveCount(0);
  await expect(page.locator('[data-stage=repair] .ws-machine')).toHaveAttribute('draggable','true');
+ await expect(page.locator('[data-stage=repair] .ws-machine')).toContainText('Aguardando peça · pendência na OS');
  await page.locator('[data-stage=repair] .ws-machine').dragTo(page.locator('[data-stage=approval_internal]'));
  await expect(page.locator('[data-stage=approval_internal] .ws-machine')).toHaveCount(1);
  expect(writes[1]).toMatchObject({stage:'approval',version:2});

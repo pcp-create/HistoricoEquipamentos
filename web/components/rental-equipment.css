@@ -81,3 +81,13 @@
  .rental-fleet-page .fleet-table td { height:auto; min-height:0; }
  .rental-fleet-page .fleet-equipment-row { height:auto; grid-auto-rows:auto; align-items:start; }
 }
+.equipment-clear-filters { display:flex; justify-content:flex-end; margin:12px 0; }
+.equipment-clear-filters button { border:1px solid #d5e3f0; border-radius:8px; padding:8px 14px; background:white; color:#25639b; cursor:pointer; }
+.rental-fleet-page .equipment-rental-status-cards .rental-filter-sold { padding-top:4px; padding-bottom:22px; }
+.rental-fleet-page .equipment-rental-status-cards .equipment-sold-note { position:absolute; left:14px; right:10px; bottom:5px; display:block; font-size:9px; line-height:11px; font-weight:400; margin:0; white-space:nowrap; }
+@media(max-width:760px) { .rental-fleet-page .equipment-rental-status-cards .rental-filter-sold { padding-top:2px; padding-bottom:18px; } .rental-fleet-page .equipment-rental-status-cards .equipment-sold-note { left:10px; right:6px; bottom:3px; } }
+.rental-fleet-page .equipment-rental-status-cards .contract-filter-current { --fleet-tone:#168367; }
+.rental-fleet-page .equipment-rental-status-cards .contract-filter-soon { --fleet-tone:#b7842e; }
+.rental-fleet-page .equipment-rental-status-cards .contract-filter-overdue { --fleet-tone:#bd5560; }
+.rental-fleet-page .equipment-rental-status-cards .contract-filter-incomplete { --fleet-tone:#8b6bb0; }
+.equipment-rental-status-cards .equipment-sold-note::before { display:none; }

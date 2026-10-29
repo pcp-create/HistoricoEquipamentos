@@ -718,9 +718,12 @@ export default function TasksDashboard() {
     const b = await api("/api/tasks");
     if (revision === snapshotRevision.current) applySnapshot(b);
   }
+  const [syncing, setSyncing] = useState(false);
+  const syncingRef = useRef(false);
   async function sync(force = true) {
-    if (optimisticTask.current) return;
-    setBusy(true);
+    if (optimisticTask.current || syncingRef.current) return;
+    syncingRef.current = true;
+    setSyncing(true);
     setError("");
     try {
       const revision = snapshotRevision.current;
@@ -732,7 +735,8 @@ export default function TasksDashboard() {
         await load();
       } catch {}
     } finally {
-      setBusy(false);
+      syncingRef.current = false;
+      setSyncing(false);
     }
   }
   useEffect(() => {
@@ -1196,6 +1200,7 @@ export default function TasksDashboard() {
                 onSubmit={async (event) => {
                   event.preventDefault();
                   const fields = new FormData(event.currentTarget);
+                  snapshotRevision.current++;
                   setBusy(true);
                   setError("");
                   try {

@@ -14,6 +14,7 @@ export default async function Page({
   if (
     ![
       "oficina",
+      "almoxarifado",
       "configuracoes",
       "visitas",
       "tarefas",

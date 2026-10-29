@@ -22,7 +22,7 @@ export type Detail = {
   sourceKind?: string;
   billing?: BillingCheck;
   programming?: { id?: string; status: string; label: string };
-  workshop?: { visit: string; name: string; stage: string; label: string; color: string };
+  workshop?: { visit: string; name: string; stage: string; label: string; color: string; partsPending?: boolean };
   linkedOrder?: { company: number; id: string; number: string; orderType: string; flowStatus: string };
   fields?: Record<string, string | number>;
 };

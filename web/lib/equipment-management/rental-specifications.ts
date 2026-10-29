@@ -8,12 +8,13 @@ export function rentalSpecifications(name: string) {
 }
 export type RentalSpecification = keyof ReturnType<typeof rentalSpecifications>;
 
+// Boundaries are continuous so decimal ratings (e.g. 30.5 HP) are not lost.
 export const rentalSpecificationRanges = [
-  {id:"0-30",label:"0 - 30",min:0,max:30},
-  {id:"32-60",label:"32 - 60",min:32,max:60},
-  {id:"75-100",label:"75 - 100",min:75,max:100},
-  {id:"125-250",label:"125 - 250",min:125,max:250},
-  {id:"over-250",label:"> 250",min:250,max:Infinity},
+  {id:"0-30",label:"0 - 30",min:0,max:30,exclusiveMin:false},
+  {id:"31-60",label:"31 - 60",min:30,max:60,exclusiveMin:true},
+  {id:"61-100",label:"61 - 100",min:60,max:100,exclusiveMin:true},
+  {id:"101-250",label:"101 - 250",min:100,max:250,exclusiveMin:true},
+  {id:"over-250",label:"> 250",min:250,max:Infinity,exclusiveMin:true},
 ];
 export function matchesRentalSpecification(value:string, filter:string, key:RentalSpecification) {
   if (!filter) return true;
@@ -22,5 +23,5 @@ export function matchesRentalSpecification(value:string, filter:string, key:Rent
   if (!value) return false;
   const range = rentalSpecificationRanges.find(r=>r.id===filter);
   const numeric = Number(value);
-  return !!range && Number.isFinite(numeric) && (range.id === "over-250" ? numeric > 250 : numeric >= range.min && numeric <= range.max);
+  return !!range && Number.isFinite(numeric) && (range.exclusiveMin ? numeric > range.min : numeric >= range.min) && numeric <= range.max;
 }

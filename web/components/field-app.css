@@ -754,3 +754,33 @@ dialog.field-report-screen {
 .field-app-version {margin-top:auto;padding-top:24px;text-align:center;font-size:12px;color:#6b8298;}
 
 .field-timer-team { display: block; margin-top: 6px; font-size: 13px; line-height: 1.5; font-variant-numeric: normal; }
+
+.field-part-balances { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.field-part-balances .field-reserved-fill { border:0; background:transparent; padding:0; min-height:0; font-size:11px; color:#246699; text-decoration:underline; cursor:pointer; }
+.field-warehouse-note { display:block; color:#607d96; font-size:11px; line-height:1.6; margin:8px 0; }
+.field-part-quantity-columns { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.field-part-quantity-columns small { display:block; font-size:11px; margin-top:5px; color:#71839a; }
+.field-returned-column { display:flex; flex-direction:column; gap:8px; font-size:12px; }
+.field-returned-column strong { font-size:18px; padding:10px 0; }
+.field-return-dialog { width:min(420px,calc(100vw - 28px)); border:1px solid #d6e3ef; border-radius:14px; padding:22px; color:#294d6a; }
+.field-return-dialog::backdrop { background:#18375366; }
+.field-return-dialog form,.field-return-dialog label { display:grid; gap:12px; }
+.field-return-dialog input { padding:12px; border:1px solid #bfd3e6; border-radius:8px; width:100%; }
+.field-return-dialog form > div { display:flex; justify-content:flex-end; gap:10px; margin-top:10px; }
+.field-return-dialog small { font-size:11px; line-height:1.6; }
+.field-part-quantity-columns { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.field-part-quantity-columns > *,.field-app .field-part-quantity input { min-width:0; }
+
+/* Material drafts and validation stay in the card flow, with aligned editable quantities. */
+.field-part .field-part-editor { margin-top:12px; padding-top:14px; border-top:1px solid #e4ebf2; }
+.field-part-editor h4 { margin:0 0 12px; font-size:12px; font-weight:700; color:#315674; }
+.field-app .field-part-quantity-columns { align-items:start; gap:14px; }
+.field-app .field-part-quantity-columns label { display:block; min-width:0; text-align:left; font-size:12px; font-weight:500; }
+.field-app .field-part-quantity-columns input { box-sizing:border-box; min-height:46px; margin:6px 0 0; padding:10px 12px; text-align:left; font-size:18px; line-height:1.3; background:white; }
+.field-app .field-part-quantity-columns small { margin-top:7px; font-size:10px; font-weight:400; line-height:1.6; color:#71839a; }
+.field-app .field-part-quantity-columns input[aria-invalid=true] { border-color:#d68d87; }
+.field-part-editor-actions { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; margin-top:10px; }
+.field-part-editor-actions > small { color:#527d99; font-size:10px; line-height:1.6; }
+.field-app .field-part-editor-actions .field-part-return { display:inline-flex; align-items:center; margin:0 0 0 auto; padding:7px 0; min-height:32px; line-height:1.5; }
+.field-app .field-part .field-part-alert { display:block; position:static; clear:both; box-sizing:border-box; width:100%; max-width:100%; margin:12px 0 0; padding:11px 12px; font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+@media(max-width:480px) { .field-app > .field-connection { margin-left:-12px; margin-right:-12px; padding-left:12px; padding-right:12px; } }

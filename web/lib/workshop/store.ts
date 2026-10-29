@@ -83,6 +83,12 @@ export async function workshopMutate(b:any,email:string){
    }else if(b.action==='stage'){
     if(!stageOptions(visit.source).some(s=>s.id===b.stage))throw new WorkshopInputError('Etapa inválida.');
     await c.query('UPDATE web_workshop_visits SET stage=$2 WHERE id=$1',[id,b.stage]);action='Etapa: '+stageOptions(visit.source).find(s=>s.id===b.stage)!.label;eventDocument={...eventDocument,previousStage:visit.stage,nextStage:b.stage};
+   }else if(b.action==='reverse'){
+    const reason=text(b.notes||'');
+    if(!reason)throw new WorkshopInputError('Informe a justificativa do estorno.');
+    if((await c.query('SELECT 1 FROM web_workshop_external WHERE visit_id=$1 AND returned_at IS NULL AND reconciled_out_at IS NULL',[id])).rows.length)throw new WorkshopInputError('Registre o retorno dos componentes em conserto externo antes de estornar a entrada.');
+    await c.query(`UPDATE web_workshop_visits SET reconciled_out_at=now(),reconciliation_reason=$2,source=COALESCE(source,'{}'::jsonb)||jsonb_build_object('entry_reversed',true) WHERE id=$1`,[id,reason]);
+    action='Entrada estornada';eventDocument={notes:reason,enteredAt:visit.entered_at,workshopId:visit.workshop_id};
    }else if(b.action==='exit'){
     if((await c.query('SELECT 1 FROM web_workshop_external WHERE visit_id=$1 AND returned_at IS NULL AND reconciled_out_at IS NULL',[id])).rows.length)throw new WorkshopInputError('Registre o retorno dos componentes enviados para conserto externo antes da saída.');
     await c.query('UPDATE web_workshop_visits SET exited_at=now(),exit_notes=$2 WHERE id=$1',[id,text(b.notes||'')]);action='Saída registrada';

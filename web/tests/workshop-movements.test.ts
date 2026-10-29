@@ -26,3 +26,11 @@ test('occupancy includes earlier stays and subtracts real exits and reconciliati
  assert.equal(rows[0].startDate,'2026-10-01');
  assert.equal(rows[1].endDate,'2026-10-08');
 });
+
+test('reversed entries never affect movements, opening stock, occupancy or reconciliation adjustments', async()=>{
+ const {workshopEvolution}=await import('../lib/workshop/movements');
+ const visits=[{entered_at:'2026-09-01T12:00:00Z',reconciled_out_at:'2026-10-05T12:00:00Z',source:{entry_reversed:true}}, {entered_at:'2026-10-02T12:00:00Z',reconciled_out_at:'2026-10-05T12:00:00Z',source:{entry_reversed:true}}, {entered_at:'2026-10-03T12:00:00Z'}];
+ assert.deepEqual(movements(visits,'2026-10-01','2026-10-31','month'),[{date:'2026-10-01',entries:1,exits:0}]);
+ const rows=workshopEvolution(visits,'2026-10-01','2026-10-31','month');
+ assert.equal(rows[0].opening,0);assert.equal(rows[0].occupancy,1);assert.equal(rows[0].adjustments,0);
+});

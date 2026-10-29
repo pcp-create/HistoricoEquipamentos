@@ -1,7 +1,10 @@
 export const stages=[{id:'received',label:'Recebido',color:'#547c99'},{id:'diagnosis',label:'Diagnóstico',color:'#6366c2'},{id:'approval',label:'Aguardando aprovação do cliente',color:'#bd8624'},{id:'approval_internal',label:'Aguardando aprovação interna',color:'#97702c'},{id:'parts',label:'Aguardando peça',color:'#d3653c'},{id:'repair',label:'Em execução',color:'#237ca3'},{id:'ready',label:'Pronto para saída',color:'#228566'},{id:'quotation',label:'Aguardando orçamento comercial',color:'#97702c'},{id:'factory_warranty',label:'Garantia fábrica',color:'#8c67b5'},{id:'rj_warranty',label:'Garantia RJ',color:'#6676b5'},{id:'return_unrepaired',label:'Devolução sem conserto',color:'#916b68'},{id:'scheduled',label:'Serviço agendado',color:'#487c9c'},{id:'disposal',label:'Aguardando descarte',color:'#7c7580'}];
-export function effectiveStage(stage:string,orders:any[],source?:{sheet?:string}){
- const shortage=orders.some(o=>/faltando pe[cç]as|falta de materia|aguardando pe[cç]a|aguardando materia/i.test(o.status_lancamento_nome||''));
- return shortage?'parts':stage==='approval'&&isRentalSource(source)?'approval_internal':stage;
+export function hasPartsShortage(orders: {status_lancamento_nome?: string | null}[] = []) {
+ return orders.some(o=>/faltando pe[cç]as|falta de materia|aguardando pe[cç]a|aguardando materia/i.test(o.status_lancamento_nome||''));
+}
+export function effectiveStage(stage:string,_orders:any[],source?:{sheet?:string}){
+ // Material shortages are alerts; the recorded process stage remains movable.
+ return stage==='approval'&&isRentalSource(source)?'approval_internal':stage;
 }
 export function daysInWorkshop(entered:string,exited?:string|null,now=Date.now()){
  return Math.max(0,Math.floor(((exited?Date.parse(exited):now)-Date.parse(entered))/86400000));

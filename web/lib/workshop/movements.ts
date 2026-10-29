@@ -1,5 +1,5 @@
 export type Grain = 'year' | 'month' | 'week' | 'day';
-export type VisitMovement = { entered_at: string; exited_at?: string | null; reconciled_out_at?: string | null };
+export type VisitMovement = { source?: { entry_reversed?: boolean }; entered_at: string; exited_at?: string | null; reconciled_out_at?: string | null };
 export function localDay(value: string) {
   if (!Number.isFinite(Date.parse(value))) return '';
   return new Intl.DateTimeFormat('sv-SE', {timeZone:'America/Sao_Paulo'}).format(new Date(value));
@@ -20,7 +20,7 @@ export function movements(visits:VisitMovement[],start:string,end:string,grain:G
     else if(grain==='month')cursor.setUTCMonth(cursor.getUTCMonth()+1);
     else cursor.setUTCDate(cursor.getUTCDate()+(grain==='week'?7:1));
   }
-  for(const visit of visits) for(const [field,key] of [['entered_at','entries'],['exited_at','exits']] as const){
+  for(const visit of visits.filter(v=>!v.source?.entry_reversed)) for(const [field,key] of [['entered_at','entries'],['exited_at','exits']] as const){
     const value=visit[field];if(!value)continue;
     const day=localDay(value);if(day<start||day>end)continue;
     const bin=bins.get(bucket(day,grain));if(bin)bin[key]++;
@@ -29,6 +29,7 @@ export function movements(visits:VisitMovement[],start:string,end:string,grain:G
 }
 
 export function workshopEvolution(visits:VisitMovement[],start:string,end:string,grain:Grain) {
+ visits=visits.filter(v=>!v.source?.entry_reversed);
  const rows=movements(visits,start,end,grain);
  const dates=visits.map(v=>({entered:localDay(v.entered_at),closed:[v.exited_at,v.reconciled_out_at].filter(Boolean).map(v=>localDay(v!)).filter(Boolean).sort()[0]}));
  return rows.map((row,index)=>{

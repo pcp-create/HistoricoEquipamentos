@@ -252,30 +252,53 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     await act("materials", parts(1, 1), "helper");
     await db.exec("UPDATE m8_os_produtos SET quantidade=1; UPDATE web_service_item_usage SET allocations=NULL");
     // Legacy withdrawals remain attributed to their original operation.
-    await assert.rejects(act("materials", { ...parts(0.5, 1), operationId: other }), /Saldo insuficiente/);
+    await assert.rejects(act("materials", { ...parts(0.5, 1), operationId: other }), /Saldo insuficiente|ajuste da reserva/);
     await assert.rejects(act("materials", { ...parts(0.5, 1), quantityScope: undefined }), /Atualize a página/);
     await act("materials", { ...parts(0, 1), operationId: other });
     assert.equal(Number((await fieldData("tech", id)).materials?.items[0].usage.withdrawn), 1);
-    // Return half, then let the other operation take precisely that available half.
+    // A return preserves gross history: increase the reservation before another withdrawal.
     await act("materials", parts(0.5, 1));
     await assert.rejects(act("materials", { ...parts(0.5, 1), operationId: other }), /Outro técnico/);
+    await assert.rejects(act("materials", { ...parts(0.5, 2), operationId: other }), /ajuste da reserva/);
+    await db.exec("UPDATE m8_os_produtos SET quantidade=1.5");
     await act("materials", { ...parts(0.5, 2), operationId: other });
     let shared: any = (await fieldData("tech", id)).materials?.items[0].usage;
     assert.equal(Number(shared.withdrawn), 1);
     assert.deepEqual(shared.allocations.map((row: any) => row.quantity), [0.5, 0.5]);
     assert.ok(shared.allocations.every((row: any) => row.by === 'tech' && row.at));
-    await assert.rejects(act("materials", parts(0.6, 3)), /Saldo insuficiente/);
+    await assert.rejects(act("materials", parts(0.6, 3)), /Saldo insuficiente|ajuste da reserva/);
     await assert.rejects(act("materials", parts(0.0001, 3)), /três casas/);
     // A return changes only the current operation's allocation.
     await act("materials", { ...parts(0, 3), operationId: other });
     shared = (await fieldData("tech", id)).materials?.items[0].usage;
     assert.equal(Number(shared.withdrawn), 0.5);
-    assert.equal(shared.allocations.length, 1);
+    assert.equal(shared.allocations.length, 2);
+    assert.equal(shared.allocations.find((row:any)=>row.operationId===other).gross,0.5);
+    assert.equal(shared.allocations.find((row:any)=>row.operationId===other).returned,0.5);
     assert.equal(shared.allocations[0].operationId, id);
+    await assert.rejects(act("materials", parts(1, 4)), /ajuste da reserva/);
+    await db.exec("UPDATE m8_os_produtos SET quantidade=2");
     await act("materials", parts(1, 4));
     await db.exec("UPDATE web_service_item_usage SET used=1");
     await assert.rejects(act("materials", parts(0, 5)), /já utilizada/);
     await db.exec("UPDATE web_service_item_usage SET used=NULL");
+    const grossBefore: any = (await fieldData("tech",id)).materials?.items[0].usage;
+    const ownBefore = grossBefore.allocations.find((row:any)=>row.operationId===id);
+    const grossReturn:any = {...parts(null,grossBefore.version),quantityMode:"gross"};
+    grossReturn.items[0].returned = ownBefore.returned + 0.25;
+    await act("materials",grossReturn);
+    const afterReturn:any = (await fieldData("tech",id)).materials?.items[0].usage;
+    const ownAfter=afterReturn.allocations.find((row:any)=>row.operationId===id);
+    assert.equal(ownAfter.gross,ownBefore.gross);
+    assert.equal(ownAfter.returned,ownBefore.returned+0.25);
+    assert.equal(ownAfter.quantity,ownBefore.quantity-0.25);
+    const correction:any={...parts(null,afterReturn.version),quantityMode:"gross"};
+    correction.items[0].returned=ownBefore.returned;
+    await act("materials",correction);
+    const correctedReturn:any=(await fieldData("tech",id)).materials?.items[0].usage;
+    assert.equal(correctedReturn.allocations.find((r:any)=>r.operationId===id).returned,ownBefore.returned);
+    assert.equal(correctedReturn.allocations.find((r:any)=>r.operationId===id).gross,ownBefore.gross);
+
 
     await db.query('DELETE FROM web_field_sessions WHERE id=$1',[reportSession]);
     const requestId = randomUUID();

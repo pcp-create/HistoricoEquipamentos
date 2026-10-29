@@ -2,6 +2,8 @@ export type MaterialWithdrawal = {
   operationId: string | null;
   position: number | null;
   quantity: number;
+  gross?: number;
+  returned?: number;
   by: string;
   name: string;
   at: string;
@@ -18,8 +20,14 @@ export function materialWithdrawals(usage: any): MaterialWithdrawal[] {
 export function materialBalance(item: any, operationId: string) {
   const withdrawals = materialWithdrawals(item.usage);
   const own = materialQuantity(withdrawals.find(row => row.operationId === operationId)?.quantity);
+  const ownRow = withdrawals.find(row => row.operationId === operationId);
+  const ownReturned = materialQuantity(ownRow?.returned);
+  const ownGross = materialQuantity(ownRow?.gross ?? own + ownReturned);
+  const gross = materialQuantity(withdrawals.reduce((sum,row) => sum + Number(row.gross ?? Number(row.quantity)+Number(row.returned||0)),0));
+  const returned = materialQuantity(withdrawals.reduce((sum,row) => sum + Number(row.returned || 0),0));
   const total = materialQuantity(item.usage?.withdrawn);
   const reserved = materialQuantity(item.quantidade);
   const available = Math.max(0, materialQuantity(reserved - total));
-  return { withdrawals, own, total, reserved, available, maximum: materialQuantity(own + available) };
+  const returnMinimum = Math.min(ownReturned, Math.max(0, materialQuantity(Number(item.received?.quantity||0) - (Number(item.returnedTotal ?? returned)-ownReturned))));
+  return { returnMinimum, withdrawals, own, ownGross, ownReturned, gross, returned, total, reserved, available, withdrawalMaximum: materialQuantity(ownGross + Math.max(0,reserved-gross)), maximum: materialQuantity(own + available) };
 }
