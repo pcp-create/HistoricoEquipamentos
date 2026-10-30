@@ -4,7 +4,7 @@ import RentalRatingFilter from "./rental-rating-filter";
 import { matchesSearch } from "@/lib/filters";
 
 import { orderPreventivePlans, nextPreventivePlanId } from "@/lib/equipment-management/plan-order";
-import { rentalSpecifications, rentalSpecificationRanges, rentalPcmRanges, matchesRentalSpecification, type RentalSpecification } from "@/lib/equipment-management/rental-specifications";
+import { rentalEquipmentType, rentalSpecifications, rentalSpecificationRanges, rentalPcmRanges, matchesRentalSpecification, type RentalSpecification } from "@/lib/equipment-management/rental-specifications";
 import CopyPreventivePlan from "./copy-preventive-plan";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import SaveActionIcon from "./save-action-icon";
@@ -251,14 +251,17 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
       detail?.equipment?.usage,
     );
   } catch {}
+  const [equipmentType,setEquipmentType] = useState("");
   const [specFilters, setSpecFilters] = useState({hp:"",pcm:"",pressure:""});
   const specificationFields: [RentalSpecification,string][] = [["hp","Potência (HP)"],["pcm","Vazão (PCM)"],["pressure","Pressão"]];
   const specificationRows = (loaded?.rows || []).filter((e:any) => e.rental && (equipmentTab !== "status" || ["rented","loaned"].includes(e.rentalStatus?.key)));
   const specificationOptions = (key:RentalSpecification): string[] => [...new Set<string>(specificationRows.map((e:any)=>rentalSpecifications(e.name)[key]).filter(Boolean))].sort((a,b)=>parseFloat(a)-parseFloat(b)||a.localeCompare(b));
+  const equipmentTypeOptions: string[] = [...new Set<string>((loaded?.rows || []).filter((e:any)=>equipmentTab === "all" || e.rental).map((e:any)=>rentalEquipmentType(e.name)))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   const rentalOnly = equipmentTab !== "all";
   const baseRows = (loaded?.rows || []).filter(
     (e: any) =>
       (equipmentTab === "all" || specificationFields.every(([key]) => matchesRentalSpecification(rentalSpecifications(e.name)[key], specFilters[key], key))) &&
+      (!equipmentType || rentalEquipmentType(e.name) === equipmentType) &&
       (!ownership || e.ownership === ownership) &&
       (!state ||
         (state === "none" ? !e.plans : e.forecast?.status === state)) &&
@@ -811,7 +814,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                   aria-pressed={equipmentTab === key}
                   onClick={() => {
                     setEquipmentTab(key);
-                    setSpecFilters({hp:"",pcm:"",pressure:""});
+                    setEquipmentType(""); setSpecFilters({hp:"",pcm:"",pressure:""});
                     setContractType("all");
                     setRentalStatus([]);
                     setContractStatus("");
@@ -910,13 +913,13 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
               <button type="button" onClick={() => {
                 setQuery(""); setOwnership(""); setState(""); setRentalStatus([]);
                 setContractStatus(""); setContractType("all");
-                setSpecFilters({hp:"",pcm:"",pressure:""}); setPage(1);
+                setEquipmentType(""); setSpecFilters({hp:"",pcm:"",pressure:""}); setPage(1);
               }}>Limpar filtros</button>
             </div>
             <details className="equipment-search-filter-panel">
               <summary><Settings2 size={18} aria-hidden="true" /><span>Filtros de pesquisa</span><ChevronDown size={18} className="equipment-filter-chevron" aria-hidden="true" /></summary>
               <div className="equipment-search-filter-content">
-            <div className="equipment-filters">
+            <div className="equipment-filters equipment-filters-with-type">
               <label>
                 Pesquisar equipamento ou cliente
                 <input
@@ -927,6 +930,13 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                     setPage(1);
                   }}
                 />
+              </label>
+              <label>
+                Tipo de Equipamento
+                <select value={equipmentType} onChange={event=>{setEquipmentType(event.target.value);setPage(1);}}>
+                  <option value="">Todos os tipos</option>
+                  {equipmentTypeOptions.map(type=><option key={type} value={type}>{type}</option>)}
+                </select>
               </label>
               <label>
                 Classificação

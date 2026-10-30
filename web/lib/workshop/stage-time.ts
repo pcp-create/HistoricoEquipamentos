@@ -20,7 +20,7 @@ export function workshopStageTime(visit:any,now=Date.now()){
  const events=[...(visit.events||[])].sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
  const add=(until:number)=>{const ms=Math.max(0,until-cursor);if(stage)totals[stage]=(totals[stage]||0)+ms;else unknown+=ms;cursor=until;};
  for(const e of events){let next=eventStage(e,visit.source);if(next===undefined)continue;if(next==='approval_internal')next='approval';
-  let at=Date.parse(e.created_at);if(e.action==='Entrada registrada')at=entered;
+  let at=Date.parse(e.created_at);if(e.action==='Entrada registrada'||e.action==='Entrada por transferência')at=entered;
   if(!Number.isFinite(at)||at>end)continue;at=Math.max(entered,at);
   add(Math.max(cursor,at));if(stage!==next){stage=next;currentSince=next?at:null;}
  }

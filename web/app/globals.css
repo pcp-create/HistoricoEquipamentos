@@ -4386,3 +4386,7 @@ body .sales-seller-presence.online i { --status-signal-color:var(--status-signal
 body .admin-offline .admin-presence-light { --status-signal-color:var(--status-signal-danger); background:var(--status-signal-color); }
 body .sales-seller-presence:not(.online) i { --status-signal-color:var(--status-signal-neutral); background:var(--status-signal-color); }
 body .badge i,body .sales-profile-status i { --status-signal-color:currentColor; }
+
+.equipment-filters.equipment-filters-with-type { grid-template-columns: 2fr repeat(3,minmax(0,1fr)); }
+@media(max-width:1100px) { .equipment-filters.equipment-filters-with-type { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) { .equipment-filters.equipment-filters-with-type { grid-template-columns:minmax(0,1fr); } }

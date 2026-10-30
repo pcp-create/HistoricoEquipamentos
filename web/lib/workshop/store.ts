@@ -37,7 +37,7 @@ export async function workshopData(email:string){
  for(const v of visits){v.rental=v.rental||isRentalSource(v.source);v.financial=workshopFinancial(financialOrders.get(v.equipment_id)||[],v.rental,!!v.equipment_id,v.quotes);}
  return {workshops,external:external.filter(e=>!e.returned_at&&!e.reconciled_out_at).map(e=>{const v=visits.find(v=>v.id===e.visit_id);return {...e,machine:v||{id:null,equipment_id:e.source?.equipmentId||null,name:e.source?.equipment_description||e.component,client:e.source?.customer||'Cliente a confirmar',model:null,serial:null,workshop_id:e.source?.workshopId||null,workshop:'Oficina a confirmar',orders:[],tasks:[],external:[]}};}),visits:visits.map(v=>({...v,effective_stage:effectiveStage(v.stage,v.orders,v.source),external:external.filter(e=>e.visit_id===v.id&&!e.reconciled_out_at),events:events.filter(e=>e.visit_id===v.id)}))};
 }
-export async function workshopMutate(b:any,email:string){
+export async function workshopMutate(b:any,email:string):Promise<{saved:true;visit?:any;transferVisitId?:string}>{
  if(!b||typeof b.action!=='string')throw new WorkshopInputError('Ação inválida.');
  const c=await database().connect();
  try{await c.query('BEGIN READ WRITE');
@@ -84,6 +84,25 @@ export async function workshopMutate(b:any,email:string){
    }else if(b.action==='stage'){
     if(!stageOptions(visit.source).some(s=>s.id===b.stage))throw new WorkshopInputError('Etapa inválida.');
     await c.query('UPDATE web_workshop_visits SET stage=$2 WHERE id=$1',[id,b.stage]);action='Etapa: '+stageOptions(visit.source).find(s=>s.id===b.stage)!.label;eventDocument={...eventDocument,previousStage:visit.stage,nextStage:b.stage};
+   }else if(b.action==='transfer'){
+    const destination=positive(b.workshopId);
+    if(String(visit.workshop_id)===destination)throw new WorkshopInputError('Selecione uma oficina diferente da origem.');
+    const locations=(await c.query('SELECT id::text,name,active FROM web_workshops WHERE id=$1 OR id=$2 ORDER BY id FOR SHARE',[visit.workshop_id,destination])).rows;
+    const target=locations.find((w:any)=>w.id===destination);
+    if(!target?.active)throw new WorkshopInputError('Selecione uma oficina de destino ativa.');
+    const stamp=(value:unknown)=>{if(typeof value!=='string'||!/(?:Z|[+-]\d{2}:\d{2})$/.test(value))throw new WorkshopInputError('Informe as datas e horas da transferência.');const parsed=new Date(value);if(!Number.isFinite(parsed.getTime())||parsed.getTime()>Date.now()+60000)throw new WorkshopInputError('As datas da transferência devem ser válidas e não podem estar no futuro.');return parsed;};
+    const departed=stamp(b.departedAt),arrived=stamp(b.arrivedAt);
+    if(departed.getTime()<new Date(visit.entered_at).getTime())throw new WorkshopInputError('A saída para transferência não pode ser anterior à entrada na oficina de origem.');
+    if(arrived.getTime()<departed.getTime())throw new WorkshopInputError('A entrada no destino não pode ser anterior à saída da origem.');
+    if((await c.query('SELECT 1 FROM web_workshop_external WHERE visit_id=$1 AND returned_at IS NULL AND reconciled_out_at IS NULL',[id])).rows.length)throw new WorkshopInputError('Registre o retorno dos componentes em conserto externo antes de transferir a máquina.');
+    const notes=text(b.notes||''),nextId=randomUUID();
+    const transfer={transferId:nextId,fromVisitId:id,toVisitId:nextId,fromWorkshopId:visit.workshop_id==null?null:String(visit.workshop_id),fromWorkshop:locations.find((w:any)=>w.id===String(visit.workshop_id))?.name||'Oficina a confirmar',toWorkshopId:destination,toWorkshop:target.name,departedAt:departed.toISOString(),arrivedAt:arrived.toISOString(),notes};
+    await c.query(`UPDATE web_workshop_visits SET exited_at=$2,exit_notes=$3,source=COALESCE(source,'{}'::jsonb)||jsonb_build_object('transfer_to',$4::jsonb) WHERE id=$1`,[id,departed,'Transferência para '+target.name+(notes?' · '+notes:''),JSON.stringify(transfer)]);
+    const source={...visit.source,transfer_from:transfer};delete source.transfer_to;delete source.entry_reversed;
+    await c.query(`INSERT INTO web_workshop_visits(id,equipment_id,workshop_id,entered_at,expected_at,stage,source,notes,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)`,[nextId,visit.equipment_id,destination,arrived,visit.expected_at,visit.stage,JSON.stringify(source),visit.notes||'',email]);
+    await c.query('INSERT INTO web_workshop_quotes(visit_id,company_id,quote_id) SELECT $2,company_id,quote_id FROM web_workshop_quotes WHERE visit_id=$1',[id,nextId]);
+    await c.query("INSERT INTO web_workshop_events(visit_id,action,actor,document) VALUES($1,'Entrada por transferência',$2,$3)",[nextId,email,JSON.stringify({...transfer,nextStage:visit.stage})]);
+    confirmedVisit={id:nextId,transfer:true};action='Saída por transferência';eventDocument=transfer;
    }else if(b.action==='reverse'){
     const reason=text(b.notes||'');
     if(!reason)throw new WorkshopInputError('Informe a justificativa do estorno.');
@@ -108,7 +127,7 @@ export async function workshopMutate(b:any,email:string){
    const event=(await c.query('INSERT INTO web_workshop_events(visit_id,action,actor,document) VALUES($1,$2,$3,$4) RETURNING *',[id,action,email,JSON.stringify(eventDocument)])).rows[0];
    if(b.action==='stage')confirmedVisit={...updated,event:{...event,actor_name:email}};
   }
-  await c.query('COMMIT');return {saved:true,...(confirmedVisit?{visit:confirmedVisit}:{})};
+  await c.query('COMMIT');return {saved:true,...(confirmedVisit?.transfer?{transferVisitId:confirmedVisit.id}:confirmedVisit?{visit:confirmedVisit}:{})};
  }catch(e){await c.query('ROLLBACK');if((e as any).code==='23505')throw new WorkshopConflict('Essa máquina já possui uma entrada aberta na oficina.');throw e;}finally{c.release();}
 }
 

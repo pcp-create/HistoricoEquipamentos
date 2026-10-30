@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {rentalSpecifications,matchesRentalSpecification,rentalSpecificationRanges,rentalPcmRanges} from '../lib/equipment-management/rental-specifications';
+import {rentalEquipmentType,rentalSpecifications,matchesRentalSpecification,rentalSpecificationRanges,rentalPcmRanges} from '../lib/equipment-management/rental-specifications';
 test('extracts rental ratings with decimal separators, leading zeros and different units',()=>{
  assert.deepEqual(rentalSpecifications('COMPRESSOR 006HP - 55,9PCM - ROTOR 06 - 9.0 BAR - 380V/60HZ'),{hp:'6',pcm:'55.9',pressure:'9 BAR'});
  assert.deepEqual(rentalSpecifications('COMPRESSOR PISTÃO 60PCM - CJ60 - 15 HP - 175LBS'),{hp:'15',pcm:'60',pressure:'175 LBS'});
@@ -31,7 +31,7 @@ test('HP ranges cover every boundary exactly once, including decimal ratings',()
 
 
 test('PCM ranges cover all requested intervals without gaps or overlaps',()=>{
- const ranges=['0-40','41-80','81-120','121-160','161-250','251-400','401-700','701-1000','over-1000'];
+ const ranges=['0-40','41-80','81-120','121-160','161-250','251-400','401-700','701-990','over-990'];
  assert.deepEqual(rentalPcmRanges.map(r=>r.id),ranges);
  for(const [index,range] of rentalPcmRanges.entries()){
   const values=index===0?[0,40]:[range.min+0.1,range.min+1,Number.isFinite(range.max)?range.max:2000];
@@ -51,3 +51,14 @@ test('exact HP and PCM filters match only the selected numeric rating',()=>{
   for(const filter of ['exact:','exact:NaN'])assert.equal(matchesRentalSpecification('0',filter,key),false);
  }
 });
+
+ test('equipment type recognizes registration names independently of accents and casing',()=>{
+ for(const [name,type] of [
+ ['COMPRESSOR DE PARAFUSO 25HP','Compressor Parafuso'],
+ ['compressor pistão 20PCM','Compressor Pistão'],
+ ['UNIDADE COMPRESSORA PISTÃO 60PCM','Unidade Compressora Pistão'],
+ ['SECADOR DE AR 150PCM','Secador de Ar'],
+ ['SEPARADOR CONDENSADO VERTICAL 425L','Separador de Condensado'],
+ ['SEM IDENTIFICAÇÃO','Outros']
+ ]) assert.equal(rentalEquipmentType(name),type);
+ });

@@ -24,8 +24,8 @@ export const rentalPcmRanges = [
   {id:"161-250",label:"161 - 250",min:160,max:250,exclusiveMin:true},
   {id:"251-400",label:"251 - 400",min:250,max:400,exclusiveMin:true},
   {id:"401-700",label:"401 - 700",min:400,max:700,exclusiveMin:true},
-  {id:"701-1000",label:"701 - 1000",min:700,max:1000,exclusiveMin:true},
-  {id:"over-1000",label:"> 1000",min:1000,max:Infinity,exclusiveMin:true},
+  {id:"701-990",label:"701 - 990",min:700,max:990,exclusiveMin:true},
+  {id:"over-990",label:"> 990",min:990,max:Infinity,exclusiveMin:true},
 ];
 export function matchesRentalSpecification(value:string, filter:string, key:RentalSpecification) {
   if (!filter) return true;
@@ -38,4 +38,18 @@ export function matchesRentalSpecification(value:string, filter:string, key:Rent
   const range = (key === "pcm" ? rentalPcmRanges : rentalSpecificationRanges).find(r=>r.id===filter);
   const numeric = Number(value);
   return !!range && Number.isFinite(numeric) && (range.exclusiveMin ? numeric > range.min : numeric >= range.min) && numeric <= range.max;
+}
+
+/** Equipment names follow the M8 registration naming convention. */
+export function rentalEquipmentType(name:string) {
+  const normalized=(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+  if (/UNIDADE\s+COMPRESSORA.*PISTAO/.test(normalized)) return 'Unidade Compressora Pistão';
+  if (/COMPRESSOR(?:\s+DE)?\s+PARAFUSO/.test(normalized)) return 'Compressor Parafuso';
+  if (/COMPRESSOR(?:\s+DE)?\s+PISTAO/.test(normalized)) return 'Compressor Pistão';
+  if (/SECADOR(?:\s+DE)?\s+AR/.test(normalized)) return 'Secador de Ar';
+  if (/SEPARADOR(?:\s+DE)?\s+CONDENSADO/.test(normalized)) return 'Separador de Condensado';
+  if (/RESERVATORIO/.test(normalized)) return 'Reservatório de Ar';
+  if (/SOPRADOR/.test(normalized)) return 'Soprador';
+  if (/MOTOR/.test(normalized)) return 'Motor';
+  return 'Outros';
 }

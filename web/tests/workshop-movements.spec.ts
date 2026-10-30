@@ -21,3 +21,21 @@ test('workshop evolution includes the full interval and opens on the latest day 
  await panel.getByLabel('De',{exact:true}).fill('');await expect(panel.getByRole('alert')).toBeVisible();
  await panel.getByLabel('De',{exact:true}).fill('2026-10-01');await expect(panel.locator('.wm-period')).toHaveCount(30);await expect.poll(atEnd).toBe(true);
 });
+
+test('calendar axis groups days and ISO weeks by month and year and keeps the latest group visible',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/**',r=>r.fulfill({json:{}}));
+ await page.route('**/api/workshop',r=>r.fulfill({json:{workshops:[{id:'1',name:'RJ Compressores',active:true}],visits:[],external:[]}}));
+ await page.goto('/oficina');const panel=page.getByRole('region',{name:'Entradas e saídas da oficina',exact:true});
+ await panel.getByLabel('De',{exact:true}).fill('2025-12-29');await panel.getByLabel('Até',{exact:true}).fill('2026-01-08');await panel.getByRole('button',{name:'Dia',exact:true}).click();
+ await expect(panel.locator('.wm-axis-period-label')).toHaveText(['29','30','31','01','02','03','04','05','06','07','08']);
+ await expect(panel.locator('.wm-axis-month')).toHaveCount(2);await expect(panel.locator('.wm-axis-year')).toHaveCount(2);
+ const plot=panel.getByRole('region',{name:'Gráfico de entradas, saídas e máquinas em oficina',exact:true});
+ await page.setViewportSize({width:390,height:844});await plot.scrollIntoViewIfNeeded();
+ await expect(panel.locator('.wm-axis-year[data-period="2026"] text')).toBeInViewport();
+ await plot.evaluate(el=>{el.scrollLeft=0;});await expect(panel.locator('.wm-axis-year[data-period="2025"] text')).toBeInViewport();
+ await panel.getByRole('button',{name:'Semana',exact:true}).click();await expect(panel.locator('.wm-axis-period-label')).toHaveText(['Sem. 01','Sem. 02']);await expect(panel.locator('.wm-axis-month')).toHaveCount(1);await expect(panel.locator('.wm-axis-month text')).toHaveText('Janeiro');await expect(panel.locator('.wm-axis-year text')).toHaveText('2026');
+ await plot.scrollIntoViewIfNeeded();await plot.screenshot({path:'/tmp/workshop-calendar-axis.png'});
+ await panel.getByLabel('De',{exact:true}).fill('2021-01-01');await panel.getByLabel('Até',{exact:true}).fill('2021-01-10');
+ await expect(panel.locator('.wm-axis-period-label')).toHaveText(['Sem. 53','Sem. 01']);await expect(panel.locator('.wm-axis-year')).toHaveCount(2);
+});

@@ -1,0 +1,37 @@
+import {test,expect} from '@playwright/test';
+test.use({timezoneId:'America/Sao_Paulo'});
+test('workshop transfer captures both timestamps and links the origin and destination histories',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ const origin:any={id:'10000000-0000-4000-8000-000000000001',equipment_id:'100',name:'Compressor teste',workshop_id:'1',workshop:'RJ Compressores',entered_at:'2025-01-01T12:00:00Z',expected_at:'2025-01-15',stage:'repair',effective_stage:'repair',version:1,orders:[],tasks:[],quotes:[],drafts:[],external:[],events:[],notes:'Condição inicial'};
+ const data:any={workshops:[{id:'1',name:'RJ Compressores',active:true},{id:'2',name:'RJ Serrana',active:true},{id:'3',name:'Inativa',active:false}],visits:[origin],external:[]};
+ let request:any;
+ await page.route('**/api/**',r=>r.fulfill({json:{}}));
+ await page.route('**/api/workshop',r=>{
+  if(r.request().method()!=='POST')return r.fulfill({json:data});
+  request=r.request().postDataJSON();
+  if(Date.parse(request.arrivedAt)<Date.parse(request.departedAt))return r.fulfill({status:400,json:{error:'A entrada no destino não pode ser anterior à saída da origem.'}});
+  const nextId='20000000-0000-4000-8000-000000000002',transfer={transferId:nextId,fromVisitId:origin.id,toVisitId:nextId,fromWorkshop:'RJ Compressores',toWorkshop:'RJ Serrana',departedAt:request.departedAt,arrivedAt:request.arrivedAt,notes:request.notes};
+  origin.exited_at=request.departedAt;origin.version++;
+  origin.events=[{id:'1',action:'Saída por transferência',actor_name:'Funcionário',created_at:new Date().toISOString(),document:transfer}];
+  data.visits.push({...origin,id:nextId,workshop_id:'2',workshop:'RJ Serrana',entered_at:request.arrivedAt,exited_at:null,version:1,events:[{id:'2',action:'Entrada por transferência',actor_name:'Funcionário',created_at:new Date().toISOString(),document:{...transfer,nextStage:'repair'}}]});
+  return r.fulfill({json:{saved:true,transferVisitId:nextId}});
+ });
+ await page.goto('/oficina');await page.getByRole('button',{name:'Abrir 100',exact:true}).click();
+ await page.getByRole('button',{name:'Transferir equipamento',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Transferir equipamento entre oficinas'});
+ const options=dialog.getByRole('combobox',{name:'Oficina de destino *'});
+ await expect(options.locator('option[value="1"]')).toHaveCount(0);await expect(options.locator('option[value="3"]')).toHaveCount(0);
+ await options.selectOption('2');
+ await dialog.getByLabel('Saída da oficina de origem *',{exact:true}).fill('2025-01-05T09:00');await dialog.getByLabel('Entrada na oficina de destino *',{exact:true}).fill('2025-01-05T08:00');
+ await dialog.getByLabel('Observações da transferência').fill('Revisão na Serrana');
+ await dialog.getByRole('button',{name:'Confirmar transferência',exact:true}).click();await expect(dialog.getByRole('alert')).toContainText('anterior');
+ await page.setViewportSize({width:390,height:844});expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ await dialog.getByLabel('Entrada na oficina de destino *',{exact:true}).fill('2025-01-05T12:00');await dialog.getByRole('button',{name:'Confirmar transferência',exact:true}).click();
+ await expect(dialog).toHaveCount(0);expect(request).toMatchObject({action:'transfer',id:origin.id,version:1,workshopId:'2',departedAt:'2025-01-05T12:00:00.000Z',arrivedAt:'2025-01-05T15:00:00.000Z'});
+ const drawer=page.getByRole('dialog',{name:'Ficha da máquina'});
+ await expect(drawer.locator('.ws-detail-summary')).toContainText('RJ Serrana');await expect(drawer.locator('.ws-timeline')).toContainText('Entrada por transferência');
+ await expect(drawer.locator('.ws-transfer-history')).toContainText('RJ Compressores');await expect(drawer.locator('.ws-transfer-history')).toContainText('05/01/2025, 09:00');await expect(drawer.locator('.ws-transfer-history')).toContainText('05/01/2025, 12:00');
+ await drawer.getByRole('button',{name:'Abrir histórico da oficina de origem'}).click();await expect(drawer.locator('.ws-detail-summary')).toContainText('RJ Compressores');await expect(drawer.locator('.ws-timeline')).toContainText('Saída por transferência');
+ await expect(drawer.getByRole('button',{name:'Transferir equipamento',exact:true})).toHaveCount(0);
+ await drawer.getByRole('button',{name:'Abrir histórico da oficina de destino'}).click();await expect(drawer.locator('.ws-detail-summary')).toContainText('RJ Serrana');
+});

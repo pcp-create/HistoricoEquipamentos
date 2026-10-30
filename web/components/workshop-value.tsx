@@ -61,10 +61,10 @@ export default function WorkshopValue({
             aria-label={
               value.total === null
                 ? label + ": valor não disponível"
-                : undefined
+                : value.total === 0 ? label + ": valor zerado" : undefined
             }
           >
-            {value.total === null ? "—" : workshopMoney(value.total)}
+            {value.total === null ? "—" : value.total === 0 ? "-" : workshopMoney(value.total)}
           </strong>
         </div>
       ))}

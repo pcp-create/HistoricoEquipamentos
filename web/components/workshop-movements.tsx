@@ -3,6 +3,8 @@ import {useEffect,useMemo,useState,useRef} from 'react';
 import {BarChart3,ArrowDownLeft,ArrowUpRight} from 'lucide-react';
 import {localDay,workshopEvolution,type Grain,type VisitMovement} from '@/lib/workshop/movements';
 import './workshop-movements.css';
+import {movementAxis} from '@/lib/workshop/movement-axis';
+import WorkshopMovementAxis from './workshop-movement-axis';
 export default function WorkshopMovements({visits}:{visits:VisitMovement[]}){
  const chartRef=useRef<HTMLDivElement>(null);
  const [availableWidth,setAvailableWidth]=useState(900);
@@ -14,8 +16,10 @@ export default function WorkshopMovements({visits}:{visits:VisitMovement[]}){
  const entries=rows.reduce((n,r)=>n+r.entries,0),exits=rows.reduce((n,r)=>n+r.exits,0),max=Math.max(1,...rows.flatMap(r=>[r.entries,r.exits,r.occupancy]));
  const chartWidth=Math.max(600,rows.length*70,availableWidth);
  useEffect(()=>{const element=chartRef.current;if(element)element.scrollLeft=element.scrollWidth;},[rows,chartWidth,availableWidth,invalid]);
- const chartHeight=Math.max(280,Math.min(380,availableWidth*.23));
- const bottom=chartHeight-50, plotHeight=chartHeight-85;
+ const axis=useMemo(()=>movementAxis(rows,grain),[rows,grain]);
+ const plotHeight=Math.max(280,Math.min(380,availableWidth*.23))-85,bottom=plotHeight+35;
+ const axisTop=bottom+(rows.some(r=>r.adjustments>0)?46:31);
+ const chartHeight=axisTop+(axis.months.length?56:axis.years.length?28:0)+12;
  const ceiling=Math.ceil(max/4)*4;
  const step=(chartWidth-70)/Math.max(1,rows.length);
  const xAt=(i:number)=>45+step*(i+.5);
@@ -40,8 +44,8 @@ export default function WorkshopMovements({visits}:{visits:VisitMovement[]}){
      </defs>
      {[0,1,2,3,4].map(n=><g key={n}><line x1="45" x2={chartWidth-15} y1={yAt(ceiling*n/4)} y2={yAt(ceiling*n/4)} stroke="#e4ebf2" strokeDasharray={n?'3 5':undefined}/><text x="32" y={yAt(ceiling*n/4)+4} textAnchor="end" fontSize="11" fill="#8799aa">{ceiling*n/4}</text></g>)}
      {rows.length>0&&<polygon fill="url(#wm-area-fill)" points={`${xAt(0)},${bottom} ${rows.map((r,i)=>`${xAt(i)},${yAt(r.occupancy)}`).join(' ')} ${xAt(rows.length-1)},${bottom}`}/>}
-     {rows.map((r,i)=><g key={r.date} className="wm-period" tabIndex={0} aria-label={`${label(r.startDate)} até ${label(r.endDate)}: ${r.entries} entradas, ${r.exits} saídas, ${r.occupancy} em oficina, ${r.adjustments} ajustes de conferência`}>
-      <title>{`${label(r.startDate)} a ${label(r.endDate)}
+     {rows.map((r,i)=><g key={r.date} className="wm-period" tabIndex={0} aria-label={`${grain==='week'?axis.labels[i]+' · ':''}${label(r.startDate)} até ${label(r.endDate)}: ${r.entries} entradas, ${r.exits} saídas, ${r.occupancy} em oficina, ${r.adjustments} ajustes de conferência`}>
+      <title>{`${grain==='week'?axis.labels[i]+' · ':''}${label(r.startDate)} a ${label(r.endDate)}
 Entradas: ${r.entries}
 Saídas: ${r.exits}
 Em oficina: ${r.occupancy}
@@ -52,17 +56,17 @@ Ajustes de conferência: ${r.adjustments}`}</title>
       <rect x={xAt(i)+3} y={yAt(r.exits)} width={barWidth} height={bottom-yAt(r.exits)} rx="4" fill="url(#wm-exit-fill)"/>
       <text x={xAt(i)-barWidth/2-3} y={yAt(r.entries)-7} textAnchor="middle" fontSize="11" fontWeight="600" fill="#24699f" paintOrder="stroke" stroke="white" strokeWidth="3">{r.entries}</text>
       <text x={xAt(i)+barWidth/2+3} y={yAt(r.exits)-7} textAnchor="middle" fontSize="11" fontWeight="600" fill="#16806c" paintOrder="stroke" stroke="white" strokeWidth="3">{r.exits}</text>
-      <text x={xAt(i)} y={bottom+23} textAnchor="middle" fontSize="11" fill="#526d85">{label(grain==='week'?r.startDate:r.date)}</text>
-      {r.adjustments>0&&<text x={xAt(i)} y={bottom+(grain==='week'?49:39)} textAnchor="middle" fontSize="10" fontWeight="600" fill="#8b529e">−{r.adjustments} ajustes</text>}
-      {grain==='week'&&<text x={xAt(i)} y={bottom+39} textAnchor="middle" fontSize="9" fill="#8799aa">até {label(r.endDate)}</text>}
+      <text className="wm-axis-period-label" x={xAt(i)} y={bottom+23} textAnchor="middle" fontSize="11" fill="#526d85">{axis.labels[i]}</text>
+      {r.adjustments>0&&<text x={xAt(i)} y={bottom+39} textAnchor="middle" fontSize="10" fontWeight="600" fill="#8b529e">−{r.adjustments} ajustes</text>}
      </g>)}
      <polyline pointerEvents="none" fill="none" stroke="#b77819" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" points={rows.map((r,i)=>`${xAt(i)},${yAt(r.occupancy)}`).join(' ')}/>
      {rows.map((r,i)=><g key={r.date} pointerEvents="none"><circle cx={xAt(i)} cy={yAt(r.occupancy)} r="5" fill="white" stroke="#b77819" strokeWidth="2.5"/><text x={xAt(i)} y={yAt(r.occupancy)-13} textAnchor="middle" fontSize="12" fontWeight="600" fill="#98630e" paintOrder="stroke" stroke="white" strokeWidth="4">{r.occupancy}</text></g>)}
+     <WorkshopMovementAxis months={axis.months} years={axis.years} chartRef={chartRef} step={step} top={axisTop} chartWidth={chartWidth} availableWidth={availableWidth}/>
     </svg>
    </div>
    {!entries&&!exits&&<p>Nenhuma movimentação registrada no período e filtros selecionados.</p>}
    <details className="wm-data"><summary>Ver dados em tabela</summary><div className="wm-scroll"><table><thead><tr><th>Período</th><th>Saldo inicial</th><th>Entradas</th><th>Saídas</th><th>Ajustes de conferência (−)</th><th>Saldo de movimentação</th><th>Em oficina no fim do período</th></tr></thead><tbody>{rows.map(r=><tr key={r.date}><td>{label(r.startDate)} a {label(r.endDate)}</td><td>{r.opening}</td><td>{r.entries}</td><td>{r.exits}</td><td>{r.adjustments}</td><td>{r.entries-r.exits}</td><td>{r.occupancy}</td></tr>)}</tbody></table></div></details>
   </>}
-  <p className="wm-note">Respeita os filtros de oficina, frota e pesquisa. Cada permanência conta uma entrada e, quando registrada, uma saída. Ajustes de conferência não são saídas físicas. Semanas começam na segunda-feira; datas no horário de Brasília. A linha inclui permanências anteriores ao intervalo e desconta saídas e ajustes de conferência na data registrada. O histórico depende das datas disponíveis, inclusive as importadas da planilha.</p>
+  <p className="wm-note">Respeita os filtros de oficina, frota e pesquisa. Cada permanência conta uma entrada e, quando registrada, uma saída. Ajustes de conferência não são saídas físicas. Semanas de segunda-feira a domingo, com numeração ISO do calendário. Nas semanas que cruzam o mês ou ano, o agrupamento usa a quinta-feira da semana. Datas no horário de Brasília. A linha inclui permanências anteriores ao intervalo e desconta saídas e ajustes de conferência na data registrada. O histórico depende das datas disponíveis, inclusive as importadas da planilha.</p>
  </section>;
 }
