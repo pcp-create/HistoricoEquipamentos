@@ -370,8 +370,7 @@ export default function CommercialManagement({
           </section>
           <p className="sp-footnote">
             O registro congela as três empresas e a meta desta competência com
-            os dados integrados no momento. Use “Registrar parcial agora” antes
-            do envio de sexta-feira, às 12h (Brasília). Não há envio automático.
+            os dados integrados no momento. A automação diária registra o fechamento do dia anterior às 00h (Brasília). Você também pode usar “Registrar parcial agora” para capturas adicionais.
           </p>
         </div>
         {settings && canManage && (

@@ -912,3 +912,7 @@
 .operations-table .operation-cell-value .operation-status { margin:0; }
 
 .operations-table td:last-child .operation-execution-actions > button { margin:0; }
+
+.schedule-overview-filters {grid-template-columns:minmax(220px,2fr) repeat(3,minmax(140px,1fr)) minmax(280px,1.3fr)}
+@media(max-width:1200px){.schedule-overview-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.schedule-overview-filters{grid-template-columns:minmax(0,1fr)}}

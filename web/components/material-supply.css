@@ -2,3 +2,6 @@
 .material-supply > span,.material-supply > span > span { display:block; }
 .material-supply b { font-size:inherit; font-weight:600; color:#355a76; }
 .material-supply .material-supply-updated { font-size:10px; color:#8597a7; }
+
+.material-supply .material-supply-available { display:inline; }
+.material-supply .material-supply-shortage,.material-supply .material-supply-shortage b { color:#b42318; }

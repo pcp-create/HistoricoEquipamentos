@@ -6,11 +6,13 @@ import { database } from "../db";
 import { projection, type SourceRow } from "./model";
 import { reconcileBilling, type BillingLink } from "./billing";
 import targets from "./targets.json";
-export async function salesProjection(period: string) {
+export async function salesProjection(period: string, closingDay?: string) {
   if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(period))
     throw new Error("Período inválido");
+  if (closingDay && (!/^20\d{2}-\d{2}-\d{2}$/.test(closingDay) || !Number.isFinite(Date.parse(closingDay)) || new Date(closingDay).toISOString().slice(0,10)!==closingDay || closingDay.slice(0,7)!==period))
+    throw new Error("Data de fechamento inválida");
   const db = database();
-  const today = new Intl.DateTimeFormat("sv-SE", {
+  const today = closingDay || new Intl.DateTimeFormat("sv-SE", {
     timeZone: "America/Sao_Paulo",
   }).format(new Date());
   const [facts, orders, sync, invoices, headers, links] = await Promise.all([

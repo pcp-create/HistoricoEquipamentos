@@ -784,3 +784,22 @@ dialog.field-report-screen {
 .field-app .field-part-editor-actions .field-part-return { display:inline-flex; align-items:center; margin:0 0 0 auto; padding:7px 0; min-height:32px; line-height:1.5; }
 .field-app .field-part .field-part-alert { display:block; position:static; clear:both; box-sizing:border-box; width:100%; max-width:100%; margin:12px 0 0; padding:11px 12px; font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
 @media(max-width:480px) { .field-app > .field-connection { margin-left:-12px; margin-right:-12px; padding-left:12px; padding-right:12px; } }
+
+/* Share label, quantity and helper rows between withdrawal and return. */
+.field-app .field-part-quantity-columns { grid-template-rows:auto minmax(46px,auto) auto;align-items:stretch;row-gap:6px; }
+.field-app .field-part-quantity-columns > label,
+.field-app .field-part-quantity-columns > .field-returned-column { display:grid;grid-row:span 3;grid-template-rows:subgrid;row-gap:6px;margin:0;line-height:18px;font-family:"Manrope",var(--font);font-size:12px;font-weight:500;text-align:left;color:#52657b; }
+.field-app .field-part-quantity-columns input { margin:0;height:100%; }
+.field-app .field-part-quantity-label { font:inherit;color:inherit; }
+.field-app .field-returned-column > strong { display:flex;align-items:center;box-sizing:border-box;min-height:46px;padding:10px 12px;color:#233f5b;font-family:"Manrope",var(--font);font-size:18px;font-weight:600;line-height:1.3;font-variant-numeric:tabular-nums; }
+.field-app .field-part-quantity-columns small { margin-top:1px; }
+
+.field-app .field-return-dialog label { gap:8px;margin:4px 0; }
+.field-app .field-return-dialog .field-return-reference { font-size:11px;font-weight:400;color:#71839a; }
+.field-app .field-return-dialog .field-return-actions { display:grid;grid-template-columns:1fr 1.7fr;gap:10px;padding-top:16px;border-top:1px solid #e4ebf2;margin-top:4px; }
+.field-app .field-return-actions button { display:flex;align-items:center;justify-content:center;gap:7px;min-height:42px;padding:10px 12px;border-radius:9px;font-size:13px;font-weight:600;line-height:1.4; }
+.field-app .field-return-actions .field-return-cancel { background:#fff;border-color:#d6e2ed;color:#52657b; }
+.field-app .field-return-actions .field-return-submit { background:#215e93;border-color:#215e93;color:#fff; }
+.field-app .field-return-actions .field-return-submit:hover { background:#194d7b; }
+.field-app .field-return-actions button:focus-visible { outline:3px solid #84b9df;outline-offset:2px; }
+.field-app .field-return-actions svg { flex-shrink:0; }

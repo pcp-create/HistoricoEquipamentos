@@ -288,3 +288,6 @@
 .schedule-order-popup .leaflet-popup-content {max-width:calc(100vw - 80px)}
 
 .schedule-map-popup-order-divider {border:0;border-top:1px solid #dce5ef;margin:14px 0 0}
+
+.schedule-map-flow-dot {display:inline-block;flex-shrink:0;width:8px;height:8px;border-radius:50%;margin-right:7px;}
+.schedule-map-popup-launch-status {padding-left:7px;}

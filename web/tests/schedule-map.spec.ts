@@ -27,7 +27,7 @@ test("map groups colocated OSs, filters by date and saves a manual point on mobi
     cliente_nome: "Cliente " + (n <= 2 ? 1 : n),
     tipo_atendimento_nome: "Manutenção preventiva",
     equipamento: "Compressor teste",
-    status_lancamento_nome: "Material separado",
+    status_lancamento_nome: n===3?"51 - O.S AGUARDANDO SEPARAÇÃO":n===1?"41 - MATERIAL SEPARADO OTACILIO":"5 - MATERIAL SEPARADO RIO DO SUL",
     operation_count: 1,
     programming_status: "scheduled",
     operation_status_counts: { scheduled: 1 },
@@ -140,7 +140,7 @@ test("map groups colocated OSs, filters by date and saves a manual point on mobi
   await expect(page.locator(".schedule-map-popup")).toContainText("OS 14877");
   await expect(page.locator(".schedule-map-popup-order-details").first()).toContainText("Manutenção preventiva");
   await expect(page.locator(".schedule-map-popup-equipment").first()).toContainText("Compressor teste");
-  await expect(page.locator(".schedule-map-popup-launch-status").first()).toHaveText("Status do lançamento: Material separado");
+  await expect(page.locator(".schedule-map-popup-launch-status").first()).toHaveText("Status do fluxo: 41 - MATERIAL SEPARADO OTACILIO · Responsável: Planejamento");
   await expect(page.locator(".schedule-map-popup-programming").first()).toContainText("Status Programação:");
   await expect(page.locator(".schedule-map-popup-location").first()).toContainText("Endereço:");
   await expect(page.locator(".schedule-map-popup")).toContainText("OS 14878");
@@ -220,6 +220,22 @@ test("map groups colocated OSs, filters by date and saves a manual point on mobi
     path: "/tmp/schedule-map-desktop.png",
     fullPage: true,
   });
+  await page.getByLabel("Responsável do fluxo",{exact:true}).selectOption("Almoxarifado");
+  await expect(page.getByText("1 de 1 OSs no mapa",{exact:true})).toBeVisible();
+  await page.getByLabel("Colorir mapa por",{exact:true}).selectOption("flow");
+  await expect(page.locator(".schedule-map-marker")).toHaveAttribute("title","Almoxarifado: 1");
+  await page.locator(".schedule-map-pin").click();
+  await expect(page.locator(".schedule-map-popup-launch-status")).toContainText("Responsável: Almoxarifado");
+  await page.getByLabel("Responsável do fluxo",{exact:true}).selectOption("");
+  await page.locator(".schedule-map-summary").getByRole("button",{name:"Planejamento 2",exact:true}).click();
+  await expect(page.getByText("2 de 2 OSs no mapa",{exact:true})).toBeVisible();
+  await expect(page.locator(".schedule-map-marker")).toHaveAttribute("title","Planejamento: 2");
+  await page.getByRole("button",{name:"Limpar filtro de fluxo",exact:true}).click();
+  await expect(page.getByText("3 de 3 OSs no mapa",{exact:true})).toBeVisible();
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:"/tmp/schedule-map-flow-mobile.png",fullPage:true});
+
 });
 
 test("opening map only reads saved positions and never geocodes missing addresses", async ({

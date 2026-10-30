@@ -366,6 +366,8 @@ test("material return dialog records a separate quantity without replacing the w
  await expect(page.getByLabel("Quantidade a devolver")).not.toBeVisible();
  await expect(page.getByRole("spinbutton",{name:"Devolvido nesta operação",exact:true})).toHaveCount(0);
  await page.getByRole("button",{name:"Devolver peça",exact:true}).click();
+ await expect(page.getByLabel("Quantidade a devolver")).toHaveValue("");
+ await expect(page.getByText("Retirado nesta operação: 3 UN",{exact:true})).toBeVisible();
  await page.getByLabel("Quantidade a devolver").fill("1");
  await page.getByRole("button",{name:"Registrar devolução",exact:true}).click();
  await expect(page.getByText('1 UN',{exact:true})).toBeVisible();

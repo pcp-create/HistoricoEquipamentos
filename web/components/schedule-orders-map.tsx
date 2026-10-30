@@ -1,4 +1,5 @@
 "use client";
+import {flowStatusName,flowResponsible,flowResponsibleColor} from "@/lib/service-scheduling/flow-status";
 import { scheduleUrl } from "@/lib/service-scheduling/schedule-url";
 import { latestOpenProgramming, latestProgrammingStatus } from "@/lib/service-scheduling/latest-programming";
 import { displayedScheduleStatus } from "@/lib/service-scheduling/display-status";
@@ -30,6 +31,9 @@ type MapEntry = {
 type MapData = { geocodingAvailable: boolean; schedules: MapEntry[] };
 export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { schedules: any[] }) {
   const schedules = useMemo(() => sourceSchedules.map(s => ({...s, programming_status: displayedScheduleStatus(s)})), [sourceSchedules]);
+  const [colorBy,setColorBy] = useState("programming");
+  const [flowStatus,setFlowStatus] = useState("");
+  const flowNames = [...new Set(schedules.map(flowResponsible))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   const [showTerritories, setShowTerritories] = useState(false);
   const [territories, setTerritories] = useState<any>(null);
   const [territoryError, setTerritoryError] = useState("");
@@ -130,6 +134,7 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
         .filter(
           (s) =>
             (!status || s.programming_status === status) &&
+            (!flowStatus || flowResponsible(s)===flowStatus) &&
             (!day ||
               (s.calendar_operations || []).some((o: any) =>
                 (o.dates || [o.date]).includes(day),
@@ -142,7 +147,7 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
           );
           return { ...s, entry, address };
         }),
-    [schedules, data, day, status],
+    [schedules, data, day, status, flowStatus],
   );
   const located = visible.filter(
     (s) => s.address && validPoint(s.address.latitude, s.address.longitude),
@@ -287,11 +292,16 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
             : 20;
         const icon = document.createElement("span");
         const counts: Record<string, number> = {};
-        for (const order of group)
-          counts[order.programming_status] =
-            (counts[order.programming_status] || 0) + 1;
+        for (const order of group) {
+          const key=colorBy==='flow'?flowResponsible(order):order.programming_status;
+          counts[key]=(counts[key]||0)+1;
+        }
         const markerStatus = counts.cancelled === group.length ? "cancelled" : scheduleStatus(counts);
         icon.className = `schedule-map-pin operation-status ${markerStatus}`;
+        if(colorBy==='flow'){
+          const color=flowResponsibleColor(Object.keys(counts)[0]);
+          icon.style.background=color;icon.style.color='#fff';
+        }
         icon.style.width = icon.style.height = `${size}px`;
         const statuses = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
         if (statuses.length > 1) {
@@ -304,7 +314,7 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
             const end = angle + (1 / statuses.length) * Math.PI * 2;
             const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
             path.setAttribute("class", `operation-status ${status}`);
-            path.setAttribute("fill", "currentColor");
+            path.setAttribute("fill", colorBy==='flow'?flowResponsibleColor(status):"currentColor");
             path.setAttribute("d", `M50 50 L${50 + 50 * Math.cos(angle)} ${50 + 50 * Math.sin(angle)} A50 50 0 ${end - angle > Math.PI ? 1 : 0} 1 ${50 + 50 * Math.cos(end)} ${50 + 50 * Math.sin(end)} Z`);
             svg.appendChild(path);
             const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -362,7 +372,8 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
           section.append(heading, equipment);
           const launchStatus = document.createElement("p");
           launchStatus.className = "schedule-map-popup-launch-status";
-          launchStatus.textContent = "Status do lançamento: " + (s.status_lancamento_nome || "Não informado");
+          launchStatus.textContent = "Status do fluxo: " + flowStatusName(s) + " · Responsável: " + flowResponsible(s);
+          if(colorBy==='flow')launchStatus.style.borderLeft=`3px solid ${flowResponsibleColor(flowResponsible(s))}`;
           section.appendChild(launchStatus);
           const latest = latestOpenProgramming(s.calendar_operations || []);
           const programmingStatus = ["completed", "cancelled"].includes(s.programming_status) ? s.programming_status : latest ? latestProgrammingStatus(latest) : s.programming_status;
@@ -468,9 +479,9 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
             ),
           );
         else marker.bindPopup(popup, { maxWidth: 460, minWidth: Math.min(340, Math.max(180, m.getSize().x - 70)), className: "schedule-order-popup" });
-        marker.getElement()?.setAttribute("aria-label", markerLabel);
+        marker.getElement()?.setAttribute("aria-label", markerLabel+(colorBy==='flow'?` · ${statuses.map(([name,count])=>`${name}: ${count}`).join(" · ")}`:""));
         marker.getElement()?.setAttribute("title", statuses.map(([status, quantity]) =>
-          `${scheduleStatusNames[status] || "Pendente"}: ${quantity}`,
+          `${colorBy==='flow'?status:scheduleStatusNames[status] || "Pendente"}: ${quantity}`,
         ).join(" · "));
       }
     }
@@ -498,7 +509,7 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
       m.off("zoomend", drawClusters);
       layer.clearLayers();
     };
-  }, [ready, mapSignature]);
+  }, [ready, mapSignature, colorBy]);
   useEffect(() => {
     const L = lib.current,
       m = map.current;
@@ -555,6 +566,7 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
   return (
     <section className="schedule-map" aria-label="Mapa da programação">
       <div className="schedule-map-toolbar">
+        <label>Colorir mapa por<select aria-label="Colorir mapa por" value={colorBy} onChange={e=>{setColorBy(e.target.value);setFlowStatus("");}}><option value="programming">Etapa da programação</option><option value="flow">Responsável do fluxo</option></select></label>
         <label>
           Data das operações
           <input
@@ -580,6 +592,7 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
           onClick={() => {
             setDay("");
             setStatus("");
+            setFlowStatus("");
           }}
         >
           Limpar data e status
@@ -647,7 +660,13 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
           aria-label="Mapa interativo de localidades"
         />
         <aside className="schedule-map-summary" aria-label="Resumo das OSs por status">
-          <h3>OSs da programação</h3>
+          <h3>{colorBy==='flow'?'Responsável do fluxo':'OSs da programação'}</h3>
+          {colorBy==='flow'&&<div className="schedule-map-status-filters">
+            <button type="button" aria-pressed={!flowStatus} onClick={()=>setFlowStatus("")}><span>Todos os responsáveis</span><strong>{summaryOrders.length}</strong></button>
+            {flowNames.map(name=><button type="button" key={name} aria-pressed={flowStatus===name} onClick={()=>setFlowStatus(flowStatus===name?'':name)}><span><span className="schedule-map-flow-dot" style={{background:flowResponsibleColor(name)}} aria-hidden="true"/>{name}</span><strong>{summaryOrders.filter(s=>flowResponsible(s)===name).length}</strong></button>)}
+          </div>}
+          {flowStatus&&<button type="button" onClick={()=>setFlowStatus("")}>Limpar filtro de fluxo</button>}
+          {colorBy!=='flow'&&<>
           <button type="button" className="schedule-map-summary-total" aria-pressed={!status} onClick={() => setStatus("")}><span>Total</span><strong>{summaryOrders.length}</strong></button>
           <div className="schedule-map-status-filters">
             {Object.entries(scheduleStatusNames).map(([key, name]) => (
@@ -657,6 +676,7 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
               </button>
             ))}
           </div>
+          </>}
           <small>Clique em um status para filtrar. Inclui OSs sem posição no mapa.</small>
           <hr />
           <button type="button" aria-pressed={showTerritories} onClick={() => setShowTerritories(!showTerritories)}>Divisão comercial</button>
@@ -688,7 +708,7 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
               {sellerNames.map(name => <div key={name}><span style={{ background: sellerColor(name) }} />{name} · {territories.features.filter((f: any) => f.properties.seller === name).length}</div>)}
               {!territories.features.length && <p>Nenhum município disponível.</p>}
               {!!territories.missing.length && <details><summary>{territories.missing.length} municípios sem limite disponível</summary>{territories.missing.join(", ")}</details>}
-              <small>Áreas por vendedor; círculos por status da OS.</small>
+              <small>Áreas por vendedor; círculos conforme a opção “Colorir mapa por”.</small>
             </>}
           </div>}
         </aside>
@@ -707,6 +727,7 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
                 <strong>OS {s.numero_sequencia || s.order_id}</strong>
               </a>
               <span>{s.cliente_nome || "Cliente não informado"}</span>
+              <small>Status do fluxo: {flowStatusName(s)} · {flowResponsible(s)}</small>
               <small className={"operation-status " + s.programming_status}>
                 {scheduleStatusNames[s.programming_status] || "Pendente"}
               </small>
@@ -796,8 +817,8 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
         </details>
       )}
       <p className="schedule-map-legend">
-        Círculos seguem as cores dos status da programação. Clique para ver as
-        OSs. Grupos com status diferentes têm cores divididas com a quantidade de OSs em cada status.
+        Círculos seguem as cores {colorBy==='flow'?'dos responsáveis do fluxo':'das etapas da programação'}. Clique para ver as
+        OSs. Grupos com {colorBy==='flow'?'responsáveis':'status'} diferentes têm cores divididas com a quantidade de OSs em cada {colorBy==='flow'?'setor':'status'}.
         {located.some((s) => s.address.provider === "geoapify") && (
           <>
             {" "}

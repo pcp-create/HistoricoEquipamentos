@@ -1,4 +1,5 @@
 "use client";
+import {flowResponsible} from "@/lib/service-scheduling/flow-status";
 import DateTimePicker from "./date-time-picker";
 import { matchesSearch } from "@/lib/filters";
 
@@ -187,6 +188,8 @@ export default function ServiceScheduling() {
   const [completedExpanded, setCompletedExpanded] = useState(false);
   const [stageFilter, setStageFilter] = useState("");
   const [executor, setExecutor] = useState("");
+  const [flowOwner,setFlowOwner] = useState("");
+  const flowOwners = [...new Set<string>((data?.schedules||[]).map((s:any)=>flowResponsible(s)))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   const deliveryMonths = [...new Set<string>((data?.schedules || [])
     .flatMap((s:any) => dateView === "delivery" ? [s.expected_delivery_date?.slice(0,7)] : (s.calendar_operations || []).flatMap((o:any) => operationDates(o).map(date=>date.slice(0,7))))
     .filter((month:any) => typeof month === "string" && /^\d{4}-\d{2}$/.test(month)))].sort();
@@ -198,6 +201,7 @@ export default function ServiceScheduling() {
   }
   const searchedSchedules = (data?.schedules || []).filter((s: any) =>
     displayedScheduleStatus(s) !== "cancelled" &&
+    (!flowOwner || flowResponsible(s)===flowOwner) &&
     matchesSearch(`${s.numero_sequencia || s.order_id} ${s.cliente_nome} ${s.equipamento} ${s.customer_city || ""}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(), query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase())
   );
   const filteredSchedules = searchedSchedules.map((s:any) => filterScheduleDateView(s,dateView,deliveryMonth,executor)).filter(Boolean);
@@ -446,6 +450,13 @@ export default function ServiceScheduling() {
               <select aria-label="Executante" value={executor} onChange={(e) => setExecutor(e.target.value)}>
                 <option value="">Todos os executantes</option>
                 {[...executorOptions].sort((a,b) => a[1].localeCompare(b[1], "pt-BR")).map(([email,name]) => <option key={email} value={email}>{name}</option>)}
+              </select>
+            </label>
+            <label className="scheduling-search">
+              Responsável do fluxo
+              <select aria-label="Responsável do fluxo" value={flowOwner} onChange={e=>setFlowOwner(e.target.value)}>
+                <option value="">Todos os responsáveis</option>
+                {flowOwners.map(owner=><option key={owner} value={owner}>{owner}</option>)}
               </select>
             </label>
             <label className="scheduling-search">

@@ -1,0 +1,102 @@
+{
+  "name": "Projeção de vendas — parcial automática diária",
+  "nodes": [
+    {
+      "id": "manual",
+      "name": "Teste manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "schedule",
+      "name": "Fechamento às 00h e novas tentativas",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        180
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 0-5 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "positions",
+      "name": "Registrar parcial diária",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        280,
+        80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://rjcompressores.app/api/sales-projection/snapshots/automation",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "instructions",
+      "name": "Como configurar",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        60,
+        -300
+      ],
+      "parameters": {
+        "width": 620,
+        "height": 240,
+        "content": "## Configuração\nUse a mesma credencial Header Auth das automações do sistema: Authorization: Bearer TASK_AUTOMATION_TOKEN. Não use a chave da Evolution.\n\nImporte, selecione a credencial no nó HTTP e ative este workflow. Timezone: America/Sao_Paulo.\n\nÀs 00h, registra o fechamento do dia anterior. Se falhar, tenta novamente a cada 15 minutos até 05h45. O servidor registra apenas uma parcial automática por dia, da competência do dia encerrado e das três empresas. Novas tentativas não duplicam nem substituem registros. Integração incompleta ou desatualizada retorna erro para nova tentativa. GET na URL testa a credencial sem criar parcial.\n\nMigration necessária: web/sql/089_projection_daily_snapshots.sql. Publique a aplicação web antes de ativar."
+      }
+    }
+  ],
+  "connections": {
+    "Teste manual": {
+      "main": [
+        [
+          {
+            "node": "Registrar parcial diária",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fechamento às 00h e novas tentativas": {
+      "main": [
+        [
+          {
+            "node": "Registrar parcial diária",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  }
+}
