@@ -6,21 +6,18 @@ import './workshop-movements.css';
 export default function WorkshopMovements({visits}:{visits:VisitMovement[]}){
  const chartRef=useRef<HTMLDivElement>(null);
  const [availableWidth,setAvailableWidth]=useState(900);
- useEffect(()=>{const element=chartRef.current;if(!element)return;const observer=new ResizeObserver(([entry])=>setAvailableWidth(entry.contentRect.width));observer.observe(element);return()=>observer.disconnect();},[]);
  const today=localDay(new Date().toISOString());
  const [grain,setGrain]=useState<Grain>('month'),[start,setStart]=useState(today.slice(0,4)+'-01-01'),[end,setEnd]=useState(today);
  const invalid=!start||!end||start>end||Date.parse(end)-Date.parse(start)>3660*86400000;
  const rows=useMemo(()=>invalid?[]:workshopEvolution(visits,start,end,grain),[visits,start,end,grain,invalid]);
- const [page,setPage]=useState(0);
- const pages=Math.max(1,Math.ceil(rows.length/12));
- useEffect(()=>setPage(pages-1),[pages,grain,start,end]);
- const shown=rows.slice(Math.min(page,pages-1)*12,(Math.min(page,pages-1)+1)*12);
+ useEffect(()=>{const element=chartRef.current;if(!element)return;const observer=new ResizeObserver(([entry])=>setAvailableWidth(entry.contentRect.width));observer.observe(element);return()=>observer.disconnect();},[invalid]);
  const entries=rows.reduce((n,r)=>n+r.entries,0),exits=rows.reduce((n,r)=>n+r.exits,0),max=Math.max(1,...rows.flatMap(r=>[r.entries,r.exits,r.occupancy]));
- const chartWidth=Math.max(600,shown.length*70,availableWidth);
+ const chartWidth=Math.max(600,rows.length*70,availableWidth);
+ useEffect(()=>{const element=chartRef.current;if(element)element.scrollLeft=element.scrollWidth;},[rows,chartWidth,availableWidth,invalid]);
  const chartHeight=Math.max(280,Math.min(380,availableWidth*.23));
  const bottom=chartHeight-50, plotHeight=chartHeight-85;
  const ceiling=Math.ceil(max/4)*4;
- const step=(chartWidth-70)/Math.max(1,shown.length);
+ const step=(chartWidth-70)/Math.max(1,rows.length);
  const xAt=(i:number)=>45+step*(i+.5);
  const yAt=(value:number)=>bottom-value/ceiling*plotHeight;
  const barWidth=Math.min(28,step*.2);
@@ -33,7 +30,7 @@ export default function WorkshopMovements({visits}:{visits:VisitMovement[]}){
    <div className="wm-totals"><article><span><ArrowDownLeft size={16}/> Entradas</span><strong>{entries}</strong></article><article><span><ArrowUpRight size={16}/> Saídas</span><strong>{exits}</strong></article><article><span>Saldo de movimentação</span><strong>{entries-exits>0?'+':''}{entries-exits}</strong></article></div>
    <p className="wm-balance"><strong>Conciliação do período:</strong> {rows[0]?.opening||0} máquinas no início + {entries} entradas − {exits} saídas{adjustments>0&&<> − <strong className="wm-adjustment">{adjustments} ajustes de conferência</strong></>} = <strong>{rows.at(-1)?.occupancy||0} máquinas em oficina</strong>.</p>
    <div className="wm-legend"><span className="wm-entry">Entradas</span><span className="wm-exit">Saídas</span><span className="wm-occupancy">Máquinas em oficina ao fim do período</span></div>
-   <div className="wm-pagination"><button type="button" disabled={page===0} onClick={()=>setPage(p=>p-1)}>← Anteriores</button><span>{shown.length ? label(shown[0].startDate)+' a '+label(shown[shown.length-1].endDate) : ''} · {page+1}/{pages}</span><button type="button" disabled={page>=pages-1} onClick={()=>setPage(p=>p+1)}>Próximos →</button></div>
+   <p className="wm-interval">{start.split('-').reverse().join('/')} a {end.split('-').reverse().join('/')} · Período completo</p>
    <div ref={chartRef} className="wm-scroll wm-plot" tabIndex={0} role="region" aria-label="Gráfico de entradas, saídas e máquinas em oficina">
     <svg className="wm-evolution" viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{width:chartWidth,minWidth:chartWidth,height:chartHeight}} role="img" aria-label="Barras de entradas e saídas e linha de máquinas em oficina">
      <defs>
@@ -42,8 +39,8 @@ export default function WorkshopMovements({visits}:{visits:VisitMovement[]}){
       <linearGradient id="wm-area-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#bf8427" stopOpacity=".13"/><stop offset="100%" stopColor="#bf8427" stopOpacity="0"/></linearGradient>
      </defs>
      {[0,1,2,3,4].map(n=><g key={n}><line x1="45" x2={chartWidth-15} y1={yAt(ceiling*n/4)} y2={yAt(ceiling*n/4)} stroke="#e4ebf2" strokeDasharray={n?'3 5':undefined}/><text x="32" y={yAt(ceiling*n/4)+4} textAnchor="end" fontSize="11" fill="#8799aa">{ceiling*n/4}</text></g>)}
-     {shown.length>0&&<polygon fill="url(#wm-area-fill)" points={`${xAt(0)},${bottom} ${shown.map((r,i)=>`${xAt(i)},${yAt(r.occupancy)}`).join(' ')} ${xAt(shown.length-1)},${bottom}`}/>}
-     {shown.map((r,i)=><g key={r.date} className="wm-period" tabIndex={0} aria-label={`${label(r.startDate)} até ${label(r.endDate)}: ${r.entries} entradas, ${r.exits} saídas, ${r.occupancy} em oficina, {r.adjustments} ajustes de conferência`}>
+     {rows.length>0&&<polygon fill="url(#wm-area-fill)" points={`${xAt(0)},${bottom} ${rows.map((r,i)=>`${xAt(i)},${yAt(r.occupancy)}`).join(' ')} ${xAt(rows.length-1)},${bottom}`}/>}
+     {rows.map((r,i)=><g key={r.date} className="wm-period" tabIndex={0} aria-label={`${label(r.startDate)} até ${label(r.endDate)}: ${r.entries} entradas, ${r.exits} saídas, ${r.occupancy} em oficina, ${r.adjustments} ajustes de conferência`}>
       <title>{`${label(r.startDate)} a ${label(r.endDate)}
 Entradas: ${r.entries}
 Saídas: ${r.exits}
@@ -59,8 +56,8 @@ Ajustes de conferência: ${r.adjustments}`}</title>
       {r.adjustments>0&&<text x={xAt(i)} y={bottom+(grain==='week'?49:39)} textAnchor="middle" fontSize="10" fontWeight="600" fill="#8b529e">−{r.adjustments} ajustes</text>}
       {grain==='week'&&<text x={xAt(i)} y={bottom+39} textAnchor="middle" fontSize="9" fill="#8799aa">até {label(r.endDate)}</text>}
      </g>)}
-     <polyline pointerEvents="none" fill="none" stroke="#b77819" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" points={shown.map((r,i)=>`${xAt(i)},${yAt(r.occupancy)}`).join(' ')}/>
-     {shown.map((r,i)=><g key={r.date} pointerEvents="none"><circle cx={xAt(i)} cy={yAt(r.occupancy)} r="5" fill="white" stroke="#b77819" strokeWidth="2.5"/><text x={xAt(i)} y={yAt(r.occupancy)-13} textAnchor="middle" fontSize="12" fontWeight="600" fill="#98630e" paintOrder="stroke" stroke="white" strokeWidth="4">{r.occupancy}</text></g>)}
+     <polyline pointerEvents="none" fill="none" stroke="#b77819" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" points={rows.map((r,i)=>`${xAt(i)},${yAt(r.occupancy)}`).join(' ')}/>
+     {rows.map((r,i)=><g key={r.date} pointerEvents="none"><circle cx={xAt(i)} cy={yAt(r.occupancy)} r="5" fill="white" stroke="#b77819" strokeWidth="2.5"/><text x={xAt(i)} y={yAt(r.occupancy)-13} textAnchor="middle" fontSize="12" fontWeight="600" fill="#98630e" paintOrder="stroke" stroke="white" strokeWidth="4">{r.occupancy}</text></g>)}
     </svg>
    </div>
    {!entries&&!exits&&<p>Nenhuma movimentação registrada no período e filtros selecionados.</p>}

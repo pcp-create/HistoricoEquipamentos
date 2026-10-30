@@ -1,0 +1,23 @@
+import {test,expect} from '@playwright/test';
+test('workshop evolution includes the full interval and opens on the latest day across filters and resizing',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/**',r=>r.fulfill({json:{}}));
+ await page.route('**/api/workshop',r=>r.fulfill({json:{workshops:[{id:'1',name:'RJ Compressores',active:true}],visits:[],external:[]}}));
+ await page.goto('/oficina');
+ const panel=page.getByRole('region',{name:'Entradas e saídas da oficina',exact:true});
+ await panel.getByLabel('De',{exact:true}).fill('2026-10-01');await panel.getByLabel('Até',{exact:true}).fill('2026-10-29');
+ await panel.getByRole('button',{name:'Dia',exact:true}).click();
+ await expect(panel.locator('.wm-period')).toHaveCount(29);
+ await expect(panel.getByRole('button',{name:/Anteriores|Próximos/})).toHaveCount(0);
+ await expect(panel.locator('.wm-interval')).toHaveText('01/10/2026 a 29/10/2026 · Período completo');
+ const plot=panel.getByRole('region',{name:'Gráfico de entradas, saídas e máquinas em oficina',exact:true});
+ const atEnd=()=>plot.evaluate(el=>el.scrollWidth-el.clientWidth-el.scrollLeft<3);
+ await expect.poll(atEnd).toBe(true);
+ await plot.evaluate(el=>{el.scrollLeft=0;});await expect.poll(()=>plot.evaluate(el=>el.scrollLeft)).toBe(0);
+ await panel.getByLabel('Até',{exact:true}).fill('2026-10-30');await expect(panel.locator('.wm-period')).toHaveCount(30);await expect.poll(atEnd).toBe(true);
+ await page.setViewportSize({width:390,height:844});await expect.poll(atEnd).toBe(true);
+ const last=panel.locator('.wm-period').last();
+ expect(await last.evaluate(el=>{const rect=el.getBoundingClientRect(),plot=el.closest('.wm-plot')!.getBoundingClientRect();return rect.right<=plot.right&&rect.left>=plot.left;})).toBe(true);
+ await panel.getByLabel('De',{exact:true}).fill('');await expect(panel.getByRole('alert')).toBeVisible();
+ await panel.getByLabel('De',{exact:true}).fill('2026-10-01');await expect(panel.locator('.wm-period')).toHaveCount(30);await expect.poll(atEnd).toBe(true);
+});

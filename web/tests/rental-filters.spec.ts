@@ -27,9 +27,10 @@ test('rental filters combine statuses, retain sold equipment and clear all filte
  await page.getByRole('button',{name:/Locados e Emprestados/}).click();
  const types=page.getByRole('group',{name:'Tipo de contrato'});
  const light=types.getByRole('button',{name:'Locados 1',exact:true}).locator('span');
- expect(await light.evaluate(el=>getComputedStyle(el,'::before').backgroundColor)).toBe('rgb(57, 123, 179)');
+ expect(await light.evaluate(el=>getComputedStyle(el,'::before').backgroundColor)).toBe('rgb(56, 123, 180)');
+ expect(await light.evaluate(el=>getComputedStyle(el,'::before').width)).toBe('8px');
  const deadline=page.getByRole('group',{name:'Situação do contrato de locação ou empréstimo'}).getByRole('button',{name:'Vencido 0',exact:true}).locator('span');
- expect(await deadline.evaluate(el=>getComputedStyle(el,'::before').backgroundColor)).toBe('rgb(189, 85, 96)');
+ expect(await deadline.evaluate(el=>getComputedStyle(el,'::before').backgroundColor)).toBe('rgb(195, 79, 94)');
 });
 
 test('specific HP and PCM selectors replace ranges and clear with the other filters',async({page,context})=>{

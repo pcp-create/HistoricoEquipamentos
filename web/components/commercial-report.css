@@ -292,11 +292,11 @@
   background: currentColor;
 }
 .cr-status.pending {
-  color: #b8882d;
+  color: var(--status-signal-warning);
   background: #fff5e3;
 }
 .cr-status.processed {
-  color: #258255;
+  color: var(--status-signal-success);
   background: #eaf7ef;
 }
 .cr-column .territory-filter-trigger {

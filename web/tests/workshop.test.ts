@@ -12,6 +12,7 @@ test('entries prevent duplicates; external parts block exit; version conflicts a
   await db.exec(readFileSync(new URL('../sql/068_workshop_reconciliation.sql',import.meta.url),'utf8'));
   await db.exec(readFileSync(new URL('../sql/069_workshop_external_position.sql',import.meta.url),'utf8'));
   await db.exec(readFileSync(new URL('../sql/070_workshop_rental_stages.sql',import.meta.url),'utf8'));
+  await db.exec(readFileSync(new URL('../sql/088_workshop_equipment_registrations.sql',import.meta.url),'utf8'));
   const entry={action:'entry',equipmentId:'100',workshopId:'1',enteredAt:'2025-01-01T12:00:00Z',notes:'Entrada'};
   await workshopMutate(entry,'planner');await assert.rejects(()=>workshopMutate(entry,'planner'),/já possui/);
   let v=(await db.query<any>('SELECT * FROM web_workshop_visits')).rows[0];
@@ -100,6 +101,7 @@ test('entry reversal preserves audit history, frees equipment and requires reaso
  try {
   await db.exec('CREATE ROLE anon;CREATE ROLE authenticated;CREATE TABLE m8_equipment_catalog(equipment_id bigint,present boolean);INSERT INTO m8_equipment_catalog VALUES(100,true);');
   for(const f of ['067_workshop','068_workshop_reconciliation','069_workshop_external_position','070_workshop_rental_stages'])await db.exec(readFileSync(new URL('../sql/'+f+'.sql',import.meta.url),'utf8'));
+  await db.exec(readFileSync(new URL('../sql/088_workshop_equipment_registrations.sql',import.meta.url),'utf8'));
   const entry={action:'entry',equipmentId:'100',workshopId:'1',enteredAt:'2026-01-01T12:00:00Z'};
   await workshopMutate(entry,'planner');
   const v=(await db.query<any>('SELECT * FROM web_workshop_visits')).rows[0];

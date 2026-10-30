@@ -61,8 +61,9 @@ export async function workshopMutate(b:any,email:string){
    if(!(await c.query('SELECT 1 FROM web_workshops WHERE id=$1 AND active FOR SHARE',[workshop])).rows.length)throw new WorkshopInputError('Selecione uma oficina ativa.');
    const entered=new Date(b.enteredAt);if(!Number.isFinite(entered.getTime())||entered.getTime()>Date.now()+60000)throw new WorkshopInputError('A entrada deve ter uma data válida e não pode ser futura.');
    const expected=date(b.expectedAt);if(expected&&expected<entered.toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}))throw new WorkshopInputError('A previsão não pode ser anterior à entrada.');
+   const registration=(await c.query("SELECT id::text,actor,created_at,document FROM web_workshop_equipment_registrations WHERE equipment_id=$1 AND state='complete' ORDER BY created_at DESC LIMIT 1",[equipment])).rows[0];
    const id=randomUUID();await c.query('INSERT INTO web_workshop_visits(id,equipment_id,workshop_id,entered_at,expected_at,notes,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$7)',[id,equipment,workshop,entered,expected,notes,email]);
-   await c.query("INSERT INTO web_workshop_events(visit_id,action,actor,document) VALUES($1,'Entrada registrada',$2,$3)",[id,email,JSON.stringify({workshopId:workshop,notes})]);
+   await c.query("INSERT INTO web_workshop_events(visit_id,action,actor,document) VALUES($1,'Entrada registrada',$2,$3)",[id,email,JSON.stringify({workshopId:workshop,notes,...(registration?{equipmentRegistration:registration}:{})})]);
   }else{
    const id=uuid(b.id),visit=(await c.query('SELECT * FROM web_workshop_visits WHERE id=$1 FOR UPDATE',[id])).rows[0];
    if(!visit)throw new WorkshopInputError('Entrada não encontrada.');

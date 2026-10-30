@@ -751,31 +751,12 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
       <main className="equipment-page catalog-settings">
         <section className="manual-card">
           <h1>{sectionInfo?.title || "Equipamentos"}</h1>
-          {admin && (
-            <div className="catalog-editor-actions">
-              <a
-                className="button"
-                href="/api/preventive-reports?kind=weekly&format=pdf"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Relatório semanal (PDF)
-              </a>
-              <a
-                className="button"
-                href="/api/preventive-reports?kind=overdue&format=pdf"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Preventivas vencidas (PDF)
-              </a>
-            </div>
-          )}
+
           <p>
             {sectionInfo?.description || "Clientes, histórico de OS e planejamento de preventivas dos equipamentos cadastrados."}
           </p>
           {section === "clientes" && <p className="equipment-group-hint">Expanda um cliente para consultar suas máquinas. Os vínculos são agrupados pelo ID do cliente; equipamentos compartilhados aparecem em cada vínculo.</p>}
-          <div className="equipment-counters">
+          <div className={`equipment-counters${section === "preventivas" ? " equipment-preventive-counters" : ""}`}>
             {(section === "locacao" ? [
               ["Frota de locação", loaded ? rentalRows.length : null],
               ["Disponíveis", loaded ? rentalRows.filter((e:any)=>e.rentalStatus?.key === "available").length : null],
@@ -786,8 +767,8 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
               ["Vencidas / limite atingido", result?.counts.overdue],
               ["Próximos 30 dias", result?.counts.soon],
               ["Sem plano", result?.counts.unplanned],
-            ]).map(([label, value]) => (
-              <div key={label}>
+            ]).map(([label, value],index) => (
+              <div key={label} className={section === "preventivas" ? `equipment-preventive-counter equipment-preventive-counter-${["total","overdue","soon","unplanned"][index]}` : undefined}>
                 <small>{label}</small>
                 <strong>{value ?? "—"}</strong>
               </div>

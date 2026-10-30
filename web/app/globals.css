@@ -1,4 +1,11 @@
 :root {
+  --status-signal-size: 8px;
+  --status-signal-success: #168367;
+  --status-signal-warning: #ae7b23;
+  --status-signal-danger: #c34f5e;
+  --status-signal-info: #387bb4;
+  --status-signal-neutral: #7c8999;
+  --status-signal-purple: #8b6bb0;
   --navy: #17375d;
   --blue: #2565af;
   --text: #24364b;
@@ -4327,3 +4334,55 @@ button.history-programming-action[class] {
 
 .equipment-spec-title-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
 .equipment-spec-title-row .equipment-spec-heading { flex-shrink: 0; }
+
+/* Preventive overview: a small signal makes each status easy to identify. */
+.equipment-preventive-counters > .equipment-preventive-counter { --preventive-tone:var(--status-signal-info); padding:18px 20px; border:1px solid #e0e8f0; border-radius:12px; background:#fff; box-shadow:0 2px 8px #17385404; }
+.equipment-preventive-counters .equipment-preventive-counter-overdue { --preventive-tone:var(--status-signal-danger); }
+.equipment-preventive-counters .equipment-preventive-counter-soon { --preventive-tone:var(--status-signal-warning); }
+.equipment-preventive-counters .equipment-preventive-counter-unplanned { --preventive-tone:var(--status-signal-neutral); }
+.equipment-preventive-counters small { display:flex; align-items:center; gap:8px; margin-bottom:10px; color:#60788e; font-size:12px; }
+.equipment-preventive-counters small::before { content:""; width:8px; height:8px; flex:none; border-radius:50%; background:var(--preventive-tone); box-shadow:0 0 0 3px color-mix(in srgb,var(--preventive-tone) 12%,transparent); }
+.equipment-preventive-counters strong { color:#244665; font-size:28px; font-variant-numeric:tabular-nums; line-height:1.2; }
+@media(max-width:600px) { .equipment-preventive-counters { gap:10px; } .equipment-preventive-counters > .equipment-preventive-counter { padding:14px; } .equipment-preventive-counters small { font-size:11px; } }
+
+/* Shared status signal standard. Labels always accompany the color. */
+body .status-signal,
+body .equipment-preventive-counters small::before,
+body .rental-fleet-page .equipment-rental-status-cards button > span:not(.equipment-sold-note)::before,
+body .cr-status::before,
+body .cr-workshop-stage > span,
+body .sp-dot,
+body .ws-column header i,
+body .ws-live-dot,
+body .ws-financial-kind i,
+body .sales-seller-presence i,
+body .sales-profile-status i,
+body .admin-presence-light,
+body .connection > span,
+body .badge i {
+  display:inline-block;
+  width:var(--status-signal-size);
+  height:var(--status-signal-size);
+  min-width:var(--status-signal-size);
+  flex-shrink:0;
+  border-radius:50%;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--status-signal-color,var(--status-signal-neutral)) 12%,transparent);
+}
+.status-signal { background:var(--status-signal-color,var(--status-signal-neutral)); }
+.equipment-preventive-counter { --status-signal-color:var(--preventive-tone); }
+.rental-fleet-page .equipment-rental-status-cards button { --status-signal-color:var(--fleet-tone); }
+.cr-status.pending { --status-signal-color:var(--status-signal-warning); }
+.cr-status.processed { --status-signal-color:var(--status-signal-success); }
+.sp-dot,.ws-live-dot { --status-signal-color:var(--status-signal-success); }
+.ws-column header i { --status-signal-color:var(--stage); }
+.ws-financial-kind i { --status-signal-color:var(--status-signal-success); }
+.ws-financial-cost .ws-financial-kind i { --status-signal-color:var(--status-signal-warning); }
+.ws-financial-unavailable .ws-financial-kind i,.ws-financial-empty .ws-financial-kind i { --status-signal-color:var(--status-signal-neutral); }
+body .connection > span,
+body .sp-dot,
+body .ws-live-dot,
+body .admin-presence-light,
+body .sales-seller-presence.online i { --status-signal-color:var(--status-signal-success); background:var(--status-signal-color); }
+body .admin-offline .admin-presence-light { --status-signal-color:var(--status-signal-danger); background:var(--status-signal-color); }
+body .sales-seller-presence:not(.online) i { --status-signal-color:var(--status-signal-neutral); background:var(--status-signal-color); }
+body .badge i,body .sales-profile-status i { --status-signal-color:currentColor; }
