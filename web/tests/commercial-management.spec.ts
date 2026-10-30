@@ -106,8 +106,9 @@ test("manager freezes summary, compares latest snapshot and remains usable on mo
     page.getByRole("heading", { name: "Resumo gerencial" }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Ver contratos pendentes" })).toHaveAttribute("href", /\/comercial\/contratos\?period=\d{4}-\d{2}&company=all&filter=pending$/);
-  await expect(page.getByRole("link", { name: "Ver vendas pendentes" })).toHaveAttribute("href", /&company=all&status=Pendente$/);
+  await expect(page.getByRole("link", { name: "Ver vendas pendentes", exact:true })).toHaveAttribute("href", /&company=all&status=Pendente$/);
   await expect(page.getByRole("link", { name: "Ver vendas faturadas" })).toHaveAttribute("href", /&company=all&status=Processado$/);
+  await expect(page.getByRole("link",{name:"Ver vendas pendentes · Comercial",exact:true})).toHaveAttribute("href", /company=all&status=Pendente&flowOwner=Comercial$/);
   await page.getByRole("button", { name: "Registrar parcial agora" }).click();
   await expect(page.getByText(/Parcial registrada/)).toBeVisible();
   await expect(page.getByLabel("Visualização")).toHaveValue("snapshot");

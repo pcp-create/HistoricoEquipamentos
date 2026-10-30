@@ -4390,3 +4390,8 @@ body .badge i,body .sales-profile-status i { --status-signal-color:currentColor;
 .equipment-filters.equipment-filters-with-type { grid-template-columns: 2fr repeat(3,minmax(0,1fr)); }
 @media(max-width:1100px) { .equipment-filters.equipment-filters-with-type { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:600px) { .equipment-filters.equipment-filters-with-type { grid-template-columns:minmax(0,1fr); } }
+
+.equipment-archived-plans { margin:20px 0; }
+.equipment-archived-plans h3 { font-size:14px; }
+.equipment-archived-plan { display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #e4ebf2; }
+@media(max-width:600px) { .equipment-archived-plan { align-items:flex-start;flex-direction:column; } }

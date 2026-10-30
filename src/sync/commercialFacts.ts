@@ -1,6 +1,7 @@
 import type { M8Client } from "../m8/client.js";
 import { transaction, type Database } from "../database/postgres.js";
 import { SafeError } from "../utils/logger.js";
+import { contractSchedule } from "./contractSchedule.js";
 import { catalogPages } from "./catalogPages.js";
 export const commercialEndpoints = {
   fContratos: "/v1/contratos/contratoservico",
@@ -35,6 +36,14 @@ export async function syncCommercialFacts(
       commercialEndpoints[kind],
       shouldStop,
     );
+    if (kind === "fContratos") {
+      for (const row of rows) {
+        const path = `${commercialEndpoints.fContratos}/${row.id}`;
+        const fixed = await catalogPages(client, `${path}/valorfixo`, shouldStop);
+        const variable = await catalogPages(client, `${path}/valorvariavel`, shouldStop);
+        row._billingSchedule = contractSchedule(row, fixed, variable);
+      }
+    }
     // A malformed response never becomes an empty snapshot. Valid empty lists are reconciled.
     await transaction(db, async () => {
       await db.query(

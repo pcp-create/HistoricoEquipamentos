@@ -7,11 +7,11 @@ const root=resolve(import.meta.dirname,'..');
 const {version}=JSON.parse(readFileSync(join(root,'package.json'),'utf8'));
 const stage=mkdtempSync(join(tmpdir(),'m8-release-'));
 const paths=['src','dist','supabase/migrations','deploy/systemd','package.json','package-lock.json','tsconfig.json','tsconfig.build.json',
- 'README.md','docs/atualizacao-compras.md','docs/atualizacao-comercial.md','docs/customer-registry-sync.md','docs/pbix-comercial.md','docs/correcao-integrador-0.2.1.md'];
+ 'README.md','docs/atualizacao-compras.md','docs/atualizacao-comercial.md','docs/contract-charge-schedule.md','docs/customer-registry-sync.md','docs/pbix-comercial.md','docs/correcao-integrador-0.2.1.md'];
 try{
  execFileSync('npm',['run','build'],{cwd:root,stdio:'inherit'});
  for(const path of paths){mkdirSync(join(stage,path,'..'),{recursive:true});cpSync(join(root,path),join(stage,path),{recursive:true});}
- writeFileSync(join(stage,'RELEASE.json'),JSON.stringify({version,createdAt:new Date().toISOString(),companies:[1,2,27404],migrationsThrough:22,includes:['previous quotes/purchases update','shared customers and ERP sellers','four PBIX commercial facts','manual projection sync request worker','fast changed OS headers','background detail queue with daily safety sweep'],excludes:['web application','credentials','PBIX source']},null,2)+'\n');
+ writeFileSync(join(stage,'RELEASE.json'),JSON.stringify({version,createdAt:new Date().toISOString(),companies:[1,2,27404],sourceCommit:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),migrationsThrough:24,includes:['dated fixed and variable contract charges aggregated by month','contract charge schedule view migration 024','previous quotes/purchases update','shared customers and ERP sellers','four PBIX commercial facts','manual projection sync request worker','fast changed OS headers','background detail queue with daily safety sweep'],excludes:['web application','credentials','PBIX source']},null,2)+'\n');
  const name=`m8-integrador-${version}.tar.gz`,artifact=join(root,'artifacts',name);
  mkdirSync(join(root,'artifacts'),{recursive:true});
  execFileSync('tar',['-czf',artifact,'-C',stage,'.']);

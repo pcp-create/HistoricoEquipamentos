@@ -425,6 +425,8 @@ export default function CommercialManagement({
             base ficar completa.
           </p>
         )}
+        {!!live?.contractsWithoutSchedule && <p role="alert" className="sp-notice">{live.contractsWithoutSchedule} contrato(s) aguardando a coleta dos valores fixos e variáveis.</p>}
+        {!!live?.ambiguousContractInvoices && <p role="alert" className="sp-notice">{live.ambiguousContractInvoices} nota(s) com correspondência em mais de um contrato, sem atribuição automática ao faturamento de contratos.</p>}
         {data && total && !busy && (
           <>
             <div className="cm-stamp">
@@ -641,6 +643,7 @@ export default function CommercialManagement({
                           (cents - (previousOwners.get(name) || 0)) / 100;
                         return (
                           <article key={name}>
+                            <Link className="cm-kpi-link" href={`/comercial/vendas?${new URLSearchParams({period,company,status:"Pendente",flowOwner:name === "Sem responsável" ? "" : name})}`} aria-label={`Ver vendas pendentes · ${name}`}/>
                             <span>{name}</span>
                             <div className="cm-owner-value-row">
                               <strong>{money(cents / 100)}</strong>

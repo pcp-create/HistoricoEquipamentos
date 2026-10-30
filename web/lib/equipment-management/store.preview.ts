@@ -265,13 +265,14 @@ export async function equipmentDetail(raw: string) {
     quoteClients: await planClients(db, id),
     settings,
     plans,
+    archivedPlans: (await db.query("SELECT id,document,version FROM web_equipment_plans WHERE equipment_id=$1 AND archived ORDER BY updated_at DESC",[id])).rows,
     history,
     events,
   };
 }
 export async function saveEquipment(input: any, user: AuthUser) {
   const equipment = idOf(input?.equipment);
-  if (!["settings", "plan", "maintenance", "archive"].includes(input?.action))
+  if (!["settings", "plan", "maintenance", "archive", "restore"].includes(input?.action))
     throw new EquipmentInputError("Ação inválida.");
   if (
     input.version !== null &&
@@ -335,8 +336,8 @@ export async function saveEquipment(input: any, user: AuthUser) {
       if (input.id)
         before = (
           await c.query(
-            "SELECT * FROM web_equipment_plans WHERE id=$1 AND equipment_id=$2 AND NOT archived",
-            [input.id, equipment],
+            "SELECT * FROM web_equipment_plans WHERE id=$1 AND equipment_id=$2 AND archived=$3 FOR UPDATE",
+            [input.id, equipment, input.action === "restore"],
           )
         ).rows[0];
       if (input.id && !before)
@@ -386,8 +387,10 @@ export async function saveEquipment(input: any, user: AuthUser) {
         };
         intervention = event;
       }
-      if (input.action === "archive") after = before.document;
-      if (after.lastOrder && input.action !== "archive") {
+      if (input.action === "archive" || input.action === "restore") after = before.document;
+      if (input.action === "restore" && after.m8Identifier && (await c.query("SELECT 1 FROM web_equipment_plans WHERE equipment_id=$1 AND NOT archived AND id<>$2 AND document->>'m8Identifier'=$3 LIMIT 1",[equipment,planId,after.m8Identifier])).rows.length)
+        throw new EquipmentInputError("Já existe uma preventiva ativa vinculada a este Identificador M8 no equipamento.");
+      if (after.lastOrder && !["archive","restore"].includes(input.action)) {
         const linked = (
           await c.query(
             `SELECT 1 FROM m8_equipment_linked WHERE equipment_id=$1 AND order_id=$2 LIMIT 1`,
@@ -406,6 +409,7 @@ export async function saveEquipment(input: any, user: AuthUser) {
         )
       ).rows[0]?.document;
       if (
+        !["archive","restore"].includes(input.action) &&
         setting?.meter != null &&
         after.lastMeter != null &&
         setting.meterDate >= after.lastDate &&
@@ -468,8 +472,9 @@ export async function saveEquipment(input: any, user: AuthUser) {
       [
         equipment,
         planId,
-        input.action,
+        input.action === "restore" ? "plan" : input.action,
         JSON.stringify({
+          ...(input.action === "restore" ? {action:"restore"} : {}),
           before: before?.document || null,
           after,
           intervention,

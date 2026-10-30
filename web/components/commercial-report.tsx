@@ -172,7 +172,7 @@ export default function CommercialReport({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [refresh, setRefresh] = useState(0),
-    [filters, setFilters] = useState<Record<string, string[] | undefined>>({}),
+    [filters, setFilters] = useState<Record<string, string[] | undefined>>(() => kind === "sales" && params.has("flowOwner") ? {flowOwner:[params.get("flowOwner")!]} : {}),
     [sort, setSort] = useState({ key: "name", dir: 1 });
   const cols = kind === "contracts" ? contractCols : salesCols;
   useEffect(() => {
@@ -612,6 +612,8 @@ export default function CommercialReport({
                 Integração comercial ainda incompleta.
               </p>
             )}
+            {kind === "contracts" && !!data.contractsWithoutSchedule && <p role="alert" className="sp-notice">{data.contractsWithoutSchedule} contrato(s) aguardando a coleta dos valores fixos e variáveis. Sincronize a base para completar os valores.</p>}
+            {kind === "contracts" && !!data.ambiguousContractInvoices && <p role="alert" className="sp-notice">{data.ambiguousContractInvoices} nota(s) com correspondência em mais de um contrato. O faturamento dessas notas permanece sem atribuição automática ao contrato.</p>}
             {params.get("sync") === "pending" && (
               <p className="sp-notice">
                 A OS foi salva no ERP, mas a atualização local não foi
@@ -821,10 +823,10 @@ export default function CommercialReport({
             </div>
             {kind === "contracts" && (
               <p className="sp-footnote">
-                Faturamento vinculado por cliente, valor da parcela e
-                competência, conforme o PBIX. Não representa confirmação de
-                recebimento financeiro. Contratos com a mesma chave podem
-                compartilhar o mesmo faturamento vinculado.
+                Valor da parcela: soma dos valores fixos e variáveis previstos na competência.
+                Faturamento associado por empresa, cliente, valor total ou de cada cobrança e mês de emissão.
+                Notas com correspondência ambígua entre contratos não são atribuídas automaticamente.
+                Não representa confirmação de recebimento financeiro.
               </p>
             )}
           </>

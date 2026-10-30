@@ -1,3 +1,5 @@
+import {projection} from "../lib/sales-projection/model";
+import {contractSchedule} from "../../src/sync/contractSchedule";
 import { test, expect } from "@playwright/test";
 import { build } from "esbuild";
 import { readFileSync } from "node:fs";
@@ -130,6 +132,9 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
       },
     }),
   );
+  await page.goto("/report-test?period=2026-10&status=Pendente&flowOwner=Comercial");
+  await expect(page.locator(".cr-table tbody tr")).toHaveCount(1);
+  await expect(page.locator(".cr-table tbody tr")).toContainText("101");
   await page.goto("/report-test?period=2026-10");
   await page.locator(".cr-filter-panel > summary").click();
   await expect(page.locator(".cr-table tbody tr")).toHaveCount(2);
@@ -387,4 +392,20 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
     page.getByRole("columnheader", { name: /Faturado no mês/ }),
   ).toHaveCount(1);
   await expect(page.getByRole("link", { name: /Editar OS/ })).toHaveCount(0);
+  const charges=contractSchedule({pessoaId:7,final:"2029-09-01"},[
+    {id:80,inicioFaturamento:"2026-10-01",finalFaturamento:"2029-09-01",total:6500,periodicidadeFaturamento:"Mensal"},
+    {id:81,inicioFaturamento:"2026-10-01",finalFaturamento:"2026-12-01",total:1500,periodicidadeFaturamento:0},
+  ],[]);
+  const calculated=projection([
+    {company_id:1,kind:"fContratos",id:"81",payload:{pessoaId:7,inicio:"2026-10-01",final:"2029-09-01",pessoaNome:"HOFFEN",valor:237000,_billingSchedule:charges}},
+    ...[6500,1500].map((value,index)=>({company_id:1,kind:"fFaturamento",id:String(800+index),payload:{pessoaId:7,emissao:"2026-10-30",totalGeral:value,status:"Processado"}})),
+  ],[],"2026-10","2026-10-30");
+  details.splice(0,details.length,...calculated.details as any);
+  await page.goto("/report-test?period=2026-10");
+  await expect(page.locator(".cr-table tbody tr")).toHaveCount(1);
+  const contractRow=page.locator(".cr-table tbody tr");
+  await expect(contractRow).toContainText("1/36");
+  await expect(contractRow.getByRole("cell").nth(5)).toHaveText("8.000,00");
+  await expect(contractRow.getByRole("cell").nth(8)).toHaveText("8.000,00");
+  await expect(contractRow.getByRole("cell").nth(9)).toHaveText("0,00");
 });

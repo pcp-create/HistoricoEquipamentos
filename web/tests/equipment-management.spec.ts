@@ -358,3 +358,27 @@ test("rental fleet consultation is organized and usable on desktop and mobile", 
  await page.getByRole("group",{name:"Status das máquinas de locação"}).getByRole("button",{name:"Disponível 2",exact:true}).click();
  await expect(page.locator(".fleet-equipment-row")).toHaveCount(2);
 });
+
+test('plan archive requires confirmation and can be reversed from preventive records',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ const equipment={id:'100',name:'Compressor teste',clients:[],ownership:'own',plans:1};
+ const plan={id:'12345678-1234-4234-8234-123456789abc',version:1,document:{name:'Preventiva teste',hours:1000,months:6,lastDate:'2026-01-01',lastMeter:0,items:[]},forecast:{status:'overdue'}};
+ const detail:any={equipment,clients:[],settings:{document:emptyOperating,version:null},plans:[plan],archivedPlans:[],history:[],events:[]};
+ const writes:string[]=[];
+ await page.route('**/api/equipment-management*',async route=>{
+  if(route.request().method()==='POST'){
+   const body=route.request().postDataJSON();writes.push(body.action);
+   if(body.action==='archive'){detail.plans=[];detail.archivedPlans=[{...plan,version:2}];detail.events=[{id:'1',plan_id:plan.id,kind:'archive',document:{after:plan.document},created_at:'2026-10-30',display_name:'Teste'}];}
+   if(body.action==='restore'){detail.plans=[{...plan,version:3}];detail.archivedPlans=[];detail.events.unshift({id:'2',kind:'plan',document:{action:'restore',after:plan.document},created_at:'2026-10-30',display_name:'Teste'});}
+   return route.fulfill({json:{saved:true}});
+  }
+  return route.fulfill({json:new URL(route.request().url()).searchParams.has('id')?detail:{rows:[equipment],total:1,pages:1,page:1,counts:{equipment:1,overdue:1,soon:0,unplanned:0}}});
+ });
+ await page.goto('/equipamentos');await page.getByRole('button',{name:'Gerenciar',exact:true}).click();
+ page.once('dialog',dialog=>dialog.dismiss());await page.getByRole('button',{name:'Arquivar Preventiva teste',exact:true}).click();expect(writes).toEqual([]);
+ page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Arquivar Preventiva teste',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Planos arquivados',exact:true})).toBeVisible();
+ page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Reverter arquivamento',exact:true}).click();
+ await expect(page.getByRole('cell').filter({hasText:'Arquivamento revertido'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Planos arquivados',exact:true})).toHaveCount(0);expect(writes).toEqual(['archive','restore']);
+});

@@ -1,10 +1,18 @@
-# Atualização do integrador 0.2.4 — Windows → servidor Ubuntu
+# Atualização do integrador 0.2.5 — Windows → servidor Ubuntu
 
-Este roteiro atualiza o servidor existente em `/opt/m8-integrador`, com o usuário de serviço `m8-integrador`. O pacote é cumulativo: inclui as correções anteriores e as migrations 001–022. Preserve o `.env` e os certificados existentes. A aplicação web é publicada separadamente.
+Este roteiro atualiza o servidor existente em `/opt/m8-integrador`, com o usuário de serviço `m8-integrador`. O pacote é cumulativo: inclui as correções anteriores e as migrations 001–024. Preserve o `.env` e os certificados existentes. A aplicação web é publicada separadamente.
 
 **Padrão para próximas versões:** atualizar este arquivo junto com o pacote, incluindo download, nomes dos arquivos, verificação SHA256, comandos PowerShell, transferência, backup, instalação, ativação e validação no servidor. Não entregar apenas os comandos Linux.
 
-## Novidades da versão 0.2.4
+## Novidades da versão 0.2.5
+
+- Contratos: consulta paginada dos valores fixos e variáveis de cada contrato. A competência considera a soma das cobranças previstas, substituindo a divisão do total do cabeçalho pelo prazo.
+- Exemplo validado: contrato 81, 36 parcelas; outubro e novembro com R$ 8.000,00 e dezembro em diante com R$ 6.500,00. Outubro já faturado: R$ 8.000,00, saldo zero. A instalação encerrada em 01/12 entra somente em outubro e novembro.
+- Migration 024 atualiza a view `fContratos` para usar a mesma programação. Migrations 001–024 incluídas; a 023 mantém o controle de exclusão administrativa de parciais.
+- As coletas fixas e variáveis precisam terminar antes de substituir os contratos da empresa. Regras e limitações do faturamento: [programação de cobranças](contract-charge-schedule.md).
+- Após instalar, concluir a primeira coleta comercial nas três empresas. Não voltar a executar uma versão anterior do integrador, que gravaria cabeçalhos sem a programação de cobranças.
+
+### Funcionalidades anteriores mantidas
 
 - Cabeçalhos de OS novas e alteradas a cada minuto, mantendo o nome de serviço `m8-novas-os`. Atualiza entrega, situação, valores e demais campos presentes no resumo, preservando campos ausentes e rejeitando versões antigas.
 - Comercial: cinco minutos após a conclusão da coleta anterior. Se uma coleta levar seis minutos, o próximo início será aproximadamente onze minutos após o anterior. Não há sobreposição de coletas comerciais.
@@ -17,10 +25,10 @@ A meta de atualização dos cabeçalhos é de 1–2 minutos em condições norma
 
 ## 1. Baixar para Downloads no Windows
 
-No explorador de arquivos do projeto, abra `artifacts`, clique com o botão direito em cada arquivo e escolha **Download**:
+Baixe os dois arquivos na [release Integrador M8 0.2.5](https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/m8-integrador-v0.2.5), na seção **Assets**. Também é possível baixar pelo explorador de arquivos do projeto, na pasta `artifacts`:
 
-- `m8-integrador-0.2.4.tar.gz`
-- `m8-integrador-0.2.4.sha256`
+- `m8-integrador-0.2.5.tar.gz`
+- `m8-integrador-0.2.5.sha256`
 
 Salve ambos em **Downloads**, sem extrair. Evite nomes com `(1)`; os comandos abaixo usam os nomes exatos.
 
@@ -30,9 +38,9 @@ Execute no **Windows PowerShell**:
 
 ```powershell
 Set-Location "$env:USERPROFILE\Downloads"
-Get-Item .\m8-integrador-0.2.4.tar.gz, .\m8-integrador-0.2.4.sha256
-$esperadoM8 = ((Get-Content .\m8-integrador-0.2.4.sha256 -Raw).Trim() -split '\s+')[0]
-$calculadoM8 = (Get-FileHash .\m8-integrador-0.2.4.tar.gz -Algorithm SHA256).Hash
+Get-Item .\m8-integrador-0.2.5.tar.gz, .\m8-integrador-0.2.5.sha256
+$esperadoM8 = ((Get-Content .\m8-integrador-0.2.5.sha256 -Raw).Trim() -split '\s+')[0]
+$calculadoM8 = (Get-FileHash .\m8-integrador-0.2.5.tar.gz -Algorithm SHA256).Hash
 if ($calculadoM8 -ne $esperadoM8) { throw 'Checksum diferente. Baixe os dois arquivos novamente.' }
 Write-Host 'Pacote conferido: SHA256 OK' -ForegroundColor Green
 ```
@@ -47,7 +55,7 @@ Substitua `IP_DO_SERVIDOR` pelo IP ou nome DNS utilizado no seu acesso SSH. O no
 $servidorM8 = '187.77.36.214'
 $usuarioM8 = 'root'
 ssh -F NUL "${usuarioM8}@${servidorM8}" "mkdir -p /root/m8-upload"
-scp -F NUL .\m8-integrador-0.2.4.tar.gz .\m8-integrador-0.2.4.sha256 "${usuarioM8}@${servidorM8}:/root/m8-upload/"
+scp -F NUL .\m8-integrador-0.2.5.tar.gz .\m8-integrador-0.2.5.sha256 "${usuarioM8}@${servidorM8}:/root/m8-upload/"
 ```
 
 O parâmetro `-F NUL` ignora o arquivo local `.ssh/config`, contornando o erro de permissões encontrado anteriormente. Use o endereço real do servidor, não um apelido definido nesse arquivo. Se seu acesso exige porta específica ou chave, acrescente `-p PORTA` no `ssh`, `-P PORTA` no `scp` e `-i CAMINHO_DA_CHAVE` em ambos. Não altere o método de autenticação do servidor.
@@ -68,7 +76,7 @@ Os próximos comandos são executados no **terminal Linux**, cujo prompt será s
 
 ```bash
 cd /root/m8-upload
-sha256sum -c m8-integrador-0.2.4.sha256
+sha256sum -c m8-integrador-0.2.5.sha256
 node --version
 id m8-integrador
 test -f /opt/m8-integrador/.env && echo 'Configuração existente encontrada'
@@ -81,9 +89,9 @@ O checksum deve retornar **OK**. O projeto requer Node.js 22 ou superior. Se alg
 Registre quais timers estão ativos para restaurar a mesma configuração depois:
 
 ```bash
-systemctl list-units --type=timer --state=active --no-legend --plain 'm8-*.timer' | awk '{print $1}' > /root/m8-upload/timers-ativos-antes-0.2.4.txt
-cat /root/m8-upload/timers-ativos-antes-0.2.4.txt
-xargs -r systemctl stop < /root/m8-upload/timers-ativos-antes-0.2.4.txt
+systemctl list-units --type=timer --state=active --no-legend --plain 'm8-*.timer' | awk '{print $1}' > /root/m8-upload/timers-ativos-antes-0.2.5.txt
+cat /root/m8-upload/timers-ativos-antes-0.2.5.txt
+xargs -r systemctl stop < /root/m8-upload/timers-ativos-antes-0.2.5.txt
 systemctl list-units --type=service --state=running,activating --no-pager 'm8-*'
 ```
 
@@ -93,7 +101,7 @@ Depois:
 
 ```bash
 install -d -m 700 /root/m8-backups
-backup_m8="/root/m8-backups/integrador-antes-0.2.4-$(date +%Y%m%d-%H%M%S).tar.gz"
+backup_m8="/root/m8-backups/integrador-antes-0.2.5-$(date +%Y%m%d-%H%M%S).tar.gz"
 tar -czf "$backup_m8" -C /opt m8-integrador
 chmod 600 "$backup_m8"
 ls -lh "$backup_m8"
@@ -106,7 +114,7 @@ O backup contém configurações privadas: mantenha-o somente no servidor.
 Execute um comando por vez. **Se houver erro, não prossiga para a ativação.**
 
 ```bash
-tar -xzf /root/m8-upload/m8-integrador-0.2.4.tar.gz -C /opt/m8-integrador
+tar -xzf /root/m8-upload/m8-integrador-0.2.5.tar.gz -C /opt/m8-integrador
 chown -R m8-integrador:m8-integrador /opt/m8-integrador
 cd /opt/m8-integrador
 sudo -u m8-integrador npm ci
@@ -114,7 +122,7 @@ sudo -u m8-integrador npm run db:migrate
 node -p "require('./package.json').version"
 ```
 
-A versão deve ser **0.2.4**. Os arquivos compilados já estão no pacote; não é necessário `npm run build`. A extração preserva o `.env` e os certificados, pois eles não fazem parte do pacote. Não substitua esses arquivos por exemplos.
+A versão deve ser **0.2.5**. Os arquivos compilados já estão no pacote; não é necessário `npm run build`. A extração preserva o `.env` e os certificados, pois eles não fazem parte do pacote. Não substitua esses arquivos por exemplos.
 
 As migrations já aplicadas são reconhecidas automaticamente. Não exclua tabelas nem altere migrations antigas se houver falha.
 
@@ -135,7 +143,7 @@ systemctl enable --now m8-clientes.timer
 systemctl start --no-block m8-clientes.service
 systemctl enable --now m8-projecao-manual.timer
 systemctl start m8-projecao-manual.service
-xargs -r systemctl start < /root/m8-upload/timers-ativos-antes-0.2.4.txt
+xargs -r systemctl start < /root/m8-upload/timers-ativos-antes-0.2.5.txt
 systemctl list-timers --all 'm8-*.timer' --no-pager
 ```
 
@@ -151,15 +159,19 @@ systemctl is-enabled m8-projecao-manual.timer
 journalctl -u m8-projecao-manual.service -n 60 --no-pager
 cd /opt/m8-integrador
 sudo -u m8-integrador npm run sync:commercial:status
+journalctl -u m8-comercial.service -n 60 --no-pager
 ```
 
 Na aplicação com a versão atualizada:
 
-1. Abra **Comercial → Projeção de Vendas**.
-2. Aguarde até um minuto para o botão **Sincronizar com ERP** ficar disponível.
-3. Clique uma vez. Deve aparecer **Aguardando integrador** e depois a etapa da coleta.
-4. A solicitação continua mesmo fechando a página. Ao retornar, o andamento é consultado novamente.
-5. Quando concluir, a tela aberta atualiza os valores. O tempo depende do volume e da resposta do ERP.
+1. Confira no log comercial a conclusão de `fContratos` nas empresas 1, 2 e 27404. A coleta dos itens de cada contrato aumenta o número de consultas ao M8.
+2. Abra **Comercial → Projeção de Vendas**.
+3. Aguarde até um minuto para o botão **Sincronizar com ERP** ficar disponível.
+4. Clique uma vez. Deve aparecer **Aguardando integrador** e depois a etapa da coleta.
+5. A solicitação continua mesmo fechando a página. Ao retornar, o andamento é consultado novamente.
+6. Quando concluir, a tela aberta atualiza os valores. O tempo depende do volume e da resposta do ERP.
+
+Na consulta de contratos de outubro/2026, valide o contrato **81**: **1/36**, parcela **R$ 8.000,00**, faturado **R$ 8.000,00** e saldo **R$ 0,00**. A aplicação web atualizada precisa estar publicada para usar o novo cálculo; o pacote contém apenas o integrador.
 
 Para acompanhar o processamento no servidor:
 
@@ -178,17 +190,17 @@ Pressione **Ctrl+C** para sair apenas da visualização dos logs; isso não inte
 - Verifique `journalctl -u m8-projecao-manual.service -n 100 --no-pager`. Não envie credenciais junto dos logs.
 - Se a instalação falhar, preserve o backup e o arquivo de timers ativos. Não restaure arquivos sobre serviços em execução nem tente desfazer migrations apagando tabelas.
 
-## O que a versão 0.2.4 acrescenta
+## O que a versão 0.2.5 acrescenta
 
-A aplicação registra uma solicitação autenticada no banco. O integrador coleta contratos, faturamentos e devoluções das empresas **1, 2 e 27404**, e depois atualiza as OS. Mantém os locks e checkpoints existentes. Falhas são informadas sem afirmar sucesso total. Os timers automáticos continuam funcionando normalmente.
+A aplicação registra uma solicitação autenticada no banco. O integrador atualiza cabeçalhos de OS e coleta contratos (incluindo valores fixos e variáveis), faturamentos e devoluções das empresas **1, 2 e 27404**. Mantém os locks e checkpoints existentes. Falhas são informadas sem afirmar sucesso total. Os timers automáticos continuam funcionando normalmente.
 
-A versão inclui as migrations 020 (parciais imutáveis da projeção) e 021 (fila de sincronização manual). Não inclui aplicação web, PBIX, arquivos particulares, certificados ou credenciais.
+A versão inclui as migrations 001–024, incluindo as parciais da projeção, a fila de sincronização manual e a programação de cobranças dos contratos. Não inclui aplicação web, PBIX, arquivos particulares, certificados ou credenciais.
 
 ## Conteúdo
 
 - Clientes novos e vínculos de vendedores: catálogo compartilhado da empresa 1, fila com retomada e revisão diária. Timer a cada cinco minutos, lote de 100 clientes. Não altera atribuições internas de vendedor/orçamentista.
 - `fContratos`, `fFaturamento`, `fDevolucoesOutros`, `fDevolucoesCompra`: somente empresas **1, 2 e 27404**, conforme confirmação do usuário. A empresa 24571 presente no PBIX não é consultada.
-- Coleta comercial completa paginada a cada hora após o término anterior; atualização atômica por empresa/tabela. Não há filtro incremental por data de emissão: alterações antigas e cancelamentos também precisam ser reconciliados.
+- Coleta comercial completa paginada cinco minutos após o término anterior; atualização atômica por empresa/tabela. Não há filtro incremental por data de emissão: alterações antigas e cancelamentos também precisam ser reconciliados.
 - Dados originais em `m8_commercial_facts`, com chave empresa/tipo/ID e indicadores de presença. Quatro views com os nomes das tabelas do PBIX expõem os campos e regras de transformação. Linhas ausentes deixam de participar das views após uma coleta completa bem-sucedida; permanecem armazenadas para conferência.
 - O integrador não escreve no ERP nem altera o PBIX. A aplicação web usa essas tabelas no módulo Comercial; veja [Projeção de vendas](projecao-vendas.md).
 

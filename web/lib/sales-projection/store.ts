@@ -100,7 +100,7 @@ export async function salesProjection(period: string) {
     target: (targets as Record<string, number>)[period] ?? null,
     ordersUpdatedAt: headers.rows.length === 3 ? new Date(Math.min(...headers.rows.map((r:any) => new Date(r.collected_at).getTime()))).toISOString() : null,
     updatedAt: dates.length ? new Date(Math.min(...dates)).toISOString() : null,
-    complete: sync.rows.length === 12,
+    complete: sync.rows.length === 12 && result.contractsWithoutSchedule === 0,
     targetSource: "Metas do PBIX",
     today,
   };

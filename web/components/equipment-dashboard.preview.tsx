@@ -1516,7 +1516,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                                   disabled={saving}
                                   title="Arquivar plano"
                                   aria-label={`Arquivar ${p.document.name}`}
-                                  onClick={() => save("archive", {}, p)}
+                                  onClick={() => {if(window.confirm(`Arquivar o plano "${p.document.name}"? Ele deixará de ser considerado nas preventivas. Você poderá reverter o arquivamento nos registros.`)) void save("archive", {}, p);}}
                                 >
                                   <Archive size={15} />
                                 </button>
@@ -1612,6 +1612,10 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                     Últimos 50 registros e alterações, com identificação de quem
                     preencheu.
                   </p>
+                  {!!detail.archivedPlans?.length && <div className="equipment-archived-plans">
+                    <h3>Planos arquivados</h3>
+                    {detail.archivedPlans.map((p:any)=><div key={p.id} className="equipment-archived-plan"><span>{p.document.name}</span><button type="button" disabled={saving} onClick={()=>{if(window.confirm(`Reverter o arquivamento do plano "${p.document.name}"? Ele voltará a ser considerado nas preventivas.`)) void save("restore",{},p);}}>Reverter arquivamento</button></div>)}
+                  </div>}
                   {detail.events.length ? (
                     <div className="equipment-table">
                       <table>
@@ -1628,6 +1632,8 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                               <td>
                                 {e.kind === "settings" && e.document.source === "checklist_review"
                                   ? "Horímetro atualizado após revisão"
+                                  : e.document.action === "restore"
+                                  ? "Arquivamento revertido"
                                   : e.document.action === "quote"
                                   ? "Orçamento criado"
                                   : {

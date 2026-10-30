@@ -1,3 +1,4 @@
+import type { ContractSchedule } from "../../../src/sync/contractSchedule";
 import type { BillingCheck } from "./billing";
 import flowOwners from "./flow-owners.json";
 export const companies = [
@@ -42,8 +43,6 @@ export type Summary = {
 };
 export const rounded = (n: number) =>
   Math.round((n + Number.EPSILON) * 100) / 100;
-const monthIndex = (s: string) =>
-  Number(s.slice(0, 4)) * 12 + Number(s.slice(5, 7)) - 1;
 const amount = (v: unknown) => {
   const n = Number(v ?? 0);
   if (!Number.isFinite(n)) throw Error("Valor de origem inválido");
@@ -58,8 +57,8 @@ export function projection(
   today: string,
 ) {
   const details: Detail[] = [];
-  const billedByKey = new Map<string, number>();
-  const contractDetailKeys = new Map<Detail, string>();
+  const contractCandidates = new Map<string, Set<Detail>>();
+  let contractsWithoutSchedule = 0, ambiguousContractInvoices = 0;
   const rows: Summary[] = companies.map((c) => ({
     company: c.id,
     name: c.name,
@@ -75,42 +74,43 @@ export function projection(
     contractPending: 0,
   }));
   const byCompany = new Map(rows.map((r) => [r.company, r]));
-  const keys = new Map<number, Set<string>>(
-    companies.map((c) => [c.id, new Set()]),
-  );
-  for (const f of facts.filter((f) => f.kind === "fContratos")) {
-    const p = f.payload,
-      c = Number(p.estabelecimentoId || f.company_id),
-      r = byCompany.get(c);
-    if (!r || !p.inicio || !p.final) continue;
-    const start = monthIndex(p.inicio),
-      end = monthIndex(p.final),
-      selected = monthIndex(period);
-    if (selected < start || selected > end || end < start) continue;
-    const value = amount(p.valor) / (end - start + 1);
+  const seenContracts = new Set<string>();
+  const addCandidate = (company:number, person:unknown, value:number, detail:Detail) => {
+    if (!person || value <= 0) return;
+    const key = `${company}:${contractKey(person,value)}`;
+    if (!contractCandidates.has(key)) contractCandidates.set(key,new Set());
+    contractCandidates.get(key)!.add(detail);
+  };
+  for (const f of facts.filter((f) => f.kind === "fContratos").sort((a,b)=>a.company_id-b.company_id)) {
+    const p = f.payload, c = Number(p.estabelecimentoId || f.company_id), r = byCompany.get(c);
+    const identity = `${c}:${f.id}`;
+    if (!r || seenContracts.has(identity)) continue;
+    seenContracts.add(identity);
+    const schedule = p._billingSchedule as ContractSchedule | undefined;
+    if (schedule?.version !== 1 || !Array.isArray(schedule.installments)) { contractsWithoutSchedule++; continue; }
+    const installment = schedule.installments.find(row=>row.period===period);
+    if (!installment) continue;
+    const value = amount(installment.amount);
     r.contracts += value;
-    keys.get(c)!.add(contractKey(p.pessoaId, value));
     const contractDetail: Detail = {
-      company: c,
-      kind: "contracts",
-      id: f.id,
-      name: p.pessoaNome || p.descricao || "Contrato",
-      date: period + "-01",
-      amount: value,
+      company: c, kind: "contracts", id: f.id,
+      name: p.pessoaNome || p.descricao || "Contrato", date: period + "-01", amount: value,
       fields: {
         contractType: String(p.tipoContratoNome || ""),
-        installment: `${selected - start + 1}/${end - start + 1}`,
-        start: String(p.inicio).slice(0, 10),
-        end: String(p.final).slice(0, 10),
-        billed: 0,
-        pending: value,
+        installment: `${installment.number}/${installment.total}`,
+        start: String(p.inicio || schedule.installments[0]?.period + "-01").slice(0,10),
+        end: String(p.final || schedule.installments.at(-1)?.period + "-01").slice(0,10),
+        billed: 0, pending: value,
       },
     };
     details.push(contractDetail);
-    contractDetailKeys.set(
-      contractDetail,
-      `${c}:${contractKey(p.pessoaId, value)}`,
-    );
+    addCandidate(c,p.pessoaId,value,contractDetail);
+    const customerTotals = new Map<string,number>();
+    for(const charge of installment.charges) {
+      addCandidate(c,charge.customer,charge.amount,contractDetail);
+      customerTotals.set(charge.customer,(customerTotals.get(charge.customer)||0)+Math.round(charge.amount*100));
+    }
+    for(const [customer,cents] of customerTotals) addCandidate(c,customer,cents/100,contractDetail);
   }
   const invoices = new Set<string>();
   for (const f of [...facts].sort((a, b) => a.company_id - b.company_id)) {
@@ -119,6 +119,7 @@ export function projection(
     if (
       !r ||
       p.status !== "Processado" ||
+      p.estaExcluido === true ||
       String(p.emissao).slice(0, 7) !== period
     )
       continue;
@@ -127,14 +128,13 @@ export function projection(
       if (invoices.has(f.id)) continue;
       invoices.add(f.id);
       r.billed += value;
-      const isContract = keys
-        .get(r.company)!
-        .has(contractKey(p.pessoaId, value));
+      const matches = contractCandidates.get(`${r.company}:${contractKey(p.pessoaId,value)}`);
+      const isContract = matches?.size === 1;
       if (isContract) {
         r.contractBilled += value;
-        const key = `${r.company}:${contractKey(p.pessoaId, value)}`;
-        billedByKey.set(key, (billedByKey.get(key) || 0) + value);
-      }
+        const contract = [...matches!][0];
+        contract.fields!.billed = Number(contract.fields!.billed) + value;
+      } else if (matches && matches.size > 1) ambiguousContractInvoices++;
       details.push({
         company: r.company,
         kind: isContract ? "contractBilled" : "invoices",
@@ -223,8 +223,8 @@ export function projection(
       },
     });
   }
-  for (const [detail, key] of contractDetailKeys) {
-    detail.fields!.billed = rounded(Math.max(0, billedByKey.get(key) || 0));
+  for (const detail of details.filter(row=>row.kind === "contracts")) {
+    detail.fields!.billed = rounded(Math.max(0, Number(detail.fields!.billed)));
     detail.fields!.pending = rounded(
       detail.amount - Number(detail.fields!.billed),
     );
@@ -240,7 +240,7 @@ export function projection(
       if (k !== "company" && typeof r[k as keyof Summary] === "number")
         (r as any)[k] = rounded((r as any)[k]);
   }
-  return { rows, details };
+  return { rows, details, contractsWithoutSchedule, ambiguousContractInvoices };
 }
 export function sumRows(rows: Summary[]): Summary {
   const total = { ...rows[0], company: 0, name: "Total do grupo" } as Summary;

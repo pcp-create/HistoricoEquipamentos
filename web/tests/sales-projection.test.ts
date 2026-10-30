@@ -5,6 +5,7 @@ import {
   sumRows,
   type SourceRow,
 } from "../lib/sales-projection/model";
+import {contractSchedule} from "../../src/sync/contractSchedule";
 const fact = (
   id: string,
   kind: string,
@@ -19,6 +20,7 @@ const fact = (
     empresaId: c,
     emissao: "2026-10-01",
     ...payload,
+    ...(kind === "fContratos" ? {_billingSchedule:contractSchedule(payload,[{id:1,inicioFaturamento:payload.inicio,finalFaturamento:payload.final,total:Number(payload.valor),periodicidadeFaturamento:"Mensal"}],[])} : {}),
   },
 });
 test("reference report final totals reconcile with returns separated", () => {

@@ -4,6 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { refreshProjectionOrder } from "../lib/sales-projection/refresh-order";
 import { commercialReturnPath } from "../lib/service-orders/return-path";
+import {contractSchedule} from "../../src/sync/contractSchedule";
 import { projection } from "../lib/sales-projection/model";
 
 test("safe return keeps report filters without allowing external redirects", () => {
@@ -106,6 +107,7 @@ test("contracts show installment, validity and matched invoicing; sales retain P
           inicio: "2026-01-01",
           final: "2026-12-31",
           valor: 1200,
+          _billingSchedule:contractSchedule({pessoaId:4},[{id:1,inicioFaturamento:"2026-01-01",finalFaturamento:"2026-12-31",total:100,periodicidadeFaturamento:"Mensal"}],[]),
         },
       },
       {

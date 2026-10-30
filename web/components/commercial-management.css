@@ -403,3 +403,6 @@
 .cm-kpi-link { position: absolute; inset: 0; border-radius: inherit; z-index: 1; }
 .cm-kpi-link:focus-visible { outline: 3px solid #24699f; outline-offset: 3px; }
 @media print { .cm-kpi-link { display: none; } }
+
+.cm-owner-grid article { position:relative;transition:border-color .15s,box-shadow .15s; }
+.cm-owner-grid article:hover { border-color:#a5bfd5;box-shadow:0 3px 12px #244d7010; }

@@ -114,7 +114,7 @@ test("PBIX facts reconcile status, filters, monthly contracts and failed respons
     company = 1,
   ) =>
     syncCommercialFacts(
-      { company, get: async () => ({ data: rows }) },
+      { company, get: async (path:string) => ({data:path.endsWith('/valorfixo') ? [{id:1,inicioFaturamento:'2026-01-31',finalFaturamento:'2026-03-01',total:100,periodicidadeFaturamento:'Mensal'}] : path.endsWith('/valorvariavel') ? [] : rows}) },
       db,
       kind,
     );
@@ -229,4 +229,27 @@ test("commercial facts never compete for the quote/purchase locks", async () => 
     );
   assert.equal(new Set(locks).size, 4);
   assert.deepEqual(locks, [81030, 81031, 81032, 81033]);
+});
+
+test('contract collection fetches both paginated child endpoints and preserves the whole snapshot on failure',async()=>{
+ const db=await fixture();let broken:false|'fixed'|'variable'=false,empty=false;const calls:string[]=[];
+ const client={company:1,get:async(path:string)=>{
+  calls.push(path);
+  if(path.endsWith('/valorfixo'))return broken==='fixed'?{data:null}:{data:empty?[]:[{id:80,inicioFaturamento:'2026-10-01',finalFaturamento:'2029-09-01',total:6500,periodicidadeFaturamento:'Mensal'},{id:81,inicioFaturamento:'2026-10-01',finalFaturamento:'2026-12-01',total:1500,periodicidadeFaturamento:0}]};
+  if(path.endsWith('/valorvariavel'))return broken==='variable'?{data:null}:{data:[]};
+  return {data:[{id:81,estabelecimentoId:1,pessoaId:7,inicio:'2026-10-01',final:'2029-09-01',valor:237000}]};
+ }};
+ try{
+  await syncCommercialFacts(client,db,'fContratos');
+  assert.deepEqual(calls,['/v1/contratos/contratoservico','/v1/contratos/contratoservico/81/valorfixo','/v1/contratos/contratoservico/81/valorvariavel']);
+  const rows=(await db.query<any>('SELECT "Valor Parcela","Parcela Atual/Total" FROM "fContratos" ORDER BY "Competência"')).rows;
+  assert.equal(rows.length,36);assert.equal(Number(rows[0]['Valor Parcela']),8000);assert.equal(rows[0]['Parcela Atual/Total'],'1/36');assert.equal(Number(rows[2]['Valor Parcela']),6500);
+  const before=(await db.query<any>('SELECT payload,collected_at FROM m8_commercial_facts')).rows;
+  for(const endpoint of ['fixed','variable'] as const){
+   broken=endpoint;await assert.rejects(syncCommercialFacts(client,db,'fContratos'));
+   assert.deepEqual((await db.query<any>('SELECT payload,collected_at FROM m8_commercial_facts')).rows,before);
+  }
+  broken=false;empty=true;await syncCommercialFacts(client,db,'fContratos');
+  assert.equal((await db.query('SELECT * FROM "fContratos"')).rows.length,0);
+ }finally{await db.close();}
 });
