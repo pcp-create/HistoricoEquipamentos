@@ -21,7 +21,7 @@ export async function salesProjection(period: string, closingDay?: string) {
       [period],
     ),
     db.query<SourceRow>(
-      `SELECT DISTINCT ON(id_m8) id_m8::text AS id,company_id,payload FROM m8_ordens_servico WHERE company_id IN(1,2,27404) ORDER BY id_m8,data_atualizacao DESC NULLS LAST,company_id`,
+      `SELECT DISTINCT ON(id_m8) id_m8::text AS id,company_id,payload FROM m8_ordens_servico WHERE company_id IN(1,2,27404) AND status IS DISTINCT FROM 'Excluida' ORDER BY id_m8,data_atualizacao DESC NULLS LAST,company_id`,
     ),
     db.query(
       `SELECT company_id,kind,collected_at FROM m8_commercial_facts_sync WHERE company_id IN(1,2,27404)`,

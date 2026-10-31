@@ -125,3 +125,9 @@ test("overdue orders use current month; costs and cancelled orders excluded", ()
     0,
   );
 });
+
+test("deleted ERP orders never contribute to pending or billed sales",()=>{
+ const orders=["Pendente","Processado","Excluida"].map((status,i)=>fact(String(i),"",1,{status,situacaoNome:"COBRANÇA",dataEntregaPrevista:"2026-10-15",dataFaturamento:"2026-10-15",totalGeral:100,_m8Deletion:{confirmedAt:"2026-10-30"}}));
+ const result=projection([],orders,"2026-10","2026-10-30");
+ assert.equal(result.details.filter(d=>d.kind.startsWith("sales")).length,0);
+});

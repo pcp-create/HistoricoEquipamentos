@@ -48,3 +48,6 @@ __pycache__/
 
 # Private Power BI source (may contain API credentials)
 /Projeção de Vendas.pbix
+
+# Private source workbook for leakage calculations
+/Calculadora Poder Especifico Caca Vazamentos.xlsx

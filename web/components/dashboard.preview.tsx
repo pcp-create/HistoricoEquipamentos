@@ -150,10 +150,10 @@ const shown = (value: unknown) =>
 function Badge({ status }: { status: string | null }) {
   return (
     <span
-      className={`badge ${status === "Processado" ? "green" : status === "Cancelado" ? "gray" : status === "Aprovado" ? "blue" : "amber"}`}
+      className={`badge ${status === "Processado" ? "green" : ["Cancelado", "Excluida"].includes(status || "") ? "gray" : status === "Aprovado" ? "blue" : "amber"}`}
     >
       <i />
-      {status || "Não informado"}
+      {status === "Excluida" ? "Excluída" : status || "Não informado"}
     </span>
   );
 }
@@ -451,10 +451,11 @@ export default function Dashboard() {
                           "Processado",
                           "Pendente",
                           "Cancelado",
+                          "Excluida",
                           "Aprovado",
                         ]
                       ).map((s) => (
-                        <option key={s}>{s}</option>
+                        <option key={s} value={s}>{s === "Excluida" ? "Excluída" : s}</option>
                       ))}
                     </select>
                   </label>

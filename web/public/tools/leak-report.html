@@ -1275,6 +1275,8 @@
 .summary-page > .cover-header{width:100%!important;margin-left:0!important;margin-right:0!important}
 }
 </style>
+    <link rel="stylesheet" href="/tools/leak-report-professional.css">
+    <script type="module" src="/tools/leak-calculator.js"></script>
   </head>
   <body>
     <header class="topbar">
@@ -1292,7 +1294,29 @@
     </header>
 
     <main class="container">
-      <section class="upload-panel">
+      <nav class="leak-tabs" role="tablist" aria-label="Caça vazamentos">
+        <button type="button" role="tab" data-leak-tab="report" aria-selected="true">Relatório</button>
+        <button type="button" role="tab" data-leak-tab="machines" aria-selected="false">Máquinas e cálculo</button>
+        <button type="button" role="tab" data-leak-tab="history" aria-selected="false">Histórico</button>
+      </nav>
+      <section class="calc-panel" data-leak-tab-content="machines" hidden>
+        <div class="calc-panel-heading"><div><h2>Máquinas consideradas no levantamento</h2><p>Cadastre os compressores e o regime de operação para calcular os parâmetros do detector e preservar o histórico.</p></div><button type="button" class="btn" id="calcNew">Novo levantamento</button></div>
+        <form id="calcForm"><div class="calc-fields">
+          <label>Cliente<input id="calcClient" maxlength="500" required></label>
+          <label>Identificação do levantamento<input id="calcTitle" maxlength="500" value="Caça vazamentos" required></label>
+          <label>Data do levantamento<input id="calcDate" type="date"></label>
+          <label>Ordem de serviço<input id="calcOrder" maxlength="500"></label>
+          <label>Inspetor<input id="calcInspector" maxlength="500"></label>
+          <label>Unidade / localização<input id="calcLocation" maxlength="500"></label>
+          <label>Pressão da rede (bar)<input id="calcPressure" type="number" min="0.001" max="100" step="any" required></label>
+          <label>Preço da energia (R$/kWh)<input id="calcEnergy" type="number" min="0.0001" max="100" step="any" required></label>
+          <label>Histórico de versões<select id="calcRevision"><option value="">Versão atual</option></select></label>
+        </div><h3>Compressores considerados</h3><div id="calcMachines"></div><button class="btn" type="button" id="calcAddMachine">+ Adicionar máquina</button><div id="calcResults" hidden></div>
+        <label style="margin-top:18px">Observações do levantamento<textarea id="calcNotes" maxlength="10000"></textarea></label>
+        <div class="calc-save-row"><button class="btn primary" type="submit" data-calc-save>Salvar levantamento</button><button class="btn" type="button" id="calcSaveNew" data-calc-save>Salvar como novo</button><small id="calcVersion">Novo levantamento</small></div><div id="calcMessage" class="calc-message" role="status" aria-live="polite"></div></form>
+      </section>
+      <section class="calc-panel" data-leak-tab-content="history" hidden><h2>Histórico de caça vazamentos</h2><p>Consulte os levantamentos e as máquinas utilizadas em cada memória de cálculo.</p><form id="calcHistorySearchForm" class="calc-history-search"><label>Pesquisar cliente, levantamento ou OS<input id="calcHistorySearch" maxlength="120"></label><button type="submit" class="btn">Pesquisar</button></form><div id="calcHistoryRows"></div><div class="calc-history-pagination"><button id="calcHistoryPrev" type="button" class="btn">Anterior</button><span id="calcHistoryMessage" role="status"></span><button id="calcHistoryNext" type="button" class="btn">Próxima</button></div></section>
+      <section class="upload-panel" data-leak-tab-content="report">
         <h2>Importar XML do equipamento</h2>
         <p>
           Selecione o arquivo XML do LeakReporter. Opcionalmente, selecione
@@ -1318,7 +1342,7 @@
         </div>
       </section>
 
-      <section class="settings-panel" id="settingsPanel">
+      <section class="settings-panel" id="settingsPanel" data-leak-tab-content="report">
         <h2>Ajustes e correções do relatório</h2>
         <p>
           Use estes campos para corrigir informações do XML antes de imprimir ou
@@ -1419,12 +1443,12 @@
         </div>
       </section>
 
-      <section class="report" id="report">
+      <section class="report" id="report" data-leak-tab-content="report">
         <div class="page summary-page">
           <div class="cover-header">
             <img src="/logo-rj.png" alt="RJ Compressores" />
             <div class="cover-title">
-              <h2>Relatório Caça Vazamento</h2>
+              <h2>Relatório Técnico de Caça Vazamentos</h2>
               <p id="periodo">Período: -</p>
             </div><div id="reportOs" class="report-os" hidden><span>OS Nº</span><strong id="reportOsValue"></strong></div>
           </div>
@@ -1544,7 +1568,7 @@
 
       document
         .getElementById("btnPrint")
-        .addEventListener("click", () => window.print());
+        .addEventListener("click", async () => {window.dispatchEvent(new Event("rj-leak-before-print"));await document.fonts.ready;window.print();});
       document
         .getElementById("btnToggleSettings")
         .addEventListener("click", () => {
@@ -1843,9 +1867,9 @@
           area = attr(infoCliente, "Place", area);
           equipamento = attr(toolNode, "ToolName", equipamento);
 
-          custoAr = `${numeroBR(num(attr(costBaseNode, "Base")), 2)} ${attr(costBaseNode, "UnitC", "R$")} / 1000 ${attr(costBaseNode, "UnitV", "m³")}`;
-          energiaEletrica = `${numeroBR(num(attr(costElecNode, "ElPr")), 2)} R$ / kWh`;
-          potenciaEspecifica = `${numeroBR(num(attr(costSpecificNode, "SpPw")), 3)} kWh / m³`;
+          custoAr = costBaseNode ? `${numeroBR(num(attr(costBaseNode, "Base")), 2)} ${attr(costBaseNode, "UnitC", "R$")} / 1000 ${attr(costBaseNode, "UnitV", "m³")}` : "Não informado no XML";
+          energiaEletrica = costElecNode ? `${numeroBR(num(attr(costElecNode, "ElPr")), 2)} R$ / kWh` : "Não informado no XML";
+          potenciaEspecifica = costSpecificNode ? `${numeroBR(num(attr(costSpecificNode, "SpPw")), 3)} kWh / m³` : "Não informado no XML";
           horasAno = `${attr(costBaseNode, "Time", "-")} h`;
 
           const tag = attr(infoTag, "LeakTag");
@@ -1908,10 +1932,7 @@
           const start = i + 1;
           const end = Math.min(i + 2, leakData.length);
           page.innerHTML = `
-          <div class="leak-page-title">
-            <h3>Lista de Fugas Identificadas</h3>
-            <span>Pontos ${start} a ${end} de ${leakData.length}</span>
-          </div>
+          <div class="leak-page-title"><div class="leak-technical-header"><img src="/logo-rj.png" alt="RJ Compressores"><div><h2>Relatório Técnico de Caça Vazamentos</h2><p>Pontos ${start} a ${end} de ${leakData.length} · Lista de fugas identificadas</p></div>${document.getElementById('serviceOrderInput').value.trim()?`<div class="leak-header-order">OS Nº<strong>${escapeHtml(document.getElementById('serviceOrderInput').value.trim())}</strong></div>`:''}</div></div>
           <div class="leak-list"></div>
           <div class="footer-note">Assistência Técnica · RJ Compressores · Relatório Caça Vazamento</div>
         `;
@@ -1956,12 +1977,31 @@
           settings.responsavel;
 
         const clienteLogoBox = document.getElementById("clienteLogoBox");
+        clienteLogoBox.hidden = !clienteLogoUrl;
+        clienteLogoBox.closest('.client-card').classList.toggle('no-logo', !clienteLogoUrl);
         clienteLogoBox.innerHTML = clienteLogoUrl
           ? `<img src="${clienteLogoUrl}" alt="Logo do cliente">`
           : "Logo<br>Cliente";
 
         document.getElementById("report").style.display = "block";
+        window.dispatchEvent(new Event("rj-leak-rendered"));
       }
+      const projectSettings=['inspetorInput','serviceOrderInput','empresaInput','localizacaoInput','areaInput','edificioLocalInput','falhouMapInput','medidaMapInput','statusInput','responsavelInput'];
+      window.rjLeakProject={
+        hasXml:()=>!!ultimoXml&&!new DOMParser().parseFromString(ultimoXml,'text/xml').querySelector('parsererror')&&!!new DOMParser().parseFromString(ultimoXml,'text/xml').querySelector('JNL'),
+        get:()=>({xml:ultimoXml||'',settings:Object.fromEntries(projectSettings.map(id=>[id,document.getElementById(id).value])),images:[...imageMap],clientLogo:clienteLogoUrl}),
+        syncMetadata:(data)=>{for(const[key,id]of Object.entries({client:'empresaInput',serviceOrder:'serviceOrderInput',inspector:'inspetorInput',location:'localizacaoInput'}))if(data[key])document.getElementById(id).value=data[key];if(ultimoXml)renderXml(ultimoXml);},
+        load:(project)=>{
+          imageMap.forEach(url=>{if(url.startsWith('blob:'))URL.revokeObjectURL(url);});imageMap.clear();
+          for(const image of project.images||[])imageMap.set(image.name,'/api/leakage-reports?image='+encodeURIComponent(image.assetId));
+          if(clienteLogoUrl.startsWith('blob:'))URL.revokeObjectURL(clienteLogoUrl);
+          clienteLogoUrl=project.clientLogo?'/api/leakage-reports?image='+encodeURIComponent(project.clientLogo):'';
+          for(const id of projectSettings)document.getElementById(id).value=project.settings?.[id]||'';
+          ultimoXml=project.xml||null;document.getElementById('xmlInput').value='';document.getElementById('imgInput').value='';
+          for(const[key,id]of Object.entries({client:'empresaInput',serviceOrder:'serviceOrderInput',inspector:'inspetorInput',location:'localizacaoInput'}))if(project[key])document.getElementById(id).value=project[key];
+          if(ultimoXml)renderXml(ultimoXml);else {document.getElementById('report').style.display='none';document.getElementById('btnPrint').disabled=true;}
+        }
+      };
       new ResizeObserver(() =>
         parent.postMessage(
           {

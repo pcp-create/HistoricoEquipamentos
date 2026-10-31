@@ -162,6 +162,7 @@ export function projection(
     }
   }
   for (const o of orders) {
+    if (o.payload._m8Deletion || o.payload.status === "Excluida") continue;
     const p = o.payload,
       r = byCompany.get(Number(p.empresaId || o.company_id));
     if (

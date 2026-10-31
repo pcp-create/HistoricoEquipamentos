@@ -81,3 +81,22 @@
 .ws-page .ws-kpis>.ws-kpi>div>svg{width:18px;height:18px;flex-shrink:0}
 .ws-page .ws-kpis .ws-kpi strong{font-size:32px;text-align:left;line-height:1.25;margin:12px 0 8px;white-space:nowrap;overflow-wrap:normal;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .ws-page .ws-kpis .ws-kpi small{line-height:1.5}
+
+/* The drawer owns its scroll area; actions never grow with the content. */
+.ws-drawer{min-height:0;overflow:hidden}
+.ws-drawer>header,.ws-drawer>.ws-detail-summary,.ws-drawer>.ws-detail-tabs{flex-shrink:0}
+.ws-drawer>.ws-detail-body{min-height:0;overscroll-behavior:contain}
+.ws-drawer>.ws-drawer-footer{flex:0 0 auto;flex-direction:row;align-items:center}
+
+@media(max-width:650px){
+ .ws-drawer{width:100%;height:100dvh;max-height:100dvh}
+ .ws-drawer>header{padding:16px;gap:12px}
+ .ws-drawer>header>div{min-width:0}
+ .ws-drawer h2{font-size:17px;line-height:1.4;overflow-wrap:anywhere}
+ .ws-drawer>header .ws-icon{min-width:44px;min-height:44px}
+ .ws-drawer>.ws-detail-tabs{overflow-x:auto;flex-wrap:nowrap;padding:8px 12px;gap:4px}
+ .ws-detail-tabs>button{flex:0 0 auto;min-height:44px;white-space:nowrap}
+ .ws-drawer>.ws-drawer-footer{position:sticky;bottom:0;z-index:2;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:10px 8px calc(10px + env(safe-area-inset-bottom,0px));background:#fff;box-shadow:0 -4px 16px #213f5908}
+ .ws-drawer>.ws-drawer-footer>button{flex:none;width:100%;min-width:0;min-height:44px;height:auto;margin:0;padding:10px 8px;font-size:12px;line-height:1.35;gap:6px;justify-content:center;align-self:stretch}
+ .ws-drawer-footer>button>svg{flex-shrink:0;width:16px;height:16px}
+}

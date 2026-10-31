@@ -8,7 +8,12 @@ test('LeakReporter import, escaping, adjustments, images, mobile and print', asy
  try {
   const page = await browser.newPage();
   const html = await readFile(new URL('../public/tools/leak-report.html', import.meta.url), 'utf8');
-  await page.route('http://report.test/**', route => route.fulfill({contentType:'text/html',body:html}));
+  await page.route('http://report.test/**', async route => {
+  const path=new URL(route.request().url()).pathname;
+  if(path.startsWith('/tools/'))return route.fulfill({contentType:path.endsWith('.css')?'text/css':'text/javascript',body:await readFile(new URL('../public'+path,import.meta.url))});
+  if(path.startsWith('/fonts/')||path==='/logo-rj.png')return route.fulfill({body:await readFile(new URL('../public'+path,import.meta.url))});
+  return route.fulfill({contentType:'text/html',body:html});
+ });
   await page.goto('http://report.test/editor');
   assert.equal(await page.locator('#btnPrint').isDisabled(),true);
   const xml = '<ROOT><JNL><INFO Date="20/10/2026" Time="10:00"/><INFO Company="Cliente teste" Location="Oficina" Place="Geral"/><INFO LeakTag="&lt;img src=x onerror=alert(1)&gt;"/><INFO CommF="Uniao" CommM="Trocar"/><DATA Level="20"/><DATA Pressure="7" UnitP="bar"/><RES Leakage="10" Cost="600" UnitL="ltr/min"/><BMP Name="ponto.png"/></JNL></ROOT>';

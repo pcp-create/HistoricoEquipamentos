@@ -3,6 +3,7 @@ import {connectDatabase} from '../database/postgres.js';
 import {M8Client} from '../m8/client.js';
 import {SUMMARY_ENDPOINT} from '../m8/inventory.js';
 import {summaryHeaders} from '../m8/collections.js';
+import {reconcileDeletedOrders} from '../sync/deletedOrders.js';
 import {insertNewOrders} from '../sync/newOrders.js';
 import {log,safeError} from '../utils/logger.js';
 async function main(){
@@ -19,6 +20,7 @@ async function main(){
    const {company,headers}=response.value;
    try {
     const inserted=await insertNewOrders(db,company,headers,config.timeZone);
+    await reconcileDeletedOrders(db,new M8Client(config,company),headers,new Date(start));
     await db.query(`INSERT INTO integracao_m8_headers_sync(company_id,collected_at,received,changed,duration_ms)
      VALUES($1,now(),$2,$3,$4) ON CONFLICT(company_id) DO UPDATE SET collected_at=excluded.collected_at,received=excluded.received,changed=excluded.changed,duration_ms=excluded.duration_ms`,[company,headers.length,inserted,Date.now()-start]);
     log('CABECALHOS_OS','Cabeçalhos atualizados',{company,received:headers.length,changed:inserted,elapsedMs:Date.now()-start});

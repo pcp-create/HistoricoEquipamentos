@@ -23,14 +23,15 @@ export class CycleRepository {
         const changed = await this.db.query<{id_m8:string;status:string}>(`INSERT INTO public.m8_ordens_servico (${columns.join(',')})
           SELECT ${columns.join(',')} FROM jsonb_populate_recordset(NULL::public.m8_ordens_servico,$1::jsonb)
           ON CONFLICT(company_id,id_m8) DO UPDATE SET ${update.join(',')},
-          payload=m8_ordens_servico.payload || EXCLUDED.payload,sincronizado_em=now(),updated_at=now()
-          WHERE (m8_ordens_servico.data_atualizacao IS NULL OR
+          payload=(m8_ordens_servico.payload - '_m8Deletion') || EXCLUDED.payload,sincronizado_em=now(),updated_at=now()
+          WHERE (m8_ordens_servico.payload ? '_m8Deletion' OR m8_ordens_servico.data_atualizacao IS NULL OR
             (EXCLUDED.data_atualizacao IS NOT NULL AND (
               EXCLUDED.data_atualizacao>=m8_ordens_servico.data_atualizacao OR
               (EXCLUDED.payload->>'dataAtualizacao' !~ '[.][0-9]' AND EXCLUDED.data_atualizacao>=date_trunc('second',m8_ordens_servico.data_atualizacao))
             )))
+            AND (NOT(m8_ordens_servico.payload ? '_m8Deletion') OR $2::timestamptz >= (m8_ordens_servico.payload->'_m8Deletion'->>'confirmedAt')::timestamptz)
             AND NOT (m8_ordens_servico.payload - 'documentoFiscalId') @> (EXCLUDED.payload - 'documentoFiscalId')
-          RETURNING id_m8,status`, [JSON.stringify(batch)]);
+          RETURNING id_m8,status`, [JSON.stringify(batch),seenAt]);
         changedCount += changed.rows.length;
         if (changed.rows.length) await this.db.query(`INSERT INTO integracao_m8_os_sync(company_id,ordem_servico_id,summary_status,inventory_seen_at)
           SELECT $1,id_m8,status,$3 FROM jsonb_to_recordset($2::jsonb) AS r(id_m8 bigint,status text)
@@ -45,7 +46,7 @@ export class CycleRepository {
     }
     // Daily safety sweep also catches child-only changes not reflected by the ERP header.
     await this.db.query(`UPDATE integracao_m8_os_sync SET pending=true,finalized=false,next_attempt_at=now()
-      WHERE company_id=$1 AND NOT pending AND (last_detail_at IS NULL OR last_detail_at<now()-interval '24 hours')`,[this.company]);
+      WHERE company_id=$1 AND summary_status IS DISTINCT FROM 'Excluida' AND NOT pending AND (last_detail_at IS NULL OR last_detail_at<now()-interval '24 hours')`,[this.company]);
     return changedCount;
   }
   async next(): Promise<string | null> {
@@ -65,8 +66,9 @@ export class CycleRepository {
     const parent = id(header.id);
     await transaction(this.db, async () => {
       const mapped = mapEntity(schemas[0], header, this.company, undefined, this.timeZone);
-      const current = (await this.db.query<{data_atualizacao:Date|null}>(
-        'SELECT data_atualizacao FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2 FOR UPDATE',[this.company,parent])).rows[0];
+      const current = (await this.db.query<{data_atualizacao:Date|null;deleted:boolean}>(
+        "SELECT data_atualizacao,payload ? '_m8Deletion' AS deleted FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2 FOR UPDATE",[this.company,parent])).rows[0];
+      if(current?.deleted)return;
       if (current?.data_atualizacao && (!mapped.data_atualizacao ||
           new Date(String(mapped.data_atualizacao)).getTime()<
             (typeof header.dataAtualizacao==='string' && !/\.\d/.test(header.dataAtualizacao)
@@ -99,7 +101,7 @@ export class CycleRepository {
   }
   async fail(orderId: string, error: unknown, collections: Record<string,string>) {
     await this.db.query(`UPDATE public.integracao_m8_os_sync SET pending=true,finalized=false,error=$3,
-      collections=$4::jsonb,next_attempt_at=now()+interval '30 minutes' WHERE company_id=$1 AND ordem_servico_id=$2`,
+      collections=$4::jsonb,next_attempt_at=now()+interval '30 minutes' WHERE company_id=$1 AND ordem_servico_id=$2 AND summary_status IS DISTINCT FROM 'Excluida'`,
     [this.company, orderId, safeError(error), JSON.stringify(collections)]);
   }
   async pendingCount(): Promise<number> {

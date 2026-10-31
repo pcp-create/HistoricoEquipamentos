@@ -58,7 +58,7 @@ export default function TechnicalReportScreen({
       </main>
       <iframe
         ref={frame}
-        src={active==="vibration"&&report?source+"?report="+encodeURIComponent(report):source}
+        src={report?source+"?report="+encodeURIComponent(report):source}
         title={"Editor: " + title}
         style={{ display: "block", width: "100%", height, border: 0 }}
       />

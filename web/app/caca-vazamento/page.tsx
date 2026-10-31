@@ -9,7 +9,7 @@ export default async function Page() {
     <TechnicalReportScreen
       active="leakage"
       title="Gerar Relatório Caça Vazamento"
-      description="Importe os pontos do LeakReporter, associe as fotos e prepare o relatório de vazamentos para seu cliente."
+      description="Importe os pontos do LeakReporter, registre as máquinas e os parâmetros do levantamento e consulte o histórico dos relatórios."
       source="/tools/leak-report.html"
       messageType="rj-leak-height"
     />

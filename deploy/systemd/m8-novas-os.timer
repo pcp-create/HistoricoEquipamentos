@@ -1,9 +1,9 @@
 [Unit]
-Description=Consultar cabeçalhos de OS novas e alteradas a cada minuto
+Description=Consultar cabeçalhos de OS novas e alteradas a cada 30 segundos
 
 [Timer]
 OnBootSec=20s
-OnCalendar=*-*-* *:*:00
+OnCalendar=*-*-* *:*:00,30
 AccuracySec=1s
 Unit=m8-novas-os.service
 

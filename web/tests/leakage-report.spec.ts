@@ -1,0 +1,52 @@
+import{test,expect}from'@playwright/test';
+import{PDFDocument}from'pdf-lib';
+import{validateLeakage}from'../lib/leakage-reports/model';
+test('leakage equipment calculation, durable project roundtrip, versions and branded print on desktop and mobile',async({page,request})=>{
+ expect((await request.get('/api/leakage-reports')).status()).toBe(401);
+ const reportId='12345678-1234-4234-8234-123456789abc',assetId='22345678-1234-4234-8234-123456789abc';
+ let saved:any=null;const revisions:any[]=[];
+ const pixel=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6zS8AAAAASUVORK5CYII=','base64');
+ await page.route('**/api/leakage-reports*',async route=>{
+  const req=route.request(),p=new URL(req.url()).searchParams;
+  if(req.method()==='POST'){
+   if(req.headers()['content-type']?.includes('multipart/form-data'))return route.fulfill({json:{id:assetId}});
+   const body=req.postDataJSON();saved={id:reportId,version:(saved?.version||0)+1,document:validateLeakage(body.document)};revisions.unshift({version:saved.version,created_at:'2026-10-30T12:00:00Z',created_by:'Teste',document:saved.document});return route.fulfill({json:saved});
+  }
+  if(p.has('image'))return route.fulfill({body:pixel,contentType:'image/png'});
+  if(p.has('id'))return route.fulfill({json:{...saved,document:p.has('version')?revisions.find(r=>String(r.version)===p.get('version')).document:saved.document,revisions,historicalVersion:p.has('version')?Number(p.get('version')):undefined}});
+  return route.fulfill({json:{rows:saved?[{id:reportId,version:saved.version,title:saved.document.title,client:saved.document.client,date:saved.document.date,service_order:saved.document.serviceOrder,machine_count:1,updated_at:'2026-10-30T12:00:00Z',updated_by:'Teste'}]:[]}});
+ });
+ await page.goto('/tools/leak-report.html');
+ const xml='<ROOT><JNL><INFO Date="30/10/2026" Time="10:00"/><INFO Company="Cliente teste" Location="Oficina" Place="Geral"/><INFO LeakTag="01"/><INFO CommF="União" CommM="Trocar"/><DATA Level="20"/><DATA Pressure="7" UnitP="bar"/><RES Leakage="10" Cost="600" UnitL="ltr/min"/><BMP Name="ponto.png"/></JNL></ROOT>';
+ await page.locator('#xmlInput').setInputFiles({name:'levantamento.xml',mimeType:'text/xml',buffer:Buffer.from(xml)});
+ await page.locator('#imgInput').setInputFiles({name:'ponto.png',mimeType:'image/png',buffer:pixel});
+ await page.getByRole('tab',{name:'Máquinas e cálculo',exact:true}).click();
+ await expect(page.locator('#calcClient')).toHaveValue('Cliente Teste');
+ await page.locator('#calcPressure').fill('7');await page.locator('#calcEnergy').fill('0.45');await page.locator('#calcOrder').fill('15137');
+ await page.getByRole('button',{name:'+ Adicionar máquina',exact:true}).click();
+ await page.locator('[data-field="name"]').fill('GA90 · Série 123');
+ for(const [field,value]of [['powerKw','90'],['flowM3min','16.482'],['hoursPerDay','10'],['daysPerYear','270']])await page.locator(`[data-field="${field}"]`).fill(value);
+ await expect(page.locator('#calcResults')).toContainText('2.700 h/ano');
+ await page.getByRole('button',{name:'Salvar levantamento',exact:true}).click();
+ await expect(page.locator('#calcMessage')).toContainText('versão 1');
+ expect(saved.document.images).toHaveLength(1);expect(saved.document.xml).toContain('<JNL>');expect(saved.document.calculation.powerKw).toBe(90);
+ await page.locator('[data-field="hoursMode"]').selectOption('annual');
+ await expect(page.locator('[data-field="annualHoursInput"]')).toHaveValue('');
+ await expect(page.locator('[data-field="hoursPerDay"]')).toHaveCount(0);
+ await page.locator('[data-field="annualHoursInput"]').fill('4000');
+ await expect(page.locator('#calcResults')).toContainText('4.000 h/ano');
+ await page.locator('#calcEnergy').fill('0.5');await page.getByRole('button',{name:'Salvar levantamento',exact:true}).click();await expect(page.locator('#calcMessage')).toContainText('versão 2');
+ await page.getByRole('tab',{name:'Histórico',exact:true}).click();await page.getByRole('button',{name:'Abrir levantamento',exact:true}).click();
+ await expect(page.locator('#calcEnergy')).toHaveValue('0.5');
+ await expect(page.locator('[data-field="hoursMode"]')).toHaveValue('annual');
+ await expect(page.locator('[data-field="annualHoursInput"]')).toHaveValue('4000');
+ await page.locator('#calcRevision').selectOption('1');await expect(page.locator('#calcEnergy')).toHaveValue('0.45');await expect(page.locator('#calcVersion')).toContainText('Consultando versão 1');
+ await page.locator('#calcRevision').selectOption('');await expect(page.locator('#calcEnergy')).toHaveValue('0.5');
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:'/tmp/leakage-calculator-mobile.png',fullPage:true});
+ await page.getByRole('tab',{name:'Relatório',exact:true}).click();await expect(page.locator('.image-box img')).toHaveAttribute('src',new RegExp(assetId));
+ await page.emulateMedia({media:'print'});await page.evaluate(()=>document.fonts.ready);
+ await expect(page.locator('.calculation-page')).toHaveCount(1);
+ expect(await page.locator('.cover-title h2').evaluate(el=>getComputedStyle(el).fontFamily)).toContain('RJ Manrope');
+ const pdf=await page.pdf({preferCSSPageSize:true,path:'/tmp/leakage-report-preview.pdf'});expect((await PDFDocument.load(pdf)).getPageCount()).toBe(3);
+});
