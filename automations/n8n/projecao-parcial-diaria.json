@@ -1,5 +1,5 @@
 {
-  "name": "Projeção de vendas — parcial automática diária",
+  "name": "Projeção de vendas — Diário às 23h30",
   "nodes": [
     {
       "id": "manual",
@@ -14,7 +14,7 @@
     },
     {
       "id": "schedule",
-      "name": "Fechamento às 00h e novas tentativas",
+      "name": "Diário às 23h30 e novas tentativas",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -26,7 +26,7 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "*/15 0-5 * * *"
+              "expression": "30,40,50 23 * * *"
             }
           ]
         }
@@ -66,7 +66,7 @@
       "parameters": {
         "width": 620,
         "height": 240,
-        "content": "## Configuração\nUse a mesma credencial Header Auth das automações do sistema: Authorization: Bearer TASK_AUTOMATION_TOKEN. Não use a chave da Evolution.\n\nImporte, selecione a credencial no nó HTTP e ative este workflow. Timezone: America/Sao_Paulo.\n\nÀs 00h, registra o fechamento do dia anterior. Se falhar, tenta novamente a cada 15 minutos até 05h45. O servidor registra apenas uma parcial automática por dia, da competência do dia encerrado e das três empresas. Novas tentativas não duplicam nem substituem registros. Integração incompleta ou desatualizada retorna erro para nova tentativa. GET na URL testa a credencial sem criar parcial.\n\nMigration necessária: web/sql/089_projection_daily_snapshots.sql. Publique a aplicação web antes de ativar."
+        "content": "## Configuração\nSelecione a credencial Header Auth usada nas automações do sistema (Authorization: Bearer TASK_AUTOMATION_TOKEN), teste e ative/publique este workflow. Nunca insira a chave no JSON.\n\nTimezone America/Sao_Paulo. Captura o próprio dia às 23h30. Novas tentativas às 23h40 e 23h50, sem duplicar o dia. O registro se chama Diário. Não captura retroativamente dias perdidos.\n\nGET na URL testa a credencial sem gravar. POST fora de 23h30–23h59 retorna waiting. Integração incompleta/desatualizada retorna 503. Migration 089 e publicação da aplicação são necessárias. A existência deste arquivo NÃO ativa o agendamento no n8n."
       }
     }
   ],
@@ -82,7 +82,7 @@
         ]
       ]
     },
-    "Fechamento às 00h e novas tentativas": {
+    "Diário às 23h30 e novas tentativas": {
       "main": [
         [
           {

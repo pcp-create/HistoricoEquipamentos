@@ -1,4 +1,5 @@
 import "server-only";
+import {monthClosure,applyClosedForecast} from "./month-closure";
 import { hasPartsShortage, effectiveStage, stages } from "../workshop/model";
 import { attachLinkedOrders } from "./order-links";
 import { historyScheduleStatuses } from "../service-scheduling/history-status";
@@ -38,6 +39,8 @@ export async function salesProjection(period: string, closingDay?: string) {
     ),
   ]);
   const result = projection(facts.rows, orders.rows, period, today);
+  const closure = closingDay ? null : await monthClosure(period,today);
+  result.rows=applyClosedForecast(result.rows,closure?.rows);
   // All invoice dates are needed: a complementary service invoice can be issued
   // in a different month. This diagnostic does not change the PBIX totals.
   const billing = reconcileBilling(orders.rows, invoices.rows, links.rows);
@@ -99,6 +102,7 @@ export async function salesProjection(period: string, closingDay?: string) {
   return {
     ...result,
     period,
+    closing: closure?.metadata ?? null,
     target: (targets as Record<string, number>)[period] ?? null,
     ordersUpdatedAt: headers.rows.length === 3 ? new Date(Math.min(...headers.rows.map((r:any) => new Date(r.collected_at).getTime()))).toISOString() : null,
     updatedAt: dates.length ? new Date(Math.min(...dates)).toISOString() : null,

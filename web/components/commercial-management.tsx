@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Camera,
+  ArrowLeft,
   Printer,
   RefreshCw,
   TrendingUp,
@@ -17,6 +18,8 @@ import {
   Settings,
   Trash2,
 } from "lucide-react";
+import {projectionPeriodLabels,projectionTargetGap} from "@/lib/sales-projection/period-labels";
+import ProjectionCompanyResults from "./projection-company-results";
 import SiteHeader from "./site-header";
 import CommercialPeriodFilter from "./commercial-period-filter";
 import type { ProjectionData } from "@/lib/sales-projection/store";
@@ -71,17 +74,21 @@ async function request(url: string, body?: unknown) {
 }
 export default function CommercialManagement({
   canManage = false,
+  initialPeriod,
+  initialCompany = "all",
 }: {
   canManage?: boolean;
+  initialPeriod?: string;
+  initialCompany?: string;
 }) {
   const [settings, setSettings] = useState(false);
   const [deleting, setDeleting] = useState("");
   const [period, setPeriod] = useState(() =>
-    new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" })
+    initialPeriod || new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" })
       .format(new Date())
       .slice(0, 7),
   );
-  const [company, setCompany] = useState("all");
+  const [company, setCompany] = useState(initialCompany);
   const [live, setLive] = useState<ProjectionData | null>(null);
   const [list, setList] = useState<Omit<Snapshot, "document">[]>([]);
   const [selected, setSelected] = useState("");
@@ -254,20 +261,21 @@ export default function CommercialManagement({
     monthName.slice(1) +
     "/" +
     period.slice(0, 4);
+  const periodLabels = projectionPeriodLabels(period);
+  const isPastPeriod = periodLabels.past;
   const previousTarget = company === "all" ? snapshot?.document.target : null;
   const target = company === "all" ? data?.target : null;
   return (
     <>
       <SiteHeader active="salesProjection" />
       <main className="sales-projection cm-page">
-        <nav className="cm-nav">
-          <Link href="/comercial/projecao">← Projeção</Link>
-          <Link href="/comercial/resumo">Resumo gerencial</Link>
+        <nav className="cm-nav" aria-label="Navegação comercial">
+          <Link className="button cm-back" href={`/comercial/projecao?period=${period}&company=${company}`}><ArrowLeft size={16}/>Voltar à Projeção de Vendas</Link>
         </nav>
         <div className="sp-heading">
           <div>
             <span className="eyebrow">COMERCIAL / GESTÃO</span>
-            <h1>Resumo gerencial</h1>
+            <h1>Acompanhamento</h1>
             <p>
               Indicadores e movimentações em relação à parcial de referência
               selecionada.
@@ -441,6 +449,13 @@ export default function CommercialManagement({
                   : `Base integrada: ${data.updatedAt ? date(data.updatedAt) : "sem data"}`}
               </span>
             </div>
+            {!frozen && data.closing && <p className={data.closing.status === "closed" ? "cm-closing-note" : "cm-closing-note cm-closing-warning"} role="status">
+              {data.closing.status === "closed"
+                ? data.closing.correction
+                  ? `Fechamento corrigido conforme valor informado, com referência em ${data.closing.correction.referenceDay.split('-').reverse().join('/')}. Correção registrada em ${date(data.closing.correction.recordedAt)}; não representa uma captura automática daquele dia. Faturamento reflete a base integrada; Saldo não realizado é a diferença entre a projeção de fechamento e o faturado líquido.`
+                  : `Projeção de fechamento preservada da parcial “${data.closing.label}”, capturada em ${date(data.closing.capturedAt!)}. Faturamento reflete a base integrada; Saldo não realizado é a diferença entre a projeção de fechamento e o faturado líquido.`
+                : "Mês encerrado sem parcial elegível: não há fotografia para preservar a projeção. O valor exibido ainda reflete a base integrada."}
+            </p>}
             <section className="cm-kpis">
               {[
                 {
@@ -462,15 +477,6 @@ export default function CommercialManagement({
                   previous: oldTotal?.billed,
                 },
                 {
-                  title: "A faturar",
-                  value: total.pending,
-                  base: total.projection,
-                  note: "da projeção a realizar",
-                  icon: Clock3,
-                  tone: "pending",
-                  previous: oldTotal?.pending,
-                },
-                {
                   title: "Meta de faturamento",
                   value: target,
                   ratio: total.billed,
@@ -481,19 +487,28 @@ export default function CommercialManagement({
                   previous: previousTarget,
                 },
                 {
-                  title: "A buscar da meta",
+                  title: periodLabels.gap,
                   value:
                     target == null
                       ? null
-                      : Math.max(0, target - total.projection),
+                      : projectionTargetGap(target,total,isPastPeriod),
                   base: target,
-                  note: "da meta a conquistar",
+                  note: isPastPeriod ? "da meta não realizada em faturamento" : "da meta a conquistar",
                   icon: ArrowUpRight,
                   tone: "gap",
                   previous:
                     previousTarget != null && oldTotal
-                      ? Math.max(0, previousTarget - oldTotal.projection)
+                      ? projectionTargetGap(previousTarget,oldTotal,isPastPeriod)
                       : null,
+                },
+                {
+                  title: periodLabels.pending,
+                  value: total.pending,
+                  base: total.projection,
+                  note: isPastPeriod ? "da projeção não realizada no período" : "da projeção a realizar",
+                  icon: Clock3,
+                  tone: "pending",
+                  previous: oldTotal?.pending,
                 },
                 {
                   title: "Contratos pendentes",
@@ -530,10 +545,10 @@ export default function CommercialManagement({
                   typeof ratio === "number" &&
                   typeof card.base === "number" &&
                   card.base > 0;
-                const destination = card.tone === "contracts"
-                  ? `/comercial/contratos?period=${period}&company=${company}&filter=pending`
+                const destination = card.tone === "pending" && isPastPeriod ? null : card.tone === "contracts"
+                  ? `/comercial/contratos?period=${period}&company=${company}&filter=pending&returnTo=acompanhamento`
                   : card.tone === "pending" || card.tone === "billed"
-                    ? `/comercial/vendas?period=${period}&company=${company}&status=${card.tone === "pending" ? "Pendente" : "Processado"}`
+                    ? `/comercial/vendas?period=${period}&company=${company}&status=${card.tone === "pending" ? "Pendente" : "Processado"}&returnTo=acompanhamento`
                     : null;
                 const destinationLabel = card.tone === "contracts" ? "Ver contratos pendentes" : card.tone === "pending" ? "Ver vendas pendentes" : "Ver vendas faturadas";
                 return (
@@ -642,7 +657,7 @@ export default function CommercialManagement({
                           (cents - (previousOwners.get(name) || 0)) / 100;
                         return (
                           <article key={name}>
-                            <Link className="cm-kpi-link" href={`/comercial/vendas?${new URLSearchParams({period,company,status:"Pendente",flowOwner:name === "Sem responsável" ? "" : name})}`} aria-label={`Ver vendas pendentes · ${name}`}/>
+                            <Link className="cm-kpi-link" href={`/comercial/vendas?${new URLSearchParams({period,company,status:"Pendente",returnTo:"acompanhamento",flowOwner:name === "Sem responsável" ? "" : name})}`} aria-label={`Ver vendas pendentes · ${name}`}/>
                             <span>{name}</span>
                             <div className="cm-owner-value-row">
                               <strong>{money(cents / 100)}</strong>
@@ -674,35 +689,7 @@ export default function CommercialManagement({
                     <strong>{money(total.salesPending)}</strong>
                   </p>
                 </section>
-                <section className="sp-panel cm-panel">
-                  <h2>Resultado por empresa</h2>
-                  <div className="sp-table-scroll">
-                    <table className="sp-table">
-                      <thead>
-                        <tr>
-                          <th>Empresa</th>
-                          <th>Projeção</th>
-                          <th>Faturado líquido</th>
-                          <th>A faturar</th>
-                          <th>Contratos pendentes</th>
-                          <th>Realizado</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((r) => (
-                          <tr key={r.company}>
-                            <th>{r.name}</th>
-                            <td>{money(r.projection)}</td>
-                            <td>{money(r.billed)}</td>
-                            <td>{money(r.pending)}</td>
-                            <td>{money(r.contractPending)}</td>
-                            <td>{pct(r.billed, r.projection)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
+                <ProjectionCompanyResults rows={rows} total={total} period={period} detailed/>
               </>
             }
             {snapshot && oldTotal ? (
@@ -722,7 +709,7 @@ export default function CommercialManagement({
                   </p>
                   <p>
                     Faturado líquido: {money(oldTotal.billed)} →{" "}
-                    {money(total.billed)} · A faturar: {money(oldTotal.pending)}{" "}
+                    {money(total.billed)} · {periodLabels.pending}: {money(oldTotal.pending)}{" "}
                     → {money(total.pending)}
                   </p>
                   <p className="sp-footnote">

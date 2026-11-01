@@ -132,10 +132,12 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
       },
     }),
   );
-  await page.goto("/report-test?period=2026-10&status=Pendente&flowOwner=Comercial");
+  await page.goto("/report-test?period=2026-10&status=Pendente&flowOwner=Comercial&returnTo=acompanhamento");
+  await expect(page.getByRole("link",{name:"Voltar ao Acompanhamento",exact:true})).toHaveAttribute("href","/comercial/acompanhamento?period=2026-10&company=all");
   await expect(page.locator(".cr-table tbody tr")).toHaveCount(1);
   await expect(page.locator(".cr-table tbody tr")).toContainText("101");
   await page.goto("/report-test?period=2026-10");
+  await expect(page.getByRole("link",{name:"Voltar à Projeção de Vendas",exact:true})).toHaveAttribute("href","/comercial/projecao?period=2026-10&company=all");
   await page.locator(".cr-filter-panel > summary").click();
   await expect(page.locator(".cr-table tbody tr")).toHaveCount(2);
   await expect(page.locator(".cr-workshop-stage")).toContainText("Em execução");

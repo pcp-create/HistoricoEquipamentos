@@ -406,3 +406,7 @@
 
 .cm-owner-grid article { position:relative;transition:border-color .15s,box-shadow .15s; }
 .cm-owner-grid article:hover { border-color:#a5bfd5;box-shadow:0 3px 12px #244d7010; }
+
+.cm-closing-note{margin:0 0 16px;padding:12px 14px;border-left:3px solid #5c8f9c;background:#f1f7f9;color:#456679;font-size:12px;line-height:1.6;overflow-wrap:anywhere}.cm-closing-warning{border-left-color:#c3963f;background:#fff8e9;color:#886b32}
+
+.cm-nav .cm-back{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:9px 13px;border:1px solid #dce6ef;border-radius:8px;background:white;font-size:13px;color:#315c7d}

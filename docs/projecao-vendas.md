@@ -64,12 +64,22 @@ Os totais originais da projeção e de “Faturamento outros” não são reclas
 
 A coluna **Tipo** consulta, ao abrir a janela, os endpoints de produtos e serviços de cada nota (`/v1/faturamento/notafiscalvenda/{id}/produto` e `/servico`). Exibe **Peças**, **Serviços**, **Peças e serviços** ou **Não identificado** (nenhum item ativo retornado). Não infere o tipo pela série, valor ou observação. A consulta autenticada valida empresa e existência da nota na base integrada; não modifica o documento, mesmo quando cancelado. Falhas aparecem como **Não disponível**, com opção de tentar novamente, sem alterar o saldo apresentado. Não requer atualização do integrador.
 
-## Parciais e resumo gerencial
+## Projeção de Vendas e Acompanhamento
 
-- `/comercial/resumo`: projeção, faturamento líquido, pendências, meta, valor a buscar (meta menos projeção, limitado a zero), percentuais, contratos pendentes e vendas pendentes por responsável do fluxo. Meta é do grupo; não é rateada arbitrariamente por empresa.
-- `/comercial/parciais`: compara a integração atual com a parcial mais recente da mesma competência, permitindo escolher outra referência. Mostra entradas, saídas e alterações de valor, situação, datas, vendedor, responsável e saldo dos contratos.
-- A captura manual por **Registrar parcial agora** permanece disponível e sempre captura as três empresas, independentemente do filtro visual. A [automação diária às 00h de Brasília](projection-daily-snapshots.md) registra o dia anterior e precisa ser ativada no n8n. Não há envio de mensagens.
+- `/comercial/projecao`: visão gerencial inicial, com cards e tabela compacta por empresa (projeção, faturado líquido, a faturar, contratos pendentes e percentual realizado). O botão **Acompanhamento** preserva competência e empresa selecionadas.
+- `/comercial/acompanhamento`: projeção, faturamento líquido, pendências, meta, valor a buscar (meta menos projeção, limitado a zero), percentuais, contratos pendentes e vendas pendentes por responsável do fluxo. Meta é do grupo; não é rateada arbitrariamente por empresa.
+- O Acompanhamento apresenta a tabela detalhada por empresa, com faturamento de contratos, OSs, outros, devoluções e totais. Os endereços antigos `/comercial/resumo` e `/comercial/parciais` redirecionam para o Acompanhamento.
+- O Acompanhamento compara a integração atual com a parcial mais recente da mesma competência, permitindo escolher outra referência. Mostra entradas, saídas e alterações de valor, situação, datas, vendedor, responsável e saldo dos contratos.
+- A captura manual por **Registrar parcial agora** permanece disponível e sempre captura as três empresas, independentemente do filtro visual. A [automação diária às 23h30 de Brasília](projection-daily-snapshots.md) registra o próprio dia e precisa ser ativada no n8n. Não há envio de mensagens.
 - A captura consulta os dados no servidor, não aceita valores financeiros do navegador, guarda autor/horário/meta/documentos e bloqueia integração incompleta. A data da última integração aparece no resumo. O documento é imutável, inclusive por trigger no banco. Repetições da mesma requisição reutilizam o UUID para evitar duplicidade.
 - **Parcial congelada** e **Imprimir / PDF** permitem compartilhar o resumo com os números gravados. A visão atual não altera fotografias anteriores.
 - A comparação preserva identidade de OS ao faturar e identidade de nota ao mudar classificação. Uma saída significa ausência na competência, sem inferir cancelamento. A variação consolidada vem dos totais financeiros; não se somam linhas de documentos, porque OS, contratos e notas se compensam no modelo.
 - Migração `020_sales_projection_snapshots.sql`, incluída em `npm run db:migrate`. Não registra automaticamente uma primeira parcial durante a implantação.
+
+A navegação usa um único botão **Voltar à Projeção de Vendas** no Acompanhamento, preservando competência e empresa. As consultas de vendas e contratos abertas a partir dele voltam por **Voltar ao Acompanhamento**, com os filtros de competência e empresa mantidos. Links sem origem informada voltam à Projeção de Vendas.
+
+### Títulos conforme a competência
+
+Nas duas telas, o mês atual e meses futuros usam **A faturar** e **A buscar da meta**. Ao selecionar um mês encerrado, os títulos passam a **Saldo não realizado** e **Diferença para a meta**, com textos no passado. A tabela por empresa e o cabeçalho do CSV da Projeção de Vendas seguem a mesma nomenclatura. A identificação de mês encerrado usa o calendário de Brasília; os valores e as regras de cálculo são preservados.
+
+Para competências encerradas, **Diferença para a meta = máximo entre zero e (meta − faturado líquido)**, inclusive na comparação com a parcial de referência. Meses atuais/futuros mantêm **A buscar da meta = máximo entre zero e (meta − projeção)**. Em outubro/2026, com meta de R$ 1.600.000,00 e faturado líquido de R$ 1.488.525,86, a diferença é R$ 111.474,14.

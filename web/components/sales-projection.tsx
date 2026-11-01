@@ -14,11 +14,13 @@ import {
   X,
   Search,
 } from "lucide-react";
+import {projectionPeriodLabels,projectionTargetGap} from "@/lib/sales-projection/period-labels";
+import ProjectionCompanyResults,{summaryCompanyColumns} from "./projection-company-results";
 import CommercialUpdateStatus from "./commercial-update-status";
 import SiteHeader from "./site-header";
 import CommercialPeriodFilter from "./commercial-period-filter";
 import type { ProjectionData } from "@/lib/sales-projection/store";
-import { sumRows, type Summary } from "@/lib/sales-projection/model";
+import { sumRows } from "@/lib/sales-projection/model";
 import "./sales-projection.css";
 const money = (n: number) =>
   n.toLocaleString("pt-BR", {
@@ -38,15 +40,7 @@ const labels: Record<string, string> = {
   salesPending: "Vendas pendentes",
   salesBilled: "Vendas faturadas",
 };
-const columns: [keyof Summary, string][] = [
-  ["projection", "Projeção"],
-  ["contractBilled", "Fat. contratos"],
-  ["salesBilled", "Fat. OSs"],
-  ["other", "Fat. outros"],
-  ["returns", "Devoluções"],
-  ["billed", "Total líquido"],
-  ["pending", "A faturar"],
-];
+const columns = summaryCompanyColumns;
 export default function SalesProjection({
   initialPeriod,
   initialCompany,
@@ -97,6 +91,9 @@ export default function SalesProjection({
       (r) => company === "all" || String(r.company) === company,
     ) || [];
   const total = rows.length ? sumRows(rows) : null;
+  const closedForecast = data?.closing?.status === "closed";
+  const periodLabels = projectionPeriodLabels(period);
+  const pastPeriod = periodLabels.past;
   const items = useMemo(
     () =>
       data?.details.filter(
@@ -129,7 +126,7 @@ export default function SalesProjection({
   function exportCsv() {
     if (!total) return;
     const csv = [
-      ["Empresa", ...columns.map((c) => c[1])],
+      ["Empresa", ...columns.map((c) => c[0] === "pending" ? periodLabels.pending : c[1])],
       ...[...rows, total].map((r) => [
         r.name,
         ...columns.map(([k]) => money(Number(r[k]))),
@@ -148,7 +145,10 @@ export default function SalesProjection({
     a.click();
     URL.revokeObjectURL(url);
   }
+  const monthName = new Intl.DateTimeFormat("pt-BR", {month:"long",timeZone:"UTC"}).format(new Date(period+"-01T12:00:00Z"));
+  const periodTitle = `${monthName.charAt(0).toUpperCase()+monthName.slice(1)}/${period.slice(0,4)}`;
   const target = company === "all" ? data?.target : null;
+  const targetGap = target != null && total ? projectionTargetGap(target,total,pastPeriod) : null;
   return (
     <>
       <SiteHeader active="salesProjection" />
@@ -157,10 +157,10 @@ export default function SalesProjection({
           <div>
             <span className="eyebrow">COMERCIAL / RESULTADOS</span>
             <h1>Projeção de Vendas</h1>
-            <p>O resultado de hoje. O caminho até a meta.</p>
+            <p>{pastPeriod ? "Resultado consolidado do período e comparação com a projeção." : "O resultado de hoje. O caminho até a meta."}</p>
           </div>
           <div className="sp-actions">
-            <Link className="button" href="/comercial/resumo">Resumo gerencial</Link>
+            <Link className="button" href={`/comercial/acompanhamento?period=${period}&company=${company}`}>Acompanhamento <ArrowUpRight size={16}/></Link>
             <button
               className="button"
               onClick={exportCsv}
@@ -213,7 +213,7 @@ export default function SalesProjection({
             >
               <article className="sp-kpi sp-feature">
                 <span>
-                  <TrendingUp size={20} /> Projeção do mês
+                  <TrendingUp size={20} /> Projeção · {periodTitle}
                 </span>
                 <strong>
                   <small>R$</small> {money(total.projection)}
@@ -248,21 +248,6 @@ export default function SalesProjection({
               </article>
               <article className="sp-kpi">
                 <span>
-                  <CalendarDays size={20} /> A faturar
-                </span>
-                <strong>
-                  <small>R$</small> {money(total.pending)}
-                </strong>
-                <p>Contratos e vendas ainda pendentes</p>
-                <button
-                  className="sp-text-button"
-                  onClick={() => open("salesPending")}
-                >
-                  Ver vendas pendentes <ArrowUpRight size={14} />
-                </button>
-              </article>
-              <article className="sp-kpi">
-                <span>
                   <Target size={20} />{" "}
                   {target ? "Meta de faturamento" : "Meta do período"}
                 </span>
@@ -277,7 +262,7 @@ export default function SalesProjection({
                 </strong>
                 <p>
                   {target
-                    ? `${money(Math.max(0, target - total.projection))} além da projeção para atingir a meta`
+                    ? `${money(targetGap!)} ${pastPeriod ? "da meta não realizada em faturamento" : "além da projeção para atingir a meta"}`
                     : company !== "all"
                       ? "A meta disponível é consolidada para o grupo."
                       : "Meta não cadastrada para este mês."}
@@ -286,110 +271,39 @@ export default function SalesProjection({
               {target != null && (
                 <article
                   className="sp-kpi sp-target-gap"
-                  aria-label="À buscar da meta"
+                  aria-label={periodLabels.gap}
                 >
                   <span>
-                    <Target size={20} /> À buscar da meta
+                    <Target size={20} /> {periodLabels.gap}
                   </span>
                   <strong>
                     <small>R$</small>{" "}
-                    {money(Math.max(0, target - total.projection))}
+                    {money(targetGap!)}
                   </strong>
                   <p>
-                    {total.projection >= target
-                      ? "Meta coberta pela projeção."
-                      : `${percent(target - total.projection, target)} da meta ainda precisa entrar na projeção.`}
+                    {targetGap === 0
+                      ? (pastPeriod ? "Meta atingida pelo faturamento." : "Meta coberta pela projeção.")
+                      : `${percent(targetGap!, target)} ${pastPeriod ? "da meta não realizada em faturamento." : "da meta ainda precisa entrar na projeção."}`}
                   </p>
                 </article>
               )}
+              <article className="sp-kpi">
+                <span>
+                  <CalendarDays size={20} /> {periodLabels.pending}
+                </span>
+                <strong>
+                  <small>R$</small> {money(total.pending)}
+                </strong>
+                <p>{pastPeriod ? "Parcela da projeção não realizada em faturamento no período" : "Contratos e vendas ainda pendentes"}</p>
+                {!pastPeriod && !closedForecast && <button
+                  className="sp-text-button"
+                  onClick={() => open("salesPending")}
+                >
+                  Ver vendas pendentes <ArrowUpRight size={14} />
+                </button>}
+              </article>
             </section>
-            <section className="sp-panel">
-              <div className="sp-panel-heading">
-                <div>
-                  <h2>Resultado por empresa</h2>
-                  <p>
-                    Devoluções em coluna própria, descontadas uma única vez do
-                    total.
-                  </p>
-                </div>
-                <span className="sp-unit">VALORES EM R$</span>
-              </div>
-              <div className="sp-table-scroll">
-                <table className="sp-table">
-                  <thead>
-                    <tr>
-                      <th>Empresa</th>
-                      {columns.map(([k, label]) => (
-                        <th key={k}>
-                          {label}
-                          {k === "returns" && (
-                            <span className="sp-minus"> (−)</span>
-                          )}
-                        </th>
-                      ))}
-                      <th>Realizado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r) => (
-                      <tr key={r.company}>
-                        <th>{r.name}</th>
-                        {columns.map(([k]) => (
-                          <td
-                            key={k}
-                            className={
-                              k === "returns"
-                                ? "sp-red"
-                                : k === "billed"
-                                  ? "sp-green"
-                                  : ""
-                            }
-                          >
-                            {k === "other" && Number(r[k]) < 0 ? (
-                              <Link
-                                className="sp-other-review"
-                                href={`/comercial/vendas?period=${period}&company=${r.company}&billing=partial`}
-                                title="Conferir OS com possíveis faturamentos parciais"
-                              >
-                                {money(Number(r[k]))} <ArrowUpRight size={12} />
-                              </Link>
-                            ) : (
-                              money(Number(r[k]))
-                            )}
-                          </td>
-                        ))}
-                        <td>
-                          <div className="sp-realized">
-                            <span>{percent(r.billed, r.projection)}</span>
-                            <div className="sp-track">
-                              <i
-                                style={{
-                                  width: `${Math.max(0, Math.min(100, r.projection ? (r.billed / r.projection) * 100 : 0))}%`,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <th>Total</th>
-                      {columns.map(([k]) => (
-                        <td key={k}>{money(Number(total[k]))}</td>
-                      ))}
-                      <td>{percent(total.billed, total.projection)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-              <p className="sp-footnote">
-                Faturamento outros = notas de venda − contratos faturados − OS
-                faturadas. Pode ser negativo quando essas bases apresentam
-                diferenças de classificação ou atualização.
-              </p>
-            </section>
+            <ProjectionCompanyResults rows={rows} total={total} period={period}/>
             <div className="sp-bottom">
               <section className="sp-panel">
                 <div className="sp-panel-heading">
@@ -420,7 +334,7 @@ export default function SalesProjection({
                       <span>{money(total.contracts)}</span>
                     </div>
                     <div className="sp-line">
-                      <span>Saldo a faturar</span>
+                      <span>{pastPeriod ? "Saldo de contratos no período" : "Saldo a faturar"}</span>
                       <strong>{money(total.contractPending)}</strong>
                     </div>
                   </article>

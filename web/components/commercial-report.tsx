@@ -316,8 +316,9 @@ export default function CommercialReport({
     return summary;
   }, [kind, ownerScope]);
   const title = kind === "contracts" ? "Contratos" : "Vendas";
-  const back = `/comercial/projecao?period=${period}&company=${company}`;
-  const returnTo = `/comercial/vendas?period=${period}&company=${company}&status=${status}&billing=${billingFilter}`;
+  const fromTracking = params.get("returnTo") === "acompanhamento";
+  const back = `/comercial/${fromTracking ? "acompanhamento" : "projecao"}?period=${period}&company=${company}`;
+  const returnTo = `/comercial/vendas?period=${period}&company=${company}&status=${status}&billing=${billingFilter}${fromTracking ? "&returnTo=acompanhamento" : ""}`;
   const isOverdue = (r: Detail) => quickUpdates[quickKey(r, "expected")]?.value
     ? String(quickUpdates[quickKey(r, "expected")].value).slice(0, 7) < (data?.today || "").slice(0, 7)
     : r.overdue;
@@ -375,7 +376,7 @@ export default function CommercialReport({
         }} />}
       <main className="sales-projection commercial-report">
         <Link className="cr-back" href={back}>
-          <ArrowLeft size={16} /> Voltar à projeção
+          <ArrowLeft size={16} /> {fromTracking ? "Voltar ao Acompanhamento" : "Voltar à Projeção de Vendas"}
         </Link>
         <div className="sp-heading">
           <div>

@@ -91,26 +91,34 @@ test("periods, companies, document details and mobile layout", async ({
       },
     });
   });
-  await page.clock.install();
+  await page.clock.install({time:new Date("2026-11-15T15:00:00Z")});
   await page.goto("/projection-test");
   await expect(
     page.getByRole("heading", { name: "Projeção de Vendas" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("columnheader", { name: /Devoluções/ }).first(),
+    page.getByRole("columnheader", { name: "Faturado líquido", exact:true }).first(),
   ).toBeVisible();
   await expect(page.locator(".sp-target-gap")).toBeVisible();
+  await expect(page.getByRole("columnheader",{name:"A faturar",exact:true})).toBeVisible();
   const beforePoll = periods.length;
   await page.clock.fastForward(60000);
   await expect.poll(() => periods.length).toBeGreaterThan(beforePoll);
   await expect(page.locator(".sp-target-gap")).toBeVisible();
   await expect(page.locator(".sp-billing-review")).toHaveCount(0);
-  await expect(page.getByRole("columnheader", { name: "Fat. OSs", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Fat. OSs", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Contratos pendentes", exact: true })).toBeVisible();
+  await expect(page.getByRole("link",{name:"Acompanhamento",exact:true})).toHaveAttribute("href",/\/comercial\/acompanhamento\?period=\d{4}-\d{2}&company=all$/);
   await expect(page.getByRole("columnheader", { name: "Saldo a conferir", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Set", exact: true }).click();
   await expect.poll(() => periods.at(-1)?.endsWith("-09")).toBe(true);
+  await expect(page.getByRole("columnheader",{name:"Saldo não realizado",exact:true})).toBeVisible();
+  await expect(page.getByRole("columnheader",{name:"A faturar",exact:true})).toHaveCount(0);
+  await expect(page.locator(".sp-target-gap")).toContainText("Diferença para a meta");
+  await expect(page.locator(".sp-kpis")).toContainText("Parcela da projeção não realizada em faturamento no período");
   await page.getByRole("combobox", { name: "Empresa" }).selectOption("1");
   await expect(page.locator(".sp-table-scroll tbody tr")).toHaveCount(1);
+  await expect(page.getByRole("link",{name:"Acompanhamento",exact:true})).toHaveAttribute("href",/period=\d{4}-09&company=1$/);
   await page.getByRole("button", { name: /Devoluções/ }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("dialog")).toContainText("CLIENTE EXEMPLO");
@@ -127,6 +135,17 @@ test("periods, companies, document details and mobile layout", async ({
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+  for(const width of [320,390]){
+    await page.setViewportSize({width,height:844});
+    const panel=page.locator('.sp-company-summary');
+    await expect(panel.getByRole('columnheader')).toHaveCount(4);
+    await expect(panel.getByRole('columnheader',{name:'Empresa',exact:true})).toBeVisible();
+    await expect(panel.getByRole('columnheader',{name:'Projeção',exact:true})).toBeVisible();
+    await expect(panel.getByRole('columnheader',{name:'Faturado líquido',exact:true})).toBeVisible();
+    await expect(panel.getByRole('columnheader',{name:'Realizado',exact:true})).toBeVisible();
+    expect(await panel.locator('.sp-table-scroll').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+    expect(await panel.locator('tbody td[data-column="projection"]').evaluateAll(els=>els.every(el=>el.scrollWidth<=el.clientWidth))).toBe(true);
+  }
   await page.screenshot({
     path: "test-results/sales-projection-mobile.png",
     fullPage: true,

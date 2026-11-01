@@ -2,14 +2,15 @@ import 'server-only';
 import {randomUUID} from 'node:crypto';
 import {database} from '../db';
 import {salesProjection} from './store';
-export const dailySnapshotHour=0;
-export const dailySnapshotRetryEndHour=6;
+export const dailySnapshotHour=23;
+export const dailySnapshotMinute=30;
 export class DailySnapshotUnavailable extends Error {}
 export async function dailySnapshotCreate(now=new Date(),readProjection=salesProjection){
  const currentDay=new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo'}).format(now);
- const day=new Date(Date.parse(currentDay+'T12:00:00Z')-86400000).toISOString().slice(0,10);
+ const day=currentDay;
  const hour=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'America/Sao_Paulo',hour:'2-digit',hourCycle:'h23'}).format(now));
- if(hour>=dailySnapshotRetryEndHour)return {state:'waiting',day,hour:dailySnapshotHour};
+ const minute=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'America/Sao_Paulo',minute:'2-digit'}).format(now));
+ if(hour!==dailySnapshotHour||minute<dailySnapshotMinute)return {state:'waiting',recorded:false,day,hour:dailySnapshotHour,minute:dailySnapshotMinute,timeZone:'America/Sao_Paulo',scheduledFor:day+'T23:30:00-03:00',message:'Nenhuma parcial foi registrada: aguardando 23h30 de Brasília. Para registrar agora, use Registrar parcial agora na tela da projeção.'};
  const db=database();
  const existing=(await db.query('SELECT snapshot_id FROM web_projection_daily_snapshots WHERE day=$1',[day])).rows[0];
  if(existing)return {state:'exists',day,id:existing.snapshot_id};
@@ -28,8 +29,8 @@ export async function dailySnapshotCreate(now=new Date(),readProjection=salesPro
    const previous=(await c.query('SELECT snapshot_id FROM web_projection_daily_snapshots WHERE day=$1',[day])).rows[0];
    await c.query('COMMIT');return {state:'exists',day,id:previous.snapshot_id};
   }
-  const id=randomUUID(),label=`Parcial automática · ${day.split('-').reverse().join('/')}`;
-  await c.query('INSERT INTO web_sales_projection_snapshots(id,period,label,created_by,document) VALUES($1,$2,$3,$4,$5)',[id,period,label,'Automação diária',JSON.stringify(document)]);
+  const id=randomUUID(),label=`Diário · ${day.split('-').reverse().join('/')}`;
+  await c.query('INSERT INTO web_sales_projection_snapshots(id,period,label,created_by,document) VALUES($1,$2,$3,$4,$5)',[id,period,label,'Automação diária',JSON.stringify({...document,snapshotKind:'daily',snapshotDay:day})]);
   await c.query('UPDATE web_projection_daily_snapshots SET snapshot_id=$2 WHERE day=$1',[day,id]);
   await c.query('COMMIT');return {state:'created',day,id,period,label};
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 test("manager freezes summary, compares latest snapshot and remains usable on mobile", async ({
   page,
 }) => {
+  await page.clock.setFixedTime(new Date("2026-11-01T15:00:00Z"));
   const row = {
     company: 1,
     name: "RJ Indústria",
@@ -72,7 +73,7 @@ test("manager freezes summary, compares latest snapshot and remains usable on mo
     }),
   );
   await page.route("**/api/sales-projection?*", (r) =>
-    r.fulfill({ json: live }),
+    r.fulfill({ json: {...live,closing:new URL(r.request().url()).searchParams.get("period")==="2026-10"?{status:"closed",label:"Diário · 31/10/2026",capturedAt:"2026-11-01T02:30:00Z"}:null} }),
   );
   await page.route("**/api/sales-projection/snapshots**", (r) => {
     if (r.request().method() === "DELETE") {
@@ -103,12 +104,29 @@ test("manager freezes summary, compares latest snapshot and remains usable on mo
   });
   await page.goto("/management-test?summary");
   await expect(
-    page.getByRole("heading", { name: "Resumo gerencial" }),
+    page.getByRole("heading", { name: "Acompanhamento" }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: "Ver contratos pendentes" })).toHaveAttribute("href", /\/comercial\/contratos\?period=\d{4}-\d{2}&company=all&filter=pending$/);
-  await expect(page.getByRole("link", { name: "Ver vendas pendentes", exact:true })).toHaveAttribute("href", /&company=all&status=Pendente$/);
-  await expect(page.getByRole("link", { name: "Ver vendas faturadas" })).toHaveAttribute("href", /&company=all&status=Processado$/);
-  await expect(page.getByRole("link",{name:"Ver vendas pendentes · Comercial",exact:true})).toHaveAttribute("href", /company=all&status=Pendente&flowOwner=Comercial$/);
+  await expect(page.getByRole("link",{name:"Voltar à Projeção de Vendas",exact:true})).toHaveAttribute("href",/period=2026-11&company=all$/);
+  await page.getByRole("combobox",{name:"Empresa",exact:true}).selectOption("1");
+  await expect(page.getByRole("link",{name:"Voltar à Projeção de Vendas",exact:true})).toHaveAttribute("href","/comercial/projecao?period=2026-11&company=1");
+  await page.getByRole("combobox",{name:"Empresa",exact:true}).selectOption("all");
+  await expect(page.getByRole("columnheader",{name:"Fat. OSs",exact:true})).toBeVisible();
+  await expect(page.getByRole("columnheader",{name:/Devoluções/})).toBeVisible();
+  await expect(page.getByRole("columnheader",{name:"Fat. contratos",exact:true})).toBeVisible();
+  await expect(page.locator(".cm-kpi-gap")).toContainText("A buscar da meta");
+  await expect(page.locator(".cm-kpi-pending")).toContainText("A faturar");
+  const tones=await page.locator(".cm-kpis>.cm-kpi").evaluateAll(els=>els.map(el=>el.className));
+  expect(tones.findIndex(c=>c.includes("cm-kpi-pending"))).toBe(tones.findIndex(c=>c.includes("cm-kpi-gap"))+1);
+  await page.getByRole("button",{name:"Out",exact:true}).click();
+  await expect(page.locator(".cm-kpi-gap")).toContainText("Diferença para a meta");
+  await expect(page.locator(".cm-kpi-pending")).toContainText("Saldo não realizado");
+  await expect(page.getByRole("columnheader",{name:"Saldo não realizado",exact:true})).toBeVisible();
+  await expect(page.locator(".cm-closing-note")).toContainText("Projeção de fechamento preservada");
+  await page.getByRole("button",{name:"Nov",exact:true}).click();
+  await expect(page.getByRole("link", { name: "Ver contratos pendentes" })).toHaveAttribute("href", /\/comercial\/contratos\?period=\d{4}-\d{2}&company=all&filter=pending&returnTo=acompanhamento$/);
+  await expect(page.getByRole("link", { name: "Ver vendas pendentes", exact:true })).toHaveAttribute("href", /&company=all&status=Pendente&returnTo=acompanhamento$/);
+  await expect(page.getByRole("link", { name: "Ver vendas faturadas" })).toHaveAttribute("href", /&company=all&status=Processado&returnTo=acompanhamento$/);
+  await expect(page.getByRole("link",{name:"Ver vendas pendentes · Comercial",exact:true})).toHaveAttribute("href", /company=all&status=Pendente&returnTo=acompanhamento&flowOwner=Comercial$/);
   await page.getByRole("button", { name: "Registrar parcial agora" }).click();
   await expect(page.getByText(/Parcial registrada/)).toBeVisible();
   await expect(page.getByLabel("Visualização")).toHaveValue("snapshot");
@@ -183,7 +201,7 @@ test("manager freezes summary, compares latest snapshot and remains usable on mo
   );
   await page.goto("/management-test?viewer");
   await expect(
-    page.getByRole("heading", { name: "Resumo gerencial" }),
+    page.getByRole("heading", { name: "Acompanhamento" }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Configurar parciais" }),

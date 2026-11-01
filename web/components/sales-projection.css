@@ -622,3 +622,23 @@
 @media (max-width: 600px) {
   .commercial-update-status > span:last-child { flex-basis: 100%; }
 }
+
+@media screen and (max-width:600px){
+ .sales-projection .sp-company-summary .sp-table{table-layout:fixed;width:100%;min-width:0;font-variant-numeric:tabular-nums}
+ .sales-projection .sp-company-summary [data-column="pending"],
+ .sales-projection .sp-company-summary [data-column="contractPending"]{display:none}
+ .sales-projection .sp-company-summary .sp-table th,
+ .sales-projection .sp-company-summary .sp-table td{padding:14px 4px;font-size:clamp(10px,2.8vw,12px);min-width:0}
+ .sales-projection .sp-company-summary .sp-table th:first-child{position:static;width:26%;min-width:0;padding-left:8px;white-space:normal;overflow-wrap:anywhere;font-size:clamp(10px,2.8vw,12px);line-height:1.4}
+ .sales-projection .sp-company-summary [data-column="projection"],
+ .sales-projection .sp-company-summary [data-column="billed"]{width:27%}
+ .sales-projection .sp-company-summary .sp-table thead th{white-space:normal;font-size:clamp(9px,2.5vw,11px);line-height:1.35}
+ .sales-projection .sp-company-summary .sp-table th:last-child,
+ .sales-projection .sp-company-summary .sp-table td:last-child{width:20%;padding-right:8px}
+ .sales-projection .sp-company-summary .sp-realized{min-width:0}
+ .sales-projection .sp-company-summary .sp-realized .sp-track{display:block;width:100%;height:3px;margin-top:6px}
+}
+
+.sales-projection .sp-company-results .sp-table th:not(:first-child),
+.sales-projection .sp-company-results .sp-table td:not(:first-child){text-align:center}
+.sales-projection .sp-company-results .sp-realized{text-align:center}

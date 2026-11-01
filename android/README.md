@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.6
+# Portal Técnico RJ — APK 2.2.7
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -167,3 +167,10 @@ Corrige a política de imagens da WebView para autorizar o host exato https://ti
 - Início, pausa, retomada e encerramento acompanham os integrantes selecionados conforme as regras do servidor. Técnicos adicionais continuam sem acesso ao relatório ou à finalização da operação.
 - Inclui a interface atual do portal técnico, publicada após a versão 2.2.5. Atualizar o site sozinho não atualiza os arquivos incluídos no APK.
 - Mantém `app.rjcompressores.tecnico` e a assinatura existente. Instalar como atualização, sem desinstalar ou limpar os dados.
+
+### Versão 2.2.7 — peças e devoluções
+
+- Atualiza a interface empacotada do portal técnico com a organização das quantidades de retirada e devolução, campos alinhados e informações de disponível/registrado.
+- Ajuste de devolução com quantidade inicialmente em branco quando zerada, referência da retirada e botões revisados.
+- Inclui as validações atuais de reserva e o ajuste de devoluções ainda não recebidas pelo almoxarifado.
+- Mantém a assinatura e o identificador existentes. Instalar como atualização, sem desinstalar ou limpar dados. O servidor deve estar atualizado para disponibilizar as regras e os endpoints correspondentes.
