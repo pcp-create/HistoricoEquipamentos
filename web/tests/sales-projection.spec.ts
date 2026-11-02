@@ -69,6 +69,7 @@ test("periods, companies, document details and mobile layout", async ({
     return r.fulfill({
       json: {
         period: periods.at(-1),
+        closing:{status:"closed",label:"Fechamento de teste",capturedAt:"2026-10-31T23:00:00Z"},
         rows: [row, { ...row, company: 2, name: "RJ Serrana" }],
         details: [
           {
@@ -113,6 +114,16 @@ test("periods, companies, document details and mobile layout", async ({
   await page.getByRole("button", { name: "Set", exact: true }).click();
   await expect.poll(() => periods.at(-1)?.endsWith("-09")).toBe(true);
   await expect(page.getByRole("columnheader",{name:"Saldo não realizado",exact:true})).toBeVisible();
+  await expect(page.getByRole("columnheader",{name:/Devoluções \/ estornos/})).toBeVisible();
+  await expect(page.locator('.sp-table-scroll tbody tr').first().locator('[data-column="pending"]')).toHaveText('371.342,08');
+  await expect(page.locator('.sp-table-scroll tbody tr').first().locator('[data-column="returns"]')).toHaveText('1.805,25');
+  await expect(page.locator('.sp-table-scroll tfoot [data-column="pending"]')).toHaveText('742.684,16');
+  const exported = page.waitForEvent('download');
+  await page.getByRole('button',{name:'Exportar',exact:true}).click();
+  const csv=readFileSync((await (await exported).path())!,'utf8');
+  expect(csv).toContain('Devoluções / estornos');
+  expect(csv).toContain('"371.342,08";"1.805,25"');
+
   await expect(page.getByRole("columnheader",{name:"A faturar",exact:true})).toHaveCount(0);
   await expect(page.locator(".sp-target-gap")).toContainText("Diferença para a meta");
   await expect(page.locator(".sp-kpis")).toContainText("Parcela da projeção não realizada em faturamento no período");

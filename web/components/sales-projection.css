@@ -625,6 +625,7 @@
 
 @media screen and (max-width:600px){
  .sales-projection .sp-company-summary .sp-table{table-layout:fixed;width:100%;min-width:0;font-variant-numeric:tabular-nums}
+ .sales-projection .sp-company-summary [data-column="returns"],
  .sales-projection .sp-company-summary [data-column="pending"],
  .sales-projection .sp-company-summary [data-column="contractPending"]{display:none}
  .sales-projection .sp-company-summary .sp-table th,
@@ -642,3 +643,9 @@
 .sales-projection .sp-company-results .sp-table th:not(:first-child),
 .sales-projection .sp-company-results .sp-table td:not(:first-child){text-align:center}
 .sales-projection .sp-company-results .sp-realized{text-align:center}
+
+.sp-mobile-balances{display:none}
+@media screen and (max-width:600px){
+ .sp-mobile-balances{display:grid;gap:10px;margin-top:16px}
+ .sp-mobile-balances>div{display:grid;gap:5px;padding:12px;background:#f4f8fc;border-radius:8px;font-size:12px}
+}

@@ -18,7 +18,7 @@ import {
   Settings,
   Trash2,
 } from "lucide-react";
-import {projectionPeriodLabels,projectionTargetGap} from "@/lib/sales-projection/period-labels";
+import {projectionPeriodLabels,projectionTargetGap,totalPendingWithoutReturns} from "@/lib/sales-projection/period-labels";
 import ProjectionCompanyResults from "./projection-company-results";
 import SiteHeader from "./site-header";
 import CommercialPeriodFilter from "./commercial-period-filter";
@@ -452,8 +452,8 @@ export default function CommercialManagement({
             {!frozen && data.closing && <p className={data.closing.status === "closed" ? "cm-closing-note" : "cm-closing-note cm-closing-warning"} role="status">
               {data.closing.status === "closed"
                 ? data.closing.correction
-                  ? `Fechamento corrigido conforme valor informado, com referência em ${data.closing.correction.referenceDay.split('-').reverse().join('/')}. Correção registrada em ${date(data.closing.correction.recordedAt)}; não representa uma captura automática daquele dia. Faturamento reflete a base integrada; Saldo não realizado é a diferença entre a projeção de fechamento e o faturado líquido.`
-                  : `Projeção de fechamento preservada da parcial “${data.closing.label}”, capturada em ${date(data.closing.capturedAt!)}. Faturamento reflete a base integrada; Saldo não realizado é a diferença entre a projeção de fechamento e o faturado líquido.`
+                  ? `Fechamento corrigido conforme valor informado, com referência em ${data.closing.correction.referenceDay.split('-').reverse().join('/')}. Correção registrada em ${date(data.closing.correction.recordedAt)}; não representa uma captura automática daquele dia. Faturamento reflete a base integrada; Saldo não realizado exclui devoluções / estornos, apresentados separadamente no resultado por empresa.`
+                  : `Projeção de fechamento preservada da parcial “${data.closing.label}”, capturada em ${date(data.closing.capturedAt!)}. Faturamento reflete a base integrada; Saldo não realizado exclui devoluções / estornos, apresentados separadamente no resultado por empresa.`
                 : "Mês encerrado sem parcial elegível: não há fotografia para preservar a projeção. O valor exibido ainda reflete a base integrada."}
             </p>}
             <section className="cm-kpis">
@@ -503,12 +503,12 @@ export default function CommercialManagement({
                 },
                 {
                   title: periodLabels.pending,
-                  value: total.pending,
+                  value: totalPendingWithoutReturns(rows,isPastPeriod&&data?.closing?.status==='closed'),
                   base: total.projection,
-                  note: isPastPeriod ? "da projeção não realizada no período" : "da projeção a realizar",
+                  note: isPastPeriod ? "da projeção não realizada, sem devoluções / estornos" : "da projeção a realizar",
                   icon: Clock3,
                   tone: "pending",
-                  previous: oldTotal?.pending,
+                  previous: oldTotal ? totalPendingWithoutReturns(oldRows,isPastPeriod&&snapshot?.document.closing?.status==='closed') : undefined,
                 },
                 {
                   title: "Contratos pendentes",
@@ -689,7 +689,7 @@ export default function CommercialManagement({
                     <strong>{money(total.salesPending)}</strong>
                   </p>
                 </section>
-                <ProjectionCompanyResults rows={rows} total={total} period={period} detailed/>
+                <ProjectionCompanyResults rows={rows} total={total} period={period} detailed closedForecast={data.closing?.status==='closed'}/>
               </>
             }
             {snapshot && oldTotal ? (
@@ -709,8 +709,8 @@ export default function CommercialManagement({
                   </p>
                   <p>
                     Faturado líquido: {money(oldTotal.billed)} →{" "}
-                    {money(total.billed)} · {periodLabels.pending}: {money(oldTotal.pending)}{" "}
-                    → {money(total.pending)}
+                    {money(total.billed)} · {periodLabels.pending}: {money(totalPendingWithoutReturns(oldRows,isPastPeriod&&snapshot?.document.closing?.status==='closed'))}{" "}
+                    → {money(totalPendingWithoutReturns(rows,isPastPeriod&&data?.closing?.status==='closed'))}
                   </p>
                   <p className="sp-footnote">
                     Entradas e saídas indicam presença nesta competência. Não

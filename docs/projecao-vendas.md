@@ -94,3 +94,15 @@ alinhada à aplicação. Pode ser aplicada pelo migrador do integrador ou, no
 ambiente web, com `node --env-file=.env.local --conditions=react-server --import tsx scripts/setup-serrana-returns.mts`.
 O registro já coletado é reclassificado sem nova coleta do ERP. Fotografias e
 fechamentos históricos não são regravados por essa alteração.
+
+### Saldo não realizado separado de devoluções
+
+No resumo e no acompanhamento, para competências passadas com projeção de fechamento preservada, o saldo apresentado
+é `máximo(0, projeção − faturado líquido − devoluções)`, calculado por empresa.
+A coluna `Devoluções / estornos` mostra o desconto completo, já incluído no
+faturado líquido. O total do saldo soma os saldos individuais, sem compensar
+uma empresa com o excedente de outra. Por isso, quando houver faturamento acima
+da projeção, a soma de saldo e devoluções pode diferir da diferença líquida.
+O cartão e o CSV usam a mesma regra; competências atuais/futuras mantêm o valor
+operacional de `A faturar`. Esta separação visual não altera os dados integrados,
+a projeção preservada nem as fotografias históricas.

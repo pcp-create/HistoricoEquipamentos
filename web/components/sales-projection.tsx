@@ -14,7 +14,7 @@ import {
   X,
   Search,
 } from "lucide-react";
-import {projectionPeriodLabels,projectionTargetGap} from "@/lib/sales-projection/period-labels";
+import {projectionPeriodLabels,projectionTargetGap,pendingWithoutReturns,totalPendingWithoutReturns} from "@/lib/sales-projection/period-labels";
 import ProjectionCompanyResults,{summaryCompanyColumns} from "./projection-company-results";
 import CommercialUpdateStatus from "./commercial-update-status";
 import SiteHeader from "./site-header";
@@ -94,6 +94,7 @@ export default function SalesProjection({
   const closedForecast = data?.closing?.status === "closed";
   const periodLabels = projectionPeriodLabels(period);
   const pastPeriod = periodLabels.past;
+  const separateReturns=pastPeriod&&closedForecast;
   const items = useMemo(
     () =>
       data?.details.filter(
@@ -129,7 +130,7 @@ export default function SalesProjection({
       ["Empresa", ...columns.map((c) => c[0] === "pending" ? periodLabels.pending : c[1])],
       ...[...rows, total].map((r) => [
         r.name,
-        ...columns.map(([k]) => money(Number(r[k]))),
+        ...columns.map(([k]) => money(k==='pending'?(r===total?totalPendingWithoutReturns(rows,separateReturns):pendingWithoutReturns(r,separateReturns)):Number(r[k]))),
       ]),
     ]
       .map((r) =>
@@ -292,9 +293,10 @@ export default function SalesProjection({
                   <CalendarDays size={20} /> {periodLabels.pending}
                 </span>
                 <strong>
-                  <small>R$</small> {money(total.pending)}
+                  <small>R$</small> {money(totalPendingWithoutReturns(rows,separateReturns))}
                 </strong>
-                <p>{pastPeriod ? "Parcela da projeção não realizada em faturamento no período" : "Contratos e vendas ainda pendentes"}</p>
+                <p>{pastPeriod ? "Parcela da projeção não realizada em faturamento no período, sem devoluções / estornos" : "Contratos e vendas ainda pendentes"}</p>
+                {pastPeriod && <p>Devoluções / estornos: <strong style={{fontSize:"inherit"}}>R$ {money(total.returns)}</strong></p>}
                 {!pastPeriod && !closedForecast && <button
                   className="sp-text-button"
                   onClick={() => open("salesPending")}
@@ -303,7 +305,7 @@ export default function SalesProjection({
                 </button>}
               </article>
             </section>
-            <ProjectionCompanyResults rows={rows} total={total} period={period}/>
+            <ProjectionCompanyResults rows={rows} total={total} period={period} closedForecast={closedForecast}/>
             <div className="sp-bottom">
               <section className="sp-panel">
                 <div className="sp-panel-heading">
