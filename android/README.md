@@ -174,3 +174,17 @@ Corrige a política de imagens da WebView para autorizar o host exato https://ti
 - Ajuste de devolução com quantidade inicialmente em branco quando zerada, referência da retirada e botões revisados.
 - Inclui as validações atuais de reserva e o ajuste de devoluções ainda não recebidas pelo almoxarifado.
 - Mantém a assinatura e o identificador existentes. Instalar como atualização, sem desinstalar ou limpar dados. O servidor deve estar atualizado para disponibilizar as regras e os endpoints correspondentes.
+
+## Primeiro acesso — 2.2.8
+
+A interface instalada verifica `/api/session` antes de abrir o portal quando há
+conexão. Se a conta exige troca de senha, apresenta o formulário e só abre o
+portal após salvar a senha pessoal. O login nativo não armazena a senha
+provisória em “Lembrar-me”. Acesso offline continua usando os dados locais;
+as APIs mantêm a validação da troca obrigatória no servidor.
+
+Publicar primeiro a aplicação web com o endpoint GET `/api/session` e depois
+distribuir o APK 2.2.8 (código 18). A interface é empacotada no APK, portanto a
+publicação web sozinha não corrige os aplicativos já instalados. Os portais
+web técnico e vendedor já encaminham contas marcadas com
+`app_metadata.must_change_password=true` para `/alterar-senha`.

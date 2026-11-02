@@ -17,6 +17,6 @@ export default function ChangePassword(){
  <label>Confirmar nova senha<input style={{width:'100%',marginTop:6}} disabled={!ready || busy} required type="password" autoComplete="new-password" minLength={6} maxLength={128} value={confirmation} onChange={e=>setConfirmation(e.target.value)}/></label>
  {error&&<p role="alert" style={{color:'#b33842'}}>{error}</p>}
  <button disabled={!ready || busy} type="submit">{busy?'Salvando…':'Salvar nova senha'}</button>
- <button disabled={!ready || busy} type="button" onClick={async()=>{await fetch('/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'logout'})});location.assign('/login')}}>Sair</button>
+ <button disabled={!ready || busy} type="button" onClick={async()=>{await fetch('/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'logout'})});location.assign(location.pathname==='/tecnico'?'/tecnico/entrar':'/login')}}>Sair</button>
  </form></main>
 }

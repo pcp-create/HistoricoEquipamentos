@@ -1,5 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
+import NativePasswordGate from "../components/native-password-gate";
 import FieldApp from "../components/field-app";
 import "../app/globals.css";
 import "@fontsource/dm-sans/400.css";
@@ -33,6 +34,6 @@ class Boundary extends React.Component<
 }
 createRoot(document.getElementById("root")!).render(
   <Boundary>
-    <FieldApp />
+    <NativePasswordGate><FieldApp /></NativePasswordGate>
   </Boundary>,
 );

@@ -113,6 +113,7 @@ test("packaged interface persists to SQLite and opens with suspended server", as
       res.end(JSON.stringify({ id: "42" }));
       return;
     }
+    if (url.pathname === "/api/session") {res.end(JSON.stringify({mustChangePassword:false}));return;}
     if (url.pathname === "/api/field") {
       res.end(
         JSON.stringify(

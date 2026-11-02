@@ -1,5 +1,6 @@
 "use client";
 import {flowResponsible} from "@/lib/service-scheduling/flow-status";
+import SchedulePlannedDate from "./schedule-planned-date";
 import DateTimePicker from "./date-time-picker";
 import { matchesSearch } from "@/lib/filters";
 
@@ -74,8 +75,8 @@ import "./service-scheduling.css";
 import "./schedule-status-colors.css";
 const scheduleColumns = [
   ["number", "N° OS"], ["operations", "Operações"], ["customer", "Cliente"],
-  ["equipment", "Equipamento"], ["type", "Tipo / atendimento"],
-  ["status", "Status do lançamento"], ["delivery", "Entrega prevista"], ["value", "Valor da OS"], ["company", "Empresa"],
+  ["equipment", "Equipamento"], ["inWorkshop", "Equipamento em Oficina?"], ["type", "Tipo / atendimento"],
+  ["status", "Status do lançamento"], ["delivery", "Entrega prevista"], ["plannedDate", "Data Prevista Programação"], ["value", "Valor da OS"], ["company", "Empresa"],
 ] as const;
 type ScheduleSortKey = typeof scheduleColumns[number][0];
 function scheduleSortValue(s: any, key: ScheduleSortKey): string {
@@ -83,7 +84,9 @@ function scheduleSortValue(s: any, key: ScheduleSortKey): string {
     case "number": return String(s.numero_sequencia || s.order_id || "");
     case "operations": return String(s.operation_count ?? 0);
     case "customer": return s.cliente_nome || "";
+    case "plannedDate": return s.planned_date?.date || "9999-12-31";
     case "equipment": return s.equipamento || "";
+    case "inWorkshop": return s.in_workshop ? "Sim" : "Não";
     case "type": return [s.tipo_nome, s.tipo_atendimento_nome].filter(Boolean).join(" ");
     case "status": return s.status_lancamento_nome || "";
     case "value": return s.order_value || "";
@@ -394,6 +397,7 @@ export default function ServiceScheduling() {
             <p>Operações, recursos, materiais e custos dos atendimentos.</p>
           </div>
           <div className="scheduling-actions">
+            <a href="/programacao/pecas">Relatório de peças</a>
             {id && (
               <a href="/programacao">
                 <ArrowLeft size={16} />
@@ -497,11 +501,11 @@ export default function ServiceScheduling() {
                 <thead>
                   <tr>
                     {scheduleColumns.map(([key, label]) => (
-                      <th key={key} aria-sort={listSort?.key === key ? (listSort.descending ? "descending" : "ascending") : "none"}>
+                      <th key={key} className={key === "inWorkshop" ? "schedule-workshop-cell" : key === "type" ? "schedule-type-cell" : undefined} aria-sort={listSort?.key === key ? (listSort.descending ? "descending" : "ascending") : "none"}>
                         <button className="schedule-column-sort" onClick={() => setListSort(current => ({
                           key, descending: current?.key === key ? !current.descending : false,
                         }))}>
-                          {label}
+                          <span>{label}</span>
                           {listSort?.key === key
                             ? (listSort.descending ? <ArrowDown size={13} aria-hidden="true"/> : <ArrowUp size={13} aria-hidden="true"/>)
                             : <ArrowUpDown size={13} aria-hidden="true"/>}
@@ -562,7 +566,8 @@ export default function ServiceScheduling() {
                           <small className="schedule-client-location">{[s.customer_city, s.customer_state].filter(Boolean).join(" / ") || "Cidade / estado não informados"}</small>
                         </td>
                         <td>{s.equipamento || "—"}</td>
-                        <td>
+                        <td className="schedule-workshop-cell">{s.in_workshop ? "Sim" : "Não"}</td>
+                        <td className="schedule-type-cell">
                           <span>{s.tipo_nome || "—"}</span>
                           <small className="schedule-attendance-type">{s.tipo_atendimento_nome || "—"}</small>
                         </td>
@@ -572,6 +577,9 @@ export default function ServiceScheduling() {
                         <td className={dateView === "delivery" && deliveryMonth && isCarriedDelivery(s, deliveryMonth) ? "schedule-delivery-carried" : undefined}
                           title={dateView === "delivery" && deliveryMonth && isCarriedDelivery(s, deliveryMonth) ? "Entrega pendente de mês anterior, incluída na projeção acumulada" : undefined}>
                           {s.expected_delivery_date ? s.expected_delivery_date.split("-").reverse().join("/") : "Não informada"}
+                        </td>
+                        <td className="schedule-planned-date">
+                          <SchedulePlannedDate value={s.planned_date} />
                         </td>
                         <td className="schedule-order-value">{money(s.order_value)}</td>
                         <td><span className="company-tag">{companyName(s.company_id)}</span></td>

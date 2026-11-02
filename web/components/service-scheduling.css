@@ -916,3 +916,59 @@
 .schedule-overview-filters {grid-template-columns:minmax(220px,2fr) repeat(3,minmax(140px,1fr)) minmax(280px,1.3fr)}
 @media(max-width:1200px){.schedule-overview-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.schedule-overview-filters{grid-template-columns:minmax(0,1fr)}}
+
+.scheduling-orders-list th { white-space: normal; }
+.scheduling-page .scheduling-orders-list .schedule-column-sort {
+  white-space: normal;
+  line-height: 1.35;
+}
+.scheduling-orders-list .schedule-column-sort > span { max-width: 100px; }
+.scheduling-orders-list .schedule-workshop-cell { text-align: center; }
+.scheduling-page .scheduling-orders-list .schedule-workshop-cell .schedule-column-sort {
+  text-align: center;
+  justify-content: center;
+}
+
+/* Typography aligned with the sales projection/report. */
+.scheduling-heading h1 { font-size: 30px; }
+.scheduling-heading p { font-size: 13px; }
+.scheduling-page .scheduling-table table { font-size: 11px; }
+.scheduling-page .scheduling-table th { font-size: 10px; font-weight: 600; }
+.scheduling-page .scheduling-orders-list td { font-size: 11px; }
+.scheduling-page .scheduling-orders-list td small { font-size: 10px; }
+.scheduling-page .scheduling-orders-list .schedule-column-sort { font-size: inherit; }
+.scheduling-page .scheduling-orders-list .quote-order-link,
+.scheduling-page .scheduling-orders-list .company-tag,
+.scheduling-page .scheduling-orders-list .material-count { font-size: inherit; }
+
+.scheduling-page .scheduling-orders-list .schedule-type-cell {
+  min-width: 230px;
+  width: 260px;
+  white-space: normal;
+  line-height: 1.5;
+}
+.scheduling-orders-list .schedule-type-cell .schedule-attendance-type { margin-top: 5px; }
+.scheduling-page .scheduling-orders-list .schedule-planned-date { min-width: 115px; white-space: nowrap; }
+.schedule-planned-date > span { font-variant-numeric: tabular-nums; }
+.schedule-planned-date > small { display: block; margin-top: 5px; line-height: 1.5; }
+
+.scheduling-page .scheduling-orders-list .schedule-date-explanation {
+  padding: 3px 0; border: 0; background: transparent; color: #24699f;
+  font: inherit; font-variant-numeric: tabular-nums; cursor: pointer;
+  text-decoration: underline dotted; text-underline-offset: 4px;
+}
+.schedule-date-popup {
+  position: fixed; inset: auto; margin: 0; box-sizing: border-box;
+  width: 320px; max-width: calc(100vw - 24px); max-height: min(360px,70dvh);
+  overflow: auto; padding: 14px 16px; border: 1px solid #dce6ef;
+  border-radius: 10px; background: white; color: #27445f;
+  box-shadow: 0 8px 28px #18355426; font-size: 12px; line-height: 1.5;
+}
+.schedule-date-popup strong { font-size: 12px; }
+.schedule-date-popup p { margin: 8px 0 0; white-space: normal; overflow-wrap: anywhere; }
+.scheduling-page .scheduling-orders-list .schedule-date-explanation { display: inline-flex; align-items: center; gap: 7px; }
+.schedule-date-signal { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: 0 0 9px; background: #8c99a6; }
+.schedule-date-signal.is-ready { background: #198754; }
+.schedule-date-signal.is-scheduled { background: #2869ad; }
+.schedule-date-signal.is-attention { background: #c28b12; }
+.schedule-date-signal.is-overdue { background: #ca3949; }

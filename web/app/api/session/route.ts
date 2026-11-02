@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import {
   authorizedEmail,
   requireUser,
+  Unauthorized,
   authRequest,
   clearSession,
   sameOrigin,
@@ -74,5 +75,14 @@ export async function POST(request: Request) {
       { error: "Não foi possível entrar. Tente novamente." },
       { status: 503 },
     );
+  }
+}
+
+export async function GET() {
+  try {
+    const user = await requireUser(true);
+    return NextResponse.json({mustChangePassword: needsPasswordChange(user)}, {headers:{"Cache-Control":"no-store"}});
+  } catch (error) {
+    return NextResponse.json({error:"Não foi possível verificar a sessão."}, {status:error instanceof Unauthorized?401:503,headers:{"Cache-Control":"no-store"}});
   }
 }

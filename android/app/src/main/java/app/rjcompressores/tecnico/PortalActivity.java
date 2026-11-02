@@ -177,7 +177,8 @@ public class PortalActivity extends Activity {
                 if(code!=200){String message="Servidor indisponível. Tente novamente quando a conexão com o sistema for restabelecida.";try{message=new JSONObject(response).optString("error",message);}catch(Exception ignored){}c.disconnect();throw new IOException(message);}
                 for(Map.Entry<String,List<String>> header:c.getHeaderFields().entrySet())if("Set-Cookie".equalsIgnoreCase(header.getKey()))for(String cookie:header.getValue())CookieManager.getInstance().setCookie(ORIGIN,cookie);
                 CookieManager.getInstance().flush();c.disconnect();
-                try{if(saveLogin)RememberedLogin.save(this,account,secret);else RememberedLogin.clear(this);}catch(Exception ignored){RememberedLogin.clear(this);runOnUiThread(()->Toast.makeText(this,"Login realizado, mas não foi possível lembrar a senha neste aparelho.",Toast.LENGTH_LONG).show());}
+                boolean mustChangePassword=new JSONObject(response).optBoolean("mustChangePassword",false);
+                try{if(saveLogin&&!mustChangePassword)RememberedLogin.save(this,account,secret);else RememberedLogin.clear(this);}catch(Exception ignored){RememberedLogin.clear(this);runOnUiThread(()->Toast.makeText(this,"Login realizado, mas não foi possível lembrar a senha neste aparelho.",Toast.LENGTH_LONG).show());}
                 runOnUiThread(()->{if(destroyed)return;password.setText("");loginVisible=false;if(web!=null){web.destroy();web=null;}if(locationReady())showWeb();else checkLocation();});
             }catch(Exception e){runOnUiThread(()->{if(destroyed)return;error.setText(e instanceof IOException?"Não foi possível entrar. "+e.getMessage():"Não foi possível entrar. Verifique a conexão.");enter.setEnabled(true);enter.setText("Entrar");});}});
         });
