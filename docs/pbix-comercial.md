@@ -8,7 +8,7 @@ Extração local em 26/10/2026. Foram lidas consultas Power Query, expressões a
 |---|---|---|
 | fContratos | /v1/contratos/contratoservico | Todos os contratos, expansão mensal de início até final inclusive; valor dividido pelo número de meses. Sem filtro de ativo/cancelado. |
 | fFaturamento | /v1/faturamento/notafiscalvenda | Status Processado; remoção de duplicatas por ID após união das empresas; emissão em data e mês/ano. |
-| fDevolucoesOutros | /v1/faturamento/notafiscaloutra | Status Processado e outrosDocumentosOperacaoId em 30, 82, 90, 213. |
+| fDevolucoesOutros | /v1/faturamento/notafiscaloutra | Status Processado e outrosDocumentosOperacaoId em 30, 82, 90, 213, 280. |
 | fDevolucoesCompra | /v1/compras/notafiscal | Status Processado e tipoCompraDescricao contém DEVOL (sensível a maiúsculas, como no Power Query). |
 
 As quatro origens do PBIX incluem 1, 2, 24571 e 27404. A pedido do usuário, a nova rotina usa **somente 1, 2 e 27404**. Portanto, os totais não devem ser comparados com o PBIX incluindo 24571.

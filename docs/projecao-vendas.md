@@ -8,7 +8,7 @@ Tela em `/comercial/projecao`, acessível pelo módulo anteriormente chamado CRM
 - Contratos: parcelas mensais inclusivas entre início e final. Correspondência de faturamento por cliente + valor da parcela + competência, conforme CHAVE_CONTRATO/TREATAS do modelo, sem inventar correspondência pelo nome.
 - OS: `m8_ordens_servico`, uma versão por ID, priorizando a atualização mais recente. Categoria financeira COBRANÇA definida pela situação, conforme Power Query. Processadas entram pela data de faturamento; pendentes pela previsão, movendo meses vencidos para o mês atual de São Paulo. Canceladas e custos não participam.
 - Faturamento outros = notas processadas − contratos faturados − OS faturadas, antes das devoluções. É uma diferença entre bases, portanto pode ser negativo; não é rotulado como exclusivamente PV.
-- Devoluções: compras cujo tipo contém DEVOL e outros documentos das operações 30, 82, 90, 213, sempre Processado. Descontadas uma única vez do faturamento líquido.
+- Devoluções: compras cujo tipo contém DEVOL e outros documentos das operações 30, 82, 90, 213, 280, sempre Processado. Descontadas uma única vez do faturamento líquido.
 - Projeção = faturamento líquido + OS pendentes + contratos previstos − contratos faturados.
 - Metas mensais: extraídas da tabela dMetaFaturamento do PBIX, em `web/lib/sales-projection/targets.json`. Cobrem 2025/2026; outros períodos mostram meta não cadastrada. Metas são do grupo, sem divisão arbitrária por empresa.
 - Atualizar recarrega a base integrada, sem realizar novas chamadas M8. Exportação CSV respeita o mês e a empresa selecionados. Detalhes mostram os documentos, pesquisa por palavras e links de OS.
@@ -83,3 +83,14 @@ A navegação usa um único botão **Voltar à Projeção de Vendas** no Acompan
 Nas duas telas, o mês atual e meses futuros usam **A faturar** e **A buscar da meta**. Ao selecionar um mês encerrado, os títulos passam a **Saldo não realizado** e **Diferença para a meta**, com textos no passado. A tabela por empresa e o cabeçalho do CSV da Projeção de Vendas seguem a mesma nomenclatura. A identificação de mês encerrado usa o calendário de Brasília; os valores e as regras de cálculo são preservados.
 
 Para competências encerradas, **Diferença para a meta = máximo entre zero e (meta − faturado líquido)**, inclusive na comparação com a parcial de referência. Meses atuais/futuros mantêm **A buscar da meta = máximo entre zero e (meta − projeção)**. Em outubro/2026, com meta de R$ 1.600.000,00 e faturado líquido de R$ 1.488.525,86, a diferença é R$ 111.474,14.
+
+### Estorno de venda da Serrana
+
+A operação 280 (`ESTORNO DE VENDA - SERRANA`) integra as devoluções de outros
+ documentos. Exemplo de conciliação: outubro/2026, empresa 2, documento 2407,
+ R$ 19.701,00; faturamento de R$ 216.607,26 resulta em líquido de R$ 196.906,26.
+A migration `025_serrana_sales_returns.sql` mantém a view `fDevolucoesOutros`
+alinhada à aplicação. Pode ser aplicada pelo migrador do integrador ou, no
+ambiente web, com `node --env-file=.env.local --conditions=react-server --import tsx scripts/setup-serrana-returns.mts`.
+O registro já coletado é reclassificado sem nova coleta do ERP. Fotografias e
+fechamentos históricos não são regravados por essa alteração.

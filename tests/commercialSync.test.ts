@@ -253,3 +253,14 @@ test('contract collection fetches both paginated child endpoints and preserves t
   assert.equal((await db.query('SELECT * FROM "fContratos"')).rows.length,0);
  }finally{await db.close();}
 });
+
+test("reporting view includes operation 280 for Serrana and excludes unrelated operations", async () => {
+ const db=await fixture();
+ try {
+  for(const [id,operation,status,present] of [[50106,280,'Processado',true],[50175,281,'Processado',true],[50107,280,'Cancelado',true],[50108,280,'Processado',false]] as const) {
+   await db.query(`INSERT INTO m8_commercial_facts(company_id,kind,id,payload,present) VALUES(2,'fDevolucoesOutros',$1,$2,$3)`,[id,JSON.stringify({empresaId:2,documento:2407,status,emissao:'2026-10-05',totalGeral:19701,outrosDocumentosOperacaoId:operation}),present]);
+  }
+  const rows=(await db.query<any>('SELECT company_id,id,"totalGeral" FROM "fDevolucoesOutros"')).rows;
+  assert.equal(rows.length,1);assert.equal(Number(rows[0].id),50106);assert.equal(Number(rows[0].totalGeral),19701);assert.equal(rows[0].company_id,2);
+ }finally{await db.close();}
+});

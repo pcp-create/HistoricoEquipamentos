@@ -147,7 +147,7 @@ export function projection(
       (f.kind === "fDevolucoesCompra" &&
         String(p.tipoCompraDescricao).includes("DEVOL")) ||
       (f.kind === "fDevolucoesOutros" &&
-        [30, 82, 90, 213].includes(Number(p.outrosDocumentosOperacaoId)))
+        [30, 82, 90, 213, 280].includes(Number(p.outrosDocumentosOperacaoId)))
     ) {
       r.returns += value;
       details.push({

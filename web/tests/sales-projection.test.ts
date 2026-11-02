@@ -131,3 +131,21 @@ test("deleted ERP orders never contribute to pending or billed sales",()=>{
  const result=projection([],orders,"2026-10","2026-10-30");
  assert.equal(result.details.filter(d=>d.kind.startsWith("sales")).length,0);
 });
+
+ test("Serrana sales reversal 280 deducts once; unrelated and invalid documents stay excluded", () => {
+  const reversal = { totalGeral: 19701, emissao: "2026-10-05", outrosDocumentosOperacaoId: 280 };
+  const facts = [
+    fact("invoice", "fFaturamento", 2, {totalGeral: 216607.26}),
+    fact("50106", "fDevolucoesOutros", 2, reversal),
+    fact("unrelated", "fDevolucoesOutros", 2, {...reversal, outrosDocumentosOperacaoId: 281}),
+    fact("cancelled", "fDevolucoesOutros", 2, {...reversal, status: "Cancelado"}),
+    fact("deleted", "fDevolucoesOutros", 2, {...reversal, estaExcluido: true}),
+    fact("next-month", "fDevolucoesOutros", 2, {...reversal, emissao: "2026-11-05"}),
+  ];
+  const result=projection(facts, [], "2026-10", "2026-10-31");
+  const row=result.rows.find(row=>row.company===2)!;
+  assert.equal(row.returns,19701);
+  assert.equal(row.billed,196906.26);
+  assert.equal(row.projection,196906.26);
+  assert.deepEqual(result.details.filter(row=>row.kind==='returns').map(row=>row.id),['50106']);
+ });
