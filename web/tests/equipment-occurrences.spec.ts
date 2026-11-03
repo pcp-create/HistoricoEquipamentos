@@ -14,8 +14,11 @@ test("B.O registration selects equipment and expands complete record on mobile",
   const equipment = { id: "100", name: "COMPRESSOR TECHTO", serial: "4074" };
   const items: any[] = [];
   let saved: any;
+  let deleteCalls=0;
+  let canDelete=true;
   await page.route("**/api/equipment-occurrences*", async (r) => {
     const p = new URL(r.request().url()).searchParams;
+    if(r.request().method()==='DELETE'){deleteCalls++;items.splice(0,items.length);return r.fulfill({json:{deleted:true}});}
     if (r.request().method() === "POST") {
       saved = r.request().postDataJSON();
       items.unshift({
@@ -32,7 +35,7 @@ test("B.O registration selects equipment and expands complete record on mobile",
       return r.fulfill({ status: 201, json: { id: "bo1" } });
     }
     return r.fulfill({
-      json: p.has("q") ? { equipment: [equipment] } : { items },
+      json: p.has("q") ? { equipment: [equipment] } : { items,canDelete },
     });
   });
   await page.goto("/modulos/operacoes");
@@ -68,4 +71,12 @@ test("B.O registration selects equipment and expands complete record on mobile",
     ),
   ).toBe(true);
   await page.screenshot({ path: "/tmp/bo-mobile.png", fullPage: true });
+  const trash=page.getByRole('button',{name:'Excluir B.O: Vazamento na conexão',exact:true});
+  await expect(trash).toBeVisible();
+  canDelete=false;await page.reload();await page.locator('.bo-item summary').click();
+  await expect(trash).toHaveCount(0);
+  canDelete=true;await page.reload();await page.locator('.bo-item summary').click();
+  page.once('dialog',d=>d.dismiss());await trash.click();expect(deleteCalls).toBe(0);await expect(page.locator('.bo-item')).toHaveCount(1);
+  page.once('dialog',d=>d.accept());await trash.click();await expect(page.locator('.bo-item')).toHaveCount(0);expect(deleteCalls).toBe(1);await expect(page.getByRole('status')).toHaveText('B.O excluído.');
+
 });

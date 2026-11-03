@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 test('report stays inside operation screen and retains draft when returning to menu',async({page,context})=>{
+ const keyWarnings:string[]=[];page.on('console',message=>{if(/Each child in a list|same key/.test(message.text()))keyWarnings.push(message.text());});
  await page.clock.install();
  await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
  await context.grantPermissions(['geolocation']);await context.setGeolocation({latitude:-27,longitude:-49});
@@ -46,4 +47,5 @@ operation.version++;await r.fulfill({json:{saved:true}});}else {if(r.request().u
  release();
  await expect(page.getByRole('status',{name:'Carregando relatório',exact:true})).toBeHidden();
  await expect(report.getByLabel('Relatório técnico',{exact:true})).toBeEnabled();
+ expect(keyWarnings).toEqual([]);
 });

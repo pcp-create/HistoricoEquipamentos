@@ -119,3 +119,38 @@ export async function createOperationOccurrence(
     );
   return createOccurrence(c, input, email);
 }
+
+export async function deleteOccurrence(c: any, id: unknown, email: string) {
+  const { Forbidden } = await import("../auth");
+  const access = (
+    await c.query("SELECT role,enabled FROM web_user_access WHERE email=$1", [
+      email,
+    ])
+  ).rows[0];
+  if (!access?.enabled || access.role !== "admin") throw new Forbidden();
+  if (
+    typeof id !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+  )
+    throw new OccurrenceInputError("B.O inválido.");
+  const removed = (
+    await c.query(
+      "DELETE FROM web_equipment_occurrences WHERE id=$1 RETURNING *",
+      [id],
+    )
+  ).rows[0];
+  if (!removed)
+    throw new OccurrenceInputError("B.O não encontrado ou já excluído.");
+  await c.query(
+    "INSERT INTO web_access_events(event,email,actor,details) VALUES('equipment_occurrence_deleted',$1,$1,$2)",
+    [
+      email,
+      JSON.stringify({
+        occurrenceId: id,
+        equipmentId: String(removed.equipment_id),
+        before: removed,
+      }),
+    ],
+  );
+  return { deleted: true, id };
+}

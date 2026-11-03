@@ -3,6 +3,15 @@ import { useEffect, useState } from "react";
 import { Plus, Search, ArrowLeft, ListFilter } from "lucide-react";
 import SiteHeader from "./site-header";
 import EquipmentOccurrenceList from "./equipment-occurrence-list";
+async function removeOccurrence(item: any) {
+  const response = await fetch(
+    "/api/equipment-occurrences?id=" + encodeURIComponent(item.id),
+    { method: "DELETE" },
+  );
+  const body = await response.json();
+  if (!response.ok)
+    throw Error(body.error || "Não foi possível excluir o B.O.");
+}
 export function EquipmentOccurrenceHistory({
   equipmentId,
 }: {
@@ -10,7 +19,8 @@ export function EquipmentOccurrenceHistory({
 }) {
   const [items, setItems] = useState<any[]>([]),
     [error, setError] = useState(""),
-    [loading, setLoading] = useState(true);
+    [loading, setLoading] = useState(true),
+    [canDelete, setCanDelete] = useState(false);
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -23,7 +33,10 @@ export function EquipmentOccurrenceHistory({
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw Error(d.error);
-        if (active) setItems(d.items);
+        if (active) {
+          setItems(d.items);
+          setCanDelete(d.canDelete === true);
+        }
       })
       .catch((e) => {
         if (active) setError(e.message);
@@ -44,7 +57,17 @@ export function EquipmentOccurrenceHistory({
       ) : (
         <>
           {!items.length && !error && <p>Nenhuma ocorrência registrada.</p>}
-          <EquipmentOccurrenceList items={items} />
+          <EquipmentOccurrenceList
+            items={items}
+            onDelete={
+              canDelete
+                ? async (b) => {
+                    await removeOccurrence(b);
+                    setItems((v) => v.filter((item) => item.id !== b.id));
+                  }
+                : undefined
+            }
+          />
           <a href={"/bo?equipment=" + encodeURIComponent(equipmentId)}>
             Registrar ou consultar B.O
           </a>
@@ -54,6 +77,7 @@ export function EquipmentOccurrenceHistory({
   );
 }
 export default function EquipmentOccurrences() {
+  const [canDelete, setCanDelete] = useState(false);
   const [query, setQuery] = useState(""),
     [matches, setMatches] = useState<any[]>([]),
     [equipment, setEquipment] = useState<any>(null),
@@ -108,7 +132,10 @@ export default function EquipmentOccurrences() {
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw Error(d.error);
-        if (active) setItems(d.items || []);
+        if (active) {
+          setItems(d.items || []);
+          setCanDelete(d.canDelete === true);
+        }
       })
       .catch((e) => {
         if (active) setError(e.message);
@@ -229,7 +256,10 @@ export default function EquipmentOccurrences() {
           )}
           {equipment && (
             <div className="bo-selected-equipment">
-              <div className="bo-selected-equipment-info"><strong>{equipment.name}</strong><small>Série: {equipment.serial || "não informada"}</small></div>
+              <div className="bo-selected-equipment-info">
+                <strong>{equipment.name}</strong>
+                <small>Série: {equipment.serial || "não informada"}</small>
+              </div>
               <button
                 className="bo-show-all"
                 type="button"
@@ -239,7 +269,8 @@ export default function EquipmentOccurrences() {
                   setForm(false);
                 }}
               >
-                <ListFilter size={17} aria-hidden="true"/>Ver todas as ocorrências
+                <ListFilter size={17} aria-hidden="true" />
+                Ver todas as ocorrências
               </button>
             </div>
           )}
@@ -297,7 +328,18 @@ export default function EquipmentOccurrences() {
           ) : (
             <>
               {!items.length && <p>Nenhuma ocorrência registrada.</p>}
-              <EquipmentOccurrenceList items={items} />
+              <EquipmentOccurrenceList
+                items={items}
+                onDelete={
+                  canDelete
+                    ? async (b) => {
+                        await removeOccurrence(b);
+                        setItems((v) => v.filter((item) => item.id !== b.id));
+                        setMessage("B.O excluído.");
+                      }
+                    : undefined
+                }
+              />
               {!equipment && items.length === 100 && (
                 <p>
                   Exibindo as 100 ocorrências mais recentes. Selecione um

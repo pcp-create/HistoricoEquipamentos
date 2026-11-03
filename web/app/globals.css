@@ -4406,3 +4406,9 @@ body .badge i,body .sales-profile-status i { --status-signal-color:currentColor;
 .bo-page .bo-show-all:hover:not(:disabled) { background: #edf5fc; border-color: #9ebfda; }
 .bo-page .bo-show-all:focus-visible { outline: 2px solid #246297; outline-offset: 3px; }
 @media(max-width:600px) { .bo-selected-equipment { flex-direction: column; align-items: flex-start; gap: 14px; } }
+
+.bo-record-footer{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.bo-record-footer small{min-width:0;overflow-wrap:anywhere}
+.bo-list .bo-record-footer .bo-delete{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;min-width:36px;min-height:36px;margin:0;padding:7px;border:0;background:transparent;color:#bd3342;cursor:pointer;font:inherit;font-size:12px;box-shadow:none}
+.bo-list .bo-record-footer .bo-delete:hover:not(:disabled){color:#932333;background:transparent}
+.bo-delete:focus-visible{outline:2px solid #bd3342;outline-offset:2px;border-radius:6px}

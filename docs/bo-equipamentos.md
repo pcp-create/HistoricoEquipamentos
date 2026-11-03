@@ -30,3 +30,7 @@ No menu da operação, o botão **Registrar B.O** abre um formulário dentro do 
 ### Equipamento informado diretamente na OS
 
 A consulta e o cadastro pelo técnico também consideram o `produto_equipamento_id` da OS quando a operação não especifica um equipamento. Isso resolve o caso da OS 15211 (empresa 1, equipamento 21956, série 43326), que possui equipamento válido no ERP e ainda não possui vínculo na tabela auxiliar. A identificação continua restrita ao catálogo de equipamentos existente, sem promoção de produtos. Os B.Os dessa máquina também entram em Informações da operação.
+
+## Exclusão pelo administrador no portal web
+
+Ao abrir a ocorrência completa, o administrador encontra o ícone de lixeira ao lado dos dados de registro. A exclusão exige confirmação e nova validação de permissão no servidor. Usuários comuns e gestores não podem excluir, mesmo chamando a API diretamente. A ocorrência é removida das consultas do equipamento e das operações; o conteúdo anterior e o administrador responsável ficam registrados em `web_access_events`, na mesma transação da exclusão. Cópias offline já baixadas deixam de exibir o B.O após sincronização dos dados da operação. Não requer migração adicional.
