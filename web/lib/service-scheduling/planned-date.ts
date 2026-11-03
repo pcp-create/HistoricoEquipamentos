@@ -26,14 +26,22 @@ export function plannedDate(input:{schedule:any;materials:any[];external:any[];c
   const q=Number(m.quantidade),withdrawn=Number(m.withdrawn||0);
   if(m.quantidade==null||!Number.isFinite(q)||q<0||m.quantity_inconsistency){blockers.push(`${m.produto_nome||m.produto_id}: quantidade a conferir`);continue;}
   const old=grouped.get(key);const needed=Math.max(0,q-withdrawn);
-  grouped.set(key,{...m,needed:(old?.needed||0)+needed});
+  grouped.set(key,{...m,needed:(old?.needed||0)+needed,orders:[...(old?.orders||[]),String(m.item_order ?? schedule.order_id)]});
  }
  for(const m of grouped.values()){
   if(m.needed<=0)continue;
   const label=m.produto_nome||`Material ${m.produto_id||'sem código'}`;
   const c=m.current,stock=Number(c?.available);
   if(c?.available==null||!c?.available_at||!Number.isFinite(stock)||!sameUnit(m.unidade_nome,c?.unit)){blockers.push(`${label}: estoque disponível ou unidade não confirmados`);continue;}
-  const shortage=m.needed-Math.max(0,stock);if(shortage<=0.000001)continue;
+  // Available excludes reservations. The ERP supplies order IDs but no
+  // reserved quantities: reclaim physical stock only for exclusive own reservations.
+  const reservations=c.reserved_orders;
+  const ownReservation=Array.isArray(reservations)&&reservations.length>0&&reservations.every((r:any)=>
+   String(r.company_id)===String(m.item_company)&&m.orders.includes(String(r.order_id)));
+  const physical=Number(c.stock);
+  const usable=ownReservation&&c.stock!=null&&c.stock_at&&Number.isFinite(physical)
+   ?Math.max(0,physical):Math.max(0,stock);
+  const shortage=m.needed-usable;if(shortage<=0.000001)continue;
   const p=m.purchases,groups=(p?.groups||[]).filter((g:any)=>sameUnit(m.unidade_nome,g.unit));
   if(!p?.imported||!p.complete){blockers.push(`${label}: coleta de compras incompleta`);continue;}
   if(groups.reduce((n:number,g:any)=>n+Number(g.quantity||0),0)+0.000001<shortage){blockers.push(`${label}: compra pendente insuficiente ou inexistente`);continue;}

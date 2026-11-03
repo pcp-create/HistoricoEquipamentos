@@ -41,3 +41,18 @@ test('repeated materials share stock and purchases do not mix units',()=>{
  assert.equal(plannedDate({...base,materials:[m,m]}).source,'unknown');
  assert.equal(plannedDate({...base,materials:[{...material,unidade_nome:'L'}]}).source,'unknown');
 });
+
+test('OS 15128 can use physical stock reserved exclusively for itself',()=>{
+ const m={...material,item_order:'15128',quantidade:1,current:{...material.current,stock:'1',stock_at:'2026-11-03',reserved_orders:[{company_id:1,order_id:'15128'}]},purchases:{...material.purchases,groups:[]}};
+ const r=plannedDate({...base,today:'2026-11-03',materials:[m]});
+ assert.equal(r.date,'2026-11-04');assert.equal(r.requiresAttention,false);
+ for(const current of [
+ {...m.current,reserved_orders:[{company_id:1,order_id:'999'}]},
+ {...m.current,reserved_orders:[{company_id:1,order_id:'15128'},{company_id:1,order_id:'999'}]},
+ {...m.current,reserved_orders:[{company_id:2,order_id:'15128'}]},
+ {...m.current,stock:null},
+ {...m.current,stock_at:null},
+ {...m.current,stock:'0'},
+ ])assert.equal(plannedDate({...base,materials:[{...m,current}]}).source,'unknown');
+ assert.equal(plannedDate({...base,materials:[m,m]}).source,'unknown');
+});
