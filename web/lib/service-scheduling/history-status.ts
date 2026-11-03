@@ -5,18 +5,19 @@ import {displayedScheduleStatus} from "./display-status";
 export async function historyScheduleStatuses(rows:{company_id:string|number;id:string|number;status:string|null}[]) {
   const keys=[...new Map(rows.map(row=>[`${row.company_id}:${row.id}`,{company_id:row.company_id,order_id:row.id}])).values()];
   if(!keys.length)return new Map<string,{status:string;label:string;id?:string}>();
-  const operations=(await database().query(`SELECT s.id::text schedule_id,s.company_id::text,s.order_id::text,p.id,p.status,
+  const operations=(await database().query(`SELECT s.id::text schedule_id,s.company_id::text,s.order_id::text,to_jsonb(s)->>'release_kind' AS release_kind,p.id,p.status,
     p.document->>'date' AS date,p.document->>'time' AS time,p.document->>'responsible' AS responsible
     FROM web_service_schedules s JOIN jsonb_to_recordset($1::jsonb) AS k(company_id bigint,order_id bigint)
       ON k.company_id=s.company_id AND k.order_id=s.order_id
     LEFT JOIN web_service_operations p ON p.schedule_id=s.id WHERE s.active`,[JSON.stringify(keys)])).rows;
   const ids=new Map<string,string>();
+  const releases=new Map<string,string>();
   const grouped=new Map<string,Record<string,number>>();
   for(const op of operations){const key=`${op.company_id}:${op.order_id}`,counts=grouped.get(key)||{};
-    if(op.id){const status=effectiveOperationStatus(op.status,op);counts[status]=(counts[status]||0)+1;}grouped.set(key,counts);ids.set(key,op.schedule_id);
+    if(op.id){const status=effectiveOperationStatus(op.status,op);counts[status]=(counts[status]||0)+1;}grouped.set(key,counts);ids.set(key,op.schedule_id);releases.set(key,op.release_kind);
   }
   return new Map(rows.map(row=>{const key=`${row.company_id}:${row.id}`,counts=grouped.get(key);
-    const status=counts?displayedScheduleStatus({order_status:row.status,programming_status:scheduleStatus(counts)}):'none';
+    const status=counts?displayedScheduleStatus({order_status:row.status,programming_status:scheduleStatus(counts),release_kind:releases.get(key)}):'none';
     return [key,{status,id:ids.get(key),label:status==='none'?'Sem programação':scheduleStatusNames[status]||status}];
   }));
 }

@@ -11,7 +11,9 @@ test('history uses scheduling rules and isolates orders by company',async()=>{
   INSERT INTO web_service_operations VALUES(1,1,'pending','{"date":"2026-10-25","time":"08:00","responsible":"user"}'),(2,2,'executing','{}'),(3,4,'completed','{}');`);
   const result=await historyScheduleStatuses([{company_id:1,id:7,status:'Pendente'},{company_id:2,id:7,status:'Pendente'},{company_id:1,id:8,status:'Pendente'},{company_id:1,id:9,status:'Pendente'}]);
   assert.equal(result.get('1:7')?.id,'1');assert.equal(result.get('1:7')?.label,'Programado');assert.equal(result.get('2:7')?.label,'Em Execução');
-  assert.equal(result.get('1:8')?.label,'Sem programação');assert.equal(result.get('1:9')?.label,'Revisada');
+  assert.equal(result.get('1:8')?.label,'Sem programação');assert.equal(result.get('1:9')?.label,'Aguardando Revisão');
+  await db.exec("ALTER TABLE web_service_schedules ADD COLUMN release_kind text;UPDATE web_service_schedules SET release_kind='internal' WHERE id=4");
+  const released=await historyScheduleStatuses([{company_id:1,id:9,status:'Pendente'}]);assert.equal(released.get('1:9')?.label,'Revisada');
   const completed=await historyScheduleStatuses([{company_id:1,id:9,status:'Processado'}]);assert.equal(completed.get('1:9')?.label,'Concluída');
  } finally {(globalThis as any).historyPool=previous;await db.close();}
 });

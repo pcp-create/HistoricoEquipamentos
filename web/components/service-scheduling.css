@@ -1014,3 +1014,10 @@
   font: inherit; font-variant-numeric: tabular-nums; cursor: pointer;
   text-decoration: underline dotted; text-underline-offset: 4px;
 }
+
+/* Keep date placeholders clear of the calendar control in compact operation cells. */
+.operations-table > tbody > tr > td .date-time-editable > input:not([type=checkbox]):not([type=radio]) {
+  --field-font-size: 13px;
+  --field-padding: 4px 36px 4px 10px;
+  font-variant-numeric: tabular-nums;
+}

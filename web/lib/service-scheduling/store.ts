@@ -1,6 +1,6 @@
 import {handoffOperation} from './workflow';
 import {attachPlannedDates} from "./planned-date-store";
-import {isCancelledOrder} from "./display-status";
+import {isCancelledOrder,displayedScheduleStatus,displayedOperationStatus,displayedOperationCounts} from "./display-status";
 import {historyScheduleStatuses} from "./history-status";
 import {withPurchaseBalances} from "./purchase-balances";
 import {readTaskLists,mutateTaskList} from "./task-lists";
@@ -135,11 +135,11 @@ export async function schedulingData(scheduleId: string | null, email: string) {
         }
         return {
         ...s,
-        operation_status_counts: counts,
-        programming_status: ['reviewed','completed'].includes(scheduleStatus(counts))&&!s.release_kind?'release_pending':scheduleStatus(counts),
+        operation_status_counts: displayedOperationCounts(s,counts),
+        programming_status: displayedScheduleStatus({...s,programming_status:scheduleStatus(counts)}),
         calendar_operations: (s.calendar_operations || []).map((operation: any) => {
           const allocation = operationCalendarAllocation(operation, settings.document.calendars.find((calendar: any) => calendar.id === (operation.calendarId || "standard")));
-          return { ...operation, allocation, dates: allocation.length ? allocation.map(day => day.date) : [operation.date || ""] };
+          return { ...operation, display_status: displayedOperationStatus(s,operation.status), allocation, dates: allocation.length ? allocation.map(day => day.date) : [operation.date || ""] };
         }),
       };}),
     };
@@ -195,7 +195,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
     schedule,
     detail: combinedDetail,
     linked_detail_incomplete: !!link?.linked_order_id && !linkedDetail?.detail_at,
-    operations: operations.rows.map(operation => ({...operation, status: effectiveOperationStatus(operation.status, operation.document)})),
+    operations: operations.rows.map(operation => ({...operation, status: effectiveOperationStatus(operation.status, operation.document),display_status:displayedOperationStatus(schedule,effectiveOperationStatus(operation.status,operation.document))})),
     timeAdjustmentsAvailable,
     requests: timeRequests.rows,
     fieldSessions: fieldSessions.rows,

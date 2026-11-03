@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.9
+# Portal Técnico RJ — APK 2.2.10
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -202,3 +202,9 @@ O pacote 2.2.9 também apresenta os B.Os do equipamento em Informações da oper
 Download da versão 2.2.9: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.9
 
 Inclui o botão Registrar B.O no menu da operação. O equipamento é obtido da programação, dos vínculos válidos ou do equipamento informado diretamente na OS, como no caso da OS 15211.
+
+## Fotos obrigatórias — 2.2.10
+
+Versão 2.2.10 (código 20): o botão e o ícone de adicionar fotos ficam vermelhos quando falta a foto obrigatória de um item NOK. O destaque desaparece após anexar a foto ou alterar a resposta para uma opção que não exige foto. A alteração exige atualizar o APK, pois a interface é empacotada. Preserva assinatura e dados do aplicativo.
+
+Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.10
