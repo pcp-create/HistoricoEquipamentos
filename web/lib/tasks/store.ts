@@ -1,3 +1,4 @@
+import {releaseSchedule} from '../service-scheduling/release';
 import {recordWorkshopTaskEvent} from "../workshop/task-history";
 import {repairOrderReportTasks} from "./order-task-repair";
 import { assertTaskAccess, taskAdministrator, restrictedTaskSummary } from "./privacy";
@@ -329,7 +330,7 @@ export async function taskDetail(id: string, user?: AuthUser) {
         suffix,
     );
   }
-  return { task, notes, attachments, notifications, canDecideApproval: task.task_type === "approval" && task.approval_state === "pending" && task.assigned_to === user?.email, canCloseApproval: task.task_type === "approval" && task.approval_state !== "pending" && task.created_by === user?.email && task.status !== "completed" };
+  return { task, notes, attachments, notifications, approvalCorrection:task.task_type==='approval'?(await database().query("SELECT id::text FROM web_tasks t WHERE to_jsonb(t)->>'approval_parent_id'=$1::text",[id])).rows[0]?.id:null, canRetryApproval:task.task_type==='approval'&&task.approval_state==='rejected'&&task.created_by===user?.email, canDecideApproval: task.task_type === "approval" && task.approval_state === "pending" && task.assigned_to === user?.email, canCloseApproval: task.task_type === "approval" && task.approval_state !== "pending" && task.created_by === user?.email && task.status !== "completed" };
 }
 export async function updateTask(body: any, user: AuthUser, transaction?: PoolClient) {
   const id = idValue(body?.id);
@@ -343,6 +344,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
       await c.query("SELECT pg_advisory_xact_lock(724026)");
     if (body.action === "move")
       await c.query("SELECT pg_advisory_xact_lock(81021,1)");
+    await c.query("SELECT pg_advisory_xact_lock(728001)");
     const t = (
       await c.query("SELECT * FROM web_tasks WHERE id=$1 FOR UPDATE", [id])
     ).rows[0];
@@ -357,8 +359,20 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
         "A tarefa foi atualizada. Recarregue antes de salvar.",
       );
     if(t.source_key.startsWith('time-request:')&&['move','reopen','update','stage'].includes(body.action))throw new TaskInputError('Esta tarefa deve ser analisada pelo botão Aprovar Solicitação ou Rejeitar Solicitação.');
-    if(t.task_type === 'approval' && !['approval_decide','approval_close'].includes(body.action))throw new TaskInputError('Utilize as ações do fluxo de aprovação.');
-    if (body.action === 'approval_decide') {
+    if(t.task_type === 'approval' && !['approval_decide','approval_close','approval_retry'].includes(body.action))throw new TaskInputError('Utilize as ações do fluxo de aprovação.');
+    if(body.action==='approval_retry'){
+      if(t.task_type!=='approval'||t.approval_state!=='rejected')throw new TaskInputError('Somente aprovações reprovadas podem gerar uma correção.');
+      if(t.created_by!==user.email)throw new Forbidden();
+      if(typeof body.description!=='string'||!body.description.trim()||body.description.length>10000)throw new TaskInputError('Descreva a correção solicitada na recusa.');
+      let child=(await c.query('SELECT id FROM web_tasks WHERE approval_parent_id=$1',[id])).rows[0];
+      if(!child){
+        const result=await createTask({taskType:'approval',title:('Correção · '+t.title).slice(0,160),description:`Correção da TAR-${id}\nMotivo da recusa: ${t.approval_reason}\n\n${body.description.trim()}`,assignedTo:t.approval_approver,priority:t.priority,dueDate:'',...(t.order_id?{orderId:String(t.order_id),orderCompany:String(t.order_company)}:{})},user,c);
+        child=result.task;
+        await c.query('UPDATE web_tasks SET approval_parent_id=$2 WHERE id=$1',[child.id,id]);
+        await recordNote(c,id,'Nova solicitação corrigida',`Nova análise: /tarefas?task=${child.id} (TAR-${child.id}). Correção: ${body.description.trim()}`,user);
+        await recordNote(c,child.id,'Vinculada à solicitação reprovada',`Solicitação anterior: /tarefas?task=${id} (TAR-${id}). Reprovação preservada: ${t.approval_reason}`,user);
+      }
+    }else if (body.action === 'approval_decide') {
       if(t.task_type!=='approval'||t.approval_state!=='pending'||t.status==='completed')throw new TaskConflict('Esta solicitação já foi decidida ou não é uma aprovação.');
       if(t.assigned_to!==user.email||t.approval_approver!==user.email)throw new Forbidden();
       if(!['approved','rejected'].includes(body.decision))throw new TaskInputError('Decisão inválida.');
@@ -566,6 +580,11 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
         );
       if (changed && !assigned) await c.query("INSERT INTO web_task_notifications(task_id,task_version,recipient,kind,assignment_reason) SELECT $1,$2,u.email,'assignment',$3 FROM web_user_access u WHERE u.email=ANY($4::text[]) ON CONFLICT DO NOTHING",[id,t.version+1,reason,t.followers || []]);
     } else throw new TaskInputError("Operação inválida.");
+    if(body.action==='stage'&&(await c.query("SELECT to_regclass('public.web_service_operation_workflows') IS NOT NULL available")).rows[0]?.available){
+      const workflow=(await c.query('SELECT w.operation_id,p.schedule_id,s.name FROM web_service_operation_workflows w JOIN web_service_operations p ON p.id=w.operation_id JOIN web_task_stages s ON s.id=$2 WHERE w.task_id=$1',[id,body.stageId])).rows[0];
+      const stage=workflow?.name?.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+      if(stage==='liberado para baixa interna'||stage==='liberado para faturamento')await releaseSchedule(c,String(workflow.schedule_id),user.email,stage.endsWith('faturamento')?'billing':'internal',t.assigned_to||user.email);
+    }
     await c.query(
       "UPDATE web_tasks SET updated_at=now(),updated_by=$2,version=version+1 WHERE id=$1",
       [id, user.email],
@@ -577,10 +596,10 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
   } finally {
     if (!transaction) c.release();
   }
-  if (transaction) return { task: (await c.query("SELECT id,status FROM web_tasks WHERE id=$1", [id!])).rows[0], notes: [], attachments: [], notifications: [], canDecideApproval:false, canCloseApproval:false };
+  if (transaction) return { task: (await c.query("SELECT id,status FROM web_tasks WHERE id=$1", [id!])).rows[0], notes: [], attachments: [], notifications: [], approvalCorrection:null,canRetryApproval:false,canDecideApproval:false, canCloseApproval:false };
   if (body.action === "update" && body.restricted === true && !(await taskAdministrator(user.email, transaction))) {
     const task = (await database().query("SELECT id,status,kanban_column FROM web_tasks WHERE id=$1",[id])).rows[0];
-    return {task:restrictedTaskSummary(task),notes:[],attachments:[],notifications:[],canDecideApproval:false,canCloseApproval:false};
+    return {task:restrictedTaskSummary(task),notes:[],attachments:[],notifications:[],approvalCorrection:null,canRetryApproval:false,canDecideApproval:false,canCloseApproval:false};
   }
   return taskDetail(id, user);
 }
@@ -749,8 +768,8 @@ export async function createTask(body: any, user: AuthUser, transaction?: PoolCl
   } finally {
     if (!transaction) c.release();
   }
-  if (transaction) return { task: (await c.query("SELECT id,status FROM web_tasks WHERE id=$1", [id!])).rows[0], notes: [], attachments: [], notifications: [], canDecideApproval:false, canCloseApproval:false };
-  if (body.restricted && !(await taskAdministrator(user.email, transaction))) return { task: restrictedTaskSummary({id:id!,status:"not_started"}), notes:[],attachments:[],notifications:[],canDecideApproval:false,canCloseApproval:false };
+  if (transaction) return { task: (await c.query("SELECT id,status FROM web_tasks WHERE id=$1", [id!])).rows[0], notes: [], attachments: [], notifications: [], approvalCorrection:null,canRetryApproval:false,canDecideApproval:false, canCloseApproval:false };
+  if (body.restricted && !(await taskAdministrator(user.email, transaction))) return { task: restrictedTaskSummary({id:id!,status:"not_started"}), notes:[],attachments:[],notifications:[],approvalCorrection:null,canRetryApproval:false,canDecideApproval:false,canCloseApproval:false };
   return taskDetail(id!, user);
 }
 

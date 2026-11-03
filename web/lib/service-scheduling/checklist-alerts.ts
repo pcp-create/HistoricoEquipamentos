@@ -1,10 +1,10 @@
-import { requiresAlertComment, stagesOf } from './checklists';
+import { effectiveAlertOptions, stagesOf } from './checklists';
 export type ChecklistAlert = {stageId:string;fieldId:string;stage:string;label:string;value:string;comment?:string};
 export function checklistAlerts(run:any):ChecklistAlert[] {
  if(!run?.template)return [];
  return stagesOf(run.template).flatMap(stage=>stage.fields.flatMap(field=>{
   const value=run.stages?.[stage.id]?.answers?.[field.id];
-  return requiresAlertComment(field,value)
+  return effectiveAlertOptions(field).includes(value)
    ? [{stageId:stage.id,fieldId:field.id,stage:stage.name,label:field.label,value,comment:run.stages?.[stage.id]?.details?.[field.id]?.comment||''}] : [];
  }));
 }

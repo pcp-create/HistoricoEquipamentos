@@ -3,6 +3,7 @@ test("mobile technician confirms pieces before starting work with location", asy
   page,
   context,
 }) => {
+  test.setTimeout(90000);
   await context.addCookies([
     { name: "m8-access", value: "test", domain: "localhost", path: "/" },
   ]);
@@ -27,6 +28,9 @@ test("mobile technician confirms pieces before starting work with location", asy
   let infoRead = false;
   let active: any = null;
   const actions: any[] = [];
+  const bos:any[]=[{id:'bo1',equipment_name:'Compressor GA110',serial:'A001',occurred_on:'2026-09-28',title:'Vazamento no conjunto',description:'Conferir a conexão de retorno antes da partida.',author:'Planejador',created_at:'2026-09-28T12:00:00Z'}];
+  let savedBo:any;
+  await page.route('**/api/equipment-occurrences',async r=>{savedBo=r.request().postDataJSON();bos.push({id:'bo2',equipment_name:'Compressor GA110',serial:'A001',occurred_on:savedBo.occurredOn,title:savedBo.title,description:savedBo.description,author:'Técnico',created_at:'2026-09-29T12:00:00Z'});await r.fulfill({status:201,json:{id:'bo2'}});});
   await page.route("**/api/activity", (r) => r.fulfill({ json: {} }));
   await page.route("**/api/field*", async (r) => {
     if (r.request().method() === "POST") {
@@ -51,6 +55,8 @@ test("mobile technician confirms pieces before starting work with location", asy
       json: r.request().url().includes("?")
         ? {
             checked, infoRead,
+            occurrenceEquipment:[{id:'100',name:'Compressor GA110',serial:'A001'}],
+            equipmentOccurrences:bos,
             operation: {
               ...row,
               document: {
@@ -93,6 +99,10 @@ test("mobile technician confirms pieces before starting work with location", asy
   ).toBeDisabled();
   await expect(page.getByRole("button", { name: "Peças", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Informações", exact: true }).click();
+  await expect(page.getByRole('heading',{name:'B.O do equipamento (1)'})).toBeVisible();
+  await expect(page.locator('.bo-item summary')).toContainText('28/09/2026');
+  await page.locator('.bo-item summary').click();
+  await expect(page.locator('.bo-complete')).toContainText('Conferir a conexão de retorno antes da partida.');
   await page.getByRole("button", { name: "Li e compreendi as informações" }).click();
   await page.getByRole("button", { name: "Peças", exact: true }).click();
   await page.getByRole("checkbox", {name:/Conferi as peças/}).check();
@@ -122,7 +132,16 @@ test("mobile technician confirms pieces before starting work with location", asy
   const bounds=await light.boundingBox();
   expect(bounds?.width).toBe(10);
   expect(bounds?.height).toBe(10);
-  await page.screenshot({ path: "/tmp/field-pilot.png", fullPage: true });
+  await page.getByRole('button',{name:'Registrar B.O',exact:true}).click();
+  await expect(page.getByRole('combobox',{name:'Equipamento',exact:true})).toHaveValue('100');
+  await page.getByLabel('Título',{exact:true}).fill('Ruído na partida');
+  await page.getByLabel('Descrição da ocorrência').fill('Verificar o acoplamento antes da próxima partida.');
+  await page.getByRole('button',{name:'Salvar B.O',exact:true}).click();
+  expect(savedBo.operationId).toBe('op1');expect(savedBo.equipmentId).toBe('100');
+  await expect(page.getByRole('heading',{name:'B.O do equipamento (2)'})).toBeVisible();
+  await expect(page.getByText('Ruído na partida',{exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({ path: "/tmp/field-bo-menu.png", fullPage: true });
 });
 
 test('report fills the phone viewport, keeps drafts when returning and saves all stages',async({page,context})=>{

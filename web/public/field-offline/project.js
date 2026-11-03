@@ -6,6 +6,10 @@ function projectField(home, detail, body) {
   if (op.document.responsible !== home.email &&
       (/^(report_|checklist_|finish_)/.test(action)))
     throw new Error("Somente o técnico responsável pode acessar o relatório ou finalizar a operação.");
+  const submitted=!!(detail.reportSubmission||op.document.checklistRun?.submission);
+  const returnsOnly=submitted||['awaiting_review','reviewed','completed'].includes(op.status);
+  if(submitted&&['start_work','start_travel','pause','resume','stop'].includes(action))throw Error('Relatório enviado. Novos apontamentos exigem devolução pelo planejador.');
+  if(['report_send','report_send_partial'].includes(action)&&(detail.active||home.active)?.operation_id===op.id)throw Error('Finalize o apontamento aberto antes de enviar o relatório.');
   if (action === "report_send") {
     const run = op.document.checklistRun;
     if (!run?.template) throw Error("Baixe o checklist antes de enviar o relatório.");
@@ -15,6 +19,11 @@ function projectField(home, detail, body) {
       const fields = [...(stage.fields || []), ...(stage.groups || []).flatMap(group => group.fields || [])];
       for (const field of fields) {
         const value = answers[field.id];
+        if(['flag','flag2','flag3','flag4'].includes(field.type)&&String(value).trim().toUpperCase()==='NOK'){
+          const details=draft?.details||run.stages?.[stage.id]?.details||{};
+          if(!details[field.id]?.comment?.trim())throw Error('Informe o item a substituir e sua referência no comentário: '+field.label+'.');
+          if(!details[field.id]?.photos?.length)throw Error('Anexe uma foto do item a substituir: '+field.label+' (NOK).');
+        }
         if (field.required && (value == null || typeof value === "string" && !value.trim() || Array.isArray(value) && !value.length))
           throw Error("Preencha: " + field.label + ".");
       }
@@ -60,6 +69,7 @@ function projectField(home, detail, body) {
         const raw = patch.withdrawn;
         const gross = raw == null ? oldGross : body.quantityMode === "gross" ? raw : raw >= own ? oldGross + raw - own : oldGross;
         const returned = body.quantityMode === "gross" ? (patch.returned ?? oldReturned) : raw == null ? oldReturned : oldReturned + Math.max(0,own - raw);
+        if(returnsOnly&&gross!==oldGross)throw Error('Após o envio do relatório, somente devoluções são permitidas.');
         if ([gross,returned].some(v=>typeof v!=="number"||!Number.isFinite(v)||v<0||v>1e9||Math.abs(v-Math.round(v*1000)/1000)>1e-9)||gross<oldGross||returned<returnMinimum||returned>gross)
           throw Error("Confira as quantidades retiradas e devolvidas.");
         const accumulated = Math.round((allocations.reduce((sum,a)=>sum+Number(a.gross??Number(a.quantity||0)+Number(a.returned||0)),0)-oldGross+gross)*1000)/1000;
@@ -153,7 +163,7 @@ function projectField(home, detail, body) {
       "checklist_submit",
     ].includes(action)
   ) {
-    if (action!=="report_return"&&(!same || active.kind !== "work" || active.state !== "running"))
+    if (!["report_return","report_send","report_send_partial"].includes(action)&&(!same || active.kind !== "work" || active.state !== "running"))
       throw Error("Inicie ou retome a atividade para preencher o relatório.");
     const run = op.document.checklistRun;
     if (!run) throw Error("Baixe o checklist antes de ficar sem internet.");
@@ -177,7 +187,7 @@ function projectField(home, detail, body) {
     op.status = "planning";
   }
   else if (action === "finish_full") op.status = "awaiting_review";
-  else if (action !== "info_read") op.status = "executing";
+  else if (action !== "info_read"&&!(action==="materials"&&returnsOnly)) op.status = "executing";
   // The server resolves exact versions through the preceding request receipt.
   if (action !== "info_read") op.version = Number(op.version) + 1;
   home.active = active;

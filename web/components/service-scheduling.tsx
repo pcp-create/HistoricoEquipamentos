@@ -1,4 +1,5 @@
 "use client";
+import ScheduleOrderActions from "./schedule-order-actions";
 import {flowResponsible} from "@/lib/service-scheduling/flow-status";
 import SchedulePlannedDate from "./schedule-planned-date";
 import DateTimePicker from "./date-time-picker";
@@ -39,6 +40,7 @@ import {
   ArrowDown,
   Plus,
   Settings,
+  RefreshCw,
   ArrowLeft,
   ChevronRight,
   Trash2,
@@ -396,8 +398,9 @@ export default function ServiceScheduling() {
             <h1>Programação de OSs</h1>
             <p>Operações, recursos, materiais e custos dos atendimentos.</p>
           </div>
-          <div className="scheduling-actions">
-            <a href="/programacao/pecas">Relatório de peças</a>
+          <nav className="scheduling-actions scheduling-toolbar" aria-label="Ações da programação">
+            <a className="scheduling-toolbar-primary" href="/OrdemServico/nova"><Plus size={18} aria-hidden="true"/>Criar OS</a>
+            <a href="/programacao/pecas"><ClipboardList size={18} aria-hidden="true"/>Relatório de peças</a>
             {id && (
               <a href="/programacao">
                 <ArrowLeft size={16} />
@@ -415,9 +418,9 @@ export default function ServiceScheduling() {
                 void load();
               }}
             >
-              Atualizar
+              <RefreshCw size={18} aria-hidden="true"/>Atualizar
             </button>
-          </div>
+          </nav>
         </header>
         {error && (
           <p role="alert" className="scheduling-error">
@@ -627,7 +630,7 @@ export default function ServiceScheduling() {
                 <p>{data.detail?.order?.observacao || "Não informada"}</p>
               </details>
               <dl className="schedule-order-fields">
-                {[
+                {([
                   [
                     "Data de abertura",
                     orderDate(data.detail?.order?.data_abertura),
@@ -636,6 +639,7 @@ export default function ServiceScheduling() {
                     "Data prevista de entrega",
                     orderDate(data.detail?.order?.data_entrega_prevista),
                   ],
+                  ["Data prevista de programação", <SchedulePlannedDate key="planned-date" value={data.schedule.planned_date}/>],
                   [
                     "Tipo de atendimento",
                     data.detail?.order?.tipo_atendimento_nome ||
@@ -650,7 +654,7 @@ export default function ServiceScheduling() {
                     data.detail?.order?.status_lancamento_nome ||
                       "Não informado",
                   ],
-                ].map(([label, value]) => (
+                ] as [string, React.ReactNode][]).map(([label, value]) => (
                   <div key={label}>
                     <dt>{label}</dt>
                     <dd>{value}</dd>
@@ -664,7 +668,7 @@ export default function ServiceScheduling() {
                 Ver detalhes da OS
               </OrderDetailLink>
             </section>
-            <OrderTaskLinks company={String(data.schedule.company_id)} orderId={String(data.schedule.order_id)} revision={(data.operations||[]).map((o:any)=>`${o.id}:${o.version}`).join(",")}/>
+            <ScheduleOrderActions data={data} onChanged={()=>void load()}/><OrderTaskLinks company={String(data.schedule.company_id)} orderId={String(data.schedule.order_id)} revision={(data.operations||[]).map((o:any)=>`${o.id}:${o.version}`).join(",")}/>
             {data.canEditSettings && <div className="scheduling-actions order-report-launch"><button type="button" disabled={busy} onClick={()=>setOrderReportOpen(true)}>Gerar relatório da OS</button><button type="button" disabled={busy||!data.operations?.length} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações das operações antes de iniciar a revisão da OS.");return;}setOrderReviewOpen(true);}}><ListChecks size={18}/>Revisar operações da OS</button><button type="button" disabled={busy} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações antes de gerar a tarefa da OS.");return;}setOrderTaskOpen(true);}}><ClipboardPlus size={18} aria-hidden="true"/>Gerar tarefa da OS</button></div>}
             {orderReviewOpen && <OrderOperationsReview key={data.schedule.id} data={data} busy={busy} error={error} mutate={mutate} dirtyOperations={dirtyOperations.current} onClose={()=>setOrderReviewOpen(false)}/>}
             {orderTaskOpen && <OrderTaskWindow data={data} onClose={()=>setOrderTaskOpen(false)}/>}
@@ -1101,7 +1105,8 @@ function OperationRow({
         <td>
           <select
             aria-label={"Responsável " + operationNumber(o.position)}
-            disabled={locked}
+            title={o.sent_at&&!o.document.checklistRun?.reportReturnedAt?'Devolva o relatório para alterar o responsável':undefined}
+            disabled={locked||!!o.sent_at&&!o.document.checklistRun?.reportReturnedAt}
             value={d.responsible}
             onChange={(e) => change("responsible", e.target.value, true)}
           >

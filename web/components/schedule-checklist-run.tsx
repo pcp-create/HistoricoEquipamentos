@@ -100,6 +100,7 @@ function Stage({stageAccordionName,stage,operation,data,mutate,locked,readOnly,c
  <label className="checklist-answer">Data da leitura<input type="date" value={meterDate} onChange={e=>setMeterDate(e.target.value)}/></label>
  <small className="checklist-meter-note">A atualização do equipamento e da preventiva ocorre após a revisão do relatório.</small>
  </>}
+ {String(v).trim().toUpperCase()==='NOK'&&isStatusField(f.type)&&<p role="note">Foto obrigatória do item a substituir. Informe no comentário qual item deve ser trocado e a referência, se houver.</p>}
  {f.type!=='photo'&&photoLimit(f)>0&&photos(f,true)}
  {(f.comment||hasAlertComment(f))&&<div className="checklist-field-extra"><span>Comentário{requiresAlertComment(f,v)&&<> <RequiredMarker/></>}</span><DictationText required={requiresAlertComment(f,v)} label={'Comentário — '+f.label} value={details[f.id]?.comment||''} disabled={disabled} onChange={s=>detail(f.id,'comment',s)}/></div>}
  {f.internalNote&&<div className="checklist-field-extra"><span>Observação interna · Somente no relatório de orçamento</span><DictationText label={'Observação interna — '+f.label} value={details[f.id]?.internalNote||''} disabled={disabled} onChange={s=>detail(f.id,'internalNote',s)}/></div>}

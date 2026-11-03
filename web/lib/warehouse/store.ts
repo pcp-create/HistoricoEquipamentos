@@ -4,7 +4,11 @@ import {createWithdrawalApproval} from "./withdrawal-approval";
 import {withWarehouseSupply} from "./supply";
 import {approvedMaterialSql} from "../material-approval";
 export class WarehouseError extends Error {}
-const eligible = "(o.status_lancamento_nome ILIKE '%AGUARDANDO SEPARA%' OR o.status_lancamento_nome ILIKE '%MATERIAL SEPARAD%' OR o.status_lancamento_nome ILIKE '%MATERIAIS SEPARAD%')";
+const ownEligible = "(o.status_lancamento_nome ILIKE '%AGUARDANDO SEPARA%' OR o.status_lancamento_nome ILIKE '%MATERIAL SEPARAD%' OR o.status_lancamento_nome ILIKE '%MATERIAIS SEPARAD%')";
+const eligible = `(${ownEligible} OR EXISTS(SELECT 1 FROM web_order_links l JOIN m8_ordens_servico related
+ ON (related.company_id=l.company_id AND related.id_m8=l.order_id AND l.linked_company_id=o.company_id AND l.linked_order_id=o.id_m8)
+ OR (related.company_id=l.linked_company_id AND related.id_m8=l.linked_order_id AND l.company_id=o.company_id AND l.order_id=o.id_m8)
+ WHERE related.status IN('Pendente','Aprovado') AND (related.status_lancamento_nome ILIKE '%AGUARDANDO SEPARA%' OR related.status_lancamento_nome ILIKE '%MATERIAL SEPARAD%' OR related.status_lancamento_nome ILIKE '%MATERIAIS SEPARAD%'))) `;
 function target(company:unknown,id:unknown) {
  if(!["1","2","27404"].includes(String(company)) || !/^[1-9]\d{0,17}$/.test(String(id))) throw new WarehouseError("OS inválida.");
 }
@@ -35,7 +39,13 @@ export async function warehouseOrders(query:string,page=1,kanban=false,returns=f
  LEFT JOIN delivery d ON d.company_id=p.company_id AND d.order_id=p.ordem_servico_id AND d.item_id=p.id_m8
  WHERE p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")} AND p.quantidade IS DISTINCT FROM 0 GROUP BY p.company_id,p.ordem_servico_id
  ) SELECT o.company_id,o.id_m8::text id,COALESCE(o.numero_sequencia,o.id_m8)::text number,
- o.cliente_nome customer,o.equipamento equipment,o.status_lancamento_nome flow,count(*) OVER()::int total
+ o.cliente_nome customer,o.equipamento equipment,o.status_lancamento_nome flow,
+ CASE WHEN ${ownEligible} THEN o.status_lancamento_nome ELSE (
+ SELECT related.status_lancamento_nome FROM web_order_links l JOIN m8_ordens_servico related ON
+ (related.company_id=l.company_id AND related.id_m8=l.order_id AND l.linked_company_id=o.company_id AND l.linked_order_id=o.id_m8)
+ OR (related.company_id=l.linked_company_id AND related.id_m8=l.linked_order_id AND l.company_id=o.company_id AND l.order_id=o.id_m8)
+ WHERE related.status IN('Pendente','Aprovado') AND (related.status_lancamento_nome ILIKE '%AGUARDANDO SEPARA%' OR related.status_lancamento_nome ILIKE '%MATERIAL SEPARAD%' OR related.status_lancamento_nome ILIKE '%MATERIAIS SEPARAD%') ORDER BY related.id_m8 LIMIT 1) END queue_flow,
+ count(*) OVER()::int total
  FROM m8_ordens_servico o LEFT JOIN progress ON progress.company_id=o.company_id AND progress.ordem_servico_id=o.id_m8 LEFT JOIN integracao_m8_os_sync sync ON sync.company_id=o.company_id AND sync.ordem_servico_id=o.id_m8 WHERE o.company_id IN(1,2,27404) AND ${filter}
  AND concat_ws(' ',o.id_m8,o.numero_sequencia,o.cliente_nome,o.equipamento) ILIKE $1
  ORDER BY o.id_m8 DESC,o.company_id LIMIT $3 OFFSET $2`,["%"+query+"%",kanban?0:(page-1)*50,kanban?10000:50])).rows;
@@ -44,7 +54,7 @@ export async function warehouseOrders(query:string,page=1,kanban=false,returns=f
 }
 export async function warehouseOrder(company:string,id:string,c:any=database()) {
  target(company,id);
- const order=(await c.query("SELECT company_id,id_m8::text id,COALESCE(numero_sequencia,id_m8)::text number,cliente_nome customer,status,status_lancamento_id::text flow_id,status_lancamento_nome flow FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2",[company,id])).rows[0];
+ const order=(await c.query("SELECT company_id,id_m8::text id,COALESCE(numero_sequencia,id_m8)::text number,cliente_nome customer,to_jsonb(m8_ordens_servico)->>'situacao_nome' situation,status,status_lancamento_id::text flow_id,status_lancamento_nome flow FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2",[company,id])).rows[0];
  if(!order)throw new WarehouseError("OS não encontrada.");
  const items=(await c.query(`SELECT p.id_m8::text,p.produto_id::text,p.produto_nome,p.quantidade::float8,p.unidade_nome,
  p.company_id item_company,p.ordem_servico_id::text item_order,(p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")}) deliverable
@@ -68,7 +78,11 @@ export async function warehouseOrder(company:string,id:string,c:any=database()) 
  WHERE i.company_id=$1 AND i.order_id=$2 ORDER BY b.created_at DESC,i.item_id`,[company,id])).rows;
  const flowHistory=(await c.query("SELECT f.*,COALESCE(u.display_name,f.actor) actor_name FROM web_warehouse_flow_changes f LEFT JOIN web_user_access u ON u.email=f.actor WHERE f.company_id=$1 AND f.order_id=$2 ORDER BY f.created_at DESC",[company,id])).rows;
  const supplied=await withWarehouseSupply(items,c);
- return {order,flowHistory,complete:collected,items:supplied.map((i:any)=>({...i,delivery:totals.get(`${company}:${id}:${i.id_m8}`)||{quantity:0,technicians:[]},received:received.get(`${company}:${id}:${i.id_m8}`)||{quantity:0,technicians:[]},addedLater:additions.some((a:any)=>a.state==='complete'&&a.item_id===i.id_m8),usage:usage.find((u:any)=>u.item_id===i.id_m8)||{gross:0,returned:0,net:0}})),history,additions};
+ const linkedOrders=(await c.query(`SELECT r.company_id,r.id_m8::text id,COALESCE(r.numero_sequencia,r.id_m8)::text number,to_jsonb(r)->>'situacao_nome' situation,
+ CASE WHEN r.company_id=l.company_id AND r.id_m8=l.order_id THEN 'principal' ELSE 'vinculada' END role
+ FROM web_order_links l JOIN m8_ordens_servico r ON (r.company_id=l.company_id AND r.id_m8=l.order_id) OR (r.company_id=l.linked_company_id AND r.id_m8=l.linked_order_id)
+ WHERE (l.company_id=$1 AND l.order_id=$2) OR (l.linked_company_id=$1 AND l.linked_order_id=$2) ORDER BY role,r.company_id,r.id_m8`,[company,id])).rows;
+ return {order,linkedOrders,flowHistory,complete:collected,items:supplied.map((i:any)=>({...i,delivery:totals.get(`${company}:${id}:${i.id_m8}`)||{quantity:0,technicians:[]},received:received.get(`${company}:${id}:${i.id_m8}`)||{quantity:0,technicians:[]},addedLater:additions.some((a:any)=>a.state==='complete'&&a.item_id===i.id_m8),usage:usage.find((u:any)=>u.item_id===i.id_m8)||{gross:0,returned:0,net:0}})),history,additions};
 }
 export async function deliverWarehouse(input:any,actor:string) {
  target(input?.company,input?.order);

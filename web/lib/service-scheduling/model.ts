@@ -234,6 +234,7 @@ export function validateOperation(raw: any, settings: any, users: any[]) {
 
 export const scheduleStatusNames: Record<string, string> = {
   ...statusNames,
+  release_pending: "Aguardando liberação",
   reviewed: "Revisada",
   completed: "Concluída",
   cancelled: "Cancelado",

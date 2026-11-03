@@ -38,3 +38,12 @@ test('saved returns can be corrected only above the quantity already received, i
  item.received.quantity=0;context.projectField(home,detail,body);
  assert.equal(materialBalance(item,'op').ownReturned,0);assert.equal(materialBalance(item,'op').ownGross,4);
 });
+
+test('after submission, offline material returns remain available without changing reviewed status or gross withdrawal',()=>{
+ const context=vm.createContext({});vm.runInContext(readFileSync('public/field-offline/project.js','utf8'),context);
+ const home={email:'tech',active:null,rows:[]};
+ const detail:any={operation:{id:'op',status:'reviewed',position:1,version:1,document:{checklistRun:{submission:{at:'2026-11-03T10:00:00Z'}}}},history:[],materials:{items:[{id_m8:'55',item_company:1,item_order:'100',quantidade:2,usage:{withdrawn:2,allocations:[{operationId:'op',gross:2,returned:0,quantity:2}]}}]}};
+ const body:any={action:'materials',quantityMode:'gross',items:[{id_m8:'55',item_company:1,item_order:'100',withdrawn:null,returned:1}],offline:{capturedAt:'2026-11-03T11:00:00Z'}};
+ context.projectField(home,detail,body);assert.equal(detail.operation.status,'reviewed');assert.equal(materialBalance(detail.materials.items[0],'op').ownReturned,1);
+ body.items[0].withdrawn=3;assert.throws(()=>context.projectField(home,detail,body),/somente devoluções/);
+});

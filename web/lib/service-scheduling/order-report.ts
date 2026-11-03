@@ -191,12 +191,12 @@ export function orderReport(
   const totalFields = (w: number, t: number, p: number): [string, string][] => [
     ["Tempo de atividade", elapsedTime(w)],
     ["Tempo de deslocamento", elapsedTime(t)],
-    ...(mode === "complete"
+    ...(mode !== "summary"
       ? [["Tempo de paradas", elapsedTime(p)] as [string, string]]
       : []),
     [
       "Total de horas por profissional (HH)",
-      elapsedTime(w + t + (mode === "complete" ? p : 0)),
+      elapsedTime(w + t + (mode !== "summary" ? p : 0)),
     ],
   ];
   for (const p of people.values()) {
@@ -214,7 +214,7 @@ export function orderReport(
     totalFields(work, travel, pause),
   ).groups[0];
   if (people.size) overview.push(totals);
-  if (mode === "summary" || mode === "complete") {
+  {
     const pauses = customerPauses(operations.flatMap(({logs}) => logs.rows), data.settings?.document?.pauseReasons);
     if (pauses.size) overview.push(section("customer-pauses", "Tempo de paradas", [...pauses].map(([name, seconds]) => [name, elapsedTime(seconds)])));
   }

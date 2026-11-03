@@ -803,3 +803,5 @@ dialog.field-report-screen {
 .field-app .field-return-actions .field-return-submit:hover { background:#194d7b; }
 .field-app .field-return-actions button:focus-visible { outline:3px solid #84b9df;outline-offset:2px; }
 .field-app .field-return-actions svg { flex-shrink:0; }
+
+.field-bo-form fieldset{border:0;padding:0;margin:0;display:grid;gap:16px;min-width:0}.field-bo-form label{display:grid;gap:6px}.field-bo-form input,.field-bo-form textarea,.field-bo-form select{box-sizing:border-box;width:100%;min-width:0;font:inherit;padding:12px;border:1px solid #ccdeed;border-radius:9px;background:white;color:inherit}.field-bo-actions{display:flex;gap:12px;margin-top:20px}.field-bo-actions button{flex:1}.field-bo-form textarea{resize:vertical}

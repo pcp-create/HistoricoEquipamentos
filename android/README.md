@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.7
+# Portal Técnico RJ — APK 2.2.9
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -188,3 +188,17 @@ distribuir o APK 2.2.8 (código 18). A interface é empacotada no APK, portanto 
 publicação web sozinha não corrige os aplicativos já instalados. Os portais
 web técnico e vendedor já encaminham contas marcadas com
 `app_metadata.must_change_password=true` para `/alterar-senha`.
+
+## Execução e devoluções — 2.2.9
+
+A versão 2.2.9 (código 19) exige foto e identificação do item nos NOK,
+impede envio do relatório com apontamento aberto e novos apontamentos após o envio.
+Devoluções de peças continuam disponíveis após envio/finalização, preservando a retirada.
+O projetor offline aplica as mesmas regras; o servidor revalida ao sincronizar.
+A publicação web requer `093_service_execution_workflow.sql` antes da distribuição.
+
+O pacote 2.2.9 também apresenta os B.Os do equipamento em Informações da operação, com data e acesso ao texto completo. Requer a migração web 094; veja `docs/bo-equipamentos.md`.
+
+Download da versão 2.2.9: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.9
+
+Inclui o botão Registrar B.O no menu da operação. O equipamento é obtido da programação, dos vínculos válidos ou do equipamento informado diretamente na OS, como no caso da OS 15211.

@@ -91,7 +91,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
         {scoped.requests.some((r: any) => r.status === "pending") && <small>Há solicitações de apontamento aguardando aprovação.</small>}
       </>}
       {reviewed && o.document.checklistRun && !busy ? <><select aria-label="Tipo de relatório" value={reportMode} onChange={e=>setReportMode(e.target.value)}><option value="complete">Relatório Completo</option><option value="summary">Relatório Resumido</option><option value="budget">Relatório de Orçamento</option></select><a href={`/api/service-scheduling/checklist-pdf?operationId=${o.id}&mode=${reportMode}`} target="_blank" rel="noreferrer"><FileDown size={16}/> Gerar PDF</a></> : o.document.checklistId && <small>O PDF será liberado após a conclusão da revisão.</small>}
-      {data.canEditSettings && o.status === "reviewed" && <button type="button" disabled={busy || dirty || reportDirty} onClick={() => void act("complete")}>Concluir operação</button>}
+
     </footer>
   </>;
   if(embedded)return <section className="operation-review-section" aria-label={`Revisão da operação ${operationNumber(o.position)}`}>{content}</section>;

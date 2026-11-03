@@ -118,7 +118,7 @@ export async function loadOrderReport(body: any, email: string, portal = false, 
       operationIds,
       mode,
       true,
-      body.includeTimeline ?? mode !== "summary",
+      portal ? true : body.includeTimeline ?? mode !== "summary",
     );
     const photos: any[] = [];
     for (const chapter of model.chapters) {

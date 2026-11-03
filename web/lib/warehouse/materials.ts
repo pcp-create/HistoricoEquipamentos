@@ -1,3 +1,4 @@
+import {billingMaterialOwner,createBillingMaterialTask} from './billing-material-task';
 import "server-only";
 import {database} from "../db";
 import {m8Session,M8RequestError} from "../service-orders/m8";
@@ -21,13 +22,14 @@ export async function addWarehouseMaterial(input:any,actor:string,session=m8Sess
  if(typeof input.quantity!=='number'||!Number.isFinite(input.quantity)||input.quantity<=0||input.quantity>1e9||Math.abs(input.quantity-Math.round(input.quantity*1000)/1000)>1e-9||typeof input.price!=='number'||!Number.isFinite(input.price)||input.price<0||input.price>1e9||Math.abs(input.price-Math.round(input.price*100)/100)>1e-9)throw new WarehouseError('Informe quantidade positiva (até três decimais) e valor unitário válido (até dois decimais).');
  const justification=typeof input.justification==='string'?input.justification.trim():'';
  if(!justification||justification.length>2000)throw new WarehouseError('Informe a justificativa da inclusão, com até 2.000 caracteres.');
- const document={justification,product:String(input.product),quantity:input.quantity,price:input.price};
+ const document={...(input.budgetResponsible?{budgetResponsible:String(input.budgetResponsible)}:{}),justification,product:String(input.product),quantity:input.quantity,price:input.price};
  const db=database();
  const previous=(await db.query('SELECT *,document=$2::jsonb same FROM web_warehouse_material_additions WHERE id=$1',[input.requestId,JSON.stringify(document)])).rows[0];
  const replay=(row:any)=>{if(row.actor!==actor||String(row.company_id)!==String(input.company)||String(row.order_id)!==String(input.order)||!row.same)throw new WarehouseError('Identificador utilizado para outra inclusão.');return {state:row.state,message:row.message,itemId:row.item_id};};
  if(previous)return replay(previous);
  const m8=await session(Number(input.company));
  let notification:any=null;
+ let budgetOwner:string|null=null;
  const c=await db.connect();
  try{
   await c.query('BEGIN READ WRITE');await c.query('SELECT pg_advisory_xact_lock(829202,0)');
@@ -36,6 +38,12 @@ export async function addWarehouseMaterial(input:any,actor:string,session=m8Sess
   if(!(await c.query('SELECT 1 FROM web_user_access WHERE email=$1 AND enabled',[actor])).rows.length)throw new WarehouseError('Usuário sem acesso ativo.');
   const order=(await c.query("SELECT COALESCE(numero_sequencia,id_m8)::text number,cliente_nome customer,equipamento equipment FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2 AND status IN('Pendente','Aprovado') FOR SHARE",[input.company,input.order])).rows[0];
   if(!order)throw new WarehouseError('Esta OS não está aberta para inclusão de materiais.');
+  if(input.contextCompany&&input.contextOrder&&(String(input.contextCompany)!==String(input.company)||String(input.contextOrder)!==String(input.order))){
+   const linked=(await c.query('SELECT 1 FROM web_order_links WHERE (company_id=$1 AND order_id=$2 AND linked_company_id=$3 AND linked_order_id=$4) OR (linked_company_id=$1 AND linked_order_id=$2 AND company_id=$3 AND order_id=$4)',[input.contextCompany,input.contextOrder,input.company,input.order])).rows.length;
+   if(!linked)throw new WarehouseError('A OS selecionada não está vinculada à OS aberta.');
+  }
+  try{budgetOwner=await billingMaterialOwner(c,String(input.company),String(input.order),input.budgetResponsible);}catch(e){throw new WarehouseError((e as Error).message);}
+
   const product=(await c.query('SELECT name,unit FROM m8_product_catalog WHERE company_id=$1 AND product_id=$2',[input.company,input.product])).rows[0];
   if(!product)throw new WarehouseError('Selecione um produto do catálogo da empresa da OS.');
   notification={company:String(input.company),orderNumber:order.number,customer:order.customer,equipment:order.equipment,productCode:String(input.product),productName:product.name,unit:product.unit,quantity:input.quantity,price:input.price,total:itemPayload({kind:'material',code:String(input.product),quantity:String(input.quantity),price:String(input.price),name:''}).valorTotal,justification};
@@ -59,7 +67,7 @@ export async function addWarehouseMaterial(input:any,actor:string,session=m8Sess
  }catch(e){state=!writeStarted||(e instanceof M8RequestError&&!e.uncertain)?'rejected':'uncertain';message=e instanceof M8RequestError?e.message:'Não foi possível confirmar a inclusão. Confira o M8 antes de reenviar.';}
  // Persist confirmation before refresh. A failed refresh must never replay the ERP write.
  const save=await db.connect();
- try{await save.query('BEGIN READ WRITE');await save.query('UPDATE web_warehouse_material_additions SET state=$2,item_id=$3,message=$4,updated_at=now() WHERE id=$1',[input.requestId,state,itemId,message]);if(state==='complete')await queueWarehouseMaterialNotification(save,input.requestId,actor,notification);await save.query('COMMIT');}catch(e){await save.query('ROLLBACK');throw e;}finally{save.release();}
+ try{await save.query('BEGIN READ WRITE');await save.query('UPDATE web_warehouse_material_additions SET state=$2,item_id=$3,message=$4,updated_at=now() WHERE id=$1',[input.requestId,state,itemId,message]);if(state==='complete'){await queueWarehouseMaterialNotification(save,input.requestId,actor,notification);if(budgetOwner)await createBillingMaterialTask(save,input.requestId,input,actor,notification,budgetOwner);}await save.query('COMMIT');}catch(e){await save.query('ROLLBACK');throw e;}finally{save.release();}
  if(state==='complete'){
   try{
    const full=await m8(`/v1/assistenciatecnica/ordemservicocompleta?Id=${input.order}&Page=1&PageSize=1`);

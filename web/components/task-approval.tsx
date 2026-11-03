@@ -8,12 +8,12 @@ export default function TaskApproval({
   data: any;
   onChanged: () => void;
 }) {
-  const [reason, setReason] = useState(""),
+  const [correction,setCorrection]=useState(""),[retry,setRetry]=useState(false),[reason, setReason] = useState(""),
     [decision, setDecision] = useState<"approved" | "rejected" | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const t = data.task;
-  async function decide(decision?: string) {
+  async function decide(decision?: string,repeat=false) {
     setBusy(true);
     setError("");
     try {
@@ -23,7 +23,8 @@ export default function TaskApproval({
           body: JSON.stringify({
             id: String(t.id),
             version: t.version,
-            action: decision ? "approval_decide" : "approval_close",
+            action: repeat?"approval_retry":decision ? "approval_decide" : "approval_close",
+            description:correction,
             decision,
             reason,
           }),
@@ -43,6 +44,7 @@ export default function TaskApproval({
         <ShieldCheck size={20} />
         Solicitação de aprovação
       </h3>
+      {t.approval_parent_id&&<p>Correção da <a href={"/tarefas?task="+t.approval_parent_id}>TAR-{t.approval_parent_id}</a></p>}
       {t.source_key?.startsWith("manual:workshop:") && (
         <div className="task-approval-workshop">
           <p>
@@ -146,6 +148,8 @@ export default function TaskApproval({
               timeZone: "America/Sao_Paulo",
             })}
           </small>
+          {t.approval_state==='rejected'&&(data.canRetryApproval??data.canCloseApproval)&&!data.approvalCorrection&&<div><button disabled={busy} onClick={()=>setRetry(true)}>Criar nova solicitação corrigida</button>{retry&&<><label>Correção da tratativa<textarea required maxLength={10000} rows={4} value={correction} onChange={e=>setCorrection(e.target.value)}/></label><button disabled={busy||!correction.trim()} onClick={()=>void decide(undefined,true)}>Enviar nova solicitação</button><button disabled={busy} onClick={()=>setRetry(false)}>Cancelar</button></>}</div>}
+          {data.approvalCorrection&&<p>Nova solicitação: <a href={"/tarefas?task="+data.approvalCorrection}>TAR-{data.approvalCorrection}</a></p>}
           {data.canCloseApproval && (
             <p>
               <button disabled={busy} onClick={() => decide()}>

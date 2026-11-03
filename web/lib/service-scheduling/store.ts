@@ -1,3 +1,4 @@
+import {handoffOperation} from './workflow';
 import {attachPlannedDates} from "./planned-date-store";
 import {isCancelledOrder} from "./display-status";
 import {historyScheduleStatuses} from "./history-status";
@@ -12,7 +13,7 @@ import {timeRequestsAvailable} from "./time-request-availability";
 import {reviewChecklist} from "./checklist-review";
 import "server-only";
 import {updateChecklist,prepareChecklistSubmission,reopenReport} from "./checklist-store";
-import {stagesOf} from "./checklists";
+import {stagesOf,reportSubmission} from "./checklists";
 import {validateAutomaticRules} from "./automatic-rules";
 import { combineOrderItems } from "./linked-items";
 import { randomUUID } from "node:crypto";
@@ -135,7 +136,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
         return {
         ...s,
         operation_status_counts: counts,
-        programming_status: scheduleStatus(counts),
+        programming_status: ['reviewed','completed'].includes(scheduleStatus(counts))&&!s.release_kind?'release_pending':scheduleStatus(counts),
         calendar_operations: (s.calendar_operations || []).map((operation: any) => {
           const allocation = operationCalendarAllocation(operation, settings.document.calendars.find((calendar: any) => calendar.id === (operation.calendarId || "standard")));
           return { ...operation, allocation, dates: allocation.length ? allocation.map(day => day.date) : [operation.date || ""] };
@@ -186,6 +187,9 @@ export async function schedulingData(scheduleId: string | null, email: string) {
     materials:await withPurchaseBalances(combineOrderItems(detail,linkedDetail,"materials",schedule.company_id,schedule.order_id,link?.linked_company_id,link?.linked_order_id)),
     services:combineOrderItems(detail,linkedDetail,"services",schedule.company_id,schedule.order_id,link?.linked_company_id,link?.linked_order_id).map((item: any) => ({...item,source_profit:item.source_linked ? linkedProfit : profit.rows[0]?.document || null}))
   } : detail;
+  const forecast = {...schedule, calendar_operations: operations.rows.map(operation => ({...operation.document, position:operation.position, status:operation.status, responsibleEmail:operation.document.responsible}))};
+  await attachPlannedDates([forecast], settings.document);
+  schedule.planned_date = forecast.planned_date;
   return {
     ...base,
     schedule,
@@ -442,6 +446,8 @@ export async function mutateSchedule(b: any, email: string) {
     if(b.action==='report_reopen'){
       let result;
       try{result=await reopenReport(c,operation,email,admin);}catch(e){throw new ScheduleInputError((e as Error).message);}
+      await handoffOperation(c,result,schedule,email,'execution');
+      await c.query("UPDATE web_service_schedules SET release_kind=NULL WHERE id=$1",[schedule.id]);
       await c.query('COMMIT');return {operation:result};
     }
     if(b.action==='checklist_review_save'){
@@ -490,6 +496,8 @@ export async function mutateSchedule(b: any, email: string) {
         "DELETE FROM web_service_operation_events WHERE operation_id=$1",
         [operation.id],
       );
+      await c.query("UPDATE web_tasks SET status='completed',completed_at=now(),version=version+1,updated_by=$2,updated_at=now() WHERE id IN(SELECT task_id FROM web_service_operation_workflows WHERE operation_id=$1)",[operation.id,email]);
+      await c.query('DELETE FROM web_service_operation_workflows WHERE operation_id=$1',[operation.id]);
       await c.query("DELETE FROM web_service_operations WHERE id=$1", [
         operation.id,
       ]);
@@ -526,8 +534,11 @@ export async function mutateSchedule(b: any, email: string) {
       }
       await c.query("UPDATE web_service_operations SET sent_at=now() WHERE id=$1",[operation.id]);
       document={...document};delete document.checklistReturn;
+      if(document.checklistRun){document.checklistRun={...document.checklistRun};delete document.checklistRun.reportReturnedAt;}
       status="awaiting_execution";
     } else if (b.action === "operation") {
+      if(operation.sent_at && b.document?.responsible!==operation.document.responsible && !operation.document.checklistRun?.reportReturnedAt)
+        throw new ScheduleInputError('O responsável só pode ser alterado após devolver o relatório ao técnico ou ao planejamento.');
       if((operation.sent_at||operation.document.equipmentLocked) &&
         (b.document?.equipmentId||'')!==(operation.document.equipmentId||''))
         throw new ScheduleInputError('O equipamento não pode ser alterado após o envio ao técnico.');
@@ -570,6 +581,7 @@ export async function mutateSchedule(b: any, email: string) {
       if (!admin && !assigned) throw new Forbidden();
       if (["awaiting_review", "reviewed"].includes(status))
         throw new ScheduleInputError("Operação já finalizada.");
+      if(reportSubmission(operation.document.checklistRun))throw new ScheduleInputError('Relatório enviado. Devolva o relatório antes de novos apontamentos.');
       if (b.action === "work_log") {
         hours = amount(b.hours, 10000);
         if (!hours)
@@ -628,6 +640,10 @@ export async function mutateSchedule(b: any, email: string) {
       before: operation,
       after: result,
     });
+    if(['dispatch','finish_full','review'].includes(b.action)){
+      await handoffOperation(c,result,schedule,email,b.action==='dispatch'?'execution':b.action==='finish_full'?'review':'reviewed');
+      await c.query('UPDATE web_service_schedules SET release_kind=NULL WHERE id=$1',[schedule.id]);
+    }
     await c.query(
       `INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) SELECT id,'Operação da OS atualizada',$3,false,$4,coalesce((SELECT display_name FROM web_user_access WHERE email=$4),'Usuário') FROM web_tasks WHERE order_company=$1 AND order_id=$2 AND status<>'completed'`,
       [

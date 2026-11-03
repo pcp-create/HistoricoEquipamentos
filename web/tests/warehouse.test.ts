@@ -32,6 +32,11 @@ test("warehouse filters stages and atomically delivers multiple items, retaining
  await db.exec("ALTER TABLE m8_ordens_servico ADD COLUMN status_lancamento_id int DEFAULT 51");
  assert.equal((await warehouseOrders("")).total,2);
  assert.equal((await warehouseOrders("",1,false,true)).total,1);
+ await db.exec("INSERT INTO m8_ordens_servico(company_id,id_m8,numero_sequencia,cliente_nome,equipamento,status_lancamento_nome,status) VALUES(1,103,15103,'Vinculada','Compressor','Outro fluxo','Pendente');INSERT INTO web_order_links VALUES(1,100,1,103);");
+ const linked=(await warehouseOrders('')).rows.find((o:any)=>o.id==='103');
+ assert.ok(linked);assert.match(linked.queue_flow,/AGUARDANDO SEPARA/);
+ assert.ok((await warehouseOrder('1','103')).linkedOrders.some((o:any)=>o.id==='100'&&o.role==='principal'));
+ await db.exec("DELETE FROM web_order_links;DELETE FROM m8_ordens_servico WHERE id_m8=103;");
  const id=randomUUID(),body={requestId:id,company:"1",order:"100",technician:"tech",items:[{id:"55",quantity:3},{id:"56",quantity:4}]};
  const created=await deliverWarehouse(body,"warehouse");
  assert.ok(created.approvalTaskId);

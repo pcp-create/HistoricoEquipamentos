@@ -33,6 +33,7 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
       ["Data de envio no sistema", receipt ? timestamp(receipt.at) : "Não enviado completo"],
       ["Tipo de serviço", operation.document.serviceType || order.tipo_nome],
       ["Descrição da atividade", operation.document.description],
+      ...(mode==="budget"?[["Observação interna da operação",operation.document.internalNote],["Observação interna da OS",order.observacao_interna||order.observacaoInterna]] as [string,any][]:[]),
       ["Profissional responsável", users.find(user => user.email === operation.document.responsible)?.display_name || receipt?.name || operation.document.responsible],
     ]),
     section("asset", "Identificação do ativo", [
@@ -53,7 +54,7 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
     if (row.started_at) timeline.push({ at: row.started_at, label: `Início de ${kind}`, responsible: name });
     if (row.finished_at) timeline.push({ at: row.finished_at, label: `Término de ${kind}`, responsible: name });
     if (!row.started_at && row.recorded_at) timeline.push({ at: row.recorded_at, label: `Registro de ${kind} · ${elapsedTime(row.active)}`, responsible: name });
-    for (const pause of mode === 'complete' ? row.pauses.filter((p: any) => pauseReasons === undefined || customerPauses([{pauses:[p]}],pauseReasons).size > 0) : []) {
+    for (const pause of mode !== 'summary' ? row.pauses.filter((p: any) => pauseReasons === undefined || customerPauses([{pauses:[p]}],pauseReasons).size > 0) : []) {
       if (pause.start) timeline.push({ at: pause.start, label: "Início de pausa", responsible: name });
       if (pause.end) timeline.push({ at: pause.end, label: "Fim de pausa", responsible: name });
     }
@@ -67,7 +68,7 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
     ? timeline.map((event,index)=>({...field(timestamp(event.at),event.label,index),responsible:event.responsible}))
     : [{...field("—","Nenhum registro nesta operação",0),responsible:"—"}];
   for (const person of people.values()) fieldEvents.groups.push({ name: `Totais por profissional · ${person.name}`, fields: [
-    field("Tempo de atividade", elapsedTime(person.work), 0), field("Tempo de deslocamento", elapsedTime(person.travel), 1), ...(mode === "complete" ? [field("Tempo de paradas", elapsedTime(person.pause), 2)] : []), field("Tempo total", elapsedTime(person.work + person.travel + (mode === "complete" ? person.pause : 0)), 3),
+    field("Tempo de atividade", elapsedTime(person.work), 0), field("Tempo de deslocamento", elapsedTime(person.travel), 1), ...(mode !== "summary" ? [field("Tempo de paradas", elapsedTime(person.pause), 2)] : []), field("Tempo total", elapsedTime(person.work + person.travel + (mode !== "summary" ? person.pause : 0)), 3),
   ] });
   if(mode === "summary"){
     fieldEvents.groups = [{name:"Totais da operação",fields:[
@@ -76,10 +77,15 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
       field("Tempo total",elapsedTime(logs.summary.work + logs.summary.travel),2),
     ]}];
   }
-  if (mode === "summary" || mode === "complete") {
+  {
     const pauses = customerPauses(logs.rows, pauseReasons);
     if (pauses.size) fieldEvents.groups.push({name: "Tempo de paradas", fields: [...pauses].map(([name,seconds],index) => field(name,elapsedTime(seconds),index))});
   }
   sections.push(fieldEvents);
+  if(mode==='summary'&&timeline.length){
+    const chronology=section('timeline','Linha do tempo da operação',[]);
+    chronology.groups[0].fields=timeline.map((event,index)=>({...field(timestamp(event.at),event.label,index),responsible:event.responsible}));
+    sections.push(chronology);
+  }
   return filterReport([...sections, ...(run?checklistReport(run, mode):[])],mode).map((stage, index) => ({ ...stage, name: stage.name.replace(/^\s*\d+[.\-–]?\s*/, ""), number: String(index + 1).padStart(2, "0") }));
 }

@@ -18,16 +18,16 @@ test('technical report shares numbered sections, excludes private answers and to
  assert.equal(totals.fields[2].value,'00:02:00');
  assert.equal(result[0].groups[0].fields[1].value,'30/09/2026, 09:00');
 });
-test('only complete exports disclose pause events, duration and pause-inclusive total',()=>{
+test('complete and budget disclose the same timeline and pause-inclusive totals',()=>{
  const operation={id:'one',document:{responsible:'tech',checklistRun:{template:{stages:[]},stages:{}}}};
  const sessions=[{id:'session',operation_id:'one',actor:'tech',kind:'work',state:'finished',active_seconds:1800,pause_seconds:120,started_at:'2026-09-30T10:00:00Z',finished_at:'2026-09-30T10:32:00Z',correction:{active_seconds:1800,pause_seconds:120,pauses:[{start:'2026-09-30T10:10:00Z',end:'2026-09-30T10:12:00Z'}]}}];
  for(const mode of ['complete','summary','budget'] as const){
   const report=technicalReport(operation,{},[],sessions,[],[],mode);
   const json=JSON.stringify(report);
-  assert.equal(json.includes('Início de pausa'),mode==='complete');
-  assert.equal(json.includes('Tempo de paradas'),mode==='complete');
+  assert.equal(json.includes('Início de pausa'),mode!=='summary');
+  assert.equal(json.includes('Tempo de paradas'),mode!=='summary');
   const total=report.find(s=>s.id==='events')!.groups.flatMap(g=>g.fields).find(f=>f.label==='Tempo total');
-  assert.equal(total?.value,mode==='complete'?'00:32:00':'00:30:00');
+  assert.equal(total?.value,mode!=='summary'?'00:32:00':'00:30:00');
  }
 });
 test('summary groups all professionals into exactly three operation totals, including corrections and legacy records once',()=>{

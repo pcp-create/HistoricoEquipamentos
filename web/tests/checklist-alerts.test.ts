@@ -33,7 +33,8 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  const query:any=db.query.bind(db);g.historyPool={query,connect:async()=>({query,release(){}})};
  try{
  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated;');
- for(const name of ['008_administration','009_employees','010_tasks','011_task_kanban','012_manual_tasks','016_task_order_links','022_task_activity_progress','028_service_scheduling','029_order_links','030_service_schedule_visibility','031_schedule_item_sources','037_field_operations','038_time_adjustment_requests','039_material_withdrawals','073_task_approvals']) await db.exec(readFileSync(new URL('../sql/'+name+'.sql',import.meta.url),'utf8'));
+ for(const name of ['008_administration','009_employees','010_tasks','011_task_kanban','012_manual_tasks','016_task_order_links','018_task_assignment_reason','022_task_activity_progress','024_task_stages','027_task_stage_assignment','028_service_scheduling','029_order_links','030_service_schedule_visibility','031_schedule_item_sources','037_field_operations','038_time_adjustment_requests','039_material_withdrawals','073_task_approvals']) await db.exec(readFileSync(new URL('../sql/'+name+'.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../sql/093_service_execution_workflow.sql',import.meta.url),'utf8'));
  await db.exec("ALTER TABLE web_tasks ADD COLUMN followers text[] NOT NULL DEFAULT '{}';");
  await db.exec(`CREATE TABLE m8_ordens_servico(company_id int,id_m8 bigint,numero_sequencia bigint,cliente_nome text,equipamento text);
  CREATE TABLE m8_equipment_catalog(equipment_id bigint,name text,present boolean);
@@ -49,12 +50,14 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  const admin='assignee@test.com'; // Authenticated non-admin planners can review operations.
  await assert.rejects(mutateSchedule(body,admin),/Informe um comentário/);
  assert.equal((await query('SELECT status FROM web_service_operations')).rows[0].status,'awaiting_review');
- assert.equal((await query('SELECT * FROM web_tasks')).rows.length,0);
- await query("UPDATE web_service_operations SET document=jsonb_set(document,'{checklistRun,stages,s,details}',$1::jsonb)",[JSON.stringify({status:{comment:'Vazamento identificado'}})]);
+ assert.equal((await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,0);
+ await query("UPDATE web_service_operations SET document=jsonb_set(document,'{checklistRun,stages,s,details}',$1::jsonb)",[JSON.stringify({status:{comment:'Vazamento identificado',photos:['1']}})]);
 
+ const sharp=(await import('sharp')).default;
+ await query('INSERT INTO web_service_checklist_photos VALUES(1,$1,$2)',[operationId,await sharp({create:{width:8,height:8,channels:3,background:'white'}}).png().toBuffer()]);
  await assert.rejects(mutateSchedule(body,admin),/responsável/);
  assert.equal((await query('SELECT status FROM web_service_operations')).rows[0].status,'awaiting_review');
- assert.equal((await query('SELECT * FROM web_tasks')).rows.length,0);
+ assert.equal((await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,0);
  const alertTask={assignedTo:'assignee@test.com',description:'Corrigir a falha indicada.',reportMode:'summary'};
  await assert.rejects(mutateSchedule({...body,alertTask},'missing@test.com'));
  await query("UPDATE web_user_access SET enabled=false WHERE email=$1",[admin]);
@@ -64,34 +67,35 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  // Force attachment failure after task insertion: both task and review must roll back.
  await db.exec('ALTER TABLE web_task_attachments ADD CONSTRAINT reject_test CHECK (octet_length(content)<1)');
  await assert.rejects(mutateSchedule({...body,alertTask},admin));
- assert.equal((await query('SELECT * FROM web_tasks')).rows.length,0);
+ assert.equal((await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,0);
  assert.equal((await query('SELECT document FROM web_service_operations')).rows[0].document.checklistRun.reviewApplied,undefined);
  await db.exec('ALTER TABLE web_task_attachments DROP CONSTRAINT reject_test');
  const result=await mutateSchedule({...body,alertTask},admin);
  assert.equal(result.operation.status,'reviewed');
- const tasks=(await query('SELECT * FROM web_tasks')).rows;
+ const tasks=(await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows;
  assert.equal(tasks.length,1);assert.equal(tasks[0].assigned_to,alertTask.assignedTo);assert.equal(String(tasks[0].order_id),'100');
  const attachment=(await query('SELECT * FROM web_task_attachments')).rows[0];
  assert.match(attachment.filename,/Operacao-01-Resumido.pdf$/);assert.equal(attachment.content_type,'application/pdf');
  assert.ok((await PDFDocument.load(attachment.content)).getPageCount()>0);
- assert.equal((await query('SELECT * FROM web_task_notifications')).rows.length,1);
+ assert.equal((await query("SELECT n.* FROM web_task_notifications n JOIN web_tasks t ON t.id=n.task_id WHERE t.source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,1);
  await assert.rejects(mutateSchedule({...body,alertTask},admin),/alterada/);
  // A reopened review with identical alerts reuses the existing task.
  await query("UPDATE web_service_operations SET status='awaiting_review' WHERE id=$1",[operationId]);
  await mutateSchedule({...body,version:result.operation.version},admin);
- assert.equal((await query('SELECT * FROM web_tasks')).rows.length,1);
+ assert.equal((await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,1);
 
  // Three alerts can go to two independent tasks, atomically, with only their own comments.
  const fields=[1,2,3].map(i=>({...field,id:'f'+i,label:'Alerta '+i}));
- const groupedRun={template:{...template,stages:[{id:'s',name:'Inspeções',fields}]},stages:{s:{status:'submitted',answers:{f1:'NOK',f2:'NOK',f3:'NOK'},details:{f1:{comment:'Comentário primeiro'},f2:{comment:'Comentário segundo'},f3:{comment:'Comentário terceiro'}}}}};
+ const groupedRun={template:{...template,stages:[{id:'s',name:'Inspeções',fields}]},stages:{s:{status:'submitted',answers:{f1:'NOK',f2:'NOK',f3:'NOK'},details:{f1:{comment:'Comentário primeiro',photos:['2']},f2:{comment:'Comentário segundo',photos:['2']},f3:{comment:'Comentário terceiro',photos:['2']}}}}};
  const op2='10000000-0000-4000-8000-000000000002';
  await query("INSERT INTO web_service_operations(id,schedule_id,position,status,document,updated_by) VALUES($1,1,2,'awaiting_review',$2,'test')",[op2,JSON.stringify({description:'Inspeção',responsible:admin,checklistRun:groupedRun})]);
  await query("INSERT INTO web_user_access(email,display_name,phone,role,updated_by) VALUES('second@test.com','Segundo','5547999999998','user','test')");
+ await query('INSERT INTO web_service_checklist_photos VALUES(2,$1,$2)',[op2,await sharp({create:{width:8,height:8,channels:3,background:'white'}}).png().toBuffer()]);
  const keys=checklistAlerts(groupedRun).map(alertKey);
  const groups=[{...alertTask,alertKeys:keys.slice(0,2)},{...alertTask,assignedTo:'second@test.com',description:'Tratar terceiro alerta',reportMode:'complete',alertKeys:keys.slice(2)}];
  const request={action:'review',scheduleId:'1',operationId:op2,version:1};
  await assert.rejects(mutateSchedule({...request,alertTasks:[groups[0],{...groups[1],assignedTo:'missing@test.com'}]},admin),/ativo/);
- assert.equal((await query('SELECT * FROM web_tasks')).rows.length,1);
+ assert.equal((await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,1);
  assert.equal((await query('SELECT status FROM web_service_operations WHERE id=$1',[op2])).rows[0].status,'awaiting_review');
  await assert.rejects(mutateSchedule({...request,action:'alert_task_create',alertTasks:[groups[0]]},admin),/Ação inválida/);
  await assert.rejects(mutateSchedule({...request,alertTasks:[groups[0]]},admin),/Distribua/);
@@ -106,7 +110,7 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  await query("UPDATE web_task_attachments SET filename=replace(filename,'.pdf','-Previo.pdf') WHERE task_id=$1",[records[0].taskId]);
  await query("UPDATE web_service_operations SET status='awaiting_review' WHERE id=$1",[op2]);
  await mutateSchedule({...request,version:groupedResult.operation.version},admin);
- assert.equal((await query('SELECT * FROM web_tasks')).rows.length,3);
+ assert.equal((await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,3);
  assert.equal((await query("SELECT * FROM web_task_attachments WHERE filename LIKE '%-Previo.pdf'")).rows.length,0);
  assert.equal((await query('SELECT * FROM web_task_attachments')).rows.length,3);
  const orderTask={scheduleId:'1',requestId:'30000000-0000-4000-8000-000000000001',assignedTo:admin,description:'Encaminhar relatório ao responsável',reportMode:'summary'};
@@ -116,10 +120,10 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  await query("UPDATE web_service_operations SET status='reviewed' WHERE id=$1",[op2]);
  await db.exec('ALTER TABLE web_task_attachments ADD CONSTRAINT reject_test CHECK (octet_length(content)<1) NOT VALID');
  await assert.rejects(createOrderTask(orderTask,admin));
- assert.equal((await query('SELECT * FROM web_tasks')).rows.length,3);
+ assert.equal((await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,3);
  await db.exec('ALTER TABLE web_task_attachments DROP CONSTRAINT reject_test');
  const created=await createOrderTask(orderTask,admin);
- assert.equal((await query('SELECT * FROM web_tasks')).rows.length,4);
+ assert.equal((await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,4);
  const attached=(await query('SELECT filename,content FROM web_task_attachments WHERE task_id=$1',[created.taskId])).rows[0];
  assert.match(attached.filename,/unificado-Resumido.pdf$/);
  assert.ok((await PDFDocument.load(attached.content)).getPageCount()>0);
@@ -141,7 +145,7 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  assert.equal((await listTasks(new URLSearchParams({orderId:'100',orderCompany:'2'}),{id:admin,email:admin,user_metadata:{}})).tasks.length,0);
  await assert.rejects(listTasks(new URLSearchParams({orderId:'100'}),{id:admin,email:admin,user_metadata:{}}),/empresa/);
 
- assert.equal((await query('SELECT * FROM web_tasks')).rows.length,4);
+ assert.equal((await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,4);
  }finally{g.historyPool=old;await db.close();}
 });
 

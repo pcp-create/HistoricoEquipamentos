@@ -11,7 +11,7 @@ export function groupsOf(s:ChecklistStage):ChecklistGroup[]{
 export const fixedStatusOptions:Record<string,string[]> = {flag2:['OK','NOK','NA'],flag3:['Sim','Não','NA'],flag4:['Operando normalmente','Operando com falha','Bloqueado','Parado','Desligado / Desenergizado']};
 export const isStatusField=(type:string)=>['flag','flag2','flag3','flag4'].includes(type);
 export function fieldOptions(f:ChecklistField):string[]{return fixedStatusOptions[f.type] ?? f.options ?? (f.type==='flag'?['OK','NOK','NA']:[]);}
-export function photoLimit(f:ChecklistField){return f.maxPhotos??(f.type==='photo'?12:0);}
+export function photoLimit(f:ChecklistField){return Math.max(f.maxPhotos??(f.type==='photo'?12:0),isStatusField(f.type)&&fieldOptions(f).some(v=>v.trim().toUpperCase()==='NOK')?5:0);}
 export function normalizeStage(s:ChecklistStage):ChecklistStage {const groups=groupsOf(s).filter(g=>!g.direct||g.fields.length>0);return {...s,groups,fields:groups.flatMap(g=>g.fields)};}
 
 export type ChecklistTemplate = {id:string;name:string;prefix?:string;m8Identifier?:string;items:string[];stages?:ChecklistStage[]};
@@ -77,10 +77,14 @@ export function validateAnswers(stage:ChecklistStage,raw:any,complete:boolean){
 
 // Older checklist snapshots predate configurable alerts. Preserve explicit configurations.
 export const effectiveAlertOptions = (f:ChecklistField):string[] => !isStatusField(f.type)?[]:f.alertOptions ?? fieldOptions(f).filter(option=>option.trim().toUpperCase()==='NOK');
-export const hasAlertComment = (f:ChecklistField) => effectiveAlertOptions(f).length>0;
-export const requiresAlertComment = (f:ChecklistField,value:any) => hasAlertComment(f) && fieldOptions(f).includes(value) && effectiveAlertOptions(f).includes(value);
+export const hasAlertComment = (f:ChecklistField) => effectiveAlertOptions(f).length>0 || isStatusField(f.type)&&fieldOptions(f).some(v=>v.trim().toUpperCase()==='NOK');
+export const requiresAlertComment = (f:ChecklistField,value:any) => isStatusField(f.type)&&String(value).trim().toUpperCase()==='NOK' || hasAlertComment(f) && fieldOptions(f).includes(value) && effectiveAlertOptions(f).includes(value);
 export function validateAlertComments(stage:ChecklistStage,answers:any,details:any){
  for(const f of normalizeStage(stage).fields){
+  if(isStatusField(f.type)&&String(answers?.[f.id]).trim().toUpperCase()==='NOK'){
+   if(!details?.[f.id]?.comment?.trim())throw Error(`Informe um comentário com o item a substituir e sua referência, se houver: ${f.label}.`);
+   if(!details?.[f.id]?.photos?.length)throw Error(`Anexe uma foto do item a substituir: ${f.label} (NOK).`);
+  }
   if(requiresAlertComment(f,answers?.[f.id]) && (typeof details?.[f.id]?.comment!=='string'||!details[f.id].comment.trim()))
    throw Error(`Informe um comentário para o alerta: ${f.label} (${answers[f.id]}).`);
  }

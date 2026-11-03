@@ -56,6 +56,13 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     for (const name of [
       "008_administration",
       "009_employees",
+      "010_tasks",
+      "011_task_kanban",
+      "012_manual_tasks",
+      "016_task_order_links",
+      "018_task_assignment_reason",
+      "024_task_stages",
+      "027_task_stage_assignment",
       "028_service_scheduling",
       "029_order_links",
       "030_service_schedule_visibility",
@@ -80,6 +87,8 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
    INSERT INTO integracao_m8_os_sync VALUES(1,100,false,now());
    INSERT INTO web_user_access(email,display_name,role,updated_by) VALUES('tech','Técnico','user','test'),('helper','Apoio','user','test'),('outsider','Outro','user','test');
    UPDATE web_service_schedule_settings SET document=document||'{"pauseReasons":[{"id":"rest","name":"Descanso","minutes":15}],"vehicles":[{"id":"v1","name":"Veículo 1"}]}'::jsonb;`);
+    await db.exec(readFileSync(new URL('../sql/093_service_execution_workflow.sql',import.meta.url),'utf8'));
+    await db.exec("ALTER TABLE web_tasks ADD COLUMN followers text[] DEFAULT '{}';INSERT INTO web_user_access(email,display_name,updated_by) VALUES('test','Planejador','test');");
     const schedule = (
       await db.query<any>(
         "INSERT INTO web_service_schedules(company_id,order_id,created_by) VALUES(1,100,'test') RETURNING *",
@@ -183,7 +192,10 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     assert.equal(afterSave.operation.document.checklistRun.stages.s2.answers.f2,'Dois');
     await assert.rejects(act('report_save',{version:afterSave.operation.version,stages:[{stageId:'s1',answers:{f1:'Não persistir'}},{stageId:'inexistente',answers:{}}]}));
     assert.equal((await fieldData('tech',id) as any).operation.document.checklistRun.stages.s1.answers.f1,'Um');
-    await act('report_send_partial',{version:afterSave.operation.version,stages:[{stageId:'s2',answers:{f2:''}}]});
+    await assert.rejects(act('report_send',{version:afterSave.operation.version}),/Finalize os apontamentos/);
+    await act('stop',{sessionId:reportSession});
+    const stopped=await fieldData('tech',id);
+    await act('report_send_partial',{version:stopped.operation.version,stages:[{stageId:'s2',answers:{f2:''}}]});
     const partial:any=await fieldData('tech',id);
     assert.equal(partial.reportSubmission,null);
     assert.ok(partial.operation.document.checklistRun.partialSubmission.at);
@@ -191,6 +203,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     await assert.rejects(act('report_send',{version:partial.operation.version}),/Texto/);
     await act('report_send',{version:partial.operation.version,stages:[{stageId:'s2',answers:{f2:'Dois'}}]});
 
+    await assert.rejects(act('start_work'),/Relatório enviado/);
     const sent:any=await fieldData('tech',id);
     assert.equal(sent.reportSubmission.by,'tech');
     assert.ok(sent.reportSubmission.at);
@@ -204,8 +217,10 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     await updateChecklist(db,{action:'checklist_reopen',stageId:'s1'},sent.operation,{}, {},'planner',true);
     const reopened:any=await fieldData('tech',id);
     assert.equal(reopened.reportSubmission,null);
+    await db.query("INSERT INTO web_field_sessions(id,operation_id,actor,kind,state) VALUES($1,$2,'tech','work','running')",[randomUUID(),id]);
     await act('report_save',{version:reopened.operation.version,stages:[{stageId:'s1',answers:{f1:'Corrigido'}}]});
     const corrected:any=await fieldData('tech',id);
+    await db.query("UPDATE web_field_sessions SET state='finished',finished_at=now() WHERE operation_id=$1 AND state<>'finished'",[id]);
     await act('report_send',{version:corrected.operation.version});
     assert.equal((await fieldData('tech',id) as any).operation.document.checklistRun.stages.s1.answers.f1,'Corrigido');
     const {reopenReport}=await import('../lib/service-scheduling/checklist-store');
@@ -232,8 +247,10 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     const {saveChecklistPhoto}=await import('../lib/service-scheduling/checklist-photos');
     const sharp=(await import('sharp')).default;
     const bytes=await sharp({create:{width:10,height:10,channels:3,background:'#ffffff'}}).png().toBuffer();
+    await db.query("INSERT INTO web_field_sessions(id,operation_id,actor,kind,state) VALUES($1,$2,'tech','work','running')",[randomUUID(),id]);
     const photo=await saveChecklistPhoto(id,'s1','photo',new File([new Uint8Array(bytes)],'foto.png',{type:'image/png'}),'tech');
     await act('report_save',{version:returned.operation.version,stages:[{stageId:'s1',answers:{f1:'Editado após devolução',photo:[String(photo.id)]}}]});
+    await db.query("UPDATE web_field_sessions SET state='finished',finished_at=now() WHERE operation_id=$1 AND state<>'finished'",[id]);
     const edited:any=await fieldData('tech',id);
     assert.equal(edited.operation.document.checklistRun.stages.s1.answers.f1,'Editado após devolução');
     assert.deepEqual(edited.operation.document.checklistRun.stages.s1.answers.photo,[String(photo.id)]);
@@ -300,7 +317,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     assert.equal(correctedReturn.allocations.find((r:any)=>r.operationId===id).gross,ownBefore.gross);
 
 
-    await db.query('DELETE FROM web_field_sessions WHERE id=$1',[reportSession]);
+    await db.query('DELETE FROM web_field_sessions WHERE operation_id=$1',[id]);
     const requestId = randomUUID();
     await act("start_work", { requestId });
     await act("start_work", { requestId });
@@ -335,7 +352,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     assert.ok(Number(session.pause_seconds) >= 900);
     const event = (
       await db.query<any>(
-        "SELECT * FROM web_service_operation_events WHERE action='work_log'",
+        "SELECT * FROM web_service_operation_events WHERE action='work_log' ORDER BY id DESC LIMIT 1",
       )
     ).rows[0];
     assert.ok(Number(event.hours) >= 1 && Number(event.hours) < 1.02);

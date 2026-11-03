@@ -1,4 +1,6 @@
 "use client";
+import FieldOccurrenceForm from "./field-occurrence-form";
+import EquipmentOccurrenceList from "./equipment-occurrence-list";
 import TeamMemberPicker from "./team-member-picker";
 import { nativePortal } from "@/lib/native-portal";
 import FieldPdfButton from "./field-pdf-button";
@@ -16,6 +18,7 @@ import {
   Wallet,
   Handshake,
   Info,
+  FilePlus2,
   Package,
   ClipboardList,
   Flag,
@@ -419,6 +422,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     setBusy(true);
     try {
       if (body.action === "report_send") {
+        if(data.active&&data.active.operation_id===row.id)throw Error("Finalize o apontamento aberto antes de enviar o relatório.");
         const run = data?.operation.document.checklistRun;
         const template = run?.template || data?.settings.document.checklists.find((item:any)=>item.id===data.operation.document.checklistId);
         if (!template) throw Error("Carregue o checklist antes de enviar o relatório.");
@@ -569,7 +573,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                             if(!window.confirm('Devolver ao planejamento? O preenchimento e as fotos serão preservados. Os dados só serão apagados se o planejador confirmar a substituição do checklist.'))return;
                             if(await act({action:'report_return',version:operation.version,reason,confirmReturn:true,stages:getDrafts()}))setView('');
                           }}><ArrowLeft size={18}/> Devolver</button>
-                          <button disabled={!ready||reportLoading||!reportActivityRunning||operation.document.responsible!==data.email} onClick={async()=>{if(await act({action:'report_send',version:operation.version,stages:getDrafts()}))setView('');}}><Flag size={18}/> Enviar</button>
+                          <button disabled={!ready||reportLoading||operation.document.responsible!==data.email} onClick={async()=>{if(await act({action:'report_send',version:operation.version,stages:getDrafts()}))setView('');}}><Flag size={18}/> Enviar</button>
                         </div>
                       </>}
                     </div>}
@@ -593,6 +597,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                   <Info />
                   <MenuLight status={data.infoRead?"complete":"empty"}/><span>Informações</span>
                 </button>
+                <button disabled={busy} onClick={()=>void show("bo")}><FilePlus2/><span>Registrar B.O</span></button>
                 <button
                   disabled={busy || (!locked && !data.infoRead)}
                   onClick={() => void show("parts")}
@@ -603,7 +608,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                 <button
                   className={session?.kind === "travel" ? "is-active" : ""}
                   disabled={
-                    !ready ||
+                    !ready || !!data.reportSubmission ||
                     (!!active && active.id !== session?.id) ||
                     session?.kind === "work"
                   }
@@ -629,7 +634,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                 </button>
                 {!session || session.kind !== "work" ? (
                   <button
-                    disabled={!ready || !!active}
+                    disabled={!ready || !!data.reportSubmission || !!active}
                     onClick={() => void act({ action: "start_work" })}
                   >
                     <span className="field-icon-pair">
@@ -682,7 +687,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                     </button>
                   </>
                 )}
-                {data.teamAvailable && data.supportMembers?.some((member:any)=>member.email!==data.email) && (!session || session.kind!=="work") && <button disabled={!ready || !!active} onClick={()=>setTeamPicker(true)}><span className="field-icon-pair"><Users/><Play size={15}/></span><span>Iniciar com equipe</span></button>}
+                {data.teamAvailable && data.supportMembers?.some((member:any)=>member.email!==data.email) && (!session || session.kind!=="work") && <button disabled={!ready || !!data.reportSubmission || !!active} onClick={()=>setTeamPicker(true)}><span className="field-icon-pair"><Users/><Play size={15}/></span><span>Iniciar com equipe</span></button>}
                 {teamPicker && <TeamMemberPicker title="Iniciar com equipe" description="Início, pausas, retomadas e encerramento desta atividade serão registrados também para os integrantes selecionados." confirmLabel="Iniciar com equipe" members={(data.supportMembers || []).filter((member:any)=>member.email!==data.email)} onClose={()=>setTeamPicker(false)} onConfirm={async members=>{if(!navigator.onLine)throw Error("Conecte-se à internet para iniciar com a equipe.");const saved=await act({action:"start_work",teamMembers:members});if(!saved)throw Error("Não foi possível iniciar. Confira a mensagem da operação e tente novamente.");return true;}}/>}
                 <button disabled={busy || !data.infoRead} onClick={() => void show("logs")}>
                   <Clock3 />
@@ -737,8 +742,10 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                 </p>
               )}
               </>}
+              {view === "bo" && <FieldOccurrenceForm operationId={operation.id} equipment={data.occurrenceEquipment || []} onCancel={()=>setView("")} onSaved={async()=>{await load();setView("info");setMessage("B.O registrado no histórico do equipamento.");}}/>}
               {view === "info" && (
                 <section className="field-panel">
+                  {!!data.equipmentOccurrences?.length && <section aria-label="Boletins de ocorrência do equipamento"><h3>B.O do equipamento ({data.equipmentOccurrences.length})</h3><p>Consulte as ocorrências antes de iniciar o atendimento.</p><EquipmentOccurrenceList items={data.equipmentOccurrences}/></section>}
                   <h3>Observações internas</h3>
                   <p className="field-note">
                     {operation.document.internalNote ||
@@ -748,7 +755,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                   {data.infoRead ? <p className="field-checked"><CheckCircle2 size={16}/> Leitura confirmada</p> : <button disabled={busy||locked} onClick={async()=>{if(await act({action:'info_read'}))setView('');}}>Li e compreendi as informações</button>}
                 </section>
               )}
-              {view === "parts" && <Parts data={data} readOnly={locked||!!data.reportSubmission} busy={busy} save={async (body: any) => {
+              {view === "parts" && <Parts data={data} returnsOnly={locked||!!data.reportSubmission} busy={busy} save={async (body: any) => {
                 if (await act(body)) setView("");
               }} />}
               {view === "send" && (
@@ -898,7 +905,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     </section>
   );
 }
-function Parts({ data, busy, save, readOnly=false }: any) {
+function Parts({ data, busy, save, readOnly=false, returnsOnly=false }: any) {
   const [values,setValues]=useState<Record<string,string>>({});
   const [returns,setReturns]=useState<Record<string,string>>({});
   const [confirmed,setConfirmed]=useState(false);
@@ -915,15 +922,15 @@ function Parts({ data, busy, save, readOnly=false }: any) {
   const returnMaximum=(i:any)=>{const p=planned(i);return Number.isFinite(p.gross)?Math.max(p.balance.ownReturned,Math.min(p.gross,p.balance.total+p.gross-p.balance.own-Number(i.usage?.used||0))):p.balance.ownReturned;};
   const invalid=(i:any)=>{
     const p=planned(i),maximum=p.balance.withdrawalMaximum;
-    if(p.gross>maximum)return `A retirada acumulada (${qty(p.balance.gross-p.balance.ownGross+p.gross)} ${i.unidade_nome}) ultrapassa o reservado (${qty(p.balance.reserved)} ${i.unidade_nome}). Solicite o ajuste da reserva antes de continuar.`;
-    if(!Number.isFinite(p.gross)||p.gross<p.balance.ownGross||p.gross>maximum)return `A retirada deve ficar entre ${qty(p.balance.ownGross)} e ${qty(maximum)} ${i.unidade_nome}. Confira o saldo disponível.`;
+    if(p.gross>p.balance.ownGross&&p.gross>maximum)return `A retirada acumulada (${qty(p.balance.gross-p.balance.ownGross+p.gross)} ${i.unidade_nome}) ultrapassa o reservado (${qty(p.balance.reserved)} ${i.unidade_nome}). Solicite o ajuste da reserva antes de continuar.`;
+    if(!Number.isFinite(p.gross)||p.gross<p.balance.ownGross||p.gross>Math.max(maximum,p.balance.ownGross))return `A retirada deve ficar entre ${qty(p.balance.ownGross)} e ${qty(maximum)} ${i.unidade_nome}. Confira o saldo disponível.`;
     if(!Number.isFinite(p.returned)||p.returned<p.balance.returnMinimum||p.returned>returnMaximum(i))return `A devolução deve ficar entre ${qty(p.balance.returnMinimum)} e ${qty(returnMaximum(i))} ${i.unidade_nome}. O que já foi recebido pelo almoxarifado é preservado.`;
     if([p.gross,p.returned].some(v=>Math.abs(v-Math.round(v*1000)/1000)>1e-9))return 'Informe as quantidades com até três casas decimais.';
     return '';
   };
   return <section className="field-panel">
     <h3>Conferência de peças da OS</h3>
-    <p>{readOnly?"Peças desta operação · somente visualização.":"Confira os saldos e informe a retirada e a devolução desta operação. Você pode ajustar os valores antes de confirmar."}</p>
+    <p>{readOnly?"Peças desta operação · somente visualização.":returnsOnly?"Relatório enviado: registre ou ajuste somente a devolução das peças. A retirada permanece preservada.":"Confira os saldos e informe a retirada e a devolução desta operação. Você pode ajustar os valores antes de confirmar."}</p>
     {!data.materials.complete&&<p className="field-error">Os materiais ainda estão sendo importados. Aguarde a conclusão da coleta.</p>}
     {!items.length&&<p>Nenhuma peça cadastrada nesta OS.</p>}
     {items.map((i:any,index:number)=>{
@@ -937,7 +944,7 @@ function Parts({ data, busy, save, readOnly=false }: any) {
         <div className="field-part-info"><b>{i.produto_id} · {i.produto_nome}</b><small className="field-part-unit">Unidade: {i.unidade_nome}</small>
           {i.quantity_inconsistency&&<p className="field-error field-part-alert" role="alert">Quantidade divergente na OS vinculada.</p>}
           <dl className="field-part-balances" aria-label="Saldos registrados na OS">
-            <div><dt><button type="button" className="field-reserved-fill" disabled={readOnly||busy||blocked} title="Preencher retirada com o saldo reservado disponível" onClick={()=>{setValues(v=>({...v,[key(i)]:String(Math.round((balance.withdrawalMaximum)*1000)/1000)}));setConfirmed(false);}}>Reservado</button></dt><dd>{qty(balance.reserved)}</dd></div>
+            <div><dt><button type="button" className="field-reserved-fill" disabled={readOnly||returnsOnly||busy||blocked} title="Preencher retirada com o saldo reservado disponível" onClick={()=>{setValues(v=>({...v,[key(i)]:String(Math.round((balance.withdrawalMaximum)*1000)/1000)}));setConfirmed(false);}}>Reservado</button></dt><dd>{qty(balance.reserved)}</dd></div>
             <div><dt>Retirado</dt><dd>{qty(balance.gross)}</dd></div>
             <div><dt>Devolvido</dt><dd>{qty(balance.returned)}</dd></div>
             <div className="field-part-available"><dt>Disponível</dt><dd>{qty(balance.available)}</dd></div>
@@ -948,7 +955,7 @@ function Parts({ data, busy, save, readOnly=false }: any) {
         <div className="field-part-editor">
           <h4>Nesta operação</h4>
           <div className="field-part-quantity field-part-quantity-columns">
-            <label>Retirada<input aria-label="Retirado nesta operação" aria-invalid={grossInvalid} aria-describedby={error?errorId:undefined} disabled={readOnly||busy||blocked} type="number" min={balance.ownGross} max={balance.withdrawalMaximum} step="0.001" inputMode="decimal" value={values[key(i)]??""} placeholder={qty(balance.available)} onChange={e=>{setValues(v=>({...v,[key(i)]:e.target.value}));setConfirmed(false);}}/><small>Disponível: {qty(balance.available)} {i.unidade_nome}<br/>Registrado: {qty(balance.ownGross)} {i.unidade_nome}</small></label>
+            <label>Retirada<input aria-label="Retirado nesta operação" aria-invalid={grossInvalid} aria-describedby={error?errorId:undefined} disabled={readOnly||returnsOnly||busy||blocked} type="number" min={balance.ownGross} max={balance.withdrawalMaximum} step="0.001" inputMode="decimal" value={values[key(i)]??""} placeholder={qty(balance.available)} onChange={e=>{setValues(v=>({...v,[key(i)]:e.target.value}));setConfirmed(false);}}/><small>Disponível: {qty(balance.available)} {i.unidade_nome}<br/>Registrado: {qty(balance.ownGross)} {i.unidade_nome}</small></label>
             {returned>0&&<div className="field-returned-column"><span className="field-part-quantity-label">Devolução informada</span><strong>{qty(returned)} {i.unidade_nome}</strong><small>Recebido pelo almoxarifado: {qty(Number(i.received?.quantity||0))} {i.unidade_nome}</small></div>}
           </div>
           {!readOnly&&<div className="field-part-editor-actions">{pendingReturn&&<small>Devolução ajustada · ainda não salva</small>}{(maximum>balance.returnMinimum||pendingReturn)&&<button className="field-part-return" type="button" disabled={busy} onClick={()=>{setReturnItem(i);setReturnQty(returned>0?String(returned):"");setReturnError("");}}>{returned>0?'Ajustar devolução':'Devolver peça'}</button>}</div>}

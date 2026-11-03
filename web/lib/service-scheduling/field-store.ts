@@ -1,3 +1,5 @@
+import {occurrencesForEquipment,operationOccurrenceEquipment} from "../equipment-occurrences/store";
+import {handoffOperation} from './workflow';
 import {beginTeam,syncTeam,teamController,teamSessionsAvailable} from "./team-sessions";
 import {validateRunAlertComments} from './checklists';
 import { offlineTime } from "./offline-action";
@@ -195,7 +197,10 @@ export async function fieldData(email: string, operationId?: string | null) {
     submission.name=(await c.query('SELECT display_name FROM web_user_access WHERE email=$1',[submission.by])).rows[0]?.display_name||submission.by;
   }
   const materialData = await materials(c, { ...p, id: p.schedule_id });
+  const occurrenceEquipment = await operationOccurrenceEquipment(c,p.id,email);
   return {
+    occurrenceEquipment,
+    equipmentOccurrences: await occurrencesForEquipment(c, p.document.equipmentId ? [String(p.document.equipmentId)] : Array.from(new Set([...equipment_links.map((e:any)=>String(e.equipment_id)),...occurrenceEquipment.map((e:any)=>String(e.id))]))),
     teamAvailable:await teamSessionsAvailable(c),
     supportMembers:(await c.query("SELECT email,display_name FROM web_user_access WHERE email=ANY($1::text[]) AND enabled",[p.document.support || []])).rows,
     finishPending: await finishPending(c, p, email, materialData.complete),
@@ -286,7 +291,7 @@ export async function fieldAction(b: any, email: string) {
         (b.action.startsWith("report_") || b.action.startsWith("checklist_") || b.action.startsWith("finish_")))
       throw new FieldError("Somente o técnico responsável pode acessar o relatório ou finalizar a operação.");
 
-    if (["awaiting_review", "reviewed", "completed"].includes(p.status))
+    if (b.action!=='materials' && ["awaiting_review", "reviewed", "completed"].includes(p.status))
       throw new FieldError(
         "Esta operação já foi enviada para revisão e não permite novos apontamentos.",
       );
@@ -307,6 +312,7 @@ export async function fieldAction(b: any, email: string) {
       if (last && occurredMs < new Date(last).getTime())
         throw new FieldError("Conflito de horários com outro apontamento. Confira os registros antes de sincronizar.");
     }
+    if(reportSubmission(p.document.checklistRun)&&['start_work','start_travel','pause','resume','stop'].includes(b.action))throw new FieldError('Relatório enviado. Novos apontamentos exigem devolução do relatório pelo planejador.');
     const location = locationOf(b.location, occurredMs);
     const s = {
       id: p.schedule_id,
@@ -341,7 +347,7 @@ export async function fieldAction(b: any, email: string) {
       details={internalNote:p.document.internalNote||""};
       operationUpdated=true;
     } else if (b.action === "materials") {
-      if(reportSubmission(p.document.checklistRun))throw new FieldError("Relatório enviado. As peças estão disponíveis somente para consulta.");
+      const returnsOnly=!!reportSubmission(p.document.checklistRun)||['awaiting_review','reviewed','completed'].includes(p.status);
       if (b.quantityScope !== "operation")
         throw new FieldError("O controle de retiradas mudou. Atualize a página e reabra a conferência.");
       await c.query("SELECT pg_advisory_xact_lock(829201,0)");
@@ -366,6 +372,7 @@ export async function fieldAction(b: any, email: string) {
         if (raw != null && typeof raw !== "number") throw new FieldError("Quantidade retirada inválida.");
         const gross = raw == null ? balance.ownGross : grossMode ? raw : raw >= balance.own ? balance.ownGross + raw - balance.own : balance.ownGross;
         const returned = grossMode ? (patch.returned ?? balance.ownReturned) : raw == null ? balance.ownReturned : balance.ownReturned + Math.max(0, balance.own - raw);
+        if(returnsOnly&&gross!==balance.ownGross)throw new FieldError('Após o envio do relatório, somente devoluções de peças são permitidas.');
         if ([gross,returned].some(v => typeof v !== "number" || !Number.isFinite(v) || v < 0 || v > 1e9 || Math.abs(v - materialQuantity(v)) > 1e-9))
           throw new FieldError("Informe quantidades válidas com até três casas decimais.");
         if ((item.usage?.version ?? null) !== patch.version)
@@ -527,8 +534,8 @@ export async function fieldAction(b: any, email: string) {
       await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[p.id,b.action,email,'Devolvida para ajuste do checklist. Preenchimento e fotos preservados. Motivo: '+reason]);
       operationUpdated=true;details={reason,checklistId:p.document.checklistId};
     } else if (b.action === "report_save") {
-      try{await requireReportActivity(c,p.id,email);}catch(e){throw new FieldError((e as Error).message)}
       if(reportSubmission(p.document.checklistRun))throw new FieldError("Relatório enviado. O planejador precisa reabrir a edição.");
+      try{await requireReportActivity(c,p.id,email);}catch(e){throw new FieldError((e as Error).message)}
       if(p.version!==b.version)throw new FieldError('O relatório foi atualizado. Reabra para carregar a versão atual.');
       if(!Array.isArray(b.stages)||b.stages.length>100||new Set(b.stages.map((s:any)=>s.stageId)).size!==b.stages.length)throw new FieldError('Etapas inválidas.');
       let current=p;
@@ -540,12 +547,13 @@ export async function fieldAction(b: any, email: string) {
     } else if (b.action === "report_send" || b.action === "report_send_partial") {
       if(reportSubmission(p.document.checklistRun))throw new FieldError("Relatório enviado. O planejador precisa reabrir a edição.");
       if(p.document.responsible!==email)throw new FieldError('Somente o responsável pode enviar o relatório.');
+      if((await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[p.id])).rows.length)throw new FieldError('Finalize os apontamentos abertos de toda a equipe antes de enviar o relatório.');
       if(p.version!==b.version)throw new FieldError('O checklist foi atualizado. Reabra para carregar a versão atual.');
       if(!p.document.checklistId)throw new FieldError('Esta operação não possui checklist.');
       let current=p;
       if(b.stages!==undefined){
         if(!Array.isArray(b.stages)||b.stages.length>100||new Set(b.stages.map((s:any)=>s.stageId)).size!==b.stages.length)throw new FieldError('Etapas inválidas.');
-        for(const stage of b.stages)current=await updateChecklist(c,{...stage,action:'checklist_save'},current,s,settings,email,false);
+        for(const stage of b.stages)current=await updateChecklist(c,{...stage,action:'checklist_save'},current,s,settings,email,false,{submittingReport:true});
       }
       const partial=b.action==='report_send_partial';
       if(!current.document.checklistRun)throw new FieldError('Preencha e salve o relatório antes do envio.');
@@ -590,11 +598,12 @@ export async function fieldAction(b: any, email: string) {
       operationUpdated = true;
       details = { stageId: b.stageId };
     } else throw new FieldError("Ação inválida.");
-    if (!operationUpdated)
+    if (!operationUpdated && !(b.action==="materials"&&p.status==="completed"))
       await c.query(
-        "UPDATE web_service_operations SET status='executing',version=version+1,updated_at=now(),updated_by=$2 WHERE id=$1",
+        "UPDATE web_service_operations SET status=CASE WHEN status IN('awaiting_review','reviewed','completed') THEN status ELSE 'executing' END,version=version+1,updated_at=now(),updated_by=$2 WHERE id=$1",
         [p.id, email],
       );
+    if(b.action==='finish_full')await handoffOperation(c,p,s,email,'review');
     const resultVersion = (await c.query("SELECT version FROM web_service_operations WHERE id=$1", [p.id])).rows[0].version;
     details = {...details, resultVersion, ...(b.offline ? {offline:true,receivedAt:new Date().toISOString()} : {})};
     await c.query(

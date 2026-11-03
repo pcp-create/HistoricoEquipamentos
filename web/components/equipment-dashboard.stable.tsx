@@ -1,4 +1,5 @@
 "use client";
+import {EquipmentOccurrenceHistory} from "./equipment-occurrences";
 import RentalRatingFilter from "./rental-rating-filter";
 import { matchesSearch } from "@/lib/filters";
 
@@ -1517,6 +1518,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                   )}
 
                 </section>
+                <EquipmentOccurrenceHistory equipmentId={String(detail.equipment.id)}/>
                 <section className="manual-card">
                   <h2>Últimas OS do equipamento</h2>
                   <p className="muted">

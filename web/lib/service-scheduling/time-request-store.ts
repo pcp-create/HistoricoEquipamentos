@@ -1,3 +1,4 @@
+import {reportSubmission} from './checklists';
 import {teamSessionsAvailable} from "./team-sessions";
 import {offlineTime} from "./offline-action";
 import { operationNumber } from "./operation-number";
@@ -286,6 +287,7 @@ export async function changeTimeRequest(b: any, email: string) {
       ])
     ).rows[0];
     if (!operation) throw new TimeRequestError("Operação não encontrada.");
+    if(reportSubmission(operation.document?.checklistRun)&&!b.sessionId&&!b.legacyEventId)throw new TimeRequestError("Relatório enviado. Devolva o relatório antes de incluir novos apontamentos.");
     const legacy = b.legacyEventId
       ? (
           await c.query(

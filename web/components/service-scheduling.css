@@ -972,3 +972,45 @@
 .schedule-date-signal.is-scheduled { background: #2869ad; }
 .schedule-date-signal.is-attention { background: #c28b12; }
 .schedule-date-signal.is-overdue { background: #ca3949; }
+
+.schedule-order-actions{margin:18px 0;padding:18px;border:1px solid #d6e4f1;border-radius:12px;background:#fff}
+.schedule-order-actions form{display:grid;gap:14px;margin-top:16px;max-width:900px}
+.schedule-order-actions label{display:grid;gap:6px;font-weight:600}
+.schedule-order-actions textarea,.schedule-order-actions select,.schedule-order-actions input{width:100%;box-sizing:border-box;min-height:42px;padding:10px 12px;border:1px solid #c8dcee;border-radius:8px;font:inherit;color:inherit}
+.schedule-order-actions p{margin:8px 0;line-height:1.5}
+.schedule-order-actions [role=alert]{color:#b22d3b}
+.schedule-order-actions [role=status]{color:#168477}
+
+/* Main scheduling actions share dimensions and interaction states. */
+.scheduling-heading { flex-wrap: wrap; }
+.scheduling-heading > div:first-child { min-width: 0; }
+.scheduling-toolbar { margin-left: auto; gap: 10px; }
+.scheduling-toolbar > a,
+.scheduling-toolbar > button {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px; min-height: 44px; padding: 11px 15px; border: 1px solid #cbddef;
+  border-radius: 10px; background: #fff; color: #285c88;
+  font: inherit; font-size: 13px; font-weight: 600; line-height: 20px;
+  text-decoration: none; cursor: pointer; box-shadow: 0 1px 2px #18355408;
+  transition: background-color .15s, border-color .15s, box-shadow .15s;
+}
+.scheduling-toolbar > a svg,.scheduling-toolbar > button svg { width: 18px; height: 18px; flex-shrink: 0; }
+.scheduling-toolbar > a:hover,.scheduling-toolbar > button:hover:not(:disabled) {
+  background: #edf5fc; border-color: #9dbddd; box-shadow: 0 2px 5px #1835540d;
+}
+.scheduling-toolbar > .scheduling-toolbar-primary { background: #246297; border-color: #246297; color: white; box-shadow: 0 2px 4px #24629720; }
+.scheduling-toolbar > .scheduling-toolbar-primary:hover { background: #1d507d; border-color: #1d507d; }
+.scheduling-toolbar > button[aria-pressed="true"] { background: #eaf3fb; border-color: #8db2d3; color: #174e7d; }
+.scheduling-toolbar > a:focus-visible,.scheduling-toolbar > button:focus-visible { outline: 2px solid #246297; outline-offset: 3px; }
+@media (max-width: 700px) {
+  .scheduling-toolbar { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; margin-left: 0; gap: 10px; }
+  .scheduling-toolbar > a,.scheduling-toolbar > button { width: 100%; padding: 11px 8px; }
+  .scheduling-toolbar > :first-child,.scheduling-toolbar > :last-child:nth-child(even) { grid-column: 1 / -1; }
+}
+
+.schedule-order-fields .schedule-date-explanation {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 0; border: 0; background: transparent; color: #24699f;
+  font: inherit; font-variant-numeric: tabular-nums; cursor: pointer;
+  text-decoration: underline dotted; text-underline-offset: 4px;
+}
