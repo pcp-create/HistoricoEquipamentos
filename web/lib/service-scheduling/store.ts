@@ -1,3 +1,4 @@
+import {isDeepStrictEqual} from 'node:util';
 import {handoffOperation} from './workflow';
 import {attachPlannedDates} from "./planned-date-store";
 import {isCancelledOrder,displayedScheduleStatus,displayedOperationStatus,displayedOperationCounts} from "./display-status";
@@ -252,7 +253,18 @@ export async function mutateSchedule(b: any, email: string) {
       } catch (e) {
         throw new ScheduleInputError((e as Error).message);
       }
-      const refs = (await c.query("SELECT * FROM web_service_operations")).rows;
+      // Adding a vehicle or editing a checklist must not rewrite scheduled operations.
+      const previous = config.document;
+      const changedCalendars = new Set<string>(document.calendars.filter((cal:any) => {
+        const old = previous.calendars.find((v:any) => v.id === cal.id);
+        return !old || !isDeepStrictEqual(old.week,cal.week) || !isDeepStrictEqual(old.exceptions||[],cal.exceptions||[]);
+      }).map((cal:any) => cal.id));
+      const removedDefinition = previous.vehicles?.some((v:any)=>!document.vehicles.some((n:any)=>n.id===v.id)) ||
+        previous.serviceTypes.some((v:string)=>!document.serviceTypes.includes(v)) ||
+        previous.calendars.some((v:any)=>!document.calendars.some((n:any)=>n.id===v.id)) ||
+        previous.checklists.some((v:any)=>!document.checklists.some((n:any)=>n.id===v.id));
+      const refs = removedDefinition || changedCalendars.size
+        ? (await c.query("SELECT * FROM web_service_operations")).rows : [];
       for (const { document: d } of refs)
         if (
           (d.vehicleId &&
@@ -273,13 +285,14 @@ export async function mutateSchedule(b: any, email: string) {
         )
       ).rows[0];
       for (const o of refs)
-        if (["pending", "planning", "scheduled"].includes(o.status)) {
+        if (["pending", "planning", "scheduled"].includes(o.status) && changedCalendars.has(o.document.calendarId)) {
           const ends = calendarEnd(
             o.document,
             document.calendars.find(
               (cal: any) => cal.id === o.document.calendarId,
             ),
           );
+          if ((o.ends_at ? new Date(o.ends_at).toISOString() : null) === ends) continue;
           await c.query(
             "UPDATE web_service_operations SET ends_at=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1",
             [o.id, ends, email],
