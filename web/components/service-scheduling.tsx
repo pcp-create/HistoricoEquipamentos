@@ -33,7 +33,6 @@ import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Send,
-  CheckCheck,
   Eye,
   Undo2,
   ArrowUpDown,
@@ -1252,7 +1251,16 @@ function OperationRow({
             aria-label={"Salvar operação " + operationNumber(o.position)}
             onClick={() => void persist()}
            title={"Salvar operação " + operationNumber(o.position)}><SaveActionIcon /></button>
-          {data.canEditSettings && <button className="operation-icon-action" type="button" title={o.sent_at?"Enviado ao técnico":"Enviar ao técnico"} aria-label={o.sent_at?"Enviado ao técnico":"Enviar ao técnico"} disabled={busy||dirty||o.status!=="scheduled"||!d.responsible} onClick={()=>void mutate({action:"dispatch",operationId:o.id,version:o.version})}>{o.sent_at?<CheckCheck size={18} aria-hidden="true"/>:<Send size={18} aria-hidden="true"/>}</button>}
+          {data.canEditSettings && <button className="operation-icon-action" type="button"
+            title={o.sent_at?"Retornar OS ao planejamento":"Enviar ao técnico"}
+            aria-label={o.sent_at?"Retornar OS ao planejamento":"Enviar ao técnico"}
+            disabled={busy||dirty||(o.sent_at?(locked||!!reportSubmission(o.document.checklistRun)||!!o.document.checklistRun?.partialSubmission):(o.status!=="scheduled"||!d.responsible))}
+            onClick={()=>{
+              if(!o.sent_at){void mutate({action:"dispatch",operationId:o.id,version:o.version});return;}
+              const reason=window.prompt('Retornar esta operação da OS ao planejamento? Ela sairá do portal do técnico até ser reenviada. Dados ainda não sincronizados podem ser perdidos parcialmente. Informe o motivo do retorno:');
+              if(reason===null)return;
+              void mutate({action:'recall',operationId:o.id,version:o.version,confirmReturn:true,reason});
+            }}>{o.sent_at?<Undo2 size={18} aria-hidden="true"/>:<Send size={18} aria-hidden="true"/>}</button>}
           <button className="operation-icon-action" type="button" title="Acompanhar execução" aria-label="Acompanhar execução" onClick={() => setExpanded(true)}>
             <Eye size={18} aria-hidden="true"/>
           </button>

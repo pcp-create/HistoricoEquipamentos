@@ -69,3 +69,7 @@ A fila de serviços deduplica pelo identificador da programação e pelo e-mail 
 É possível trocar o responsável de uma operação já enviada, enquanto ela ainda estiver aguardando execução ou em execução. Ao salvar, o planejador confirma o aviso de possível perda parcial dos dados ainda não sincronizados no aparelho do técnico anterior. O servidor exige a confirmação e um novo responsável ativo. Apontamentos em aberto devem ser encerrados antes da troca; operações em revisão/concluídas permanecem protegidas.
 
 O checklist e os registros já sincronizados são preservados. A alteração fica no histórico da operação e a tarefa existente passa ao novo executante, sem criar outra tarefa. O novo responsável recebe o aviso da OS conforme a regra de deduplicação por OS/técnico.
+
+## Retorno da programação pelo planejador
+
+O botão Enviar ao técnico passa a oferecer Retornar OS ao planejamento depois do envio da operação. O retorno atua sobre a operação da linha selecionada, solicita um motivo e avisa sobre dados não sincronizados. Retira a operação do portal do técnico até novo envio, preserva checklist, fotos e apontamentos sincronizados e devolve a tarefa existente ao planejador. Não exclui a OS nem as outras operações. Apontamentos abertos e relatórios enviados para revisão impedem o retorno. A versão é conferida para evitar alterações concorrentes e o motivo fica no histórico/auditoria.

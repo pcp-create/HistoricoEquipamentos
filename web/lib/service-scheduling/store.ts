@@ -1,3 +1,4 @@
+import {recallOperation} from "./recall-operation";
 import {changesDispatchedResponsible,validateResponsibleChange} from "./responsible-change";
 import {isDeepStrictEqual} from 'node:util';
 import {handoffOperation} from './workflow';
@@ -457,6 +458,12 @@ export async function mutateSchedule(b: any, email: string) {
       );
     if (operation.status === "completed")
       throw new ScheduleInputError("Operação concluída não pode ser alterada.");
+    if(b.action==='recall'){
+      if(!admin)throw new Forbidden();
+      let result;
+      try{result=await recallOperation(c,operation,email,b);}catch(e){throw new ScheduleInputError((e as Error).message);}
+      await c.query('COMMIT');return {operation:result};
+    }
     if(b.action==='report_reopen'){
       let result;
       try{result=await reopenReport(c,operation,email,admin);}catch(e){throw new ScheduleInputError((e as Error).message);}

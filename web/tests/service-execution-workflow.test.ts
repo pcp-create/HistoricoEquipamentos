@@ -1,3 +1,4 @@
+import {recallOperation} from "../lib/service-scheduling/recall-operation";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -151,6 +152,28 @@ test("execution handoffs preserve one task; releases, customer sends and approva
       ).rows[0].assigned_to,
       "tech@test.com",
     );
+    // Recalling a sent operation preserves data, moves its task to planning and hides it from the portal.
+    await assert.rejects(async()=>recallOperation(db,await op(),'planner@test.com',{confirmReturn:true,reason:'Ajuste'}),/revisão/);
+    await db.exec('BEGIN');
+    const recallBefore=await op();
+    const draftRun=structuredClone(recallBefore.document.checklistRun);delete draftRun.submission;
+    draftRun.stages.s.status='released';
+    recallBefore.document={...recallBefore.document,checklistRun:draftRun};
+    await query('UPDATE web_service_operations SET document=$2 WHERE id=$1',[id,JSON.stringify(recallBefore.document)]);
+    await assert.rejects(()=>recallOperation(db,recallBefore,'planner@test.com',{reason:'Ajuste'}),/Confirme/);
+    await assert.rejects(()=>recallOperation(db,recallBefore,'planner@test.com',{confirmReturn:true,reason:' '}),/motivo/);
+    const activeSession=randomUUID();
+    await query("INSERT INTO web_field_sessions(id,operation_id,actor,kind,state) VALUES($1,$2,'tech@test.com','work','running')",[activeSession,id]);
+    await assert.rejects(()=>recallOperation(db,recallBefore,'planner@test.com',{confirmReturn:true,reason:'Ajuste'}),/apontamentos ativos/);
+    await query("UPDATE web_field_sessions SET state='finished',finished_at=now() WHERE id=$1",[activeSession]);
+    const recalled=await recallOperation(db,recallBefore,'planner@test.com',{confirmReturn:true,reason:'Ajustar programação'});
+    assert.equal(recalled.sent_at,null);assert.equal(recalled.version,recallBefore.version+1);
+    assert.deepEqual(recalled.document.checklistRun,draftRun);
+    assert.equal(recalled.document.checklistReturn.reason,'Ajustar programação');
+    assert.equal((await query<any>('SELECT assigned_to FROM web_tasks WHERE id=$1',[taskId])).rows[0].assigned_to,'planner@test.com');
+    assert.equal((await query('SELECT * FROM web_service_operations WHERE id=$1 AND sent_at IS NOT NULL',[id])).rows.length,0);
+    await assert.rejects(()=>recallOperation(db,recalled,'planner@test.com',{confirmReturn:true,reason:'Repetido'}),/ainda não foi enviada/);
+    await db.exec('ROLLBACK');
     // Reassignment after dispatch requires confirmation and preserves synchronized answers.
     await query("UPDATE web_service_schedule_settings SET document=jsonb_set(document,'{checklists}',$1::jsonb)",[JSON.stringify([run.template])]);
     const beforeReassignment=await op();
