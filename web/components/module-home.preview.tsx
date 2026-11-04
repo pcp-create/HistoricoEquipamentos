@@ -16,7 +16,6 @@ import {
 import SiteHeader from "./site-header";
 
 const modules = [
-  {id:"operacoes",title:"Operações",icon:ClipboardList,description:"Ocorrências e particularidades dos equipamentos.",links:[["B.O", "/bo"]],next:"Histórico de ocorrências para os próximos atendimentos."},
   {
     id: "crm",
     title: "Comercial",

@@ -192,8 +192,8 @@ export default function EquipmentOccurrences() {
     <>
       <SiteHeader active="occurrences" />
       <main className="module-home-main bo-page">
-        <a href="/modulos/operacoes">
-          <ArrowLeft size={16} /> Operações
+        <a href="/modulos/assistencia-tecnica">
+          <ArrowLeft size={16} /> Assistência Técnica
         </a>
         <header>
           <div>
