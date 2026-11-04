@@ -2,7 +2,7 @@ import { integrationItems } from "@/lib/integration-items";
 import { createEmployeeLogin, resetEmployeePassword } from "@/lib/employee-login";
 import { NextResponse } from "next/server";
 import { requireAdmin, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
-import { adminOverview, setAccess, AdminInputError } from "@/lib/admin-store";
+import { adminOverview, setAccess, changeEmployeeState, AdminInputError } from "@/lib/admin-store";
 export const runtime = "nodejs";
 const json = (v: unknown, status = 200) =>
   NextResponse.json(v, {
@@ -49,6 +49,7 @@ export async function POST(req: Request) {
     }
     if (body.action === "create-login") await createEmployeeLogin(body, user);
     else if (body.action === "reset-password") await resetEmployeePassword(body, user);
+    else if (["deactivate","reactivate","delete"].includes(body.action)) await changeEmployeeState(body,user);
     else await setAccess(body, user);
     return json({ saved: true });
   } catch (e) {

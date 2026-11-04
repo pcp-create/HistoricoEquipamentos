@@ -38,3 +38,5 @@
 .field-map-legend i {width:9px;height:9px;flex-shrink:0;border-radius:50%}
 .field-map-surface {position:absolute;inset:0;z-index:0;border-radius:12px 12px 0 0}
 .field-map-notice {position:absolute;top:65px;left:50%;transform:translateX(-50%);z-index:1;margin:0;max-width:80%;padding:8px 12px;background:#fffffff0;border-radius:8px;font-size:12px;text-align:center;pointer-events:none}
+
+.field-person-label-left .field-person-marker { flex-direction: row-reverse; transform: translateX(calc(22px - 100%)); }

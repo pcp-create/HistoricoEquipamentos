@@ -35,6 +35,9 @@ const eventNames: Record<string, string> = {
   login: "Login realizado",
   logout: "Saída do sistema",
   access_changed: "Cadastro / permissão alterados",
+  employee_deactivated: "Funcionário desativado",
+  employee_reactivated: "Funcionário reativado",
+  employee_deleted: "Funcionário excluído",
   account_created: "Conta de acesso criada",
   password_reset: "Senha redefinida pelo administrador",
   password_changed: "Senha alterada pelo usuário",
@@ -115,6 +118,19 @@ export default function AdminDashboard() {
     } finally {
       setBusy(false);
     }
+  }
+  async function changeState(u:any,action:"deactivate"|"reactivate"|"delete") {
+    if(busy)return;
+    if(action==="delete"&&!confirm(`Excluir ${u.display_name||u.email}? O funcionário sairá da lista e perderá o acesso. O histórico de OSs, tarefas e apontamentos será preservado.`))return;
+    if(action==="deactivate"&&!confirm(`Desativar ${u.display_name||u.email}? O acesso será bloqueado até a reativação.`))return;
+    setBusy(true);setError("");setMessage("");
+    try {
+      const response=await apiFetch("/api/admin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,email:u.email})});
+      const result=await response.json();if(!response.ok)throw Error(result.error);
+      if(form.email===u.email){setFormOpen(false);setEditing(false);}
+      setMessage(action==="delete"?"Funcionário excluído. Histórico preservado.":action==="deactivate"?"Funcionário desativado.":"Funcionário reativado.");
+      await load();
+    }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
   async function createLogin(reset = false) {
     if(reset && !confirm("Redefinir a senha deste usuário para 123456? Ele receberá as instruções pelo WhatsApp cadastrado e deverá trocá-la no próximo acesso."))return;
@@ -434,7 +450,7 @@ export default function AdminDashboard() {
                             </small>
                           </td>
 
-                          <td>
+                          <td className="admin-user-actions">
                             <button
                               type="button"
                               disabled={busy}
@@ -459,6 +475,12 @@ export default function AdminDashboard() {
                               }}
                             >
                               Editar funcionário
+                            </button>
+                            <button type="button" disabled={busy||u.email===data.email} onClick={()=>void changeState(u,u.enabled?"deactivate":"reactivate")}>
+                              {u.enabled?"Desativar":"Reativar"}
+                            </button>
+                            <button className="admin-delete-user" type="button" disabled={busy||u.email===data.email} onClick={()=>void changeState(u,"delete")}>
+                              Excluir
                             </button>
                           </td>
                         </tr>

@@ -238,3 +238,6 @@
 .admin-page .admin-user-inline-editor { padding: 8px 16px 16px; border: 1px solid #d6e2ee; border-top: 0; border-radius: 0 0 10px 10px; background: #fff; white-space: normal; }
 .admin-page .admin-user-inline-editor fieldset { margin-top: 16px; }
 @media(max-width:640px) { .admin-page .admin-user-editor-row > td { padding: 0 8px 12px; } .admin-page .admin-user-inline-editor { padding: 4px 10px 12px; } }
+
+.admin-page .admin-user-actions button { margin: 3px 6px 3px 0; }
+.admin-page .admin-user-actions .admin-delete-user { color: #b42338; border-color: #f0c8cf; }

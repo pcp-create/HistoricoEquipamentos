@@ -94,12 +94,35 @@ export default function FieldMap({visible}:{visible:boolean}) {
    const draw=()=>{
     markers.clearLayers();
     if(mode==='technicians'){
+     // Distant views show counts; a closer view opens overlapping people around their GPS point.
+     if(m.getZoom()<15){
+      const groups=clusterMapPoints(entries,e=>m.project(e.point,m.getZoom()),60);
+      for(const group of groups){
+       if(group.items.length===1){
+        const entry=group.items[0],marker=entry.marker as Leaflet.Marker;
+        marker.setLatLng(entry.point).addTo(markers);
+        marker.getElement()?.classList.remove('field-person-label-left');
+        continue;
+       }
+       const count=document.createElement('span');count.className='field-map-cluster';count.textContent=String(group.items.length);
+       const cluster=L.marker(m.unproject([group.x,group.y],m.getZoom()),{icon:L.divIcon({html:count,className:'field-map-cluster-icon',iconSize:[36,36],iconAnchor:[18,18]}),title:`${group.items.length} técnicos — aproximar para visualizar`}).addTo(markers);
+       cluster.on('click',()=>m.fitBounds(L.latLngBounds(group.items.map(e=>e.point)),{padding:[80,80],maxZoom:Math.min(15,m.getZoom()+3)}));
+      }
+      return;
+     }
      const canvas=document.createElement('canvas');const context=canvas.getContext('2d');if(context)context.font='600 12px Arial';
      const positions=technicianMarkerLayout(entries,e=>m.project(e.point,m.getZoom()),e=>context?.measureText(e.name).width||e.name.length*8);
+     const centers=new Set<string>();
      for(const p of positions){
+      if(p.spread){
+       const key=`${p.centerX}:${p.centerY}`;
+       if(!centers.has(key)){centers.add(key);L.circleMarker(m.unproject([p.centerX,p.centerY],m.getZoom()),{radius:3,color:'#fff',weight:1,fillColor:'#64748b',fillOpacity:1,interactive:false}).addTo(markers);}
+      }
       const position=m.unproject([p.x,p.y],m.getZoom());
       if(p.x!==p.originalX||p.y!==p.originalY)L.polyline([p.item.point,position],{color:'#64748b',weight:1,dashArray:'3 4',interactive:false}).addTo(markers);
-      (p.item.marker as Leaflet.Marker).setLatLng(position).addTo(markers);
+      const marker=p.item.marker as Leaflet.Marker;
+      marker.setLatLng(position).addTo(markers);
+      marker.getElement()?.classList.toggle('field-person-label-left',p.side==='left');
      }
      return;
     }

@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.11
+# Portal Técnico RJ — APK 2.2.12
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -214,3 +214,9 @@ Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/porta
 A versão 2.2.11 (código 21) corrige as chaves dos elementos dos grupos na renderização do checklist, eliminando o aviso do React ao atualizar ou retornar o relatório. Preserva o rascunho, as respostas e os identificadores dos campos. Mantém a assinatura existente.
 
 Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.11
+
+## Mapa da equipe — 2.2.12
+
+Versão 2.2.12 (código 22): técnicos próximos ficam agrupados na visão afastada. Ao aproximar, as pessoas no mesmo local se distribuem em círculo compacto, com linhas tracejadas até o ponto original e nomes voltados para fora. Mantém a assinatura e os dados locais da instalação anterior.
+
+Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.12

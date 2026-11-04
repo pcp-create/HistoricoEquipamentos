@@ -98,10 +98,11 @@ export async function setAccess(body: any, actor: AuthUser) {
       throw new AdminInputError("Permissão de administrador necessária.");
     const old = (
       await c.query(
-        "SELECT role,enabled,display_name FROM web_user_access WHERE email=$1",
+        "SELECT role,enabled,display_name,to_jsonb(web_user_access)->>'deleted_at' AS deleted_at FROM web_user_access WHERE email=$1",
         [email],
       )
     ).rows[0];
+    if (old?.deleted_at) throw new AdminInputError("Este cadastro foi excluído e não pode ser alterado.");
     if (body.mode === "create" && old)
       throw new AdminInputError(
         "Já existe um funcionário com este e-mail. Use Editar funcionário na lista para atualizar o cadastro e preservar seu perfil de acesso.",
@@ -185,7 +186,7 @@ export async function adminOverview() {
   const db = database();
   const users = (
     await db.query(`SELECT COALESCE(to_jsonb(web_user_access)->'managers','[]'::jsonb) managers,to_jsonb(web_user_access)->>'m8_employee_id' AS m8_employee_id,to_jsonb(web_user_access)->>'hourly_cost' AS hourly_cost,to_jsonb(web_user_access)->>'task_color' AS task_color,email,display_name,department,job_title,phone,alert_preventive,alert_rental,alert_email,alert_whatsapp,user_id,role,enabled,last_login_at,last_seen_at,last_logout_at,
- (enabled AND last_seen_at>now()-interval '15 minutes' AND (last_logout_at IS NULL OR last_seen_at>last_logout_at)) AS online FROM web_user_access ORDER BY role,email`)
+ (enabled AND last_seen_at>now()-interval '15 minutes' AND (last_logout_at IS NULL OR last_seen_at>last_logout_at)) AS online FROM web_user_access WHERE to_jsonb(web_user_access)->>'deleted_at' IS NULL ORDER BY role,email`)
   ).rows;
   const events = (
     await db.query(
@@ -213,4 +214,32 @@ export async function adminOverview() {
     )
   ).rows;
   return { users, events, orders, products, equipment, runs, managersAvailable: await managersAvailable(db) };
+}
+
+/** Retain the identity to preserve history and prevent allowlisted logins recreating access. */
+export async function changeEmployeeState(body:any,actor:AuthUser){
+ const email=typeof body?.email==='string'?body.email.trim().toLowerCase():'';
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254)throw new AdminInputError('Informe um e-mail válido.');
+ if(!['deactivate','reactivate','delete'].includes(body.action))throw new AdminInputError('Ação inválida.');
+ const c=await database().connect();
+ try{
+  await c.query('BEGIN READ WRITE');
+  await c.query('SELECT pg_advisory_xact_lock(81020,1)');
+  const permission=(await c.query('SELECT role,enabled FROM web_user_access WHERE email=$1 FOR UPDATE',[actor.email.toLowerCase()])).rows[0];
+  if(!permission?.enabled||permission.role!=='admin')throw new AdminInputError('Permissão de administrador necessária.');
+  const old=(await c.query('SELECT * FROM web_user_access WHERE email=$1 FOR UPDATE',[email])).rows[0];
+  if(!old||old.deleted_at)throw new AdminInputError('Funcionário não encontrado. Atualize a lista.');
+  if(body.action!=='reactivate'&&old.role==='admin'&&old.enabled){
+   const count=Number((await c.query("SELECT count(*) AS n FROM web_user_access WHERE role='admin' AND enabled")).rows[0].n);
+   if(count<=1)throw new AdminInputError('Não é possível remover o último administrador ativo.');
+  }
+  if(email===actor.email.toLowerCase()&&body.action!=='reactivate')throw new AdminInputError('Você não pode desativar ou excluir seu próprio cadastro.');
+  if(body.action==='delete')await c.query('UPDATE web_user_access SET enabled=false,deleted_at=now(),updated_at=now(),updated_by=$2 WHERE email=$1',[email,actor.email]);
+  else await c.query('UPDATE web_user_access SET enabled=$2,updated_at=now(),updated_by=$3 WHERE email=$1',[email,body.action==='reactivate',actor.email]);
+  await c.query('INSERT INTO web_access_events(event,email,actor,details) VALUES($1,$2,$3,$4)',[
+   body.action==='delete'?'employee_deleted':body.action==='deactivate'?'employee_deactivated':'employee_reactivated',email,actor.email,
+   JSON.stringify({before:{display_name:old.display_name,role:old.role,enabled:old.enabled},after:{enabled:body.action==='reactivate',deleted:body.action==='delete'}})
+  ]);
+  await c.query('COMMIT');
+ }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }

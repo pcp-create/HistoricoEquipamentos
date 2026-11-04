@@ -2,13 +2,14 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
 import {readFileSync} from 'node:fs';
-import {accessRecord,setAccess,recordActivity} from '../lib/admin-store';
+import {accessRecord,setAccess,recordActivity,changeEmployeeState} from '../lib/admin-store';
 import {authorizedEmail} from '../lib/auth';
 test('admin access stays server controlled, blocking overrides allowlist and last admin is protected',async()=>{
  const db=new PGlite(),g=globalThis as any,old=g.historyPool,env=process.env.WEB_ALLOWED_EMAILS;
  try{
  await db.exec('CREATE ROLE anon;CREATE ROLE authenticated');await db.exec(readFileSync(new URL('../sql/008_administration.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL("../sql/081_visit_manager_role.sql",import.meta.url),"utf8"));
+ await db.exec(readFileSync(new URL('../sql/095_employee_deletion.sql',import.meta.url),'utf8'));
  const query=db.query.bind(db);g.historyPool={query,connect:async()=>({query,release(){}})};
  const admin={id:'a',email:'guih.waltrick@gmail.com'},user={id:'u',email:'user@example.com',user_metadata:{role:'admin',full_name:'Usuário'}};
  process.env.WEB_ALLOWED_EMAILS=user.email;
@@ -27,5 +28,22 @@ test('admin access stays server controlled, blocking overrides allowlist and las
  await recordActivity(user,'heartbeat');await recordActivity(user,'logout');
  const events=(await db.query('SELECT event FROM web_access_events WHERE email=$1',[user.email])).rows as any[];
  assert.ok(events.some(e=>e.event==='login'));assert.ok(events.some(e=>e.event==='logout'));assert.ok(!events.some(e=>e.event==='heartbeat'));
+ await assert.rejects(()=>changeEmployeeState({action:'delete',email:user.email},{id:'x',email:'outsider@test.com'}),/administrador/);
+ await assert.rejects(()=>changeEmployeeState({action:'delete',email:admin.email},admin),/próprio cadastro/);
+ await changeEmployeeState({action:'deactivate',email:user.email},admin);
+ assert.equal(await authorizedEmail(user.email),false);
+ await changeEmployeeState({action:'reactivate',email:user.email},admin);
+ assert.equal(await authorizedEmail(user.email),true);
+ const historyCount=Number((await db.query<any>('SELECT count(*) n FROM web_access_events WHERE email=$1',[user.email])).rows[0].n);
+ await changeEmployeeState({action:'delete',email:user.email},admin);
+ assert.equal(await authorizedEmail(user.email),false);
+ assert.ok((await db.query<any>('SELECT deleted_at FROM web_user_access WHERE email=$1',[user.email])).rows[0].deleted_at);
+ assert.equal(Number((await db.query<any>('SELECT count(*) n FROM web_access_events WHERE email=$1',[user.email])).rows[0].n),historyCount+1);
+ await assert.rejects(()=>changeEmployeeState({action:'reactivate',email:user.email},admin),/não encontrado/);
+ await assert.rejects(()=>setAccess({email:user.email,role:'user',enabled:true},admin),/excluído/);
+ await recordActivity(user,'login');
+ assert.equal(await authorizedEmail(user.email),false,'login activity must not recreate deleted access');
+ await assert.rejects(()=>changeEmployeeState({action:'delete',email:admin.email},admin),/último administrador/);
+
  }finally{g.historyPool=old;if(env===undefined)delete process.env.WEB_ALLOWED_EMAILS;else process.env.WEB_ALLOWED_EMAILS=env;await db.close();}
 });
