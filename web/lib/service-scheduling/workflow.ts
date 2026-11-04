@@ -1,4 +1,7 @@
 import "server-only";
+import {queueServiceMessage} from "./notifications";
+import {PUBLIC_SYSTEM_URL} from "../public-url";
+import {companyName} from "../company-names";
 /** Called under the operation transaction lock. Manual source prevents automatic source reconciliation. */
 export async function handoffOperation(
   c: any,
@@ -103,9 +106,12 @@ export async function handoffOperation(
     "INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,$2,$3,true,$4,COALESCE((SELECT display_name FROM web_user_access WHERE email=$4),$4))",
     [taskId, titles[phase], description, actor],
   );
-  await c.query(
-    "INSERT INTO web_task_notifications(task_id,task_version,recipient,assignment_reason) SELECT id,version,$2,$3 FROM web_tasks WHERE id=$1 ON CONFLICT DO NOTHING",
-    [taskId, assigned, description],
-  );
+  // Operations keep their own Kanban tasks. WhatsApp is deduplicated by OS and technician.
+  // Do not notify the planner when the task changes hands for review/release.
+  if(phase==='execution'&&operation.sent_at){
+    await queueServiceMessage(c,`schedule-dispatch:${schedule.id}:${assigned}`,
+      `📋 *OS incluída na sua programação*\n*OS ${order?.number||schedule.order_id} · ${companyName(schedule.company_id)}*\nCliente: ${order?.cliente_nome||'Não informado'}\nEquipamento: ${order?.equipamento||'Não informado'}\nConfira as operações, datas e orientações no Portal Técnico: ${PUBLIC_SYSTEM_URL}/tecnico`,
+      {recipient:assigned});
+  }
   return String(taskId);
 }

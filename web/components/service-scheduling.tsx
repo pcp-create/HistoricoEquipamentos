@@ -1,4 +1,5 @@
 "use client";
+import {changesDispatchedResponsible,responsibleChangeWarning} from "@/lib/service-scheduling/responsible-change";
 import ScheduleOrderActions from "./schedule-order-actions";
 import {flowResponsible} from "@/lib/service-scheduling/flow-status";
 import SchedulePlannedDate from "./schedule-planned-date";
@@ -1024,6 +1025,8 @@ function OperationRow({
   async function persist(next = d, rescheduling?: {confirmed:true;reason:string}) {
     if (locked) return false;
     if(needsRescheduling(o,next) && !rescheduling){setRescheduleDraft(next);return false;}
+    const changingResponsible=changesDispatchedResponsible(o,next);
+    if(changingResponsible&&!window.confirm(responsibleChangeWarning))return false;
     const replacing=!!o.document.checklistRun&&next.checklistId!==o.document.checklistId;
     if(replacing&&!window.confirm("Substituir o checklist apagará todo o preenchimento e as fotos do relatório desta operação. Deseja continuar?"))return false;
     if (JSON.stringify(next) !== JSON.stringify(o.document))
@@ -1033,6 +1036,7 @@ function OperationRow({
         version: o.version,
         document: next,
         confirmChecklistReplacement: replacing,
+        confirmResponsibleChange: changingResponsible,
         rescheduling,
       });
     return true;
@@ -1105,8 +1109,8 @@ function OperationRow({
         <td>
           <select
             aria-label={"Responsável " + operationNumber(o.position)}
-            title={o.sent_at&&!o.document.checklistRun?.reportReturnedAt?'Devolva o relatório para alterar o responsável':undefined}
-            disabled={locked||!!o.sent_at&&!o.document.checklistRun?.reportReturnedAt}
+            title={o.sent_at?'A troca do executante exige confirmação e pode afetar dados não sincronizados':undefined}
+            disabled={locked}
             value={d.responsible}
             onChange={(e) => change("responsible", e.target.value, true)}
           >

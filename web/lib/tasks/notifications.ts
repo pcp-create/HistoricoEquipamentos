@@ -15,6 +15,8 @@ export async function claimNotifications(origin: string, reminderOnly = false) {
     const result = [];
     for (const n of rows) {
       if (
+        // Scheduling sends one OS notice through the service queue, never per-operation copies.
+        (n.source_key?.startsWith("manual:schedule-operation:") && n.kind !== "reminder") ||
         (n.restricted === "true" && n.recipient_role !== "admin") ||
         !n.current_assignment ||
         !n.enabled ||

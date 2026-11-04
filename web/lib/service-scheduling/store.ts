@@ -1,3 +1,4 @@
+import {changesDispatchedResponsible,validateResponsibleChange} from "./responsible-change";
 import {isDeepStrictEqual} from 'node:util';
 import {handoffOperation} from './workflow';
 import {attachPlannedDates} from "./planned-date-store";
@@ -550,8 +551,7 @@ export async function mutateSchedule(b: any, email: string) {
       if(document.checklistRun){document.checklistRun={...document.checklistRun};delete document.checklistRun.reportReturnedAt;}
       status="awaiting_execution";
     } else if (b.action === "operation") {
-      if(operation.sent_at && b.document?.responsible!==operation.document.responsible && !operation.document.checklistRun?.reportReturnedAt)
-        throw new ScheduleInputError('O responsável só pode ser alterado após devolver o relatório ao técnico ou ao planejamento.');
+      try{validateResponsibleChange(operation,b.document,b.confirmResponsibleChange);}catch(e){throw new ScheduleInputError((e as Error).message);}
       if((operation.sent_at||operation.document.equipmentLocked) &&
         (b.document?.equipmentId||'')!==(operation.document.equipmentId||''))
         throw new ScheduleInputError('O equipamento não pode ser alterado após o envio ao técnico.');
@@ -653,6 +653,9 @@ export async function mutateSchedule(b: any, email: string) {
       before: operation,
       after: result,
     });
+    if(b.action==='operation'&&changesDispatchedResponsible(operation,document)){
+      await handoffOperation(c,result,schedule,email,'execution');
+    }
     if(['dispatch','finish_full','review'].includes(b.action)){
       await handoffOperation(c,result,schedule,email,b.action==='dispatch'?'execution':b.action==='finish_full'?'review':'reviewed');
       await c.query('UPDATE web_service_schedules SET release_kind=NULL WHERE id=$1',[schedule.id]);

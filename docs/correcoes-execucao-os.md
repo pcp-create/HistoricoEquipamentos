@@ -55,3 +55,17 @@ Conforme validação do usuário, o comportamento atual está correto: o TECHTO 
 ## Validação
 
 Testes usam PostgreSQL embarcado, M8 simulado, interceptações de navegador e notificações reclamadas apenas na base de teste. Nenhuma mensagem real é enviada. Cobertura: principal/vinculada, inclusão em cobrança, chave única da tarefa, fotos NOK, envio com cronômetro aberto, devolução após envio, PDF com linha do tempo, relatório de orçamento e observações internas, retorno ao planejador, liberação, correção de reprovação. A regra existente de elegibilidade do catálogo de equipamentos foi preservada.
+
+## WhatsApp da programação por OS
+
+A inclusão na programação envia um único aviso por OS e técnico responsável, mesmo quando há várias operações para o mesmo técnico. Técnicos responsáveis diferentes recebem, cada um, seu aviso. A mensagem identifica OS, empresa, cliente e equipamento e direciona ao Portal Técnico para consultar todas as operações e datas.
+
+As tarefas continuam individuais por operação no Kanban e seguem a passagem de responsabilidade. Os avisos automáticos dessas tarefas deixam de gerar mensagens individuais ou cópias ao planejador/acompanhantes. Notificações antigas pendentes dessas tarefas também são descartadas na coleta. Lembretes explicitamente agendados continuam com sua regra própria.
+
+A fila de serviços deduplica pelo identificador da programação e pelo e-mail do técnico, incluindo depois da confirmação da entrega. A coleta só entrega se o técnico ainda tiver operação enviada e ativa na OS. Não há migration nem atualização de APK para esta alteração do servidor.
+
+## Troca do executante após envio
+
+É possível trocar o responsável de uma operação já enviada, enquanto ela ainda estiver aguardando execução ou em execução. Ao salvar, o planejador confirma o aviso de possível perda parcial dos dados ainda não sincronizados no aparelho do técnico anterior. O servidor exige a confirmação e um novo responsável ativo. Apontamentos em aberto devem ser encerrados antes da troca; operações em revisão/concluídas permanecem protegidas.
+
+O checklist e os registros já sincronizados são preservados. A alteração fica no histórico da operação e a tarefa existente passa ao novo executante, sem criar outra tarefa. O novo responsável recebe o aviso da OS conforme a regra de deduplicação por OS/técnico.

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
+import {mutateSchedule} from "../lib/service-scheduling/store";
+import {claimNotifications} from "../lib/tasks/notifications";
 import { handoffOperation } from "../lib/service-scheduling/workflow";
 import { releaseSchedule } from "../lib/service-scheduling/release";
 import { prepareCustomerDelivery } from "../lib/service-scheduling/customer-delivery";
@@ -119,7 +121,7 @@ test("execution handoffs preserve one task; releases, customer sends and approva
       submission: { at: new Date().toISOString(), by: "tech@test.com" },
     };
     await query(
-      "INSERT INTO web_service_operations(id,schedule_id,position,document,status,updated_by) VALUES($1,1,1,$2,'awaiting_execution','planner@test.com')",
+      "INSERT INTO web_service_operations(id,schedule_id,position,document,status,updated_by,sent_at) VALUES($1,1,1,$2,'awaiting_execution','planner@test.com',now())",
       [
         id,
         JSON.stringify({
@@ -149,6 +151,39 @@ test("execution handoffs preserve one task; releases, customer sends and approva
       ).rows[0].assigned_to,
       "tech@test.com",
     );
+    // Reassignment after dispatch requires confirmation and preserves synchronized answers.
+    await query("UPDATE web_service_schedule_settings SET document=jsonb_set(document,'{checklists}',$1::jsonb)",[JSON.stringify([run.template])]);
+    const beforeReassignment=await op();
+    const change={action:'operation',scheduleId:String(schedule.id),operationId:id,version:beforeReassignment.version,document:{...beforeReassignment.document,responsible:'budget@test.com'}};
+    await assert.rejects(()=>mutateSchedule(change,'planner@test.com'),/Confirme/);
+    const reassigned=(await mutateSchedule({...change,confirmResponsibleChange:true},'planner@test.com')).operation;
+    assert.equal(reassigned.document.responsible,'budget@test.com');
+    assert.deepEqual(reassigned.document.checklistRun,beforeReassignment.document.checklistRun);
+    assert.equal((await query<any>('SELECT assigned_to FROM web_tasks WHERE id=$1',[taskId])).rows[0].assigned_to,'budget@test.com');
+    await mutateSchedule({...change,version:reassigned.version,document:{...reassigned.document,responsible:'tech@test.com'},confirmResponsibleChange:true},'planner@test.com');
+    // The notice for the temporarily assigned person must not be delivered after removal.
+    await query("DELETE FROM web_service_notifications WHERE recipient='budget@test.com'");
+    // Six operations for the same technician produce a single OS WhatsApp notice.
+    await db.exec('BEGIN');
+    for(let position=2;position<=6;position++){
+      const extra=(await query<any>("INSERT INTO web_service_operations(id,schedule_id,position,document,status,updated_by,sent_at) VALUES($1,1,$2,$3,'awaiting_execution','planner@test.com',now()) RETURNING *",[randomUUID(),position,JSON.stringify({responsible:'tech@test.com',description:'Operação adicional'})])).rows[0];
+      await handoffOperation(db,extra,schedule,'planner@test.com','execution');
+    }
+    assert.equal((await query("SELECT * FROM web_tasks")).rows.length,6);
+    assert.equal((await query("SELECT * FROM web_service_notifications WHERE source_key LIKE 'schedule-dispatch:%'")).rows.length,1);
+    assert.equal((await query("SELECT * FROM web_task_notifications")).rows.length,0,'no per-operation or follower WhatsApp');
+    // Another technician on the same OS receives their own single notice.
+    const different={...await op(),id:randomUUID(),position:7,document:{responsible:'budget@test.com'}};
+    await query("INSERT INTO web_service_operations(id,schedule_id,position,document,status,updated_by,sent_at) VALUES($1,1,7,$2,'awaiting_execution','planner@test.com',now())",[different.id,JSON.stringify(different.document)]);
+    await handoffOperation(db,different,schedule,'planner@test.com','execution');
+    assert.equal((await query("SELECT * FROM web_service_notifications WHERE source_key LIKE 'schedule-dispatch:%'")).rows.length,2);
+    await db.exec('ROLLBACK');
+    const osNotices=await claimServiceMessages();
+    assert.equal(osNotices.length,1);assert.equal(osNotices[0].number,'5547999999998');
+    assert.match(osNotices[0].text,/OS 15128/);assert.doesNotMatch(osNotices[0].text,/TAR-|Operação 1/);
+    await acknowledgeServiceMessage(osNotices[0].id.slice(8),osNotices[0].token);
+    await handoffOperation(db,await op(),schedule,'planner@test.com','execution');
+    assert.equal((await claimServiceMessages()).length,0,'resending other operations must not repeat the OS notice');
     await query(
       "UPDATE web_service_operations SET status='awaiting_review' WHERE id=$1",
       [id],
@@ -171,6 +206,9 @@ test("execution handoffs preserve one task; releases, customer sends and approva
       ).rows[0].assigned_to,
       "planner@test.com",
     );
+    assert.equal((await query("SELECT * FROM web_task_notifications")).rows.length,0);
+    await query("INSERT INTO web_task_notifications(task_id,task_version,recipient) SELECT id,version,assigned_to FROM web_tasks WHERE id=$1",[taskId]);
+    assert.deepEqual(await claimNotifications('https://rjcompressores.app'),[],'legacy operation and planner/follower copies are not delivered');
     assert.equal((await query("SELECT * FROM web_tasks")).rows.length, 1);
     await assert.rejects(
       releaseSchedule(

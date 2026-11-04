@@ -18,7 +18,12 @@ export async function claimServiceMessages() {
     await c.query("BEGIN READ WRITE");
     const rows = (
       await c.query(`SELECT n.*,COALESCE(n.phone,u.phone) number FROM web_service_notifications n LEFT JOIN web_user_access u ON u.email=n.recipient
- WHERE n.state='pending' AND n.attempts=0 AND (n.recipient IS NULL OR u.enabled) AND COALESCE(n.phone,u.phone) ~ '^[1-9][0-9]{9,14}$' ORDER BY n.created_at LIMIT 20 FOR UPDATE OF n SKIP LOCKED`)
+ WHERE n.state='pending' AND n.attempts=0 AND (n.recipient IS NULL OR u.enabled)
+ AND (n.source_key NOT LIKE 'schedule-dispatch:%' OR EXISTS(
+   SELECT 1 FROM web_service_operations o JOIN web_service_schedules s ON s.id=o.schedule_id
+   WHERE s.id::text=split_part(n.source_key,':',2) AND s.active AND o.sent_at IS NOT NULL
+     AND o.document->>'responsible'=n.recipient AND o.status NOT IN('completed','reviewed','awaiting_review')
+ )) AND COALESCE(n.phone,u.phone) ~ '^[1-9][0-9]{9,14}$' ORDER BY n.created_at LIMIT 20 FOR UPDATE OF n SKIP LOCKED`)
     ).rows;
     const result = [];
     for (const r of rows) {
