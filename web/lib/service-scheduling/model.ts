@@ -167,6 +167,9 @@ export function validateOperation(raw: any, settings: any, users: any[]) {
   ])
     if (typeof d[k] !== "string") throw Error("Campos da operação inválidos.");
   if(d.equipmentId&&!/^\d{1,18}$/.test(d.equipmentId))throw Error("Equipamento inválido.");
+  if(d.equipmentUnassigned!=null&&typeof d.equipmentUnassigned!=='boolean')throw Error("Opção de equipamento inválida.");
+  d.equipmentUnassigned=d.equipmentUnassigned===true;
+  if(d.equipmentUnassigned&&d.equipmentId)throw Error("Uma operação sem equipamento específico não pode ter equipamento selecionado.");
   delete d.equipment;
   if (
     d.vehicleId &&

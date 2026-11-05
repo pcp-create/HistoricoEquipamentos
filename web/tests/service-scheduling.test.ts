@@ -145,6 +145,7 @@ test("scheduling includes once, versions operations, protects execution and reco
     assert.equal(ops[0].sent_at, null);
     const doc = {
       ...ops[0].document,
+      equipmentUnassigned: true,
       description: "Revisão",
       serviceType: "Interno",
       jobTitle: "Técnico",
@@ -169,7 +170,14 @@ test("scheduling includes once, versions operations, protects execution and reco
       await send("operation", { document: { ...doc, time: "11:00" } })
     ).operation;
     assert.equal(ops[0].status, "scheduled");
+    // A sole machine on the OS must not override an explicitly unassigned operation.
+    await db.exec("INSERT INTO m8_equipment_catalog VALUES(77,'Máquina da OS','ABC',true);INSERT INTO m8_order_equipment_links VALUES(1,100,77,false)");
     ops[0]=(await send("dispatch")).operation;
+    assert.equal(ops[0].document.equipmentId,'');
+    assert.equal(ops[0].document.equipmentUnassigned,true);
+    assert.equal(ops[0].document.equipment,undefined);
+    await assert.rejects(send('operation',{document:{...ops[0].document,equipmentUnassigned:false}}),/equipamento não pode ser alterado/);
+
     assert.equal(ops[0].status,"awaiting_execution");assert.ok(ops[0].sent_at);
     const originalDate=ops[0].document.date;
     const originalVersion=ops[0].version;

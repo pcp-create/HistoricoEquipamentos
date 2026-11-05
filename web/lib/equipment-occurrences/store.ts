@@ -93,6 +93,7 @@ export async function operationOccurrenceEquipment(
     throw new OccurrenceInputError(
       "Esta operação não está disponível para registrar B.O.",
     );
+  if(p.document.equipmentUnassigned===true)return [];
   return (
     await c.query(
       `SELECT e.equipment_id::text AS id,e.name,e.serial FROM m8_equipment_catalog e WHERE e.present AND ${p.document.equipmentId ? "e.equipment_id=$1" : `(EXISTS(SELECT 1 FROM m8_order_equipment_links l WHERE l.equipment_id=e.equipment_id AND l.company_id=$1 AND l.order_id=$2 AND NOT l.stale) OR EXISTS(SELECT 1 FROM m8_ordens_servico o WHERE o.company_id=$1 AND o.id_m8=$2 AND to_jsonb(o)->>'produto_equipamento_id'=e.equipment_id::text))`} ORDER BY e.name,e.equipment_id`,

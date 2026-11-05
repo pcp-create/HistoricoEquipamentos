@@ -1002,11 +1002,11 @@ function OperationRow({
       (u: any) =>
         u.enabled || u.email === d.responsible || d.support.includes(u.email),
     );
-  function change(k: string, v: any, save = false, equipment?: any) {
+  function change(k: string, v: any, save = false, equipment?: any, equipmentUnassigned = false) {
     const next = {
       ...d,
       [k]: v,
-      ...(k === "equipmentId" ? { equipment: equipment || undefined } : {}),
+      ...(k === "equipmentId" ? { equipment: equipment || undefined, equipmentUnassigned } : {}),
       ...(k === "responsible"
         ? { support: d.support.filter((e: string) => e !== v), jobTitle: data.users.find((u: any) => u.email === v)?.job_title || "" }
         : {}),
@@ -1083,7 +1083,7 @@ function OperationRow({
             {d.description.length}/40
           </small>
         </td>
-        <td><OperationEquipmentSelect scheduleId={data.schedule.id} displayLabel={operationEquipmentLabel(d,data.detail?.order)} value={d.equipmentId||''} label={d.equipment?.name||''} orderLabel={data.detail?.order?.equipamento||data.detail?.equipment_links?.map((e:any)=>e.name).filter(Boolean).join(' · ')||''} disabled={locked||!!o.sent_at||!!o.document.equipmentLocked||!!o.document.checklistRun?.equipmentId} onChange={(id,equipment)=>change('equipmentId',id,false,equipment)}/></td>
+        <td><OperationEquipmentSelect scheduleId={data.schedule.id} displayLabel={operationEquipmentLabel(d,data.detail?.order)} value={d.equipmentId||''} unassigned={d.equipmentUnassigned===true} label={d.equipment?.name||''} orderLabel={data.detail?.order?.equipamento||data.detail?.equipment_links?.map((e:any)=>e.name).filter(Boolean).join(' · ')||''} disabled={locked||!!o.sent_at||!!o.document.equipmentLocked||!!o.document.checklistRun?.equipmentId} onChange={(id,equipment,unassigned)=>change('equipmentId',id,false,equipment,unassigned)}/></td>
         <td>
           <div className="operation-checklist-select" title={checklist ? [checklist.prefix, checklist.name].filter(Boolean).join(" - ") : "Sem checklist"}>
           <select

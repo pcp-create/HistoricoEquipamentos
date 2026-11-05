@@ -1,4 +1,6 @@
 "use client";
+import {useChecklistDraft} from './use-checklist-draft';
+import {reportDraftKey,reportDraftSignature} from '@/lib/service-scheduling/report-draft';
 import {uploadReportPhoto} from "@/lib/upload-report-photo";
 import {nativePortal} from "@/lib/native-portal";
 import RequiredMarker from "./required-marker";
@@ -32,38 +34,66 @@ function scrollOpenedChecklist(event:React.SyntheticEvent<HTMLElement>) {
 export default function ScheduleChecklistRun({operation,data,mutate,busy,dirty,renderActions,compact=false,readOnly=false}:any){
  const drafts=useRef<Record<string,()=>any>>({});
  const stageAccordionName=useId();
+ const section=useRef<HTMLElement>(null);
+ const latest=useRef<any>({});latest.current={operation,data,mutate,busy,dirty,readOnly,renderActions};
+ const timer=useRef<ReturnType<typeof setTimeout>|null>(null),saving=useRef<Promise<any>|null>(null);
+ const [autoStatus,setAutoStatus]=useState('');
+ function collect(changedOnly=false){return Object.values(drafts.current).map(get=>get()).filter(d=>d&&(!changedOnly||d.changed)).map(({changed,...payload}:any)=>payload);}
+ async function saveReport(automatic=false):Promise<any>{
+  if(saving.current){await saving.current;return automatic?false:saveReport(false);}
+  const current=latest.current;
+  if(current.busy||current.dirty||current.readOnly||!current.renderActions)return false;
+  const stages=collect(automatic);if(!stages.length)return true;
+  if(automatic)setAutoStatus('Salvando rascunho automaticamente…');
+  const pending=Promise.resolve(current.mutate({action:'report_save',operationId:current.operation.id,version:current.operation.version,stages}));saving.current=pending;
+  try{const result=await pending;if(automatic)setAutoStatus(result===false?'Rascunho mantido no aparelho. Use Salvar para tentar novamente.':'Rascunho salvo automaticamente.');return result;}
+  catch{setAutoStatus('Rascunho mantido no aparelho. Use Salvar para tentar novamente.');return false;}
+  finally{saving.current=null;}
+ }
+ function autoSave(){
+  if(!latest.current.renderActions)return;
+  if(timer.current)clearTimeout(timer.current);
+  timer.current=setTimeout(()=>{timer.current=null;if(latest.current.busy||saving.current){autoSave();return;}void saveReport(true);},350);
+ }
+ useEffect(()=>{const element=section.current;if(!element)return;const toggle=()=>autoSave();element.addEventListener('toggle',toggle,true);return()=>element.removeEventListener('toggle',toggle,true);});
+ useEffect(()=>{const flush=()=>autoSave();window.addEventListener('rj-report-persist',flush);return()=>{window.removeEventListener('rj-report-persist',flush);if(timer.current)clearTimeout(timer.current);};},[operation.id]);
+
  const run=operation.document.checklistRun,template=run?.template||data.settings.document.checklists.find((c:any)=>c.id===operation.document.checklistId);
  if(!template)return null;
  const canWork=data.canEditSettings||operation.document.responsible===data.email||operation.document.support.includes(data.email);
  const locked=readOnly||busy||dirty||['completed','reviewed','awaiting_review'].includes(operation.status);
- return <section className="checklist-run"><h4>{template.prefix?template.prefix+' — ':''}{template.name}</h4>{compact?null:<><p>Preencha os grupos de cada etapa. Salve o rascunho ao terminar. Depois, utilize Enviar relatório ao final do checklist. Fotos de até 20 MB cada, reduzidas automaticamente antes do envio.</p><p>Equipamento: {operation.document.equipment?.name||data.detail?.order?.equipamento||'Selecione o equipamento da OS ao registrar o horímetro.'}</p>
+ return <section ref={section} className="checklist-run"><h4>{template.prefix?template.prefix+' — ':''}{template.name}</h4>{compact?null:<><p>Preencha os grupos de cada etapa. O rascunho é preservado neste aparelho durante o preenchimento. Depois, utilize Enviar relatório ao final do checklist. Fotos de até 20 MB cada, reduzidas automaticamente antes do envio.</p><p>Equipamento: {operation.document.equipment?.name||data.detail?.order?.equipamento||'Selecione o equipamento da OS ao registrar o horímetro.'}</p>
  {run&&canWork&&['reviewed','completed'].includes(operation.status)&&<a href={`/api/service-scheduling/checklist-pdf?operationId=${operation.id}`} target="_blank" rel="noreferrer">Gerar PDF do checklist</a>}</>}
- {stagesOf(template).map(stage=><Stage key={operation.id+':'+stage.id+':'+(run?.reportReturnedAt||'')} stageAccordionName={stageAccordionName} stage={stage} operation={operation} data={data} mutate={mutate} locked={locked} readOnly={readOnly} canWork={canWork} showStageSave={!renderActions} register={(id:string,get:any)=>{if(get)drafts.current[id]=get;else delete drafts.current[id];}}/>)}
- {renderActions?.(()=>mutate({action:'report_save',operationId:operation.id,version:operation.version,stages:Object.values(drafts.current).map(get=>get()).filter(Boolean)}),()=>Object.values(drafts.current).map(get=>get()).filter(Boolean))}
+ {stagesOf(template).map(stage=><Stage key={operation.id+':'+stage.id+':'+(run?.reportReturnedAt||'')} stageAccordionName={stageAccordionName} draftContext={reportDraftSignature({template:template.id,stage,returned:run?.reportReturnedAt||'',checklistId:operation.document.checklistId})} stage={stage} operation={operation} data={data} mutate={mutate} locked={locked} readOnly={readOnly} canWork={canWork} showStageSave={!renderActions} register={(id:string,get:any)=>{if(get)drafts.current[id]=get;else delete drafts.current[id];}}/>)}
+ {autoStatus&&<p className="checklist-autosave-status" role="status">{autoStatus}</p>}
+ {renderActions?.(()=>saveReport(false),()=>collect())}
  </section>;
 }
 function Progress({fields,answers}: {fields:ChecklistField[],answers:Record<string,any>}) {
  const status=checklistProgress(fields,answers);
  return <span className={'checklist-progress checklist-progress-'+status} role="img" aria-label={progressLabels[status]} title={progressLabels[status]}/>;
 }
-function Stage({stageAccordionName,stage,operation,data,mutate,locked,readOnly,canWork,showStageSave,register}:any){
+function Stage({draftContext,stageAccordionName,stage,operation,data,mutate,locked,readOnly,canWork,showStageSave,register}:any){
  const groupAccordionName=useId();
  const run=operation.document.checklistRun,saved=run?.stages[stage.id]||{status:'pending',answers:{}};
- const [answers,setAnswers]=useState<Record<string,any>>(saved.answers),[details,setDetails]=useState<Record<string,any>>(saved.details||{}),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [busy,setBusy]=useState(false),[error,setError]=useState('');
  const equipment=data.detail?.equipment_links||[];
- const [equipmentId,setEquipmentId]=useState(run?.equipmentId||operation.document.equipmentId||(equipment.length===1?String(equipment[0].equipment_id):''));
- const [meterDate,setMeterDate]=useState(run?.meterDate||new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}));
+ const savedEquipment=String(run?.equipmentId||operation.document.equipmentId||(!operation.document.equipmentUnassigned&&equipment.length===1?equipment[0].equipment_id:''));
+ const savedMeterDate=run?.meterDate||new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+ const draft=useChecklistDraft(data.email?reportDraftKey(data.email,operation.id,stage.id):'',draftContext,{answers:saved.answers||{},details:saved.details||{},equipmentId:savedEquipment,meterDate:savedMeterDate},!readOnly&&canWork&&saved.status==='released'&&!['completed','reviewed','awaiting_review'].includes(operation.status));
+ const {answers,details,equipmentId,meterDate}=draft.value;
+ const setEquipmentId=(equipmentId:string)=>draft.update({equipmentId});
+ const setMeterDate=(meterDate:string)=>draft.update({meterDate});
  const selectedEquipment=equipment.find((e:any)=>String(e.equipment_id)===String(equipmentId));
  const equipmentDescription=selectedEquipment
   ? String(selectedEquipment.equipment_id)+' - '+selectedEquipment.name+(selectedEquipment.serial&&!String(selectedEquipment.name).includes(String(selectedEquipment.serial))?' - SÉRIE '+selectedEquipment.serial:'')
   : operation.document.equipment?.name||data.detail?.order?.equipamento||equipmentId;
 
- useEffect(()=>{setAnswers(saved.answers);setDetails(saved.details||{});},[JSON.stringify(saved)]);
- useEffect(()=>{register(stage.id,()=>saved.status==='released'?{stageId:stage.id,answers,details,equipmentId,meterDate}:null);return()=>register(stage.id,null);});
- const edited=JSON.stringify(answers)!==JSON.stringify(saved.answers)||JSON.stringify(details)!==JSON.stringify(saved.details||{});
+ useEffect(()=>{register(stage.id,()=>saved.status==='released'?{stageId:stage.id,...draft.current.current,changed:draft.changed}:null);return()=>register(stage.id,null);});
+ const edited=draft.changed;
  const disabled=locked||busy||!canWork||saved.status!=='released';
- const answer=(id:string,v:any)=>setAnswers(a=>({...a,[id]:v}));
- const detail=(id:string,key:string,v:any)=>setDetails(d=>({...d,[id]:{...d[id],[key]:v}}));
+ const answer=(id:string,v:any)=>draft.update({answers:{...draft.current.current.answers,[id]:v}});
+ const detail=(id:string,key:string,v:any)=>draft.update({details:{...draft.current.current.details,[id]:{...draft.current.current.details[id],[key]:v}}});
  async function act(action:string){setError('');setBusy(true);try{await mutate({action,operationId:operation.id,version:operation.version,stageId:stage.id,answers,details,equipmentId,meterDate});}finally{setBusy(false);}}
  async function upload(f:ChecklistField,files:File[],extra=false){if(!files.length)return;setError('');setBusy(true);let ids=[...((extra?details[f.id]?.photos:answers[f.id])||[])];try{
   const limit=!extra&&f.type==='signature'?1:photoLimit(f);
@@ -96,7 +126,7 @@ function Stage({stageAccordionName,stage,operation,data,mutate,locked,readOnly,c
  <small className="checklist-meter-note">{equipmentId
   ? 'A leitura de horímetro será atualizada ao equipamento '+equipmentDescription+'.'
   : equipment.length ? 'Selecione o equipamento que receberá a leitura de horímetro.' : 'Vincule um equipamento à OS para registrar a leitura de horímetro.'}</small>
- {!run?.equipmentId&&equipment.length>1&&<label className="checklist-answer">Equipamento que receberá a leitura<select className="checklist-equipment-select" value={equipmentId} disabled={disabled} onChange={e=>setEquipmentId(e.target.value)}><option value="">Selecione o equipamento</option>{equipment.map((e:any)=><option key={e.equipment_id} value={String(e.equipment_id)}>{e.name} · {e.serial||'Sem série'}</option>)}</select></label>}
+ {!run?.equipmentId&&(equipment.length>1||operation.document.equipmentUnassigned)&&equipment.length>0&&<label className="checklist-answer">Equipamento que receberá a leitura<select className="checklist-equipment-select" value={equipmentId} disabled={disabled} onChange={e=>setEquipmentId(e.target.value)}><option value="">Selecione o equipamento</option>{equipment.map((e:any)=><option key={e.equipment_id} value={String(e.equipment_id)}>{e.name} · {e.serial||'Sem série'}</option>)}</select></label>}
  <label className="checklist-answer">Data da leitura<input type="date" value={meterDate} onChange={e=>setMeterDate(e.target.value)}/></label>
  <small className="checklist-meter-note">A atualização do equipamento e da preventiva ocorre após a revisão do relatório.</small>
  </>}
@@ -107,6 +137,9 @@ function Stage({stageAccordionName,stage,operation,data,mutate,locked,readOnly,c
  </div>;
  })}</fieldset></Container>;})}
  </div>}
+ {draft.recovered&&edited&&<p className="checklist-autosave-status" role="status">Rascunho recuperado deste aparelho.</p>}
+ {draft.conflict&&<p role="alert">Existe um rascunho deste aparelho, mas o relatório também mudou no sistema. Confira antes de recuperar.{!disabled&&<button type="button" onClick={draft.restore}>Recuperar rascunho do aparelho</button>}</p>}
+ {draft.storageError&&<p role="alert">{draft.storageError}</p>}
  {error&&<p role="alert">{error}</p>}
  <div className="checklist-toolbar">{saved.status==='pending'&&data.canEditSettings&&<button type="button" disabled={locked||busy} onClick={()=>void act('checklist_release')}>Liberar etapa para o técnico</button>}{showStageSave&&!readOnly&&saved.status==='released'&&canWork&&<><button type="button" disabled={disabled} onClick={()=>void act('checklist_save')} aria-label="Salvar rascunho da etapa" title="Salvar rascunho da etapa"><SaveActionIcon /></button></>}{saved.status==='submitted'&&data.canEditSettings&&<button type="button" disabled={locked||busy} onClick={()=>void act('checklist_reopen')}>Reabrir para correção</button>}</div>
  </details>;

@@ -7,6 +7,7 @@ export default function ReportPhotoPicker({label,disabled=false,multiple=true,re
  const trigger=useRef<HTMLButtonElement>(null),scroll=useRef<{element:HTMLDialogElement;top:number}|null>(null);
  const [open,setOpen]=useState(false);
  function launch(input:HTMLInputElement|null){
+  window.dispatchEvent(new Event("rj-report-persist"));
   const element=trigger.current?.closest('dialog');
   scroll.current=element?{element,top:element.scrollTop}:null;
   setOpen(false);input?.click();

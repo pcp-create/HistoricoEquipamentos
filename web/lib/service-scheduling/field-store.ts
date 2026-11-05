@@ -134,7 +134,7 @@ export async function fieldData(email: string, operationId?: string | null) {
     const rows = (
       await c.query(
         `SELECT p.id,p.schedule_id,p.position,p.status,p.version,(p.document->>'responsible'=$1) can_report,p.document->>'description' description,p.document->>'date' date,p.document->>'time' time,p.document->'duration' duration,p.document->>'calendarId' calendar_id,
-   o.id_m8::text AS order_id,COALESCE(o.numero_sequencia,o.id_m8)::text AS number,o.cliente_nome customer,o.equipamento equipment,COALESCE(NULLIF(p.document->'equipment'->>'label',''),NULLIF(p.document->'equipment'->>'name',''),o.equipamento) operation_equipment,c.payload->>'municipioNome' city,c.payload->>'ufSigla' state,
+   o.id_m8::text AS order_id,COALESCE(o.numero_sequencia,o.id_m8)::text AS number,o.cliente_nome customer,o.equipamento equipment,CASE WHEN p.document->>'equipmentUnassigned'='true' THEN 'Sem equipamento específico' ELSE COALESCE(NULLIF(p.document->'equipment'->>'label',''),NULLIF(p.document->'equipment'->>'name',''),o.equipamento) END operation_equipment,c.payload->>'municipioNome' city,c.payload->>'ufSigla' state,
    EXISTS(SELECT 1 FROM web_field_material_checks k WHERE k.operation_id=p.id AND k.actor=$1) checked
    FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id
    LEFT JOIN m8_customer_directory c ON c.company_id=o.company_id AND c.person_id=o.cliente_id
@@ -190,7 +190,7 @@ export async function fieldData(email: string, operationId?: string | null) {
   const occurrenceEquipment = await operationOccurrenceEquipment(c,p.id,email);
   return {
     occurrenceEquipment,
-    equipmentOccurrences: await occurrencesForEquipment(c, p.document.equipmentId ? [String(p.document.equipmentId)] : Array.from(new Set([...equipment_links.map((e:any)=>String(e.equipment_id)),...occurrenceEquipment.map((e:any)=>String(e.id))]))),
+    equipmentOccurrences: await occurrencesForEquipment(c, p.document.equipmentUnassigned ? [] : p.document.equipmentId ? [String(p.document.equipmentId)] : Array.from(new Set([...equipment_links.map((e:any)=>String(e.equipment_id)),...occurrenceEquipment.map((e:any)=>String(e.id))]))),
     teamAvailable:await teamSessionsAvailable(c),
     supportMembers:(await c.query("SELECT email,display_name FROM web_user_access WHERE email=ANY($1::text[]) AND enabled",[p.document.support || []])).rows,
     finishPending: await finishPending(c, p, email, materialData.complete),
@@ -218,7 +218,7 @@ export async function fieldData(email: string, operationId?: string | null) {
         vehicles: settings.vehicles || [],
       },
     },
-    detail: { order, equipment_links: p.document.equipmentId && p.document.equipment
+    detail: { order: p.document.equipmentUnassigned ? {...order,equipamento:"Sem equipamento específico"} : order, equipment_links: p.document.equipmentId && p.document.equipment
       ? [p.document.equipment] : equipment_links },
   };
 }

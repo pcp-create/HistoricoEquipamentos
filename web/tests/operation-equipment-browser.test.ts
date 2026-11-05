@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import {chromium} from '@playwright/test';
 
 test('equipment picker starts with client machines, supports all, search and selection',async()=>{
- const compiled=await build({stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import Picker from './components/operation-equipment-select';function App(){const [equipment,setEquipment]=React.useState(null);return <Picker value={equipment?.equipment_id||""} label={equipment?.name||""} orderLabel="Compressor da OS" disabled={false} scheduleId="1" onChange={(id,e)=>{window.selected=id;setEquipment(e)}}/>}createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,platform:'browser',jsx:'automatic',loader:{'.css':'empty'}});
+ const compiled=await build({stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import Picker from './components/operation-equipment-select';function App(){const [equipment,setEquipment]=React.useState(null);const [unassigned,setUnassigned]=React.useState(false);return <Picker unassigned={unassigned} value={equipment?.equipment_id||""} label={equipment?.name||""} orderLabel="Compressor da OS" disabled={false} scheduleId="1" onChange={(id,e,none)=>{window.selected=id;window.unassigned=none;setUnassigned(none);setEquipment(e)}}/>}createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,platform:'browser',jsx:'automatic',loader:{'.css':'empty'}});
  const browser=await chromium.launch();
  try{
   const page=await browser.newPage();const queries:string[]=[];
@@ -36,6 +36,14 @@ test('equipment picker starts with client machines, supports all, search and sel
   await page.getByRole('button',{name:'Usar equipamento da OS',exact:true}).click();
   await page.getByRole('button',{name:'Compressor da OS',exact:true}).waitFor();
   assert.equal(await page.evaluate(()=>(window as any).selected),'');
+  await page.getByRole('button',{name:'Compressor da OS',exact:true}).click();
+  await page.getByRole('button',{name:'Sem equipamento específico',exact:true}).click();
+  await page.getByRole('button',{name:'Sem equipamento específico',exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>(window as any).unassigned),true);
+  await page.getByRole('button',{name:'Sem equipamento específico',exact:true}).click();
+  await page.getByRole('button',{name:/Equipamento do cliente/}).waitFor();
+  await page.getByRole('button',{name:/Equipamento do cliente/}).click();
+  assert.equal(await page.evaluate(()=>(window as any).unassigned),false);
  }finally{await browser.close()}
 });
 

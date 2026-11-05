@@ -261,3 +261,5 @@
 .checklist-alert-options input[type="checkbox"] { width: 16px; height: 16px; accent-color: #c43848; }
 .checklist-run .checklist-status-option.selected.status-alert-selected { background: #fff0f1; border-color: #c43848; color: #b5293b; }
 .checklist-run .checklist-status-option.status-alert-selected input[type="radio"] { accent-color: #c43848; }
+
+.checklist-autosave-status{font-size:11px;color:#647e92;margin:6px 0;line-height:1.4}

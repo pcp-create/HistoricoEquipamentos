@@ -25,7 +25,7 @@
 .equipment-picker-item > svg { flex-shrink:0; }
 .operation-equipment-dialog .equipment-picker-item.selected { border-color:#2879c7; background:#edf5fc; }
 .equipment-picker-empty { text-align:center; padding:24px 0; color:#728ba1; }
-.equipment-picker-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 24px; border-top:1px solid #e2ebf3; background:#f8fbfe; }
+.equipment-picker-footer { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:16px 24px; border-top:1px solid #e2ebf3; background:#f8fbfe; }
 .equipment-picker-footer nav { display:flex; align-items:center; gap:10px; white-space:nowrap; font-size:12px; color:#728ba1; }
 .equipment-picker-footer nav button { padding:8px; }
 @media(max-width:520px) { .equipment-picker-header {padding:18px 16px 14px;} .equipment-picker-header h3 {font-size:19px;} .equipment-picker-tools {padding:0 16px 12px;} .equipment-picker-results {padding:12px;} .equipment-picker-footer {padding:12px;flex-wrap:wrap;} .equipment-picker-footer nav {margin-left:auto;} .equipment-picker-icon {display:none;} }

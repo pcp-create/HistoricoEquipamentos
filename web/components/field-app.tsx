@@ -527,7 +527,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
           <b>
             OP{operationNumber(row.position)} · {row.description || "Sem descrição"}
           </b>
-          <small className="field-operation-equipment">{row.operation_equipment||operation?.document.equipment?.label||operation?.document.equipment?.name||row.equipment||'Equipamento não informado'}</small>
+          <small className="field-operation-equipment">{operation?.document.equipmentUnassigned?'Sem equipamento específico':row.operation_equipment||operation?.document.equipment?.label||operation?.document.equipment?.name||row.equipment||'Equipamento não informado'}</small>
           <small className={fieldOperationOverdue(row.date, operation?.status || row.status, now) ? "field-overdue-date" : undefined}>
             {when(row.date, row.time)} ·{" "}
             {statusNames[operation?.status || row.status]}
@@ -541,7 +541,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
       </button>
       {open && (
         <FieldReportScreen open={open} busy={busy} heading={`OP${operationNumber(row.position)} · ${row.description||'Sem descrição'}`} title={`OS ${row.number} · ${row.customer||'Cliente não informado'}`} onClose={()=>{if(view){setView('');setError('');setMessage('');}else onToggle();}}>
-        <p className="field-operation-screen-equipment">{row.operation_equipment||operation?.document.equipment?.label||operation?.document.equipment?.name||row.equipment||'Equipamento não informado'}</p>
+        <p className="field-operation-screen-equipment">{operation?.document.equipmentUnassigned?'Sem equipamento específico':row.operation_equipment||operation?.document.equipment?.label||operation?.document.equipment?.name||row.equipment||'Equipamento não informado'}</p>
         <div className="field-operation-body">
           {!data ? (
             <p>Carregando operação…</p>

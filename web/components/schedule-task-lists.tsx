@@ -197,9 +197,10 @@ function OperationEditor({
                     scheduleId="0"
                     disabled={false}
                     value={value}
+                    unassigned={operation.equipmentUnassigned===true}
                     label={operation.equipment?.name || ""}
-                    onChange={(id, equipment) =>
-                      onChange({ ...operation, equipmentId: id, equipment })
+                    onChange={(id, equipment, equipmentUnassigned) =>
+                      onChange({ ...operation, equipmentId: id, equipment, equipmentUnassigned:!!equipmentUnassigned })
                     }
                   />
                 ) : key === "support" ? (

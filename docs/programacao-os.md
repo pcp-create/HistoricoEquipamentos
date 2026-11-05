@@ -67,3 +67,18 @@ Após as migrações SQL, execute `node --env-file=.env --import tsx scripts/mig
 A aba abre com os modelos cadastrados; o botão Editar abre cada modelo. Prefixo, Nome e Identificador M8 (tipo_atendimento_nome) são configuráveis. O identificador é preservado na cópia do checklist iniciada pela operação.
 
 Na lista, “Preventivas por tipo de atendimento” permite configurar intervalo em horas e/ou meses, único por atendimento. Na revisão, o sistema usa a data da leitura e o horímetro informado para atualizar a preventiva ativa com esse identificador. Se não existe, cria com os intervalos configurados; planos existentes mantêm seus intervalos e materiais. No gerenciamento do equipamento, o plano pode ser associado ao Identificador M8. Tipos sem intervalo e sem plano associado atualizam apenas o horímetro, sem inventar ciclos para atendimentos corretivos. Associações duplicadas impedem a revisão até sua correção. A revisão registra `reviewApplied` e não reaplica a mesma intervenção; relatórios anteriores não retrocedem leituras/manutenções mais recentes. A sincronização de tarefas é solicitada após a revisão.
+
+### Operações sem equipamento específico
+
+Na seleção de equipamento da operação, escolha **Sem equipamento específico**
+para atividades gerais. O sistema salva `equipmentUnassigned: true` no documento
+da operação e mantém `equipmentId` vazio, sem atribuir automaticamente a máquina
+da OS no envio ao técnico. A opção também pode ser usada em listas de tarefas.
+**Usar equipamento da OS** mantém o comportamento anterior de herança. Selecionar
+uma máquina volta a vincular a operação normalmente. Os bloqueios após envio
+ou registro de leitura continuam valendo.
+
+Calendário, portal técnico e relatório identificam a operação como sem equipamento
+específico, sem herdar oficina, série ou modelo da máquina da OS. Caso o checklist
+inclua uma leitura de horímetro, o técnico precisa escolher expressamente uma
+máquina vinculada à OS para essa leitura. Não há migração SQL para esta opção.

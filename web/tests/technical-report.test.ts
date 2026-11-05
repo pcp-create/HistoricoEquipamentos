@@ -100,3 +100,10 @@ test('complete reports use the operation equipment label and show only configure
   assert.equal(totals.flatMap(g=>g.fields).find(f=>f.label==='Tempo de paradas')?.value,enabled?'00:25:00':'00:00:00');
  }
 });
+
+test('unassigned operation report omits the OS machine and serial',()=>{
+ const report=technicalReport({id:'one',document:{equipmentUnassigned:true,checklistRun:{template:{stages:[]},stages:{}}}},{equipamento:'Máquina da OS',numero_serie:'SERIE-OS',modelo_equipamento:'MODELO-OS'});
+ const asset=report.find(s=>s.id==='asset')!;
+ assert.equal(asset.groups[0].fields[0].value,'Sem equipamento específico');
+ assert.ok(!JSON.stringify(asset).includes('SERIE-OS'));assert.ok(!JSON.stringify(asset).includes('MODELO-OS'));
+});

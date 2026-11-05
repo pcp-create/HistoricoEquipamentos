@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.12
+# Portal Técnico RJ — APK 2.2.13
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -220,3 +220,21 @@ Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/porta
 Versão 2.2.12 (código 22): técnicos próximos ficam agrupados na visão afastada. Ao aproximar, as pessoas no mesmo local se distribuem em círculo compacto, com linhas tracejadas até o ponto original e nomes voltados para fora. Mantém a assinatura e os dados locais da instalação anterior.
 
 Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.12
+
+## Versão 2.2.13 — rascunho do relatório técnico
+
+Cada alteração de resposta, comentário, referência de foto já carregada e horímetro
+é preservada imediatamente no armazenamento privado do WebView, separada por conta,
+operação e etapa. Ao reabrir, o relatório recupera o rascunho compatível com a versão
+salva. Se o servidor também mudou, oferece recuperação explícita para evitar
+sobrescrever alterações de outro usuário. Falhas no armazenamento são exibidas.
+
+Ao trocar de grupo ou etapa, o portal técnico salva automaticamente as etapas
+alteradas pelo fluxo existente de `report_save`, incluindo a fila offline do APK.
+Antes de abrir câmera/galeria, também reforça a persistência local. O salvamento
+não envia nem conclui o relatório e mantém as validações do envio. Uma foto ainda
+não capturada ou carregada precisa ser tirada novamente se o Android encerrar o app.
+
+Verificação: teste de persistência e isolamento, teste de navegador de troca de
+grupos/versão/recuperação/conflito e testes Android. Não reproduzido o encerramento
+original em aparelho físico; a mudança protege os dados já preenchidos.

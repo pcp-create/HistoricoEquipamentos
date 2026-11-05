@@ -3,6 +3,7 @@ import { reportSubmission } from "./checklists";
 import { timeLogs, elapsedTime } from "./time-logs";
 
 export function reportEquipment(operation: any, order: any) {
+  if(operation.document?.equipmentUnassigned===true)return 'Sem equipamento específico';
   const equipment = operation.document?.equipment;
   return equipment?.label || equipment?.name || (operation.document?.equipmentId ? "Equipamento " + operation.document.equipmentId : order.equipamento) || "Não informado";
 }
@@ -37,7 +38,7 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
       ["Profissional responsável", users.find(user => user.email === operation.document.responsible)?.display_name || receipt?.name || operation.document.responsible],
     ]),
     section("asset", "Identificação do ativo", [
-      ["Ativo", reportEquipment(operation, order)], ["Número de série", operation.document.equipment?.serial || (operation.document.equipmentId ? null : order.numero_serie || order.serie)], ["Modelo", operation.document.equipmentId ? null : order.modelo_equipamento],
+      ["Ativo", reportEquipment(operation, order)], ["Número de série", operation.document.equipment?.serial || (operation.document.equipmentId || operation.document.equipmentUnassigned ? null : order.numero_serie || order.serie)], ["Modelo", operation.document.equipmentId || operation.document.equipmentUnassigned ? null : order.modelo_equipamento],
     ]),
     section("location", "Identificação da localidade", [["Local de atendimento", order.endereco_entrega_nome]]),
     section("client", "Identificação do cliente", [

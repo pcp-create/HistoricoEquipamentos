@@ -17,6 +17,7 @@ export function taskListOperation(raw: any, fields: readonly string[]) {
   for (const key of allTaskListFields)
     if (fields.includes(key) && raw?.[key] !== undefined)
       document[key] = structuredClone(raw[key]);
+  if(fields.includes("equipmentId")&&raw?.equipmentUnassigned!==undefined)document.equipmentUnassigned=raw.equipmentUnassigned;
   return document;
 }
 export function operationSnapshot(operations: any[]) {

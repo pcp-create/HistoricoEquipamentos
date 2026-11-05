@@ -15,3 +15,13 @@ test('calendar labels use each assigned operation equipment and leave unassigned
  assert.equal(operationEquipmentLabel({equipmentId:'20',equipment:{name:'Secador B'}},null),'20 · Secador B');
  assert.equal(operationEquipmentLabel({},null),'');
 });
+
+ test('explicitly unassigned operation never inherits the OS equipment',()=>{
+ assert.equal(operationEquipmentLabel({equipmentUnassigned:true,equipment:{name:'Stale machine'}},{equipamento:'OS machine'}),'Sem equipamento específico');
+ });
+
+test('task list keeps the explicit equipment choice only when the equipment column is included',async()=>{
+ const {taskListOperation}=await import('../lib/service-scheduling/task-list-model');
+ assert.equal(taskListOperation({equipmentId:'',equipmentUnassigned:true},['equipmentId']).equipmentUnassigned,true);
+ assert.equal(taskListOperation({equipmentUnassigned:true},[]).equipmentUnassigned,undefined);
+});
