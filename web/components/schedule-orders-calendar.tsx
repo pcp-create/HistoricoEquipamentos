@@ -4,7 +4,7 @@ import { scheduleUrl } from "@/lib/service-scheduling/schedule-url";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import { displayedScheduleStatus } from "@/lib/service-scheduling/display-status";
 import { Fragment, useEffect, useId, useRef, useState } from "react";
-import { Clock3 } from "lucide-react";
+import { Clock3, Warehouse } from "lucide-react";
 import { createPortal } from "react-dom";
 import { scheduleStatusNames, statusNames } from "@/lib/service-scheduling/model";
 import "./schedule-orders-calendar.css";
@@ -119,7 +119,7 @@ function DailySchedule({orders,day,users,vehicles}:any) {
           <>{index===0 && <td rowSpan={orderRows.length} className="schedule-order-cell"><a href={scheduleUrl(order)}>OS {order.numero_sequencia || order.order_id}</a><strong>{order.cliente_nome || "Cliente não informado"}</strong><small>{[order.customer_city,order.customer_state].filter(Boolean).join(" / ") || "Local não informado"}</small><small>{orderRows.length} {orderRows.length===1 ? "operação" : "operações"}</small></td>}</>
           <td><strong>{operationTime(operation,day)||"Sem horário"}</strong><small>{typeof minutes==="number" ? (minutes/60).toLocaleString("pt-BR",{maximumFractionDigits:2})+" h neste dia" : "Duração diária não informada"}</small></td>
           <td><div className="schedule-operation-heading"><span className="schedule-operation-number">{operation.position != null ? operationNumber(operation.position) : "—"}</span><strong>{operation.description || "Atividade não informada"}</strong></div><div className="schedule-operation-meta">{operation.rescheduleCount>0 && <span className="rescheduling-badge" title="Quantidade de reprogramações">Reprogramada ×{operation.rescheduleCount}</span>}<span className={"operation-status "+(operation.display_status || operation.status)}>{statusNames[operation.display_status || operation.status] || "Pendente"}</span>{!!operation.support?.length && <small>Apoio: {operation.support.map(name).join(", ")}</small>}</div></td>
-          <td>{operationEquipmentLabel(operation, null) || "Não informado"}</td>
+          <td>{operationEquipmentLabel(operation, null) || "Não informado"}{operation.workshop&&<span className="schedule-equipment-workshop"><Warehouse size={13} aria-hidden="true"/>Em oficina · {operation.workshop.name}</span>}</td>
           <td className="schedule-daily-note"><InternalNote key={operation.internalNote || ""} text={operation.internalNote}/></td>
           <td>{vehicle || (operation.vehicleId ? "Veículo não disponível" : "Não definido")}</td>
         </tr>;

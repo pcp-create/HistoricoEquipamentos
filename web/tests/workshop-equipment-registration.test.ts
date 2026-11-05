@@ -27,6 +27,7 @@ test('equipment creation writes once, immediately selects the saved catalog entr
  g.historyPool={query,connect:async()=>({query,release(){}})};
  try{
   await db.exec(`CREATE ROLE anon;CREATE ROLE authenticated;CREATE TABLE web_user_access(email text,enabled boolean);INSERT INTO web_user_access VALUES('user',true),('disabled',false);
+  CREATE TABLE m8_product_catalog(company_id bigint,product_id bigint,name text,unit text,sale_price numeric,minimum_price numeric,collected_at timestamptz,payload jsonb,PRIMARY KEY(company_id,product_id));
   CREATE TABLE m8_equipment_catalog(company_id int,equipment_id bigint PRIMARY KEY,name text,alias text,model text,models text[],serial text,serial_source text,issues jsonb,payload jsonb,present boolean,collected_at timestamptz);`);
   await db.exec(readFileSync('sql/088_workshop_equipment_registrations.sql','utf8'));
   const writes:any[]=[],session=async(company:number)=>async(path:string,body?:any)=>{
@@ -52,6 +53,13 @@ test('equipment creation writes once, immediately selects the saved catalog entr
   const ownResult=await registerWorkshopEquipment(own,'user',session as any);
   assert.equal(ownResult.state,'complete');assert.equal(ownResult.equipment?.id,'124');
   assert.equal((await registerWorkshopEquipment(own,'user',session as any)).equipment?.id,'124');
+  const immediate=(await db.query<any>('SELECT * FROM m8_product_catalog WHERE product_id=124')).rows[0];
+  assert.equal(immediate.payload.codigoIdentificacaoInterno,'00042');assert.equal(Number(immediate.sale_price),15000);assert.equal(immediate.payload.modeloResumido,'P100');
+  assert.equal((await db.query<any>('SELECT count(*) n FROM m8_product_catalog WHERE product_id=123')).rows[0].n,0);
+  await db.exec("UPDATE m8_equipment_catalog SET present=false WHERE equipment_id=124;UPDATE m8_product_catalog SET name='Nome confirmado no ERP' WHERE product_id=124");
+  await registerWorkshopEquipment(own,'user',session as any);
+  assert.equal((await db.query<any>('SELECT present FROM m8_equipment_catalog WHERE equipment_id=124')).rows[0].present,true);
+  assert.equal((await db.query<any>('SELECT name FROM m8_product_catalog WHERE product_id=124')).rows[0].name,'Nome confirmado no ERP');
   assert.equal(writes.length,2);assert.equal(writes[1].tipoProduto,'EquipamentoProduto');assert.equal(writes[1].grupoEstoqueId,96);assert.equal(writes[1].ncm,'84148011');assert.equal(writes[1].precoVenda,15000);assert.equal(writes[1].modeloResumido,'P100');
   assert.equal((await db.query<any>('SELECT payload FROM m8_equipment_catalog WHERE equipment_id=124')).rows[0].payload.familiaId,3);
   let attempts=0;const uncertain=async(company:number)=>{const api=await session(company);return async(path:string,body?:any)=>{if(body){attempts++;throw new M8RequestError('Confira o ERP',true);}return api(path);};};

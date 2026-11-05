@@ -42,7 +42,7 @@ export async function taskSources(
     await database()
       .query(`SELECT e.equipment_id::text id,e.name,COALESCE(e.payload->>'familiaId'='3',false) rental,COALESCE(s.document,'{}') settings,
  COALESCE((SELECT string_agg(DISTINCT p.person_name,' / ') FROM m8_person_equipment p WHERE p.equipment_id=e.equipment_id AND p.present),'Sem cliente vinculado') customer,
- COALESCE((SELECT jsonb_agg(p.document || jsonb_build_object('id',p.id)) FROM web_equipment_plans p WHERE p.equipment_id=e.equipment_id AND NOT p.archived),'[]') plans
+ COALESCE((SELECT jsonb_agg(p.document || jsonb_build_object('id',p.id)) FROM web_equipment_plans p WHERE p.equipment_id=e.equipment_id AND NOT p.archived AND s.document->'inactivation' IS NULL),'[]') plans
  FROM m8_equipment_catalog e LEFT JOIN web_equipment_settings s USING(equipment_id) WHERE e.present`)
   ).rows;
   const rentalIds = rows.filter((e) => e.rental).map((e) => e.id);

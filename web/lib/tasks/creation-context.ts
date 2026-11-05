@@ -19,7 +19,7 @@ export async function creationContext(
       throw new TaskContextError("Vínculo de oficina inválido.");
     const visit = (
       await c.query(
-        `SELECT v.id::text,v.equipment_id::text,v.exited_at,v.reconciled_out_at,COALESCE(e.name,v.source->>'equipment_description','Equipamento em oficina') name,e.model,e.serial,
+        `SELECT v.id::text,v.equipment_id::text,v.exited_at,v.reconciled_out_at,CASE WHEN v.source->>'entryKind'='component' THEN (v.source->>'componentName')||' · Componente de '||COALESCE(e.name,v.source->>'equipment_description','máquina') ELSE COALESCE(e.name,v.source->>'equipment_description','Equipamento em oficina') END name,e.model,e.serial,
       COALESCE(NULLIF(v.source->>'customer',''),(SELECT string_agg(DISTINCT p.person_name,' / ') FROM m8_person_equipment p WHERE p.equipment_id=v.equipment_id AND p.present),'') customer,w.name workshop
       FROM web_workshop_visits v LEFT JOIN m8_equipment_catalog e ON e.equipment_id=v.equipment_id LEFT JOIN web_workshops w ON w.id=v.workshop_id WHERE v.id=$1 ${lockWorkshop ? "FOR SHARE OF v" : ""}`,
         [input.workshopVisitId],

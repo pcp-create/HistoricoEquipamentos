@@ -5,7 +5,7 @@ import {localDay,workshopEvolution,type Grain,type VisitMovement} from '@/lib/wo
 import './workshop-movements.css';
 import {movementAxis} from '@/lib/workshop/movement-axis';
 import WorkshopMovementAxis from './workshop-movement-axis';
-export default function WorkshopMovements({visits}:{visits:VisitMovement[]}){
+export default function WorkshopMovements({visits,components=false}:{visits:VisitMovement[];components?:boolean}){
  const chartRef=useRef<HTMLDivElement>(null);
  const [availableWidth,setAvailableWidth]=useState(900);
  const today=localDay(new Date().toISOString());
@@ -28,12 +28,12 @@ export default function WorkshopMovements({visits}:{visits:VisitMovement[]}){
  const adjustments=rows.reduce((sum,r)=>sum+r.adjustments,0);
  const label=(day:string)=>grain==='year'?day.slice(0,4):grain==='month'?day.slice(0,7).split('-').reverse().join('/'):day.split('-').reverse().join('/');
  return <section className="wm-panel" aria-label="Entradas e saídas da oficina">
-  <div className="wm-heading"><div><h2><BarChart3 size={20}/> Entradas × saídas</h2><p>Movimentação de máquinas no período selecionado.</p></div><div className="wm-grain" role="group" aria-label="Agrupamento">{([['year','Ano'],['month','Mês'],['week','Semana'],['day','Dia']] as const).map(([value,text])=><button type="button" key={value} aria-pressed={grain===value} onClick={()=>setGrain(value)}>{text}</button>)}</div></div>
+  <div className="wm-heading"><div><h2><BarChart3 size={20}/> Entradas × saídas</h2><p>Movimentação de {components?'componentes':'máquinas'} no período selecionado.</p></div><div className="wm-grain" role="group" aria-label="Agrupamento">{([['year','Ano'],['month','Mês'],['week','Semana'],['day','Dia']] as const).map(([value,text])=><button type="button" key={value} aria-pressed={grain===value} onClick={()=>setGrain(value)}>{text}</button>)}</div></div>
   <div className="wm-filters"><label>De<input type="date" value={start} onChange={e=>setStart(e.target.value)}/></label><label>Até<input type="date" value={end} onChange={e=>setEnd(e.target.value)}/></label></div>
   {invalid?<p role="alert">Selecione um intervalo válido de até dez anos.</p>:<>
    <div className="wm-totals"><article><span><ArrowDownLeft size={16}/> Entradas</span><strong>{entries}</strong></article><article><span><ArrowUpRight size={16}/> Saídas</span><strong>{exits}</strong></article><article><span>Saldo de movimentação</span><strong>{entries-exits>0?'+':''}{entries-exits}</strong></article></div>
-   <p className="wm-balance"><strong>Conciliação do período:</strong> {rows[0]?.opening||0} máquinas no início + {entries} entradas − {exits} saídas{adjustments>0&&<> − <strong className="wm-adjustment">{adjustments} ajustes de conferência</strong></>} = <strong>{rows.at(-1)?.occupancy||0} máquinas em oficina</strong>.</p>
-   <div className="wm-legend"><span className="wm-entry">Entradas</span><span className="wm-exit">Saídas</span><span className="wm-occupancy">Máquinas em oficina ao fim do período</span></div>
+   <p className="wm-balance"><strong>Conciliação do período:</strong> {rows[0]?.opening||0} {components?'componentes':'máquinas'} no início + {entries} entradas − {exits} saídas{adjustments>0&&<> − <strong className="wm-adjustment">{adjustments} ajustes de conferência</strong></>} = <strong>{rows.at(-1)?.occupancy||0} máquinas em oficina</strong>.</p>
+   <div className="wm-legend"><span className="wm-entry">Entradas</span><span className="wm-exit">Saídas</span><span className="wm-occupancy">{components?'Componentes':'Máquinas'} em oficina ao fim do período</span></div>
    <p className="wm-interval">{start.split('-').reverse().join('/')} a {end.split('-').reverse().join('/')} · Período completo</p>
    <div ref={chartRef} className="wm-scroll wm-plot" tabIndex={0} role="region" aria-label="Gráfico de entradas, saídas e máquinas em oficina">
     <svg className="wm-evolution" viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{width:chartWidth,minWidth:chartWidth,height:chartHeight}} role="img" aria-label="Barras de entradas e saídas e linha de máquinas em oficina">

@@ -1,3 +1,4 @@
+import {componentTypes,mutateComponentType} from './components';
 import {searchPatterns} from "@/lib/filters";
 import 'server-only';
 import {randomUUID} from 'node:crypto';
@@ -12,14 +13,14 @@ const text=(v:unknown,max=4000)=>{if(typeof v!=='string'||v.trim().length>max)th
 const positive=(v:unknown)=>{if(!/^\d{1,18}$/.test(String(v))||BigInt(String(v))<1n)throw new WorkshopInputError('Identificador inválido.');return String(v);};
 const uuid=(v:unknown)=>{if(typeof v!=='string'||!/^[0-9a-f-]{36}$/i.test(v))throw new WorkshopInputError('Registro inválido.');return v;};
 const date=(v:unknown)=>{if(v==null||v==='')return null;if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v)||!Number.isFinite(Date.parse(v))||new Date(v).toISOString().slice(0,10)!==v)throw new WorkshopInputError('Data inválida.');return v;};
-export async function workshopSearch(q:string,quotes=false){
+export async function workshopSearch(q:string,quotes=false,components=false){
  const term=text(q,120);if(term.length<2)return [];
  if(quotes)return (await database().query(`SELECT company_id,id::text,number,client,status FROM m8_quotes WHERE concat_ws(' ',id,number,client) ILIKE ALL($1::text[]) AND status NOT IN ('Concretizado','Cancelado','Perdido') ORDER BY id,company_id LIMIT 40`,[searchPatterns(term)])).rows;
  return (await database().query(`SELECT e.equipment_id::text id,e.name,e.model,e.serial,
  (SELECT max(person_name) FROM m8_person_equipment p WHERE p.equipment_id=e.equipment_id AND p.present) client
  FROM m8_equipment_catalog e WHERE e.present AND concat_ws(' ',e.equipment_id,e.name,e.model,e.serial) ILIKE ALL($1::text[])
- AND NOT EXISTS(SELECT 1 FROM web_workshop_visits v WHERE v.equipment_id=e.equipment_id AND v.exited_at IS NULL AND v.reconciled_out_at IS NULL)
- ORDER BY e.equipment_id LIMIT 40`,[searchPatterns(term)])).rows;
+ AND ($2::boolean OR NOT EXISTS(SELECT 1 FROM web_workshop_visits v WHERE v.equipment_id=e.equipment_id AND v.exited_at IS NULL AND v.reconciled_out_at IS NULL AND COALESCE(v.source->>'entryKind','equipment')='equipment'))
+ ORDER BY e.equipment_id LIMIT 40`,[searchPatterns(term),components])).rows;
 }
 export async function workshopData(email:string){
  const db=database();
@@ -35,13 +36,14 @@ export async function workshopData(email:string){
   listWorkshopEvents(db,visits.map(v=>v.id),admin),
  ]);
  for(const v of visits){v.rental=v.rental||isRentalSource(v.source);v.financial=workshopFinancial(financialOrders.get(v.equipment_id)||[],v.rental,!!v.equipment_id,v.quotes);}
- return {workshops,external:external.filter(e=>!e.returned_at&&!e.reconciled_out_at).map(e=>{const v=visits.find(v=>v.id===e.visit_id);return {...e,machine:v||{id:null,equipment_id:e.source?.equipmentId||null,name:e.source?.equipment_description||e.component,client:e.source?.customer||'Cliente a confirmar',model:null,serial:null,workshop_id:e.source?.workshopId||null,workshop:'Oficina a confirmar',orders:[],tasks:[],external:[]}};}),visits:visits.map(v=>({...v,effective_stage:effectiveStage(v.stage,v.orders,v.source),external:external.filter(e=>e.visit_id===v.id&&!e.reconciled_out_at),events:events.filter(e=>e.visit_id===v.id)}))};
+ return {workshops,componentTypes:await componentTypes(db),canManageComponents:admin,external:external.filter(e=>!e.returned_at&&!e.reconciled_out_at).map(e=>{const v=visits.find(v=>v.id===e.visit_id);return {...e,machine:v||{id:null,equipment_id:e.source?.equipmentId||null,name:e.source?.equipment_description||e.component,client:e.source?.customer||'Cliente a confirmar',model:null,serial:null,workshop_id:e.source?.workshopId||null,workshop:'Oficina a confirmar',orders:[],tasks:[],external:[]}};}),visits:visits.map(v=>({...v,effective_stage:effectiveStage(v.stage,v.orders,v.source),external:external.filter(e=>e.visit_id===v.id&&!e.reconciled_out_at),events:events.filter(e=>e.visit_id===v.id)}))};
 }
 export async function workshopMutate(b:any,email:string):Promise<{saved:true;visit?:any;transferVisitId?:string}>{
  if(!b||typeof b.action!=='string')throw new WorkshopInputError('Ação inválida.');
  const c=await database().connect();
  try{await c.query('BEGIN READ WRITE');
   let confirmedVisit:any=null;
+  if(['component_add','component_update','component_delete'].includes(b.action)){const result=await mutateComponentType(c,b,email);await c.query('COMMIT');return result;}
   if(b.action==='externalUpdate'){
    const id=uuid(b.externalId),row=(await c.query('SELECT * FROM web_workshop_external WHERE id=$1 FOR UPDATE',[id])).rows[0];
    if(!row||row.returned_at||row.reconciled_out_at||row.version!==b.version)throw new WorkshopConflict('Este envio mudou. Atualize a tela antes de salvar.');
@@ -57,13 +59,18 @@ export async function workshopMutate(b:any,email:string):Promise<{saved:true;vis
    }else await c.query('INSERT INTO web_workshops(name) VALUES($1)',[name]);
   }else if(b.action==='entry'){
    const equipment=positive(b.equipmentId),workshop=positive(b.workshopId),notes=text(b.notes||'');
+   if(b.entryKind!=null&&!['equipment','component'].includes(b.entryKind))throw new WorkshopInputError('Tipo de entrada inválido.');
+   const component=b.entryKind==='component';
+   let entrySource:any={};
+   if(component){const type=(await c.query('SELECT id::text,name FROM web_workshop_component_types WHERE id=$1 AND active FOR SHARE',[positive(b.componentId)])).rows[0];if(!type)throw new WorkshopInputError('Selecione um componente ativo.');entrySource={entryKind:'component',componentId:type.id,componentName:type.name};}
+
    if(!(await c.query('SELECT 1 FROM m8_equipment_catalog WHERE equipment_id=$1 AND present',[equipment])).rows.length)throw new WorkshopInputError('Selecione um equipamento cadastrado.');
    if(!(await c.query('SELECT 1 FROM web_workshops WHERE id=$1 AND active FOR SHARE',[workshop])).rows.length)throw new WorkshopInputError('Selecione uma oficina ativa.');
    const entered=new Date(b.enteredAt);if(!Number.isFinite(entered.getTime())||entered.getTime()>Date.now()+60000)throw new WorkshopInputError('A entrada deve ter uma data válida e não pode ser futura.');
    const expected=date(b.expectedAt);if(expected&&expected<entered.toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}))throw new WorkshopInputError('A previsão não pode ser anterior à entrada.');
    const registration=(await c.query("SELECT id::text,actor,created_at,document FROM web_workshop_equipment_registrations WHERE equipment_id=$1 AND state='complete' ORDER BY created_at DESC LIMIT 1",[equipment])).rows[0];
-   const id=randomUUID();await c.query('INSERT INTO web_workshop_visits(id,equipment_id,workshop_id,entered_at,expected_at,notes,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$7)',[id,equipment,workshop,entered,expected,notes,email]);
-   await c.query("INSERT INTO web_workshop_events(visit_id,action,actor,document) VALUES($1,'Entrada registrada',$2,$3)",[id,email,JSON.stringify({workshopId:workshop,notes,...(registration?{equipmentRegistration:registration}:{})})]);
+   const id=randomUUID();await c.query('INSERT INTO web_workshop_visits(id,equipment_id,workshop_id,entered_at,expected_at,notes,created_by,updated_by,source) VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8)',[id,equipment,workshop,entered,expected,notes,email,JSON.stringify(entrySource)]);
+   await c.query("INSERT INTO web_workshop_events(visit_id,action,actor,document) VALUES($1,'Entrada registrada',$2,$3)",[id,email,JSON.stringify({workshopId:workshop,notes,...entrySource,...(registration?{equipmentRegistration:registration}:{})})]);
   }else{
    const id=uuid(b.id),visit=(await c.query('SELECT * FROM web_workshop_visits WHERE id=$1 FOR UPDATE',[id])).rows[0];
    if(!visit)throw new WorkshopInputError('Entrada não encontrada.');
@@ -128,7 +135,7 @@ export async function workshopMutate(b:any,email:string):Promise<{saved:true;vis
    if(b.action==='stage')confirmedVisit={...updated,event:{...event,actor_name:email}};
   }
   await c.query('COMMIT');return {saved:true,...(confirmedVisit?.transfer?{transferVisitId:confirmedVisit.id}:confirmedVisit?{visit:confirmedVisit}:{})};
- }catch(e){await c.query('ROLLBACK');if((e as any).code==='23505')throw new WorkshopConflict('Essa máquina já possui uma entrada aberta na oficina.');throw e;}finally{c.release();}
+ }catch(e){await c.query('ROLLBACK');if((e as any).code==='23505'&&b.action.startsWith('component_'))throw new WorkshopInputError('Já existe um componente com este nome.');if((e as any).code==='23505')throw new WorkshopConflict('Essa máquina já possui uma entrada aberta na oficina.');throw e;}finally{c.release();}
 }
 
 export async function workshopFinancialDetail(id:string){

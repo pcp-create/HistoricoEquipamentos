@@ -1102,3 +1102,16 @@
 .visit-follow-up-dialog::backdrop{background:rgba(20,43,67,.35)}
 
 .visit-task-reference .visit-task-separator{color:#9aabba;font-size:10px;line-height:1;font-weight:400}
+
+.sales-visit-management-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding-top:12px;border-top:1px solid #e6edf5}
+.sales-visit-management-actions .visit-task-reference{flex:1 1 auto;margin:0}
+.sales-visit-management-actions>.sales-visit-admin-inline>button{min-height:34px;padding:6px 11px;font-size:13px;border-radius:7px}
+@media(max-width:600px){.sales-visit-management-actions .visit-task-reference{flex-basis:100%;margin-bottom:4px}}
+
+.visit-equipment-card-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px}
+.sales-app .visit-equipment-card-actions>button,.visit-equipment-card-actions>button{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:0 1 auto;width:auto;min-height:34px;margin:0;padding:6px 10px;border:1px solid #cbddeb;border-radius:7px;background:#f5f9fd;color:#255e90;font:inherit;font-size:12px;font-weight:500;line-height:1.4}
+.sales-app .visit-equipment-card-actions>.visit-equipment-inactivate,.visit-equipment-card-actions>.visit-equipment-inactivate{background:#fff;border-color:#e6d4d4;color:#9a4c4c}
+.visit-equipment-card-actions>button svg{flex-shrink:0}
+.visit-equipment-card-actions>button:hover:not(:disabled){background:#eaf2fa}
+.visit-equipment-card-actions>button.visit-equipment-inactivate:hover:not(:disabled){background:#fff2f2}
+.visit-equipment-card-actions>button:focus-visible{outline:2px solid #286ba5;outline-offset:2px}

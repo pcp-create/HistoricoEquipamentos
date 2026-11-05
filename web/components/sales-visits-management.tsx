@@ -250,10 +250,11 @@ export default function SalesVisitsManagement() {
         </p>
       )}
       {v.status === "completed" && <VisitTaskButton visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key}/>}
-      <div className="sales-visit-actions">
-      {data?.canEditVisits && v.status!=='completed' && <VisitAdminActions inline visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} purposes={data.purposes || []} onSaved={async message=>{setMessage(message);await reload()}}/>}
+      {v.status!=='completed'&&<div className="sales-visit-actions sales-visit-management-actions">
       {v.status === "scheduled" && <VisitTaskButton visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key}/>}
-      </div>
+      {data?.canEditVisits && <VisitAdminActions inline visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} purposes={data.purposes || []} onSaved={async message=>{setMessage(message);await reload()}}/>}
+      </div>}
+
     </VisitListRow>
   );
   const calendarVisits = filteredVisits

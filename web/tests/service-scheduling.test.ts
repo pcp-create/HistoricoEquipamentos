@@ -96,6 +96,8 @@ test("scheduling includes once, versions operations, protects execution and reco
       "037_field_operations",
       "038_time_adjustment_requests",
       "039_material_withdrawals",
+      "093_service_execution_workflow",
+      "098_multiple_order_links",
     ])
       await db.exec(
         readFileSync(
@@ -108,7 +110,7 @@ test("scheduling includes once, versions operations, protects execution and reco
     );
     const admin = "guih.waltrick@gmail.com",
       user = "tech@test.com";
-    await db.exec("ALTER TABLE m8_ordens_servico ADD COLUMN status text DEFAULT 'Pendente'; INSERT INTO m8_ordens_servico(company_id,id_m8,status) VALUES(1,101,'Cancelado');");
+    await db.exec("ALTER TABLE m8_ordens_servico ADD COLUMN numero_sequencia bigint,ADD COLUMN cliente_nome text,ADD COLUMN equipamento text;ALTER TABLE web_tasks ADD COLUMN IF NOT EXISTS followers text[] DEFAULT '{}',ADD COLUMN IF NOT EXISTS stage_id bigint;ALTER TABLE m8_ordens_servico ADD COLUMN status text DEFAULT 'Pendente'; INSERT INTO m8_ordens_servico(company_id,id_m8,status) VALUES(1,101,'Cancelado');");
     await assert.rejects(mutateSchedule({action:'include',company:1,orderId:'101'},admin),/OS cancelada/);
     const a = await mutateSchedule(
         { action: "include", company: 1, orderId: "100" },

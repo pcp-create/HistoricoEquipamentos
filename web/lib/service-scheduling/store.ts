@@ -1,3 +1,4 @@
+import {attachOperationWorkshops} from "./operation-workshops";
 import {recallOperation} from "./recall-operation";
 import {changesDispatchedResponsible,validateResponsibleChange} from "./responsible-change";
 import {isDeepStrictEqual} from 'node:util';
@@ -18,7 +19,7 @@ import "server-only";
 import {updateChecklist,prepareChecklistSubmission,reopenReport} from "./checklist-store";
 import {stagesOf,reportSubmission} from "./checklists";
 import {validateAutomaticRules} from "./automatic-rules";
-import { combineOrderItems } from "./linked-items";
+import { combineMultipleOrderItems } from "./linked-items";
 import { randomUUID } from "node:crypto";
 import { database } from "../db";
 import { orderDetail } from "../history";
@@ -114,19 +115,20 @@ export async function schedulingData(scheduleId: string | null, email: string) {
       await db.query(
         `SELECT s.*,EXISTS (
           SELECT 1 FROM web_workshop_visits v
-          WHERE v.exited_at IS NULL AND v.reconciled_out_at IS NULL AND (
+          WHERE v.exited_at IS NULL AND v.reconciled_out_at IS NULL AND COALESCE(v.source->>'entryKind','equipment')='equipment' AND (
             v.equipment_id=o.produto_equipamento_id OR EXISTS (
               SELECT 1 FROM m8_order_equipment_links l
               WHERE l.company_id=o.company_id AND l.order_id=o.id_m8
                 AND l.equipment_id=v.equipment_id AND NOT l.stale
             )
           )
-        ) AS in_workshop,customer.payload->>'municipioNome' AS customer_city,customer.payload->>'ufSigla' AS customer_state,o.numero_sequencia,o.cliente_id::text AS customer_id,o.cliente_nome,o.equipamento,o.tipo_nome,o.tipo_atendimento_nome,o.status_lancamento_nome,linked.status_lancamento_nome AS linked_status_lancamento_nome,linked.id_m8 AS linked_order_id,linked.numero_sequencia AS linked_order_number,o.status order_status,o.total_geral::text AS order_value,(o.data_entrega_prevista AT TIME ZONE 'America/Sao_Paulo')::date::text AS expected_delivery_date,(SELECT count(*)::int FROM web_service_operations p WHERE p.schedule_id=s.id) operation_count,
+        ) AS in_workshop,o.produto_equipamento_id::text AS equipment_id,customer.payload->>'municipioNome' AS customer_city,customer.payload->>'ufSigla' AS customer_state,o.numero_sequencia,o.cliente_id::text AS customer_id,o.cliente_nome,o.equipamento,o.tipo_nome,o.tipo_atendimento_nome,o.status_lancamento_nome,linked.status_lancamento_nome AS linked_status_lancamento_nome,linked.id_m8 AS linked_order_id,linked.numero_sequencia AS linked_order_number,o.status order_status,o.total_geral::text AS order_value,(o.data_entrega_prevista AT TIME ZONE 'America/Sao_Paulo')::date::text AS expected_delivery_date,(SELECT count(*)::int FROM web_service_operations p WHERE p.schedule_id=s.id) operation_count,
         COALESCE((SELECT jsonb_object_agg(c.status,c.n) FROM (SELECT p.status,count(*)::int n FROM web_service_operations p WHERE p.schedule_id=s.id GROUP BY p.status) c),'{}'::jsonb) operation_status_counts,
         COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'position',p.position,'description',p.document->>'description','internalNote',p.document->>'internalNote','vehicleId',p.document->>'vehicleId','equipmentId',p.document->>'equipmentId','equipment',p.document->'equipment','rescheduleCount',jsonb_array_length(COALESCE(p.document->'reschedulingHistory','[]'::jsonb)),'status',p.status,'date',p.document->>'date','time',p.document->>'time','duration',p.document->'duration','calendarId',p.document->>'calendarId','responsibleEmail',p.document->>'responsible','support',COALESCE(p.document->'support','[]'::jsonb),'responsible',COALESCE(NULLIF(u.display_name,''),p.document->>'responsible')) ORDER BY p.document->>'time',p.position) FROM web_service_operations p LEFT JOIN web_user_access u ON u.email=p.document->>'responsible' WHERE p.schedule_id=s.id),'[]'::jsonb) calendar_operations
-        FROM web_service_schedules s LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id LEFT JOIN m8_customer_directory customer ON customer.company_id=o.company_id AND customer.person_id=o.cliente_id LEFT JOIN web_order_links ol ON ol.company_id=s.company_id AND ol.order_id=s.order_id LEFT JOIN m8_ordens_servico linked ON linked.company_id=ol.linked_company_id AND linked.id_m8=ol.linked_order_id WHERE s.active AND lower(trim(COALESCE(o.status,''))) NOT IN ('cancelado','cancelada') ORDER BY s.created_at DESC,s.id DESC`,
+        FROM web_service_schedules s LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id LEFT JOIN m8_customer_directory customer ON customer.company_id=o.company_id AND customer.person_id=o.cliente_id LEFT JOIN LATERAL (SELECT string_agg(DISTINCT lo.status_lancamento_nome,', ') status_lancamento_nome,string_agg(lo.id_m8::text,', ') id_m8,string_agg(COALESCE(lo.numero_sequencia,lo.id_m8)::text,', ') numero_sequencia FROM web_order_links ol JOIN m8_ordens_servico lo ON lo.company_id=ol.linked_company_id AND lo.id_m8=ol.linked_order_id WHERE ol.company_id=s.company_id AND ol.order_id=s.order_id) linked ON true WHERE s.active AND lower(trim(COALESCE(o.status,''))) NOT IN ('cancelado','cancelada') ORDER BY s.created_at DESC,s.id DESC`,
       )
     ).rows;
+    await attachOperationWorkshops(schedules);
     await attachPlannedDates(schedules, settings.document);
     return {
       ...base,
@@ -183,13 +185,12 @@ export async function schedulingData(scheduleId: string | null, email: string) {
     db.query("SELECT e.id,e.operation_id,e.actor,e.action,e.created_at,e.document,e.latitude,e.longitude FROM web_field_events e JOIN web_service_operations p ON p.id=e.operation_id WHERE p.schedule_id=$1 AND e.action IN ('start_work','start_travel','pause','resume','stop') ORDER BY e.created_at,e.id",[scheduleId]),
     timeAdjustmentsAvailable ? db.query("SELECT r.*,u.display_name reviewer_name,a.display_name actor_name FROM web_field_time_requests r JOIN web_service_operations p ON p.id=r.operation_id LEFT JOIN web_user_access u ON u.email=r.reviewed_by LEFT JOIN web_user_access a ON a.email=r.actor WHERE p.schedule_id=$1 ORDER BY r.created_at DESC",[scheduleId]) : Promise.resolve({rows:[]}),
   ]);
-  const link = (await db.query("SELECT linked_company_id,linked_order_id FROM web_order_links WHERE company_id=$1 AND order_id=$2",[schedule.company_id,schedule.order_id])).rows[0];
-  const linkedDetail = link?.linked_order_id ? await orderDetail(String(link.linked_company_id),String(link.linked_order_id)) : null;
-  const linkedProfit = link?.linked_order_id ? (await db.query("SELECT document FROM web_order_profit WHERE company_id=$1 AND order_id=$2",[link.linked_company_id,link.linked_order_id])).rows[0]?.document || null : null;
-  const combinedDetail = detail ? {...detail,
-    materials:await withPurchaseBalances(combineOrderItems(detail,linkedDetail,"materials",schedule.company_id,schedule.order_id,link?.linked_company_id,link?.linked_order_id)),
-    services:combineOrderItems(detail,linkedDetail,"services",schedule.company_id,schedule.order_id,link?.linked_company_id,link?.linked_order_id).map((item: any) => ({...item,source_profit:item.source_linked ? linkedProfit : profit.rows[0]?.document || null}))
-  } : detail;
+  const links=(await db.query("SELECT linked_company_id,linked_order_id FROM web_order_links WHERE company_id=$1 AND order_id=$2 AND linked_order_id IS NOT NULL ORDER BY linked_company_id,linked_order_id",[schedule.company_id,schedule.order_id])).rows;
+  const linkedDetails=await Promise.all(links.map(async (link:any)=>({company:link.linked_company_id,order:link.linked_order_id,detail:await orderDetail(String(link.linked_company_id),String(link.linked_order_id)),profit:(await db.query("SELECT document FROM web_order_profit WHERE company_id=$1 AND order_id=$2",[link.linked_company_id,link.linked_order_id])).rows[0]?.document||null})));
+  const combinedDetail=detail?{...detail,
+    materials:await withPurchaseBalances(combineMultipleOrderItems(detail,linkedDetails,"materials",schedule.company_id,schedule.order_id)),
+    services:combineMultipleOrderItems(detail,linkedDetails,"services",schedule.company_id,schedule.order_id).map((item:any)=>({...item,source_profit:item.source_linked?linkedDetails.find(l=>String(l.company)===String(item.item_company)&&String(l.order)===String(item.item_order))?.profit:profit.rows[0]?.document||null}))
+  }:detail;
   const forecast = {...schedule, calendar_operations: operations.rows.map(operation => ({...operation.document, position:operation.position, status:operation.status, responsibleEmail:operation.document.responsible}))};
   await attachPlannedDates([forecast], settings.document);
   schedule.planned_date = forecast.planned_date;
@@ -197,7 +198,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
     ...base,
     schedule,
     detail: combinedDetail,
-    linked_detail_incomplete: !!link?.linked_order_id && !linkedDetail?.detail_at,
+    linked_detail_incomplete: linkedDetails.some(l=>!l.detail?.detail_at),
     operations: operations.rows.map(operation => ({...operation, status: effectiveOperationStatus(operation.status, operation.document),display_status:displayedOperationStatus(schedule,effectiveOperationStatus(operation.status,operation.document))})),
     timeAdjustmentsAvailable,
     requests: timeRequests.rows,

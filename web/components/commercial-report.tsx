@@ -109,7 +109,7 @@ function ContractSignal({ row, column, value }: { row: Detail; column: string; v
 export function reportValue(row: Detail, key: string): string | number {
   if (key === "seller") return String(row.fields?.seller || "").replace(/^\s*\d+\s*[-–—·:]\s*/, "").replace(/\s*[-–—·:]\s*\d+\s*$/, "").trim();
   if (key === "name" && row.kind.startsWith("sales"))
-    return [row.name, row.fields?.equipment].filter(Boolean).join(" · ");
+    return [row.name, row.fields?.equipment,...(row.workshopComponents||[]).map(component=>`Somente componente em oficina: ${component.name} · ${component.workshop}`)].filter(Boolean).join(" · ");
 
   if (key === "billingState")
     return row.billing ? billingLabels[row.billing.state] : "Sem análise";
@@ -737,7 +737,7 @@ export default function CommercialReport({
                               <p>{String(reportValue(r, c.key))}</p>
                             </details>
                           ) : c.key === "name" && kind === "sales" ? (
-                            <div>{r.name}<small className="cr-client-equipment">{r.fields?.equipment || "Equipamento não informado"}</small></div>
+                            <div>{r.name}<small className="cr-client-equipment">{r.fields?.equipment || "Equipamento não informado"}</small>{r.workshopComponents?.map(component=><small key={component.visit} className="cr-workshop-component">Somente componente em oficina: {component.name} · {component.workshop}</small>)}</div>
                           ) : c.key === "id" ? (
                             <span className="cr-code">
                               {kind === "sales" ? (
@@ -780,13 +780,13 @@ export default function CommercialReport({
                           )}
                           {c.key === "inWorkshop" && r.workshop && <a className="cr-workshop-stage" href="/oficina" title={`${r.workshop.name} · Etapa da máquina na oficina`}><span style={{background:r.workshop.color}} aria-hidden="true"/>{r.workshop.label}</a>}
                           {c.key === "inWorkshop" && r.workshop?.partsPending && r.workshop.stage !== "parts" && <small className="sp-red">Aguardando peça</small>}
-                          {kind === "sales" && r.linkedOrder && ["id", "orderType", "flowStatus"].includes(c.key) && (
-                            <small className={`cr-linked-order-comment${c.key === "id" ? " cr-linked-order-number" : ""}`} title={`OS vinculada · ${r.linkedOrder.number}`}>
+                          {kind === "sales" && (r.linkedOrders?.length || r.linkedOrder) && ["id", "orderType", "flowStatus"].includes(c.key) && (r.linkedOrders || (r.linkedOrder?[r.linkedOrder]:[])).map(link => (
+                            <small key={link.company+":"+link.id} className={`cr-linked-order-comment${c.key === "id" ? " cr-linked-order-number" : ""}`} title={`OS vinculada · ${link.number}`}>
                               <Link2 size={12} aria-hidden="true"/>
-                              {c.key === "id" ? <OrderDetailLink id={r.linkedOrder.id} company={r.linkedOrder.company} number={r.linkedOrder.number}>OS-{r.linkedOrder.number}</OrderDetailLink>
-                                : <span>{c.key === "orderType" ? r.linkedOrder.orderType || "Tipo não informado" : r.linkedOrder.flowStatus || "Status do fluxo não informado"}</span>}
+                              {c.key === "id" ? <OrderDetailLink id={link.id} company={link.company} number={link.number}>OS-{link.number}</OrderDetailLink>
+                                : <span>{c.key === "orderType" ? link.orderType || "Tipo não informado" : link.flowStatus || "Status do fluxo não informado"}</span>}
                             </small>
-                          )}
+                          ))}
                           {quickUpdates[quickKey(r, c.key)]?.busy && <small role="status">Salvando no ERP…</small>}
                           {quickUpdates[quickKey(r, c.key)]?.error && <small role="alert" className="cr-quick-error">{quickUpdates[quickKey(r, c.key)].error}</small>}
                           {c.key === "expected" && isOverdue(r) && (

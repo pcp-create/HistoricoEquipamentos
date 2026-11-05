@@ -122,6 +122,13 @@ test("equipment import is canonical in company 1; per-person snapshots reconcile
       { company: 1, get: async () => ({ data: [eq] }) },
       db,
     );
+    await db.exec("INSERT INTO m8_equipment_catalog(company_id,equipment_id,name,serial_source,payload,collected_at) VALUES(1,999,'Criado pelo portal','portal','{}',now())");
+    await collectEquipmentCatalog({company:1,get:async()=>({data:[eq]})},db);
+    assert.equal((await db.query<any>('SELECT present FROM m8_equipment_catalog WHERE equipment_id=999')).rows[0].present,true);
+    await collectEquipmentCatalog({company:1,get:async()=>({data:[eq,{id:999,nome:'Confirmado no ERP'}]})},db);
+    assert.notEqual((await db.query<any>('SELECT serial_source FROM m8_equipment_catalog WHERE equipment_id=999')).rows[0].serial_source,'portal');
+    await collectEquipmentCatalog({company:1,get:async()=>({data:[eq]})},db);
+    assert.equal((await db.query<any>('SELECT present FROM m8_equipment_catalog WHERE equipment_id=999')).rows[0].present,false);
     await assert.rejects(() =>
       collectEquipmentCatalog(
         { company: 2, get: async () => ({ data: [eq] }) },

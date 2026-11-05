@@ -23,10 +23,14 @@ async function saveLocal(db:any,row:any){
  const input=equipmentRegistrationInput(row.document,{requireInternalDetails:false}),payload=row.payload;
  const c=await db.connect();
  try{await c.query('BEGIN READ WRITE');
+  await c.query('SELECT pg_advisory_xact_lock(81014,0)');
   await c.query(`INSERT INTO m8_equipment_catalog(company_id,equipment_id,name,alias,model,models,serial,serial_source,issues,payload,present,collected_at)
    VALUES(1,$1,$2,$2,$3,$4,$5,'portal','[]',$6,true,now())
-   ON CONFLICT(equipment_id) DO NOTHING`,
+   ON CONFLICT(equipment_id) DO UPDATE SET present=true WHERE m8_equipment_catalog.serial_source='portal'`,
    [row.equipment_id,payload.nome,input.model||null,input.model?[input.model]:[],input.serial,JSON.stringify({...payload,id:Number(row.equipment_id),numeroSerie:input.serial,modeloResumido:input.model})]);
+  if(input.ownership==='own')await c.query(`INSERT INTO m8_product_catalog(company_id,product_id,name,unit,sale_price,minimum_price,collected_at,payload)
+   VALUES(1,$1,$2,'UN',$3,$4,now(),$5) ON CONFLICT(company_id,product_id) DO NOTHING`,
+   [row.equipment_id,payload.nome,payload.precoVenda??null,payload.precoVendaMinimo??null,JSON.stringify({...payload,id:Number(row.equipment_id)})]);
   await c.query('COMMIT');
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
  return {id:String(row.equipment_id),name:payload.nome,model:input.model,serial:input.serial,client:''};

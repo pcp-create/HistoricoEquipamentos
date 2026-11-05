@@ -102,3 +102,9 @@ extra). A situação depende dos dias restantes: abaixo de zero é Vencido; de 0
 29 é Próximo do vencimento; 30 ou mais é Dentro do prazo. No dia final, exibe
 “Vence hoje”. Datas ausentes ou fim anterior ao início pedem conferência, sem
 inventar prazo. Este indicador contratual é independente do plano de preventiva.
+
+## Inativação local do equipamento
+
+Nos detalhes do equipamento, “Inativar equipamento” exige justificativa. O sistema registra motivo, data e autor nas configurações locais e no histórico; o M8 não recebe alteração. A identificação `erpStatus: not_sent` registra que a inativação ainda não foi enviada ao ERP, para futura integração quando houver endpoint disponível.
+
+O filtro “Status Equipamento” fica dentro do painel de filtros e oferece Ativo, Inativo e Todos. O padrão é Ativo, inclusive ao limpar os filtros; Inativo mostra apenas os equipamentos inativados e Todos inclui ambas as situações. Os planos e históricos são preservados; deixam de originar alertas automáticos de preventiva enquanto o equipamento estiver inativo. “Reativar equipamento” permite reverter a situação local. Salvar configurações não apaga a justificativa. Não é necessária migração de banco.

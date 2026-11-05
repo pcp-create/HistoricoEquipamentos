@@ -13,8 +13,8 @@ export default function OrderLinkCaption({ company, id }: { company: number | st
       try {
         const response = await apiFetch(`/api/orders/${company}/${id}/link`, { signal: controller.signal });
         if (!response.ok) return;
-        const { link } = await response.json();
-        if (active) setNumber(link?.linked_order_id ? String(link.numero_sequencia || link.linked_order_id) : null);
+        const { links,link } = await response.json();
+        if (active) setNumber((links||(link?[link]:[])).map((v:any)=>String(v.numero_sequencia||v.linked_order_id)).join(", ")||null);
       } catch { /* The order remains usable when the caption cannot be loaded. */ }
     }
     const refresh = () => { clearApiCache(); void load(); };
@@ -22,5 +22,5 @@ export default function OrderLinkCaption({ company, id }: { company: number | st
     window.addEventListener("order-link-updated", refresh);
     return () => { active = false; controller?.abort(); window.removeEventListener("order-link-updated", refresh); };
   }, [company, id]);
-  return number ? <small className="order-link-caption">Vinculado à OS {number}</small> : null;
+  return number ? <small className="order-link-caption">OSs vinculadas: {number}</small> : null;
 }

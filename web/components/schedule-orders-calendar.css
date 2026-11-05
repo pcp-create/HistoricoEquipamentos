@@ -108,3 +108,6 @@
 }
 .scheduling-page .schedule-note-toggle:hover {background:transparent;color:#153e64}
 .scheduling-page .schedule-note-toggle:focus-visible {outline:2px solid #24649a;outline-offset:3px}
+
+.schedule-daily-table .schedule-equipment-workshop{display:flex;align-items:center;gap:5px;width:fit-content;max-width:100%;box-sizing:border-box;margin-top:6px;padding:4px 7px;border:1px solid #f0d394;border-radius:6px;background:#fff3d6;color:#86520b;font-size:11px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+.schedule-equipment-workshop svg{flex-shrink:0}

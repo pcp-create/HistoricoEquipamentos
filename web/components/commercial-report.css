@@ -714,3 +714,5 @@
 .cr-table .cr-workshop-stage { display:flex; align-items:flex-start; gap:5px; margin-top:7px; font-size:10px; line-height:1.5; color:#527491; text-decoration:none; text-align:left; }
 .cr-workshop-stage > span { width:6px; height:6px; flex:none; border-radius:50%; margin-top:4px; }
 .cr-workshop-stage:hover { text-decoration:underline; }
+
+.cr-workshop-component{display:block;margin-top:5px;color:#8b5b12;background:#fff4db;border-radius:5px;padding:4px 6px;font-size:11px;line-height:1.4}

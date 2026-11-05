@@ -42,3 +42,9 @@ A migração foi aplicada à conexão configurada neste ambiente. Cada cadastro 
 A entrada registra no evento o vínculo com o cadastro, seu ator, data e campos. O cadastro fiscal permanece no M8; esta tabela registra a origem da inclusão via portal. Nenhum equipamento real foi criado nos testes: apenas consultas de cadastros e simulações de POST.
 
 Validação: testes do modelo/payload, gravação única, confirmação idempotente, bloqueio de duplicados, respostas incertas, permissões, preservação dos dados da entrada e visualização no celular.
+
+## Disponibilidade imediata após cadastro
+
+A confirmação do M8 salva imediatamente o catálogo local com os dados informados e, para próprios, a cópia do produto com identificação interna e preços. Não são presumidos saldos de estoque. A interface invalida o cache persistente da lista e avisa telas de equipamentos já abertas para recarregar. Reconsultar o mesmo cadastro não repete o POST nem sobrescreve dados já atualizados pelo ERP.
+
+O integrador preserva registros locais com origem `portal` até recebê-los no catálogo do M8; após essa confirmação, passam a seguir a reconciliação normal de exclusões. Essa proteção requer a atualização do integrador; a disponibilidade imediata e a invalidação do cache são mudanças no portal web.

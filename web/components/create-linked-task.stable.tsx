@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { MoreVertical, ClipboardPlus, Pencil } from "lucide-react";
+import { MoreVertical, ClipboardPlus, Ban, RotateCcw, Pencil } from "lucide-react";
 import Link from "next/link";
 import {processedOrder} from "@/lib/service-orders/edit-status";
 import { apiFetch } from "@/lib/client-api-cache";
@@ -12,6 +12,9 @@ type LinkContext = {
   orderCompany?: number | string;
   equipmentId?: string;
   number?: string;
+  onEquipmentActivityChange?:()=>void;
+  equipmentInactive?:boolean;
+  equipmentActivityBusy?:boolean;
 };
 export default function CreateLinkedTask(props: LinkContext) {
   const [creating, setCreating] = useState(false),
@@ -24,13 +27,14 @@ export default function CreateLinkedTask(props: LinkContext) {
         className="linked-task-menu-trigger"
         onClick={(e) => {
           const box = e.currentTarget.getBoundingClientRect();
+          const menuHeight=props.orderId?200:props.onEquipmentActivityChange?108:60;
           if (menu.current) {
             menu.current.style.left =
               Math.max(8, Math.min(box.right - 184, window.innerWidth - 200)) +
               "px";
             menu.current.style.top =
-              (box.bottom + 60 > window.innerHeight
-                ? box.top - 56
+              (box.bottom + menuHeight > window.innerHeight
+                ? Math.max(8,box.top - (menuHeight-4))
                 : box.bottom + 4) + "px";
             menu.current.togglePopover();
           }
@@ -55,6 +59,7 @@ export default function CreateLinkedTask(props: LinkContext) {
         >
           <ClipboardPlus size={17} aria-hidden="true"/> Criar tarefa
         </button>
+        {props.onEquipmentActivityChange&&<button type="button" className="equipment-activity-menu-action" disabled={props.equipmentActivityBusy} onClick={()=>{menu.current?.hidePopover();props.onEquipmentActivityChange?.();}}>{props.equipmentInactive?<RotateCcw size={17} aria-hidden="true"/>:<Ban size={17} aria-hidden="true"/>}{props.equipmentActivityBusy?'Salvando…':props.equipmentInactive?'Reativar equipamento':'Inativar equipamento'}</button>}
         {props.orderId && props.orderCompany && props.orderStatus != null && !processedOrder(props.orderStatus) && <Link className="edit-order-menu-link" href={`/OrdemServico/editar?empresa=${props.orderCompany}&id=${props.orderId}`} onClick={()=>menu.current?.hidePopover()}><Pencil size={17}/> Editar OS</Link>}
       </div>
 

@@ -25,3 +25,13 @@ export function combineOrderItems(main: any, linked: any, field: "materials" | "
   });
   return [...annotate(primary,company,orderId,main?.order?.numero_sequencia,false), ...annotate(secondary.filter((i: any) => i[code] == null || !codes.has(String(i[code]))),linkedCompany,linkedOrder,linked?.order?.numero_sequencia,true)];
 }
+
+export function combineMultipleOrderItems(main:any,links:{company:any;order:any;detail:any}[],field:"materials"|"services",company:any,order:any){
+  const primary=combineOrderItems(main,null,field,company,order,null,null);
+  const batches=links.map(link=>combineOrderItems(main,link.detail,field,company,order,link.company,link.order));
+  // Keep linked origins separate; retain the existing suppression of principal OS mirrors.
+  return [
+    ...primary.map((item,index)=>({...item,quantity_inconsistency:batches.map(batch=>batch[index]?.quantity_inconsistency).find(Boolean)||null})),
+    ...batches.flatMap(batch=>batch.filter(item=>item.source_linked)),
+  ];
+}

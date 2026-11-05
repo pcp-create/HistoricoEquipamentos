@@ -1,4 +1,5 @@
 'use client';
+import {clearApiCache} from '@/lib/client-api-cache';
 import {useRef,useState} from 'react';
 import {ArrowLeft,CheckCircle2,Plus} from 'lucide-react';
 import {equipmentRegistrationInput,equipmentRegistrationName,workshopEquipmentTypes} from '@/lib/workshop/equipment-registration-model';
@@ -14,7 +15,7 @@ export default function WorkshopRegisterEquipment({onCreated,onCancel,onBusy}:{o
    const response=await fetch('/api/workshop/equipment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...normalized,requestId:request.current})});
    const result=await response.json();
    if(!response.ok){if(response.status>=400&&response.status<500){setLocked(false);request.current=null;}throw Error(result.error||'Não foi possível confirmar o cadastro.');}
-   if(result.state==='complete'&&result.equipment){onCreated(result.equipment);return;}
+   if(result.state==='complete'&&result.equipment){clearApiCache();window.dispatchEvent(new Event('equipment-created'));onCreated(result.equipment);return;}
    if(result.state==='rejected'){setLocked(false);request.current=null;}
    setError(result.message||'O cadastro aguarda confirmação. Consulte novamente antes de reenviar.');
   }catch(e){setError((e as Error).message);}finally{setBusy(false);onBusy(false);}

@@ -38,7 +38,7 @@ test("equipment plans persist independently of M8, enforce scope/concurrency and
     await db.exec(
       readFileSync(new URL("../sql/005_quotes.sql", import.meta.url), "utf8"),
     );
-    for (const file of ["008_administration.sql", "009_employees.sql", "010_tasks.sql", "011_task_kanban.sql", "012_manual_tasks.sql", "016_task_order_links.sql", "020_task_process_history.sql"])
+    for (const file of ["008_administration.sql", "009_employees.sql", "010_tasks.sql", "011_task_kanban.sql", "012_manual_tasks.sql", "016_task_order_links.sql", "020_task_process_history.sql", "028_service_scheduling.sql"])
       await db.exec(readFileSync(new URL("../sql/" + file, import.meta.url), "utf8"));
     const query = db.query.bind(db);
     global.historyPool = {

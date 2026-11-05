@@ -78,10 +78,10 @@ export async function warehouseOrder(company:string,id:string,c:any=database()) 
  WHERE i.company_id=$1 AND i.order_id=$2 ORDER BY b.created_at DESC,i.item_id`,[company,id])).rows;
  const flowHistory=(await c.query("SELECT f.*,COALESCE(u.display_name,f.actor) actor_name FROM web_warehouse_flow_changes f LEFT JOIN web_user_access u ON u.email=f.actor WHERE f.company_id=$1 AND f.order_id=$2 ORDER BY f.created_at DESC",[company,id])).rows;
  const supplied=await withWarehouseSupply(items,c);
- const linkedOrders=(await c.query(`SELECT r.company_id,r.id_m8::text id,COALESCE(r.numero_sequencia,r.id_m8)::text number,to_jsonb(r)->>'situacao_nome' situation,
+ const linkedOrders=(await c.query(`SELECT DISTINCT r.company_id,r.id_m8::text id,COALESCE(r.numero_sequencia,r.id_m8)::text number,to_jsonb(r)->>'situacao_nome' situation,
  CASE WHEN r.company_id=l.company_id AND r.id_m8=l.order_id THEN 'principal' ELSE 'vinculada' END role
  FROM web_order_links l JOIN m8_ordens_servico r ON (r.company_id=l.company_id AND r.id_m8=l.order_id) OR (r.company_id=l.linked_company_id AND r.id_m8=l.linked_order_id)
- WHERE (l.company_id=$1 AND l.order_id=$2) OR (l.linked_company_id=$1 AND l.linked_order_id=$2) ORDER BY role,r.company_id,r.id_m8`,[company,id])).rows;
+ WHERE (l.company_id=$1 AND l.order_id=$2) OR (l.linked_company_id=$1 AND l.linked_order_id=$2) ORDER BY role,r.company_id,id`,[company,id])).rows;
  return {order,linkedOrders,flowHistory,complete:collected,items:supplied.map((i:any)=>({...i,delivery:totals.get(`${company}:${id}:${i.id_m8}`)||{quantity:0,technicians:[]},received:received.get(`${company}:${id}:${i.id_m8}`)||{quantity:0,technicians:[]},addedLater:additions.some((a:any)=>a.state==='complete'&&a.item_id===i.id_m8),usage:usage.find((u:any)=>u.item_id===i.id_m8)||{gross:0,returned:0,net:0}})),history,additions};
 }
 export async function deliverWarehouse(input:any,actor:string) {

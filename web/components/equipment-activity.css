@@ -1,0 +1,5 @@
+.equipment-activity-actions{margin:14px 0;padding:12px;border:1px solid #e1e7ee;border-radius:9px;background:#f8fafc}.equipment-inactive-message{color:#8b4a36;font-size:13px;line-height:1.5}.equipment-inactive-tag{display:block;width:fit-content;margin:4px 0;padding:3px 7px;border-radius:5px;background:#fbece6;color:#8b4a36;font-size:11px}
+
+.equipment-search-filter-panel .equipment-filters.equipment-filters-with-status{grid-template-columns:minmax(130px,1fr) 2fr repeat(3,minmax(0,1fr))}
+@media(max-width:1100px){.equipment-search-filter-panel .equipment-filters.equipment-filters-with-status{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.equipment-search-filter-panel .equipment-filters.equipment-filters-with-status{grid-template-columns:minmax(0,1fr)}}

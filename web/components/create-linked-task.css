@@ -64,3 +64,5 @@
     white-space: nowrap;
   }
 }
+
+.linked-task-menu .equipment-activity-menu-action{border-top:1px solid #edf0f4;color:#925044;font-size:12px;gap:7px;white-space:normal}

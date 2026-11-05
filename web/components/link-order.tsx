@@ -14,7 +14,7 @@ export default function LinkOrder({
   initiallyOpen?: boolean;
 }) {
   const [open, setOpen] = useState(initiallyOpen),
-    [link, setLink] = useState<any>(null),
+    [links, setLinks] = useState<any[]>([]),
     [ready, setReady] = useState(false),
     [query, setQuery] = useState(""),
     [page, setPage] = useState(0),
@@ -31,7 +31,7 @@ export default function LinkOrder({
       .then(async (r) => {
         const b = await r.json();
         if (!r.ok) throw Error(b.error);
-        setLink(b.link);
+        setLinks(b.links|| (b.link?[b.link]:[]));
         setReady(true);
       })
       .catch((e) => {
@@ -66,65 +66,26 @@ export default function LinkOrder({
       c.abort();
     };
   }, [open, url, query, page]);
-  async function save(order: any) {
-    if (busy || !ready) return;
-    const before = link;
-    setBusy(true);
-    setError("");
-    setLink(
-      order
-        ? {
-            ...link,
-            linked_company_id: order.company_id,
-            linked_order_id: order.id,
-            numero_sequencia: order.number,
-            cliente_nome: order.cliente_nome,
-            status_lancamento_nome: order.status_lancamento_nome,
-          }
-        : null,
-    );
-    try {
-      const r = await apiFetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          version: before?.version ?? null,
-          target: order ? { company: order.company_id, id: order.id } : null,
-        }),
-      });
-      const b = await r.json();
-      if (!r.ok) throw Error(b.error);
-      setLink({
-        ...b.link,
-        numero_sequencia: order?.number,
-        cliente_nome: order?.cliente_nome,
-        status_lancamento_nome: order?.status_lancamento_nome,
-      });
-      window.dispatchEvent(new Event("order-link-updated"));
-    } catch (e) {
-      setLink(before);
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+  async function save(order:any,remove=false){
+    if(busy||!ready)return;
+    setBusy(true);setError("");
+    try{
+      const r=await apiFetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:remove?'remove':'add',version:remove?order.version:null,target:{company:remove?order.linked_company_id:order.company_id,id:remove?order.linked_order_id:order.id}})});
+      const b=await r.json();if(!r.ok)throw Error(b.error);
+      setLinks(b.links||[]);window.dispatchEvent(new Event('order-link-updated'));
+    }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
   return (
     <section className="order-link-editor">
       {!initiallyOpen && <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}><Link2 size={16}/> Vincular OS</button>}
       {open && <div className="order-link-body">
         {error && <p role="alert" className="order-link-error">{error}</p>}
-        <div className={`order-link-current ${link?.linked_order_id ? "has-link" : ""}`}>
+        {!links.length&&<div className="order-link-current"><p>{ready?'Nenhuma OS vinculada':'Carregando vínculos…'}</p></div>}
+        {links.map(link=><div key={link.linked_company_id+':'+link.linked_order_id} className="order-link-current has-link">
           <span className="order-link-current-icon"><Link2 size={20}/></span>
-          <div className="order-link-current-info">
-            <small>VÍNCULO ATUAL</small>
-            {link?.linked_order_id ? <>
-              <strong>OS-{link.numero_sequencia || link.linked_order_id} <span>· {companyName(link.linked_company_id)}</span></strong>
-              {link.cliente_nome && <p>{link.cliente_nome}</p>}
-              <small>{link.status_lancamento_nome || "Status não informado"}</small>
-            </> : <p>{ready ? "Nenhuma OS vinculada" : "Carregando vínculo…"}</p>}
-          </div>
-          {link?.linked_order_id && <button type="button" className="order-link-remove" disabled={busy || !ready} onClick={() => void save(null)}><Unlink size={14}/> Remover</button>}
-        </div>
+          <div className="order-link-current-info"><small>OS VINCULADA</small><strong>OS-{link.numero_sequencia||link.linked_order_id} <span>· {companyName(link.linked_company_id)}</span></strong>{link.cliente_nome&&<p>{link.cliente_nome}</p>}<small>{link.status_lancamento_nome||'Status não informado'}</small></div>
+          <button type="button" className="order-link-remove" disabled={busy||!ready} onClick={()=>void save(link,true)}><Unlink size={14}/> Remover</button>
+        </div>)}
         <label className="order-link-search-label">
           Pesquisar ordem de serviço
           <span className="order-link-search"><Search size={18} aria-hidden="true"/><input placeholder="Número, cliente, equipamento ou status" value={query} onChange={e => {setQuery(e.target.value);setPage(0);}}/></span>
@@ -132,8 +93,8 @@ export default function LinkOrder({
         <div className="order-link-list-heading"><strong>Ordens disponíveis</strong><span>{busy ? "Salvando vínculo…" : "Clique em uma OS para vincular"}</span></div>
         <div className="order-link-results" aria-busy={searching || busy}>
           {searching ? <p className="order-link-empty" role="status"><LoaderCircle size={18}/> Pesquisando ordens…</p> : results.orders.map((o: any) => {
-            const selected = String(link?.linked_order_id) === String(o.id) && Number(link?.linked_company_id) === Number(o.company_id);
-            return <button type="button" key={o.company_id + ":" + o.id} disabled={busy || !ready} aria-pressed={selected} className="order-link-result" onClick={() => void save(o)}>
+            const selected = links.some(link=>String(link.linked_order_id)===String(o.id)&&Number(link.linked_company_id)===Number(o.company_id));
+            return <button type="button" key={o.company_id + ":" + o.id} disabled={busy || !ready || selected} aria-pressed={selected} className="order-link-result" onClick={() => void save(o)}>
               <span className="order-link-result-heading"><strong>OS-{o.number}</strong><span className="order-link-company">{companyName(o.company_id)}</span>{selected ? <Check size={17} className="order-link-result-action"/> : <ArrowUpRight size={17} className="order-link-result-action"/>}</span>
               <span className="order-link-client">{o.cliente_nome || "Cliente não informado"}</span>
               {o.equipamento && <span className="order-link-equipment">{o.equipamento}</span>}

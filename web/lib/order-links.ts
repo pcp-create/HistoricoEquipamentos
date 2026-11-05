@@ -30,14 +30,14 @@ export async function orderLinks(
     ).rows;
     return { orders: rows.slice(0, 50), hasMore: rows.length > 50 };
   }
-  const link =
+  const links =
     (
       await database().query(
-        `SELECT l.*,o.numero_sequencia,o.cliente_nome,o.status_lancamento_nome FROM web_order_links l LEFT JOIN m8_ordens_servico o ON o.company_id=l.linked_company_id AND o.id_m8=l.linked_order_id WHERE l.company_id=$1 AND l.order_id=$2`,
+        `SELECT l.*,o.numero_sequencia,o.cliente_nome,o.status_lancamento_nome FROM web_order_links l LEFT JOIN m8_ordens_servico o ON o.company_id=l.linked_company_id AND o.id_m8=l.linked_order_id WHERE l.company_id=$1 AND l.order_id=$2 ORDER BY l.linked_company_id,l.linked_order_id`,
         [company, id],
       )
-    ).rows[0] || null;
-  return { link };
+    ).rows;
+  return { links, link:links[0]||null };
 }
 export async function saveOrderLink(
   company: string,
@@ -48,6 +48,8 @@ export async function saveOrderLink(
   validate(company, id);
   if (!b || (b.version !== null && !Number.isInteger(b.version)))
     throw new OrderLinkInputError("Vínculo inválido.");
+  if (!b.target) throw new OrderLinkInputError("Selecione a OS do vínculo.");
+  if (b.action && !["add","remove"].includes(b.action)) throw new OrderLinkInputError("Ação inválida.");
   if (b.target !== null) {
     validate(String(b.target?.company), String(b.target?.id));
     if (String(b.target.company) === company && String(b.target.id) === id)
@@ -67,11 +69,11 @@ export async function saveOrderLink(
     if (!source) throw new OrderLinkInputError("OS não encontrada.");
     const old = (
       await c.query(
-        "SELECT * FROM web_order_links WHERE company_id=$1 AND order_id=$2",
-        [company, id],
+        "SELECT * FROM web_order_links WHERE company_id=$1 AND order_id=$2 AND linked_company_id=$3 AND linked_order_id=$4",
+        [company, id, b.target.company,b.target.id],
       )
     ).rows[0];
-    if ((old?.version ?? null) !== b.version)
+    if (b.action==='remove' && (old?.version ?? null) !== b.version)
       throw new OrderLinkConflict("O vínculo foi alterado. Atualize a página.");
     if (
       b.target &&
@@ -83,22 +85,19 @@ export async function saveOrderLink(
       ).rows.length
     )
       throw new OrderLinkInputError("OS vinculada não encontrada.");
-    const link = (
-      await c.query(
-        `INSERT INTO web_order_links(company_id,order_id,linked_company_id,linked_order_id,updated_by) VALUES($1,$2,$3,$4,$5) ON CONFLICT(company_id,order_id) DO UPDATE SET linked_company_id=excluded.linked_company_id,linked_order_id=excluded.linked_order_id,updated_by=excluded.updated_by,updated_at=now(),version=web_order_links.version+1 RETURNING *`,
-        [company, id, b.target?.company ?? null, b.target?.id ?? null, email],
-      )
-    ).rows[0];
+    const link = b.action==='remove'
+      ? (await c.query('DELETE FROM web_order_links WHERE company_id=$1 AND order_id=$2 AND linked_company_id=$3 AND linked_order_id=$4 RETURNING *',[company,id,b.target.company,b.target.id])).rows[0]||null
+      : (await c.query(`INSERT INTO web_order_links(company_id,order_id,linked_company_id,linked_order_id,updated_by) VALUES($1,$2,$3,$4,$5) ON CONFLICT(company_id,order_id,linked_company_id,linked_order_id) DO NOTHING RETURNING *`,[company,id,b.target.company,b.target.id,email])).rows[0]||old;
     await c.query(
       "INSERT INTO web_access_events(event,email,actor,details) VALUES($1,$2,$2,$3)",
       [
         "order_link_updated",
         email,
-        JSON.stringify({ company, id, before: old || null, after: link }),
+        JSON.stringify({ company, id, before: old || null, after: b.action==='remove'?null:link }),
       ],
     );
     await c.query("COMMIT");
-    return { link };
+    return await orderLinks(company,id,null);
   } catch (e) {
     await c.query("ROLLBACK");
     throw e;

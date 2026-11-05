@@ -67,7 +67,7 @@ export async function collectEquipmentCatalog(
         [JSON.stringify(rows.slice(n, n + 500))],
       );
     await db.query(
-      "UPDATE m8_equipment_catalog SET present=false WHERE NOT(equipment_id=ANY($1::bigint[]))",
+      "UPDATE m8_equipment_catalog SET present=false WHERE serial_source IS DISTINCT FROM 'portal' AND NOT(equipment_id=ANY($1::bigint[]))",
       [rows.map((r) => r.equipment_id)],
     );
     await db.query(

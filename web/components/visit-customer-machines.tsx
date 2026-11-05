@@ -43,7 +43,7 @@ export default function VisitCustomerMachines({
           {!c.equipment?.length && (
             <p>Nenhuma máquina integrada para este cliente.</p>
           )}
-          <VisitEquipmentGroup key={c.key} customer={c.key} equipment={c.equipment||[]} online={online} render={(item,inactive) => (
+          <VisitEquipmentGroup key={c.key} customer={c.key} equipment={c.equipment||[]} online={online} inlineActions render={(item,inactive,actions) => (
             <article className="visit-machine-record-card" key={item.id}>
               <strong>{item.name}</strong>
               <p>Modelo: {item.model || "Não informado"}</p>
@@ -60,13 +60,18 @@ export default function VisitCustomerMachines({
                   ? item.meterDate.split("-").reverse().join("/")
                   : "Não registrada"}
               </p>
+              <div className="visit-equipment-card-actions">
               <button
+                type="button"
+                className="visit-equipment-meter"
                 disabled={!online||inactive}
                 onClick={() => selectEquipment(c, item)}
               >
-                <Gauge size={16} />
+                <Gauge size={14} aria-hidden="true"/>
                 Registrar horímetro
               </button>
+              {actions}
+              </div>
             </article>
           )}/>
           <VisitMachineRegistration

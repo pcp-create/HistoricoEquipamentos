@@ -1,7 +1,7 @@
 import 'server-only';
 import {database} from '../db';
 import {currentProducts} from '../product-current';
-import {combineOrderItems} from './linked-items';
+import {combineMultipleOrderItems} from './linked-items';
 import {withPurchaseBalances} from './purchase-balances';
 import {plannedDate} from './planned-date';
 
@@ -30,15 +30,15 @@ export async function attachPlannedDates(schedules:any[],settings:any){
   db.query(`SELECT DISTINCT k.schedule_id::text,e.id,e.component,e.expected_at::text
     FROM jsonb_to_recordset($1::jsonb) k(schedule_id bigint,company_id int,order_id bigint)
     JOIN m8_ordens_servico o ON o.company_id=k.company_id AND o.id_m8=k.order_id
-    JOIN web_workshop_visits v ON v.exited_at IS NULL AND v.reconciled_out_at IS NULL AND (
+    JOIN web_workshop_visits v ON v.exited_at IS NULL AND v.reconciled_out_at IS NULL AND COALESCE(v.source->>'entryKind','equipment')='equipment' AND (
       v.equipment_id=o.produto_equipamento_id OR EXISTS(SELECT 1 FROM m8_order_equipment_links l
         WHERE l.company_id=o.company_id AND l.order_id=o.id_m8 AND l.equipment_id=v.equipment_id AND NOT l.stale))
     JOIN web_workshop_external e ON e.visit_id=v.id AND e.returned_at IS NULL AND e.reconciled_out_at IS NULL`,[JSON.stringify(keys)]),
  ]);
  const all=schedules.flatMap(s=>{
   const rows=sources.rows.filter(r=>String(r.schedule_id)===String(s.id));
-  const main=rows.find(r=>!r.linked),linked=rows.find(r=>r.linked);
-  return combineOrderItems(main,linked,'materials',s.company_id,s.order_id,linked?.company_id,linked?.order_id).map(m=>({...m,schedule_id:String(s.id)}));
+  const main=rows.find(r=>!r.linked),links=rows.filter(r=>r.linked).map(r=>({company:r.company_id,order:r.order_id,detail:r}));
+  return combineMultipleOrderItems(main,links,'materials',s.company_id,s.order_id).map(m=>({...m,schedule_id:String(s.id)}));
  });
  const [current,materials]=await Promise.all([currentProducts(all.map(m=>({company_id:m.item_company,product_id:m.produto_id}))),withPurchaseBalances(all)]);
  for(const s of schedules){

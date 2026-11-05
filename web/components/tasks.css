@@ -1006,3 +1006,8 @@
   border: 0; background: transparent; box-shadow: none; color: #b43c49;
 }
 .task-checklist-item-text:focus-visible { outline: 2px solid #2878bd; outline-offset: 3px; }
+
+.task-visit-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:9px;margin:12px 0;max-width:520px}
+.task-visit-photos a{display:block;overflow:hidden;border:1px solid #d8e4ef;border-radius:8px;background:#f4f7fb}
+.task-visit-photos img{display:block;width:100%;height:112px;object-fit:cover}
+.task-visit-photos a:focus-visible{outline:3px solid #23669e;outline-offset:2px}

@@ -37,3 +37,5 @@ A ação Direcionar tarefa mantém o mesmo número e o histórico da tarefa, inc
 A referência da tarefa aparece como hiperlink TAR-número, acompanhada do status real da tarefa em um selo colorido (não iniciada, em andamento ou concluída). O botão de direcionamento é compacto e fica na mesma linha; depois do direcionamento é substituído pelo nome do responsável.
 
 Ao concluir a visita, uma janela oferece Direcionar ou Fechar para a pendência. Depois de fechar essa janela ou concluir/fechar o formulário de direcionamento, é oferecido o agendamento da próxima visita. O formulário de direcionamento inclui a opção “Acompanhar esta tarefa e receber atualizações”; desmarcá-la remove o próprio usuário dos acompanhantes da tarefa e da visita, preservando os demais acompanhantes.
+
+As ações da gestão de visitas ficam em uma barra compacta, com referência e direcionamento da tarefa junto aos botões Editar e Excluir. As notas das tarefas reconhecem referências locais de fotos de visitas e mostram miniaturas clicáveis, inclusive nas notas já existentes. As imagens continuam usando o endpoint autenticado, sem cópias públicas ou links externos.

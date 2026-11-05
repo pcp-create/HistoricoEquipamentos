@@ -1,4 +1,5 @@
 "use client";
+import "./equipment-activity.css";
 import {EquipmentOccurrenceHistory} from "./equipment-occurrences";
 import "./rental-equipment.css";
 import RentalRatingFilter from "./rental-rating-filter";
@@ -212,6 +213,8 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
     [error, setError] = useState(""),
     [saveError, setSaveError] = useState(""),
     [message, setMessage] = useState("");
+  const [activityBusy,setActivityBusy]=useState('');
+  const [equipmentActivity,setEquipmentActivity]=useState("active");
   const [query, setQuery] = useState(""),
     [ownership, setOwnership] = useState(""),
     [equipmentTab, setEquipmentTab] = useState(section === "locacao" ? "rental" : "all"),
@@ -222,6 +225,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
     [page, setPage] = useState(1),
     [refresh, setRefresh] = useState(0),
     [loading, setLoading] = useState(false);
+  useEffect(()=>{const refreshList=()=>setRefresh(value=>value+1);window.addEventListener('equipment-created',refreshList);return ()=>window.removeEventListener('equipment-created',refreshList);},[]);
   const [orderSelection, setOrderSelection] = useState<{
     company_id: number;
     id: string;
@@ -261,6 +265,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
   const rentalOnly = equipmentTab !== "all";
   const baseRows = (loaded?.rows || []).filter(
     (e: any) =>
+      (equipmentActivity === "all" || (equipmentActivity === "inactive" ? !!e.inactivation : !e.inactivation)) &&
       (equipmentTab === "all" || specificationFields.every(([key]) => matchesRentalSpecification(rentalSpecifications(e.name)[key], specFilters[key], key))) &&
       (!equipmentType || rentalEquipmentType(e.name) === equipmentType) &&
       (!ownership || e.ownership === ownership) &&
@@ -459,6 +464,19 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
       });
     return () => controller.abort();
   }, [selected]);
+  async function changeEquipmentActivity(row:any){
+    if(activityBusy)return;
+    const inactive=!!row.inactivation;
+    let reason='';
+    if(inactive){if(!window.confirm(`Reativar o equipamento ${row.name}?`))return;}
+    else{const value=window.prompt(`Informe o motivo da inativação de ${row.name}. A alteração será somente no sistema, sem modificar o ERP M8.`);if(value===null)return;reason=value.trim();if(!reason){setError('Informe o motivo da inativação.');return;}}
+    setActivityBusy(String(row.id));setError('');setMessage('');
+    try{
+      const current=await api('?id='+row.id,{cache:'reload'});
+      await api('',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({equipment:String(row.id),action:inactive?'reactivate':'inactivate',version:current.settings.version,document:{reason}})});
+      setRefresh(value=>value+1);setMessage(inactive?'Equipamento reativado no sistema.':'Equipamento inativado no sistema. O cadastro no ERP M8 não foi alterado.');
+    }catch(e){setError((e as Error).message);}finally{setActivityBusy('');}
+  }
   async function save(action: string, document: any, existing?: any) {
     setSaving(true);
     setSaveError("");
@@ -474,7 +492,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
           document,
           id: existing?.id || null,
           version:
-            action === "settings"
+            ["settings","inactivate","reactivate"].includes(action)
               ? detail.settings.version
               : (existing?.version ?? null),
         }),
@@ -912,7 +930,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
             )}
             <div className="equipment-clear-filters">
               <button type="button" onClick={() => {
-                setQuery(""); setOwnership(""); setState(""); setRentalStatus([]);
+                setQuery(""); setOwnership(""); setState(""); setRentalStatus([]); setEquipmentActivity("active");
                 setContractStatus(""); setContractType("all");
                 setEquipmentType(""); setSpecFilters({hp:"",pcm:"",pressure:""}); setPage(1);
               }}>Limpar filtros</button>
@@ -920,7 +938,8 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
             <details className="equipment-search-filter-panel">
               <summary><Settings2 size={18} aria-hidden="true" /><span>Filtros de pesquisa</span><ChevronDown size={18} className="equipment-filter-chevron" aria-hidden="true" /></summary>
               <div className="equipment-search-filter-content">
-            <div className="equipment-filters equipment-filters-with-type">
+            <div className="equipment-filters equipment-filters-with-type equipment-filters-with-status">
+              <label>Status Equipamento<select value={equipmentActivity} onChange={e=>{setEquipmentActivity(e.target.value);setPage(1);}}><option value="active">Ativo</option><option value="inactive">Inativo</option><option value="all">Todos</option></select></label>
               <label>
                 Pesquisar equipamento ou cliente
                 <input
@@ -1033,7 +1052,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                             <EquipmentPhoto id={e.id} name={e.name} />
                           )}
                           <div>
-                            <strong>{e.name}</strong>{e.workshop&&<small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>{e.rental ? "Em Revisão" : "Em Oficina"} · {e.workshop.workshop}</small>}{!e.workshop && e.rentalStatus?.key === "available" && <small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>Disponível · {e.location || (e.rental ? "RJ Compressores" : "Localização não informada")}</small>}
+                            <strong>{e.name}</strong>{e.inactivation&&<small className="equipment-inactive-tag" title={e.inactivation.reason}>Inativo no sistema</small>}{e.workshop&&<small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>{e.rental ? "Em Revisão" : "Em Oficina"} · {e.workshop.workshop}</small>}{!e.workshop && e.rentalStatus?.key === "available" && <small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>Disponível · {e.location || (e.rental ? "RJ Compressores" : "Localização não informada")}</small>}
                             {rentalOnly && <span className="fleet-serial">Série <b>{e.serial || "Não informada"}</b></span>}
                             <small>
                               {e.brand || "Marca não informada"} ·{" "}
@@ -1121,7 +1140,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                         >
                           <Wrench size={14} /> Gerenciar
                         </button>
-                        <CreateLinkedTask equipmentId={String(e.id)}/>
+                        <CreateLinkedTask equipmentId={String(e.id)} equipmentInactive={!!e.inactivation} equipmentActivityBusy={!!activityBusy} onEquipmentActivityChange={()=>void changeEquipmentActivity(e)}/>
                         </div>
                         {rentalOnly && <details className="fleet-plan-audit"><summary>Atualização dos planos</summary><small>{e.plansUpdatedAt ? new Date(e.plansUpdatedAt).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo"}) : "Sem alteração registrada"}</small>{e.plansUpdatedAt && <small>{e.lastModifiedPlanName || "Plano preventivo"} · {e.plansUpdatedBy || "Não informado"}</small>}</details>}
                         {!rentalOnly && <small className="equipment-plan-updated" title="Última alteração entre os planos preventivos ativos deste equipamento">
@@ -1213,6 +1232,9 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                       Consultar catálogo do fabricante
                     </a>
                   </p>
+                  <div className="equipment-activity-actions">
+                    {detail.settings.document?.inactivation?<><p className="equipment-inactive-message"><b>Equipamento inativado no sistema</b><br/>{detail.settings.document.inactivation.reason}<br/><small>Registrado em {date(detail.settings.document.inactivation.at)} · {detail.settings.document.inactivation.by}. O cadastro no ERP M8 não foi alterado.</small></p><button type="button" disabled={saving} onClick={()=>{if(window.confirm('Reativar este equipamento no controle de preventivas?'))void save('reactivate',{});}}>Reativar equipamento</button></>:<button type="button" disabled={saving} onClick={()=>{const reason=window.prompt('Informe o motivo da inativação. Esta alteração será feita somente no sistema, sem modificar o ERP M8.');if(reason!==null){if(!reason.trim()){setSaveError('Informe o motivo da inativação.');return;}void save('inactivate',{reason});}}}>Inativar equipamento</button>}
+                  </div>
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();

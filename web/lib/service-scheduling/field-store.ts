@@ -9,7 +9,7 @@ import { warehouseDeliveryTotals } from "../warehouse/store";
 import { randomUUID } from "node:crypto";
 import { database } from "../db";
 import { Forbidden } from "../auth";
-import { combineOrderItems } from "./linked-items";
+import { combineMultipleOrderItems } from "./linked-items";
 import { locationOf, odometer, sessionTotals } from "./field-model";
 import { updateChecklist, prepareChecklistSubmission } from "./checklist-store";
 import { materialBalance, materialQuantity } from "./material-balance";
@@ -32,17 +32,15 @@ async function user(c: any, email: string) {
   return profile;
 }
 async function materials(c: any, s: any) {
-  const link = (
+  const links = (
     await c.query(
       "SELECT linked_company_id,linked_order_id FROM web_order_links WHERE company_id=$1 AND order_id=$2 AND linked_company_id IS NOT NULL AND linked_order_id IS NOT NULL",
       [s.company_id, s.order_id],
     )
-  ).rows[0];
+  ).rows;
   const origins = [
     { company: s.company_id, order: s.order_id },
-    ...(link
-      ? [{ company: link.linked_company_id, order: link.linked_order_id }]
-      : []),
+    ...links.map((link:any)=>({company:link.linked_company_id,order:link.linked_order_id})),
   ];
   const raw = await Promise.all(
     origins.map(async (v) => ({
@@ -55,15 +53,7 @@ async function materials(c: any, s: any) {
       ).rows,
     })),
   );
-  const items = combineOrderItems(
-    raw[0],
-    raw[1],
-    "materials",
-    s.company_id,
-    s.order_id,
-    link?.linked_company_id,
-    link?.linked_order_id,
-  );
+  const items=combineMultipleOrderItems(raw[0],origins.slice(1).map((origin:any,index:number)=>({...origin,detail:raw[index+1]})),"materials",s.company_id,s.order_id);
   const usage = (
     await c.query(
       `SELECT i.*,u.display_name,o.position,

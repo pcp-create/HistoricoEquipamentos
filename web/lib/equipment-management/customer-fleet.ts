@@ -33,7 +33,7 @@ export async function customerFleet(customer: string) {
       [ids, customers],
     ),
     db.query(
-      `SELECT equipment_id::text,stage,expected_at FROM web_workshop_visits WHERE equipment_id=ANY($1::bigint[]) AND exited_at IS NULL AND reconciled_out_at IS NULL`,
+      `SELECT equipment_id::text,stage,expected_at FROM web_workshop_visits WHERE equipment_id=ANY($1::bigint[]) AND exited_at IS NULL AND reconciled_out_at IS NULL AND COALESCE(source->>'entryKind','equipment')='equipment'`,
       [ids],
     ),
   ]);

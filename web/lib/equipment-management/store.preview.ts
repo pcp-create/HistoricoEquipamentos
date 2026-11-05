@@ -106,6 +106,7 @@ export async function equipmentList(params: URLSearchParams) {
       const lastModifiedPlan = [...(byEquipment.get(e.id) || [])].filter(p => p.updatedAt).sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime() || String(a.id).localeCompare(String(b.id)))[0];
       return {
         ...e,
+        inactivation:e.settings.inactivation||null,
         ownership: e.rental ? "own" : e.settings.ownership || "unknown",
         rentalStatus: e.workshop && !e.rental ? {key:"in_workshop",label:"Em Oficina",order:null,company:null,customer:null} : rentalStates.get(e.id) || null,
         plans: planned.length,
@@ -272,7 +273,7 @@ export async function equipmentDetail(raw: string) {
 }
 export async function saveEquipment(input: any, user: AuthUser) {
   const equipment = idOf(input?.equipment);
-  if (!["settings", "plan", "maintenance", "archive", "restore"].includes(input?.action))
+  if (!["settings", "plan", "maintenance", "archive", "restore", "inactivate", "reactivate"].includes(input?.action))
     throw new EquipmentInputError("Ação inválida.");
   if (
     input.version !== null &&
@@ -289,6 +290,17 @@ export async function saveEquipment(input: any, user: AuthUser) {
       )
     ).rows[0];
     if (!exists) throw new EquipmentInputError("Equipamento não encontrado.");
+    if(input.action==='inactivate'||input.action==='reactivate'){
+      const current=(await c.query('SELECT document,version FROM web_equipment_settings WHERE equipment_id=$1',[equipment])).rows[0]||null;
+      if((current?.version??null)!==input.version)throw new EquipmentConflict('Configuração alterada por outra pessoa. Reabra o equipamento.');
+      const reason=typeof input.document?.reason==='string'?input.document.reason.trim():'';
+      if(input.action==='inactivate'&&(!reason||reason.length>2000))throw new EquipmentInputError('Informe o motivo da inativação (até 2.000 caracteres).');
+      const after={...(current?.document||{})};
+      if(input.action==='inactivate')after.inactivation={reason,at:new Date().toISOString(),by:user.email,erpStatus:'not_sent'};else delete after.inactivation;
+      await c.query(`INSERT INTO web_equipment_settings(equipment_id,document,updated_by) VALUES($1,$2,$3) ON CONFLICT(equipment_id) DO UPDATE SET document=$2,updated_by=$3,updated_at=now(),version=web_equipment_settings.version+1`,[equipment,JSON.stringify(after),user.email]);
+      await c.query("INSERT INTO web_equipment_events(equipment_id,kind,document,created_by,display_name) VALUES($1,'settings',$2,$3,$4)",[equipment,JSON.stringify({action:input.action,before:current?.document||null,after}),user.email,userDisplayName(user)]);
+      await c.query('COMMIT');return {saved:true};
+    }
     let intervention: ReturnType<typeof parseIntervention> | null = null;
     let before: any = null,
       after: any = null,
@@ -307,6 +319,7 @@ export async function saveEquipment(input: any, user: AuthUser) {
         throw new EquipmentConflict(
           "Configuração alterada por outra pessoa. Reabra o equipamento.",
         );
+      if(before?.document?.inactivation)after={...after,inactivation:before.document.inactivation};
       const baselines = (
         await c.query(
           "SELECT document FROM web_equipment_plans WHERE equipment_id=$1 AND NOT archived",

@@ -1,4 +1,5 @@
 "use client";
+import TaskNoteDescription from "./task-note-description";
 import { taskOriginGroup } from "@/lib/tasks/origin-group";
 import { matchesSearch } from "@/lib/filters";
 
@@ -643,7 +644,7 @@ export function TaskDrawer({
                     {date(n.created_at)} · {n.created_name}
                     <span className="task-note-origin">{n.automatic ? "Automática do sistema" : "Nota do usuário"}</span>
                   </small>
-                  <p>{n.description}</p>
+                  <TaskNoteDescription description={n.description}/>
                   {n.quote_id && (
                     <a
                       href={`/orcamentos/novo?id=${encodeURIComponent(n.quote_id)}`}
