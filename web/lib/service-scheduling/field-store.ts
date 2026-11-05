@@ -294,7 +294,11 @@ export async function fieldAction(b: any, email: string) {
         if (!previous) throw new FieldError("Um registro anterior ainda não foi sincronizado.");
         expected = previous.document?.resultVersion;
       }
-      if (!Number.isInteger(expected) || p.version !== expected)
+      // Execution events apply to the current operation; they do not replace its
+      // planning document. Rescheduling must not strand already captured work.
+      // Full report/checklist writes still require their exact original version.
+      const replayOnCurrentVersion = ["info_read","materials","start_work","start_travel","pause","resume","stop"].includes(b.action);
+      if (!Number.isInteger(expected) || expected < 1 || expected > p.version || (p.version !== expected && !replayOnCurrentVersion))
         throw new FieldError("Conflito: a operação foi alterada no sistema. Os dados offline foram preservados para conferência.");
       b.version = p.version;
       const timerAction=["start_work","start_travel","pause","resume","stop"].includes(b.action);

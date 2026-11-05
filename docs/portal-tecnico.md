@@ -79,3 +79,19 @@ A devolução libera todas as etapas preenchidas, preserva respostas e fotos,
 registra o autor e arquiva o comprovante anterior. Se a operação estava
 aguardando revisão, volta para execução. Relatórios já revisados (com efeitos
 no equipamento/preventivas) não são reabertos por esta ação.
+
+### Sincronização de apontamentos após reprogramação
+
+Leitura das informações, conferência de peças e eventos de início, pausa, retomada
+e término são aplicados à operação atual, mesmo se sua versão mudou durante
+o trabalho offline. Esses eventos não substituem a data, a hora ou os demais
+campos do planejamento. Os horários capturados no aparelho são preservados.
+
+Continuam obrigatórios o responsável/equipe autorizados, operação ativa e enviada,
+a confirmação do registro anterior, IDs idempotentes e horários sem sobreposição.
+Quantidades de peças passam pelas validações atuais de lista e saldo. Escritas
+completas de relatório/checklist continuam exigindo versão compatível.
+
+A correção é no servidor e atende também às filas já existentes: após a publicação,
+o técnico pode usar **Sincronizar agora** sem apagar os dados do aplicativo.
+Não exige migration, atualização do integrador ou novo APK.

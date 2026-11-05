@@ -21,7 +21,7 @@ test("offline timestamps reject invalid, future and expired dates", () => {
     new Date(now - 86400000).toISOString(),
   );
 });
-test("server replays original offline times, deduplicates retries and rejects newer versions", async () => {
+test("server replays work across rescheduling, preserves timestamps and rejects conflicting report writes", async () => {
   const db = new PGlite(),
     g = globalThis as any,
     old = g.historyPool;
@@ -92,6 +92,8 @@ test("server replays original offline times, deduplicates retries and rejects ne
       previous = id;
       return body;
     };
+    // Offline queue starts against the version downloaded before rescheduling.
+    await db.query("UPDATE web_service_operations SET version=version+1,document=document||'{\"date\":\"2026-11-10\",\"time\":\"10:00\"}'::jsonb WHERE id=$1",[op]);
     await action("info_read", 0);
     const work = await action("start_work", 1);
     await db.exec(
@@ -195,11 +197,23 @@ test("server replays original offline times, deduplicates retries and rejects ne
       "UPDATE web_service_operations SET version=version+1 WHERE id=$1",
       [op],
     );
-    await assert.rejects(action("start_work", 47), /Conflito/);
+    const secondWork=await action("start_work", 47);
+    // Another planner change while the offline session is still running.
+    await db.query("UPDATE web_service_operations SET version=version+1,document=document||'{\"date\":\"2026-11-11\"}'::jsonb WHERE id=$1",[op]);
+    await action("pause",48,{reasonId:"gate",sessionId:secondWork.requestId});
+    await action("resume",49,{sessionId:secondWork.requestId});
+    await action("stop",50,{sessionId:secondWork.requestId});
+    const after=(await db.query<any>("SELECT document FROM web_service_operations WHERE id=$1",[op])).rows[0];
+    assert.equal(after.document.date,'2026-11-11');
+    const latest=(await db.query<any>("SELECT * FROM web_field_sessions ORDER BY started_at DESC LIMIT 1")).rows[0];
+    assert.equal(latest.started_at.toISOString(),new Date(start+47*60000).toISOString());
+    assert.equal(latest.finished_at.toISOString(),new Date(start+50*60000).toISOString());
+    await db.query("UPDATE web_service_operations SET version=version+1 WHERE id=$1",[op]);
+    await assert.rejects(action("report_save",51,{stages:[]}),/Conflito/);
     assert.equal(
       (await db.query<any>("SELECT count(*)::int n FROM web_field_sessions"))
         .rows[0].n,
-      1,
+      2,
     );
   } finally {
     g.historyPool = old;
