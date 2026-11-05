@@ -79,11 +79,12 @@ export function FieldSyncIcon(){
 export function FieldConnection({showExit=true}:{showExit?:boolean}={}) {
   const session = useContext(FieldSessionActions);
   const status = useSyncState();
+  const serverUnavailable=status.connected===true&&status.serverConnected===false;
   return (
     <div
       className={
         "field-connection " +
-        (status.connected === null
+        (status.connected === null || serverUnavailable
           ? "checking"
           : status.connected
             ? "connected"
@@ -95,7 +96,9 @@ export function FieldConnection({showExit=true}:{showExit?:boolean}={}) {
       <strong>
         {status.connected === null
           ? "Verificando conexão"
-          : status.connected
+          : serverUnavailable
+            ? "Internet disponível · sem acesso ao sistema"
+            : status.connected
             ? "Conectado"
             : "Sem internet"}
       </strong>
@@ -144,9 +147,16 @@ export default function FieldOffline({
     [error, setError] = useState("");
   useEffect(() => {
     if (nativePortal()) {
+      let refreshTimer:ReturnType<typeof setTimeout>|undefined;
+      let observedSync=state.lastSync,observedPending=state.pending;
       const changed = () => {
-        void offlineMessage("FIELD_STATUS").catch(() => {});
-        onSynced();
+        if(refreshTimer)clearTimeout(refreshTimer);
+        refreshTimer=setTimeout(()=>{
+          void offlineMessage("FIELD_STATUS").then(result=>{
+            if(result.lastSync!==observedSync||result.pending<observedPending||(!result.syncing&&result.serverConnected!==false))onSynced();
+            observedSync=result.lastSync;observedPending=result.pending;
+          }).catch(()=>{});
+        },200);
       };
       const sync = async () => {
         const connected = await nativePortal()!.connection().catch(() => false);
@@ -174,6 +184,7 @@ export default function FieldOffline({
       const timer = setInterval(sync, 30000);
       return () => {
         clearInterval(timer);
+        if(refreshTimer)clearTimeout(refreshTimer);
         window.removeEventListener("rj-offline-update", changed);
         window.removeEventListener("rj-network-change", sync);
         window.removeEventListener("online", sync);

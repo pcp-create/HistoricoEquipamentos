@@ -331,13 +331,13 @@ test("packaged interface persists to SQLite and opens with suspended server", as
     internetOverride = true;
     await reopened.evaluate(() => window.dispatchEvent(new Event("rj-network-change")));
     await expect.poll(async () => (await reopened.evaluate(() => (window as any).RJOffline.message("FIELD_STATUS"))).connected).toBe(true);
-    await expect(reopened.getByRole("dialog", {name:"Sincronismo",exact:true}).getByText("Conectado",{exact:true})).toBeVisible();
+    await expect(reopened.getByRole("dialog", {name:"Sincronismo",exact:true}).getByText("Internet disponível · sem acesso ao sistema",{exact:true})).toBeVisible();
     internetOverride = false;
     await reopened.evaluate(() => window.dispatchEvent(new Event("rj-network-change")));
     await expect(reopened.getByRole("dialog", {name:"Sincronismo",exact:true}).getByText("Sem internet",{exact:true})).toBeVisible();
     internetOverride = true;
     await reopened.evaluate(() => window.dispatchEvent(new Event("rj-network-change")));
-    await expect(reopened.getByRole("dialog", {name:"Sincronismo",exact:true}).getByText("Conectado",{exact:true})).toBeVisible();
+    await expect(reopened.getByRole("dialog", {name:"Sincronismo",exact:true}).getByText("Internet disponível · sem acesso ao sistema",{exact:true})).toBeVisible();
     const unavailable = await reopened.evaluate(() => (window as any).RJOffline.message("FIELD_STATUS"));
     assert.equal(unavailable.serverConnected, false);
     blocked = false;

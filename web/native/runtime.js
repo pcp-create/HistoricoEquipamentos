@@ -76,6 +76,8 @@ async function decode(value) {
   return value;
 }
 const nativeStorage = {
+  // Status panels only need queue metadata, never decode every photo.
+  readMetadata: (key) => nativeCall("read", {key}),
   read: async (key) => decode(await nativeCall("read", { key })),
   write: async (entries) => {
     const blobs = new Map();

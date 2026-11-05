@@ -3,7 +3,7 @@ importScripts("/field-offline/project.js");
 const DB = "rj-field-offline-v1",
   ASSETS = "rj-field-assets-v1";
 let serial = Promise.resolve(),
-  flushing = null, syncingId = null;
+  flushing = null, syncingId = null, retryTimer = null, retryAttempt = 0;
 const exclusive = (fn) => {
   const next = serial.then(fn, fn);
   serial = next.catch(() => {});
@@ -84,7 +84,7 @@ function replaceIds(value, mapping) {
 }
 async function status() {
   const owner = await read("owner"),
-    queue = owner ? (await read(owner + ":queue")) || [] : [];
+    queue = owner ? ((self.nativeStorage?.readMetadata ? await self.nativeStorage.readMetadata(owner + ":queue") : await read(owner + ":queue")) || []) : [];
   return {
     owner,
     syncing: !!flushing,
@@ -373,15 +373,23 @@ async function flush() {
       const identity = await request("/api/field");
       await write([["connected", identity.ok]]);
       if (!identity.ok)
-        throw Error(
+        throw Object.assign(Error(
           identity.status === 401
             ? "Entre novamente para sincronizar."
             : "Não foi possível acessar o sistema.",
-        );
+        ),{retryable:identity.status===408||identity.status===429||identity.status>=500});
       const home = await identity.json();
       if (home.email !== owner || (await read("owner")) !== owner)
         throw Error("Entre com a conta que criou os registros pendentes.");
       await write([[owner + ":server-home", home]]);
+      // An idle heartbeat must not download every operation and hold the sender.
+      const idle = await exclusive(async () => {
+        if((await read("owner"))!==owner)return true;
+        if(((await read(owner+":queue"))||[]).length || await read(owner+":unrefreshed"))return false;
+        await write([[key(owner,"/api/field"),home]]);
+        return true;
+      });
+      if(idle)return;
       let item = await nextItem();
       while (item) {
         if ((await read("owner")) !== owner)
@@ -426,9 +434,13 @@ async function flush() {
           await exclusive(async () => {
             const queue = (await read(owner + ":queue")) || [];
             const pending = queue.find((q) => q.id === item.id);
-            if (pending) pending.error = data.error || "Falha ao sincronizar.";
+            if (pending) {
+              pending.error = data.error || "Falha ao sincronizar.";
+              pending.retryable = result.status === 408 || result.status === 429 || result.status >= 500 || (result.ok && (!parsed || (item.type==="photo"&&!/^\d+$/.test(String(data.id)))));
+            }
             await write([[owner + ":queue", queue]]);
           });
+          if(result.status===401 || result.status>=500)await write([["connected",false]]);
           await notify();
           if(result.status===401)return;
           if(timer(item))failedTimer=true;
@@ -471,13 +483,17 @@ async function flush() {
       if (latest.email !== owner || (await read("owner")) !== owner)
         throw Error("Conta alterada.");
       const snapshots = [[key(owner, "/api/field"), latest]];
+      let interrupted=false;
       for (const row of latest.calendarRows || latest.rows || []) {
+        // Work captured while refreshing gets priority over the remaining downloads.
+        if(((await read(owner+":queue"))||[]).length){interrupted=true;break;}
         const url = "/api/field?operation=" + row.id,
           response = await request(url);
         if (!response.ok)
           throw Error("Não foi possível atualizar uma operação.");
         snapshots.push([key(owner, url), await response.json()]);
       }
+      if(interrupted)continue;
       const logs = await request("/api/field/time-requests");
       if (logs.ok)
         snapshots.push([
@@ -512,6 +528,7 @@ async function flush() {
         (queue.find(item=>item.id===syncingId)||queue[0]).error = networkError
           ? "Sem conexão. O envio será retomado automaticamente."
           : e.message;
+        (queue.find(item=>item.id===syncingId)||queue[0]).retryable = networkError || e.retryable===true;
         await write([[owner + ":queue", queue]]);
         await registerSync();
       }
@@ -520,10 +537,22 @@ async function flush() {
     throw e;
   }
 }
+async function scheduleRetry(){
+  if(!self.nativeStorage)return;
+  if(retryTimer)clearTimeout(retryTimer);
+  retryTimer=null;
+  const owner=await read("owner");
+  const queue=owner?(await read(owner+":queue"))||[]:[];
+  if(!queue.length){retryAttempt=0;return;}
+  const ids=new Set(queue.map(item=>item.id));
+  if(!queue.some(item=>item.retryable || (!item.error&&!ids.has(item.body?.offline?.previousRequestId))))return;
+  const delay=Math.min(30000,2000*2**Math.min(retryAttempt++,4));
+  retryTimer=setTimeout(()=>{retryTimer=null;void sync().catch(()=>{});},delay);
+}
 function sync() {
   if (!flushing)
     flushing = flush().finally(async () => {
-      flushing = null; syncingId = null;await notify();
+      flushing = null; syncingId = null;await notify();await scheduleRetry();
     });
   return flushing;
 }

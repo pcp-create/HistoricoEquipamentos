@@ -11,7 +11,7 @@ test('failed photo retains dependent report but allows other photos and operatio
   {id:'independent',type:'action',operationId:'b',body:{action:'info_read'}}
  ]]]);
  let failure='http';const sent:string[]=[];let report:any;
- const context=createContext({Response,Request,FormData,Blob,URL,AbortSignal,importScripts(){},
+ const context=createContext({setTimeout:()=>1,clearTimeout(){},Response,Request,FormData,Blob,URL,AbortSignal,importScripts(){},
   self:{navigator:{onLine:true},addEventListener(){},clients:{matchAll:async()=>[]},registration:{},nativeStorage:{read:async(key:string)=>structuredClone(records.get(key)),write:async(entries:any[])=>{for(const [key,value]of entries)records.set(key,structuredClone(value));}}},
   fetch:async(url:string,options:any)=>{
    if(!options.method)return Response.json({email:'tech',rows:[]});

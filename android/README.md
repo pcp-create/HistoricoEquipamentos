@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.13
+# Portal Técnico RJ — APK 2.2.14
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -238,3 +238,15 @@ não capturada ou carregada precisa ser tirada novamente se o Android encerrar o
 Verificação: teste de persistência e isolamento, teste de navegador de troca de
 grupos/versão/recuperação/conflito e testes Android. Não reproduzido o encerramento
 original em aparelho físico; a mudança protege os dados já preenchidos.
+
+## Versão 2.2.14 — sincronização
+
+O indicador distingue internet disponível de acesso ao sistema. Falhas temporárias
+são tentadas novamente a partir de 2 segundos, aumentando até 30 segundos. O envio
+de apontamentos novos recebe prioridade sobre downloads restantes da programação.
+Uma verificação sem pendências consulta a lista de OSs, sem baixar todas as operações.
+A consulta de status usa somente metadados da fila, sem carregar os bytes das fotos.
+O envio continua usando confirmação do servidor, recibos idempotentes e SQLite.
+
+Comparação e limites: `docs/comparacao-sincronismo-apks.md`. Não foi adicionado
+serviço permanente para sincronizar com o aplicativo fechado.
