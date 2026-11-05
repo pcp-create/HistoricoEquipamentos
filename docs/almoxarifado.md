@@ -15,7 +15,7 @@ Em web_service_item_usage, withdrawn e allocations[].quantity continuam represen
 
 No pedido de conferência, quantityMode=gross indica que withdrawn é o retirado acumulado e returned é o devolvido acumulado. withdrawn=null conserva a retirada anterior. Ambos os acumulados só podem aumentar. Clientes antigos continuam enviando o saldo líquido; reduções são traduzidas em devoluções sem apagar o retirado acumulado. O servidor mantém a validação de versão e bloqueia devolução de material já utilizado. O projetor offline aplica os mesmos cálculos.
 
-A devolução informada pelo técnico não constitui confirmação de recebimento pelo almoxarifado. Ela libera o saldo de retirada das operações, mas só a confirmação do recebimento pelo almoxarifado libera uma nova entrega desse saldo. O recebimento é uma movimentação independente (`kind=receipt`), com usuário, técnico, data e itens; não pode ultrapassar o devolvido declarado ainda não recebido. A conferência é por item/OS, sem atribuir automaticamente a devolução ao usuário que fez a primeira retirada da operação (a operação pode ser em equipe). O técnico que efetivamente devolveu é informado no recebimento. A fila “Devoluções pendentes” inclui OSs fora das etapas de separação, inclusive encerradas.
+A devolução informada pelo técnico não constitui confirmação de recebimento pelo almoxarifado. Ela libera o saldo de retirada das operações, mas só a confirmação do recebimento pelo almoxarifado libera uma nova entrega desse saldo. O recebimento é uma movimentação independente (`kind=receipt`), com usuário, técnico, data e itens; pode ser registrado sem declaração no app, limitado ao saldo entregue ou retirado ainda não recebido. A conferência é por item/OS, sem atribuir automaticamente a devolução ao usuário que fez a primeira retirada da operação (a operação pode ser em equipe). O técnico que efetivamente devolveu é informado no recebimento. A fila “Devoluções pendentes” inclui OSs fora das etapas de separação, inclusive encerradas.
 
 O portal apresenta o entregue por item e técnico como referência. O módulo compara entregue e retirado acumulado; discrepâncias são sinalizadas, sem substituir uma declaração pela outra. OSs vinculadas mantêm a identificação da empresa, OS e item de origem.
 
@@ -23,7 +23,7 @@ As alterações de interface do aplicativo Android exigem gerar/publicar uma nov
 
 A visão Kanban separa Aguardando separação e Material separado. Carrega até 10.000 OSs do filtro, com aviso para refinar a pesquisa caso exceda esse limite; a lista comum é paginada. Selecionar um card abre os mesmos detalhes, sem alterar automaticamente o status no ERP.
 
-O histórico da OS no almoxarifado lista entregas, recebimentos e inclusões posteriores, com autor e horário de Brasília. Os campos Entregue, Retirado, Devolvido e Recebido continuam independentes. Materiais removidos ou reprovados que têm devolução declarada permanecem consultáveis para recebimento, sem permitir nova entrega.
+O histórico da OS no almoxarifado lista entregas, recebimentos e inclusões posteriores, com autor e horário de Brasília. Os campos Entregue, Retirado, Devolvido e Recebido continuam independentes. Materiais removidos ou reprovados que têm saída registrada permanecem consultáveis para recebimento, sem permitir nova entrega.
 
 A inclusão usa um UUID persistido antes do POST de produto no M8. Envio incerto não é repetido, mesmo após recarregar a tela, e bloqueia novas inclusões na mesma OS até conferência técnica do resultado no ERP. Falhas explicitamente rejeitadas não são reenviadas com o mesmo UUID. Após sucesso, a consulta da OS completa atualiza o material local, o cabeçalho é atualizado e o produto recebe uma observação interna no M8 indicando inclusão posterior pelo almoxarifado. O histórico mantém a confirmação mesmo se a atualização local precisar aguardar sincronização.
 
@@ -44,3 +44,26 @@ A pessoa selecionada decide pela aprovação/reprovação existente nas tarefas,
 Na conferência do portal técnico, nova retirada não pode elevar o retirado bruto acumulado de todas as operações acima do reservado. Devoluções preservam o retirado bruto; portanto, não liberam esse limite acumulado. Para retirar além dele, é necessário ajustar a reserva no M8 e atualizar os materiais. Interface, servidor e projetor offline aplicam a regra e orientam solicitar ajuste da reserva. Devoluções de retiradas antigas continuam permitidas sem aumentar o bruto, inclusive quando uma reserva foi reduzida depois da retirada, para não impedir a regularização do histórico.
 
 A quantidade de devolução é editada somente na janela aberta por “Devolver peça”/“Ajustar devolução”. Devoluções já salvas podem ser corrigidas enquanto não recebidas pelo almoxarifado. O servidor calcula o mínimo protegido considerando os recebimentos e as devoluções de todas as programações/operações do mesmo item, e serializa a correção com o recebimento para impedir divergências por concorrência. O retirado bruto permanece inalterado e cada correção é registrada no histórico de ações com valores anteriores e novos. O modo offline usa os recebimentos conhecidos; ao sincronizar, o servidor revalida contra os recebimentos atuais.
+
+## Recebimento sem devolução registrada pelo técnico
+
+O almoxarifado pode registrar a quantidade efetivamente recebida mesmo quando
+o técnico não informou a devolução no aplicativo. O limite é o maior entre
+o entregue pelo almoxarifado e o retirado bruto pelo técnico, menos os
+recebimentos já registrados, por item/empresa/OS. Não somamos entregue e
+retirado, pois normalmente são duas conferências da mesma saída. Reserva
+sem entrega ou retirada não autoriza recebimento.
+
+A aba de devoluções inclui OSs com esse saldo, inclusive processadas. Itens
+removidos ou reprovados permanecem disponíveis para retorno quando têm saída
+registrada. É necessário informar a quantidade recebida e o funcionário;
+o sistema não preenche uma devolução automaticamente em nome do técnico.
+
+As colunas Devolvido e Recebido continuam independentes. Quando o recebido
+é maior que o declarado, aparece **Recebido sem registro de devolução no app**,
+com a diferença para conferência. A sinalização acompanha os valores atuais;
+o histórico mantém quem recebeu, quem devolveu, quantidade e data.
+
+Os limites são revalidados sob a trava compartilhada de movimentações,
+na mesma transação do recebimento. Reenvios mantêm o UUID original e não
+duplicam o recebimento. Esta alteração não exige migration, APK ou integrador.

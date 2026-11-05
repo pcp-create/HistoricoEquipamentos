@@ -63,8 +63,8 @@ test("warehouse filters stages and atomically delivers multiple items, retaining
  detail=await warehouseOrder('1','100');
  assert.equal(detail.items[0].delivery.quantity,3);assert.equal(detail.items[0].received.quantity,0.5);assert.equal(detail.items[0].usage.returned,1);
  assert.equal(detail.history.filter((h:any)=>h.kind==='receipt').length,1);
- await assert.rejects(deliverWarehouse({...receipt,requestId:randomUUID(),items:[{id:'55',quantity:0.6}]},'warehouse'),/devolução/);
- await assert.rejects(deliverWarehouse({...receipt,requestId:randomUUID(),items:[{id:'55',quantity:0.2},{id:'56',quantity:0.1}]},'warehouse'),/devolução/);
+ await assert.rejects(deliverWarehouse({...receipt,requestId:randomUUID(),items:[{id:'55',quantity:2.6}]},'warehouse'),/saldo/);
+ await assert.rejects(deliverWarehouse({...receipt,requestId:randomUUID(),items:[{id:'55',quantity:0.2},{id:'56',quantity:4.1}]},'warehouse'),/saldo/);
  assert.equal((await db.query("SELECT * FROM web_warehouse_batches WHERE kind='receipt'")).rows.length,1);
 
  await assert.rejects(deliverWarehouse({...body,items:[{id:"55",quantity:1}]},"warehouse"),/Identificador/);
@@ -90,5 +90,28 @@ test("warehouse filters stages and atomically delivers multiple items, retaining
  await deliverWarehouse({...receipt,requestId:randomUUID(),items:[{id:"55",quantity:0.5}]},"warehouse");
  assert.equal((await warehouseOrder("1","100")).items[0].received.quantity,1);
  await assert.rejects(deliverWarehouse({...body,requestId:randomUUID(),items:[{id:"55",quantity:1}]},"warehouse"),/saiu/);
+ // The warehouse can receive material without any technician declaration,
+ // including a processed OS and an item removed from ERP after delivery.
+ await db.exec("INSERT INTO m8_ordens_servico VALUES(1,200,15200,'Devolução sem app','Compressor','Finalizado','Processado',51);INSERT INTO m8_os_produtos VALUES(1,200,60,7,'Filtro esquecido',3,'UN',true,true);INSERT INTO integracao_m8_os_sync VALUES(1,200,now());");
+ const outgoing=randomUUID();
+ await db.query("INSERT INTO web_warehouse_batches(id,actor,technician,document,kind) VALUES($1,'warehouse','tech','{}','delivery')",[outgoing]);
+ await db.query("INSERT INTO web_warehouse_delivery_items(batch_id,company_id,order_id,item_id,quantity) VALUES($1,1,200,60,3)",[outgoing]);
+ assert.ok((await warehouseOrders('15200',1,false,true)).rows.some((o:any)=>o.id==='200'));
+ const manual={action:'receipt',company:'1',order:'200',technician:'tech',requestId:randomUUID(),items:[{id:'60',quantity:2}]};
+ await deliverWarehouse(manual,'warehouse');await deliverWarehouse(manual,'warehouse');
+ const manualDetail=await warehouseOrder('1','200');
+ assert.equal(manualDetail.items[0].received.quantity,2);assert.equal(manualDetail.items[0].usage.returned,0);
+ assert.equal(manualDetail.history.filter((h:any)=>h.kind==='receipt').length,1);
+ assert.equal((await db.query("SELECT * FROM web_service_item_usage WHERE item_order=200")).rows.length,0);
+ await assert.rejects(deliverWarehouse({...manual,requestId:randomUUID(),items:[{id:'60',quantity:1.001}]},'warehouse'),/saldo/);
+ await deliverWarehouse({...manual,requestId:randomUUID(),items:[{id:'60',quantity:1}]},'warehouse');
+ assert.equal((await warehouseOrders('15200',1,false,true)).total,0);
+ // A reservation alone does not authorize receiving never-issued material.
+ await db.exec("INSERT INTO m8_os_produtos VALUES(1,200,61,8,'Nunca entregue',5,'UN',false,true)");
+ await assert.rejects(deliverWarehouse({...manual,requestId:randomUUID(),items:[{id:'61',quantity:1}]},'warehouse'),/saldo/);
+ // Legacy withdrawals recorded only by the technician are also receivable.
+ await db.exec("INSERT INTO m8_os_produtos VALUES(1,200,62,9,'Retirada antiga',2,'UN',true,true);INSERT INTO web_service_item_usage VALUES(1,200,62,2,'[{\"gross\":2,\"returned\":0}]')");
+ await deliverWarehouse({...manual,requestId:randomUUID(),items:[{id:'62',quantity:1}]},'warehouse');
+ assert.equal((await warehouseOrder('1','200')).items.find((i:any)=>i.id_m8==='62').received.quantity,1);
  } finally {g.historyPool=previous;await db.close();}
 });

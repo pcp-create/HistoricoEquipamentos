@@ -1,4 +1,5 @@
 import "server-only";
+import {warehouseReceiptBalance} from "./receipt-balance";
 import {database} from "../db";
 import {createWithdrawalApproval} from "./withdrawal-approval";
 import {withWarehouseSupply} from "./supply";
@@ -29,10 +30,19 @@ export async function warehouseDeliveryTotals(c:any,items:any[],kind="delivery")
 }
 export async function warehouseOrders(query:string,page=1,kanban=false,returns=false,delivered=false) {
  if(query.length>120 || !Number.isInteger(page)||page<1) throw new WarehouseError("Filtro inválido.");
- const filter=returns ? `EXISTS(SELECT 1 FROM web_service_item_usage u WHERE u.item_company=o.company_id AND u.item_order=o.id_m8 GROUP BY u.item_id HAVING SUM(COALESCE((SELECT sum(COALESCE((a->>'returned')::numeric,0)) FROM jsonb_array_elements(COALESCE(u.allocations,'[]')) a),0)) > COALESCE((SELECT sum(i.quantity) FROM web_warehouse_delivery_items i JOIN web_warehouse_batches b ON b.id=i.batch_id WHERE b.kind='receipt' AND i.company_id=o.company_id AND i.order_id=o.id_m8 AND i.item_id=u.item_id),0))` : delivered ? `COALESCE(progress.delivered,false) AND sync.last_detail_at IS NOT NULL` : `o.status IN('Pendente','Aprovado') AND ${eligible} AND NOT (COALESCE(progress.delivered,false) AND sync.last_detail_at IS NOT NULL)`;
+ const filter=returns ? `EXISTS(SELECT 1 FROM receivable r WHERE r.company_id=o.company_id AND r.order_id=o.id_m8 AND r.balance>0)` : delivered ? `COALESCE(progress.delivered,false) AND sync.last_detail_at IS NOT NULL` : `o.status IN('Pendente','Aprovado') AND ${eligible} AND NOT (COALESCE(progress.delivered,false) AND sync.last_detail_at IS NOT NULL)`;
  const rows=(await database().query(`WITH delivery AS MATERIALIZED (
- SELECT i.company_id,i.order_id,i.item_id,SUM(CASE WHEN b.kind='delivery' THEN i.quantity ELSE -i.quantity END) quantity
+ SELECT i.company_id,i.order_id,i.item_id,SUM(CASE WHEN b.kind='delivery' THEN i.quantity ELSE -i.quantity END) quantity,
+ SUM(CASE WHEN b.kind='delivery' THEN i.quantity ELSE 0 END) gross,SUM(CASE WHEN b.kind='receipt' THEN i.quantity ELSE 0 END) received
  FROM web_warehouse_delivery_items i JOIN web_warehouse_batches b ON b.id=i.batch_id GROUP BY i.company_id,i.order_id,i.item_id
+ ), withdrawals AS (
+ SELECT item_company company_id,item_order order_id,item_id,
+ SUM(COALESCE((SELECT sum(COALESCE((a->>'gross')::numeric,(a->>'quantity')::numeric)) FROM jsonb_array_elements(COALESCE(allocations,'[]')) a),withdrawn,0)) gross
+ FROM web_service_item_usage GROUP BY item_company,item_order,item_id
+ ), receivable AS (
+ SELECT COALESCE(d.company_id,u.company_id) company_id,COALESCE(d.order_id,u.order_id) order_id,
+ GREATEST(COALESCE(d.gross,0),COALESCE(u.gross,0))-COALESCE(d.received,0) balance
+ FROM delivery d FULL JOIN withdrawals u ON u.company_id=d.company_id AND u.order_id=d.order_id AND u.item_id=d.item_id
  ), progress AS (
  SELECT p.company_id,p.ordem_servico_id,BOOL_AND(p.quantidade>0 AND COALESCE(d.quantity,0)>=p.quantidade AND p.quantidade IS NOT NULL) delivered
  FROM m8_os_produtos p JOIN (SELECT DISTINCT company_id,order_id FROM delivery) orders ON orders.company_id=p.company_id AND orders.order_id=p.ordem_servico_id
@@ -58,7 +68,7 @@ export async function warehouseOrder(company:string,id:string,c:any=database()) 
  if(!order)throw new WarehouseError("OS não encontrada.");
  const items=(await c.query(`SELECT p.id_m8::text,p.produto_id::text,p.produto_nome,p.quantidade::float8,p.unidade_nome,
  p.company_id item_company,p.ordem_servico_id::text item_order,(p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")}) deliverable
- FROM m8_os_produtos p WHERE p.company_id=$1 AND p.ordem_servico_id=$2 AND ((p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")}) OR EXISTS(SELECT 1 FROM web_service_item_usage u WHERE u.item_company=p.company_id AND u.item_order=p.ordem_servico_id AND u.item_id=p.id_m8 AND EXISTS(SELECT 1 FROM jsonb_array_elements(COALESCE(u.allocations,'[]')) a WHERE COALESCE((a->>'returned')::numeric,0)>0))) ORDER BY p.id_m8`,[company,id])).rows;
+ FROM m8_os_produtos p WHERE p.company_id=$1 AND p.ordem_servico_id=$2 AND ((p.esta_excluido IS NOT TRUE AND ${approvedMaterialSql("p")}) OR EXISTS(SELECT 1 FROM web_service_item_usage u WHERE u.item_company=p.company_id AND u.item_order=p.ordem_servico_id AND u.item_id=p.id_m8 AND (COALESCE(u.withdrawn,0)>0 OR EXISTS(SELECT 1 FROM jsonb_array_elements(COALESCE(u.allocations,'[]')) a WHERE COALESCE((a->>'gross')::numeric,(a->>'quantity')::numeric,(a->>'returned')::numeric,0)>0))) OR EXISTS(SELECT 1 FROM web_warehouse_delivery_items wi JOIN web_warehouse_batches wb ON wb.id=wi.batch_id WHERE wi.company_id=p.company_id AND wi.order_id=p.ordem_servico_id AND wi.item_id=p.id_m8 AND wb.kind='delivery')) ORDER BY p.id_m8`,[company,id])).rows;
  const collected=(await c.query("SELECT last_detail_at IS NOT NULL complete FROM integracao_m8_os_sync WHERE company_id=$1 AND ordem_servico_id=$2",[company,id])).rows[0]?.complete===true;
  const totals=await warehouseDeliveryTotals(c,items);
  const received=await warehouseDeliveryTotals(c,items,"receipt");
@@ -111,8 +121,8 @@ export async function deliverWarehouse(input:any,actor:string) {
  if(!current.complete)throw new WarehouseError("Aguarde a importação completa das peças da OS.");
  for(const item of items){
  const row=current.items.find((i:any)=>i.id_m8===item.id);
- const balance=row ? kind==='delivery'&&row.deliverable===false ? -1 : kind==='receipt' ? Number(row.usage.returned)-Number(row.received.quantity) : Number(row.quantidade)-Number(row.delivery.quantity)+Number(row.received.quantity) : -1;
- if(!row||item.quantity>Math.round(balance*1000)/1000)throw new WarehouseError(kind==='receipt'?"Quantidade acima da devolução informada pelo funcionário e ainda não recebida.":"Quantidade acima do saldo reservado. Atualize as peças antes de entregar.");
+ const balance=row ? kind==='delivery'&&row.deliverable===false ? -1 : kind==='receipt' ? warehouseReceiptBalance(row) : Number(row.quantidade)-Number(row.delivery.quantity)+Number(row.received.quantity) : -1;
+ if(!row||item.quantity>Math.round(balance*1000)/1000)throw new WarehouseError(kind==='receipt'?"Quantidade acima do saldo entregue ou retirado que ainda pode ser recebido.":"Quantidade acima do saldo reservado. Atualize as peças antes de entregar.");
  }
  await c.query("INSERT INTO web_warehouse_batches(id,actor,technician,document,kind) VALUES($1,$2,$3,$4,$5)",[input.requestId,actor,input.technician,JSON.stringify(document),kind]);
  for(const item of items)await c.query("INSERT INTO web_warehouse_delivery_items(batch_id,company_id,order_id,item_id,quantity) VALUES($1,$2,$3,$4,$5)",[input.requestId,input.company,input.order,item.id,item.quantity]);

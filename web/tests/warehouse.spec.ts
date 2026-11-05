@@ -37,7 +37,7 @@ test('warehouse kanban, return receipt, later product addition and supply inform
  const order={company_id:1,id:'100',number:'15100',customer:'Cliente teste',flow:'51 - O.S AGUARDANDO SEPARAÇÃO',status:'Pendente'};
  const supply={stock:12,available:8,unit:'UN',stock_at:'2026-10-29T12:00:00Z'};
  const purchases={imported:true,complete:true,groups:[{unit:'UN',quantity:'5',orders:['900'],deliveryDates:['2026-11-05']}]};
- const items:any[]=[{id_m8:'55',produto_id:'7',produto_nome:'Filtro',quantidade:5,unidade_nome:'UN',delivery:{quantity:3},received:{quantity:0},usage:{gross:3,returned:1},supply,purchases}];
+ const items:any[]=[{id_m8:'55',produto_id:'7',produto_nome:'Filtro',quantidade:5,unidade_nome:'UN',delivery:{quantity:3},received:{quantity:0},usage:{gross:3,returned:0},supply,purchases}];
  const detail:any={order,complete:true,items,history:[],additions:[]};let posted:any;
  await page.route('**/api/warehouse**',r=>{
   if(r.request().method()==='POST'){
@@ -65,7 +65,9 @@ test('warehouse kanban, return receipt, later product addition and supply inform
  await page.getByRole('checkbox',{name:'Selecionar Filtro',exact:true}).check();
  await page.getByRole('spinbutton',{name:'Receber Filtro',exact:true}).fill('0.5');
  await page.getByRole('button',{name:'Registrar recebimento dos selecionados'}).click();
- await expect(page.locator('.warehouse-success')).toContainText('Recebimento da devolução registrado');expect(posted.action).toBe('receipt');
+ await expect(page.locator('.warehouse-success')).toContainText('Recebimento registrado');expect(posted.action).toBe('receipt');
+ await expect(page.locator('.warehouse-detail')).toContainText('Recebido sem registro de devolução no app · 0,5');
+ expect(items[0].usage.returned).toBe(0);
  await expect(page.locator('.warehouse-history')).toContainText('Recebimento da devolução');
  await expect(page.locator('.warehouse-history')).toContainText('Recebido por: Almoxarife');
  await page.getByRole('button',{name:'Adicionar Material',exact:true}).click();
