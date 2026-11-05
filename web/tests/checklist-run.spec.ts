@@ -56,9 +56,11 @@ test('technician checklist supports releasing, draft values, returning stages an
  await expect(photos.locator('.checklist-photos img')).toHaveCount(2);
  const acceptance=page.locator('.checklist-stage-response').nth(5);
  await acceptance.locator(':scope > summary').click();await acceptance.getByRole('button',{name:'Liberar etapa para o técnico'}).click();
- const canvas=acceptance.locator('canvas').first();await canvas.scrollIntoViewIfNeeded();const box=(await canvas.boundingBox())!;
+ await acceptance.getByRole('button',{name:/Abrir assinatura:/}).first().click();
+ const signature=page.getByRole('dialog',{name:/Assinatura:/});
+ const canvas=signature.locator('canvas');await canvas.scrollIntoViewIfNeeded();const box=(await canvas.boundingBox())!;
  await page.mouse.move(box.x+20,box.y+30);await page.mouse.down();await page.mouse.move(box.x+100,box.y+55,{steps:5});await page.mouse.up();
- await acceptance.getByRole('button',{name:'Usar assinatura',exact:true}).first().click();
+ await signature.getByRole('button',{name:'Salvar assinatura',exact:true}).click();
  await expect(acceptance.locator('.checklist-signature img')).toHaveCount(1);
  await page.setViewportSize({width:390,height:844});
  expect(await page.locator('.scheduling-page').evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);

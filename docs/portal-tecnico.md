@@ -95,3 +95,13 @@ completas de relatório/checklist continuam exigindo versão compatível.
 A correção é no servidor e atende também às filas já existentes: após a publicação,
 o técnico pode usar **Sincronizar agora** sem apagar os dados do aplicativo.
 Não exige migration, atualização do integrador ou novo APK.
+
+### Assinatura em tela cheia — APK 2.2.14
+
+Toque no card de assinatura para abrir o editor. Limpar, Salvar e Cancelar ficam
+alinhados numa barra compacta. Limpar abre uma confirmação informando que a
+remoção do campo não pode ser desfeita; cancelar a confirmação mantém os traços.
+Salvar substitui a assinatura do campo somente após o upload ter sucesso; uma
+falha mantém o editor aberto. Cancelar o editor descarta novos traços e preserva
+a assinatura anterior, exceto se sua limpeza já foi confirmada. A rotação da
+tela preserva o desenho e adapta a área disponível.

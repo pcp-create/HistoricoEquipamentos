@@ -250,3 +250,9 @@ O envio continua usando confirmação do servidor, recibos idempotentes e SQLite
 
 Comparação e limites: `docs/comparacao-sincronismo-apks.md`. Não foi adicionado
 serviço permanente para sincronizar com o aplicativo fechado.
+
+A versão 2.2.14 também abre o card de assinatura em tela cheia. A barra inferior
+tem Limpar, Salvar e Cancelar, com confirmação antes da limpeza irreversível
+do campo. Cancelar mantém a assinatura previamente salva. A área de desenho
+acompanha a rotação do telefone e preserva os traços durante o redimensionamento.
+Falhas no envio mantêm a assinatura na tela para tentar novamente.

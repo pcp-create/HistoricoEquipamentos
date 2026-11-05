@@ -95,7 +95,7 @@ function Stage({draftContext,stageAccordionName,stage,operation,data,mutate,lock
  const answer=(id:string,v:any)=>draft.update({answers:{...draft.current.current.answers,[id]:v}});
  const detail=(id:string,key:string,v:any)=>draft.update({details:{...draft.current.current.details,[id]:{...draft.current.current.details[id],[key]:v}}});
  async function act(action:string){setError('');setBusy(true);try{await mutate({action,operationId:operation.id,version:operation.version,stageId:stage.id,answers,details,equipmentId,meterDate});}finally{setBusy(false);}}
- async function upload(f:ChecklistField,files:File[],extra=false){if(!files.length)return;setError('');setBusy(true);let ids=[...((extra?details[f.id]?.photos:answers[f.id])||[])];try{
+ async function upload(f:ChecklistField,files:File[],extra=false){if(!files.length)return;setError('');setBusy(true);let ids=f.type==='signature'&&!extra?[]:[...((extra?details[f.id]?.photos:answers[f.id])||[])];try{
   const limit=!extra&&f.type==='signature'?1:photoLimit(f);
   if(ids.length+files.length>limit)throw Error(`Este campo permite até ${limit} ${f.type==='signature'&&!extra?'assinatura':'fotos'}.`);
   const failures:string[]=[];
@@ -107,7 +107,8 @@ function Stage({draftContext,stageAccordionName,stage,operation,data,mutate,lock
    }catch(e){failures.push(`${file.name}: ${(e as Error).message}`);}
   }
   if(failures.length)throw Error(failures.join(' '));
- }catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+  return true;
+ }catch(e){setError((e as Error).message);return false;}finally{setBusy(false);}}
  function photos(f:ChecklistField,extra=false){const ids=extra?details[f.id]?.photos||[]:answers[f.id]||[];return <div className="checklist-photo-input"><ReportPhotoPicker label={f.label} requiredMissing={ids.length===0&&((!extra&&f.type==='photo'&&!!f.required)||(extra&&isStatusField(f.type)&&String(answers[f.id]).trim().toUpperCase()==='NOK'))} disabled={disabled} onSelect={files=>void upload(f,files,extra)}/><small>Selecione várias fotos de uma vez · {ids.length}/{photoLimit(f)}</small><div className="checklist-photos">{ids.map((id:string)=><div key={id}><a target="_blank" rel="noreferrer" href={'/api/service-scheduling/photos/'+id}><img src={'/api/service-scheduling/photos/'+id} alt={f.label}/></a><button type="button" className="checklist-photo-remove" aria-label="Remover foto" title="Remover foto" onClick={()=>extra?detail(f.id,'photos',ids.filter((x:string)=>x!==id)):answer(f.id,ids.filter((x:string)=>x!==id))}><span aria-hidden="true">×</span></button></div>)}</div></div>;}
  const groups=groupsOf(stage);
  const count={filled:groups.filter(g=>g.fields.length>0&&checklistCounts(g.fields,answers).filled===g.fields.length).length,total:groups.length};

@@ -1,0 +1,26 @@
+.signature-card {display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:12px;width:100%;min-height:104px;padding:16px;border:1px dashed #9db7ce!important;border-radius:12px;background:#f7fbff;color:#245e89;cursor:pointer;}
+.signature-card img {display:block;max-width:100%;max-height:110px;object-fit:contain;}
+.signature-screen {box-sizing:border-box;position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));border:0;background:#f4f7fb;color:#25465f;font:14px/1.4 Arial,sans-serif;}
+.signature-screen[open] {display:flex;flex-direction:column;gap:12px;}
+.signature-screen header {display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.signature-screen header div {display:grid;gap:4px;min-width:0;}
+.signature-screen header strong {font-size:20px;}
+.signature-screen header small {overflow-wrap:anywhere;}
+.signature-screen p {margin:0;}
+.signature-screen button,.signature-confirm button {display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;border:1px solid #c8d7e6;background:white;color:#245e89;border-radius:8px;padding:8px 12px;font:13px/1.3 Arial,sans-serif;cursor:pointer;}
+.signature-screen button:disabled {opacity:.5;cursor:default;}
+.signature-drawing-area {flex:1;min-height:120px;overflow:hidden;border:1px solid #c8d7e6;border-radius:12px;background:white;}
+.signature-drawing-area canvas {display:block;width:100%;height:100%;touch-action:none;}
+.signature-screen footer {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:center;}
+.signature-screen footer button {min-width:0;padding:8px 6px;white-space:nowrap;}
+.signature-screen .signature-clear {border-color:#efd1cc;color:#a83225;background:#fffaf9;}
+.signature-screen .signature-cancel {color:#586e82;background:transparent;border-color:#d6e0e9;}
+.signature-screen button:focus-visible,.signature-confirm button:focus-visible {outline:2px solid #2879c7;outline-offset:2px;}
+.signature-screen .signature-save {background:#245e89;border-color:#245e89;color:white;}
+.signature-screen [role=alert] {color:#b42318;}
+.signature-confirm {box-sizing:border-box;width:min(420px,92vw);padding:22px;border:1px solid #c8d7e6;border-radius:14px;background:white;color:#25465f;font:15px/1.5 Arial,sans-serif;}
+.signature-confirm::backdrop {background:#10253780;}
+.signature-confirm h3 {margin:0 0 10px;}
+.signature-confirm div {display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px;}
+.signature-confirm .signature-clear-confirm {background:#b42318;color:white;border-color:#b42318;}
+@media(max-height:430px) {.signature-screen {gap:6px;padding:8px 12px;}.signature-screen header strong {font-size:16px;}.signature-screen header small {display:none;}.signature-screen footer button {min-height:38px;padding:6px 10px;}}
