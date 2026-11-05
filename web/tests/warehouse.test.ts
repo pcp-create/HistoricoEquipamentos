@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {randomUUID} from "node:crypto";
 import {PGlite} from "@electric-sql/pglite";
+import {claimNotifications} from "../lib/tasks/notifications";
 import {updateTask} from "../lib/tasks/store";
 import {warehouseOrders,warehouseOrder,deliverWarehouse,warehouseDeliveryTotals} from "../lib/warehouse/store";
 test("warehouse filters stages and atomically delivers multiple items, retaining technician and idempotency",async()=>{
@@ -25,9 +26,10 @@ test("warehouse filters stages and atomically delivers multiple items, retaining
  await db.exec(readFileSync("sql/084_warehouse_returns.sql","utf8"));
  await db.exec(readFileSync("sql/085_warehouse_notifications.sql","utf8"));
  await db.exec(readFileSync("sql/086_warehouse_flow.sql","utf8"));
- for(const name of ['010_tasks','011_task_kanban','012_manual_tasks','016_task_order_links','018_task_assignment_reason','073_task_approvals'])await db.exec(readFileSync('sql/'+name+'.sql','utf8'));
- await db.exec("ALTER TABLE web_tasks ADD COLUMN followers text[] DEFAULT '{}';CREATE TABLE web_service_schedules(id bigint,company_id int,order_id bigint,active boolean);CREATE TABLE web_service_operations(id uuid,schedule_id bigint,document jsonb,status text);CREATE TABLE web_order_links(company_id int,order_id bigint,linked_company_id int,linked_order_id bigint);");
+ for(const name of ['010_tasks','011_task_kanban','012_manual_tasks','016_task_order_links','017_task_reminders','018_task_assignment_reason','024_task_stages','027_task_stage_assignment','041_task_completion_notifications','044_task_followers','073_task_approvals'])await db.exec(readFileSync('sql/'+name+'.sql','utf8'));
+ await db.exec("ALTER TABLE web_tasks ADD COLUMN IF NOT EXISTS followers text[] DEFAULT '{}';CREATE TABLE web_service_schedules(id bigint,company_id int,order_id bigint,active boolean);CREATE TABLE web_service_operations(id uuid,schedule_id bigint,document jsonb,status text);CREATE TABLE web_order_links(company_id int,order_id bigint,linked_company_id int,linked_order_id bigint);");
  await db.exec(readFileSync('sql/087_warehouse_withdrawal_approvals.sql','utf8'));
+ await db.exec("ALTER TABLE web_user_access ADD COLUMN phone text,ADD COLUMN role text DEFAULT 'user';UPDATE web_user_access SET phone=CASE WHEN email='tech' THEN '554700000002' ELSE '554700000001' END");
 
  await db.exec("ALTER TABLE m8_ordens_servico ADD COLUMN status_lancamento_id int DEFAULT 51");
  assert.equal((await warehouseOrders("")).total,2);
@@ -45,8 +47,21 @@ test("warehouse filters stages and atomically delivers multiple items, retaining
  const task=(await db.query<any>('SELECT * FROM web_tasks')).rows[0];
  assert.equal(task.assigned_to,'tech');assert.equal(task.task_type,'approval');assert.equal(task.title,'Material retirado no almoxarifado?');
  assert.match(task.approval_description,/Filtro/);assert.match(task.approval_description,/Óleo/);
+ const initialNotices=(await db.query<any>('SELECT recipient FROM web_task_notifications WHERE task_id=$1',[task.id])).rows;
+ assert.deepEqual(initialNotices.map((n:any)=>n.recipient),['tech']);
+ // Also suppress a legacy follower copy already queued before this fix.
+ await db.query("INSERT INTO web_task_notifications(task_id,task_version,recipient) VALUES($1,1,'warehouse')",[task.id]);
+ const approvalNotices=await claimNotifications('https://example.test');
+ assert.equal(approvalNotices.length,1);assert.equal(approvalNotices[0].number,'554700000002');
+ assert.match(approvalNotices[0].text,/Abra para aprovar ou reprovar/);
+ assert.equal((await db.query<any>("SELECT state FROM web_task_notifications WHERE task_id=$1 AND recipient='warehouse'",[task.id])).rows[0].state,'skipped');
+
  await assert.rejects(()=>updateTask({action:'approval_decide',id:String(task.id),version:1,decision:'approved',reason:'Conferido'}, {email:'warehouse'} as any,{query} as any));
  await updateTask({action:'approval_decide',id:String(task.id),version:1,decision:'approved',reason:'Retirei os materiais no almoxarifado.'},{email:'tech',name:'Técnico'} as any,{query} as any);
+ const decisionNotices=await claimNotifications('https://example.test');
+ assert.equal(decisionNotices.length,1);assert.equal(decisionNotices[0].number,'554700000001');
+ assert.match(decisionNotices[0].text,/Retornou para sua tratativa/);
+
 
  assert.equal((await db.query("SELECT * FROM web_warehouse_batches WHERE kind='delivery'")).rows.length,1);
  let detail=await warehouseOrder("1","100");

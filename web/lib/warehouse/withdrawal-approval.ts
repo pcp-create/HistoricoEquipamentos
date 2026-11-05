@@ -13,6 +13,9 @@ export async function createWithdrawalApproval(c:any,batch:string,company:string
  `manual:warehouse:withdrawal:${batch}`,metadata?.name||'',metadata?.equipment_id||null,detail.order.customer||'',employee,actor,company,order,detail.order.number,description])).rows[0];
  await c.query('INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,$2,$3,true,$4,$5)',[task.id,'Confirmação de retirada solicitada pelo almoxarifado',description,actor,creator?.display_name||actor]);
  await c.query('INSERT INTO web_task_notifications(task_id,task_version,recipient) VALUES($1,1,$2)',[task.id,employee]);
+ // The generic task trigger creates follower copies. Keep the operator as a
+ // follower for tracking, but only the employee receives the approval request.
+ await c.query("DELETE FROM web_task_notifications WHERE task_id=$1 AND task_version=1 AND kind='assignment' AND state='pending' AND attempts=0 AND recipient<>$2",[task.id,employee]);
  await c.query('INSERT INTO web_warehouse_withdrawal_confirmations(batch_id,task_id,employee) VALUES($1,$2,$3)',[batch,task.id,employee]);
  return task.id;
 }

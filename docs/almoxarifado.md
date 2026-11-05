@@ -67,3 +67,16 @@ o histórico mantém quem recebeu, quem devolveu, quantidade e data.
 Os limites são revalidados sob a trava compartilhada de movimentações,
 na mesma transação do recebimento. Reenvios mantêm o UUID original e não
 duplicam o recebimento. Esta alteração não exige migration, APK ou integrador.
+
+### Destinatário da confirmação de retirada
+
+A solicitação de confirmação por WhatsApp é enviada exclusivamente ao funcionário
+selecionado em “Funcionário que retirou”. O almoxarife permanece como acompanhante
+da tarefa para acompanhamento, mas não recebe cópia da solicitação de aprovação
+pendente. Depois da aprovação ou reprovação, a resposta retorna ao almoxarife
+responsável pela entrega, conforme o fluxo existente.
+
+A criação remove cópias automáticas de acompanhantes dentro da transação; a fila
+de notificações também filtra cópias antigas ainda não reclamadas. Mensagens já
+reclamadas pela automação não são reenviadas nem têm seus recibos reiniciados.
+A correção é web, sem migration, APK ou atualização do integrador.
