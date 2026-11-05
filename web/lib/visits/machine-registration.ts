@@ -1,3 +1,4 @@
+import {equipmentInactivations} from "./equipment-inactivation";
 import "server-only";
 import { database } from "../db";
 import { contactAccess } from "./contacts";
@@ -52,12 +53,14 @@ export async function saveMachineSettings(email: string, assignee: unknown) {
 export async function listMachines(key: string, email: string) {
   const db = database();
   await contactAccess(db, key, email);
-  return (
+  const rows = (
     await db.query(
       "SELECT id,equipment_type,model,brand,serial,meter,observations,task_id::text FROM web_visit_machine_registrations WHERE customer_key=$1 ORDER BY created_at,id",
       [key],
     )
   ).rows;
+  const inactive=await equipmentInactivations(db);
+  return rows.map((r:any)=>({...r,inactivation:inactive.find((i:any)=>i.customer_key===key&&i.equipment_key===`pending:${r.id}`)}));
 }
 export async function registerMachine(b: any, user: AuthUser, transaction?: any) {
   if (

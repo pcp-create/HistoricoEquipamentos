@@ -249,8 +249,11 @@ export default function SalesVisitsManagement() {
           <b>Registro da visita:</b> {v.outcome}
         </p>
       )}
-      {data?.canEditVisits && v.status !== "cancelled" && <VisitTaskButton visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key}/>}
-      {data?.canEditVisits && <VisitAdminActions visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} purposes={data.purposes || []} onSaved={async message=>{setMessage(message);await reload()}}/>}
+      {v.status === "completed" && <VisitTaskButton visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key}/>}
+      <div className="sales-visit-actions">
+      {data?.canEditVisits && v.status!=='completed' && <VisitAdminActions inline visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} purposes={data.purposes || []} onSaved={async message=>{setMessage(message);await reload()}}/>}
+      {v.status === "scheduled" && <VisitTaskButton visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key}/>}
+      </div>
     </VisitListRow>
   );
   const calendarVisits = filteredVisits
@@ -774,7 +777,7 @@ export default function SalesVisitsManagement() {
               const b=await r.json();if(!r.ok)throw Error(b.error);setMeterForm(null);setMessage("Horímetro atualizado no módulo de Equipamentos.");await reload();
             }catch(error){setMeterError((error as Error).message)}finally{setMeterBusy(false)}
           }}>
-            <label>Horímetro atual (h)<input autoFocus required type="number" min={meterForm.equipment.meter ?? 0} max="100000000" step="any" value={meterValue} onChange={e=>setMeterValue(e.target.value)}/></label>
+            <label>Horímetro atual (h)<input onWheel={e=>e.currentTarget.blur()} autoFocus required type="number" min={meterForm.equipment.meter ?? 0} max="100000000" step="any" value={meterValue} onChange={e=>setMeterValue(e.target.value)}/></label>
             <label>Data da coleta<input required type="date" max={today} value={meterDate} onChange={e => setMeterDate(e.target.value)} /></label>
             {meterError && <p role="alert" className="sales-error">{meterError}</p>}
             <div className="sales-actions"><button type="button" disabled={meterBusy} onClick={()=>setMeterForm(null)}>Cancelar</button><button className="sales-primary" disabled={meterBusy}>{meterBusy?"Salvando…":"Salvar horímetro"}</button></div>

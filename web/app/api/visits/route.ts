@@ -1,3 +1,4 @@
+import {inactivateVisitEquipment} from "@/lib/visits/equipment-inactivation";
 import {createVisitTask} from "@/lib/visits/tasks";
 import {TaskInputError,TaskConflict} from "@/lib/tasks/store";
 import { saveVisitMeter } from "@/lib/visits/equipment";
@@ -54,6 +55,7 @@ export async function POST(r: Request) {
     } catch {
       return json({ error: "Dados inválidos." }, 400);
     }
+    if(body.action==="inactivate_equipment")return json(await inactivateVisitEquipment(body,u.email));
     if(body.action==="task")return json(await createVisitTask(body,u));
     if(body.action === "disqualify") await disqualifyVisitCustomer(body,u.email);
     else if(body.action === "restore_customer") await restoreVisitCustomer(body,u.email);

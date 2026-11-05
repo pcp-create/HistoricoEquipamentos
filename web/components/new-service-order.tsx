@@ -1,4 +1,5 @@
 "use client";
+import OrderAttachments,{sendOrderAttachments} from "./order-attachments";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -59,6 +60,8 @@ async function api(body?: unknown, query = "") {
 export default function NewServiceOrder({
   editing, returnTo,
 }: { returnTo?: string; editing?: { company: string; id: string } } = {}) {
+  const [attachmentFiles,setAttachmentFiles]=useState<File[]>([]);
+  const [attachmentBusy,setAttachmentBusy]=useState(false);
   const [noteEditor, setNoteEditor] = useState<{index:number; field:"notes"|"internalNotes"; text:string}|null>(null);
   const [catalogKind, setCatalogKind] = useState<QuoteItem["kind"] | null>(null);
   const [editData, setEditData] = useState<any>(null);
@@ -80,7 +83,7 @@ export default function NewServiceOrder({
     active = Boolean(
       current && !["rejected", "complete"].includes(current.state),
     );
-  const disabled = busy || active || Boolean(editing && !editData);
+  const disabled = busy || attachmentBusy || active || Boolean(editing && !editData);
   const set = (key: keyof OrderDraft, value: string) => {
     setError("");
     setForm((f) => ({ ...f, [key]: value }));
@@ -221,6 +224,8 @@ export default function NewServiceOrder({
       setCurrent(r);
     } while (r.state === "ready");
     if (r.state === "complete") {
+      try{await sendOrderAttachments(String(r.company||form.company),String(editing?.id||r.m8Id),attachmentFiles,file=>setAttachmentFiles(files=>files.filter(f=>f!==file)));}
+      catch(e){throw Error('A OS foi salva no ERP, mas há anexos pendentes. Não crie a OS novamente. '+(e as Error).message);}
       if (editing) {
         sessionStorage.removeItem(
           "edit-service-order-" + editing.company + "-" + editing.id,
@@ -239,7 +244,7 @@ export default function NewServiceOrder({
   }
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (sending.current) return;
+    if (sending.current||attachmentBusy) return;
     setError("");
     try {
       parseOrder(form, Boolean(editing));
@@ -451,6 +456,8 @@ export default function NewServiceOrder({
             {error}
           </p>
         )}
+        <OrderAttachments company={String(editing?.company||current?.company||form.company)} order={editing?.id||(current?.state==='complete'?String(current.m8Id):undefined)} files={attachmentFiles} onFilesChange={setAttachmentFiles} disabled={busy||active} onBusy={setAttachmentBusy}/>
+        {current?.state==='complete'&&<Link href={`/historico?createdCompany=${current.company}&createdOrder=${editing?.id||current.m8Id}`}>Ver OS salva</Link>}
         {current && (
           <section className="os-result" aria-live="polite">
             <strong>
@@ -488,7 +495,7 @@ export default function NewServiceOrder({
             {["rejected", "complete"].includes(current.state) && (
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy||attachmentBusy||(current.state==='complete'&&attachmentFiles.length>0)}
                 onClick={() => {
                   reset();
                   if (current.state === "complete" && !editing) {

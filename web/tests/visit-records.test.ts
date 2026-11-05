@@ -21,5 +21,9 @@ test('visit records persist machine history and photos once, rejecting unrelated
  await saveVisitRecords(db,{id:'v2',machineRecords:[{equipment:'pending:new',note:'Registro da máquina nova'}]},'a@test',customers);
  const saved=(await db.query<any>("SELECT machine_records FROM web_sales_visits WHERE id='v2'")).rows[0];assert.equal(saved.machine_records[0].equipment,'pending:new');assert.equal(saved.machine_records[0].name,'Compressor - GA22');
  assert.equal((await db.query('SELECT * FROM web_equipment_events')).rows.length,1);
+ await db.exec("INSERT INTO web_sales_visits(id,status,customer_key,completed_at) VALUES('ten','completed','m8:1','2026-10-27'),('eleven','completed','m8:1','2026-10-27')");
+ await saveVisitRecords(db,{id:'ten',photos:Array(10).fill(photo)},'a@test',customers);
+ assert.equal((await db.query("SELECT * FROM web_visit_photos WHERE visit_id='ten'")).rows.length,10);
+ await assert.rejects(()=>saveVisitRecords(db,{id:'eleven',photos:Array(11).fill(photo)},'a@test',customers),/10 fotos/);
  }finally{await db.close();}
 });

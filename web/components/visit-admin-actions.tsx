@@ -17,6 +17,7 @@ export default function VisitAdminActions({visit,customer,purposes,onSaved,allow
      setEditing(false);await onSaved(remove?'Visita excluída.':'Visita atualizada.');
    }catch(e){setError((e as Error).message)}finally{setBusy(false)}
  }
+ if(visit.status==='completed')return null;
  return <>
  <div className={inline?"sales-visit-admin-inline":"sales-visit-actions"}><button disabled={busy} onClick={open}><Pencil size={16}/>Editar</button>{allowDelete&&<button disabled={busy} onClick={()=>void submit(true)}><Trash2 size={16}/>Excluir</button>}</div>
  {error&&!editing&&<p role="alert" className="sales-error">{error}</p>}
@@ -30,7 +31,6 @@ export default function VisitAdminActions({visit,customer,purposes,onSaved,allow
  <label>Telefone de contato<input required maxLength={40} value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></label>
  </div>
  <label>Descrição / objetivo da visita<textarea rows={4} maxLength={10000} value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></label>
- {visit.status==='completed'&&<><label>Data e hora da realização<DateTimePicker label="Data e hora da realização" required max={local(new Date().toISOString())} value={form.completed_at} onChange={value=>setForm({...form,completed_at:value})}/></label><label>Registro da visita<textarea required rows={4} maxLength={10000} value={form.outcome} onChange={e=>setForm({...form,outcome:e.target.value})}/></label></>}
  <div className="sales-actions"><button type="button" disabled={busy} onClick={()=>setEditing(false)}>Cancelar</button><button className="sales-primary" disabled={busy}><Save size={16}/>{busy?'Salvando…':'Salvar alterações'}</button></div>
  </form></div>}
  </>;

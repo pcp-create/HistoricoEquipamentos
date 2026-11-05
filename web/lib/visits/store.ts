@@ -1,3 +1,4 @@
+import {equipmentInactivations} from "./equipment-inactivation";
 import { canManageVisits } from "../access-roles";
 import {registerMachine} from "./machine-registration";
 import {saveVisitRecords} from "./records";
@@ -87,10 +88,11 @@ export async function visitsData(email: string, db: any = database(), management
     WHERE p.present AND p.person_id=ANY($1::bigint[])
     ORDER BY p.person_id::text,p.equipment_id::text`,
     [mine.map((r: any) => r.person_id)])).rows;
+  const inactivations=await equipmentInactivations(db);
   const equipmentMap = new Map<string, NonNullable<VisitCustomer["equipment"]>>();
   for (const row of equipmentRows) {
     const items = equipmentMap.get(row.person_id) || [];
-    items.push({id: row.id, name: row.name, model: row.model, serial: row.serial, meter: row.settings?.meter ?? null, meterDate: row.settings?.meterDate || "", version: row.version ?? null});
+    items.push({inactivation:inactivations.find((i:any)=>i.customer_key===`m8:${row.person_id}`&&i.equipment_key===row.id),id: row.id, name: row.name, model: row.model, serial: row.serial, meter: row.settings?.meter ?? null, meterDate: row.settings?.meterDate || "", version: row.version ?? null});
     equipmentMap.set(row.person_id, items);
   }
   const customers: VisitCustomer[] = [
@@ -139,7 +141,7 @@ export async function visitsData(email: string, db: any = database(), management
   customers.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   const visits = (
     await db.query(
-      "SELECT v.*,(SELECT vt.task_id::text FROM web_sales_visit_tasks vt WHERE vt.request_id=v.id AND vt.visit_id=v.id) AS task_id,p.name AS purpose_name FROM web_sales_visits v LEFT JOIN web_sales_visit_purposes p ON p.id=v.purpose_id WHERE $3::boolean OR (seller=$1 AND customer_key=ANY($2::text[])) ORDER BY scheduled_at DESC",
+      "SELECT v.*,t.id::text AS task_id,t.status AS task_status,CASE WHEN EXISTS(SELECT 1 FROM web_sales_visit_tasks directed WHERE directed.visit_id=v.id AND directed.task_id=t.id AND directed.request_id<>v.id) THEN COALESCE(NULLIF(tu.display_name,''),t.assigned_to) END AS task_directed_to,p.name AS purpose_name FROM web_sales_visits v LEFT JOIN web_sales_visit_purposes p ON p.id=v.purpose_id LEFT JOIN LATERAL (SELECT task.* FROM web_tasks task WHERE task.source_key=ANY(ARRAY['visit:'||v.id::text,'manual:visit:'||v.id::text]) OR task.id IN(SELECT vt.task_id FROM web_sales_visit_tasks vt WHERE vt.visit_id=v.id) ORDER BY CASE WHEN task.source_key=ANY(ARRAY['visit:'||v.id::text,'manual:visit:'||v.id::text]) THEN 0 ELSE 1 END,task.id LIMIT 1) t ON true LEFT JOIN web_user_access tu ON tu.email=t.assigned_to WHERE $3::boolean OR (seller=$1 AND customer_key=ANY($2::text[])) ORDER BY scheduled_at DESC",
       [email, keys, management],
     )
   ).rows;
@@ -304,7 +306,8 @@ export async function saveVisit(b: any, email: string) {
     }
     if(['history','complete'].includes(b.action))await saveVisitRecords(c,b,email,data.customers);
     if(b.action==='cancel')await c.query("UPDATE web_sales_visit_alerts SET state='cancelled' WHERE visit_id=$1 AND state='pending'",[b.id]);
-    await syncVisitTask(c,b.id,email,created,created?b.whatsappAt:undefined);
+    if(b.hasFollowUp!==undefined&&typeof b.hasFollowUp!=="boolean")throw new AdminInputError("Informe se a visita possui pendências.");
+    await syncVisitTask(c,b.id,email,created||["history","complete"].includes(b.action),created?b.whatsappAt:undefined,false,b.hasFollowUp===true);
     await c.query(
       "INSERT INTO web_access_events(event,email,actor,details) VALUES('sales_visit',$1,$1,$2)",
       [email, JSON.stringify({ action: b.action, id: b.id, seller })],

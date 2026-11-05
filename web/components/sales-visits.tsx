@@ -1,4 +1,5 @@
 "use client";
+import VisitFollowUpPrompt from "./visit-follow-up-prompt";
 import VisitListRow from "./visit-list-row";
 import VisitAdminActions from "./visit-admin-actions";
 import type {DraftMachine} from "@/lib/visits/draft-machines";
@@ -124,6 +125,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
   const loadAllCustomers = useCallback(async () => {setCustomerLoading(true);try{const r=await fetch('/api/visits/customers',{cache:'no-store'});const b=await r.json();if(!r.ok)throw Error(b.error);setAllCustomers(b.customers)}catch(e){setError((e as Error).message)}finally{setCustomerLoading(false)}}, []);
   const [draftMachines,setDraftMachines]=useState<DraftMachine[]>([]);
   function updateDraftMachines(machines:DraftMachine[]){setDraftMachines(machines);setMachineRecords(records=>records.filter(r=>!r.equipment.startsWith("pending:")||machines.some(m=>"pending:"+m.requestId===r.equipment)));}
+  const [followUpChoice,setFollowUpChoice]=useState<((value:boolean)=>void)|null>(null);
+  const [pendingVisitTask,setPendingVisitTask]=useState<{visit:SalesVisit;customer:string}|null>(null);
   const [machineRecords,setMachineRecords]=useState<MachineRecord[]>([]);
   const [visitPhotos,setVisitPhotos]=useState<string[]>([]);
   const [preparingPhotos,setPreparingPhotos]=useState(false);
@@ -327,6 +330,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
     if(form.lead && !form.city.trim()){setEditingLeadAddress(true);setError("Informe a cidade do Lead ou selecione uma localização no mapa.");return;}
     if (!form.lead && !form.customer_key) { setError("Selecione o cliente."); return; }
     if (form.mode !== "complete" && !form.purpose_id) { setError("Selecione a finalidade da visita."); return; }
+    const hasFollowUp=form.mode!=='schedule'&&await new Promise<boolean>(resolve=>setFollowUpChoice(()=>resolve));
+    setFollowUpChoice(null);
     setBusy(true);
     setError("");
     try {
@@ -346,6 +351,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
         phone: form.phone,
         description: form.description,
         outcome: form.outcome,
+        hasFollowUp,
         newMachines:form.lead?draftMachines:undefined,
         machineRecords: form.mode === "schedule" ? [] : machineRecords,
         photos: form.mode === "schedule" ? [] : visitPhotos,
@@ -376,7 +382,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
         setQuery("");
         setFilter("all");
       }
-      if(scheduleOnly){await onScheduled?.();return;}
+      if(hasFollowUp){setPendingVisitTask({visit:{id:form.id,customer_key:form.lead?'lead:'+form.leadId:form.customer_key,scheduled_at:date,completed_at:date,contact:form.contact,phone:form.phone,description:form.description,outcome:form.outcome,status:'completed',version:0,purpose_name:data?.purposes?.find(p=>p.id===form.purpose_id)?.name},customer:form.lead?form.leadName:(formCustomer?.name||'Cliente')});}
+      if(scheduleOnly&&form.mode==='schedule'){await onScheduled?.();return;}
       if(form.mode!=='schedule')setNextVisit({...form,customerName:form.lead?form.leadName:(formCustomer?.name||customerMap.get(form.customer_key)?.name||'Cliente'),mode:'schedule',id:crypto.randomUUID(),version:undefined,customer_key:form.lead?'lead:'+form.leadId:form.customer_key,lead:false,description:'',outcome:'',purpose_id:'',scheduled_at:'',whatsappAt:''});
       setForm(null);
       setMessage(
@@ -462,8 +469,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
           <b>Registro da visita:</b> {v.outcome}
         </p>
       )}
-      {v.status!=="cancelled"&&<VisitTaskButton visit={v} customer={customerMap.get(v.customer_key)?.name||v.customer_key}/>}
-      {v.status!=="scheduled" && data?.canEditVisits && online && <VisitAdminActions visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} purposes={data.purposes || []} allowDelete={false} onSaved={async message=>{setMessage(message);await reload();}}/>}
+      {v.status==='completed'&&<VisitTaskButton visit={v} customer={customerMap.get(v.customer_key)?.name||v.customer_key}/> }
+      {v.status==="cancelled" && data?.canEditVisits && online && <VisitAdminActions visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} purposes={data.purposes || []} allowDelete={false} onSaved={async message=>{setMessage(message);await reload();}}/>}
       {v.status === "scheduled" && (
         <div className="sales-visit-actions sales-scheduled-actions">
           <button
@@ -476,7 +483,10 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
             <CheckCircle2 size={16} />
             Registrar realização
           </button>
+          <div className="sales-visit-direction-actions">
           {data?.canEditVisits && online && <VisitAdminActions inline visit={v} customer={customerMap.get(v.customer_key)?.name || v.customer_key} purposes={data.purposes || []} allowDelete={false} onSaved={async message=>{setMessage(message);await reload();}}/>}
+          <VisitTaskButton visit={v} customer={customerMap.get(v.customer_key)?.name||v.customer_key}/>
+          </div>
           <button className="sales-cancel-visit" disabled={busy || !online} onClick={() => void cancel(v)}>
             <X size={17} />
             Cancelar visita
@@ -487,6 +497,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
   );
   return (
     <div className={scheduleOnly ? "sales-schedule-modal" : "sales-shell"}>
+      {followUpChoice&&<VisitFollowUpPrompt onChoice={direct=>{followUpChoice(direct);setFollowUpChoice(null);}}/>}
+      {pendingVisitTask&&<VisitTaskButton key={pendingVisitTask.visit.id} visit={pendingVisitTask.visit} customer={pendingVisitTask.customer} initialOpen onClosed={()=>{setPendingVisitTask(null);void reload();}}/>}
       {!scheduleOnly && <>
       <div className={"sales-connection " + (online ? "online" : "offline")}>
         <span>
@@ -954,7 +966,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
                 setMeterForm(null); setMessage("Horímetro registrado no módulo de Equipamentos."); await reload();
               } catch (error) { setMeterError((error as Error).message); } finally { setMeterBusy(false); }
             }}>
-              <label>Horímetro atual (h)<input autoFocus required type="number" min={meterForm.equipment.meter ?? 0} max="100000000" step="any" value={meterValue} onChange={e => setMeterValue(e.target.value)} /></label>
+              <label>Horímetro atual (h)<input onWheel={e=>e.currentTarget.blur()} autoFocus required type="number" min={meterForm.equipment.meter ?? 0} max="100000000" step="any" value={meterValue} onChange={e => setMeterValue(e.target.value)} /></label>
               <label>Data da coleta<input required type="date" max={today} value={meterDate} onChange={e => setMeterDate(e.target.value)} /></label>
               {meterError && <p role="alert" className="sales-error">{meterError}</p>}
               <div className="sales-actions"><button type="button" disabled={meterBusy} onClick={() => setMeterForm(null)}>Cancelar</button><button className="sales-primary" disabled={meterBusy || !online}>{meterBusy ? "Salvando…" : "Salvar horímetro"}</button></div>
@@ -962,14 +974,14 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
           </section>
         </div>
       )}
-      {nextVisit&&!form&&<div className="sales-overlay sales-next-visit-overlay">
+      {nextVisit&&!form&&!pendingVisitTask&&<div className="sales-overlay sales-next-visit-overlay">
         <section role="dialog" aria-modal="true" aria-label="Agendar próxima visita" aria-describedby="sales-next-visit-description" className="sales-dialog sales-next-visit">
           <div className="sales-next-visit-heading"><span className="sales-next-visit-icon"><CheckCircle2 size={24} aria-hidden="true"/></span><h2>Visita registrada!</h2></div>
           <p id="sales-next-visit-description">A visita a <strong>{nextVisit.customerName}</strong> foi registrada com sucesso.</p>
           <p className="sales-next-visit-question">Deseja deixar a próxima visita agendada?</p>
           <div className="sales-next-visit-actions">
             <button type="button" autoFocus className="sales-primary" onClick={()=>{setWhatsapp(false);setForm(nextVisit);setNextVisit(null)}}><CalendarDays size={18} aria-hidden="true"/>Agendar próxima visita</button>
-            <button type="button" className="sales-next-visit-later" onClick={()=>setNextVisit(null)}>Agora não</button>
+            <button type="button" className="sales-next-visit-later" onClick={()=>{setNextVisit(null);if(scheduleOnly)void onScheduled?.();}}>Agora não</button>
           </div>
         </section>
       </div>}
@@ -1223,8 +1235,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
             {form.mode !== "schedule" && equipmentLoading && <p role="status">Carregando máquinas do cliente…</p>}
             {form.mode !== "schedule" && equipmentError && <p role="alert">{equipmentError}</p>}
             {form.lead&&form.mode==="schedule"&&<section className="visit-record-machines"><h3>Máquinas do novo Lead ({draftMachines.length})</h3><VisitMachineRegistration customer={'lead:'+form.leadId} name={form.leadName||'Novo Lead'} online={online&&!busy} draftMachines={draftMachines} onDraftMachines={updateDraftMachines}/></section>}
-            {form.mode !== "schedule" && <VisitRecordFields draftMachines={form.lead?draftMachines:undefined} onDraftMachines={form.lead?updateDraftMachines:undefined} customer={form.lead?undefined:form.customer_key} customerName={form.lead?form.leadName:formCustomer?.name} online={online} equipment={selectedEquipment} records={machineRecords} photos={visitPhotos} onRecords={setMachineRecords} onPhotos={setVisitPhotos} onBusy={setPreparingPhotos} disabled={busy}/>}
-            <p className="sales-muted">A visita gera uma tarefa automática para o vendedor responsável. Quem cria a visita fica em Acompanhamento. A tarefa é concluída ao registrar a realização, com notificações de criação e encerramento por WhatsApp.</p>
+            {form.mode !== "schedule" && <VisitRecordFields key={`${form.id}:${form.customer_key||form.leadId}`} draftMachines={form.lead?draftMachines:undefined} onDraftMachines={form.lead?updateDraftMachines:undefined} customer={form.lead?undefined:form.customer_key} customerName={form.lead?form.leadName:formCustomer?.name} online={online} equipment={selectedEquipment} records={machineRecords} photos={visitPhotos} onRecords={setMachineRecords} onPhotos={setVisitPhotos} onBusy={setPreparingPhotos} disabled={busy}/>}
+            <p className="sales-muted">A visita gera uma tarefa automática para o vendedor responsável. Quem cria a visita fica em Acompanhamento. Ao concluir a visita, informe se há pendências: a mesma tarefa poderá continuar aberta e ser direcionada a outro responsável.</p>
             {form.mode==="schedule"&&<><label className="sales-check visit-alert-toggle"><input type="checkbox" checked={whatsapp} onChange={e=>setWhatsapp(e.target.checked)}/>Agendar lembrete da tarefa para o vendedor</label>
             {whatsapp&&<label>Data e hora do alerta (Brasília)<DateTimePicker label="Data e hora do alerta (Brasília)" required value={form.whatsappAt||''} onChange={value=>setForm({...form,whatsappAt:value})}/><small>O lembrete será enviado ao WhatsApp do vendedor responsável pela visita.</small></label>}</>}
             <p className="sales-muted">

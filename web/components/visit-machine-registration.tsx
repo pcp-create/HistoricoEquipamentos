@@ -1,4 +1,5 @@
 "use client";
+import VisitEquipmentGroup from "./visit-equipment-group";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { DraftMachine } from "@/lib/visits/draft-machines";
@@ -67,7 +68,7 @@ export default function VisitMachineRegistration({
           </strong>
         </p>
       )}
-      {displayedMachines.map((m) => (
+      <VisitEquipmentGroup key={customer} customer={customer} equipment={displayedMachines} online={online&&!busy} prefix="pending:" canInactivate={!drafting} render={(m,inactive) => (
         <article key={m.id}>
           <strong>
             {m.equipment_type} - {m.model}
@@ -104,9 +105,9 @@ export default function VisitMachineRegistration({
               <a href={"/tarefas?task=" + m.task_id}>Tarefa TAR-{m.task_id}</a>
             </>
           )}
-          {renderVisitRecord?.(m)}
+          {!inactive&&renderVisitRecord?.(m)}
         </article>
-      ))}
+      )}/>
       <button
         type="button"
         className="sales-machine-create"
@@ -209,7 +210,7 @@ export default function VisitMachineRegistration({
                 <input
                   required
                   name="meter"
-                  type="number"
+                  type="number" onWheel={e=>e.currentTarget.blur()}
                   min="0"
                   max="1000000000"
                   step="0.01"

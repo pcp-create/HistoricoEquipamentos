@@ -1,4 +1,5 @@
 "use client";
+import VisitEquipmentGroup from "./visit-equipment-group";
 import { useState } from "react";
 import { Wrench, ChevronDown, Gauge } from "lucide-react";
 import type { VisitCustomer } from "@/lib/visits/model";
@@ -42,7 +43,7 @@ export default function VisitCustomerMachines({
           {!c.equipment?.length && (
             <p>Nenhuma máquina integrada para este cliente.</p>
           )}
-          {c.equipment?.map((item) => (
+          <VisitEquipmentGroup key={c.key} customer={c.key} equipment={c.equipment||[]} online={online} render={(item,inactive) => (
             <article className="visit-machine-record-card" key={item.id}>
               <strong>{item.name}</strong>
               <p>Modelo: {item.model || "Não informado"}</p>
@@ -60,14 +61,14 @@ export default function VisitCustomerMachines({
                   : "Não registrada"}
               </p>
               <button
-                disabled={!online}
+                disabled={!online||inactive}
                 onClick={() => selectEquipment(c, item)}
               >
                 <Gauge size={16} />
                 Registrar horímetro
               </button>
             </article>
-          ))}
+          )}/>
           <VisitMachineRegistration
             customer={c.key}
             name={c.name}

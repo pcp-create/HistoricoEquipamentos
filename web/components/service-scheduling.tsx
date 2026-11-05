@@ -185,10 +185,7 @@ export default function ServiceScheduling() {
   const [overviewView, setOverviewView] = useState("list");
   const [listSort, setListSort] = useState<{key: ScheduleSortKey; descending: boolean} | null>(null);
   const [dateView, setDateView] = useState<ScheduleDateView>("delivery");
-  const [deliveryMonth, setDeliveryMonth] = useState(() => {
-    const parts = new Intl.DateTimeFormat("en", {year:"numeric",month:"2-digit",timeZone:"America/Sao_Paulo"}).formatToParts(new Date());
-    return parts.find(part=>part.type==="year")!.value+"-"+parts.find(part=>part.type==="month")!.value;
-  });
+  const [deliveryMonth, setDeliveryMonth] = useState("");
   const [deliveryYear, setDeliveryYear] = useState(() => new Intl.DateTimeFormat("en", {year:"numeric",timeZone:"America/Sao_Paulo"}).format(new Date()));
   const [completedExpanded, setCompletedExpanded] = useState(false);
   const [stageFilter, setStageFilter] = useState("");

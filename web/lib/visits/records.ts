@@ -10,7 +10,7 @@ export async function saveVisitRecords(c:any,b:any,email:string,customers:any[])
  // A repeated historical submission must not duplicate photos or machine events.
  if((visit.machine_records?.length||visit.photos?.length))return;
  const records=b.machineRecords??[],photos=b.photos??[];
- if(!Array.isArray(records)||records.length>50||!Array.isArray(photos)||photos.length>6)throw new AdminInputError('Selecione até 50 máquinas e 6 fotos.');
+ if(!Array.isArray(records)||records.length>50||!Array.isArray(photos)||photos.length>10)throw new AdminInputError('Selecione até 50 máquinas e 10 fotos.');
  if(photos.reduce((sum:number,p:any)=>sum+(typeof p==='string'?p.length:0),0)>3500000)throw new AdminInputError('O conjunto de fotos excede o limite.');
  const equipment=await customerEquipment(c,visit.customer_key);
  const pending=records.some((r:any)=>typeof r?.equipment==='string'&&r.equipment.startsWith('pending:'))

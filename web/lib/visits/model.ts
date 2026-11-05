@@ -47,7 +47,7 @@ export type VisitCustomer = {
   seller_ids?: string[];
   in_portfolio?: boolean;
   locationVersion?: number;
-  equipment?: { id: string; name: string; model: string; serial: string; meter?: number | null; meterDate?: string; version?: number | null }[];
+  equipment?: { inactivation?:{reason:string;actor:string;created_at:string}; id: string; name: string; model: string; serial: string; meter?: number | null; meterDate?: string; version?: number | null }[];
   latitude: number | null;
   longitude: number | null;
   lastVisit: string | null;
@@ -55,6 +55,8 @@ export type VisitCustomer = {
 };
 export type SalesVisit = {
   task_id?:string;
+  task_status?:string|null;
+  task_directed_to?:string|null;
   machine_records?:{equipment:string;name:string;note:string;meter?:number;meterDate?:string}[];
   photos?:string[];
   contact_id?:string;

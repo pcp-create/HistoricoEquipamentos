@@ -10,6 +10,7 @@ export async function syncVisitTask(
   create = false,
   when?: unknown,
   deleted = false,
+  followUp = false,
 ) {
   const visit = (
     await c.query("SELECT * FROM web_sales_visits WHERE id=$1 FOR UPDATE", [
@@ -20,8 +21,8 @@ export async function syncVisitTask(
   const source = `visit:${visitId}`;
   let task = (
     await c.query(
-      "SELECT * FROM web_tasks WHERE source_key=$1 ORDER BY id LIMIT 1 FOR UPDATE",
-      [source],
+      "SELECT * FROM web_tasks WHERE source_key=ANY($1::text[]) ORDER BY id LIMIT 1 FOR UPDATE",
+      [[source,`manual:${source}`]],
     )
   ).rows[0];
   if (!task && !create) return;
@@ -62,7 +63,13 @@ export async function syncVisitTask(
       [task.id, task.version, visit.seller],
     );
   }
-  const finished = deleted || visit.status !== "scheduled";
+  const manualFollowUp=visit.status==='completed'&&(followUp||task.source_key===`manual:${source}`);
+  const convertedFollowUp=manualFollowUp&&task.source_key!==`manual:${source}`;
+  if(convertedFollowUp){
+    task=(await c.query("UPDATE web_tasks SET source_key=$2,cycle='manual',source_status='manual',source_resolved=false,status='not_started',kanban_column=NULL,completed_at=NULL,title=$3,version=version+1,updated_at=now(),updated_by=$4 WHERE id=$1 RETURNING *",[task.id,`manual:${source}`,('Pendência da visita — '+customer).slice(0,160),actor])).rows[0];
+    await c.query("INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,'Visita registrada com pendência',$2,true,$3,COALESCE((SELECT display_name FROM web_user_access WHERE email=$3),$3))",[task.id,`Cliente: ${customer}\nVisita: ${new Date(visit.completed_at||visit.scheduled_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}\nContato: ${visit.contact} · ${visit.phone}\n${visit.description}\nRegistro da visita: ${visit.outcome}\n${(visit.machine_records||[]).map((m:any)=>`${m.name}: ${m.note}${m.meter!=null?' · Horímetro: '+m.meter+' h':''}`).join('\n')}`,actor]);
+  }
+  const finished = deleted || (visit.status !== "scheduled"&&!manualFollowUp);
   if (finished && task.status !== "completed") {
     await c.query(
       "UPDATE web_tasks SET status='completed',source_resolved=true,source_status=$2,completed_at=COALESCE($3::timestamptz,now()),updated_at=now(),updated_by='Sistema',version=version+1 WHERE id=$1",
@@ -79,7 +86,7 @@ export async function syncVisitTask(
             : `Realização da visita registrada por ${actor}.\n${visit.outcome}`,
       ],
     );
-  } else if (!finished && task.status !== "completed") {
+  } else if (!finished && !manualFollowUp && task.status !== "completed") {
     if (
       (task.due_date instanceof Date
         ? task.due_date.toISOString().slice(0, 10)
@@ -98,7 +105,7 @@ export async function syncVisitTask(
         c,
       );
   }
-  if (finished) {
+  if (finished||convertedFollowUp) {
     await c.query(
       "UPDATE web_task_reminder_series SET active=false WHERE task_id=$1",
       [task.id],

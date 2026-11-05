@@ -1,4 +1,5 @@
 "use client";
+import OrderAttachments,{sendOrderAttachments} from "./order-attachments";
 import { useRef, useState } from "react";
 import { clearApiCache } from "@/lib/client-api-cache";
 async function api(url: string, body?: any) {
@@ -23,6 +24,7 @@ export default function ScheduleOrderActions({
   data: any;
   onChanged: () => void;
 }) {
+  const [attachmentFiles,setAttachmentFiles]=useState<File[]>([]);
   const [edit, setEdit] = useState<any>(null),
     [flows, setFlows] = useState<any[]>([]),
     [busy, setBusy] = useState(false),
@@ -61,6 +63,7 @@ export default function ScheduleOrderActions({
         ),
         api("/api/warehouse?flowStatuses=1"),
       ]);
+      setAttachmentFiles([]);
       setEdit(e);
       setFlows(f.rows);
       editRequest.current = null;
@@ -91,6 +94,8 @@ export default function ScheduleOrderActions({
           result.message ||
             "Envio aguardando conferência. Consulte a edição da OS antes de tentar novamente.",
         );
+      try{await sendOrderAttachments(company,order,attachmentFiles,file=>setAttachmentFiles(files=>files.filter(f=>f!==file)));}
+      catch(e){throw Error('A OS foi atualizada no ERP, mas há anexos pendentes. '+(e as Error).message);}
       setEdit(null);
       setMessage("Observações e status do fluxo atualizados no ERP.");
       onChanged();
@@ -139,6 +144,7 @@ export default function ScheduleOrderActions({
             void saveHeader();
           }}
         >
+          <OrderAttachments company={company} order={order} files={attachmentFiles} onFilesChange={setAttachmentFiles} disabled={busy} onBusy={setBusy}/>
           <label>
             Observação
             <textarea
