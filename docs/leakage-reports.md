@@ -56,3 +56,23 @@ node --env-file=.env.local --conditions=react-server --import tsx scripts/import
 O leitor usa apenas células de entrada; não executa fórmulas ou macros. Os cálculos são refeitos pelo servidor. A combinação do hash do arquivo e do nome da aba impede duplicatas ao repetir a mesma importação. O arquivo original e o JSON temporário não devem ser publicados no repositório.
 
 Cada máquina permite calcular as horas anuais por horas/dia × dias/ano ou informar diretamente as horas/ano (até 8.784). No modo direto, os campos diários não são exigidos. A escolha fica salva em cada versão e identificada na impressão. Cadastros anteriores continuam usando o cálculo diário.
+
+## Imagens organizadas em pastas do detector
+
+Depois de importar o XML, use **Pasta das imagens** e selecione a pasta principal
+da exportação, contendo as subpastas indicadas em `BMP Path`. Também é possível
+selecionar cada subpasta separadamente; as seleções são acumuladas. O seletor
+de fotos avulsas continua disponível.
+
+A vinculação considera `BMP Path` + `BMP Name`, normalizando separadores de
+Windows/Linux e diferenças de maiúsculas. O nome da pasta principal selecionada
+não precisa ser o mesmo do XML. Arquivos de imagem fora das referências do XML
+são ignorados ao importar pastas depois do XML. Outros arquivos não são enviados.
+As chaves das imagens guardam o caminho relativo do XML, preservado ao salvar
+e reabrir o levantamento. O navegador só acessa os arquivos selecionados pelo
+usuário; o caminho informado no XML não concede acesso automático ao computador.
+
+Nomes repetidos em pastas diferentes não são misturados. Fotos avulsas com nome
+ambíguo no XML não são associadas automaticamente. O contador informa quantas
+referências estão vinculadas, orientando a seleção de pastas restantes.
+Permanece o limite existente de 500 imagens por levantamento.

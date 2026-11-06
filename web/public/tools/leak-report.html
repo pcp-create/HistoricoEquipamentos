@@ -1331,10 +1331,11 @@
           <div class="input-box">
             <label for="imgInput">Imagens dos pontos</label>
             <input type="file" id="imgInput" accept="image/*" multiple />
-            <div class="helper">
-              Selecione os arquivos BM_00000.jpg, BM_00001.jpg etc. para exibir
-              as fotos nos cards.
-            </div>
+            <div class="helper">Selecione fotos avulsas ou a pasta principal exportada pelo detector, incluindo suas subpastas.</div>
+            <label for="imgFolderInput">Pasta das imagens</label>
+            <input type="file" id="imgFolderInput" webkitdirectory directory multiple />
+            <div class="helper">Você pode adicionar outras pastas sem perder as imagens já selecionadas. Os caminhos do XML serão usados para distinguir arquivos com o mesmo nome.</div>
+            <div id="imageImportFeedback" class="helper" role="status"></div>
           </div>
         </div>
         <div id="importFeedback" class="import-feedback" role="status">
@@ -1563,6 +1564,7 @@
       const xmlInput = document.getElementById("xmlInput");
       const imgInput = document.getElementById("imgInput");
       const imageMap = new Map();
+      let imageReferencePaths = new Map();
       let ultimoXml = null;
       let clienteLogoUrl = "";
 
@@ -1601,14 +1603,49 @@
           if (ultimoXml) renderXml(ultimoXml);
         });
 
-      imgInput.addEventListener("change", () => {
-        imageMap.forEach((url) => URL.revokeObjectURL(url));
-        imageMap.clear();
-        Array.from(imgInput.files).forEach((file) => {
-          imageMap.set(file.name, URL.createObjectURL(file));
-        });
-        if (ultimoXml) renderXml(ultimoXml);
-      });
+      function normalizeImagePath(value) {
+        return String(value||'').replace(/\\/g,'/').split('/').filter(part=>part&&part!=='.').join('/').normalize('NFC').toLowerCase();
+      }
+      function findImage(path,name) {
+        const target=normalizeImagePath([path,name].filter(Boolean).join('/'));
+        const entries=Array.from(imageMap.entries());
+        const matches=entries.filter(([key])=>{const normalized=normalizeImagePath(key);return normalized===target||normalized.endsWith('/'+target);});
+        if(matches.length===1)return matches[0][1];
+        if(matches.length>1)return null;
+        // Avulsa: compatibility with earlier imports that store only the filename.
+        const flat=entries.filter(([key])=>!normalizeImagePath(key).includes('/')&&normalizeImagePath(key)===normalizeImagePath(name));
+        if(path&&flat.length===1&&(imageReferencePaths.get(normalizeImagePath(name))?.size||0)<=1)return flat[0][1];
+        if(!path){const byName=entries.filter(([key])=>normalizeImagePath(key).split('/').pop()===normalizeImagePath(name));if(byName.length===1)return byName[0][1];}
+        return null;
+      }
+      function imageFeedback(xml) {
+        const references=Array.from(xml.querySelectorAll('BMP')).filter(node=>node.getAttribute('Name'));
+        const found=references.filter(node=>findImage(node.getAttribute('Path'),node.getAttribute('Name'))).length;
+        document.getElementById('imageImportFeedback').textContent=references.length
+          ? `${found} de ${references.length} referências com imagem vinculada.${found<references.length?' Selecione as pastas restantes. Arquivos ausentes ou com caminhos ambíguos não são associados automaticamente.':''}`
+          : `${imageMap.size} imagem(ns) selecionada(s). Importe o XML para conferir a vinculação.`;
+      }
+      function importImages(input) {
+        const files=Array.from(input.files||[]).filter(file=>/^image\//i.test(file.type)||/\.(jpe?g|png|webp|bmp|gif)$/i.test(file.name));
+        const refs=ultimoXml?Array.from(new DOMParser().parseFromString(ultimoXml,'text/xml').querySelectorAll('BMP')):[];
+        for(const file of files){
+          let key=file.webkitRelativePath||file.name;
+          if(refs.length){
+            const candidate=normalizeImagePath(key);
+            const targets=[...new Set(refs.map(bmp=>normalizeImagePath([bmp.getAttribute('Path'),bmp.getAttribute('Name')].filter(Boolean).join('/'))).filter(target=>candidate===target||candidate.endsWith('/'+target)))];
+            const flatMatch=!file.webkitRelativePath&&refs.some(bmp=>candidate===normalizeImagePath(bmp.getAttribute('Name')));
+            if(!targets.length&&!flatMatch)continue;
+            if(file.webkitRelativePath&&targets.length===1)key=targets[0];
+          }
+          const previous=Array.from(imageMap.keys()).find(existing=>normalizeImagePath(existing)===normalizeImagePath(key));
+          if(previous){const old=imageMap.get(previous);if(old.startsWith('blob:'))URL.revokeObjectURL(old);imageMap.delete(previous);}
+          imageMap.set(key,URL.createObjectURL(file));
+        }
+        if(ultimoXml)renderXml(ultimoXml);else imageFeedback(new DOMParser().parseFromString('<ROOT/>','text/xml'));
+        input.value='';
+      }
+      imgInput.addEventListener('change',()=>importImages(imgInput));
+      document.getElementById('imgFolderInput').addEventListener('change',event=>importImages(event.target));
 
       document
         .getElementById("clienteLogoInput")
@@ -1813,6 +1850,9 @@
           return;
         }
         feedback.classList.remove("error");
+        imageReferencePaths=new Map();
+        for(const bmp of xml.querySelectorAll('BMP')){const name=normalizeImagePath(bmp.getAttribute('Name'));const paths=imageReferencePaths.get(name)||new Set();paths.add(normalizeImagePath([bmp.getAttribute('Path'),name].filter(Boolean).join('/')));imageReferencePaths.set(name,paths);}
+        imageFeedback(xml);
         feedback.textContent =
           registros.length +
           " ponto(s) importado(s). Confira as informações antes de gerar o PDF.";
@@ -1893,7 +1933,7 @@
           const volumeAno = (leakage * 60 * 8500) / 1000;
           const co2 = (energy * 0.527) / 1000;
           const imageName = attr(bmpNode, "Name");
-          const imageUrl = imageMap.get(imageName);
+          const imageUrl = findImage(attr(bmpNode,"Path"),imageName);
           const edificioLocal =
             settings.edificioLocal ||
             `${settings.localizacao || titleCase(local)} ${settings.area || titleCase(area)}`.trim();
@@ -1987,9 +2027,16 @@
         window.dispatchEvent(new Event("rj-leak-rendered"));
       }
       const projectSettings=['inspetorInput','serviceOrderInput','empresaInput','localizacaoInput','areaInput','edificioLocalInput','falhouMapInput','medidaMapInput','statusInput','responsavelInput'];
+      function projectImages(){
+        if(!ultimoXml)return [...imageMap];
+        const refs=Array.from(new DOMParser().parseFromString(ultimoXml,'text/xml').querySelectorAll('BMP'));
+        if(!refs.length)return [...imageMap];
+        const used=new Set(refs.map(bmp=>findImage(bmp.getAttribute('Path'),bmp.getAttribute('Name'))).filter(Boolean));
+        return [...imageMap].filter(([,url])=>used.has(url));
+      }
       window.rjLeakProject={
         hasXml:()=>!!ultimoXml&&!new DOMParser().parseFromString(ultimoXml,'text/xml').querySelector('parsererror')&&!!new DOMParser().parseFromString(ultimoXml,'text/xml').querySelector('JNL'),
-        get:()=>({xml:ultimoXml||'',settings:Object.fromEntries(projectSettings.map(id=>[id,document.getElementById(id).value])),images:[...imageMap],clientLogo:clienteLogoUrl}),
+        get:()=>({xml:ultimoXml||'',settings:Object.fromEntries(projectSettings.map(id=>[id,document.getElementById(id).value])),images:projectImages(),clientLogo:clienteLogoUrl}),
         syncMetadata:(data)=>{for(const[key,id]of Object.entries({client:'empresaInput',serviceOrder:'serviceOrderInput',inspector:'inspetorInput',location:'localizacaoInput'}))if(data[key])document.getElementById(id).value=data[key];if(ultimoXml)renderXml(ultimoXml);},
         load:(project)=>{
           imageMap.forEach(url=>{if(url.startsWith('blob:'))URL.revokeObjectURL(url);});imageMap.clear();
@@ -1997,7 +2044,7 @@
           if(clienteLogoUrl.startsWith('blob:'))URL.revokeObjectURL(clienteLogoUrl);
           clienteLogoUrl=project.clientLogo?'/api/leakage-reports?image='+encodeURIComponent(project.clientLogo):'';
           for(const id of projectSettings)document.getElementById(id).value=project.settings?.[id]||'';
-          ultimoXml=project.xml||null;document.getElementById('xmlInput').value='';document.getElementById('imgInput').value='';
+          ultimoXml=project.xml||null;document.getElementById('xmlInput').value='';document.getElementById('imgInput').value='';document.getElementById('imgFolderInput').value='';document.getElementById('imageImportFeedback').textContent='';
           for(const[key,id]of Object.entries({client:'empresaInput',serviceOrder:'serviceOrderInput',inspector:'inspetorInput',location:'localizacaoInput'}))if(project[key])document.getElementById(id).value=project[key];
           if(ultimoXml)renderXml(ultimoXml);else {document.getElementById('report').style.display='none';document.getElementById('btnPrint').disabled=true;}
         }
