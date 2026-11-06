@@ -1,1023 +1,1658 @@
-.scheduling-page {
-  max-width: 1800px;
-  margin: auto;
-  padding: 28px;
-  min-width: 0;
-  color: #27445f;
-}
-.scheduling-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 18px;
-  margin-bottom: 24px;
-}
-.scheduling-heading h1 {
-  font-size: 28px;
-  margin: 0 0 6px;
-}
-.scheduling-heading p,
-.scheduling-page small {
-  color: #768ba3;
-}
-.scheduling-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.scheduling-actions button,
-.scheduling-actions a,
-.scheduling-page > button,
-.schedule-order-entry button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.scheduling-page button,
-.scheduling-page a {
-  white-space: nowrap;
-}
-.scheduling-page button {
-  padding: 8px 12px;
-  border: 1px solid #ccdbeb;
-  border-radius: 6px;
-  background: #fff;
-  color: #285680;
-}
-.scheduling-page button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.scheduling-page .app-section-tabs {
-  margin: 20px 0;
-  overflow-x: auto;
-  max-width: 100%;
-  flex-wrap: nowrap;
-}
-.scheduling-page .app-section-tabs button[aria-pressed="true"] {
-  background: #e7f1ff;
-  border-color: #77a8e7;
-}
-.scheduling-order,
-.schedule-costs > section,
-.scheduling-settings {
-  border: 1px solid #dce6f0;
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 16px;
-  min-width: 0;
-}
-.scheduling-order h2 {
-  font-size: 20px;
-}
-.scheduling-page label {
-  min-width: 0;
-}
-.scheduling-search {
-  max-width: 480px;
-  margin-bottom: 15px;
-}
-.scheduling-table {
-  max-width: 100%;
-  overflow: auto;
-  border: 1px solid #e0e8f2;
-  border-radius: 9px;
-  background: #fff;
-  margin: 16px 0;
-  overscroll-behavior-x: contain;
-}
-.scheduling-table table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.scheduling-table th {
-  text-align: left;
-  white-space: nowrap;
-  background: #f3f7fb;
-  color: #627d98;
-  font-size: 12px;
-  padding: 12px 10px;
-}
-.scheduling-table td {
-  padding: 8px 10px;
-  border-top: 1px solid #e8eef5;
-  vertical-align: middle;
-}
-.scheduling-table td input,
-.scheduling-table td select {
-  min-width: 110px;
-  font-size: 12px;
-  height: 36px;
-}
-.operations-table td:nth-child(3) input {
-  width: 260px;
-}
-.operations-table td:nth-child(5) select,
-.operations-table td:nth-child(6) select {
-  width: 180px;
-}
-.operations-table select[multiple] {
-  height: 62px;
-  min-height: 62px;
-  padding: 4px;
-}
-.operations-table small {
-  display: block;
-  font-size: 10px;
-}
-.operation-status {
-  display: inline-block;
-  border-radius: 5px;
-  padding: 5px 8px;
-  white-space: nowrap;
-  font-size: 11px;
-}
-.operation-execution {
-  padding: 18px;
-  max-width: 900px;
-  white-space: normal;
-}
-.operation-execution h3 {
-  margin-bottom: 15px;
-}
-.operation-execution .scheduling-actions {
-  margin: 12px 0;
-}
-.operation-execution ul {
-  font-size: 12px;
-  line-height: 1.8;
-}
-.schedule-check {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  margin: 6px 0;
-}
-.schedule-check input {
-  width: 16px !important;
-  min-width: 16px !important;
-  height: 16px !important;
-}
-.scheduling-error {
-  padding: 14px;
-  border: 1px solid #f0c3c3;
-  background: #fff3f3;
-  border-radius: 8px;
-}
-.schedule-costs h2 {
-  font-size: 18px;
-}
-.schedule-costs section > label {
-  max-width: 220px;
-  margin: 14px 0;
-}
-.scheduling-settings fieldset {
-  border: 0;
-  padding: 0;
-  min-width: 0;
-}
-.scheduling-settings .scheduling-actions {
-  margin: 8px 0;
-}
-.scheduling-settings .scheduling-actions input,
-.scheduling-settings .scheduling-actions select {
-  width: 190px;
-  max-width: 100%;
-}
-.schedule-setting-card {
-  border: 1px solid #e0e8f2;
-  border-radius: 8px;
-  padding: 16px;
-  margin: 14px 0;
-}
-.schedule-setting-card > label {
-  max-width: 600px;
-  margin: 10px 0;
-}
-.schedule-setting-card textarea {
-  width: 100%;
-  border: 1px solid #d5e1ef;
-  border-radius: 6px;
-  padding: 10px;
-}
-.schedule-order-entry {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 8px;
-}
-.schedule-order-entry button {
-  font-size: 12px;
-  padding: 7px 10px;
-}
-.schedule-order-entry small {
-  color: #b44141;
-  font-size: 12px;
-}
-@media (max-width: 700px) {
-  .scheduling-page {
-    padding: 16px;
-    max-width: 100%;
-    overflow-x: clip;
-  }
-  .scheduling-heading {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-  .scheduling-heading h1 {
-    font-size: 23px;
-  }
-  .scheduling-order,
-  .schedule-costs > section,
-  .scheduling-settings {
-    padding: 13px;
-  }
-  .scheduling-page .app-section-tabs {
-    gap: 5px;
-  }
-  .scheduling-page .app-section-tabs button {
-    padding: 8px 10px;
-  }
-  .scheduling-settings .scheduling-actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .scheduling-settings .scheduling-actions input,
-  .scheduling-settings .scheduling-actions select {
-    width: 100%;
-    min-width: 0;
+"use client";
+import {changesDispatchedResponsible,responsibleChangeWarning} from "@/lib/service-scheduling/responsible-change";
+import ScheduleOrderActions from "./schedule-order-actions";
+import {flowResponsible} from "@/lib/service-scheduling/flow-status";
+import SchedulePlannedDate from "./schedule-planned-date";
+import DateTimePicker from "./date-time-picker";
+import { matchesSearch } from "@/lib/filters";
+
+import {ScheduleTaskLists,TaskListActions} from "./schedule-task-lists";
+import {needsRescheduling} from "@/lib/service-scheduling/rescheduling";
+import {ReschedulingHistory,ReschedulingConfirmation} from "./operation-rescheduling";
+import { scheduleUrl } from "@/lib/service-scheduling/schedule-url";
+import {filterScheduleDateView, operationDates, type ScheduleDateView} from "@/lib/service-scheduling/date-view";
+import {operationEquipmentLabel} from "@/lib/service-scheduling/equipment-label";
+import OperationEquipmentSelect from "./operation-equipment-select";
+import { scheduleValueSummary } from "@/lib/service-scheduling/value-summary";
+import { isCarriedDelivery } from "@/lib/service-scheduling/delivery-projection";
+import { displayedScheduleStatus } from "@/lib/service-scheduling/display-status";
+import { includesLaborCost } from "@/lib/service-scheduling/labor-costs";
+import { operationNumber } from "@/lib/service-scheduling/operation-number";
+import {reportStatusLabel,reportSubmission} from "@/lib/service-scheduling/checklists";
+import OrderOperationsReview from "./order-operations-review";
+import OrderReportWindow from "./order-report-window";
+import OrderTaskLinks from "./order-task-links";
+import OrderTaskWindow from "./order-task-window";
+import OperationReviewWindow from "./operation-review-window";
+import ScheduleOrdersMap from "./schedule-orders-map";
+import ScheduleOrdersCalendar, { DayOrders } from "./schedule-orders-calendar";
+import SupportPicker from "./support-picker";
+import SchedulePauseReasons from "./schedule-pause-reasons";
+import SaveActionIcon from "./save-action-icon";
+import { useEffect, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  Send,
+  Eye,
+  Undo2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Plus,
+  Settings,
+  RefreshCw,
+  ArrowLeft,
+  ChevronRight,
+  Trash2,
+  ListChecks,
+  ClipboardList,
+  ClipboardPlus,
+  CalendarDays,
+  MapPin,
+} from "lucide-react";
+import SiteHeader from "./site-header";
+import ScheduleAutomaticRules from "./schedule-automatic-rules";
+import ScheduleTimeLogs from "./schedule-time-logs";
+import CompactNameTable from "./compact-name-table";
+import ScheduleChecklistEditor from "./schedule-checklist-editor";
+import ScheduleCalendarEditor from "./schedule-calendar-editor";
+import ScheduleOrderButton from "./schedule-order-button";
+import OrderDetailLink from "./order-detail-link";
+import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
+import { companyName } from "@/lib/company-names";
+import {
+  blankOperation,
+  planningStatus,
+  statusNames,
+  scheduleStatusNames,
+  totalHours,
+  validateSettings,
+} from "@/lib/service-scheduling/model";
+import { completedOperationHours } from "@/lib/service-scheduling/time-logs";
+import { estimatedProfit } from "@/lib/order-profit";
+import { isMaintenancePackage, maintenanceCost, primaryOrderRevenue } from "@/lib/service-scheduling/service-costs";
+import { sameUnit } from "@/lib/product-values";
+import { isNotApproved } from "@/lib/material-approval";
+import "./service-scheduling.css";
+import "./schedule-status-colors.css";
+const scheduleColumns = [
+  ["number", "N° OS"], ["operations", "Operações"], ["customer", "Cliente"],
+  ["equipment", "Equipamento"], ["inWorkshop", "Equipamento em Oficina?"], ["type", "Tipo / atendimento"],
+  ["status", "Status do lançamento"], ["delivery", "Entrega prevista"], ["plannedDate", "Data Prevista Programação"], ["value", "Valor da OS"], ["company", "Empresa"],
+] as const;
+type ScheduleSortKey = typeof scheduleColumns[number][0];
+function scheduleSortValue(s: any, key: ScheduleSortKey): string {
+  switch (key) {
+    case "number": return String(s.numero_sequencia || s.order_id || "");
+    case "operations": return String(s.operation_count ?? 0);
+    case "customer": return s.cliente_nome || "";
+    case "plannedDate": return s.planned_date?.date || "9999-12-31";
+    case "equipment": return s.equipamento || "";
+    case "inWorkshop": return s.in_workshop ? "Sim" : "Não";
+    case "type": return [s.tipo_nome, s.tipo_atendimento_nome].filter(Boolean).join(" ");
+    case "status": return s.status_lancamento_nome || "";
+    case "value": return s.order_value || "";
+    case "delivery": return s.expected_delivery_date || "";
+    case "company": return companyName(s.company_id);
   }
 }
-/* Dense operation grid, retaining horizontal scrolling on small screens. */
-.scheduling-table th {
-  padding: 7px 8px;
+const itemIdentity = (i: any) => `${i.item_company ?? ""}:${i.item_order ?? ""}:${i.item_id ?? i.id_m8 ?? i.itemId}`;
+const itemMatches = (a: any,b: any) => String(a.item_id ?? a.id_m8 ?? a.itemId) === String(b.item_id ?? b.id_m8 ?? b.itemId) && (a.item_company == null || b.item_company == null || (String(a.item_company)===String(b.item_company)&&String(a.item_order)===String(b.item_order)));
+function ItemInconsistency({item}: {item:any}) {
+  const issue = item.quantity_inconsistency;
+  if (!issue) return null;
+  return <small className="schedule-item-inconsistency">{issue.reason === "quantity" ? `Quantidade divergente: principal ${qty(issue.main)} · vinculada ${qty(issue.linked)}` : issue.reason === "unit" ? "Unidades diferentes ou ausentes nas OSs; confira as quantidades." : "Quantidade não informada em uma das OSs; confira o produto."}</small>;
 }
-.scheduling-table td {
-  padding: 4px 6px;
+const money = (v: any) =>
+  v == null
+    ? "Não informado"
+    : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const qty = (v: any) =>
+  v == null
+    ? "—"
+    : Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+function MaterialStock({ material, available = false }: { material: any; available?: boolean }) {
+  const current = material.current;
+  const value = available ? current?.available : current?.stock;
+  const collected = available ? current?.available_at : current?.stock_at;
+  const date = collected ? new Date(collected) : null;
+  const known = value != null && String(value).trim() !== "" && Number.isFinite(Number(value));
+  const differentUnit = current?.unit && current.unit.trim().toUpperCase() !== String(material.unidade_nome || "").trim().toUpperCase();
+  return <td title={date && Number.isFinite(date.getTime()) ? `Última coleta: ${date.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : "Data de coleta não informada"}>
+    {known ? qty(value) : "Não informado"}
+    {known && differentUnit && <small style={{display:"block"}}>{current.unit}</small>}
+  </td>;
 }
-.scheduling-table td input,
-.scheduling-table td select {
-  height: 30px;
-  padding: 4px 6px;
-  margin: 0;
+function MaterialPurchases({material}: {material:any}) {
+  const purchases = material.purchases;
+  if (!purchases?.imported) return <td>Aguardando integração</td>;
+  const updated = purchases.collectedAt ? new Date(purchases.collectedAt).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo"}) : "Não informada";
+  return <td title={`Última coleta: ${updated}`}>
+    {purchases.groups.length ? purchases.groups.map((group:any) => <div key={group.unit} title={`Ordens de compra: ${group.orders.join(", ")} · Última coleta: ${updated}`}>
+      <span className="material-purchase-quantity">{qty(group.quantity)} <small>{group.unit}</small></span>
+      <small className="material-delivery">Previsão de entrega: {(group.deliveryDates?.length ? [...group.deliveryDates].sort((a:any,b:any)=>String(a ?? "z").localeCompare(String(b ?? "z"))) : [null]).map((date:any) => date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.split("-").reverse().join("/") : "Não informada").join(" · ")}</small>
+    </div>) : purchases.complete ? "0" : "Não confirmado"}
+    {!purchases.complete && <small style={{display:"block"}}>Importação parcial</small>}
+  </td>;
 }
-.operations-table select[multiple] {
-  height: 42px;
-  min-height: 42px;
-}
-.operations-table td:last-child {
-  white-space: nowrap;
-}
-.operations-table td:last-child button {
-  padding: 5px 7px;
-  margin: 2px;
-}
-.scheduling-order {
-  padding: 12px 16px;
-  margin-bottom: 10px;
-}
-.schedule-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 10px;
-  margin: 12px 0;
-}
-.schedule-summary article {
-  background: white;
-  border: 1px solid #dce6f0;
-  border-radius: 9px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.schedule-summary span {
-  font-size: 12px;
-  color: #627d98;
-}
-.schedule-summary strong {
-  font-size: 19px;
-}
-.schedule-save-status {
-  position: fixed;
-  bottom: 16px;
-  right: 20px;
-  font-size: 12px;
-  background: #fff;
-  z-index: 20;
-}
-.scheduling-order p {
-  margin: 6px 0;
-}
-.schedule-client {
-  font-weight: 600;
-}
-.scheduling-order .schedule-observation {
-  margin: 12px 0;
-  padding: 12px 14px;
-  border: 1px solid #dce6f0;
-  border-radius: 10px;
-  background: #f5f8fc;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 12px;
-}
-.schedule-observation > summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  list-style: none;
-  color: #627d98;
-  white-space: normal;
-}
-.schedule-observation > summary::-webkit-details-marker { display: none; }
-.schedule-observation > summary > span:first-child { flex: 1; font-weight: 600; }
-.schedule-observation > summary:focus-visible { outline: 2px solid #2867a7; outline-offset: 4px; border-radius: 3px; }
-.schedule-observation .observation-collapse,
-.schedule-observation[open] .observation-expand { display: none; }
-.schedule-observation[open] .observation-collapse { display: inline; }
-.schedule-observation[open] > summary > svg { transform: rotate(90deg); }
-.scheduling-order .schedule-observation > p { margin: 10px 0 0; }
-.schedule-order-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px 16px;
-  margin: 12px 0;
-}
-.schedule-order-fields > div {
-  min-width: 0;
-}
-.schedule-order-fields dt {
-  font-size: 11px;
-  color: #627d98;
-}
-.schedule-order-fields dd {
-  font-size: 13px;
-  margin: 3px 0 0;
-  overflow-wrap: anywhere;
-}
-.operations-table tr.operation-unsaved > td {
-  background: #fffbeb;
-}
-.operations-table .operation-draft-label {
-  color: #946200;
-  font-size: 11px;
-  font-weight: 600;
-}
-.operations-table td {
-  padding-top: 8px;
-  padding-bottom: 24px;
-}
-.operations-table td:nth-child(3) {
-  position: relative;
-}
-.operations-table .operation-description-count {
-  position: absolute;
-  margin-top: 2px;
-}
-.scheduling-orders-list .schedule-list-status {
-  display: block;
-  width: fit-content;
-  margin: 5px 0 0;
-  font-size: 9px;
-  padding: 3px 6px;
-}
-.schedule-order-number { display: block; margin: 0; padding: 0; }
-.schedule-order-number > a.quote-order-link { margin: 0; padding: 0; }
-.schedule-details-cell { text-align: right; }
-.schedule-details-cell a { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; }
-.schedule-overview { margin: 0 0 18px; }
-.schedule-overview-cards { display: grid; grid-template-columns: repeat(auto-fit,minmax(205px,1fr)); gap: 12px; margin-bottom: 8px; }
-.schedule-overview-cards article { background: white; border: 1px solid #dfe5ed; border-radius: 10px; padding: 18px; display:flex; flex-direction:column; gap:12px; }
-.schedule-overview-cards article > span { font-size: 13px; color: #71859d; }
-.schedule-overview-cards strong { font-size: 30px; color: #234669; }
-.schedule-overview-cards em { font-size:12px; font-style:normal; font-weight:400; }
-.schedule-overview-cards small { font-size:11px; }
-@media(max-width:500px) { .schedule-overview-cards { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; } .schedule-overview-cards article { padding:12px; } }
-.schedule-order-number > a.quote-order-link {
-  font-weight: 700;
-  font-size: 11px;
-  color: #2c649f;
-  text-decoration: none;
-  white-space: nowrap;
-}
-.schedule-order-number > a.quote-order-link:hover { text-decoration: underline; }
-.scheduling-orders-list th:first-child,
-.scheduling-orders-list td:first-child {
-  padding-left: 20px;
-}
-.scheduling-page .operation-note-preview { display: block; width: 220px; max-width: 220px; height: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; padding: 4px 6px; font-size: 12px; }
-.operation-note-dialog { width: min(640px, calc(100vw - 32px)); border: 1px solid #dfe5ed; border-radius: 10px; padding: 20px; }
-.operation-note-dialog::backdrop { background: #102e4b66; }
-.operation-note-dialog textarea { width: 100%; height: 280px; max-height: 55vh; resize: vertical; padding: 10px; border: 1px solid #dfe5ed; border-radius: 6px; font: inherit; }
-.operation-note-dialog p { white-space: normal; font-size: 12px; }
-.scheduling-orders-list table { font-size: 12px; }
-.scheduling-orders-list th { font-size: 11px; }
-.scheduling-order .schedule-customer-location { font-size: 12px; color: #71859d; margin-top: 2px; }
-.scheduling-orders-list .schedule-attendance-type {
-  display: block;
-  margin-top: 4px;
-  font-size: 10px;
-  color: #71859d;
-}
-.scheduling-orders-list .schedule-client-location {
-  display: block;
-  margin-top: 4px;
-  font-size: 10px;
-  color: #71859d;
-}
-.scheduling-order-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.scheduling-order-heading h2 { margin: 0; }
-.scheduling-order-heading .schedule-order-entry { margin: 0 0 0 auto; }
-.scheduling-table tr.schedule-linked-item > td { background: #fff8d6; }
-.scheduling-table .schedule-item-inconsistency { display: block; color: #a84c16; font-size: 11px; font-weight: 600; white-space: normal; margin-top: 4px; }
-.schedule-linked-legend { font-size: 12px; color: #816320; }
+const number = (s: string) => (s === "" ? null : Number(s));
+const orderDate = (value: string | null | undefined) => {
+  if (!value) return "Não informada";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Não informada"
+    : date.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+};
 
-.operation-checklist-select { position: relative; }
-/* The compact label overlays the native select; hide only its native text. */
-.operation-checklist-select select { width: 100%; color: transparent; --field-control-text: transparent; --field-disabled-text: transparent; }
-.operation-checklist-select select option { color: #29445f; background: white; }
-.operation-checklist-select > span {
-  position: absolute; left: 12px; right: 30px; top: 50%; transform: translateY(-50%);
-  pointer-events: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-family: var(--field-font); font-size: 13px; font-weight: 400; color: var(--field-text);
+const markup = (sale: any, cost: any) => {
+  if (sale == null || cost == null || !Number.isFinite(Number(sale)) || !Number.isFinite(Number(cost)) || Number(cost) <= 0) return "—";
+  return ((Number(sale) - Number(cost)) / Number(cost) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 }) + "%";
+};
+const margin = (sale: any, cost: any) => {
+  const p = cost == null ? null : estimatedProfit(sale, String(cost), "0");
+  return p?.margin == null
+    ? "—"
+    : p.margin.toLocaleString("pt-BR", { maximumFractionDigits: 2 }) + "%";
+};
+async function request(body?: any, id?: string | null) {
+  const r = await apiFetch(
+    "/api/service-scheduling" + (!body && id ? "?" + id : ""),
+    body
+      ? {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      : undefined,
+  );
+  const b = await r.json();
+  if (!r.ok) throw Error(b.error);
+  return b;
 }
-@media (max-width: 640px) { .operation-checklist-select > span { font-size: 16px; } }
-.operation-checklist-select:has(select:disabled) > span { opacity: .6; }
-.field-pause-settings{width:100%;border-collapse:collapse;min-width:480px;}.field-pause-settings td,.field-pause-settings th{padding:6px 8px;border-bottom:1px solid #e2eaf1;text-align:left;}.field-pause-settings input{width:100%;}.field-pause-settings th:nth-child(2){width:170px;}.field-pause-settings th:last-child{width:70px;}
-
-.operations-table .operation-execution-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+export default function ServiceScheduling() {
+  const params = useSearchParams(),
+    id = params.has("OS") ? new URLSearchParams({OS: params.get("OS")!}).toString() : params.get("id") ? "id=" + encodeURIComponent(params.get("id")!) : null;
+  const [data, setData] = useState<any>(null),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false),
+    [config, setConfig] = useState(false),
+    [tab, setTab] = useState("operations"),
+    [query, setQuery] = useState("");
+  const [orderReportOpen,setOrderReportOpen]=useState(false);
+  const [orderTaskOpen,setOrderTaskOpen]=useState(false);
+  const [orderReviewOpen,setOrderReviewOpen]=useState(false);
+  const dirtyOperations=useRef(new Set<string>());
+  const [overviewView, setOverviewView] = useState("list");
+  const [listSort, setListSort] = useState<{key: ScheduleSortKey; descending: boolean} | null>(null);
+  const [dateView, setDateView] = useState<ScheduleDateView>("delivery");
+  const [deliveryMonth, setDeliveryMonth] = useState("");
+  const [deliveryYear, setDeliveryYear] = useState(() => new Intl.DateTimeFormat("en", {year:"numeric",timeZone:"America/Sao_Paulo"}).format(new Date()));
+  const [completedExpanded, setCompletedExpanded] = useState(false);
+  const [stageFilter, setStageFilter] = useState("");
+  const [executor, setExecutor] = useState("");
+  const [flowOwner,setFlowOwner] = useState("");
+  const flowOwners = [...new Set<string>((data?.schedules||[]).map((s:any)=>flowResponsible(s)))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const deliveryMonths = [...new Set<string>((data?.schedules || [])
+    .flatMap((s:any) => dateView === "delivery" ? [s.expected_delivery_date?.slice(0,7)] : (s.calendar_operations || []).flatMap((o:any) => operationDates(o).map(date=>date.slice(0,7))))
+    .filter((month:any) => typeof month === "string" && /^\d{4}-\d{2}$/.test(month)))].sort();
+  const executorOptions = new Map<string, string>();
+  for (const u of data?.users || []) executorOptions.set(u.email, u.display_name || u.email);
+  for (const schedule of data?.schedules || []) for (const operation of schedule.calendar_operations || []) {
+    if (operation.responsibleEmail) executorOptions.set(operation.responsibleEmail, operation.responsible || operation.responsibleEmail);
+    for (const email of operation.support || []) if (!executorOptions.has(email)) executorOptions.set(email, email);
+  }
+  const searchedSchedules = (data?.schedules || []).filter((s: any) =>
+    displayedScheduleStatus(s) !== "cancelled" &&
+    (!flowOwner || flowResponsible(s)===flowOwner) &&
+    matchesSearch(`${s.numero_sequencia || s.order_id} ${s.cliente_nome} ${s.equipamento} ${s.customer_city || ""}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(), query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase())
+  );
+  const filteredSchedules = searchedSchedules.map((s:any) => filterScheduleDateView(s,dateView,deliveryMonth,executor)).filter(Boolean);
+  // The calendar uses operation dates and its own navigation, never delivery projections.
+  const calendarSchedules = searchedSchedules.map((s:any) => filterScheduleDateView(s,"operation","",executor)).filter(Boolean);
+  const stageSchedules = filteredSchedules.filter((s:any)=>!stageFilter || displayedScheduleStatus(s)===stageFilter);
+  const sortedSchedules = listSort ? [...stageSchedules].sort((a, b) => {
+    if (listSort.key === "value") {
+      if (a.order_value == null) return b.order_value == null ? 0 : 1;
+      if (b.order_value == null) return -1;
+      return (Number(a.order_value) - Number(b.order_value)) * (listSort.descending ? -1 : 1);
+    }
+    return scheduleSortValue(a, listSort.key).localeCompare(scheduleSortValue(b, listSort.key),
+      "pt-BR", { numeric: true, sensitivity: "base" }) * (listSort.descending ? -1 : 1);
+  }) : stageSchedules;
+  const completedSchedules = sortedSchedules.filter((s:any)=>displayedScheduleStatus(s)==="completed");
+  const pendingSchedules = sortedSchedules.filter((s:any)=>displayedScheduleStatus(s)!=="completed");
+  const listEntries = [...pendingSchedules, ...(completedSchedules.length ? [
+    { completedGroup: true, id: "completed-group" }, ...(completedExpanded ? completedSchedules : [])
+  ] : [])];
+  async function load() {
+    setError("");
+    try {
+      setData(await request(undefined, id));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  useEffect(() => {
+    setData(null);
+    void load();
+  }, [id]);
+  useEffect(() => {
+    const refresh = () => { if(dirtyOperations.current.size)return; clearApiCache(); void load(); };
+    window.addEventListener("order-link-updated", refresh);
+    window.addEventListener("service-schedule-updated", refresh);
+    return () => { window.removeEventListener("order-link-updated", refresh); window.removeEventListener("service-schedule-updated", refresh); };
+  }, [id]);
+  useEffect(() => {
+    let disposed=false,inFlight=false;
+    const canRefresh=()=>!disposed&&!busy&&!config&&!dirtyOperations.current.size
+      && document.visibilityState==='visible'
+      && !document.activeElement?.matches('input,textarea,select,[contenteditable="true"]');
+    const refresh=async()=>{
+      if(inFlight||!canRefresh())return;
+      inFlight=true;
+      try{
+        clearApiCache();
+        const fresh=await request(undefined,id);
+        if(canRefresh()){setData(fresh);setError("");}
+      }catch{ /* Keep the last successful view when a background refresh fails. */ }
+      finally{inFlight=false;}
+    };
+    const timer=window.setInterval(()=>void refresh(),15000);
+    const onFocus=()=>void refresh();
+    window.addEventListener('focus',onFocus);
+    document.addEventListener('visibilitychange',onFocus);
+    return ()=>{disposed=true;window.clearInterval(timer);window.removeEventListener('focus',onFocus);document.removeEventListener('visibilitychange',onFocus);};
+  },[id,busy,config]);
+  async function mutate(body: any) {
+    if (busy) return false;
+    const before = data;
+    setBusy(true);
+    setError("");
+    if (body.action === "operation")
+      setData({
+        ...data,
+        operations: data.operations.map((o: any) =>
+          o.id === body.operationId
+            ? {
+                ...o,
+                document: body.document,
+                status: ["pending", "planning", "scheduled"].includes(o.status)
+                  ? planningStatus(body.document)
+                  : o.status,
+              }
+            : o,
+        ),
+      });
+    if (body.action === "remove_operation")
+      setData({
+        ...data,
+        operations: data.operations.filter(
+          (o: any) => o.id !== body.operationId,
+        ),
+      });
+    if (body.action === "add_operation")
+      setData({
+        ...data,
+        operations: [
+          ...data.operations,
+          {
+            id: "pending",
+            position:
+              Math.max(0, ...data.operations.map((o: any) => o.position)) + 1,
+            document: blankOperation(),
+            status: "pending",
+            version: 1,
+          },
+        ],
+      });
+    if (body.action === "usage" || body.action === "service_cost") {
+      const key = body.action === "usage" ? "usage" : "costs";
+      setData({
+        ...data,
+        [key]: [
+          ...data[key].filter((i: any) => !itemMatches(i, body)),
+          { ...body, item_id: body.itemId },
+        ],
+      });
+    }
+    const transitions: Record<string, string> = {
+      work_log: "executing",
+      activity: "executing",
+      finish_partial: "executing",
+      finish_full: "awaiting_review",
+      review: "reviewed",
+      complete: "completed",
+    };
+    if (transitions[body.action])
+      setData({
+        ...data,
+        operations: data.operations.map((o: any) =>
+          o.id === body.operationId
+            ? { ...o, status: transitions[body.action] }
+            : o,
+        ),
+      });
+    try {
+      const result = await request({ ...body, scheduleId: data.schedule.id });
+      if (result.operation)
+        setData((d: any) => ({
+          ...d,
+          operations:
+            body.action === "add_operation"
+              ? [
+                  ...d.operations.filter((o: any) => o.id !== "pending"),
+                  result.operation,
+                ]
+              : d.operations.map((o: any) =>
+                  o.id === result.operation.id ? result.operation : o,
+                ),
+        }));
+      if (result.item) {
+        const key = body.action === "usage" ? "usage" : "costs";
+        setData((d: any) => ({
+          ...d,
+          [key]: [
+            ...d[key].filter(
+              (i: any) => !itemMatches(i, result.item),
+            ),
+            result.item,
+          ],
+        }));
+      }
+      if (transitions[body.action]) {
+        const fresh = await request(undefined, id);
+        setData(fresh);
+      }
+      return true;
+    } catch (e) {
+      setData(before);
+      setError((e as Error).message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+  const materials = (data?.detail?.materials || []).filter(
+      (m: any) => m.esta_excluido !== true && !isNotApproved(m.aprovado),
+    ),
+    services = (data?.detail?.services || []).filter(
+      (s: any) => s.esta_excluido !== true,
+    );
+  const canUse =
+    data?.canEditSettings ||
+    data?.operations?.some(
+      (o: any) =>
+        o.status !== "completed" &&
+        (o.document.responsible === data.email ||
+          o.document.support.includes(data.email)),
+    );
+  return (
+    <>
+      <SiteHeader active="scheduling" />
+      <main className="scheduling-page">
+        <header className="scheduling-heading">
+          <div>
+            <h1>Programação de OSs</h1>
+            <p>Operações, recursos, materiais e custos dos atendimentos.</p>
+          </div>
+          <nav className="scheduling-actions scheduling-toolbar" aria-label="Ações da programação">
+            <a className="scheduling-toolbar-primary" href="/OrdemServico/nova"><Plus size={18} aria-hidden="true"/>Criar OS</a>
+            <a href="/programacao/pecas"><ClipboardList size={18} aria-hidden="true"/>Relatório de peças</a>
+            {id && (
+              <a href="/programacao">
+                <ArrowLeft size={16} />
+                Todas as OSs
+              </a>
+            )}
+            <button onClick={() => setConfig(!config)} aria-pressed={config}>
+              <Settings size={17} />
+              {config ? "Voltar" : "Configurações"}
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => {
+                clearApiCache();
+                void load();
+              }}
+            >
+              <RefreshCw size={18} aria-hidden="true"/>Atualizar
+            </button>
+          </nav>
+        </header>
+        {error && (
+          <p role="alert" className="scheduling-error">
+            {error}
+          </p>
+        )}
+        <span className="schedule-save-status" role="status">
+          {busy ? "Salvando…" : ""}
+        </span>
+        {!data ? (
+          <p>{error ? "Clique em Atualizar para tentar novamente." : "Carregando programação…"}</p>
+        ) : config ? (
+          <ScheduleSettings
+            data={data}
+            onSaved={(settings: any) => {
+              setData({ ...data, settings });
+              void load();
+            }}
+          />
+        ) : !id ? (
+          <>
+            <ScheduleOverview schedules={filteredSchedules} selectedStage={stageFilter} onSelectStage={status=>{
+              const next=stageFilter===status ? "" : status;
+              setStageFilter(next);setOverviewView("list");
+              if(next==="completed")setCompletedExpanded(true);
+            }} />
+            <div className="schedule-overview-filters">
+            <label className="scheduling-search">
+              Pesquisar OS, cliente, equipamento ou cidade
+              <input value={query} onChange={(e) => setQuery(e.target.value)} />
+            </label>
+            <label className="scheduling-search">
+              Executante
+              <select aria-label="Executante" value={executor} onChange={(e) => setExecutor(e.target.value)}>
+                <option value="">Todos os executantes</option>
+                {[...executorOptions].sort((a,b) => a[1].localeCompare(b[1], "pt-BR")).map(([email,name]) => <option key={email} value={email}>{name}</option>)}
+              </select>
+            </label>
+            <label className="scheduling-search">
+              Responsável do fluxo
+              <select aria-label="Responsável do fluxo" value={flowOwner} onChange={e=>setFlowOwner(e.target.value)}>
+                <option value="">Todos os responsáveis</option>
+                {flowOwners.map(owner=><option key={owner} value={owner}>{owner}</option>)}
+              </select>
+            </label>
+            <label className="scheduling-search">
+              Visão por data
+              <select aria-label="Visão por data" value={dateView} onChange={e=>setDateView(e.target.value as ScheduleDateView)}>
+                <option value="delivery">Data prevista acumulada</option>
+                <option value="operation">Data operação programada</option>
+              </select>
+            </label>
+            <div className="scheduling-search">
+              <span>{dateView === "delivery" ? "Entrega prevista acumulada" : "Operação programada"}</span>
+              <div className="schedule-delivery-filter" role="group" aria-label={dateView === "delivery" ? "Filtro de entrega prevista" : "Filtro de operação programada"}>
+                <span className="schedule-delivery-icon" aria-hidden="true"><CalendarDays size={15}/></span>
+                <select aria-label={dateView === "delivery" ? "Mês da entrega prevista" : "Mês da operação programada"} value={deliveryMonth.slice(5)} onChange={e=>setDeliveryMonth(e.target.value ? deliveryYear+"-"+e.target.value : "")}>
+                  <option value="">Todos os meses</option>
+                  {["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"].map((month,index)=><option key={month} value={String(index+1).padStart(2,"0")}>{month}</option>)}
+                </select>
+                <select aria-label={dateView === "delivery" ? "Ano da entrega prevista" : "Ano da operação programada"} value={deliveryYear} onChange={e=>{setDeliveryYear(e.target.value);if(deliveryMonth)setDeliveryMonth(e.target.value+deliveryMonth.slice(4));}}>
+                  {[...new Set([...deliveryMonths.map(month=>month.slice(0,4)),deliveryYear,String(new Date().getFullYear())])].sort().map(year=><option key={year} value={year}>{year}</option>)}
+                </select>
+              </div>
+            </div>
+            </div>
+            <p>
+              Use “Programar OS” nos detalhes da ordem no Histórico para
+              incluí-la nesta lista.
+            </p>
+            <nav className="schedule-overview-views" aria-label="Visão da programação">
+              <button aria-pressed={overviewView === "list"} onClick={() => setOverviewView("list")}> <ClipboardList size={16} aria-hidden="true"/>Lista</button>
+              <button aria-pressed={overviewView === "calendar"} onClick={() => setOverviewView("calendar")}> <CalendarDays size={16} aria-hidden="true"/>Calendário</button>
+              <button aria-pressed={overviewView === "map"} onClick={() => setOverviewView("map")}> <MapPin size={16} aria-hidden="true"/>Mapa</button>
+            </nav>
+            {overviewView === "map" && <ScheduleOrdersMap schedules={filteredSchedules}/>}
+            {overviewView === "calendar" && <ScheduleOrdersCalendar filterMonth={deliveryMonth} onMonthChange={dateView === "operation" && deliveryMonth ? month=>{setDeliveryMonth(month);setDeliveryYear(month.slice(0,4));} : undefined} schedules={calendarSchedules} users={data.users || []} vehicles={data.settings?.document?.vehicles || []}/>}
+            {overviewView === "list" && stageFilter && <p className="schedule-stage-filter-label">Etapa: <strong>{scheduleStatusNames[stageFilter]}</strong> <button type="button" onClick={()=>setStageFilter("")}>Limpar etapa</button></p>}
+            <div hidden={overviewView !== "list"} className="scheduling-table scheduling-orders-list">
+              <table>
+                <thead>
+                  <tr>
+                    {scheduleColumns.map(([key, label]) => (
+                      <th key={key} className={key === "inWorkshop" ? "schedule-workshop-cell" : key === "type" ? "schedule-type-cell" : undefined} aria-sort={listSort?.key === key ? (listSort.descending ? "descending" : "ascending") : "none"}>
+                        <button className="schedule-column-sort" onClick={() => setListSort(current => ({
+                          key, descending: current?.key === key ? !current.descending : false,
+                        }))}>
+                          <span>{label}</span>
+                          {listSort?.key === key
+                            ? (listSort.descending ? <ArrowDown size={13} aria-hidden="true"/> : <ArrowUp size={13} aria-hidden="true"/>)
+                            : <ArrowUpDown size={13} aria-hidden="true"/>}
+                        </button>
+                      </th>
+                    ))}
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {listEntries
+                    .map((s: any) => s.completedGroup ? (
+                      <tr key="completed-group" className="schedule-completed-group">
+                        <td colSpan={scheduleColumns.length+1}>
+                          <button type="button" aria-expanded={completedExpanded} onClick={()=>setCompletedExpanded(v=>!v)}>
+                            <ChevronRight size={16} style={{transform:completedExpanded?"rotate(90deg)":undefined}} aria-hidden="true"/>
+                            OSs concluídas ({completedSchedules.length}) · {completedExpanded?"Recolher":"Expandir"}
+                          </button>
+                          <small>Status Processado no ERP</small>
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr key={s.id}>
+                        <td>
+                          <span className="schedule-order-number">
+                            <OrderDetailLink
+                              id={String(s.order_id)}
+                              company={s.company_id}
+                              number={String(s.numero_sequencia || s.order_id)}
+                            >
+                              OS-
+                              {String(
+                                s.numero_sequencia || s.order_id,
+                              ).padStart(5, "0")}
+                            </OrderDetailLink>
+                          </span>
+                          <span
+                            className={
+                              "operation-status schedule-list-status " +
+                              displayedScheduleStatus(s)
+                            }
+                          >
+                            {scheduleStatusNames[displayedScheduleStatus(s)] ||
+                              "Pendente"}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            className="material-count"
+                            aria-label={`${s.operation_count} operações`}
+                          >
+                            <ListChecks size={13} aria-hidden="true" />
+                            {s.operation_count}
+                          </span>
+                        </td>
+                        <td>
+                          {s.cliente_nome || "—"}
+                          <small className="schedule-client-location">{[s.customer_city, s.customer_state].filter(Boolean).join(" / ") || "Cidade / estado não informados"}</small>
+                        </td>
+                        <td>{s.equipamento || "—"}</td>
+                        <td className="schedule-workshop-cell">{s.in_workshop ? "Sim" : "Não"}</td>
+                        <td className="schedule-type-cell">
+                          <span>{s.tipo_nome || "—"}</span>
+                          <small className="schedule-attendance-type">{s.tipo_atendimento_nome || "—"}</small>
+                        </td>
+                        <td>{s.status_lancamento_nome || "—"}
+                          {s.linked_status_lancamento_nome && <small className="schedule-client-location" title={"OS vinculada: " + (s.linked_order_number || s.linked_order_id)}>{s.linked_status_lancamento_nome}</small>}
+                        </td>
+                        <td className={dateView === "delivery" && deliveryMonth && isCarriedDelivery(s, deliveryMonth) ? "schedule-delivery-carried" : undefined}
+                          title={dateView === "delivery" && deliveryMonth && isCarriedDelivery(s, deliveryMonth) ? "Entrega pendente de mês anterior, incluída na projeção acumulada" : undefined}>
+                          {s.expected_delivery_date ? s.expected_delivery_date.split("-").reverse().join("/") : "Não informada"}
+                        </td>
+                        <td className="schedule-planned-date">
+                          <SchedulePlannedDate value={s.planned_date} />
+                        </td>
+                        <td className="schedule-order-value">{money(s.order_value)}</td>
+                        <td><span className="company-tag">{companyName(s.company_id)}</span></td>
+                        <td className="schedule-details-cell">
+                          <a href={scheduleUrl(s)}>
+                            Detalhes <ChevronRight size={14} />
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+              {!stageSchedules.length && (
+                <p>Nenhuma OS encontrada para os filtros selecionados.</p>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <section className="scheduling-order">
+              <div className="scheduling-order-heading">
+                <h2>
+                  OS{" "}
+                  {data.detail?.order?.numero_sequencia || data.schedule.order_id}{" "}
+                  · {companyName(data.schedule.company_id)}
+                </h2>
+                <ScheduleOrderButton company={Number(data.schedule.company_id)} orderId={String(data.schedule.order_id)} />
+              </div>
+              <p className="schedule-client">
+                {data.detail?.order?.cliente_nome || "Cliente não informado"}
+              </p>
+              <p className="schedule-customer-location">
+                {[data.schedule.customer_city, data.schedule.customer_state].filter(Boolean).join(" / ") || "Cidade / estado não informados"}
+              </p>
+              <p>
+                {data.detail?.order?.equipamento || "Equipamento não informado"}
+              </p>
+              <details className="schedule-observation" key={data.schedule.id}>
+                <summary>
+                  <span>Observação</span>
+                  <span className="observation-expand">Expandir</span>
+                  <span className="observation-collapse">Recolher</span>
+                  <ChevronRight size={16} aria-hidden="true" />
+                </summary>
+                <p>{data.detail?.order?.observacao || "Não informada"}</p>
+              </details>
+              <dl className="schedule-order-fields">
+                {([
+                  [
+                    "Data de abertura",
+                    orderDate(data.detail?.order?.data_abertura),
+                  ],
+                  [
+                    "Data prevista de entrega",
+                    orderDate(data.detail?.order?.data_entrega_prevista),
+                  ],
+                  ["Data prevista de programação", <SchedulePlannedDate key="planned-date" value={data.schedule.planned_date}/>],
+                  [
+                    "Tipo de atendimento",
+                    data.detail?.order?.tipo_atendimento_nome ||
+                      "Não informado",
+                  ],
+                  [
+                    "Situação",
+                    data.detail?.order?.situacao_nome || "Não informada",
+                  ],
+                  [
+                    "Status do lançamento",
+                    data.detail?.order?.status_lancamento_nome ||
+                      "Não informado",
+                  ],
+                ] as [string, React.ReactNode][]).map(([label, value]) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="schedule-order-footer">
+              <OrderDetailLink
+                id={String(data.schedule.order_id)}
+                company={data.schedule.company_id}
+              >
+                Ver detalhes da OS
+              </OrderDetailLink>
+                <dl className="schedule-order-total">
+                  <dt>Valor total da OS</dt>
+                  <dd>{data.detail?.order?.total_geral == null ? "Não informado" : money(data.detail.order.total_geral)}</dd>
+                </dl>
+              </div>
+            </section>
+            <ScheduleOrderActions data={data} onChanged={()=>void load()}/><OrderTaskLinks company={String(data.schedule.company_id)} orderId={String(data.schedule.order_id)} revision={(data.operations||[]).map((o:any)=>`${o.id}:${o.version}`).join(",")}/>
+            {data.canEditSettings && <div className="scheduling-actions order-report-launch"><button type="button" disabled={busy} onClick={()=>setOrderReportOpen(true)}>Gerar relatório da OS</button><button type="button" disabled={busy||!data.operations?.length} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações das operações antes de iniciar a revisão da OS.");return;}setOrderReviewOpen(true);}}><ListChecks size={18}/>Revisar operações da OS</button><button type="button" disabled={busy} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações antes de gerar a tarefa da OS.");return;}setOrderTaskOpen(true);}}><ClipboardPlus size={18} aria-hidden="true"/>Gerar tarefa da OS</button></div>}
+            {orderReviewOpen && <OrderOperationsReview key={data.schedule.id} data={data} busy={busy} error={error} mutate={mutate} dirtyOperations={dirtyOperations.current} onClose={()=>setOrderReviewOpen(false)}/>}
+            {orderTaskOpen && <OrderTaskWindow data={data} onClose={()=>setOrderTaskOpen(false)}/>}
+            {orderReportOpen && <OrderReportWindow key={data.schedule.id} data={data} onClose={()=>setOrderReportOpen(false)}/>}
+            <nav className="app-section-tabs" aria-label="Abas da programação">
+              {[
+                ["operations", "Operações"],
+                ["products", "Produtos"],
+                ["services", "Serviços"],
+                ["costs", "Custos"],
+                ["timeLogs", "Apontamentos"],
+              ].map(([k, n]) => (
+                <button
+                  key={k}
+                  aria-pressed={tab === k}
+                  onClick={() => setTab(k)}
+                >
+                  {n}
+                </button>
+              ))}
+            </nav>
+            {tab === "operations" && (
+              <>
+                <p>
+                  Datas e horários de Brasília. Duração total = duração ×
+                  quantidade de pessoas. O envio ao dispositivo será integrado
+                  posteriormente.
+                </p>
+                <div className="scheduling-table">
+                  <table className="operations-table">
+                    <thead>
+                      <tr>
+                        {[
+                          "Operação",
+                          "Tipo Serviço",
+                          "Descrição da Operação",
+                          "Equipamento",
+                          "Checklist",
+                          "Responsável",
+                          "Equipe de Apoio",
+                          "Data de Programação",
+                          "Hora início",
+                          "Duração (h)",
+                          "Duração Total (h)",
+                          "Apontamento total (h)",
+                          "Calendário",
+                          "Status",
+                          "Enviado dispositivo",
+                          "Observação interna",
+                          "Veículo",
+                          "Execução",
+                        ].map((h) => (
+                          <th key={h}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.operations.map((o: any) => (
+                        <OperationRow
+                          key={o.id}
+                          operation={o}
+                          dirtyOperations={dirtyOperations.current}
+                          error={error}
+                          data={data}
+                          busy={busy}
+                          mutate={mutate}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="schedule-operation-actions"><button
+                  disabled={busy}
+                  onClick={() => void mutate({ action: "add_operation" })}
+                >
+                  <Plus size={16} />
+                  Adicionar operação
+                </button><TaskListActions data={data} disabled={busy} hasDirty={()=>dirtyOperations.current.size>0} onApplied={()=>{clearApiCache();void load();}}/></div>
+              </>
+            )}
+            {["products", "services", "costs"].includes(tab) && (materials.some((m: any) => m.source_linked) || services.some((s: any) => s.source_linked)) && <p className="schedule-linked-legend">Linhas amarelas: itens da OS vinculada.</p>}
+            {data.linked_detail_incomplete && ["products","services","costs"].includes(tab) && <p role="status">O detalhamento da OS vinculada ainda não foi importado completamente; os itens e custos podem estar incompletos.</p>}
+            {tab === "products" && (
+              <>
+                <p>
+                  Itens da OS principal e, abaixo, os códigos distintos da OS vinculada. Retirada e utilização ficam em branco
+                  até o preenchimento pela equipe responsável. Estoque e estoque disponível correspondem à última coleta do ERP na empresa de origem do item; passe o cursor sobre o saldo para ver a data. Em compra mostra o saldo pendente das ordens de compra ativas da mesma empresa, por unidade.
+                </p>
+                {!data.detail?.detail_at && (
+                  <p>
+                    Detalhamento do ERP ainda não coletado; a lista pode estar
+                    incompleta.
+                  </p>
+                )}
+                <div className="scheduling-table materials-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Código</th>
+                        <th>Produto</th>
+                        <th>Unidade</th>
+                        <th>Quantidade empenhada</th>
+                        <th>Estoque</th>
+                        <th>Estoque disponível</th>
+                        <th>Em compra</th>
+                        <th>Quantidade Retirada</th>
+                        <th>Quantidade Utilizada</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {materials.map((m: any) => {
+                        const u = data.usage.find(
+                          (u: any) => itemMatches(u,m),
+                        );
+                        return (
+                          <tr key={itemIdentity(m)} className={m.source_linked ? "schedule-linked-item" : undefined}>
+                            <td>{m.produto_id || "—"}</td>
+                            <td>{m.produto_nome}<ItemInconsistency item={m}/></td>
+                            <td>{m.unidade_nome}</td>
+                            <td>{qty(m.quantidade)}</td>
+                            <MaterialStock material={m} />
+                            <MaterialStock material={m} available />
+                            <MaterialPurchases material={m} />
+                            {["withdrawn", "used"].map((field) => (
+                              <td key={field}>
+                                <input
+                                  key={u?.version || 0}
+                                  aria-label={
+                                    (field === "withdrawn"
+                                      ? "Quantidade Retirada "
+                                      : "Quantidade Utilizada ") +
+                                    m.produto_nome
+                                  }
+                                  type="number"
+                                  min="0"
+                                  step="0.001"
+                                  defaultValue={u?.[field] ?? ""}
+                                  disabled={busy || !canUse}
+                                  onBlur={(e) => {
+                                    const value = number(e.target.value);
+                                    if (
+                                      value !==
+                                      (u?.[field] == null
+                                        ? null
+                                        : Number(u[field]))
+                                    )
+                                      void mutate({
+                                        action: "usage",
+                                        itemId: String(m.id_m8),
+                                        item_company:m.item_company, item_order:m.item_order,
+                                        version: u?.version ?? null,
+                                        withdrawn:
+                                          u?.withdrawn == null
+                                            ? null
+                                            : Number(u.withdrawn),
+                                        used:
+                                          u?.used == null
+                                            ? null
+                                            : Number(u.used),
+                                        [field]: value,
+                                      });
+                                  }}
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {!materials.length && (
+                    <p>Nenhum produto disponível nesta OS.</p>
+                  )}
+                </div>
+              </>
+            )}
+            {tab === "services" && (
+              <div className="scheduling-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Serviço</th>
+                      <th>Unidade</th>
+                      <th>Quantidade</th>
+                      <th>Preço unitário</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {services.map((s: any) => (
+                      <tr key={itemIdentity(s)} className={s.source_linked ? "schedule-linked-item" : undefined}>
+                        <td>{s.servico_id}</td>
+                        <td>{s.servico_nome}</td>
+                        <td>{s.service_unit || "—"}</td>
+                        <td>{qty(s.quantidade)}</td>
+                        <td>{money(s.valor_unitario)}</td>
+                        <td>{money(s.valor_total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!services.length && <p>Nenhum serviço disponível nesta OS.</p>}
+              </div>
+            )}
+            {tab === "timeLogs" && <ScheduleTimeLogs data={data} onChanged={async()=>{clearApiCache();await load();}}/>}
+            {tab === "costs" && (
+              <ScheduleCosts
+                data={data}
+                materials={materials}
+                services={services}
+                busy={busy}
+                mutate={mutate}
+              />
+            )}
+          </>
+        )}
+      </main>
+    </>
+  );
 }
-.operations-table .operation-execution-actions > button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 34px;
-  min-height: 34px;
-  margin: 0;
-  box-sizing: border-box;
+function ScheduleOverview({ schedules, selectedStage, onSelectStage }: { schedules: any[]; selectedStage:string; onSelectStage:(status:string)=>void }) {
+  const values = scheduleValueSummary(schedules);
+  const [showUndated, setShowUndated] = useState(false);
+  const undated = schedules.filter(s => displayedScheduleStatus(s) !== "completed" && (
+    !s.calendar_operations?.length ||
+    s.calendar_operations.some((o:any) => (o.dates || [o.date || ""]).includes(""))));
+
+  const operations: Record<string, number> = {};
+  const orders: Record<string, number> = {};
+  for (const s of schedules) {
+    const status = displayedScheduleStatus(s);
+    orders[status] = (orders[status] || 0) + 1;
+    for (const [status, count] of Object.entries(
+      s.operation_status_counts || {},
+    ))
+      operations[status] = (operations[status] || 0) + Number(count);
+  }
+  const totalOperations = schedules.reduce(
+    (n, s) => n + Number(s.operation_count || 0),
+    0,
+  );
+  return (
+    <section className="schedule-overview" aria-label="Resumo da programação">
+      <div className="schedule-overview-cards schedule-overview-totals">
+        <article>
+          <span>Total de OSs</span>
+          <strong>{schedules.length.toLocaleString("pt-BR")}</strong>
+          <small>Ordens incluídas na programação</small>
+        </article>
+        <article>
+          <span>Total de operações</span>
+          <strong>{totalOperations.toLocaleString("pt-BR")}</strong>
+          <small>
+            {operations.completed || 0} concluídas ·{" "}
+            {totalOperations - (operations.completed || 0)} em aberto
+          </small>
+        </article>
+        <article className={"schedule-undated-summary" + (undated.length ? " needs-attention" : "")}>
+          <span>Sem data programada</span>
+          <strong>{undated.length.toLocaleString("pt-BR")} <em>OSs</em></strong>
+          <small>{undated.length ? "Atenção: definir as datas dos serviços" : "Nenhuma programação sem data"}</small>
+          <button type="button" disabled={!undated.length} onClick={()=>setShowUndated(true)}>Ver OSs sem data programada</button>
+        </article>
+        <article className="schedule-value-summary">
+          <span>Valor total da programação</span>
+          <strong>{money(values.total)}</strong>
+          <small className="schedule-value-completed">Concluídas: {money(values.completed)} · {orders.completed || 0} OSs</small>
+          {!!values.missing && <small>{values.missing} OSs sem valor informado</small>}
+        </article>
+        <article className="schedule-value-summary schedule-value-open">
+          <span>Valor das OSs não concluídas</span>
+          <strong>{money(values.open)}</strong>
+          <small>{schedules.length - (orders.completed || 0)} OSs a concluir</small>
+          {!!values.openMissing && <small>{values.openMissing} OSs sem valor informado</small>}
+        </article>
+      </div>
+      {showUndated && <DayOrders orders={undated} day="" onClose={()=>setShowUndated(false)}/>}
+      <ol className="schedule-overview-cards schedule-stage-flow" aria-label="Etapas da programação" tabIndex={0}>
+        {Object.entries(scheduleStatusNames).filter(([status])=>status!=="cancelled").map(([status, label]) => (
+          <li key={status}>
+          <article data-status={status} className={selectedStage===status ? "schedule-stage-selected" : undefined}>
+            <button type="button" className="schedule-stage-filter-button" aria-label={"Filtrar OSs: "+label} aria-pressed={selectedStage===status} onClick={()=>onSelectStage(status)}/>
+
+            <span>{label}</span>
+            <strong>
+              {(orders[status] || 0).toLocaleString("pt-BR")} <em>OSs</em>
+            </strong>
+            <small>
+              {operations[status] || 0} operações
+            </small>
+            <b className="schedule-stage-value">{money((values.stages[status]?.cents || 0)/100)}</b>
+            {!!values.stages[status]?.missing && <small>{values.stages[status].missing} OSs sem valor</small>}
+          </article>
+          </li>
+        ))}
+      </ol>
+      {!!orders.cancelled && <p className="schedule-cancelled-total"><span className="operation-status schedule-list-status cancelled">Cancelado: {orders.cancelled} OSs</span></p>}
+      <small>
+        O status da OS considera a primeira etapa de programação ainda pendente;
+        operações em execução têm prioridade. Concluída considera somente OSs
+        com status Processado no ERP. Operações finalizadas aguardando esse
+        processamento ficam em Revisada neste resumo.
+      </small>
+    </section>
+  );
 }
-.operations-table .operation-execution-actions > .operation-icon-action {
-  width: 34px;
-  min-width: 34px;
-  padding: 7px;
-  border: 1px solid #d6e2ee;
-  border-radius: 8px;
-  background: #fff;
-  color: #266194;
-  box-shadow: none;
-  flex-shrink: 0;
+function OperationRow({
+  operation: o,
+  dirtyOperations,
+  error,
+  data,
+  busy,
+  mutate,
+}: {
+  operation: any;
+  dirtyOperations: Set<string>;
+  error?: string;
+  data: any;
+  busy: boolean;
+  mutate: (b: any) => Promise<boolean>;
+}) {
+  useEffect(()=>()=>{dirtyOperations.delete(o.id+":review");},[o.id,dirtyOperations]);
+  const [rescheduleDraft,setRescheduleDraft]=useState<any>(null);
+  const noteDialog = useRef<HTMLDialogElement>(null);
+  const [noteError, setNoteError] = useState("");
+  const noteBeforeEditing = useRef("");
+  const [d, setD] = useState(o.document),
+    [expanded, setExpanded] = useState(false);
+  useEffect(() => setD(o.document), [o.version]);
+  const locked =
+      busy || ["completed", "reviewed", "awaiting_review"].includes(o.status),
+    users = data.users.filter(
+      (u: any) =>
+        u.enabled || u.email === d.responsible || d.support.includes(u.email),
+    );
+  function change(k: string, v: any, save = false, equipment?: any, equipmentUnassigned = false) {
+    const next = {
+      ...d,
+      [k]: v,
+      ...(k === "equipmentId" ? { equipment: equipment || undefined, equipmentUnassigned } : {}),
+      ...(k === "responsible"
+        ? { support: d.support.filter((e: string) => e !== v), jobTitle: data.users.find((u: any) => u.email === v)?.job_title || "" }
+        : {}),
+      ...(k === "checklistId" ? { checked: [] } : {}),
+      ...(k === "date" && !v ? { time: "" } : {}),
+    };
+    if(JSON.stringify(next)!==JSON.stringify(o.document))dirtyOperations.add(o.id);else dirtyOperations.delete(o.id);
+    setD(next);
+  }
+  const dirty = JSON.stringify(d) !== JSON.stringify(o.document);
+  useEffect(()=>{if(dirty)dirtyOperations.add(o.id);else dirtyOperations.delete(o.id);return ()=>{dirtyOperations.delete(o.id);};},[dirty,o.id,dirtyOperations]);
+  async function persist(next = d, rescheduling?: {confirmed:true;reason:string}) {
+    if (locked) return false;
+    if(needsRescheduling(o,next) && !rescheduling){setRescheduleDraft(next);return false;}
+    const changingResponsible=changesDispatchedResponsible(o,next);
+    if(changingResponsible&&!window.confirm(responsibleChangeWarning))return false;
+    const replacing=!!o.document.checklistRun&&next.checklistId!==o.document.checklistId;
+    if(replacing&&!window.confirm("Substituir o checklist apagará todo o preenchimento e as fotos do relatório desta operação. Deseja continuar?"))return false;
+    if (JSON.stringify(next) !== JSON.stringify(o.document))
+      return await mutate({
+        action: "operation",
+        operationId: o.id,
+        version: o.version,
+        document: next,
+        confirmChecklistReplacement: replacing,
+        confirmResponsibleChange: changingResponsible,
+        rescheduling,
+      });
+    return true;
+  }
+  const checklist = data.settings.document.checklists.find((c: any) => c.id === d.checklistId);
+  return (
+    <>
+      <tr
+        className={dirty ? "operation-unsaved" : undefined}
+        onKeyDown={(e) => {
+          if((e.target as HTMLElement).closest("dialog"))return;
+          if (
+            e.key === "Enter" &&
+            !e.nativeEvent.isComposing &&
+            !(e.target instanceof HTMLButtonElement)
+          ) {
+            e.preventDefault();
+            void persist();
+          }
+        }}
+      >
+        <td>
+          <strong className="operation-cell-value operation-number">{operationNumber(o.position)}</strong>
+          <ReschedulingHistory entries={o.document.reschedulingHistory || []} users={data.users}/>
+        </td>
+        <td>
+          <select
+            aria-label={"Tipo Serviço " + operationNumber(o.position)}
+            disabled={locked}
+            value={d.serviceType}
+            onChange={(e) => change("serviceType", e.target.value, true)}
+          >
+            <option value="">Selecionar</option>
+            {data.settings.document.serviceTypes.map((s: string) => (
+              <option key={s}>{s}</option>
+            ))}
+          </select>
+        </td>
+        <td>
+          <input
+            aria-label={"Descrição da Operação " + operationNumber(o.position)}
+            disabled={locked}
+            maxLength={40}
+            value={d.description}
+            onChange={(e) => change("description", e.target.value)}
+          />
+          <small className="operation-description-count">
+            {d.description.length}/40
+          </small>
+        </td>
+        <td><OperationEquipmentSelect scheduleId={data.schedule.id} displayLabel={operationEquipmentLabel(d,data.detail?.order)} value={d.equipmentId||''} unassigned={d.equipmentUnassigned===true} label={d.equipment?.name||''} orderLabel={data.detail?.order?.equipamento||data.detail?.equipment_links?.map((e:any)=>e.name).filter(Boolean).join(' · ')||''} disabled={locked||!!o.sent_at||!!o.document.equipmentLocked||!!o.document.checklistRun?.equipmentId} onChange={(id,equipment,unassigned)=>change('equipmentId',id,false,equipment,unassigned)}/></td>
+        <td>
+          <div className="operation-checklist-select" title={checklist ? [checklist.prefix, checklist.name].filter(Boolean).join(" - ") : "Sem checklist"}>
+          <select
+            aria-label={"Checklist " + operationNumber(o.position)}
+            disabled={locked || (!!o.document.checklistRun && !o.document.checklistReturn)}
+            value={d.checklistId}
+            onChange={(e) => change("checklistId", e.target.value, true)}
+          >
+            <option value="">Sem checklist</option>
+            {data.settings.document.checklists.map((c: any) => (
+              <option key={c.id} value={c.id}>
+                {[c.prefix, c.name].filter(Boolean).join(" - ")}
+              </option>
+            ))}
+          </select>
+          <span aria-hidden="true">{checklist?.prefix?.trim() || checklist?.name || "Sem checklist"}</span>
+          </div>
+        </td>
+        <td>
+          <select
+            aria-label={"Responsável " + operationNumber(o.position)}
+            title={o.sent_at?'A troca do executante exige confirmação e pode afetar dados não sincronizados':undefined}
+            disabled={locked}
+            value={d.responsible}
+            onChange={(e) => change("responsible", e.target.value, true)}
+          >
+            <option value="">Não atribuído</option>
+            {users.map((u: any) => (
+              <option key={u.email} value={u.email}>
+                {u.display_name || u.email}
+              </option>
+            ))}
+          </select>
+        </td>
+        <td>
+          <SupportPicker
+            position={operationNumber(o.position)}
+            disabled={locked}
+            users={users.filter((u: any) => u.email !== d.responsible)}
+            selected={d.support}
+            onChange={(value: string[]) => change("support", value)}
+          />
+        </td>
+        <td>
+          <DateTimePicker editable
+            label={"Data de Programação " + operationNumber(o.position)}
+            mode="date"
+            disabled={locked}
+            value={d.date}
+            onChange={(value) => change("date", value)}
+          />
+          {rescheduleDraft && <ReschedulingConfirmation previous={o.document} next={rescheduleDraft} busy={busy} error={error}
+            onCancel={()=>{setRescheduleDraft(null);setD((current:any)=>({...current,date:o.document.date,time:o.document.time}));}}
+            onConfirm={async reason=>{if(await persist(rescheduleDraft,{confirmed:true,reason}))setRescheduleDraft(null);}}/>}
+        </td>
+        <td>
+          <DateTimePicker editable
+            label={"Hora início " + operationNumber(o.position)}
+            mode="time"
+            disabled={locked || !d.date}
+            value={d.time}
+            onChange={(value) => change("time", value)}
+          />
+        </td>
+        <td>
+          <input
+            aria-label={"Duração " + operationNumber(o.position)}
+            type="number"
+            min="0"
+            max="10000"
+            step="0.001"
+            disabled={locked}
+            value={d.duration ?? ""}
+            onChange={(e) => change("duration", number(e.target.value))}
+          />
+        </td>
+        <td>
+          <span className="operation-cell-value">{totalHours(d) == null
+            ? "—"
+            : totalHours(d)!.toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 3,
+              })}</span>
+        </td>
+        <td aria-label={"Apontamento total da operação " + operationNumber(o.position)} title="Tempo dos apontamentos finalizados de toda a equipe: atividade, deslocamento e pausas. Independente do envio do relatório.">
+          <span className="operation-cell-value">{completedOperationHours(o.id, data.fieldSessions || [], data.fieldEvents || [], data.events || []).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</span>
+        </td>
+        <td>
+          <select
+            aria-label={"Calendário " + operationNumber(o.position)}
+            disabled={locked}
+            value={d.calendarId}
+            onChange={(e) => change("calendarId", e.target.value, true)}
+          >
+            {data.settings.document.calendars.map((c: any) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </td>
+        <td>
+          <div className="operation-cell-value"><span className={"operation-status " + (o.display_status || o.status)}>
+            {o.document.checklistReturn?"Devolvida para ajuste do checklist":statusNames[o.display_status || o.status]}
+          </span></div>
+        </td>
+        <td><span className="operation-cell-value">{o.sent_at ? "Sim" : "Não"}</span>{o.document.checklistReturn&&<small>Motivo: {o.document.checklistReturn.reason}</small>}</td>
+        <td>
+          <button
+            className="operation-note-preview"
+            aria-label={"Observação interna " + operationNumber(o.position)}
+            onClick={() => { noteBeforeEditing.current = d.internalNote || ""; setNoteError(""); noteDialog.current?.showModal(); }}
+          >
+            {d.internalNote || "Incluir observação"}
+          </button>
+          <dialog
+            ref={noteDialog}
+            className="operation-note-dialog"
+            onCancel={(e) => { e.preventDefault(); if (!busy) { change("internalNote", noteBeforeEditing.current); noteDialog.current?.close(); } }}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <h3>Observação interna · Operação {operationNumber(o.position)}</h3>
+            <textarea
+              aria-label="Texto da observação interna"
+              readOnly={locked}
+              value={d.internalNote || ""}
+              onChange={(e) => change("internalNote", e.target.value)}
+            />
+            <p>Salvar grava a observação e todos os campos alterados desta operação.</p>
+            {noteError && <p role="alert">{noteError}</p>}
+            <div className="operation-note-actions">
+            <button type="button" className="operation-note-save" disabled={locked} onClick={async () => {
+              setNoteError("");
+              if (await persist()) noteDialog.current?.close();
+              else setNoteError("Não foi possível salvar. Verifique os campos da operação e tente novamente; sua edição foi mantida.");
+            }} aria-label="Salvar" title="Salvar"><SaveActionIcon />Salvar</button>
+            <button type="button" disabled={busy} onClick={() => { change("internalNote", noteBeforeEditing.current); setNoteError(""); noteDialog.current?.close(); }}>Cancelar</button>
+            </div>
+          </dialog>
+        </td>
+        <td>
+          <select
+            aria-label={"Veículo " + operationNumber(o.position)}
+            disabled={locked}
+            value={d.vehicleId || ""}
+            onChange={(e) => change("vehicleId", e.target.value)}
+          >
+            <option value="">Não selecionado</option>
+            {(data.settings.document.vehicles || []).map((v: any) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+          </select>
+        </td>
+        <td>
+          <div className="operation-execution-content">
+          <div className="operation-execution-actions">
+          <button
+            className="operation-icon-action"
+            disabled={locked || !dirty}
+            aria-label={"Salvar operação " + operationNumber(o.position)}
+            onClick={() => void persist()}
+           title={"Salvar operação " + operationNumber(o.position)}><SaveActionIcon /></button>
+          {data.canEditSettings && <button className="operation-icon-action" type="button"
+            title={o.sent_at?"Retornar OS ao planejamento":"Enviar ao técnico"}
+            aria-label={o.sent_at?"Retornar OS ao planejamento":"Enviar ao técnico"}
+            disabled={busy||dirty||(o.sent_at?(locked||!!reportSubmission(o.document.checklistRun)||!!o.document.checklistRun?.partialSubmission):(o.status!=="scheduled"||!d.responsible))}
+            onClick={()=>{
+              if(!o.sent_at){void mutate({action:"dispatch",operationId:o.id,version:o.version});return;}
+              const reason=window.prompt('Retornar esta operação da OS ao planejamento? Ela sairá do portal do técnico até ser reenviada. Dados ainda não sincronizados podem ser perdidos parcialmente. Informe o motivo do retorno:');
+              if(reason===null)return;
+              void mutate({action:'recall',operationId:o.id,version:o.version,confirmReturn:true,reason});
+            }}>{o.sent_at?<Undo2 size={18} aria-hidden="true"/>:<Send size={18} aria-hidden="true"/>}</button>}
+          <button className="operation-icon-action" type="button" title="Acompanhar execução" aria-label="Acompanhar execução" onClick={() => setExpanded(true)}>
+            <Eye size={18} aria-hidden="true"/>
+          </button>
+          {o.document.checklistId && data.canEditSettings&&reportSubmission(o.document.checklistRun)&&!['reviewed','completed'].includes(o.status)&&<button className="operation-icon-action" type="button" title="Devolver relatório ao técnico" aria-label="Devolver relatório ao técnico" disabled={busy||dirty} onClick={()=>void mutate({action:'report_reopen',operationId:o.id,version:o.version})}><Undo2 size={18} aria-hidden="true"/></button>}
+          <button
+            className="operation-icon-action operation-icon-action--danger"
+            title={"Remover operação " + operationNumber(o.position)}
+            aria-label={"Remover operação " + operationNumber(o.position)}
+            disabled={
+              busy || !["pending", "planning", "scheduled"].includes(o.status)
+            }
+            onClick={() => {
+              if (window.confirm("Remover esta operação?"))
+                void mutate({
+                  action: "remove_operation",
+                  operationId: o.id,
+                  version: o.version,
+                });
+            }}
+          >
+            <Trash2 size={18} />
+          </button>
+          </div>
+          <div className="operation-execution-details">
+          {o.document.checklistId&&<div className="operation-report-state"><span>Relatório: <strong>{reportStatusLabel(o.document.checklistRun)}</strong></span>
+          </div>}
+          <small className="operation-draft-label" role="status" style={{visibility:dirty?"visible":"hidden"}} aria-hidden={!dirty}>
+            Alterações não salvas
+          </small>
+          </div>
+          </div>
+        </td>
+      </tr>
+      {expanded && <OperationReviewWindow operation={o} data={data} busy={busy} dirty={dirty} error={error} mutate={mutate} onReportDirty={(value:boolean)=>{if(value)dirtyOperations.add(o.id+":review");else dirtyOperations.delete(o.id+":review");}} onClose={() => {dirtyOperations.delete(o.id+":review");setExpanded(false);}}/>}
+
+    </>
+  );
 }
-.operations-table .operation-icon-action > svg {
-  display: block;
-  width: 18px;
-  height: 18px;
+function ScheduleCosts({ data, materials, services, busy, mutate }: any) {
+  const [group, setGroup] = useState("operation");
+  const labor = new Map<
+    string,
+    {
+      name: string;
+      hours: number;
+      cost: number;
+      missing: boolean;
+      people: Set<string>;
+    }
+  >();
+  for (const o of data.operations) {
+    const d = o.document;
+    if (!includesLaborCost(data.settings.document, d.serviceType)) continue;
+    const key =
+      group === "operation" ? String(o.position) : data.users.find((u: any) => u.email === d.responsible)?.job_title || "Sem função";
+    if (!labor.has(key))
+      labor.set(key, {
+        name:
+          group === "operation"
+            ? `Operação ${operationNumber(o.position)} · ${d.description || "Sem descrição"}`
+            : key,
+        hours: 0,
+        cost: 0,
+        missing: false,
+        people: new Set(),
+      });
+    const row = labor.get(key)!;
+    const emails = [
+      ...new Set<string>([d.responsible, ...d.support].filter(Boolean)),
+    ];
+    if (d.duration == null || !emails.length) row.missing = true;
+    for (const email of emails) {
+      const u = data.users.find((u: any) => u.email === email);
+      row.people.add(u?.display_name || email);
+      row.hours += Number(d.duration || 0);
+      if (u?.hourly_cost == null) row.missing = true;
+      else row.cost += Number(d.duration || 0) * Number(u.hourly_cost);
+    }
+  }
+  const serviceRevenue = primaryOrderRevenue(services);
+  const productCost = (m: any) =>
+    m.current_average_cost != null &&
+    Number.isFinite(Number(m.current_average_cost)) &&
+    Number(m.current_average_cost) >= 0 &&
+    m.quantidade != null &&
+    sameUnit(m.unidade_nome, m.current?.unit)
+      ? Number(m.current_average_cost) * Number(m.quantidade)
+      : null;
+  const sumKnown = (values: (number | null)[]) =>
+    values.some((v) => v == null)
+      ? null
+      : values.reduce<number>((a, b) => a + b!, 0);
+  const productsTotal = sumKnown(materials.map(productCost));
+  const laborTotal = sumKnown(
+    [...labor.values()].map((r) => (r.missing ? null : r.cost)),
+  );
+  const serviceCost = (s: any) => {
+    if (isMaintenancePackage(s)) return maintenanceCost(s, services, laborTotal);
+    const c = data.costs.find((c: any) => itemMatches(c,s));
+    return c?.cost == null ? null : Number(c.cost);
+  };
+  const servicesTotal = sumKnown(services.map(serviceCost));
+  const additionalServicesTotal = sumKnown(services.filter((s: any) => !isMaintenancePackage(s)).map(serviceCost));
+  const total = sumKnown([productsTotal, laborTotal, additionalServicesTotal]);
+  const revenue = serviceRevenue + primaryOrderRevenue(materials);
+  return (
+    <div className="schedule-costs">
+      <div className="schedule-summary">
+        {[
+          ["Custo total de Produtos", money(productsTotal)],
+          ["Custo total de Mão de Obra", money(laborTotal)],
+          ["Custo total de Serviços", money(servicesTotal)],
+          ["Custo total", money(total)],
+          ["Valor de Venda", money(revenue)],
+          ["Lucro", money(total == null ? null : revenue - total)],
+          ["Margem do Lucro", margin(revenue, total)],
+          ["Markup", markup(revenue, total)],
+        ].map(([label, value]) => (
+          <article key={label}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </article>
+        ))}
+      </div>
+      <p>
+        Valores previstos. A venda considera somente a OS principal; os custos incluem
+        os itens da OS principal e da OS vinculada. Totais dependem dos custos informados. A mão de obra
+        atribuída ao serviço de manutenção PCT é contabilizada uma única vez no custo total.
+      </p>
+      <section>
+        <h2>Mão de obra interna</h2>
+        <p>
+          Custo planejado dos tipos de serviço habilitados nas configurações: duração de cada operação × custo/hora de cada pessoa
+          atribuída. Custos ausentes não são tratados como zero.
+        </p>
+        <label>
+          Agrupar custos por
+          <select value={group} onChange={(e) => setGroup(e.target.value)}>
+            <option value="operation">Operação</option>
+            <option value="role">Função</option>
+          </select>
+        </label>
+        <div className="scheduling-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Grupo</th>
+                <th>Colaboradores</th>
+                <th>Horas totais</th>
+                <th>Custo previsto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...labor.entries()].map(([k, r]) => (
+                <tr key={k}>
+                  <td>{r.name}</td>
+                  <td>{[...r.people].join(", ") || "Não atribuído"}</td>
+                  <td>{qty(r.hours)}</td>
+                  <td>{r.missing ? "Dados incompletos" : money(r.cost)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <h2>Produtos</h2>
+        <p>
+          Custo médio do cadastro de produtos da mesma empresa da OS, na unidade
+          do item. Custo total = custo médio × quantidade. Margem = (venda −
+          custo) ÷ venda.
+        </p>
+        <div className="scheduling-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Produto</th>
+                <th>Quantidade</th>
+                <th>Custo médio unitário</th>
+                <th>Custo total</th>
+                <th>Venda na OS</th>
+                <th>Margem</th>
+                <th title="(Venda − custo) ÷ custo × 100">Markup</th>
+              </tr>
+            </thead>
+            <tbody>
+              {materials.map((m: any) => {
+                const cost = productCost(m);
+                return (
+                  <tr key={itemIdentity(m)} className={m.source_linked ? "schedule-linked-item" : undefined}>
+                    <td>{m.produto_id || "—"}</td>
+                    <td>{m.produto_nome}<ItemInconsistency item={m}/></td>
+                    <td>{qty(m.quantidade)}</td>
+                    <td>
+                      {money(cost == null ? null : m.current_average_cost)}
+                    </td>
+                    <td>{money(cost)}</td>
+                    <td>{m.source_linked ? <span title="Venda da OS vinculada não considerada no lucro">Não considerada</span> : money(m.valor_total)}</td>
+                    <td>{m.source_linked ? "—" : margin(m.valor_total, cost)}</td>
+                    <td>{m.source_linked ? "—" : markup(m.valor_total, cost)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <h2>Serviços</h2>
+        <p>
+          Venda total: <strong>{money(serviceRevenue)}</strong>. Informe o custo
+          total por item ou aproveite o custo de mão de obra do cálculo de lucro
+          salvo, rateado proporcionalmente à venda dos serviços.
+        </p>
+        {data.profit?.labor != null && (
+          <p>
+            Custo de mão de obra no cálculo salvo: {money(data.profit.labor)}.
+          </p>
+        )}
+        <div className="scheduling-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Serviço</th>
+                <th>Venda na OS</th>
+                <th>Custo total</th>
+                <th>Margem</th>
+                <th title="(Venda − custo) ÷ custo × 100">Markup</th>
+                <th>Referência</th>
+              </tr>
+            </thead>
+            <tbody>
+              {services.map((s: any) => {
+                const c = data.costs.find(
+                    (c: any) => itemMatches(c,s),
+                  ),
+                  referenceProfit = s.source_linked ? s.source_profit : data.profit,
+                  referenceRevenue = services.filter((item: any) => String(item.item_company) === String(s.item_company) && String(item.item_order) === String(s.item_order)).reduce((sum: number,item: any) => sum + Number(item.valor_total || 0),0),
+                  cost = serviceCost(s),
+                  payload = {
+                    action: "service_cost",
+                    itemId: String(s.id_m8),
+                    item_company:s.item_company, item_order:s.item_order,
+                    version: c?.version ?? null,
+                  };
+                return (
+                  <tr key={itemIdentity(s)} className={s.source_linked ? "schedule-linked-item" : undefined}>
+                    <td>{s.servico_nome}</td>
+                    <td>{s.source_linked ? <span title="Venda da OS vinculada não considerada no lucro">Não considerada</span> : money(s.valor_total)}</td>
+                    <td>
+                      {isMaintenancePackage(s) ? <span>{money(cost)}</span> : <input
+                        key={c?.version || 0}
+                        aria-label={"Custo do serviço " + s.servico_nome}
+                        disabled={busy}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        defaultValue={cost ?? ""}
+                        onBlur={(e) => {
+                          if (number(e.target.value) !== cost)
+                            void mutate({
+                              ...payload,
+                              cost: number(e.target.value),
+                            });
+                        }}
+                      />}
+                    </td>
+                    <td>{s.source_linked ? "—" : margin(s.valor_total, cost)}</td>
+                    <td>{s.source_linked ? "—" : markup(s.valor_total, cost)}</td>
+                    <td>
+                      {isMaintenancePackage(s) ? <small>Mão de obra interna · automático{services.filter(isMaintenancePackage).length > 1 ? " (rateada entre os itens PCT)" : ""}</small> : <button
+                        disabled={
+                          busy ||
+                          referenceProfit?.labor == null ||
+                          referenceRevenue <= 0
+                        }
+                        onClick={() =>
+                          void mutate({
+                            ...payload,
+                            cost:
+                              Math.round(
+                                ((Number(referenceProfit.labor) *
+                                  Number(s.valor_total || 0)) /
+                                  referenceRevenue) *
+                                  100,
+                              ) / 100,
+                          })
+                        }
+                      >
+                        Usar cálculo de lucro
+                      </button>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <small>
+          O serviço de manutenção PCT utiliza automaticamente a mão de obra interna.
+          No custo geral da OS, esse valor é contado uma única vez.
+        </small>
+      </section>
+    </div>
+  );
 }
-.operations-table .operation-icon-action:focus-visible {
-  outline: 2px solid #285680;
-  outline-offset: 2px;
-}
+function ScheduleSettings({ data, onSaved }: any) {
+  const [tab, setTab] = useState("types"),
+    [d, setD] = useState(data.settings.document),
+    [version, setVersion] = useState(data.settings.version),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  async function save(next: any) {
+    if (busy) return false;
+    const before = d;
+    setD(next);
+    setError("");
+    let document;
+    try {
+      document = validateSettings(next);
+    } catch (e) {
+      setD(before);
+      setError((e as Error).message);
+      return false;
+    }
+    setBusy(true);
+    try {
+      const result = await request({ action: "settings", version, document });
+      setVersion(result.settings.version);
+      setD(result.settings.document);
+      onSaved(result.settings);
+      return true;
+    } catch (e) {
+      setD(before);
+      setError((e as Error).message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="scheduling-settings">
+      <h2>Configurações da programação</h2>
+      <nav className="app-section-tabs">
+        {[
+          ["types", "Tipos de serviço"],
+          ["checklists", "Checklists"],
+          ["vehicles", "Veículos"],
+          ["pauses", "Causas de pausa"],
+          ["calendars", "Calendários"],
+          ["rules", "Entrada automática"],
+          ["taskLists", "Listas de Tarefas"],
+        ].map(([k, n]) => (
+          <button key={k} aria-pressed={tab === k} onClick={() => setTab(k)}>
+            {n}
+          </button>
+        ))}
+      </nav>
+      {error && <p role="alert">{error}</p>}
+      <span className="schedule-save-status" role="status">
+        {busy ? "Salvando…" : ""}
+      </span>
+      {!data.canEditSettings && (
+        <p>Seu acesso não permite alterar as configurações.</p>
+      )}
+      <fieldset disabled={busy || !data.canEditSettings}>
+        {tab === "taskLists" && <ScheduleTaskLists data={{...data,settings:{...data.settings,document:d}}}/>}
+        {tab === "vehicles" && <>
+          <p>Informe o nome e, se desejar, a placa. Salve a linha com Enter ou no botão Salvar.</p>
+          <CompactNameTable label="Veículo" items={d.vehicles || []} maxLength={160} busy={busy}
+            onSave={(id,name)=>save({...d,vehicles:d.vehicles.map((v:any)=>v.id===id?{...v,name}:v)})}
+            onRemove={id=>save({...d,vehicles:d.vehicles.filter((v:any)=>v.id!==id)})}
+            onAdd={name=>save({...d,vehicles:[...(d.vehicles||[]),{id:crypto.randomUUID(),name}]})}/>
+        </>}
+        {tab === "types" && <>
+          <p>Edite os tipos de serviço diretamente na tabela. Salve a linha com Enter ou no botão Salvar.</p>
+          <CompactNameTable extraColumn={{title:"Considerar no calculo de custo de mão de obra",render:item => <input type="checkbox" aria-label={`Considerar no calculo de custo de mão de obra: ${item.name}`} checked={includesLaborCost(d,item.name)} disabled={busy} onChange={e => void save({...d,serviceTypeLaborCosts:{...d.serviceTypeLaborCosts,[item.name]:e.target.checked}})} />}} label="Tipo de serviço" items={d.serviceTypes.map((name:string,i:number)=>({id:name,name}))} maxLength={80} busy={busy}
+            onSave={(id,name)=>save({...d,serviceTypes:d.serviceTypes.map((v:string,i:number)=>v===id?name:v),serviceTypeLaborCosts:{...d.serviceTypeLaborCosts,[name]:includesLaborCost(d,id)}})}
+            onRemove={id=>save({...d,serviceTypes:d.serviceTypes.filter((v:string)=>v!==id)})}
+            onAdd={name=>save({...d,serviceTypes:[...d.serviceTypes,name]})}/>
+        </>}
+        {tab === "checklists" && <ScheduleChecklistEditor attendanceTypes={data.automaticOptions?.tipo_atendimento_nome || []} settings={d} onChange={setD} onSave={save} busy={busy}/>}
+        {tab === "pauses" && <SchedulePauseReasons settings={d} onChange={setD} onSave={save} busy={busy}/>}
+        {tab === "calendars" && <ScheduleCalendarEditor settings={d} onChange={setD} onSave={save} busy={busy}/>}
 
-.operation-report-state { display:flex; flex-direction:column; align-items:flex-start; gap:4px; margin-top:8px; font-size:12px; white-space:normal; }
+      </fieldset>
+      {tab === "rules" && <ScheduleAutomaticRules settings={d} options={data.automaticOptions} onChange={setD} onSave={save} busy={busy} canEdit={data.canEditSettings}/>}
 
-.schedule-overview-filters {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(200px, 1fr);
-  gap: 16px;
-  align-items: end;
-}
-.schedule-overview-filters .scheduling-search { max-width: none; min-width: 0; }
-@media (max-width: 600px) {
-  .schedule-overview-filters { grid-template-columns: 1fr; gap: 8px; }
-}
-
-.operation-review-window {
-  width: min(1200px, calc(100vw - 32px));
-  max-width: none;
-  max-height: calc(100dvh - 32px);
-  padding: 0;
-  margin: auto;
-  border: 1px solid #d6e2ed;
-  border-radius: 14px;
-  background: #fff;
-  color: #27445f;
-  font: inherit;
-}
-.operation-review-window::backdrop { background: rgb(20 40 60 / 45%); }
-.operation-review-header { position: sticky; top: 0; z-index: 3; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; background: #f4f8fc; border-bottom: 1px solid #dce5ee; }
-.operation-review-header h2 { margin: 0; font-size: 18px; }
-.operation-review-header p { margin: 5px 0 0; font-size: 13px; }
-.operation-review-tabs { display: flex; gap: 8px; padding: 12px 20px; flex-wrap: wrap; }
-.operation-review-tabs button[aria-pressed="true"] { background: #245e91; color: white; }
-.operation-review-content { padding: 0 20px 20px; min-height: 200px; }
-.operation-review-error { background: #fff0ef; color: #9e342b; padding: 12px; border-radius: 8px; }
-.operation-review-footer { position: sticky; bottom: 0; z-index: 2; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; padding: 14px 20px; background: #fff; border-top: 1px solid #dce5ee; }
-.operation-review-footer label { width: 100%; display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.operation-review-footer input[type="checkbox"] { width: 16px; height: 16px; min-height: 0; margin: 0; }
-.operation-review-footer a { display: inline-flex; gap: 6px; align-items: center; padding: 8px 12px; border-radius: 6px; background: #245e91; color: #fff; text-decoration: none; }
-.operation-review-history { padding-left: 20px; font-size: 13px; }
-.operation-review-history li { margin-bottom: 14px; }
-@media(max-width:600px) {
-  .operation-review-window { width: 100vw; max-height: 100dvh; height: 100dvh; border-radius: 0; }
-  .operation-review-header, .operation-review-tabs, .operation-review-footer { padding: 12px; }
-  .operation-review-content { padding: 0 12px 12px; }
-  .operation-review-header h2 { font-size: 16px; }
-}
-
-.checklist-review-report { color: #27445f; font-size: 13px; }
-.checklist-review-report > header { padding: 14px 0 18px; }
-.checklist-review-report h3 { font-size: 18px; margin: 0 0 10px; }
-.checklist-review-report header p { margin: 5px 0 0; color: #627d98; }
-.review-report-stage { margin-bottom: 20px; border: 1px solid #dce5ee; border-radius: 8px; overflow: hidden; }
-.review-report-stage h4 { margin: 0; padding: 12px; background: #eaf3fc; font-size: 15px; }
-.review-report-group h5 { margin: 0; padding: 10px 12px; background: #f5f8fb; border-top: 1px solid #dce5ee; font-size: 13px; }
-.review-report-group dl { margin: 0; }
-.review-report-row { display: grid; grid-template-columns: 38% minmax(0, 1fr); border-top: 1px solid #e4ebf2; }
-.review-report-row dt, .review-report-row dd { padding: 11px 12px; margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; line-height: 1.5; }
-.review-report-row dt { background: #fafbfd; font-weight: 500; }
-.review-report-row dd { border-left: 1px solid #e4ebf2; }
-.review-report-comment { margin: 8px 0 0; font-size: 12px; color: #627d98; }
-.review-report-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.review-report-photos a { max-width: 100%; }
-.review-report-photos img { display: block; max-width: 100%; max-height: 220px; object-fit: contain; border-radius: 4px; }
-@media(max-width:600px) {
-  .review-report-row dt, .review-report-row dd { padding: 9px 8px; font-size: 12px; }
-  .checklist-review-report h3 { font-size: 16px; }
-}
-
-.operation-review-window .operation-review-footer { font-size: 14px; }
-.operation-review-window .operation-review-footer button, .operation-review-window .operation-review-footer a { font-size: 13px; }
-.operation-review-window .operation-review-footer small { font-size: 12px; }
-.operation-review-window .operation-review-footer label { flex-direction: row; justify-content: flex-start; text-align: left; }
-
-.checklist-review-report { background: #fff; }
-.checklist-review-report > .technical-report-banner {
-  display: grid; grid-template-columns: 155px minmax(0, 1fr) auto; gap: 22px; align-items: center;
-  background: linear-gradient(115deg, #073453, #0c426a); color: white; padding: 22px; margin-bottom: 18px;
-}
-.technical-report-banner > img { width: 145px; height: 100px; object-fit: contain; }
-.technical-report-banner > div { border-left: 1px solid #8baac2; padding-left: 22px; min-width: 0; }
-.checklist-review-report .technical-report-banner h3 { margin: 0; color: white; font-size: clamp(17px, 2.2vw, 26px); font-weight: 800; }
-.checklist-review-report .technical-report-banner p { color: #e2effa; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin: 8px 0 0; }
-.technical-report-order { display: grid; gap: 6px; }
-.technical-report-order span { font-size: 12px; }
-.technical-report-order strong { font-size: 25px; }
-.technical-report-number { align-self: stretch; display: flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 44px; padding: 8px; background: #075788; color: white; }
-.checklist-review-report .review-report-stage { border-radius: 7px; margin-bottom: 16px; }
-.checklist-review-report .review-report-stage h4 { display: flex; gap: 14px; align-items: center; padding: 0 12px 0 0; background: linear-gradient(90deg, #dceafa, #eef5fc); text-transform: uppercase; font-size: 14px; color: #07375a; }
-.checklist-review-report .review-report-row dt { background: #edf3fa; font-weight: 600; }
-.checklist-review-report .review-report-row dt, .checklist-review-report .review-report-row dd { padding: 7px 12px; }
-.technical-report-end { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid #285680; padding: 10px 0; color: #285680; font-size: 11px; }
-@media(max-width:600px) {
- .checklist-review-report > .technical-report-banner { grid-template-columns: 70px minmax(0, 1fr); gap: 12px; padding: 14px 10px; }
- .technical-report-banner > img { width: 70px; height: 55px; }
- .technical-report-banner > div { padding-left: 12px; }
- .technical-report-banner .technical-report-order { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: flex-end; gap: 8px; border-left: 0; }
- .technical-report-order strong { font-size: 20px; }
- .checklist-review-report .technical-report-banner p { font-size: 10px; letter-spacing: .5px; }
- .checklist-review-report .review-report-stage h4 { font-size: 12px; gap: 8px; }
- .technical-report-end { flex-wrap: wrap; }
-}
-
-.checklist-review-report .review-report-time-table { width:100%; table-layout:fixed; border-collapse:collapse; font:inherit; margin:0; }
-.checklist-review-report .review-report-time-table th,
-.checklist-review-report .review-report-time-table td { height:auto; min-height:0; font:inherit; line-height:1.5; color:inherit; padding:7px 12px; text-align:left; vertical-align:middle; white-space:normal; overflow-wrap:anywhere; border:0; border-top:1px solid #e4ebf2; border-right:1px solid #e4ebf2; }
-.checklist-review-report .review-report-time-table th { background:#f5f8fb; font-weight:600; }
-.checklist-review-report .review-report-time-table th:first-child { width:28%; }
-.checklist-review-report .review-report-time-table th:nth-child(2) { width:36%; }
-.checklist-review-report .review-report-time-table th:last-child { width:36%; }
-.checklist-review-report .review-report-time-table td:first-child { background:#edf3fa; font-weight:600; }
-.checklist-review-report .review-report-time-table th:last-child,
-.checklist-review-report .review-report-time-table td:last-child { border-right:0; }
-@media(max-width:600px) {
- .checklist-review-report .review-report-time-table { font-size:12px; }
- .checklist-review-report .review-report-time-table th,
- .checklist-review-report .review-report-time-table td { padding:7px 6px; }
-}
-
-.review-edit-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:10px 0; }
-.review-edit-toolbar span { flex:1; min-width:180px; }
-.review-edit-field { display:grid; gap:8px; }
-.checklist-review-report .review-edit-field input:not([type=radio]):not([type=file]),
-.checklist-review-report .review-edit-field textarea { width:100%; min-width:0; border:1px solid #c9dbed; border-radius:6px; padding:7px 9px; font:inherit; color:inherit; background:white; }
-.review-edit-field textarea { min-height:70px; resize:vertical; }
-.review-edit-field label { display:grid; gap:4px; font:inherit; }
-.review-flags { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; }
-.checklist-review-report .review-flags label { display:inline-flex; flex-direction:row; flex:0 0 auto; align-items:center; justify-content:flex-start; gap:6px; width:auto; margin:0; padding:0; font:inherit; line-height:1.4; white-space:nowrap; cursor:pointer; }
-.checklist-review-report .review-flags label:has(input:disabled) { cursor:default; }
-.checklist-review-report .review-flags label > span { display:inline; margin:0; padding:0; }
-.checklist-review-report .review-flags input[type=radio] { appearance:none; flex:0 0 14px; width:14px; height:14px; min-height:0; margin:0; padding:0; border:1px solid #aebdcb; border-radius:4px; background:#fff; position:relative; opacity:1; }
-.checklist-review-report .review-flags input[type=radio]:checked { background:#397dda; border-color:#397dda; }
-.checklist-review-report .review-flags input[type=radio]:checked::after { content:''; position:absolute; width:4px; height:7px; left:4px; top:1px; border:solid white; border-width:0 2px 2px 0; transform:rotate(45deg); }
-.review-flags input:focus-visible { outline:2px solid #2565af; outline-offset:3px; }
-.review-edit-photos { display:flex; flex-wrap:wrap; gap:10px; }
-.review-edit-photos input { width:100%; }
-.review-edit-photos > div { display:grid; gap:4px; }
-.review-edit-photos img { max-width:150px; max-height:120px; object-fit:contain; }
-.checklist-review-report .review-edit-photos input[type="file"] {
-  height:auto; min-height:40px; margin:0; padding:7px 10px;
-  font:inherit; line-height:20px; box-sizing:border-box;
-}
-.checklist-review-report .review-edit-photos input[type="file"]::file-selector-button {
-  margin:0 10px 0 0; padding:2px 8px; vertical-align:middle;
-  font:inherit; line-height:20px; border:1px solid #c9dbed;
-  border-radius:4px; background:#f5f8fb; color:inherit; cursor:pointer;
-}
-
-.order-report-launch { margin:12px 0; }
-.order-report-window .order-report-select-all { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:18px 0; }
-.order-report-options { display:grid; gap:10px; }
-.order-report-window .order-report-option { display:flex; flex-direction:row; align-items:center; gap:14px; padding:16px; border:1px solid #d7e5f2; border-radius:10px; margin:0; cursor:pointer; background:#fff; }
-.order-report-window .order-report-option:has(input:checked) { background:#edf5fd; border-color:#7daed7; }
-.order-report-window .order-report-option.unavailable { background:#f6f8fa; cursor:default; }
-.order-report-window .order-report-option > input { width:17px; height:17px; min-height:0; margin:0; flex-shrink:0; }
-.order-report-option > span { display:grid; font-size:13px; font-weight:400; gap:4px; min-width:0; overflow-wrap:anywhere; }
-.order-report-option small { color:#617b93; }
-.order-report-window .order-report-footer { align-items:center; gap:14px; }
-.order-report-window .order-report-footer label { display:grid; width:auto; gap:4px; margin:0; }
-.order-report-footer small { flex:1; min-width:180px; }
-.order-report-footer button { display:flex; align-items:center; gap:8px; }
-.order-report-index { display:flex; flex-wrap:wrap; gap:12px; padding:14px 0; }
-.order-report-chapter { margin-top:24px; scroll-margin-top:16px; }
-.order-report-preview .review-report-row dd { white-space:pre-wrap; }
-@media(max-width:600px){
- .order-report-window .order-report-option { padding:12px; align-items:flex-start; }
- .order-report-window .order-report-footer { padding:12px; }
- .order-report-window .order-report-footer button,.order-report-window .order-report-footer label { width:100%; }
-}
-
-.order-report-window .operation-review-tabs button[aria-pressed="true"] { background:#245e91; color:#fff; }
-
-.operation-milestones-scroll { overflow-x:auto; padding:18px 12px; }
-.operation-milestones { display:flex; list-style:none; padding:0; margin:0; }
-.operation-milestones > li { flex:1 0 230px; min-width:0; padding:0 12px; overflow-wrap:anywhere; }
-.operation-milestone-date { color:#245e91; font-weight:700; }
-.operation-milestone-track { position:relative; margin:16px -12px 18px; height:2px; background:#a7c8e3; }
-.operation-milestone-track > span { position:absolute; left:12px; top:-4px; width:10px; height:10px; border-radius:50%; background:#245e91; box-shadow:0 0 0 4px #eaf3fc; }
-.operation-milestones p { margin:8px 0 0; white-space:pre-wrap; line-height:1.5; }
-.operation-milestone-person { color:#617b93; }
-
-/* Keep the programming stages in one ordered, horizontally scrollable flow. */
-.schedule-overview {min-width:0;max-width:100%}
-.schedule-overview-totals {grid-template-columns:repeat(3,minmax(0,1fr));max-width:960px;margin-bottom:20px}
-.schedule-overview-totals article {padding:14px 18px;gap:6px}
-.schedule-overview-totals strong {font-size:26px}
-.schedule-stage-flow {display:grid;grid-template-columns:repeat(8,minmax(145px,1fr));gap:22px;list-style:none;padding:2px 2px 12px;margin:0 0 8px;overflow-x:auto;overscroll-behavior-x:contain}
-.schedule-stage-flow:focus-visible {outline:2px solid #2867a7;outline-offset:3px;border-radius:10px}
-.schedule-stage-flow > li {position:relative;min-width:0}
-.schedule-stage-flow > li:not(:last-child)::after {content:"›";position:absolute;right:-17px;top:50%;transform:translateY(-50%);font-size:24px;color:#8fa6bc}
-.schedule-stage-flow article {height:100%;padding:14px 12px;gap:10px;border-top:3px solid #9aadc0}
-.schedule-stage-flow article > span {min-height:34px;display:flex;align-items:center;font-size:12px;font-weight:600;color:#345570}
-.scheduling-page .scheduling-orders-list .schedule-column-sort {display:inline-flex;align-items:center;gap:6px;padding:4px 0;border:0;border-radius:3px;background:transparent;color:inherit;font:inherit;font-weight:inherit;text-align:left;cursor:pointer}
-.schedule-column-sort svg {flex-shrink:0}
-.scheduling-orders-list th[aria-sort="ascending"], .scheduling-orders-list th[aria-sort="descending"] {color:#215e93}
-.schedule-column-sort:focus-visible {outline:2px solid #2867a7;outline-offset:4px}
-.schedule-overview-totals .schedule-undated-summary.needs-attention {background:#fff8e6;border-color:#e5b52b;border-left:4px solid #e5b52b}
-.schedule-overview-totals .schedule-undated-summary.needs-attention > span,
-.schedule-overview-totals .schedule-undated-summary.needs-attention strong {color:#806000}
-.scheduling-page .schedule-undated-summary button {align-self:flex-start;padding:6px 10px;font-size:12px;background:white;color:#806000;border:1px solid #d9bd66;border-radius:6px}
-@media(max-width:600px){.schedule-overview-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule-overview-totals .schedule-undated-summary{grid-column:1/-1}}
-
-.schedule-overview-filters {grid-template-columns:2fr 1fr 1fr 1.2fr}
-.schedule-completed-group td {background:#edf8f1}
-.scheduling-page .schedule-completed-group button {display:inline-flex;align-items:center;gap:8px;border:0;background:transparent;color:#197547;font-weight:600;padding:8px 0}
-.schedule-completed-group small {display:block;color:#627d98}
-@media(max-width:760px){.schedule-overview-filters{grid-template-columns:1fr}}
-
-.schedule-delivery-filter {display:flex;align-items:center;gap:8px;margin-top:8px;min-width:0}
-.schedule-delivery-icon {display:flex;align-items:center;justify-content:center;flex:0 0 36px;height:32px;border:1px solid #cbdbea;border-radius:8px;background:white;color:#627d98}
-.scheduling-page .schedule-delivery-filter select {width:auto;min-width:0;height:32px;margin:0;padding:4px 10px;border-radius:8px;background:white}
-.schedule-delivery-filter select:first-of-type {flex:1}
-.schedule-delivery-filter select:last-of-type {flex:0 0 84px}
-
-.scheduling-orders-list td.schedule-delivery-carried {color:#b42318;font-weight:600}
-
-.scheduling-orders-list .schedule-order-value {white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
-
-.schedule-overview-totals {max-width:none;grid-template-columns:repeat(5,minmax(0,1fr))}
-.schedule-overview-totals .schedule-value-summary strong {font-size:clamp(18px,1.65vw,26px);overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
-.schedule-value-summary .schedule-value-completed {color:#197547;font-weight:600}
-.schedule-overview-totals .schedule-value-open {background:#f0f6fc;border-color:#b8d3eb}
-.schedule-stage-value {font-size:13px;color:#245988;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-@media(max-width:1100px){.schedule-overview-totals{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:600px){.schedule-overview-totals{grid-template-columns:repeat(2,minmax(0,1fr))}}
-
-.schedule-stage-flow article {position:relative}
-.scheduling-page .schedule-stage-flow .schedule-stage-filter-button {position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;border-radius:10px;background:transparent;cursor:pointer;z-index:1}
-.schedule-stage-flow article:hover {box-shadow:0 2px 8px #23466920}
-.schedule-stage-flow article.schedule-stage-selected {box-shadow:inset 0 0 0 2px #215e93}
-.schedule-stage-filter-button:focus-visible {outline:3px solid #215e93;outline-offset:2px}
-.schedule-stage-filter-label {display:flex;align-items:center;gap:8px;font-size:13px}
-
-.field-pause-settings input[type="checkbox"]{width:18px;height:18px;accent-color:#246397;cursor:pointer;}
-
-.operations-table .operation-execution-actions { width: max-content; padding: 3px 0; }
-.operations-table .operation-icon-action:not(:disabled):hover { background: #eaf3fb; border-color: #a9c6e1; }
-.operations-table .operation-execution-actions > .operation-icon-action--danger { margin-left: 6px; color: #b63f4c; }
-.operations-table .operation-icon-action--danger:not(:disabled):hover { background: #fff0f1; border-color: #e5b2b9; }
-.operations-table .operation-icon-action:disabled { opacity: .45; cursor: not-allowed; }
-.operations-table .operation-report-state { margin-top: 6px; line-height: 1.5; }
-
-/* Keep the action row centered with the adjacent fields; details sit below it. */
-.operations-table .operation-execution-content { position: relative; width: max-content; }
-.operations-table .operation-execution-details { position:absolute; top:100%; left:0; min-width:100%; display:flex; align-items:center; gap:10px; white-space:nowrap; }
-.operations-table .operation-execution-details .operation-report-state { margin-top: 3px; white-space: nowrap; }
-
-
-.operation-review-window .operation-review-tabs {
-  gap: 4px; margin: 0 20px; padding: 12px 0 0;
-  border-bottom: 1px solid #d6e2ee; flex-wrap: nowrap; overflow-x: auto;
-}
-.operation-review-window .operation-review-tabs > [role="tab"] {
-  flex-shrink: 0; margin: 0; padding: 12px 18px;
-  border: 0; border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0;
-  background: transparent; color: #687f98; box-shadow: none; font-weight: 500;
-}
-.operation-review-window .operation-review-tabs > [role="tab"]:hover { background: #f2f7fc; color: #245e91; }
-.operation-review-window .operation-review-tabs > [aria-selected="true"] {
-  background: #eaf3fc; color: #245e91; border-bottom-color: #2878bd; font-weight: 700;
-}
-.operation-review-window .operation-review-tabs > [role="tab"]:focus-visible { outline: 2px solid #2878bd; outline-offset: -4px; }
-@media (max-width: 600px) {
-  .operation-review-window .operation-review-tabs { margin-inline: 12px; }
-  .operation-review-window .operation-review-tabs > [role="tab"] { padding: 12px; }
-}
-
-.operation-note-dialog .operation-note-actions {
-  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
-  margin-top: 16px; padding-top: 16px; border-top: 1px solid #e1e9f2;
-}
-.operation-note-dialog .operation-note-actions > button {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  min-width: 108px; height: 40px; margin: 0; padding: 0 16px; border-radius: 8px;
-}
-.operation-note-dialog .operation-note-actions > .operation-note-save {
-  background: #246397; border-color: #246397; color: #fff;
-}
-.operation-note-dialog .operation-note-actions > .operation-note-save:not(:disabled):hover { background: #1d527e; }
-
-.order-report-preliminary { margin: 12px 20px; padding: 12px 16px; border: 1px solid #e6c170; border-radius: 8px; background: #fff4d8; color: #835413; font-weight: 700; font-size: 13px; }
-
-.order-operations-review-nav { margin: 16px 20px; padding: 16px; border: 1px solid #d6e2ee; border-radius: 12px; background: #f6f9fc; }
-.order-operations-review-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.order-operations-review-summary h3 { margin: 0 0 6px; }
-.order-operations-review-nav p { margin: 6px 0; font-size: 12px; color: #607994; }
-.order-operations-review-controls { display: flex; gap: 10px; align-items: center; }
-.order-operations-review-controls button { display: inline-flex; align-items: center; gap: 6px; }
-.order-operations-review-controls > span { white-space: nowrap; font-size: 12px; }
-.order-operations-review-list { display: grid; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap: 8px; max-height: 220px; overflow-y: auto; margin-top: 14px; padding: 2px; }
-.order-operations-review-list > button { display: flex; align-items: flex-start; flex-direction: column; gap: 8px; text-align: left; padding: 12px; border-radius: 8px; background: #fff; }
-.order-operations-review-list > button[aria-current="step"] { background: #eaf3fc; border-color: #246397; box-shadow: inset 0 0 0 1px #246397; }
-.order-operations-review-description { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-@media(max-width:600px) { .order-operations-review-nav { margin: 12px; padding: 12px; } }
-
-.review-flags .status-alert-selected { color: #bc2e40; font-weight: 700; }
-.review-flags .status-alert-selected input[type="radio"] { accent-color: #bc2e40; opacity: 1; }
-
-.checklist-review-report .review-flags .status-alert-selected input[type=radio]:checked { background:#bc2e40; border-color:#bc2e40; }
-.checklist-review-alerts { margin: 20px 0; padding: 18px; border: 1px solid #efc5cb; border-left: 4px solid #bc2e40; border-radius: 10px; background: #fff7f7; }
-.checklist-review-alerts h3 { display:flex; align-items:center; gap:8px; margin:0 0 12px; color:#ac2637; }
-.checklist-review-alerts ul { padding-left:20px; margin:8px 0 16px; }
-.checklist-review-alerts li { margin:6px 0; color:#a82a39; }
-.checklist-review-alerts li small { display:block; color:#687f98; }
-.checklist-review-alerts p { font-size:13px; }
-.checklist-review-alert-form { display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-top:14px; }
-.checklist-review-alert-form label { display:grid; gap:6px; font-size:13px; }
-.checklist-review-alert-form :is(select,textarea) { width:100%; min-width:0; }
-.checklist-review-alert-description { grid-column:1/-1; }
-@media(max-width:600px) { .checklist-review-alert-form { grid-template-columns:1fr; } }
-
-.order-review-continuous .order-review-heading { z-index: 5; }
-.order-review-heading label { display: flex; flex-direction: row; align-items: center; gap: 10px; margin-top: 10px; font-size: 13px; }
-.order-review-heading select { width: auto; max-width: 100%; }
-.order-review-operation { scroll-margin-top: 150px; border-bottom: 8px solid #e8eff6; }
-.operation-review-section > .operation-review-header { position: static; }
-.operation-review-section { display: flow-root; }
-.review-save-actions:empty { display: none; }
-.review-save-actions { display: inline-flex; }
-.operation-review-footer .review-save-pending { background: #245e91; color: white; border-color: #245e91; }
-.report-writing-review { margin: 12px 0 20px; padding: 16px; border: 1px solid #cbdcec; border-radius: 10px; background: #f7faff; }
-.report-writing-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.report-writing-heading p { margin: 6px 0; font-size: 13px; }
-.report-writing-heading button, .report-writing-actions button { display: inline-flex; align-items: center; gap: 6px; }
-.report-writing-heading button { flex-shrink: 0; }
-.report-writing-suggestion { background: white; border: 1px solid #d6e2ed; border-radius: 8px; padding: 14px; margin-top: 12px; }
-.report-writing-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 12px 0; }
-.report-writing-comparison p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0; }
-.report-writing-comparison small { color: #607990; }
-.report-writing-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.report-writing-tag { display: block; color: #5362a5; font-size: 12px; margin-top: 6px; }
-.review-report-ai-field { border-left: 3px solid #8795cb; }
-@media(max-width:600px) { .report-writing-heading { align-items: flex-start; flex-direction: column; } .report-writing-comparison { grid-template-columns: 1fr; } }
-.alert-selection-list { display: grid; gap: 8px; }
-.checklist-review-alerts .alert-selection { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; padding: 12px; background: white; border: 1px solid #ead5d8; border-radius: 8px; }
-.checklist-review-alerts .alert-selection input { width: 18px; height: 18px; min-height: 0; flex-shrink: 0; margin-top: 3px; }
-.alert-selection small, .alert-task-card small { display: block; color: #687f98; }
-.alert-comment { white-space: pre-wrap; overflow-wrap: anywhere; }
-.alert-group-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.alert-group-actions button { display: inline-flex; gap: 6px; align-items: center; }
-.alert-task-card { background: white; padding: 16px; margin-top: 16px; border: 1px solid #d6e2ed; border-radius: 10px; }
-.alert-task-card header { display: flex; align-items: center; justify-content: space-between; }
-.alert-task-card h4 { margin: 0 0 12px; }
-
-.operation-review-window .operation-review-tabs > .review-tab-alerts { color: #b42336; background: #fff2f3; font-weight: 700; }
-.operation-review-window .operation-review-tabs > .review-tab-alerts:hover,
-.operation-review-window .operation-review-tabs > .review-tab-alerts[aria-selected="true"] { color: #a51d30; background: #ffe4e8; border-bottom-color: #bc2e40; }
-.operation-review-window .operation-review-tabs > .review-tab-alerts:focus-visible { outline-color: #bc2e40; }
-
-.operation-review-window .alert-group-actions { gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid #ead5d8; }
-.operation-review-window .alert-group-actions button { min-height: 42px; padding: 10px 16px; gap: 8px; border-radius: 8px; font-size: 13px; font-weight: 600; }
-.operation-review-window .alert-group-actions .alert-group-primary { background: #245e91; border-color: #245e91; color: white; }
-.operation-review-window .alert-group-actions .alert-group-primary:hover:not(:disabled) { background: #194b77; }
-.operation-review-window .alert-group-actions button:disabled { background: #f0f3f6; border-color: #dce3ea; color: #8796a6; opacity: 1; cursor: not-allowed; }
-@media(max-width:600px) { .operation-review-window .alert-group-actions button { width: 100%; justify-content: center; } }
-
-.alert-task-item { padding: 12px 0; }
-.alert-task-item + .alert-task-item { border-top: 1px solid #dce5ee; }
-.alert-task-item .alert-comment { margin: 6px 0 0; line-height: 1.5; }
-.checklist-review-alert-description textarea { box-sizing: border-box; min-height: 112px; padding: 12px 14px; border: 1px solid #cadbeb; border-radius: 8px; background: #fff; color: #27445f; font: inherit; line-height: 1.6; transition: border-color .15s, box-shadow .15s; }
-.checklist-review-alert-description textarea::placeholder { color: #7d8fa3; opacity: 1; }
-.checklist-review-alert-description textarea:focus { border-color: #2878bd; outline: none; box-shadow: 0 0 0 3px rgb(40 120 189 / 12%); }
-.checklist-review-alert-description textarea:disabled { background: #f3f6f9; }
-
-.checklist-review-alerts .alert-task-summary { margin: 16px 0 2px; padding: 10px 12px; border-radius: 8px; background: #f0f4f8; color: #526b82; font-size: 13px; line-height: 1.5; }
-
-.alert-task-create { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid #dce5ee; }
-.operation-review-window .alert-task-create-button { display: inline-flex; gap: 8px; align-items: center; background: #245e91; color: #fff; border-color: #245e91; min-height: 42px; padding: 10px 18px; border-radius: 8px; font-weight: 600; }
-.operation-review-window .alert-task-create-button:disabled { background: #f0f3f6; color: #8796a6; border-color: #dce3ea; cursor: not-allowed; }
-
-.order-task-window { width: min(760px, calc(100vw - 24px)); }
-.order-task-content { padding: 20px; }
-.order-task-result { color: #1766b1; text-decoration: underline; font-weight: 600; }
-.order-linked-tasks { margin: 16px 0; padding: 16px; border: 1px solid #d6e2ed; background: #fff; border-radius: 10px; }
-.order-linked-tasks summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; font-size: 15px; font-weight: 600; }
-.order-linked-tasks summary::-webkit-details-marker { display: none; }
-.order-linked-tasks summary:focus-visible { outline: 2px solid #2867a7; outline-offset: 4px; border-radius: 3px; }
-.order-linked-tasks summary > span { flex: 1; }
-.order-linked-tasks details[open] > summary { margin-bottom: 10px; }
-.order-linked-tasks details[open] .order-linked-tasks-chevron { transform: rotate(90deg); }
-.order-linked-tasks p { margin: 0; font-size: 13px; color: #687f98; }
-.order-linked-tasks ul { list-style: none; margin: 0; padding: 0; }
-.order-linked-tasks li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 0; }
-.order-linked-tasks li + li { border-top: 1px solid #e0e8f0; }
-.order-linked-tasks a { display: inline-flex; align-items: center; gap: 6px; color: #1766b1; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
-.order-linked-tasks small { color: #687f98; }
-.order-linked-task-status { border-radius: 6px; padding: 4px 8px; font-size: 12px; background: #eef2f7; }
-.order-linked-task-status.in_progress { background: #fff3d6; color: #855600; }
-.order-linked-task-status.completed { background: #e0f3ea; color: #16734c; }
-
-/* Quantidades de materiais alinhadas sob seus respectivos cabeçalhos. */
-.materials-table th:nth-child(n+3),
-.materials-table td:nth-child(n+3) { text-align: center; }
-.materials-table td:nth-child(n+4) { font-variant-numeric: tabular-nums; }
-.materials-table td:nth-child(2) { min-width: 260px; }
-.materials-table td:nth-child(7) { min-width: 170px; }
-.materials-table td:nth-child(n+8) input {
-  display: block;
-  width: 110px;
-  max-width: 130px;
-  margin: 0 auto;
-  text-align: center;
-}
-.material-purchase-quantity { display: block; font-weight: 600; }
-.material-purchase-quantity small { font-weight: 400; }
-.material-delivery { display: block; margin-top: 5px; font-size: 11px; line-height: 1.4; color: #627d98; }
-
-/* A single control height for the operation row, including custom selectors. */
-.operations-table { --operation-control-height:34px; }
-.operations-table > tbody > tr > td { vertical-align:top; padding-top:8px; }
-.operations-table > tbody > tr > td input:not([type=checkbox]):not([type=radio]),
-.operations-table > tbody > tr > td select { --field-height:var(--operation-control-height); --field-padding:4px 10px; height:var(--operation-control-height); margin:0; }
-.operations-table .date-time-field input { --field-padding:4px 36px 4px 10px; }
-.operations-table > tbody > tr > td > button,
-.operations-table .operation-execution-actions > button,
-.operations-table .support-picker,
-.operations-table .support-selected { height:var(--operation-control-height); min-height:var(--operation-control-height); box-sizing:border-box; margin-top:0; }
-.operations-table .support-add { top:calc(var(--operation-control-height) + 1px); }
-@media(max-width:640px) { .operations-table { --operation-control-height:44px; } }
-
-.operations-table .date-time-field { --field-height:var(--operation-control-height); }
-
-.operations-table .operation-cell-value { display:flex; align-items:center; min-height:var(--operation-control-height); box-sizing:border-box; }
-.operations-table .operation-number { justify-content:center; }
-.operations-table .operation-execution-actions { padding:0; }
-.operations-table .operation-cell-value .operation-status { margin:0; }
-
-.operations-table td:last-child .operation-execution-actions > button { margin:0; }
-
-.schedule-overview-filters {grid-template-columns:minmax(220px,2fr) repeat(3,minmax(140px,1fr)) minmax(280px,1.3fr)}
-@media(max-width:1200px){.schedule-overview-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:600px){.schedule-overview-filters{grid-template-columns:minmax(0,1fr)}}
-
-.scheduling-orders-list th { white-space: normal; }
-.scheduling-page .scheduling-orders-list .schedule-column-sort {
-  white-space: normal;
-  line-height: 1.35;
-}
-.scheduling-orders-list .schedule-column-sort > span { max-width: 100px; }
-.scheduling-orders-list .schedule-workshop-cell { text-align: center; }
-.scheduling-page .scheduling-orders-list .schedule-workshop-cell .schedule-column-sort {
-  text-align: center;
-  justify-content: center;
-}
-
-/* Typography aligned with the sales projection/report. */
-.scheduling-heading h1 { font-size: 30px; }
-.scheduling-heading p { font-size: 13px; }
-.scheduling-page .scheduling-table table { font-size: 11px; }
-.scheduling-page .scheduling-table th { font-size: 10px; font-weight: 600; }
-.scheduling-page .scheduling-orders-list td { font-size: 11px; }
-.scheduling-page .scheduling-orders-list td small { font-size: 10px; }
-.scheduling-page .scheduling-orders-list .schedule-column-sort { font-size: inherit; }
-.scheduling-page .scheduling-orders-list .quote-order-link,
-.scheduling-page .scheduling-orders-list .company-tag,
-.scheduling-page .scheduling-orders-list .material-count { font-size: inherit; }
-
-.scheduling-page .scheduling-orders-list .schedule-type-cell {
-  min-width: 230px;
-  width: 260px;
-  white-space: normal;
-  line-height: 1.5;
-}
-.scheduling-orders-list .schedule-type-cell .schedule-attendance-type { margin-top: 5px; }
-.scheduling-page .scheduling-orders-list .schedule-planned-date { min-width: 115px; white-space: nowrap; }
-.schedule-planned-date > span { font-variant-numeric: tabular-nums; }
-.schedule-planned-date > small { display: block; margin-top: 5px; line-height: 1.5; }
-
-.scheduling-page .scheduling-orders-list .schedule-date-explanation {
-  padding: 3px 0; border: 0; background: transparent; color: #24699f;
-  font: inherit; font-variant-numeric: tabular-nums; cursor: pointer;
-  text-decoration: underline dotted; text-underline-offset: 4px;
-}
-.schedule-date-popup {
-  position: fixed; inset: auto; margin: 0; box-sizing: border-box;
-  width: 320px; max-width: calc(100vw - 24px); max-height: min(360px,70dvh);
-  overflow: auto; padding: 14px 16px; border: 1px solid #dce6ef;
-  border-radius: 10px; background: white; color: #27445f;
-  box-shadow: 0 8px 28px #18355426; font-size: 12px; line-height: 1.5;
-}
-.schedule-date-popup strong { font-size: 12px; }
-.schedule-date-popup p { margin: 8px 0 0; white-space: normal; overflow-wrap: anywhere; }
-.scheduling-page .scheduling-orders-list .schedule-date-explanation { display: inline-flex; align-items: center; gap: 7px; }
-.schedule-date-signal { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: 0 0 9px; background: #8c99a6; }
-.schedule-date-signal.is-ready { background: #198754; }
-.schedule-date-signal.is-scheduled { background: #2869ad; }
-.schedule-date-signal.is-attention { background: #c28b12; }
-.schedule-date-signal.is-overdue { background: #ca3949; }
-
-.schedule-order-actions{margin:18px 0;padding:18px;border:1px solid #d6e4f1;border-radius:12px;background:#fff}
-.schedule-order-actions form{display:grid;gap:14px;margin-top:16px;max-width:900px}
-.schedule-order-actions label{display:grid;gap:6px;font-weight:600}
-.schedule-order-actions textarea,.schedule-order-actions select,.schedule-order-actions input{width:100%;box-sizing:border-box;min-height:42px;padding:10px 12px;border:1px solid #c8dcee;border-radius:8px;font:inherit;color:inherit}
-.schedule-order-actions p{margin:8px 0;line-height:1.5}
-.schedule-order-actions [role=alert]{color:#b22d3b}
-.schedule-order-actions [role=status]{color:#168477}
-
-/* Main scheduling actions share dimensions and interaction states. */
-.scheduling-heading { flex-wrap: wrap; }
-.scheduling-heading > div:first-child { min-width: 0; }
-.scheduling-toolbar { margin-left: auto; gap: 10px; }
-.scheduling-toolbar > a,
-.scheduling-toolbar > button {
-  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
-  gap: 8px; min-height: 44px; padding: 11px 15px; border: 1px solid #cbddef;
-  border-radius: 10px; background: #fff; color: #285c88;
-  font: inherit; font-size: 13px; font-weight: 600; line-height: 20px;
-  text-decoration: none; cursor: pointer; box-shadow: 0 1px 2px #18355408;
-  transition: background-color .15s, border-color .15s, box-shadow .15s;
-}
-.scheduling-toolbar > a svg,.scheduling-toolbar > button svg { width: 18px; height: 18px; flex-shrink: 0; }
-.scheduling-toolbar > a:hover,.scheduling-toolbar > button:hover:not(:disabled) {
-  background: #edf5fc; border-color: #9dbddd; box-shadow: 0 2px 5px #1835540d;
-}
-.scheduling-toolbar > .scheduling-toolbar-primary { background: #246297; border-color: #246297; color: white; box-shadow: 0 2px 4px #24629720; }
-.scheduling-toolbar > .scheduling-toolbar-primary:hover { background: #1d507d; border-color: #1d507d; }
-.scheduling-toolbar > button[aria-pressed="true"] { background: #eaf3fb; border-color: #8db2d3; color: #174e7d; }
-.scheduling-toolbar > a:focus-visible,.scheduling-toolbar > button:focus-visible { outline: 2px solid #246297; outline-offset: 3px; }
-@media (max-width: 700px) {
-  .scheduling-toolbar { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; margin-left: 0; gap: 10px; }
-  .scheduling-toolbar > a,.scheduling-toolbar > button { width: 100%; padding: 11px 8px; }
-  .scheduling-toolbar > :first-child,.scheduling-toolbar > :last-child:nth-child(even) { grid-column: 1 / -1; }
-}
-
-.schedule-order-fields .schedule-date-explanation {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 0; border: 0; background: transparent; color: #24699f;
-  font: inherit; font-variant-numeric: tabular-nums; cursor: pointer;
-  text-decoration: underline dotted; text-underline-offset: 4px;
-}
-
-/* Keep date placeholders clear of the calendar control in compact operation cells. */
-.operations-table > tbody > tr > td .date-time-editable > input:not([type=checkbox]):not([type=radio]) {
-  --field-font-size: 13px;
-  --field-padding: 4px 36px 4px 10px;
-  font-variant-numeric: tabular-nums;
+    </section>
+  );
 }
