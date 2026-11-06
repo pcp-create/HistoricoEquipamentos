@@ -76,3 +76,12 @@ Nomes repetidos em pastas diferentes não são misturados. Fotos avulsas com nom
 ambíguo no XML não são associadas automaticamente. O contador informa quantas
 referências estão vinculadas, orientando a seleção de pastas restantes.
 Permanece o limite existente de 500 imagens por levantamento.
+
+### Origem dos cálculos anuais
+
+Na aba Relatório, “Origem dos cálculos anuais” permite escolher Aparelho (padrão) ou Sistema. A escolha fica salva no levantamento e nas versões do histórico.
+
+- **Aparelho:** preserva o custo anual `RES Cost` do XML. Volume anual = vazão medida convertida para m³/h × `COST Time`; consumo = volume × `COST SpPw`. Parâmetros ausentes aparecem como “Não informado”, sem tarifa ou horas fixas substituindo o XML.
+- **Sistema:** utiliza a somatória dos poderes específicos (regra existente da planilha), o tempo anual ponderado e a tarifa da aba Máquinas e cálculo. Custo anual = consumo × tarifa. Totalizadores e ranking utilizam a mesma origem. Cada resultado e parâmetro mostra a referência do aparelho ao lado. Os valores de consumo/volume de referência são derivados dos parâmetros originais, enquanto o custo é o resultado original do XML.
+- CO₂ utiliza o fator comum do relatório de 0,527 kg/kWh nos dois modos. A vazão medida, a pressão registrada e as fotos não são alteradas; não há correção de vazão pela pressão de cadastro.
+- Sem máquinas válidas, horas ou tarifa, o modo Sistema bloqueia a impressão e orienta o preenchimento. Unidades de vazão desconhecidas também impedem o cálculo do sistema.

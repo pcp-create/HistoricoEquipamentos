@@ -1276,7 +1276,6 @@
 }
 </style>
     <link rel="stylesheet" href="/tools/leak-report-professional.css">
-    <script type="module" src="/tools/leak-calculator.js"></script>
   </head>
   <body>
     <header class="topbar">
@@ -1343,6 +1342,10 @@
             <div class="helper">Você pode adicionar outras pastas sem perder as imagens já selecionadas. Os caminhos do XML serão usados para distinguir arquivos com o mesmo nome.</div>
             <div id="imageImportFeedback" class="helper" role="status"></div>
           </div>
+        </div>
+        <div class="collection-period">
+          <div class="field-input"><label for="calculationSourceInput">Origem dos cálculos anuais</label><select id="calculationSourceInput"><option value="device">Aparelho · parâmetros do XML</option><option value="system">Sistema · Máquinas e cálculo</option></select></div>
+          <small>No modo Sistema, os resultados do aparelho aparecem como referência ao lado. A vazão medida e as fotos permanecem as do XML. No modo Aparelho, o custo é o registrado no XML; energia e volume usam os parâmetros dele. CO₂ utiliza o fator de 0,527 kg/kWh do relatório.</small>
         </div>
         <div class="collection-period">
           <div class="field-input"><label for="collectionStartInput">Coletas a partir de</label><input id="collectionStartInput" type="date" /></div>
@@ -1568,7 +1571,8 @@
       </section>
     </main>
 
-    <script>
+    <script type="module">
+      import {calculateLeakResults} from "/tools/leak-results.mjs";
       const xmlInput = document.getElementById("xmlInput");
       const imgInput = document.getElementById("imgInput");
       const imageMap = new Map();
@@ -1712,6 +1716,7 @@
       }
 
       function moedaBR(value) {
+        if(value==null)return "Não informado";
         return value.toLocaleString("pt-BR", {
           style: "currency",
           currency: "BRL",
@@ -1719,6 +1724,7 @@
       }
 
       function numeroBR(value, casas = 2) {
+        if(value==null)return "Não informado";
         return value.toLocaleString("pt-BR", {
           minimumFractionDigits: casas,
           maximumFractionDigits: casas,
@@ -1779,6 +1785,8 @@
         };
       }
 
+      function applianceReference(value,format){return document.getElementById('calculationSourceInput').value==='system'?`<small class="appliance-reference">Aparelho: ${format(value)}</small>`:'';}
+      function setCompared(id,value,reference){document.getElementById(id).innerHTML=escapeHtml(value)+(document.getElementById('calculationSourceInput').value==='system'?`<small class="appliance-reference">Aparelho: ${escapeHtml(reference)}</small>`:'');}
       function createLeakCard(raw) {
         const data = Object.fromEntries(
           Object.entries(raw).map(([key, value]) => [
@@ -1801,13 +1809,13 @@
             <div class="field"><strong>Falhou:</strong><span>${data.componente}</span></div>
             <div class="field"><strong>Taxa de fuga:</strong><span class="highlight">${data.leakageSign} ${numeroBR(data.leakage, 2)} ${data.unitLeak}</span></div>
             <div class="field"><strong>Peças reposição:</strong><span>${data.reposicao}</span></div>
-            <div class="field"><strong>Consumo energia:</strong><span>${numeroBR(data.energy, 3)} kWh</span></div>
+            <div class="field"><strong>Consumo energia:</strong><span>${numeroBR(data.energy, 3)} kWh${applianceReference(raw.device.energy,v=>numeroBR(v,3)+" kWh")}</span></div>
             <div class="field"><strong>Medida:</strong><span>${data.medida}</span></div>
-            <div class="field"><strong>Volume por ano:</strong><span>${numeroBR(data.volumeAno, 3)} m³</span></div>
+            <div class="field"><strong>Volume por ano:</strong><span>${numeroBR(data.volumeAno, 3)} m³${applianceReference(raw.device.volumeAno,v=>numeroBR(v,3)+" m³")}</span></div>
             <div class="field"><strong>Nível:</strong><span>${data.nivel}</span></div>
-            <div class="field"><strong>Custo por ano:</strong><span class="highlight">${moedaBR(data.cost)}</span></div>
+            <div class="field"><strong>Custo por ano:</strong><span class="highlight">${moedaBR(data.cost)}${applianceReference(raw.device.cost,moedaBR)}</span></div>
             <div class="field"><strong>Pressão:</strong><span>${data.pressao}</span></div>
-            <div class="field"><strong>CO₂ por ano:</strong><span>${numeroBR(data.co2, 3)} toneladas</span></div>
+            <div class="field"><strong>CO₂ por ano:</strong><span>${numeroBR(data.co2, 3)} toneladas${applianceReference(raw.device.co2,v=>numeroBR(v,3)+" t")}</span></div>
             <div class="field"><strong>Distância:</strong><span>${data.distancia}</span></div>
             <div class="comments">
               <div><strong>Comentários:</strong><br><span>&nbsp;</span></div>
@@ -1827,6 +1835,7 @@
         if (!container) return;
 
         const top = leaks
+          .filter(item=>Number.isFinite(item.cost))
           .slice()
           .sort((a, b) => b.cost - a.cost)
           .slice(0, 8);
@@ -1845,7 +1854,7 @@
             return `
           <div class="chart-row">
             <div class="chart-label"><strong>TAG ${escapeHtml(item.tag)}</strong><small><span class="chart-location-caption">Edifício / Local:</span> ${escapeHtml(item.edificioLocal||"Não informado")}</small></div>
-            <div class="chart-value">${moedaBR(item.cost)}</div>
+            <div class="chart-value">${moedaBR(item.cost)}${applianceReference(item.device.cost,moedaBR)}</div>
             <div class="chart-track">
               <div class="chart-bar" style="width:${percent}%"></div>
             </div>
@@ -1855,7 +1864,8 @@
           .join("");
       }
 
-      let reportHasPoints=false;
+      let reportHasPoints=false,systemCalculation=null;
+      document.getElementById('calculationSourceInput').addEventListener('change',()=>{window.dispatchEvent(new Event('rj-leak-changed'));if(ultimoXml)renderXml(ultimoXml);});
       function collectionDate(value) {
         const raw=String(value||'').trim();
         const match=/^(\d{2})[./](\d{2})[./](\d{4})$/.exec(raw);
@@ -1873,6 +1883,7 @@
       });
       function renderXml(xmlText) {
         reportHasPoints=false;
+        document.getElementById('report').classList.add('calculation-blocked');
         const settings = getSettings();
         const serviceOrder = document.getElementById("serviceOrderInput").value.trim();
         document.getElementById("reportOs").hidden = !serviceOrder;
@@ -1906,6 +1917,11 @@
           window.dispatchEvent(new Event('rj-leak-rendered'));
           return;
         }
+        const source=document.getElementById('calculationSourceInput').value||'device';
+        if(source==='system'){
+          try{for(const jnl of registros)calculateLeakResults({flow:num(attr(jnl.querySelector('RES'),'Leakage')),unit:attr(jnl.querySelector('RES'),'UnitL','ltr/min'),device:{},system:systemCalculation,source});}
+          catch(error){feedback.textContent=error.message;feedback.classList.add('error');document.getElementById('report').style.display='none';document.getElementById('btnPrint').disabled=true;document.getElementById('leakPages').innerHTML='';window.dispatchEvent(new Event('rj-leak-rendered'));return;}
+        }
         feedback.classList.remove("error");
         imageReferencePaths=new Map();
         for(const bmp of xml.querySelectorAll('BMP')){const name=normalizeImagePath(bmp.getAttribute('Name'));const paths=imageReferencePaths.get(name)||new Set();paths.add(normalizeImagePath([bmp.getAttribute('Path'),name].filter(Boolean).join('/')));imageReferencePaths.set(name,paths);}
@@ -1920,6 +1936,8 @@
         let totalLeak = 0;
         let totalCost = 0;
         let totalEnergy = 0;
+        let deviceTotalCost=0,deviceTotalEnergy=0;
+        const deviceParameters=[];
         let empresa = "-";
         let local = "-";
         let area = "-";
@@ -1927,12 +1945,7 @@
         let dataFim = "";
         let horaInicio = "";
         let horaFim = "";
-        let custoAr = "-";
-        let energiaEletrica = "-";
-        let horasAno = "-";
         let quantidadeCo2 = "0,527 kg / kWh";
-        let baseCalculoCustos = "Custo de energia [70%]";
-        let potenciaEspecifica = "-";
         let equipamento = "-";
         const leakData = [];
 
@@ -1964,10 +1977,6 @@
           area = attr(infoCliente, "Place", area);
           equipamento = attr(toolNode, "ToolName", equipamento);
 
-          custoAr = costBaseNode ? `${numeroBR(num(attr(costBaseNode, "Base")), 2)} ${attr(costBaseNode, "UnitC", "R$")} / 1000 ${attr(costBaseNode, "UnitV", "m³")}` : "Não informado no XML";
-          energiaEletrica = costElecNode ? `${numeroBR(num(attr(costElecNode, "ElPr")), 2)} R$ / kWh` : "Não informado no XML";
-          potenciaEspecifica = costSpecificNode ? `${numeroBR(num(attr(costSpecificNode, "SpPw")), 3)} kWh / m³` : "Não informado no XML";
-          horasAno = `${attr(costBaseNode, "Time", "-")} h`;
 
           const tag = attr(infoTag, "LeakTag");
           const componente = applyMap(
@@ -1985,10 +1994,12 @@
           const leakage = num(attr(resNode, "Leakage"));
           const leakageSign = attr(resNode, "Sign");
           const unitLeak = attr(resNode, "UnitL", "ltr/min");
-          const cost = num(attr(resNode, "Cost"));
-          const energy = cost / 0.6;
-          const volumeAno = (leakage * 60 * 8500) / 1000;
-          const co2 = (energy * 0.527) / 1000;
+          const optional=(node,key)=>{const value=attr(node,key);return value.trim()!==''&&Number.isFinite(Number(value.replace(',','.')))?Number(value.replace(',','.')):null;};
+          const deviceParams={annualHours:optional(jnl.querySelector('COST[Time]'),'Time'),specificPower:optional(costSpecificNode,'SpPw'),energyPrice:optional(costElecNode,'ElPr'),cost:optional(resNode,'Cost'),airCost:optional(costBaseNode,'Base')};
+          deviceParameters.push(deviceParams);
+          const {cost,energy,volumeAno,co2,device}=calculateLeakResults({flow:leakage,unit:unitLeak,device:deviceParams,system:systemCalculation,source});
+          deviceTotalCost=deviceTotalCost===null||device.cost===null?null:deviceTotalCost+device.cost;
+          deviceTotalEnergy=deviceTotalEnergy===null||device.energy===null?null:deviceTotalEnergy+device.energy;
           const imageName = attr(bmpNode, "Name");
           const imageUrl = findImage(attr(bmpNode,"Path"),imageName);
           const edificioLocal =
@@ -1996,8 +2007,8 @@
             [attr(jnl.querySelector("INFO[Location]"), "Location", ""), attr(jnl.querySelector("INFO[Place]"), "Place", "")].filter(Boolean).map(titleCase).join(" · ") || "Não informado";
 
           totalLeak += leakage;
-          totalCost += cost;
-          totalEnergy += energy;
+          totalCost = totalCost===null||cost===null?null:totalCost+cost;
+          totalEnergy = totalEnergy===null||energy===null?null:totalEnergy+energy;
 
           leakData.push({
             tag,
@@ -2014,6 +2025,7 @@
             leakage,
             leakageSign,
             unitLeak,
+            device,
             cost,
             energy,
             volumeAno,
@@ -2042,7 +2054,7 @@
 
         renderRankingChart(leakData);
 
-        const totalCo2 = (totalEnergy * 0.527) / 1000;
+        const totalCo2 = totalEnergy===null?null:(totalEnergy * 0.527) / 1000;
         document.getElementById("empresa").textContent =
           settings.empresa || titleCase(empresa);
         document.getElementById("localizacao").textContent =
@@ -2055,21 +2067,20 @@
         document.getElementById("periodo").textContent =
           `Início: ${dataInicio} ${horaInicio}  |  Fim: ${dataFim} ${horaFim}`;
         document.getElementById("quantidadeCo2").textContent = quantidadeCo2;
-        document.getElementById("baseCalculoCustos").textContent =
-          baseCalculoCustos;
-        document.getElementById("potenciaEspecifica").textContent =
-          potenciaEspecifica;
-        document.getElementById("custoAr").textContent = custoAr;
-        document.getElementById("energiaEletrica").textContent =
-          energiaEletrica;
-        document.getElementById("horasAno").textContent = horasAno;
+        document.getElementById("baseCalculoCustos").textContent = source==='system'?'Sistema · PE × volume anual × preço da energia':'Aparelho · custo registrado no XML';
+        const parameter=(key,format)=>{const values=[...new Set(deviceParameters.map(p=>p[key]))];return values.length>1?'Variável por ponto (XML)':values[0]===null?'Não informado no XML':format(values[0]);};
+        const devicePower=parameter('specificPower',v=>numeroBR(v,6)+' kWh/m³'),devicePrice=parameter('energyPrice',v=>moedaBR(v)+'/kWh'),deviceHours=parameter('annualHours',v=>numeroBR(v,1)+' h/ano'),deviceAir=parameter('airCost',v=>moedaBR(v)+' / 1.000 m³');
+        setCompared('potenciaEspecifica',source==='system'?numeroBR(systemCalculation.specificPower,6)+' kWh/m³':devicePower,devicePower);
+        setCompared('energiaEletrica',source==='system'?moedaBR(systemCalculation.energyPrice)+'/kWh':devicePrice,devicePrice);
+        setCompared('horasAno',source==='system'?numeroBR(systemCalculation.annualHours,1)+' h/ano':deviceHours,deviceHours);
+        setCompared('custoAr',source==='system'?moedaBR(systemCalculation.specificPower*systemCalculation.energyPrice*1000)+' / 1.000 m³':deviceAir,deviceAir);
         document.getElementById("qtdFugas").textContent = registros.length;
         document.getElementById("vazamentoTotal").textContent = numeroBR(
           totalLeak,
           2,
         );
-        document.getElementById("custoTotal").textContent = moedaBR(totalCost);
-        document.getElementById("co2Total").textContent = numeroBR(totalCo2, 3);
+        setCompared('custoTotal',moedaBR(totalCost),moedaBR(deviceTotalCost));
+        setCompared('co2Total',numeroBR(totalCo2,3),numeroBR(deviceTotalEnergy===null?null:deviceTotalEnergy*.527/1000,3));
         document.getElementById("responsavelRelatorio").textContent =
           settings.responsavel;
 
@@ -2080,11 +2091,12 @@
           ? `<img src="${clienteLogoUrl}" alt="Logo do cliente">`
           : "Logo<br>Cliente";
 
+        document.getElementById('report').classList.remove('calculation-blocked');
         reportHasPoints=true;
         document.getElementById("report").style.display = "block";
         window.dispatchEvent(new Event("rj-leak-rendered"));
       }
-      const projectSettings=['collectionStartInput','collectionEndInput','inspetorInput','serviceOrderInput','empresaInput','localizacaoInput','areaInput','edificioLocalInput','falhouMapInput','medidaMapInput','statusInput','responsavelInput'];
+      const projectSettings=['calculationSourceInput','collectionStartInput','collectionEndInput','inspetorInput','serviceOrderInput','empresaInput','localizacaoInput','areaInput','edificioLocalInput','falhouMapInput','medidaMapInput','statusInput','responsavelInput'];
       function projectImages(){
         if(!ultimoXml)return [...imageMap];
         const refs=Array.from(new DOMParser().parseFromString(ultimoXml,'text/xml').querySelectorAll('BMP'));
@@ -2094,17 +2106,21 @@
       }
       window.rjLeakProject={
         hasXml:()=>reportHasPoints,
+        isBlocked:()=>!!ultimoXml&&!reportHasPoints,
+        setCalculation:(value)=>{if(JSON.stringify(value)===JSON.stringify(systemCalculation))return;systemCalculation=value;if(ultimoXml&&document.getElementById('calculationSourceInput').value==='system')renderXml(ultimoXml);},
         get:()=>({xml:ultimoXml||'',settings:Object.fromEntries(projectSettings.map(id=>[id,document.getElementById(id).value])),images:projectImages(),clientLogo:clienteLogoUrl}),
         syncMetadata:(data)=>{for(const[key,id]of Object.entries({client:'empresaInput',serviceOrder:'serviceOrderInput',inspector:'inspetorInput',location:'localizacaoInput'}))if(data[key])document.getElementById(id).value=data[key];if(ultimoXml)renderXml(ultimoXml);},
         load:(project)=>{
           reportHasPoints=false;
+          document.getElementById('report').classList.remove('calculation-blocked');
+          systemCalculation=project.calculation?{specificPower:project.calculation.specificPowerSum,annualHours:project.calculation.annualHours,energyPrice:project.energyPrice}:null;
           imageMap.forEach(url=>{if(url.startsWith('blob:'))URL.revokeObjectURL(url);});imageMap.clear();
           for(const image of project.images||[])imageMap.set(image.name,'/api/leakage-reports?image='+encodeURIComponent(image.assetId));
           if(clienteLogoUrl.startsWith('blob:'))URL.revokeObjectURL(clienteLogoUrl);
           clienteLogoUrl=project.clientLogo?'/api/leakage-reports?image='+encodeURIComponent(project.clientLogo):'';
           document.getElementById('clienteLogoInput').value='';
           updateClientLogoPreview(true);
-          for(const id of projectSettings)document.getElementById(id).value=project.settings?.[id]||'';
+          for(const id of projectSettings)document.getElementById(id).value=project.settings?.[id]||(id==='calculationSourceInput'?'device':'');
           ultimoXml=project.xml||null;document.getElementById('xmlInput').value='';document.getElementById('imgInput').value='';document.getElementById('imgFolderInput').value='';document.getElementById('imageImportFeedback').textContent='';
           for(const[key,id]of Object.entries({client:'empresaInput',serviceOrder:'serviceOrderInput',inspector:'inspetorInput',location:'localizacaoInput'}))if(project[key])document.getElementById(id).value=project[key];
           if(ultimoXml)renderXml(ultimoXml);else {document.getElementById('report').style.display='none';document.getElementById('btnPrint').disabled=true;}
@@ -2120,5 +2136,6 @@
         ),
       ).observe(document.body);
     </script>
+    <script type="module" src="/tools/leak-calculator.js"></script>
   </body>
 </html>

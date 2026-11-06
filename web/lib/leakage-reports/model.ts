@@ -26,6 +26,9 @@ export function validateLeakage(raw:any){
  document.xml=text(raw.xml??'',2000000);
  document.settings={};
  for(const key of ['inspetorInput','serviceOrderInput','empresaInput','localizacaoInput','areaInput','edificioLocalInput','falhouMapInput','medidaMapInput','statusInput','responsavelInput'])document.settings[key]=text(raw.settings?.[key]??'',10000);
+ const source=raw.settings?.calculationSourceInput||'device';
+ if(!['device','system'].includes(source))throw new LeakageInputError('Origem de cálculo inválida.');
+ document.settings.calculationSourceInput=source;
  for(const key of ['collectionStartInput','collectionEndInput']){
   const value=text(raw.settings?.[key]??'',10);
   if(value&&(!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value).toISOString().slice(0,10)!==value))throw new LeakageInputError('Data de coleta inválida.');

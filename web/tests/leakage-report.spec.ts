@@ -17,7 +17,7 @@ test('leakage equipment calculation, durable project roundtrip, versions and bra
   return route.fulfill({json:{rows:saved?[{id:reportId,version:saved.version,title:saved.document.title,client:saved.document.client,date:saved.document.date,service_order:saved.document.serviceOrder,machine_count:1,updated_at:'2026-10-30T12:00:00Z',updated_by:'Teste'}]:[]}});
  });
  await page.goto('/tools/leak-report.html');
- const xml='<ROOT><JNL><INFO Date="30/10/2026" Time="10:00"/><INFO Company="Cliente teste" Location="Oficina" Place="Geral"/><INFO LeakTag="01"/><INFO CommF="União" CommM="Trocar"/><DATA Level="20"/><DATA Pressure="7" UnitP="bar"/><RES Leakage="10" Cost="600" UnitL="ltr/min"/><BMP Name="ponto.png"/></JNL></ROOT>';
+ const xml='<ROOT><JNL><INFO Date="30/10/2026" Time="10:00"/><INFO Company="Cliente teste" Location="Oficina" Place="Geral"/><INFO LeakTag="01"/><INFO CommF="União" CommM="Trocar"/><DATA Level="20"/><DATA Pressure="7" UnitP="bar"/><COST Base="20" Time="1000"/><COST SpPw="0.1" ElPr="0.2"/><RES Leakage="10" Cost="600" UnitL="ltr/min"/><BMP Name="ponto.png"/></JNL></ROOT>';
  await page.locator('#xmlInput').setInputFiles({name:'levantamento.xml',mimeType:'text/xml',buffer:Buffer.from(xml)});
  await page.locator('#collectionStartInput').fill('2026-10-30');
  await page.locator('#collectionEndInput').fill('2026-10-30');
@@ -45,8 +45,16 @@ test('leakage equipment calculation, durable project roundtrip, versions and bra
  await page.locator('#calcEnergy').fill('0.3725');
  await expect(page.locator('.calc-summary>div').filter({hasText:'Preço da energia'})).toContainText('R$ 0,3725/kWh');
  await page.locator('#calcEnergy').fill('0.45');
+ await page.getByRole('tab',{name:'Relatório',exact:true}).click();
+ await page.locator('#calculationSourceInput').selectOption('system');
+ await expect(page.locator('#custoTotal .appliance-reference')).toContainText('600,00');
+ await expect(page.locator('.leak-card')).toContainText('Aparelho: 60,000');
+ await expect(page.locator('.leak-card')).toContainText('Aparelho: 600,000');
+ await expect(page.locator('#custoTotal')).toContainText('66,35');
+ await page.getByRole('tab',{name:'Máquinas e cálculo',exact:true}).click();
  await page.getByRole('button',{name:'Salvar levantamento',exact:true}).click();
  await expect(page.locator('#calcMessage')).toContainText('versão 1');
+ expect(saved.document.settings.calculationSourceInput).toBe('system');
  expect(saved.document.settings.collectionStartInput).toBe('2026-10-30');
  expect(saved.document.settings.collectionEndInput).toBe('2026-10-30');
  expect(saved.document.clientLogo).toBe(assetId);
@@ -61,6 +69,8 @@ test('leakage equipment calculation, durable project roundtrip, versions and bra
  await page.getByRole('tab',{name:'Histórico',exact:true}).click();await page.getByRole('button',{name:'Abrir levantamento',exact:true}).click();
  await expect(page.locator('#clienteLogoPreviewImage')).toHaveAttribute('src',new RegExp(assetId));
  await expect(page.locator('#clienteLogoFeedback')).toContainText('Logo salva no histórico');
+ await expect(page.locator('#calculationSourceInput')).toHaveValue('system');
+ await expect(page.locator('#custoTotal')).toContainText('109,21');
  await expect(page.locator('#calcEnergy')).toHaveValue('0.5');
  await expect(page.locator('[data-field="hoursMode"]')).toHaveValue('annual');
  await expect(page.locator('[data-field="annualHoursInput"]')).toHaveValue('4000');
@@ -73,4 +83,19 @@ test('leakage equipment calculation, durable project roundtrip, versions and bra
  await expect(page.locator('.calculation-page')).toHaveCount(1);
  expect(await page.locator('.cover-title h2').evaluate(el=>getComputedStyle(el).fontFamily)).toContain('RJ Manrope');
  const pdf=await page.pdf({preferCSSPageSize:true,path:'/tmp/leakage-report-preview.pdf'});expect((await PDFDocument.load(pdf)).getPageCount()).toBe(3);
+ const eightPoints='<ROOT>'+Array.from({length:8},(_,i)=>xml.slice(6,-7).replace('LeakTag="01"',`LeakTag="${i+1}"`)).join('')+'</ROOT>';
+ await page.locator('#xmlInput').setInputFiles({name:'oito.xml',mimeType:'text/xml',buffer:Buffer.from(eightPoints)});
+ await expect(page.locator('.chart-row')).toHaveCount(8);
+ const fullPdf=await page.pdf({preferCSSPageSize:true,path:'/tmp/leakage-report-system-eight.pdf'});
+ expect((await PDFDocument.load(fullPdf)).getPageCount()).toBe(6);
+ await page.locator('.summary-page').screenshot({path:'/tmp/leakage-system-summary.png'});
+ await page.locator('#calcEnergy').evaluate((el:HTMLInputElement)=>{el.value='';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await expect(page.locator('#importFeedback')).toContainText('Preencha as máquinas');
+ await expect(page.locator('#btnPrint')).toBeDisabled();
+ await expect(page.locator('#report')).toBeHidden();
+ await page.emulateMedia({media:'screen'});
+ await page.locator('#calculationSourceInput').selectOption('device');
+ await expect(page.locator('#btnPrint')).toBeEnabled();
+ await expect(page.locator('.appliance-reference')).toHaveCount(0);
+
 });
