@@ -83,10 +83,5 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
     if (pauses.size) fieldEvents.groups.push({name: "Tempo de paradas", fields: [...pauses].map(([name,seconds],index) => field(name,elapsedTime(seconds),index))});
   }
   sections.push(fieldEvents);
-  if(mode==='summary'&&timeline.length){
-    const chronology=section('timeline','Linha do tempo da operação',[]);
-    chronology.groups[0].fields=timeline.map((event,index)=>({...field(timestamp(event.at),event.label,index),responsible:event.responsible}));
-    sections.push(chronology);
-  }
   return filterReport([...sections, ...(run?checklistReport(run, mode):[])],mode).map((stage, index) => ({ ...stage, name: stage.name.replace(/^\s*\d+[.\-–]?\s*/, ""), number: String(index + 1).padStart(2, "0") }));
 }

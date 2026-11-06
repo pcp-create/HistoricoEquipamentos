@@ -24,6 +24,9 @@ test('complete and budget disclose the same timeline and pause-inclusive totals'
  for(const mode of ['complete','summary','budget'] as const){
   const report=technicalReport(operation,{},[],sessions,[],[],mode);
   const json=JSON.stringify(report);
+  assert.equal(report.some(stage=>stage.id==='timeline'),false,'individual summaries must not add a separate timeline');
+  assert.equal(json.includes('Início de atividade'),mode!=='summary');
+  assert.equal(json.includes('Término de atividade'),mode!=='summary');
   assert.equal(json.includes('Início de pausa'),mode!=='summary');
   assert.equal(json.includes('Tempo de paradas'),mode!=='summary');
   const total=report.find(s=>s.id==='events')!.groups.flatMap(g=>g.fields).find(f=>f.label==='Tempo total');
