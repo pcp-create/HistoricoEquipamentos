@@ -16,6 +16,15 @@ export async function warehouseProducts(company:string,query:string,page=1){
  ORDER BY c.name,c.product_id LIMIT 30 OFFSET $3`,[company,'%'+query+'%',(page-1)*30])).rows;
  return {rows:await withWarehouseSupply(rows),total:rows[0]?.total||0,page};
 }
+/** Persist the confirmed ERP identity so scheduling reads the new product immediately. */
+async function persistMaterial(client:any,company:string,order:string,itemId:string,material:any,enrich=false){
+ const mapped=fields.m8_os_produtos.filter(([,field])=>material[field]!==undefined);
+ const columns=['company_id','ordem_servico_id','id_m8','payload',...mapped.map(([column])=>column)];
+ const values=[company,order,itemId,JSON.stringify(material),...mapped.map(([,field])=>material[field])];
+ // A concurrent collector may already have the authoritative row. Do not replace it with fallback data.
+ const conflict=enrich?`DO UPDATE SET ${columns.slice(3).map(key=>`${key}=EXCLUDED.${key}`).join(',')},updated_at=now(),sincronizado_em=now()`:'DO NOTHING';
+ await client.query(`INSERT INTO m8_os_produtos(${columns.join(',')}) VALUES(${values.map((_,i)=>'$'+(i+1)).join(',')}) ON CONFLICT(company_id,ordem_servico_id,id_m8) ${conflict}`,values);
+}
 /** One durable reservation per request before the ERP POST; never repeat an uncertain write. */
 export async function addWarehouseMaterial(input:any,actor:string,session=m8Session){
  if(!['1','2','27404'].includes(String(input?.company))||!/^\d{1,18}$/.test(String(input.order))||!/^\d{1,18}$/.test(String(input.product))||!Number(input.order)||!Number(input.product)||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.requestId||''))throw new WarehouseError('Material ou OS inválida.');
@@ -67,19 +76,22 @@ export async function addWarehouseMaterial(input:any,actor:string,session=m8Sess
  }catch(e){state=!writeStarted||(e instanceof M8RequestError&&!e.uncertain)?'rejected':'uncertain';message=e instanceof M8RequestError?e.message:'Não foi possível confirmar a inclusão. Confira o M8 antes de reenviar.';}
  // Persist confirmation before refresh. A failed refresh must never replay the ERP write.
  const save=await db.connect();
- try{await save.query('BEGIN READ WRITE');await save.query('UPDATE web_warehouse_material_additions SET state=$2,item_id=$3,message=$4,updated_at=now() WHERE id=$1',[input.requestId,state,itemId,message]);if(state==='complete'){await queueWarehouseMaterialNotification(save,input.requestId,actor,notification);if(budgetOwner)await createBillingMaterialTask(save,input.requestId,input,actor,notification,budgetOwner);}await save.query('COMMIT');}catch(e){await save.query('ROLLBACK');throw e;}finally{save.release();}
+ try{await save.query('BEGIN READ WRITE');await save.query('UPDATE web_warehouse_material_additions SET state=$2,item_id=$3,message=$4,updated_at=now() WHERE id=$1',[input.requestId,state,itemId,message]);if(state==='complete'){
+  await persistMaterial(save,String(input.company),String(input.order),itemId!,{
+   id:Number(itemId),...itemPayload({kind:'material',code:String(input.product),quantity:String(input.quantity),price:String(input.price),name:''}),
+   produtoNome:notification.productName,unidadeNome:notification.unit,
+   observacaoInterna:'Incluído posteriormente pelo almoxarifado via portal. Justificativa: '+justification,
+  });
+  await queueWarehouseMaterialNotification(save,input.requestId,actor,notification);if(budgetOwner)await createBillingMaterialTask(save,input.requestId,input,actor,notification,budgetOwner);}await save.query('COMMIT');}catch(e){await save.query('ROLLBACK');throw e;}finally{save.release();}
  if(state==='complete'){
   try{
    const full=await m8(`/v1/assistenciatecnica/ordemservicocompleta?Id=${input.order}&Page=1&PageSize=1`);
    const material=Array.isArray(full)&&full.length===1&&String(full[0].id)===String(input.order)?full[0].produtos?.find((p:any)=>String(p.id)===itemId):null;
    if(!material||String(material.produtoId)!==String(input.product))throw new Error('Material ainda não retornou na consulta.');
-   const mapped=fields.m8_os_produtos.filter(([,field])=>material[field]!==undefined);
-   const columns=['company_id','ordem_servico_id','id_m8','payload',...mapped.map(([column])=>column)];
-   const values=[input.company,input.order,itemId,JSON.stringify(material),...mapped.map(([,field])=>material[field])];
    const local=await db.connect();
-   try{await local.query('BEGIN READ WRITE');await local.query(`INSERT INTO m8_os_produtos(${columns.join(',')}) VALUES(${values.map((_,i)=>'$'+(i+1)).join(',')}) ON CONFLICT(company_id,ordem_servico_id,id_m8) DO UPDATE SET ${columns.slice(3).map(key=>`${key}=EXCLUDED.${key}`).join(',')},updated_at=now(),sincronizado_em=now()`,values);await local.query('COMMIT');}catch(e){await local.query('ROLLBACK');throw e;}finally{local.release();}
+   try{await local.query('BEGIN READ WRITE');await persistMaterial(local,String(input.company),String(input.order),itemId!,material,true);await local.query('COMMIT');}catch(e){await local.query('ROLLBACK');throw e;}finally{local.release();}
    await refreshProjectionOrder(Number(input.company),String(input.order),session);
-  }catch{message='Material confirmado no M8. A exibição local aguarda sincronização.';}
+  }catch{message='Material incluído e disponível na OS. Os demais dados do M8 serão atualizados pelo sincronismo.';}
  }
  const final=await db.connect();
  try{await final.query('BEGIN READ WRITE');await final.query('UPDATE web_warehouse_material_additions SET message=$2,updated_at=now() WHERE id=$1',[input.requestId,message]);await final.query('COMMIT');}catch(e){await final.query('ROLLBACK');throw e;}finally{final.release();}

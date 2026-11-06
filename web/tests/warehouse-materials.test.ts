@@ -7,7 +7,7 @@ import {addWarehouseMaterial,warehouseProducts} from '../lib/warehouse/materials
 import {claimWarehouseNotifications,acknowledgeWarehouseNotification} from '../lib/warehouse/notifications';
 import {M8RequestError} from '../lib/service-orders/m8';
 
-test('adding a warehouse product posts once, preserves ERP identity and logs uncertain writes without replay',async()=>{
+for(const refreshMode of ['immediate','lagging','unavailable'])test(`warehouse product is available immediately and never reposted when ERP detail is ${refreshMode}`,async()=>{
  const db=new PGlite(),g=globalThis as any,old=g.historyPool;
  const query=(sql:string,args?:any[])=>db.query(sql.replace('BEGIN READ WRITE','BEGIN'),args);
  g.historyPool={query,connect:async()=>({query,release(){}})};
@@ -21,17 +21,26 @@ test('adding a warehouse product posts once, preserves ERP identity and logs unc
    INSERT INTO m8_product_current VALUES(1,7,10,20,15,'UN',now(),now());
    CREATE TABLE m8_os_produtos(company_id int,ordem_servico_id bigint,id_m8 bigint,produto_id bigint,produto_nome text,quantidade numeric,unidade_nome text,valor_unitario numeric,valor_total numeric,observacao_interna text,payload jsonb,updated_at timestamptz,sincronizado_em timestamptz,PRIMARY KEY(company_id,ordem_servico_id,id_m8));`);
   await db.exec(readFileSync('sql/083_warehouse_deliveries.sql','utf8'));await db.exec(readFileSync('sql/084_warehouse_returns.sql','utf8'));await db.exec(readFileSync('sql/085_warehouse_notifications.sql','utf8'));
-  const calls:any[]=[];
+  const calls:any[]=[];let visibleBeforeRefresh=false;
   const session=async(company:number)=>async(path:string,body?:any)=>{
    assert.equal(company,1);calls.push({path,body});
    if(body){assert.equal(path,'/v1/assistenciatecnica/ordemservico/100/produto');return {id:55};}
-   if(path.includes('ordemservicocompleta'))return [{id:100,produtos:[{id:55,produtoId:7,produtoNome:'Filtro',quantidade:2,unidadeNome:'UN',valorUnitario:10,valorTotal:20,observacaoInterna:'Incluído posteriormente pelo almoxarifado via portal.'}]}];
+   if(path.includes('ordemservicocompleta')){
+    const local=(await db.query<any>('SELECT * FROM m8_os_produtos WHERE id_m8=55')).rows[0];
+    visibleBeforeRefresh=local?.produto_nome==='Filtro'&&Number(local.quantidade)===2&&Number(local.valor_unitario)===10&&Number(local.valor_total)===20;
+    assert.equal(visibleBeforeRefresh,true,'scheduling must see the product before the follow-up ERP read');
+    assert.equal(Number(local.quantidade),2);assert.equal(Number(local.valor_unitario),10);assert.equal(Number(local.valor_total),20);
+    if(refreshMode==='unavailable')throw Error('ERP temporariamente indisponível');
+    if(refreshMode==='lagging')return [{id:100,produtos:[]}];
+    return [{id:100,produtos:[{id:55,produtoId:7,produtoNome:'Filtro',quantidade:2,unidadeNome:'UN',valorUnitario:10,valorTotal:20,observacaoInterna:'Incluído posteriormente pelo almoxarifado via portal.'}]}];
+   }
    return [{id:100,status:'Pendente',totalGeral:20}];
   };
   const body={company:'1',order:'100',product:'7',quantity:2,price:10,justification:'Troca necessária após diagnóstico',requestId:randomUUID()};
   await assert.rejects(addWarehouseMaterial({...body,justification:'  '},'warehouse',session as any),/justificativa/);
   assert.equal((await addWarehouseMaterial(body,'warehouse',session as any)).state,'complete');
   assert.equal((await addWarehouseMaterial(body,'warehouse',session as any)).state,'complete');
+  assert.equal(visibleBeforeRefresh,true);
   assert.equal(calls.filter(c=>c.body).length,1);assert.equal(calls.find(c=>c.body).body.valorTotal,20);
   assert.match(calls.find(c=>c.body).body.observacaoInterna,/posteriormente/);
   assert.match(calls.find(c=>c.body).body.observacaoInterna,/Troca necessária após diagnóstico/);
@@ -44,6 +53,7 @@ test('adding a warehouse product posts once, preserves ERP identity and logs unc
   assert.equal((await db.query<any>('SELECT state FROM web_warehouse_notifications')).rows[0].state,'sent');
 
   assert.equal((await db.query<any>('SELECT produto_id::text FROM m8_os_produtos')).rows[0].produto_id,'7');
+  assert.equal((await db.query('SELECT * FROM m8_os_produtos')).rows.length,1,'ERP refresh/replay must not duplicate the product');
   const catalog=await warehouseProducts('1','Filtro');assert.equal(catalog.rows.length,1);assert.equal(Number(catalog.rows[0].supply.stock),20);
   await assert.rejects(addWarehouseMaterial({...body,quantity:3},'warehouse',session as any),/Identificador/);
   await assert.rejects(addWarehouseMaterial({...body,product:'8',requestId:randomUUID()},'warehouse',session as any),/empresa/);
