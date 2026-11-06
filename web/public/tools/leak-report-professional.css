@@ -19,3 +19,19 @@ body,.report{font-family:"RJ DM Sans",Arial,sans-serif;color:#27445f}button,inpu
 .calc-panel .calc-hours-mode{max-width:340px;margin:0 0 16px;font-size:13px;gap:6px}
 
 @media screen and (min-width:901px) and (max-width:1200px){.calc-summary{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+.calc-machine-table-wrap{max-width:100%;overflow-x:auto;border:1px solid #dce5ee;border-radius:10px;margin:14px 0;background:white}
+.calc-machine-table{width:100%;min-width:1080px;border-collapse:collapse;text-align:left;font-size:12px}
+.calc-machine-table th{padding:12px 10px;background:#f1f6fb;color:#526d85;font-size:11px;font-weight:600;white-space:nowrap;border-bottom:1px solid #dce5ee}
+.calc-machine-table td{padding:10px;border-bottom:1px solid #e4ecf3;vertical-align:middle}
+.calc-machine-table tbody tr:last-child td{border-bottom:0}
+.calc-machine-table tbody tr:nth-child(even){background:#fafcfe}
+.calc-machine-table tbody tr:focus-within{background:#f2f8fd}
+.calc-machine-table td:nth-child(2){min-width:200px;width:25%}
+.calc-machine-table td:nth-child(5){min-width:170px}
+.calc-panel .calc-machine-table input,.calc-panel .calc-machine-table select{min-height:36px;min-width:72px;padding:8px 9px;font-size:12px;border-radius:6px}
+.calc-machine-table .calc-machine-number{font-size:11px;color:#7890a4;text-align:center}
+.calc-machine-table output{display:block;white-space:nowrap;font-variant-numeric:tabular-nums;color:#27445f}
+.calc-machine-table .calc-remove{padding:7px 9px;font-size:11px;border:1px solid #efd9d5;border-radius:6px;background:#fffaf9;white-space:nowrap}
+.calc-machine-table .calc-cell-empty{color:#9cabb8}
+.calc-machine-table .calc-machine-empty{padding:20px;color:#657d92;text-align:center}

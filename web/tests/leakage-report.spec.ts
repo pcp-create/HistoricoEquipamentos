@@ -26,6 +26,11 @@ test('leakage equipment calculation, durable project roundtrip, versions and bra
  await page.getByRole('button',{name:'+ Adicionar máquina',exact:true}).click();
  await page.locator('[data-field="name"]').fill('GA90 · Série 123');
  for(const [field,value]of [['powerKw','90'],['flowM3min','16.482'],['hoursPerDay','10'],['daysPerYear','270']])await page.locator(`[data-field="${field}"]`).fill(value);
+ await page.getByRole('button',{name:'+ Adicionar máquina',exact:true}).click();
+ await expect(page.locator('.calc-machine-table tbody tr[data-machine]')).toHaveCount(2);
+ await expect(page.locator('[data-field="name"]').first()).toHaveValue('GA90 · Série 123');
+ await page.getByRole('button',{name:'Remover máquina 2',exact:true}).click();
+ await expect(page.locator('.calc-machine-table tbody tr[data-machine]')).toHaveCount(1);
  await expect(page.locator('#calcResults')).toContainText('2.700 h/ano');
  await expect(page.locator('.calc-summary>div').filter({hasText:'Pressão da rede do cliente'})).toContainText('7 bar');
  await expect(page.locator('.calc-summary>div').filter({hasText:'Preço da energia'})).toContainText('R$ 0,45/kWh');
