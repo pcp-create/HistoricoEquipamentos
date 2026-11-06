@@ -652,6 +652,7 @@ export default function ServiceScheduling() {
                     data.detail?.order?.status_lancamento_nome ||
                       "Não informado",
                   ],
+                  ["Valor total da OS", money(data.detail?.order?.total_geral)],
                 ] as [string, React.ReactNode][]).map(([label, value]) => (
                   <div key={label}>
                     <dt>{label}</dt>
@@ -659,18 +660,12 @@ export default function ServiceScheduling() {
                   </div>
                 ))}
               </dl>
-              <div className="schedule-order-footer">
-                <OrderDetailLink
-                  id={String(data.schedule.order_id)}
-                  company={data.schedule.company_id}
-                >
-                  Ver detalhes da OS
-                </OrderDetailLink>
-                <dl className="schedule-order-total">
-                  <dt>Valor total da OS</dt>
-                  <dd>{data.detail?.order?.total_geral == null ? "Não informado" : money(data.detail.order.total_geral)}</dd>
-                </dl>
-              </div>
+              <OrderDetailLink
+                id={String(data.schedule.order_id)}
+                company={data.schedule.company_id}
+              >
+                Ver detalhes da OS
+              </OrderDetailLink>
             </section>
             <ScheduleOrderActions data={data} onChanged={()=>void load()}/><OrderTaskLinks company={String(data.schedule.company_id)} orderId={String(data.schedule.order_id)} revision={(data.operations||[]).map((o:any)=>`${o.id}:${o.version}`).join(",")}/>
             {data.canEditSettings && <div className="scheduling-actions order-report-launch"><button type="button" disabled={busy} onClick={()=>setOrderReportOpen(true)}>Gerar relatório da OS</button><button type="button" disabled={busy||!data.operations?.length} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações das operações antes de iniciar a revisão da OS.");return;}setOrderReviewOpen(true);}}><ListChecks size={18}/>Revisar operações da OS</button><button type="button" disabled={busy} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações antes de gerar a tarefa da OS.");return;}setOrderTaskOpen(true);}}><ClipboardPlus size={18} aria-hidden="true"/>Gerar tarefa da OS</button></div>}
