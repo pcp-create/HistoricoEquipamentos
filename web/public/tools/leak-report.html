@@ -1310,6 +1310,12 @@
           <label>Unidade / localização<input id="calcLocation" maxlength="500"></label>
           <label>Pressão da rede (bar)<input id="calcPressure" type="number" min="0.001" max="100" step="any" required></label>
           <label>Preço da energia (R$/kWh)<input id="calcEnergy" type="number" min="0.0001" max="100" step="any" required></label>
+          <div class="field-input">
+            <label for="clienteLogoInput">Logo do Cliente</label>
+            <input type="file" id="clienteLogoInput" accept="image/png,image/jpeg,image/webp" aria-describedby="clienteLogoFeedback" />
+            <div id="clienteLogoPreview" class="client-logo-preview" hidden><img id="clienteLogoPreviewImage" alt="Logo do cliente selecionada" /><button type="button" id="clienteLogoRemove" class="btn">Remover logo</button></div>
+            <small id="clienteLogoFeedback" role="status">A logo será salva junto ao levantamento no histórico.</small>
+          </div>
           <label>Histórico de versões<select id="calcRevision"><option value="">Versão atual</option></select></label>
         </div><h3>Compressores considerados</h3><div id="calcMachines"></div><button class="btn" type="button" id="calcAddMachine">+ Adicionar máquina</button><div id="calcResults" hidden></div>
         <label style="margin-top:18px">Observações do levantamento<textarea id="calcNotes" maxlength="10000"></textarea></label>
@@ -1358,12 +1364,6 @@
               id="inspetorInput"
               placeholder="Ex.: Iago Rian"
             />
-          </div>
-          <div class="field-input">
-            <label for="clienteLogoInput">Logo do Cliente</label>
-            <input type="file" id="clienteLogoInput" accept="image/png,image/jpeg,image/webp" aria-describedby="clienteLogoFeedback" />
-            <div id="clienteLogoPreview" class="client-logo-preview" hidden><img id="clienteLogoPreviewImage" alt="Logo do cliente selecionada" /><button type="button" id="clienteLogoRemove" class="btn">Remover logo</button></div>
-            <small id="clienteLogoFeedback" role="status">A logo será salva junto ao levantamento no histórico.</small>
           </div>
           <div class="field-input">
             <label for="statusInput">Status dos pontos</label>

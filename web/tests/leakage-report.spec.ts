@@ -25,6 +25,8 @@ test('leakage equipment calculation, durable project roundtrip, versions and bra
  await expect(page.locator('#clienteLogoPreview')).not.toHaveAttribute('hidden');
  await page.locator('#imgInput').setInputFiles({name:'ponto.png',mimeType:'image/png',buffer:pixel});
  await page.getByRole('tab',{name:'Máquinas e cálculo',exact:true}).click();
+ await expect(page.locator('#clienteLogoInput')).toBeVisible();
+ await expect(page.locator('#clienteLogoPreview')).toBeVisible();
  await expect(page.locator('#calcClient')).toHaveValue('Cliente Teste');
  await page.locator('#calcPressure').fill('7');await page.locator('#calcEnergy').fill('0.45');await page.locator('#calcOrder').fill('15137');
  await page.getByRole('button',{name:'+ Adicionar máquina',exact:true}).click();
