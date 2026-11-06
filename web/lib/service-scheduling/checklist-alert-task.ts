@@ -1,3 +1,4 @@
+import {summaryReportFilename} from "./report-filename";
 import {validateRunAlertComments} from './checklists';
 import 'server-only';
 import type {PoolClient} from 'pg';
@@ -19,7 +20,7 @@ export async function createChecklistAlertTask(c:PoolClient,operation:any,schedu
  document={...document,checklistAlertTasks:records.filter((t:any)=>live.includes(String(t.taskId)))};
  // Finalize attachments of tasks created through the earlier pre-review flow.
  for(const record of document.checklistAlertTasks){
-  const preview=await c.query("SELECT 1 FROM web_task_attachments WHERE task_id=$1 AND filename LIKE $2 LIMIT 1",[record.taskId,`Relatorio-OS-%-Operacao-${operationNumber(operation.position)}-%-Previo.pdf`]);
+  const preview=await c.query("SELECT 1 FROM web_task_attachments WHERE task_id=$1 AND (filename LIKE $2 OR filename LIKE $3) LIMIT 1",[record.taskId,`Relatorio-OS-%-Operacao-${operationNumber(operation.position)}-%-Previo.pdf`,'OS %-Previo.pdf']);
   if(preview.rows.length)document=await createAlertGroup(c,operation,schedule,document,settings,email,record.alerts,validateAlertTask(record),String(record.taskId));
  }
  const pending=pendingChecklistAlerts(document,allAlerts);
@@ -41,11 +42,11 @@ async function createAlertGroup(c:PoolClient,operation:any,schedule:any,document
  if(photos.length!==photoIds.length)throw Error('Há fotos indisponíveis no relatório. Confira os anexos antes de concluir a revisão.');
  const number=String(order.numero_sequencia||schedule.order_id),position=operationNumber(operation.position);
  const bytes=await renderChecklistPdf({title:document.checklistRun.template.name,order:number,position:operation.position,client:order.cliente_nome||'',equipment:'',report,photos,mode:taskInput.reportMode});
- const filename=`Relatorio-OS-${number.replace(/[^\w-]/g,'')}-Operacao-${position}-${reportFilenameMode[taskInput.reportMode]}.pdf`;
+ const filename=taskInput.reportMode==="summary"?summaryReportFilename(order,[{...operation,document}],number):`Relatorio-OS-${number.replace(/[^\w-]/g,'')}-Operacao-${position}-${reportFilenameMode[taskInput.reportMode]}.pdf`;
  const result=existingTaskId?{task:{id:existingTaskId}}:await createTask({title:`Alertas da OS ${number} · Operação ${position}`.slice(0,160),description:taskInput.description,assignedTo:taskInput.assignedTo,priority:'high',dueDate:'',orderCompany:String(schedule.company_id),orderId:String(schedule.order_id)}, {id:email,email,user_metadata:{display_name:actor?.display_name||email}},c);
  const taskId=String(result.task.id);
  await c.query("UPDATE web_tasks SET origin='Revisão de relatório' WHERE id=$1",[taskId]);
- if(existingTaskId)await c.query("DELETE FROM web_task_attachments WHERE task_id=$1 AND filename LIKE $2",[taskId,`Relatorio-OS-%-Operacao-${position}-%-Previo.pdf`]);
+ if(existingTaskId)await c.query("DELETE FROM web_task_attachments WHERE task_id=$1 AND (filename LIKE $2 OR filename LIKE $3)",[taskId,`Relatorio-OS-%-Operacao-${position}-%-Previo.pdf`,'OS %-Previo.pdf']);
  await c.query("INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,'Alertas identificados no checklist',$2,true,$3,$4)",[taskId,alerts.map(a=>`${a.stage} · ${a.label}: ${a.value}\nComentário: ${a.comment||"Não informado"}`).join('\n'),email,actor?.display_name||email]);
  await c.query('INSERT INTO web_task_attachments(task_id,filename,content_type,content,created_by,created_name) VALUES($1,$2,$3,$4,$5,$6)',[taskId,filename,'application/pdf',Buffer.from(bytes),email,actor?.display_name||email]);
  return {...document,checklistAlertTasks:[...(document.checklistAlertTasks||[]).filter((t:any)=>t.signature!==checklistAlertSignature(alerts)),{taskId,signature:checklistAlertSignature(alerts),alerts,assignedTo:taskInput.assignedTo,description:taskInput.description,reportMode:taskInput.reportMode,at:new Date().toISOString(),by:email}]};

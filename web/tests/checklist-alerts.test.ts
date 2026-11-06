@@ -75,7 +75,7 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  const tasks=(await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows;
  assert.equal(tasks.length,1);assert.equal(tasks[0].assigned_to,alertTask.assignedTo);assert.equal(String(tasks[0].order_id),'100');
  const attachment=(await query('SELECT * FROM web_task_attachments')).rows[0];
- assert.match(attachment.filename,/Operacao-01-Resumido.pdf$/);assert.equal(attachment.content_type,'application/pdf');
+ assert.equal(attachment.filename,'OS 12345 - Cliente I Compressor.pdf');assert.equal(attachment.content_type,'application/pdf');
  assert.ok((await PDFDocument.load(attachment.content)).getPageCount()>0);
  assert.equal((await query("SELECT n.* FROM web_task_notifications n JOIN web_tasks t ON t.id=n.task_id WHERE t.source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,1);
  await assert.rejects(mutateSchedule({...body,alertTask},admin),/alterada/);
@@ -125,7 +125,7 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  const created=await createOrderTask(orderTask,admin);
  assert.equal((await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,4);
  const attached=(await query('SELECT filename,content FROM web_task_attachments WHERE task_id=$1',[created.taskId])).rows[0];
- assert.match(attached.filename,/unificado-Resumido.pdf$/);
+ assert.equal(attached.filename,'OS 12345 - Cliente I Compressor.pdf');
  assert.ok((await PDFDocument.load(attached.content)).getPageCount()>0);
  assert.deepEqual(await createOrderTask(orderTask,admin),created);
  assert.match((await query('SELECT source_key FROM web_tasks WHERE id=$1',[created.taskId])).rows[0].source_key,/^manual:order-report-task:/);

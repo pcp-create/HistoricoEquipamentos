@@ -1,3 +1,4 @@
+import {pdfAttachmentHeader} from "@/lib/service-scheduling/report-filename";
 import { requireUser, sameOrigin, Unauthorized, Forbidden } from "@/lib/auth";
 import {
   orderReportPdf,
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
     return new Response(new Uint8Array(result.bytes), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${result.filename}"`,
+        "Content-Disposition": pdfAttachmentHeader(result.filename),
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },

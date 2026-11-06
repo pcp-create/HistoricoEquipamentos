@@ -1,3 +1,4 @@
+import {summaryReportFilename} from "./report-filename";
 import {
   filterReport,
   type ReportMode,
@@ -234,6 +235,7 @@ export function orderReport(
     ).filter((s) => !["location", "client"].includes(s.id)),
   }));
   return {
+    summaryFilename: summaryReportFilename(order, operations.map(({op})=>op), String(data.schedule.order_id)),
     order: String(order.numero_sequencia || data.schedule.order_id),
     mode,
     preliminary: preview && operations.some(({op})=>!["reviewed","completed"].includes(op.status)),

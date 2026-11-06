@@ -1,3 +1,4 @@
+import {summaryReportFilename} from "./report-filename";
 import {reportEquipment} from "./technical-report";
 import { operationNumber } from "./operation-number";
 import 'server-only';
@@ -29,7 +30,7 @@ export async function checklistPdf(operationId:string,email:string,mode:ReportMo
  const report=technicalReport({id:operationId,document:row.document},row.order_record||{},users.rows,sessions.rows,events.rows,operationEvents.rows,mode,pauseReasons);
  const ids=[...new Set(report.flatMap(s=>s.groups.flatMap(g=>g.fields.flatMap(f=>f.photos))))];
  const photos=ids.length?(await db.query('SELECT id::text,content FROM web_service_checklist_photos WHERE operation_id=$1 AND id=ANY($2::bigint[])',[operationId,ids])).rows:[];
- return {bytes:await renderChecklistPdf({title:(preview&&!["reviewed","completed"].includes(row.status)?"PRÉVIA · ":"")+run.template.name,order:String(row.numero_sequencia||row.order_id),client:row.cliente_nome||'',equipment:reportEquipment(row,row),position:row.position,report,photos,mode}),filename:`Relatorio-OS-${row.numero_sequencia||row.order_id}-${reportFilenameMode[mode]}.pdf`};
+ return {bytes:await renderChecklistPdf({title:(preview&&!["reviewed","completed"].includes(row.status)?"PRÉVIA · ":"")+run.template.name,order:String(row.numero_sequencia||row.order_id),client:row.cliente_nome||'',equipment:reportEquipment(row,row),position:row.position,report,photos,mode}),filename:mode==="summary"?summaryReportFilename(row.order_record||row,[row],String(row.numero_sequencia||row.order_id)):`Relatorio-OS-${row.numero_sequencia||row.order_id}-${reportFilenameMode[mode]}.pdf`};
 }
 export async function renderChecklistPdf(data:{preliminary?:boolean;title:string;order:string;client:string;equipment:string;position?:number;report:ReturnType<typeof checklistReport>;photos:any[];mode?:ReportMode;chapters?:{title:string;position:number;report:ReturnType<typeof checklistReport>}[]}){
  const pdf=await PDFDocument.create();
