@@ -1,3 +1,4 @@
+import {withMaterialMovements} from "./material-movements";
 import {flowOwnerRows} from "./flow-responsibility";
 import {flowAreaFromRows} from "./flow-responsibility-model";
 import {attachOperationWorkshops} from "./operation-workshops";
@@ -192,7 +193,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
   const links=(await db.query("SELECT linked_company_id,linked_order_id FROM web_order_links WHERE company_id=$1 AND order_id=$2 AND linked_order_id IS NOT NULL ORDER BY linked_company_id,linked_order_id",[schedule.company_id,schedule.order_id])).rows;
   const linkedDetails=await Promise.all(links.map(async (link:any)=>({company:link.linked_company_id,order:link.linked_order_id,detail:await orderDetail(String(link.linked_company_id),String(link.linked_order_id)),profit:(await db.query("SELECT document FROM web_order_profit WHERE company_id=$1 AND order_id=$2",[link.linked_company_id,link.linked_order_id])).rows[0]?.document||null})));
   const combinedDetail=detail?{...detail,
-    materials:await withPurchaseBalances(combineMultipleOrderItems(detail,linkedDetails,"materials",schedule.company_id,schedule.order_id)),
+    materials:await withMaterialMovements(await withPurchaseBalances(combineMultipleOrderItems(detail,linkedDetails,"materials",schedule.company_id,schedule.order_id))),
     services:combineMultipleOrderItems(detail,linkedDetails,"services",schedule.company_id,schedule.order_id).map((item:any)=>({...item,source_profit:item.source_linked?linkedDetails.find(l=>String(l.company)===String(item.item_company)&&String(l.order)===String(item.item_order))?.profit:profit.rows[0]?.document||null}))
   }:detail;
   const forecast = {...schedule, calendar_operations: operations.rows.map(operation => ({...operation.document, position:operation.position, status:operation.status, responsibleEmail:operation.document.responsible}))};

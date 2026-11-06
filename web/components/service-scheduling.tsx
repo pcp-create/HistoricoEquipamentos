@@ -379,14 +379,6 @@ export default function ServiceScheduling() {
     services = (data?.detail?.services || []).filter(
       (s: any) => s.esta_excluido !== true,
     );
-  const canUse =
-    data?.canEditSettings ||
-    data?.operations?.some(
-      (o: any) =>
-        o.status !== "completed" &&
-        (o.document.responsible === data.email ||
-          o.document.support.includes(data.email)),
-    );
   return (
     <>
       <SiteHeader active="scheduling" />
@@ -753,8 +745,7 @@ export default function ServiceScheduling() {
             {tab === "products" && (
               <>
                 <p>
-                  Itens da OS principal e, abaixo, os códigos distintos da OS vinculada. Retirada e utilização ficam em branco
-                  até o preenchimento pela equipe responsável. Estoque e estoque disponível correspondem à última coleta do ERP na empresa de origem do item; passe o cursor sobre o saldo para ver a data. Em compra mostra o saldo pendente das ordens de compra ativas da mesma empresa, por unidade.
+                  Itens da OS principal e, abaixo, os códigos distintos da OS vinculada. Quantidades apenas para consulta, conforme os registros dos portais técnico e de almoxarifado. Quantidade utilizada = retirada − devolvida. Estoque e estoque disponível correspondem à última coleta do ERP na empresa de origem do item; passe o cursor sobre o saldo para ver a data. Em compra mostra o saldo pendente das ordens de compra ativas da mesma empresa, por unidade.
                 </p>
                 {!data.detail?.detail_at && (
                   <p>
@@ -774,14 +765,12 @@ export default function ServiceScheduling() {
                         <th>Estoque disponível</th>
                         <th>Em compra</th>
                         <th>Quantidade Retirada</th>
+                        <th>Quantidade Devolvida</th>
                         <th>Quantidade Utilizada</th>
                       </tr>
                     </thead>
                     <tbody>
                       {materials.map((m: any) => {
-                        const u = data.usage.find(
-                          (u: any) => itemMatches(u,m),
-                        );
                         return (
                           <tr key={itemIdentity(m)} className={m.source_linked ? "schedule-linked-item" : undefined}>
                             <td>{m.produto_id || "—"}</td>
@@ -791,48 +780,9 @@ export default function ServiceScheduling() {
                             <MaterialStock material={m} />
                             <MaterialStock material={m} available />
                             <MaterialPurchases material={m} />
-                            {["withdrawn", "used"].map((field) => (
-                              <td key={field}>
-                                <input
-                                  key={u?.version || 0}
-                                  aria-label={
-                                    (field === "withdrawn"
-                                      ? "Quantidade Retirada "
-                                      : "Quantidade Utilizada ") +
-                                    m.produto_nome
-                                  }
-                                  type="number"
-                                  min="0"
-                                  step="0.001"
-                                  defaultValue={u?.[field] ?? ""}
-                                  disabled={busy || !canUse}
-                                  onBlur={(e) => {
-                                    const value = number(e.target.value);
-                                    if (
-                                      value !==
-                                      (u?.[field] == null
-                                        ? null
-                                        : Number(u[field]))
-                                    )
-                                      void mutate({
-                                        action: "usage",
-                                        itemId: String(m.id_m8),
-                                        item_company:m.item_company, item_order:m.item_order,
-                                        version: u?.version ?? null,
-                                        withdrawn:
-                                          u?.withdrawn == null
-                                            ? null
-                                            : Number(u.withdrawn),
-                                        used:
-                                          u?.used == null
-                                            ? null
-                                            : Number(u.used),
-                                        [field]: value,
-                                      });
-                                  }}
-                                />
-                              </td>
-                            ))}
+                            <td>{qty(m.movement?.withdrawn ?? 0)}</td>
+                            <td>{qty(m.movement?.returned ?? 0)}</td>
+                            <td>{qty(m.movement?.used ?? 0)}</td>
                           </tr>
                         );
                       })}

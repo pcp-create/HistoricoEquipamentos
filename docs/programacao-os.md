@@ -95,3 +95,8 @@ Após uma mudança de Status Fluxo, a tarefa existente de cada operação revisa
 A regra é executada no banco também para atualizações recebidas do integrador. A área é usada nos filtros da programação e nos relatórios comerciais/projeção. Não altera o processamento fiscal da OS no ERP.
 
 Instalação: executar `web/scripts/setup-flow-responsibilities.mts`, que aplica `web/sql/101_flow_responsibilities.sql`. A migração é repetível e não substitui escolhas já salvas.
+
+
+## Quantidades informativas dos produtos
+
+Na aba Produtos, as quantidades Retirada, Devolvida e Utilizada são apenas para consulta. A utilização é calculada como retirada bruta menos devolvida, com três casas de precisão. Os registros dos portais técnico e de almoxarifado são conciliados sem somar duas vezes a mesma retirada/devolução; considera-se o maior total registrado entre as duas fontes, conforme a regra de saldo do almoxarifado. Cada item é identificado por empresa, OS de origem e ID, inclusive nas OSs vinculadas. O campo antigo de utilização manual não define esse cálculo.
