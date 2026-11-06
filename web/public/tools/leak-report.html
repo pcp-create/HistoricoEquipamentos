@@ -1818,14 +1818,14 @@
 
         container.innerHTML = top
           .map((item) => {
-            const percent = Math.max((item.cost / maxCost) * 100, 3);
+            const percent = Math.max(0, Math.min(100, (item.cost / maxCost) * 100));
             return `
           <div class="chart-row">
-            <div class="chart-label"><strong>Tag ${escapeHtml(item.tag)}</strong><small>${escapeHtml(item.rankingLocation||item.edificioLocal||"Local não informado")}</small></div>
+            <div class="chart-label"><strong>TAG ${escapeHtml(item.tag)}</strong><small><span class="chart-location-caption">Edifício / Local:</span> ${escapeHtml(item.edificioLocal||"Não informado")}</small></div>
+            <div class="chart-value">${moedaBR(item.cost)}</div>
             <div class="chart-track">
               <div class="chart-bar" style="width:${percent}%"></div>
             </div>
-            <div class="chart-value">${moedaBR(item.cost)}</div>
           </div>
         `;
           })
@@ -1946,7 +1946,6 @@
             tag,
             status: settings.status,
             edificioLocal,
-            rankingLocation: [attr(infoCliente,"Location"),attr(infoCliente,"Place")].filter(Boolean).join(' · ') || edificioLocal || 'Local não informado',
             data,
             hora,
             componente,

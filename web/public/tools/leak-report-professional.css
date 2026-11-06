@@ -36,9 +36,14 @@ body,.report{font-family:"RJ DM Sans",Arial,sans-serif;color:#27445f}button,inpu
 .calc-machine-table .calc-cell-empty{color:#9cabb8}
 .calc-machine-table .calc-machine-empty{padding:20px;color:#657d92;text-align:center}
 
-.report .chart-row{grid-template-columns:minmax(180px,27%) minmax(0,1fr) 104px}
-.report .chart-label{min-width:0;overflow-wrap:anywhere;line-height:1.35}
-.report .chart-label strong{display:block;font-size:12px}
-.report .chart-label small{display:block;font-size:10px;font-weight:400;color:#657d92;margin-top:2px}
-@media screen and (max-width:600px){.report .chart-row{grid-template-columns:minmax(0,1fr) 90px;gap:6px 10px;margin:12px 0}.report .chart-label{grid-column:1/-1}.report .chart-label strong,.report .chart-label small{display:inline}.report .chart-label small{margin-left:8px}}
-@media print{.report .summary-page .chart-row{grid-template-columns:minmax(160px,29%) minmax(0,1fr) 100px;margin:4px 0}.report .chart-label strong{font-size:9px}.report .chart-label small{font-size:8px;margin-top:1px}}
+.report .chart-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 16px;align-items:center;margin:0;padding:10px 0;border-bottom:1px solid #e4ecf3}
+.report .chart-row:last-child{border-bottom:0;padding-bottom:0}
+.report .chart-label{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;min-width:0;overflow-wrap:anywhere;line-height:1.4}
+.report .chart-label strong{display:inline-flex;flex-shrink:0;align-items:center;font-size:12px;line-height:1.4;padding:2px 8px;border:1px solid #d4e4ef;border-radius:6px;background:#edf5fb;color:#1a5377}
+.report .chart-label small{display:block;font-size:12px;font-weight:500;color:#27445f}
+.report .chart-location-caption{font-weight:400;color:#73889b}
+.report .chart-row .chart-value{font-size:13px;font-weight:700;white-space:nowrap;color:#173b53}
+.report .chart-row .chart-track{grid-column:1/-1;height:8px;background:#e8eff5;border-radius:4px}
+.report .chart-row .chart-bar{height:100%;border-radius:4px;background:#2475a2}
+@media screen and (max-width:600px){.report .chart-row{gap:6px 10px;padding:10px 0}.report .chart-label{align-items:flex-start;gap:5px}.report .chart-label small{flex-basis:100%;font-size:10px}.report .chart-row .chart-value{font-size:11px}}
+@media print{.report .summary-page .chart-row{grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;padding:5px 0;margin:0}.report .chart-label strong{font-size:8px;padding:1px 5px}.report .chart-label small,.report .chart-row .chart-value{font-size:8px}.report .summary-page .chart-row .chart-track{height:5px}}

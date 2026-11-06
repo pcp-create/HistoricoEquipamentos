@@ -23,14 +23,16 @@ test('LeakReporter import, escaping, adjustments, images, mobile and print', asy
   assert.match(await page.locator('#custoTotal').innerText(),/600,00/);
   assert.equal(await page.locator('.tag img').count(),0);
   assert.equal(await page.locator('.chart-label img').count(),0);
-  assert.match(await page.locator('.chart-label').innerText(),/Oficina · Geral/);
-  assert.match(await page.locator('.chart-label').innerText(),/Tag/);
+  assert.match(await page.locator('.chart-label').innerText(),/Edifício \/ Local: Oficina Geral/);
+  assert.match(await page.locator('.chart-label').innerText(),/TAG/);
   await page.locator('#btnToggleSettings').click();
   await page.locator('#empresaInput').fill('Cliente corrigido');
+  await page.locator('#edificioLocalInput').fill('Galpão B · Linha 3');
   await page.locator('#serviceOrderInput').fill('14948/01');
   await page.locator('#btnApplySettings').click();
   assert.equal(await page.locator('#empresa').innerText(),'Cliente corrigido');
   assert.equal(await page.locator('#reportOsValue').innerText(),'14948/01');
+  assert.match(await page.locator('.chart-label').innerText(),/Edifício \/ Local: Galpão B · Linha 3/);
   await page.locator('#imgInput').setInputFiles({name:'ponto.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6zS8AAAAASUVORK5CYII=','base64')});
   assert.equal(await page.locator('.image-box img').count(),1);
   await page.setViewportSize({width:390,height:844});
