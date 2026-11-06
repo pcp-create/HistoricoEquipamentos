@@ -1,3 +1,5 @@
+import {flowOwnerRows} from "../service-scheduling/flow-responsibility";
+import {flowAreaFromRows} from "../service-scheduling/flow-responsibility-model";
 import "server-only";
 import { database } from "../db";
 import {
@@ -21,13 +23,14 @@ export function validRegistry(kind: string) {
 }
 export async function listRegistry(kind: string) {
   if (!validRegistry(kind)) throw new Error("Cadastro inválido.");
+  const owners=kind==='flow-statuses'?await flowOwnerRows():[];
   return {
     rows: (
       await database().query(
         "SELECT id::text,name,active,warranty_id,warranty_description,updated_at AS collected_at FROM service_order_registries WHERE kind=$1 ORDER BY service_order_registries.id",
         [kind],
       )
-    ).rows,
+    ).rows.map(row=>kind==='flow-statuses'?{...row,flowArea:flowAreaFromRows(owners,row.id,row.name)}:row),
     lastManualUpdate: await lastManualUpdate(kind as RegistryKey),
   };
 }

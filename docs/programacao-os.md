@@ -82,3 +82,16 @@ Calendário, portal técnico e relatório identificam a operação como sem equi
 específico, sem herdar oficina, série ou modelo da máquina da OS. Caso o checklist
 inclua uma leitura de horímetro, o técnico precisa escolher expressamente uma
 máquina vinculada à OS para essa leitura. Não há migração SQL para esta opção.
+
+
+## Responsáveis por Status Fluxo e atribuição de tratativas
+
+Em **Cadastros → Status Fluxo**, a coluna **Responsável Status Fluxo** define a área (Comercial, Planejamento, Almoxarifado, Compras, Faturamento ou Outro). As atribuições anteriores são preservadas inicialmente; atualizar os nomes dos status pelo M8 não sobrescreve as áreas locais.
+
+Em **Programação de OSs → Configurações → Atribuição de tratativas**, selecione o usuário ativo de cada área. Sem usuário definido, não há encaminhamento automático. As alterações de configuração valem para os próximos encaminhamentos.
+
+Após uma mudança de Status Fluxo, a tarefa existente de cada operação revisada é atribuída ao usuário da área configurada, mantendo o número e o histórico. A mesma regra é aplicada ao concluir a revisão quando o fluxo já está definido. A repetição de uma atualização não duplica tarefas nem registros de encaminhamento. Operações ainda em execução ou aguardando revisão e usuários inativos não são encaminhados por essa regra.
+
+A regra é executada no banco também para atualizações recebidas do integrador. A área é usada nos filtros da programação e nos relatórios comerciais/projeção. Não altera o processamento fiscal da OS no ERP.
+
+Instalação: executar `web/scripts/setup-flow-responsibilities.mts`, que aplica `web/sql/101_flow_responsibilities.sql`. A migração é repetível e não substitui escolhas já salvas.

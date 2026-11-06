@@ -1,4 +1,5 @@
 "use client";
+import {FlowAreaSelect} from "./schedule-flow-responsibilities";
 import { matchesSearch } from "@/lib/filters";
 
 import { useEffect, useState, useRef } from "react";
@@ -18,6 +19,7 @@ import "./registries.css";
 import ServiceOrderRegistryEditor from "./service-order-registry-editor";
 type Row = OrderType & {
   collected_at: string;
+  flowArea?: string;
   warranty_id?: number;
   warranty_description?: string;
 };
@@ -237,6 +239,7 @@ export default function Registries() {
                       <th>ID</th>
                       <th>Nome</th>
                       <th>Ativo</th>
+                      {opened === "flow-statuses" && <th>Responsável Status Fluxo</th>}
                       {opened === "order-types" && (
                         <th>Buscar equipamento por cliente</th>
                       )}
@@ -268,6 +271,7 @@ export default function Registries() {
                             {r.active ? "Sim" : "Não"}
                           </span>
                         </td>
+                        {opened === "flow-statuses" && <td><FlowAreaSelect id={r.id} name={r.name} area={r.flowArea||"Outro"}/></td>}
                         {opened === "order-types" && (
                           <td>
                             {r.customer_equipment_only == null

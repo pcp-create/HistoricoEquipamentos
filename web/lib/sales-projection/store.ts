@@ -1,3 +1,5 @@
+import {flowOwnerRows} from "../service-scheduling/flow-responsibility";
+import {flowAreaFromRows} from "../service-scheduling/flow-responsibility-model";
 import {attachWorkshopAnnotations} from './workshop-annotations';
 import "server-only";
 import {monthClosure,applyClosedForecast} from "./month-closure";
@@ -50,7 +52,9 @@ export async function salesProjection(period: string, closingDay?: string) {
     }
   // Keep fields.seller from the OS payload (funcionarioNome), as mapped by
   // projection(). Customer assignments and territory rules can differ from the OS.
+  const flowOwners=await flowOwnerRows();
   const sales = result.details.filter((detail) => detail.kind.startsWith("sales"));
+  for(const detail of sales)if(detail.fields)detail.fields.flowOwner=flowAreaFromRows(flowOwners,undefined,String(detail.fields.flowStatus||''));
   const schedules = await historyScheduleStatuses(sales.map((detail) => ({
     company_id: Number(detail.fields?.sourceCompany || detail.company),
     id: detail.id,

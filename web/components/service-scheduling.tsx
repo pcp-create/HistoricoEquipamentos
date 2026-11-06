@@ -1,5 +1,6 @@
 "use client";
 import {changesDispatchedResponsible,responsibleChangeWarning} from "@/lib/service-scheduling/responsible-change";
+import ScheduleFlowResponsibilities from "./schedule-flow-responsibilities";
 import ScheduleOrderActions from "./schedule-order-actions";
 import {flowResponsible} from "@/lib/service-scheduling/flow-status";
 import SchedulePlannedDate from "./schedule-planned-date";
@@ -1617,6 +1618,7 @@ function ScheduleSettings({ data, onSaved }: any) {
           ["calendars", "Calendários"],
           ["rules", "Entrada automática"],
           ["taskLists", "Listas de Tarefas"],
+          ["flowResponsibilities", "Atribuição de tratativas"],
         ].map(([k, n]) => (
           <button key={k} aria-pressed={tab === k} onClick={() => setTab(k)}>
             {n}
@@ -1631,6 +1633,7 @@ function ScheduleSettings({ data, onSaved }: any) {
         <p>Seu acesso não permite alterar as configurações.</p>
       )}
       <fieldset disabled={busy || !data.canEditSettings}>
+        {tab === "flowResponsibilities" && <ScheduleFlowResponsibilities/>}
         {tab === "taskLists" && <ScheduleTaskLists data={{...data,settings:{...data.settings,document:d}}}/>}
         {tab === "vehicles" && <>
           <p>Informe o nome e, se desejar, a placa. Salve a linha com Enter ou no botão Salvar.</p>

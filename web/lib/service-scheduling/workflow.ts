@@ -60,7 +60,7 @@ export async function handoffOperation(
   const titles = {
     execution: "Operação incluída na programação",
     review: "Operação aguardando revisão",
-    reviewed: "Relatório revisado; aguardando liberação",
+    reviewed: "Relatório revisado",
     internal: "Liberado para baixa interna",
     billing: "Liberado para faturamento",
   };
@@ -112,6 +112,10 @@ export async function handoffOperation(
     await queueServiceMessage(c,`schedule-dispatch:${schedule.id}:${assigned}`,
       `📋 *OS incluída na sua programação*\n*OS ${order?.number||schedule.order_id} · ${companyName(schedule.company_id)}*\nCliente: ${order?.cliente_nome||'Não informado'}\nEquipamento: ${order?.equipamento||'Não informado'}\nConfira as operações, datas e orientações no Portal Técnico: ${PUBLIC_SYSTEM_URL}/tecnico`,
       {recipient:assigned});
+  }
+  if(phase==='reviewed'){
+    const available=(await c.query("SELECT to_regprocedure('route_schedule_flow_tasks(bigint,bigint,text)') IS NOT NULL enabled")).rows[0]?.enabled;
+    if(available)await c.query('SELECT route_schedule_flow_tasks($1::bigint,$2::bigint,$3::text)',[schedule.company_id,schedule.order_id,actor]);
   }
   return String(taskId);
 }

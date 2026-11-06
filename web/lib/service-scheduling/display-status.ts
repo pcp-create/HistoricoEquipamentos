@@ -8,21 +8,20 @@ const processed = (s: any) =>
   String(s.order_status || "")
     .trim()
     .toLowerCase() === "processado";
-const released = (s: any) => ["internal", "billing"].includes(s.release_kind);
 export function displayedScheduleStatus(s: any): string {
   if (isCancelledOrder(s.order_status)) return "cancelled";
   if (processed(s)) return "completed";
   if (
     ["reviewed", "completed", "release_pending"].includes(s.programming_status)
   )
-    return released(s) ? "reviewed" : "awaiting_review";
+    return "reviewed";
   return s.programming_status || "pending";
 }
-/** Preserve execution/review data; only the displayed stage waits for release. */
+/** Review is complete independently of the later ERP release step. */
 export function displayedOperationStatus(s: any, status: string): string {
   if (!["reviewed", "completed"].includes(status)) return status;
   if (processed(s)) return "completed";
-  return released(s) ? "reviewed" : "awaiting_review";
+  return "reviewed";
 }
 export function displayedOperationCounts(
   s: any,

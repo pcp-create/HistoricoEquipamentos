@@ -5,12 +5,12 @@ import {
   displayedOperationCounts,
   displayedOperationStatus,
 } from "../lib/service-scheduling/display-status";
-test("reviewed OS and operation counts wait for internal or billing release, preserving ERP completion", () => {
+test("reviewed OS and operation counts do not wait for internal or billing release, preserving ERP completion", () => {
   const s = { order_status: "Pendente", programming_status: "reviewed" };
-  assert.equal(displayedScheduleStatus(s), "awaiting_review");
+  assert.equal(displayedScheduleStatus(s), "reviewed");
   assert.equal(
     displayedScheduleStatus({ ...s, programming_status: "release_pending" }),
-    "awaiting_review",
+    "reviewed",
   );
   assert.deepEqual(
     displayedOperationCounts(s, {
@@ -19,7 +19,7 @@ test("reviewed OS and operation counts wait for internal or billing release, pre
       completed: 1,
       executing: 1,
     }),
-    { awaiting_review: 6, executing: 1 },
+    { awaiting_review: 2, reviewed: 4, executing: 1 },
   );
   for (const release_kind of ["internal", "billing"]) {
     assert.equal(displayedScheduleStatus({ ...s, release_kind }), "reviewed");
@@ -37,7 +37,7 @@ test("reviewed OS and operation counts wait for internal or billing release, pre
   }
   assert.equal(
     displayedScheduleStatus({ ...s, release_kind: "other" }),
-    "awaiting_review",
+    "reviewed",
   );
   assert.equal(
     displayedScheduleStatus({
