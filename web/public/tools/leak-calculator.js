@@ -15,7 +15,10 @@ function calculations(){
  const ready=validMachines();$('calcResults').hidden=!ready;
  if(!ready){$('calcResults').textContent='';document.querySelectorAll('.calculation-page').forEach(p=>p.remove());availability();return;}
  const c=calculateMachines(machines);
- $('calcResults').innerHTML=`<div class="calc-summary"><div><span>Potência instalada</span><strong>${fmt(c.powerKw)} kW</strong></div><div><span>Vazão instalada</span><strong>${fmt(c.flowM3min)} m³/min</strong></div><div><span>PE configurado · somatória</span><strong>${fmt(c.specificPowerSum,6)} kWh/m³</strong></div><div><span>Tempo equivalente ponderado</span><strong>${fmt(c.annualHours)} h/ano</strong></div></div><p class="calc-formula-note">Média de PE ponderada pela vazão: <b>${fmt(c.weightedSpecificPower,6)} kWh/m³</b> · Tempo equivalente: <b>${fmt(c.dailyHours)} h/dia</b>. O PE configurado usa a somatória, conforme a planilha base.</p>`;
+ const pressure=Number($('calcPressure').value),energy=Number($('calcEnergy').value);
+ const pressureLabel=Number.isFinite(pressure)&&pressure>0?fmt(pressure)+' bar':'Não informada';
+ const energyLabel=Number.isFinite(energy)&&energy>0?'R$ '+energy.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:4})+'/kWh':'Não informado';
+ $('calcResults').innerHTML=`<div class="calc-summary"><div><span>Pressão da rede do cliente</span><strong>${pressureLabel}</strong></div><div><span>Preço da energia</span><strong>${energyLabel}</strong></div><div><span>Potência instalada</span><strong>${fmt(c.powerKw)} kW</strong></div><div><span>Vazão instalada</span><strong>${fmt(c.flowM3min)} m³/min</strong></div><div><span>PE configurado · somatória</span><strong>${fmt(c.specificPowerSum,6)} kWh/m³</strong></div><div><span>Tempo equivalente ponderado</span><strong>${fmt(c.annualHours)} h/ano</strong></div></div><p class="calc-formula-note">Média de PE ponderada pela vazão: <b>${fmt(c.weightedSpecificPower,6)} kWh/m³</b> · Tempo equivalente: <b>${fmt(c.dailyHours)} h/dia</b>. O PE configurado usa a somatória, conforme a planilha base.</p>`;
  document.querySelectorAll('[data-machine-result]').forEach(output=>{const row=c.rows.find(m=>m.id===output.dataset.machineResult);if(row)output.textContent=`PE: ${fmt(row.specificPower,6)} kWh/m³ · ${fmt(row.annualHours)} h/ano`;});
  printCalculation(c);availability();
 }

@@ -27,6 +27,11 @@ test('leakage equipment calculation, durable project roundtrip, versions and bra
  await page.locator('[data-field="name"]').fill('GA90 · Série 123');
  for(const [field,value]of [['powerKw','90'],['flowM3min','16.482'],['hoursPerDay','10'],['daysPerYear','270']])await page.locator(`[data-field="${field}"]`).fill(value);
  await expect(page.locator('#calcResults')).toContainText('2.700 h/ano');
+ await expect(page.locator('.calc-summary>div').filter({hasText:'Pressão da rede do cliente'})).toContainText('7 bar');
+ await expect(page.locator('.calc-summary>div').filter({hasText:'Preço da energia'})).toContainText('R$ 0,45/kWh');
+ await page.locator('#calcEnergy').fill('0.3725');
+ await expect(page.locator('.calc-summary>div').filter({hasText:'Preço da energia'})).toContainText('R$ 0,3725/kWh');
+ await page.locator('#calcEnergy').fill('0.45');
  await page.getByRole('button',{name:'Salvar levantamento',exact:true}).click();
  await expect(page.locator('#calcMessage')).toContainText('versão 1');
  expect(saved.document.images).toHaveLength(1);expect(saved.document.xml).toContain('<JNL>');expect(saved.document.calculation.powerKw).toBe(90);
