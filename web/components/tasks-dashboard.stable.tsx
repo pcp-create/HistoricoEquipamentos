@@ -279,7 +279,7 @@ export function TaskDrawer({
     setBusy(true);
     setError("");
     try {
-      if (file.size > 3000000) throw Error("Selecione um arquivo de até 3 MB.");
+      if (file.size > 5000000) throw Error("Selecione um arquivo de até 5 MB.");
       if (!allowedTaskAttachment(file.name))
         throw Error(taskAttachmentTypeMessage);
       if (data.task.status === "not_started")
@@ -551,7 +551,7 @@ export function TaskDrawer({
               <h3>Anexos ({data.attachments.length})</h3>
               <div className="task-attachment-action">
                 <button type="button" className="task-secondary-action" disabled={busy} onClick={()=>attachmentInput.current?.click()}><Paperclip size={17}/><span>Anexar arquivo</span></button>
-                <span className="task-upload-limit">Até 3 MB por arquivo</span>
+                <span className="task-upload-limit">Até 5 MB por arquivo</span>
                 <input
                   ref={attachmentInput}
                   style={{display:"none"}}

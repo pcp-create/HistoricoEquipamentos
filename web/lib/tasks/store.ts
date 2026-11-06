@@ -605,8 +605,8 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
 }
 export async function attachTask(id: string, file: File, user: AuthUser) {
   idValue(id);
-  if (file.size < 1 || file.size > 3000000)
-    throw new TaskInputError("Envie um arquivo de até 3 MB.");
+  if (file.size < 1 || file.size > 5000000)
+    throw new TaskInputError("Envie um arquivo de até 5 MB.");
   if (!allowedTaskAttachment(file.name))
     throw new TaskInputError(taskAttachmentTypeMessage);
   await assertTaskAccess(id, user.email);

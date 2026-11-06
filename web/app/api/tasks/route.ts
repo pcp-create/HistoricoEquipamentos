@@ -46,8 +46,8 @@ export async function POST(req: Request) {
   try {
     const user = await requireUser();
     if (req.headers.get("content-type")?.includes("multipart/form-data")) {
-      if (Number(req.headers.get("content-length") || 0) > 3100000)
-        return json({ error: "Arquivo excede 3 MB." }, 413);
+      if (Number(req.headers.get("content-length") || 0) > 5100000)
+        return json({ error: "Arquivo excede 5 MB." }, 413);
       const form = await req.formData(),
         file = form.get("file");
       if (!(file instanceof File))

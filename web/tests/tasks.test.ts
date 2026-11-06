@@ -331,8 +331,8 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
 
     await assert.rejects(
       () =>
-        attachTask(id, new File([new Uint8Array(3000001)], "grande.bin"), user),
-      /3 MB/,
+        attachTask(id, new File([new Uint8Array(5000001)], "grande.bin"), user),
+      /5 MB/,
     );
     await syncTasks(async () => [
       { ...source, state: "incomplete", alert: false, resolved: false },
