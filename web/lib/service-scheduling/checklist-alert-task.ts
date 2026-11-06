@@ -4,7 +4,7 @@ import 'server-only';
 import type {PoolClient} from 'pg';
 import {createTask} from '../tasks/store';
 import {checklistAlerts,checklistAlertSignature,validateAlertTask,pendingChecklistAlerts,validateAlertTaskGroups} from './checklist-alerts';
-import {renderChecklistPdf} from './checklist-pdf';
+import {renderTaskChecklistPdf} from './checklist-pdf';
 import {technicalReport} from './technical-report';
 import {reportFilenameMode} from './checklist-report';
 import {operationNumber} from './operation-number';
@@ -41,7 +41,7 @@ async function createAlertGroup(c:PoolClient,operation:any,schedule:any,document
  const photos=photoIds.length?(await c.query('SELECT id::text,content FROM web_service_checklist_photos WHERE operation_id=$1 AND id=ANY($2::bigint[])',[operation.id,photoIds])).rows:[];
  if(photos.length!==photoIds.length)throw Error('Há fotos indisponíveis no relatório. Confira os anexos antes de concluir a revisão.');
  const number=String(order.numero_sequencia||schedule.order_id),position=operationNumber(operation.position);
- const bytes=await renderChecklistPdf({title:document.checklistRun.template.name,order:number,position:operation.position,client:order.cliente_nome||'',equipment:'',report,photos,mode:taskInput.reportMode});
+ const bytes=await renderTaskChecklistPdf({title:document.checklistRun.template.name,order:number,position:operation.position,client:order.cliente_nome||'',equipment:'',report,photos,mode:taskInput.reportMode});
  const filename=taskInput.reportMode==="summary"?summaryReportFilename(order,[{...operation,document}],number):`Relatorio-OS-${number.replace(/[^\w-]/g,'')}-Operacao-${position}-${reportFilenameMode[taskInput.reportMode]}.pdf`;
  const result=existingTaskId?{task:{id:existingTaskId}}:await createTask({title:`Alertas da OS ${number} · Operação ${position}`.slice(0,160),description:taskInput.description,assignedTo:taskInput.assignedTo,priority:'high',dueDate:'',orderCompany:String(schedule.company_id),orderId:String(schedule.order_id)}, {id:email,email,user_metadata:{display_name:actor?.display_name||email}},c);
  const taskId=String(result.task.id);

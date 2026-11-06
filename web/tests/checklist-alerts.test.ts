@@ -1,4 +1,5 @@
 import {test} from 'node:test';
+import {randomBytes} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {fieldOptions,validateChecklists,validateAnswers,stagesOf} from '../lib/service-scheduling/checklists';
 import {checklistAlerts,validateAlertTask,alertKey,validateAlertTaskGroups,pendingChecklistAlerts} from '../lib/service-scheduling/checklist-alerts';
@@ -54,7 +55,9 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  await query("UPDATE web_service_operations SET document=jsonb_set(document,'{checklistRun,stages,s,details}',$1::jsonb)",[JSON.stringify({status:{comment:'Vazamento identificado',photos:['1']}})]);
 
  const sharp=(await import('sharp')).default;
- await query('INSERT INTO web_service_checklist_photos VALUES(1,$1,$2)',[operationId,await sharp({create:{width:8,height:8,channels:3,background:'white'}}).png().toBuffer()]);
+ const originalPhoto=await sharp(randomBytes(1000*1000*3),{raw:{width:1000,height:1000,channels:3}}).png().toBuffer();
+ assert.ok(originalPhoto.length>3_000_000&&originalPhoto.length<=3_145_728,'a valid original photo can exceed the task attachment limit');
+ await query('INSERT INTO web_service_checklist_photos VALUES(1,$1,$2)',[operationId,originalPhoto]);
  await assert.rejects(mutateSchedule(body,admin),/responsável/);
  assert.equal((await query('SELECT status FROM web_service_operations')).rows[0].status,'awaiting_review');
  assert.equal((await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,0);
@@ -76,6 +79,8 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  assert.equal(tasks.length,1);assert.equal(tasks[0].assigned_to,alertTask.assignedTo);assert.equal(String(tasks[0].order_id),'100');
  const attachment=(await query('SELECT * FROM web_task_attachments')).rows[0];
  assert.equal(attachment.filename,'OS 12345 - Cliente I Compressor.pdf');assert.equal(attachment.content_type,'application/pdf');
+ assert.ok(attachment.content.length<=3_000_000,'the complete generated PDF fits the database attachment constraint');
+ assert.deepEqual(Buffer.from((await query('SELECT content FROM web_service_checklist_photos WHERE id=1')).rows[0].content),originalPhoto,'original checklist photo remains untouched');
  assert.ok((await PDFDocument.load(attachment.content)).getPageCount()>0);
  assert.equal((await query("SELECT n.* FROM web_task_notifications n JOIN web_tasks t ON t.id=n.task_id WHERE t.source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,1);
  await assert.rejects(mutateSchedule({...body,alertTask},admin),/alterada/);

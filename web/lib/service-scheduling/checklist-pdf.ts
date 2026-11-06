@@ -1,3 +1,4 @@
+import {reportPhoto} from "./report-photo";
 import {summaryReportFilename} from "./report-filename";
 import {reportEquipment} from "./technical-report";
 import { operationNumber } from "./operation-number";
@@ -7,7 +8,7 @@ import path from 'node:path';
 import { technicalReport } from './technical-report';
 import fontkit from '@pdf-lib/fontkit';
 import sharp from 'sharp';
-import {PDFDocument,rgb,pushGraphicsState,popGraphicsState,moveTo,lineTo,appendBezierCurve,closePath,clip,endPath,type PDFPage} from 'pdf-lib';
+import {PDFDocument,rgb,pushGraphicsState,popGraphicsState,moveTo,lineTo,appendBezierCurve,closePath,clip,endPath,type PDFPage,type PDFImage} from 'pdf-lib';
 import {database} from '../db';
 import {Forbidden} from '../auth';
 import {reportFilenameMode,checklistReport,reportFieldValue,type ReportMode} from './checklist-report';
@@ -32,8 +33,10 @@ export async function checklistPdf(operationId:string,email:string,mode:ReportMo
  const photos=ids.length?(await db.query('SELECT id::text,content FROM web_service_checklist_photos WHERE operation_id=$1 AND id=ANY($2::bigint[])',[operationId,ids])).rows:[];
  return {bytes:await renderChecklistPdf({title:(preview&&!["reviewed","completed"].includes(row.status)?"PRÉVIA · ":"")+run.template.name,order:String(row.numero_sequencia||row.order_id),client:row.cliente_nome||'',equipment:reportEquipment(row,row),position:row.position,report,photos,mode}),filename:mode==="summary"?summaryReportFilename(row.order_record||row,[row],String(row.numero_sequencia||row.order_id)):`Relatorio-OS-${row.numero_sequencia||row.order_id}-${reportFilenameMode[mode]}.pdf`};
 }
-export async function renderChecklistPdf(data:{preliminary?:boolean;title:string;order:string;client:string;equipment:string;position?:number;report:ReturnType<typeof checklistReport>;photos:any[];mode?:ReportMode;chapters?:{title:string;position:number;report:ReturnType<typeof checklistReport>}[]}){
+export async function renderChecklistPdf(data:{preliminary?:boolean;title:string;order:string;client:string;equipment:string;position?:number;report:ReturnType<typeof checklistReport>;photos:any[];mode?:ReportMode;chapters?:{title:string;position:number;report:ReturnType<typeof checklistReport>}[]}, imageBudget=2_000_000){
  const pdf=await PDFDocument.create();
+ const embeddedPhotos=new Map<string,PDFImage>();
+ const photoBudget=Math.max(8000,Math.floor(imageBudget/Math.max(1,new Set(data.photos.map(p=>String(p.id))).size)));
  pdf.registerFontkit(fontkit);
  const [regularBytes,boldBytes,titleBytes,labelBytes]=await Promise.all(['dm-sans-latin-400-normal.woff','dm-sans-latin-700-normal.woff','manrope-latin-800-normal.woff','dm-sans-latin-600-normal.woff'].map(file=>readFile(path.join(process.cwd(),'public/fonts/report',file))));
  const font=await pdf.embedFont(regularBytes,{subset:true}),bold=await pdf.embedFont(boldBytes,{subset:true}),titleFont=await pdf.embedFont(titleBytes,{subset:true}),labelFont=await pdf.embedFont(labelBytes,{subset:true});
@@ -192,8 +195,13 @@ export async function renderChecklistPdf(data:{preliminary?:boolean;title:string
     if(field.options&&field.comment)row('Comentário',field.comment);
     for(const id of field.photos){
      const image=data.photos.find(p=>String(p.id)===String(id));if(!image)continue;
-     const bytes=new Uint8Array(image.content);
-     const embedded=bytes[0]===137?await pdf.embedPng(bytes):await pdf.embedJpg(bytes);
+     const signature=field.type==='signature',key=String(id)+(signature?':signature':':photo');
+     let embedded=embeddedPhotos.get(key);
+     if(!embedded){
+      const bytes=await reportPhoto(new Uint8Array(image.content),signature,photoBudget);
+      embedded=signature?await pdf.embedPng(bytes):await pdf.embedJpg(bytes);
+      embeddedPhotos.set(key,embedded);
+     }
      const dimensions=embedded.scaleToFit(Math.min(valueWidth-16,230),field.type==='signature'?70:145);
      const height=dimensions.height+12;room(height);
      page.drawRectangle({x:left,y:y-height+5,width:labelWidth,height,color:rgb(237/255,243/255,250/255)});
@@ -220,4 +228,13 @@ export async function renderChecklistPdf(data:{preliminary?:boolean;title:string
   p.drawText(`Página ${i+1} de ${pages.length}`,{x:495,y:22,size:7,font,color:ink});
  });
  return pdf.save();
+}
+
+/** Generated task PDFs must fit the same 3 MB constraint as other attachments. */
+export async function renderTaskChecklistPdf(data: Parameters<typeof renderChecklistPdf>[0]) {
+ for(const budget of [2_000_000,700_000]){
+  const bytes=await renderChecklistPdf(data,budget);
+  if(bytes.length<=3_000_000)return bytes;
+ }
+ throw new Error('O relatório excede o limite de 3 MB do anexo da tarefa mesmo após otimização. Selecione menos operações para gerar o relatório. A revisão não foi concluída.');
 }

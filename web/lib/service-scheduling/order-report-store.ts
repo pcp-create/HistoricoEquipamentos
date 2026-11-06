@@ -3,7 +3,7 @@ import type {PoolClient} from "pg";
 import { database } from "../db";
 import { Forbidden } from "../auth";
 import { canIncludeInOrderReport, orderReport } from "./order-report";
-import { renderChecklistPdf } from "./checklist-pdf";
+import { renderChecklistPdf, renderTaskChecklistPdf } from "./checklist-pdf";
 import { reportFilenameMode, type ReportMode } from "./checklist-report";
 
 export class OrderReportInputError extends Error {}
@@ -155,7 +155,7 @@ export async function loadOrderReport(body: any, email: string, portal = false, 
 export async function orderReportPdf(body: any, email: string, portal = false, transaction?: PoolClient) {
   const { model, photos } = await loadOrderReport(body, email, portal, transaction);
   return {
-    bytes: await renderChecklistPdf({
+    bytes: await (transaction ? renderTaskChecklistPdf : renderChecklistPdf)({
       ...model,
       client: "",
       equipment: "",
