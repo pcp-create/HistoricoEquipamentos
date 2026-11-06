@@ -26,6 +26,12 @@ export function validateLeakage(raw:any){
  document.xml=text(raw.xml??'',2000000);
  document.settings={};
  for(const key of ['inspetorInput','serviceOrderInput','empresaInput','localizacaoInput','areaInput','edificioLocalInput','falhouMapInput','medidaMapInput','statusInput','responsavelInput'])document.settings[key]=text(raw.settings?.[key]??'',10000);
+ for(const key of ['collectionStartInput','collectionEndInput']){
+  const value=text(raw.settings?.[key]??'',10);
+  if(value&&(!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value).toISOString().slice(0,10)!==value))throw new LeakageInputError('Data de coleta inválida.');
+  document.settings[key]=value;
+ }
+ if(document.settings.collectionStartInput&&document.settings.collectionEndInput&&document.settings.collectionStartInput>document.settings.collectionEndInput)throw new LeakageInputError('Confira o período das coletas.');
  if(!Array.isArray(raw.images??[])||(raw.images??[]).length>500)throw new LeakageInputError('Limite de 500 imagens por levantamento.');
  document.images=(raw.images??[]).map((i:any)=>({name:text(i.name,500),assetId:leakageId(i.assetId)}));
  document.clientLogo=raw.clientLogo?leakageId(raw.clientLogo):null;

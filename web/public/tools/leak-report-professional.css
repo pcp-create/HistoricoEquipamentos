@@ -81,3 +81,5 @@ body,.report{font-family:"RJ DM Sans",Arial,sans-serif;color:#27445f}button,inpu
  .report .image-box{min-height:0!important;height:100%!important;min-width:0!important;padding:5px!important;overflow:hidden}
  .report .image-box img{min-height:0!important;max-height:100%!important;object-fit:contain!important}
 }
+
+.collection-period{display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin-top:18px;padding-top:16px;border-top:1px solid #dce5ee}.collection-period small{flex-basis:100%;color:#657d92;font-size:12px}.collection-period input{min-height:40px;padding:8px 10px;border:1px solid #cdddea;border-radius:8px;color:#27445f}

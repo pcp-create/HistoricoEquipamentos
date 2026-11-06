@@ -1344,6 +1344,12 @@
             <div id="imageImportFeedback" class="helper" role="status"></div>
           </div>
         </div>
+        <div class="collection-period">
+          <div class="field-input"><label for="collectionStartInput">Coletas a partir de</label><input id="collectionStartInput" type="date" /></div>
+          <div class="field-input"><label for="collectionEndInput">Coletas até</label><input id="collectionEndInput" type="date" /></div>
+          <button type="button" class="btn" id="collectionClear">Todas as datas</button>
+          <small>O período inclui os dias inicial e final. O XML completo permanece salvo no histórico.</small>
+        </div>
         <div id="importFeedback" class="import-feedback" role="status">
           Importe um XML para visualizar e gerar o relatório.
         </div>
@@ -1849,21 +1855,55 @@
           .join("");
       }
 
+      let reportHasPoints=false;
+      function collectionDate(value) {
+        const raw=String(value||'').trim();
+        const match=/^(\d{2})[./](\d{2})[./](\d{4})$/.exec(raw);
+        const iso=match?`${match[3]}-${match[2]}-${match[1]}`:raw;
+        return /^\d{4}-\d{2}-\d{2}$/.test(iso)&&Number.isFinite(Date.parse(iso))&&new Date(iso).toISOString().slice(0,10)===iso?iso:'';
+      }
+      for(const id of ['collectionStartInput','collectionEndInput'])document.getElementById(id).addEventListener('change',()=>{
+        window.dispatchEvent(new Event('rj-leak-changed'));
+        if(ultimoXml)renderXml(ultimoXml);
+      });
+      document.getElementById('collectionClear').addEventListener('click',()=>{
+        document.getElementById('collectionStartInput').value='';document.getElementById('collectionEndInput').value='';
+        window.dispatchEvent(new Event('rj-leak-changed'));
+        if(ultimoXml)renderXml(ultimoXml);
+      });
       function renderXml(xmlText) {
+        reportHasPoints=false;
         const settings = getSettings();
         const serviceOrder = document.getElementById("serviceOrderInput").value.trim();
         document.getElementById("reportOs").hidden = !serviceOrder;
         document.getElementById("reportOsValue").textContent = serviceOrder;
         const parser = new DOMParser();
         const xml = parser.parseFromString(xmlText, "text/xml");
-        const registros = Array.from(xml.querySelectorAll("JNL"));
+        const allRecords = Array.from(xml.querySelectorAll("JNL"));
         const feedback = document.getElementById("importFeedback");
-        if (xml.querySelector("parsererror") || !registros.length) {
+        if (xml.querySelector("parsererror") || !allRecords.length) {
           feedback.textContent =
             "Arquivo inválido ou sem pontos. Selecione um XML exportado pelo LeakReporter.";
           feedback.classList.add("error");
           document.getElementById("report").style.display = "none";
           document.getElementById("btnPrint").disabled = true;
+          return;
+        }
+        const start=document.getElementById('collectionStartInput').value,end=document.getElementById('collectionEndInput').value;
+        const registros=allRecords.filter(jnl=>{
+          if(!start&&!end)return true;
+          const date=collectionDate(attr(jnl.querySelector('INFO[Date]'),'Date',''));
+          return date&&(!start||date>=start)&&(!end||date<=end);
+        }).sort((a,b)=>{
+          const stamp=jnl=>collectionDate(attr(jnl.querySelector('INFO[Date]'),'Date',''))+' '+attr(jnl.querySelector('INFO[Time]'),'Time','');
+          return stamp(a).localeCompare(stamp(b));
+        });
+        if((start&&end&&start>end)||!registros.length){
+          feedback.textContent=start&&end&&start>end?'A data inicial deve ser anterior ou igual à data final.':'Nenhum ponto encontrado no período selecionado. Altere as datas para gerar o relatório.';
+          feedback.classList.add('error');
+          document.getElementById('leakPages').innerHTML='';
+          document.getElementById('report').style.display='none';document.getElementById('btnPrint').disabled=true;
+          window.dispatchEvent(new Event('rj-leak-rendered'));
           return;
         }
         feedback.classList.remove("error");
@@ -1872,7 +1912,7 @@
         imageFeedback(xml);
         feedback.textContent =
           registros.length +
-          " ponto(s) importado(s). Confira as informações antes de gerar o PDF.";
+          " de " + allRecords.length + " ponto(s) incluído(s) no relatório. Confira o período antes de gerar o PDF.";
         document.getElementById("btnPrint").disabled = false;
         const leakPages = document.getElementById("leakPages");
         leakPages.innerHTML = "";
@@ -2040,10 +2080,11 @@
           ? `<img src="${clienteLogoUrl}" alt="Logo do cliente">`
           : "Logo<br>Cliente";
 
+        reportHasPoints=true;
         document.getElementById("report").style.display = "block";
         window.dispatchEvent(new Event("rj-leak-rendered"));
       }
-      const projectSettings=['inspetorInput','serviceOrderInput','empresaInput','localizacaoInput','areaInput','edificioLocalInput','falhouMapInput','medidaMapInput','statusInput','responsavelInput'];
+      const projectSettings=['collectionStartInput','collectionEndInput','inspetorInput','serviceOrderInput','empresaInput','localizacaoInput','areaInput','edificioLocalInput','falhouMapInput','medidaMapInput','statusInput','responsavelInput'];
       function projectImages(){
         if(!ultimoXml)return [...imageMap];
         const refs=Array.from(new DOMParser().parseFromString(ultimoXml,'text/xml').querySelectorAll('BMP'));
@@ -2052,10 +2093,11 @@
         return [...imageMap].filter(([,url])=>used.has(url));
       }
       window.rjLeakProject={
-        hasXml:()=>!!ultimoXml&&!new DOMParser().parseFromString(ultimoXml,'text/xml').querySelector('parsererror')&&!!new DOMParser().parseFromString(ultimoXml,'text/xml').querySelector('JNL'),
+        hasXml:()=>reportHasPoints,
         get:()=>({xml:ultimoXml||'',settings:Object.fromEntries(projectSettings.map(id=>[id,document.getElementById(id).value])),images:projectImages(),clientLogo:clienteLogoUrl}),
         syncMetadata:(data)=>{for(const[key,id]of Object.entries({client:'empresaInput',serviceOrder:'serviceOrderInput',inspector:'inspetorInput',location:'localizacaoInput'}))if(data[key])document.getElementById(id).value=data[key];if(ultimoXml)renderXml(ultimoXml);},
         load:(project)=>{
+          reportHasPoints=false;
           imageMap.forEach(url=>{if(url.startsWith('blob:'))URL.revokeObjectURL(url);});imageMap.clear();
           for(const image of project.images||[])imageMap.set(image.name,'/api/leakage-reports?image='+encodeURIComponent(image.assetId));
           if(clienteLogoUrl.startsWith('blob:'))URL.revokeObjectURL(clienteLogoUrl);
