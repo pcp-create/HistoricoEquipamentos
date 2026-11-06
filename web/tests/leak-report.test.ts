@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
+import { PDFDocument } from 'pdf-lib';
 
 test('LeakReporter import, escaping, adjustments, images, mobile and print', async () => {
  const browser = await chromium.launch({headless:true});
@@ -47,7 +48,17 @@ test('LeakReporter import, escaping, adjustments, images, mobile and print', asy
   await page.emulateMedia({media:'print'});
   assert.equal(await page.locator('.topbar').isVisible(),false);
   assert.equal(await page.locator('#report').isVisible(),true);
-  await page.pdf({preferCSSPageSize:true});
+  const eightPoints='<ROOT>'+Array.from({length:8},(_,i)=>xml.slice(6,-7).replace('LeakTag="&lt;img src=x onerror=alert(1)&gt;"',`LeakTag="${i+1}"`)).join('')+'</ROOT>';
+  await page.locator('#xmlInput').setInputFiles({name:'oito-pontos.xml',mimeType:'text/xml',buffer:Buffer.from(eightPoints)});
+  await page.evaluate(()=>document.fonts.ready);
+  const pdf=await page.pdf({preferCSSPageSize:true});
+  assert.equal((await PDFDocument.load(pdf)).getPageCount(),5,'one overview page and four pages with two leak cards each');
+  const clipped=await page.locator('.leak-card').evaluateAll(cards=>cards.some(card=>{
+   const bounds=card.getBoundingClientRect(),notes=card.querySelector('.comments')!.getBoundingClientRect();
+   const image=card.querySelector('.image-box')!.getBoundingClientRect();
+   return notes.bottom>bounds.bottom-4||image.bottom>bounds.bottom-4;
+  }));
+  assert.equal(clipped,false,'notes and photos must fit inside their cards with bottom spacing');
   await page.locator('#xmlInput').setInputFiles({name:'bad.xml',mimeType:'text/xml',buffer:Buffer.from('<broken>')});
   await page.waitForFunction(()=>document.getElementById('importFeedback')?.classList.contains('error'));
   assert.equal(await page.locator('#btnPrint').isDisabled(),true);

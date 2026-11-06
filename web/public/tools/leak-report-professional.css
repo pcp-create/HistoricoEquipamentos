@@ -49,3 +49,35 @@ body,.report{font-family:"RJ DM Sans",Arial,sans-serif;color:#27445f}button,inpu
 @media print{.report .summary-page .chart-row{grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;padding:5px 0;margin:0}.report .chart-label strong{font-size:8px;padding:0}.report .chart-label small,.report .chart-row .chart-value{font-size:8px}.report .summary-page .chart-row .chart-track{height:5px}}
 
 .client-logo-preview:not([hidden]){display:flex;align-items:center;gap:12px;margin-top:10px}.client-logo-preview img{width:100px;height:60px;object-fit:contain;border:1px solid #d8e4ed;border-radius:8px;background:#fff;padding:6px}.client-logo-preview .btn{padding:6px 10px;font-size:12px}#clienteLogoFeedback{display:block;margin-top:8px;color:#61758b;font-size:12px}
+
+/* Keep the overview and eight ranked leaks together on landscape A4. */
+@media print{
+ .report .summary-page>.cover-header{min-height:64px;margin-bottom:8px!important;padding:8px 14px!important}
+ .report .summary-page .cover-header img{height:48px!important}
+ .report .summary-page .cover-title h2{font-size:20px;margin-bottom:4px}
+ .report .summary-page .cover-title p{font-size:10px}
+ .report .summary-page .grid-info{gap:10px}
+ .report .summary-page .info-card{min-height:0;padding:10px 12px}
+ .report .summary-page .info-card h3{font-size:11px;margin:0 0 5px}
+ .report .summary-page .line{font-size:9px;margin:3px 0;line-height:1.25}
+ .report .summary-page .client-logo-box{width:76px;height:76px}
+ .report .summary-page .client-card{grid-template-columns:76px minmax(0,1fr);gap:10px}
+ .report .summary-page .client-card.no-logo{grid-template-columns:minmax(0,1fr)}
+ .report .summary-page .section-title{font-size:12px;margin:8px 0 5px}
+ .report .summary-page .meta-card{min-height:0;padding:8px 10px}
+ .report .summary-page .metric{min-height:0;padding:8px 10px}
+ .report .summary-page .metric .value{font-size:20px}
+ .report .summary-page .metric .label{font-size:9px}
+ .report .summary-page .chart-card{padding:9px 12px}
+ .report .summary-page .chart-card h4{font-size:12px;margin:0 0 3px}
+ .report .summary-page .chart-card p{font-size:9px;margin:0 0 5px}
+ .report .summary-page .chart-row{padding:4px 0;gap:3px 12px}
+ .report .leak-card{display:flex;flex-direction:column;max-height:none;min-height:0}
+ .report .leak-head{flex-shrink:0}
+ .report .leak-body{flex:1;min-height:0;grid-template-columns:minmax(0,1fr) 300px!important;padding:8px 10px!important;gap:12px!important;overflow:visible}
+ .report .leak-data{min-height:0;gap:4px 12px!important;grid-template-rows:repeat(7,minmax(0,1fr)) auto}
+ .report .field{font-size:9px!important;padding-bottom:2px;line-height:1.25!important}
+ .report .comments{grid-template-columns:1fr 1fr;margin-top:0;padding-top:5px;gap:12px;font-size:9px;min-height:30px}
+ .report .image-box{min-height:0!important;height:100%!important;min-width:0!important;padding:5px!important;overflow:hidden}
+ .report .image-box img{min-height:0!important;max-height:100%!important;object-fit:contain!important}
+}
