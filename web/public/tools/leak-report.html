@@ -1821,7 +1821,7 @@
             const percent = Math.max((item.cost / maxCost) * 100, 3);
             return `
           <div class="chart-row">
-            <div class="chart-label">Tag ${escapeHtml(item.tag)}</div>
+            <div class="chart-label"><strong>Tag ${escapeHtml(item.tag)}</strong><small>${escapeHtml(item.rankingLocation||item.edificioLocal||"Local não informado")}</small></div>
             <div class="chart-track">
               <div class="chart-bar" style="width:${percent}%"></div>
             </div>
@@ -1946,6 +1946,7 @@
             tag,
             status: settings.status,
             edificioLocal,
+            rankingLocation: [attr(infoCliente,"Location"),attr(infoCliente,"Place")].filter(Boolean).join(' · ') || edificioLocal || 'Local não informado',
             data,
             hora,
             componente,

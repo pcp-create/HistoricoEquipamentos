@@ -22,6 +22,9 @@ test('LeakReporter import, escaping, adjustments, images, mobile and print', asy
   assert.equal(await page.locator('#qtdFugas').textContent(),'1');
   assert.match(await page.locator('#custoTotal').innerText(),/600,00/);
   assert.equal(await page.locator('.tag img').count(),0);
+  assert.equal(await page.locator('.chart-label img').count(),0);
+  assert.match(await page.locator('.chart-label').innerText(),/Oficina · Geral/);
+  assert.match(await page.locator('.chart-label').innerText(),/Tag/);
   await page.locator('#btnToggleSettings').click();
   await page.locator('#empresaInput').fill('Cliente corrigido');
   await page.locator('#serviceOrderInput').fill('14948/01');
