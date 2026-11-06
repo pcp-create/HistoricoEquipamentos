@@ -73,5 +73,6 @@ $('calcHistorySearchForm').addEventListener('submit',event=>{event.preventDefaul
 window.addEventListener('rj-leak-rendered',()=>{const bridge=window.rjLeakProject?.get();if(!bridge)return;if(!$('calcClient').value&&$('empresa').textContent!=='-')$('calcClient').value=$('empresa').textContent;if(!$('calcOrder').value)$('calcOrder').value=$('serviceOrderInput').value;if(!$('calcInspector').value)$('calcInspector').value=$('inspetorInput').value;calculations();});
 window.addEventListener('rj-leak-before-print',()=>{window.rjLeakProject.syncMetadata(read());calculations();});
 for(const field of ['xmlInput','imgInput','imgFolderInput','clienteLogoInput','inspetorInput','serviceOrderInput','empresaInput','localizacaoInput','areaInput','edificioLocalInput','falhouMapInput','medidaMapInput','statusInput','responsavelInput'])$(field).addEventListener('change',()=>{dirty=true;});
+window.addEventListener('rj-leak-changed',()=>{dirty=true;});
 window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
 const initial=new URLSearchParams(location.search).get('report');if(initial)void open(initial);else drawMachines();

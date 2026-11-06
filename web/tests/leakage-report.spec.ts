@@ -19,6 +19,10 @@ test('leakage equipment calculation, durable project roundtrip, versions and bra
  await page.goto('/tools/leak-report.html');
  const xml='<ROOT><JNL><INFO Date="30/10/2026" Time="10:00"/><INFO Company="Cliente teste" Location="Oficina" Place="Geral"/><INFO LeakTag="01"/><INFO CommF="União" CommM="Trocar"/><DATA Level="20"/><DATA Pressure="7" UnitP="bar"/><RES Leakage="10" Cost="600" UnitL="ltr/min"/><BMP Name="ponto.png"/></JNL></ROOT>';
  await page.locator('#xmlInput').setInputFiles({name:'levantamento.xml',mimeType:'text/xml',buffer:Buffer.from(xml)});
+ await page.locator('#clienteLogoInput').setInputFiles({name:'cliente.png',mimeType:'image/png',buffer:pixel});
+ await expect(page.locator('#clienteLogoFeedback')).toContainText('Logo selecionada');
+ await page.locator('#btnClearSettings').dispatchEvent('click');
+ await expect(page.locator('#clienteLogoPreview')).not.toHaveAttribute('hidden');
  await page.locator('#imgInput').setInputFiles({name:'ponto.png',mimeType:'image/png',buffer:pixel});
  await page.getByRole('tab',{name:'Máquinas e cálculo',exact:true}).click();
  await expect(page.locator('#calcClient')).toHaveValue('Cliente Teste');
@@ -39,6 +43,8 @@ test('leakage equipment calculation, durable project roundtrip, versions and bra
  await page.locator('#calcEnergy').fill('0.45');
  await page.getByRole('button',{name:'Salvar levantamento',exact:true}).click();
  await expect(page.locator('#calcMessage')).toContainText('versão 1');
+ expect(saved.document.clientLogo).toBe(assetId);
+ await expect(page.locator('#clienteLogoFeedback')).toContainText('Logo salva no histórico');
  expect(saved.document.images).toHaveLength(1);expect(saved.document.xml).toContain('<JNL>');expect(saved.document.calculation.powerKw).toBe(90);
  await page.locator('[data-field="hoursMode"]').selectOption('annual');
  await expect(page.locator('[data-field="annualHoursInput"]')).toHaveValue('');
@@ -47,6 +53,8 @@ test('leakage equipment calculation, durable project roundtrip, versions and bra
  await expect(page.locator('#calcResults')).toContainText('4.000 h/ano');
  await page.locator('#calcEnergy').fill('0.5');await page.getByRole('button',{name:'Salvar levantamento',exact:true}).click();await expect(page.locator('#calcMessage')).toContainText('versão 2');
  await page.getByRole('tab',{name:'Histórico',exact:true}).click();await page.getByRole('button',{name:'Abrir levantamento',exact:true}).click();
+ await expect(page.locator('#clienteLogoPreviewImage')).toHaveAttribute('src',new RegExp(assetId));
+ await expect(page.locator('#clienteLogoFeedback')).toContainText('Logo salva no histórico');
  await expect(page.locator('#calcEnergy')).toHaveValue('0.5');
  await expect(page.locator('[data-field="hoursMode"]')).toHaveValue('annual');
  await expect(page.locator('[data-field="annualHoursInput"]')).toHaveValue('4000');

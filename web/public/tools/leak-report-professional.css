@@ -47,3 +47,5 @@ body,.report{font-family:"RJ DM Sans",Arial,sans-serif;color:#27445f}button,inpu
 .report .chart-row .chart-bar{height:100%;border-radius:4px;background:#2475a2}
 @media screen and (max-width:600px){.report .chart-row{gap:6px 10px;padding:10px 0}.report .chart-label{align-items:flex-start;gap:5px}.report .chart-label small{flex-basis:100%;font-size:10px}.report .chart-row .chart-value{font-size:11px}}
 @media print{.report .summary-page .chart-row{grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;padding:5px 0;margin:0}.report .chart-label strong{font-size:8px;padding:1px 5px}.report .chart-label small,.report .chart-row .chart-value{font-size:8px}.report .summary-page .chart-row .chart-track{height:5px}}
+
+.client-logo-preview:not([hidden]){display:flex;align-items:center;gap:12px;margin-top:10px}.client-logo-preview img{width:100px;height:60px;object-fit:contain;border:1px solid #d8e4ed;border-radius:8px;background:#fff;padding:6px}.client-logo-preview .btn{padding:6px 10px;font-size:12px}#clienteLogoFeedback{display:block;margin-top:8px;color:#61758b;font-size:12px}

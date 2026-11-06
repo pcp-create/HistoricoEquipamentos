@@ -1361,7 +1361,9 @@
           </div>
           <div class="field-input">
             <label for="clienteLogoInput">Logo do Cliente</label>
-            <input type="file" id="clienteLogoInput" accept="image/*" />
+            <input type="file" id="clienteLogoInput" accept="image/png,image/jpeg,image/webp" aria-describedby="clienteLogoFeedback" />
+            <div id="clienteLogoPreview" class="client-logo-preview" hidden><img id="clienteLogoPreviewImage" alt="Logo do cliente selecionada" /><button type="button" id="clienteLogoRemove" class="btn">Remover logo</button></div>
+            <small id="clienteLogoFeedback" role="status">A logo será salva junto ao levantamento no histórico.</small>
           </div>
           <div class="field-input">
             <label for="statusInput">Status dos pontos</label>
@@ -1598,8 +1600,6 @@
           ].forEach((id) => (document.getElementById(id).value = ""));
           document.getElementById("statusInput").value = "Em progresso";
           document.getElementById("responsavelInput").value = "RJ Compressores";
-          clienteLogoUrl = "";
-          document.getElementById("clienteLogoInput").value = "";
           if (ultimoXml) renderXml(ultimoXml);
         });
 
@@ -1647,14 +1647,31 @@
       imgInput.addEventListener('change',()=>importImages(imgInput));
       document.getElementById('imgFolderInput').addEventListener('change',event=>importImages(event.target));
 
-      document
-        .getElementById("clienteLogoInput")
-        .addEventListener("change", (event) => {
-          const file = event.target.files[0];
-          if (clienteLogoUrl) URL.revokeObjectURL(clienteLogoUrl);
-          clienteLogoUrl = file ? URL.createObjectURL(file) : "";
-          if (ultimoXml) renderXml(ultimoXml);
-        });
+      function updateClientLogoPreview(saved=false) {
+        document.getElementById('clienteLogoPreview').hidden=!clienteLogoUrl;
+        const image=document.getElementById('clienteLogoPreviewImage');
+        if(clienteLogoUrl)image.src=clienteLogoUrl;else image.removeAttribute('src');
+        document.getElementById('clienteLogoFeedback').textContent=clienteLogoUrl
+          ? (saved?'Logo salva no histórico deste levantamento.':'Logo selecionada. Salve o levantamento para mantê-la no histórico.')
+          : 'A logo será salva junto ao levantamento no histórico.';
+      }
+      document.getElementById('clienteLogoInput').addEventListener('change',event=>{
+        const file=event.target.files[0];
+        if(!file)return;
+        if(clienteLogoUrl.startsWith('blob:'))URL.revokeObjectURL(clienteLogoUrl);
+        clienteLogoUrl=URL.createObjectURL(file);
+        updateClientLogoPreview();
+        if(ultimoXml)renderXml(ultimoXml);
+      });
+      document.getElementById('clienteLogoRemove').addEventListener('click',()=>{
+        if(clienteLogoUrl.startsWith('blob:'))URL.revokeObjectURL(clienteLogoUrl);
+        clienteLogoUrl='';
+        document.getElementById('clienteLogoInput').value='';
+        updateClientLogoPreview();
+        document.getElementById('clienteLogoFeedback').textContent='Logo removida. Salve o levantamento para atualizar o histórico.';
+        window.dispatchEvent(new Event('rj-leak-changed'));
+        if(ultimoXml)renderXml(ultimoXml);
+      });
 
       xmlInput.addEventListener("change", (event) => {
         const file = event.target.files[0];
@@ -2043,6 +2060,8 @@
           for(const image of project.images||[])imageMap.set(image.name,'/api/leakage-reports?image='+encodeURIComponent(image.assetId));
           if(clienteLogoUrl.startsWith('blob:'))URL.revokeObjectURL(clienteLogoUrl);
           clienteLogoUrl=project.clientLogo?'/api/leakage-reports?image='+encodeURIComponent(project.clientLogo):'';
+          document.getElementById('clienteLogoInput').value='';
+          updateClientLogoPreview(true);
           for(const id of projectSettings)document.getElementById(id).value=project.settings?.[id]||'';
           ultimoXml=project.xml||null;document.getElementById('xmlInput').value='';document.getElementById('imgInput').value='';document.getElementById('imgFolderInput').value='';document.getElementById('imageImportFeedback').textContent='';
           for(const[key,id]of Object.entries({client:'empresaInput',serviceOrder:'serviceOrderInput',inspector:'inspetorInput',location:'localizacaoInput'}))if(project[key])document.getElementById(id).value=project[key];
