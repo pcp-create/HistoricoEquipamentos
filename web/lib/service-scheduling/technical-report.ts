@@ -47,27 +47,15 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
     ]),
   ];
   const logs = timeLogs(sessions.filter(s => s.operation_id === operation.id), events.filter(e => e.operation_id === operation.id), operationEvents.filter(e => e.operation_id === operation.id));
-  const timeline: { at: string; label: string; responsible: string }[] = [];
   const people = new Map<string, { name: string; work: number; travel: number; pause: number }>();
   for (const row of logs.rows) {
     const name = row.display_name || users.find(u => u.email === row.actor)?.display_name || row.actor;
-    const kind = row.kind === "travel" ? "deslocamento" : "atividade";
-    if (row.started_at) timeline.push({ at: row.started_at, label: `Início de ${kind}`, responsible: name });
-    if (row.finished_at) timeline.push({ at: row.finished_at, label: `Término de ${kind}`, responsible: name });
-    if (!row.started_at && row.recorded_at) timeline.push({ at: row.recorded_at, label: `Registro de ${kind} · ${elapsedTime(row.active)}`, responsible: name });
-    for (const pause of mode !== 'summary' ? row.pauses.filter((p: any) => pauseReasons === undefined || customerPauses([{pauses:[p]}],pauseReasons).size > 0) : []) {
-      if (pause.start) timeline.push({ at: pause.start, label: "Início de pausa", responsible: name });
-      if (pause.end) timeline.push({ at: pause.end, label: "Fim de pausa", responsible: name });
-    }
     const person = people.get(row.actor) || { name, work: 0, travel: 0, pause: 0 };
     person[row.kind === "travel" ? "travel" : "work"] += row.active;
     person.pause += pauseReasons === undefined ? row.pause : [...customerPauses([row],pauseReasons).values()].reduce((a,b)=>a+b,0); people.set(row.actor, person);
   }
-  timeline.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const fieldEvents = section("events", "APONTAMENTOS", []);
-  fieldEvents.groups[0].fields = timeline.length
-    ? timeline.map((event,index)=>({...field(timestamp(event.at),event.label,index),responsible:event.responsible}))
-    : [{...field("—","Nenhum registro nesta operação",0),responsible:"—"}];
+  fieldEvents.groups = [];
   for (const person of people.values()) fieldEvents.groups.push({ name: `Totais por profissional · ${person.name}`, fields: [
     field("Tempo de atividade", elapsedTime(person.work), 0), field("Tempo de deslocamento", elapsedTime(person.travel), 1), ...(mode !== "summary" ? [field("Tempo de paradas", elapsedTime(person.pause), 2)] : []), field("Tempo total", elapsedTime(person.work + person.travel + (mode !== "summary" ? person.pause : 0)), 3),
   ] });

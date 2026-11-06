@@ -44,10 +44,7 @@ export default function ChecklistReviewReport({ operation, data, busy=false, dis
       <h4><span className="technical-report-number">{stage.number}</span>{stage.name}</h4>
       {stage.groups.map((group, index) => <section key={index} className="review-report-group">
         {group.name && <h5>{group.name}</h5>}
-        {stage.id==='events'&&!group.name ? <table className="review-report-time-table">
-          <thead><tr><th scope="col">Data e hora</th><th scope="col">Apontamento</th><th scope="col">Responsável</th></tr></thead>
-          <tbody>{group.fields.map(field=><tr key={field.id}><td>{field.label}</td><td>{reportFieldValue(field)}</td><td>{field.responsible||'—'}</td></tr>)}</tbody>
-        </table> : <dl>{group.fields.map(field => {
+        {<dl>{group.fields.map(field => {
           const definition=stagesOf(run.template).find(s=>s.id===stage.id)?.fields.find(f=>f.id===field.id);
           return <div key={field.id} className={`review-report-row ${aiFields.some(s=>s.stageId===stage.id&&s.fieldId===field.id)?"review-report-ai-field":""}`}>
           <dt>{field.label}{aiFields.some(s=>s.stageId===stage.id&&s.fieldId===field.id)&&<small className="report-writing-tag">Revisão de escrita · IA</small>}</dt>

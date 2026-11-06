@@ -83,25 +83,6 @@ function ReportPages({
                     ))}
                   </ol>
                 </div>
-              ) : stage.id === "events" && !group.name ? (
-                <table className="review-report-time-table">
-                  <thead>
-                    <tr>
-                      <th>Data e hora</th>
-                      <th>Apontamento</th>
-                      <th>Responsável</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.fields.map((f) => (
-                      <tr key={f.id}>
-                        <td>{f.label}</td>
-                        <td>{reportFieldValue(f)}</td>
-                        <td>{f.responsible || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               ) : (
                 <dl>
                   {group.fields.map((f) => (

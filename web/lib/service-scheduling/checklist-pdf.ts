@@ -152,25 +152,6 @@ export async function renderChecklistPdf(data:{preliminary?:boolean;title:string
    y=bottom-5;offset+=count;if(offset<length)newPage();
   }
  }
- function timeRow(cells:string[],header=false){
-  const widths=[width*.28,width*.36,width*.36];
-  const lines=cells.map((cell,index)=>wrap(cell,widths[index]-16,bodySize,false,header?bold:index===0?labelFont:font));
-  let offset=0;const length=Math.max(...lines.map(column=>column.length));
-  while(offset<length){
-   room(23);
-   const count=Math.min(length-offset,Math.max(1,Math.floor((y-55)/12))),height=count*12+9,top=y+5,bottom=top-height;
-   page.drawRectangle({x:left,y:bottom,width:header?width:widths[0],height,color:header?rgb(.96,.97,.98):rgb(237/255,243/255,250/255)});
-   page.drawLine({start:{x:left,y:top},end:{x:left+width,y:top},thickness:.5,color:lineColor});
-   let x=left;
-   lines.forEach((column,index)=>{
-    if(index)page.drawLine({start:{x,y:top},end:{x,y:bottom},thickness:.5,color:lineColor});
-    for(let i=0;i<count;i++)if(column[offset+i])page.drawText(column[offset+i],{x:x+8,y:y-8-i*12,size:bodySize,font:header?bold:index===0?labelFont:font,color:ink});
-    x+=widths[index];
-   });
-   y=bottom-5;offset+=count;if(offset<length)newPage();
-  }
- }
-
  // Horizontal milestones flow left to right; additional operations continue in rows of three.
  function milestones(fields:ReturnType<typeof checklistReport>[number]['groups'][number]['fields']){
   for(let index=0;index<fields.length;index+=3){
@@ -204,11 +185,6 @@ export async function renderChecklistPdf(data:{preliminary?:boolean;title:string
    if(group.name)heading(group.name);
    if(stage.id==='timeline'){
     milestones(group.fields);continue;
-   }
-   if(stage.id==='events'&&!group.name){
-    room(46);timeRow(['Data e hora','Apontamento','Responsável'],true);
-    for(const field of group.fields)timeRow([field.label,reportFieldValue(field),field.responsible||'—']);
-    continue;
    }
    for(const field of group.fields){
     row(field.label,reportFieldValue(field)+(field.comment&&!field.options?'\nComentário: '+field.comment:''),field.options,field.value,field.alertOptions);

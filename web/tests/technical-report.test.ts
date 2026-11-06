@@ -7,10 +7,6 @@ test('technical report shares numbered sections, excludes private answers and to
  assert.deepEqual(result.map(s=>s.number),['01','02','03','04','05','06']);
  assert.equal(result[5].name,'Medições');
  assert.equal(result[4].name,'APONTAMENTOS');
- assert.equal(result[4].groups[0].fields[0].label,'30/09/2026, 07:00');
- assert.equal(result[4].groups[0].fields[0].value,'Início de atividade');
- assert.equal(result[4].groups[0].fields[0].responsible,'Técnico');
- assert.equal(result[4].groups[0].fields[1].responsible,'Técnico');
  const json=JSON.stringify(result);
  assert.ok(!json.includes('Segredo'));assert.ok(!json.includes('outsider'));
  const totals=result[4].groups.find(g=>g.name.includes('Técnico'))!;
@@ -18,16 +14,16 @@ test('technical report shares numbered sections, excludes private answers and to
  assert.equal(totals.fields[2].value,'00:02:00');
  assert.equal(result[0].groups[0].fields[1].value,'30/09/2026, 09:00');
 });
-test('complete and budget disclose the same timeline and pause-inclusive totals',()=>{
+test('all modes omit hourly timelines while retaining their respective totals',()=>{
  const operation={id:'one',document:{responsible:'tech',checklistRun:{template:{stages:[]},stages:{}}}};
  const sessions=[{id:'session',operation_id:'one',actor:'tech',kind:'work',state:'finished',active_seconds:1800,pause_seconds:120,started_at:'2026-09-30T10:00:00Z',finished_at:'2026-09-30T10:32:00Z',correction:{active_seconds:1800,pause_seconds:120,pauses:[{start:'2026-09-30T10:10:00Z',end:'2026-09-30T10:12:00Z'}]}}];
  for(const mode of ['complete','summary','budget'] as const){
   const report=technicalReport(operation,{},[],sessions,[],[],mode);
   const json=JSON.stringify(report);
   assert.equal(report.some(stage=>stage.id==='timeline'),false,'individual summaries must not add a separate timeline');
-  assert.equal(json.includes('Início de atividade'),mode!=='summary');
-  assert.equal(json.includes('Término de atividade'),mode!=='summary');
-  assert.equal(json.includes('Início de pausa'),mode!=='summary');
+  assert.equal(json.includes('Início de atividade'),false);
+  assert.equal(json.includes('Término de atividade'),false);
+  assert.equal(json.includes('Início de pausa'),false);
   assert.equal(json.includes('Tempo de paradas'),mode!=='summary');
   const total=report.find(s=>s.id==='events')!.groups.flatMap(g=>g.fields).find(f=>f.label==='Tempo total');
   assert.equal(total?.value,mode!=='summary'?'00:32:00':'00:30:00');
@@ -51,8 +47,8 @@ test('summary groups all professionals into exactly three operation totals, incl
    assert.ok(!JSON.stringify(result).includes('Início'));
    assert.ok(!JSON.stringify(result).includes('Totais por profissional'));
   }else{
-   assert.equal(result.groups[0].name,'');
-   assert.ok(result.groups[0].fields.some(f=>f.value==='Início de atividade'));
+   assert.ok(result.groups.every(g=>g.name.startsWith('Totais por profissional')));
+   assert.ok(!JSON.stringify(result).includes('Início de atividade'));
    assert.equal(result.groups.filter(g=>g.name.startsWith('Totais por profissional')).length,2);
   }
  }
