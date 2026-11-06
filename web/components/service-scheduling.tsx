@@ -654,7 +654,7 @@ export default function ServiceScheduling() {
                   ],
                   ["Valor total da OS", money(data.detail?.order?.total_geral)],
                 ] as [string, React.ReactNode][]).map(([label, value]) => (
-                  <div key={label}>
+                  <div key={label} className={label === "Valor total da OS" ? "schedule-order-total-field" : undefined}>
                     <dt>{label}</dt>
                     <dd>{value}</dd>
                   </div>

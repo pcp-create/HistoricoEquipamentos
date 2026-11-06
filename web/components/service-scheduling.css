@@ -277,7 +277,7 @@
   margin: 2px;
 }
 .scheduling-order {
-  padding: 12px 16px;
+  padding: 16px clamp(18px, 2vw, 28px);
   margin-bottom: 10px;
 }
 .schedule-summary {
@@ -1024,3 +1024,5 @@
 
 
 .schedule-order-actions .schedule-flow-field{display:grid;gap:6px;min-width:0}
+
+@media(min-width:1200px){.schedule-order-fields .schedule-order-total-field{justify-self:end;min-width:120px}}
