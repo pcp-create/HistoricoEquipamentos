@@ -1,5 +1,6 @@
 "use client";
 import {changesDispatchedResponsible,responsibleChangeWarning} from "@/lib/service-scheduling/responsible-change";
+import ScheduleCustomerEmailSettings from "./schedule-customer-email-settings";
 import ScheduleFlowResponsibilities from "./schedule-flow-responsibilities";
 import ScheduleOrderActions from "./schedule-order-actions";
 import {flowResponsible} from "@/lib/service-scheduling/flow-status";
@@ -1564,6 +1565,7 @@ function ScheduleSettings({ data, onSaved }: any) {
           ["rules", "Entrada automática"],
           ["taskLists", "Listas de Tarefas"],
           ["flowResponsibilities", "Atribuição de tratativas"],
+          ["customerEmail", "Envio por e-mail"],
         ].map(([k, n]) => (
           <button key={k} aria-pressed={tab === k} onClick={() => setTab(k)}>
             {n}
@@ -1578,6 +1580,7 @@ function ScheduleSettings({ data, onSaved }: any) {
         <p>Seu acesso não permite alterar as configurações.</p>
       )}
       <fieldset disabled={busy || !data.canEditSettings}>
+        {tab === "customerEmail" && <ScheduleCustomerEmailSettings settings={d} onChange={setD} onSave={save} busy={busy}/>}
         {tab === "flowResponsibilities" && <ScheduleFlowResponsibilities/>}
         {tab === "taskLists" && <ScheduleTaskLists data={{...data,settings:{...data.settings,document:d}}}/>}
         {tab === "vehicles" && <>

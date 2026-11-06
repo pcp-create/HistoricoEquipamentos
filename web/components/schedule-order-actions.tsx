@@ -1,4 +1,5 @@
 "use client";
+import CustomerReportEmail from "./customer-report-email";
 import OrderSearchSelect from "./order-search-select";
 import OrderAttachments,{sendOrderAttachments} from "./order-attachments";
 import { useRef, useState } from "react";
@@ -31,10 +32,8 @@ export default function ScheduleOrderActions({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
-    [phone, setPhone] = useState(""),
     [customer, setCustomer] = useState(false);
-  const editRequest = useRef<string | null>(null),
-    delivery = useRef<{ id: string; phone: string } | null>(null);
+  const editRequest = useRef<string | null>(null);
   const company = String(data.schedule.company_id),
     order = String(data.schedule.order_id);
   const reviewed =
@@ -102,22 +101,6 @@ export default function ScheduleOrderActions({
       onChanged();
     });
   }
-  async function send() {
-    await run(async () => {
-      const p = phone.replace(/[\s()+-]/g, "");
-      if (!delivery.current || delivery.current.phone !== p)
-        delivery.current = { id: crypto.randomUUID(), phone: p };
-      await api("/api/service-scheduling/workflow", {
-        action: "customer_report",
-        scheduleId: String(data.schedule.id),
-        phone: p,
-        requestId: delivery.current.id,
-      });
-      delivery.current = null;
-      setCustomer(false);
-      setMessage("Relatório revisado na fila de envio por WhatsApp.");
-    });
-  }
   return (
     <section className="schedule-order-actions">
       <div className="scheduling-actions">
@@ -128,7 +111,7 @@ export default function ScheduleOrderActions({
           disabled={busy || !reviewed}
           onClick={() => setCustomer((v) => !v)}
         >
-          Enviar relatório ao cliente
+          Enviar por e-mail
         </button>
       </div>
       {!reviewed && (
@@ -205,38 +188,7 @@ export default function ScheduleOrderActions({
           </div>
         </form>
       )}
-      {customer && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void send();
-          }}
-        >
-          <label>
-            WhatsApp do cliente (país + DDD)
-            <input
-              required
-              inputMode="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="5547999999999"
-              disabled={busy}
-            />
-          </label>
-          <p>
-            Será enviado o relatório completo revisado, com linha do tempo. O
-            link fica disponível por 14 dias.
-          </p>
-          <button disabled={busy}>Confirmar envio</button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setCustomer(false)}
-          >
-            Cancelar
-          </button>
-        </form>
-      )}
+      {customer && <CustomerReportEmail data={data} onClose={()=>setCustomer(false)}/>}
 
     </section>
   );

@@ -120,6 +120,7 @@ test("reviewed OS exposes ERP edits and customer delivery", async ({
   await page.route("**/api/service-scheduling**", (r) => {
     if (r.request().method() === "POST") {
       calls.push(r.request().postDataJSON());
+      if(r.request().url().includes('/customer-email'))return r.fulfill({json:{raw:Buffer.from('X-Unsent: 1\r\n').toString('base64url'),filename:'OS 12345.eml',reportFilename:'OS 12345.pdf'}});
       return r.fulfill({ json: { released: true, queued: true } });
     }
     return r.fulfill({ json: data });
@@ -137,6 +138,7 @@ test("reviewed OS exposes ERP edits and customer delivery", async ({
     items: [{ code: "123", quantity: "2", price: "10" }],
   };
   await page.route("**/api/service-orders**", (r) => {
+    if(r.request().url().includes("/attachments"))return r.fulfill({json:{rows:[]}});
     if (r.request().method() === "POST") {
       calls.push(r.request().postDataJSON());
       return r.fulfill({ json: { state: "complete" } });
@@ -173,18 +175,13 @@ test("reviewed OS exposes ERP edits and customer delivery", async ({
   expect(calls.find((c) => c.action === "edit-prepare").draft.notes).toBe(
     "Cliente solicitou retorno",
   );
-  await page
-    .getByRole("button", { name: "Enviar relatório ao cliente", exact: true })
-    .click();
-  await page
-    .getByLabel("WhatsApp do cliente (país + DDD)")
-    .fill("5547999999999");
-  await page
-    .getByRole("button", { name: "Confirmar envio", exact: true })
-    .click();
-  expect(calls.find((c) => c.action === "customer_report").phone).toBe(
-    "5547999999999",
-  );
+  await page.getByRole('button',{name:'Enviar por e-mail',exact:true}).click();
+  await page.getByLabel('Destinatário',{exact:true}).fill('cliente@example.com');
+  const download=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Baixar e-mail com anexo',exact:true}).click();
+  expect((await download).suggestedFilename()).toBe('OS 12345.eml');
+  expect(calls.find(c=>c.to==='cliente@example.com').body).toContain('relatório técnico resumido');
+  expect(calls.some(c=>c.action==='customer_report')).toBe(false);
   await expect(page.getByRole('button',{name:'Liberar para baixa interna',exact:true})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Enviar para faturamento',exact:true})).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });

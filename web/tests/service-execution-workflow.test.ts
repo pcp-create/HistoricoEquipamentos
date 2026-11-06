@@ -1,3 +1,5 @@
+import {PDFDocument} from "pdf-lib";
+import {prepareCustomerEmail} from "../lib/service-scheduling/customer-email";
 import {recallOperation} from "../lib/service-scheduling/recall-operation";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -248,6 +250,8 @@ test("execution handoffs preserve one task; releases, customer sends and approva
       phone: "5547999999999",
       requestId: randomUUID(),
     };
+    const emailInput={scheduleId:'1',to:'cliente@example.com',subject:'Relatório OS 12345',body:'Segue o relatório resumido.'};
+    await assert.rejects(prepareCustomerEmail(emailInput,'planner@test.com'),/Conclua a revisão/);
     await assert.rejects(
       prepareCustomerDelivery(db, request, "planner@test.com"),
       /Conclua a revisão/,
@@ -291,6 +295,13 @@ test("execution handoffs preserve one task; releases, customer sends and approva
         .rows[0].release_kind,
       "billing",
     );
+    const email=await prepareCustomerEmail(emailInput,'planner@test.com');
+    const mime=Buffer.from(email.raw,'base64url').toString();
+    assert.match(mime,/Content-Type: application\/pdf/);assert.ok(email.reportFilename.startsWith('OS '));
+    const attachment=mime.split('Content-Transfer-Encoding: base64\r\n\r\n')[2].split('\r\n--')[0];
+    const emailPdf=await PDFDocument.load(Buffer.from(attachment.replace(/\s/g,''),'base64'));
+    assert.ok(emailPdf.getPageCount()>0);
+    assert.equal((await query('SELECT * FROM web_service_customer_reports')).rows.length,0,'preparing an email does not queue WhatsApp delivery');
     await prepareCustomerDelivery(db, request, "planner@test.com");
     await prepareCustomerDelivery(db, request, "planner@test.com");
     const reports = (
