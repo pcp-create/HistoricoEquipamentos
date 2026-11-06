@@ -23,10 +23,17 @@ test('LeakReporter import, escaping, adjustments, images, mobile and print', asy
   assert.match(await page.locator('#custoTotal').innerText(),/600,00/);
   assert.equal(await page.locator('.tag img').count(),0);
   assert.equal(await page.locator('.chart-label img').count(),0);
-  assert.match(await page.locator('.chart-label').innerText(),/Edifício \/ Local: Oficina Geral/);
+  assert.match(await page.locator('.chart-label').innerText(),/Edifício \/ Local: Oficina · Geral/);
   assert.match(await page.locator('.chart-label').innerText(),/TAG/);
   await page.locator('#btnToggleSettings').click();
   await page.locator('#empresaInput').fill('Cliente corrigido');
+  await page.locator('#localizacaoInput').fill('CristalCopo');
+  await page.locator('#areaInput').fill('Área geral do cliente');
+  await page.locator('#btnApplySettings').click();
+  assert.match(await page.locator('.chart-label').innerText(),/Oficina · Geral/);
+  assert.doesNotMatch(await page.locator('.chart-label').innerText(),/CristalCopo|Área geral do cliente/);
+  assert.match(await page.locator('.leak-card').innerText(),/Oficina · Geral/);
+  assert.equal(await page.locator('.chart-label strong').evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
   await page.locator('#edificioLocalInput').fill('Galpão B · Linha 3');
   await page.locator('#serviceOrderInput').fill('14948/01');
   await page.locator('#btnApplySettings').click();

@@ -1382,7 +1382,7 @@
             />
           </div>
           <div class="field-input">
-            <label for="localizacaoInput">Localização</label>
+            <label for="localizacaoInput">Localização no cabeçalho</label>
             <input
               type="text"
               id="localizacaoInput"
@@ -1390,7 +1390,7 @@
             />
           </div>
           <div class="field-input">
-            <label for="areaInput">Área</label>
+            <label for="areaInput">Área no cabeçalho</label>
             <input type="text" id="areaInput" placeholder="Ex.: GERAL" />
           </div>
         </div>
@@ -1953,7 +1953,7 @@
           const imageUrl = findImage(attr(bmpNode,"Path"),imageName);
           const edificioLocal =
             settings.edificioLocal ||
-            `${settings.localizacao || titleCase(local)} ${settings.area || titleCase(area)}`.trim();
+            [attr(jnl.querySelector("INFO[Location]"), "Location", ""), attr(jnl.querySelector("INFO[Place]"), "Place", "")].filter(Boolean).map(titleCase).join(" · ") || "Não informado";
 
           totalLeak += leakage;
           totalCost += cost;
