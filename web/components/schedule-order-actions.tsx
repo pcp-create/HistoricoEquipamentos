@@ -1,4 +1,5 @@
 "use client";
+import OrderSearchSelect from "./order-search-select";
 import OrderAttachments,{sendOrderAttachments} from "./order-attachments";
 import { useRef, useState } from "react";
 import { clearApiCache } from "@/lib/client-api-cache";
@@ -175,30 +176,25 @@ export default function ScheduleOrderActions({
               disabled={busy}
             />
           </label>
-          <label>
-            Status Fluxo
-            <select
-              value={edit.draft.flowStatus}
-              onChange={(e) =>
-                setEdit({
-                  ...edit,
-                  draft: { ...edit.draft, flowStatus: e.target.value },
-                })
-              }
+          <div className="schedule-flow-field">
+            <span>Status Fluxo</span>
+            <OrderSearchSelect
+              label="Status Fluxo"
+              value={String(edit.draft.flowStatus || "")}
+              selectedLabel={flows.find(f => String(f.id) === String(edit.draft.flowStatus))?.name || edit.labels.flowStatus}
+              options={flows.map(f => ({id: String(f.id), displayId: String(f.id), name: f.name}))}
+              placeholder="Digite para pesquisar o status"
               disabled={busy}
-            >
-              <option value={edit.draft.flowStatus}>
-                {edit.labels.flowStatus || "Selecione"}
-              </option>
-              {flows
-                .filter((f) => String(f.id) !== edit.draft.flowStatus)
-                .map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
-            </select>
-          </label>
+              onChange={row => {
+                editRequest.current = null;
+                setEdit((current: any) => ({
+                  ...current,
+                  draft: {...current.draft, flowStatus: row.id},
+                  labels: {...current.labels, flowStatus: row.name},
+                }));
+              }}
+            />
+          </div>
           <div className="scheduling-actions">
             <button disabled={busy} type="submit">
               Salvar no ERP

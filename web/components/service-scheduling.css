@@ -1026,3 +1026,5 @@
 .schedule-order-total{margin:0 0 0 auto;text-align:right;background:#f0f6fc;border:1px solid #d6e4f1;border-radius:8px;padding:10px 16px}
 .schedule-order-total dt{font-size:11px;color:#627d98}
 .schedule-order-total dd{margin:4px 0 0;font-size:20px;font-weight:700;color:#245d88;font-variant-numeric:tabular-nums}
+
+.schedule-order-actions .schedule-flow-field{display:grid;gap:6px;min-width:0}
