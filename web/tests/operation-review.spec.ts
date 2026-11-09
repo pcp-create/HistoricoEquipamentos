@@ -8,11 +8,13 @@ test("review window isolates operation data and enables PDF after successful rev
   const data: any = { canEditSettings: true, email: "planner", settings: { version: 1, document: { checklists: [template], serviceTypes: [], calendars: [], vehicles: [] } }, users: [{ email: "tech", display_name: "Técnico", enabled: true }], schedule: { id: "1", company_id: 1, order_id: "100" },
     detail: { order: { numero_sequencia: 123, cliente_nome: "Cliente", equipamento: "Compressor" }, materials: [{ id_m8: "55", item_company: 1, item_order: "100", produto_id: 10, produto_nome: "Filtro", quantidade: 1, unidade_nome: "UN" }], services: [] },
     operations: [operation], usage: [{ item_id: "55", item_company: 1, item_order: "100", withdrawn: 1, allocations: [{ operationId: "op1", position: 1, quantity: 1 }] }], costs: [], events: [{ id: 1, operation_id: "another", action: "work_log", hours: 99 }], fieldSessions: [], fieldEvents: [], requests: [], profit: null };
+  let saveAttempts=0;
   await page.route("**/api/service-scheduling**", r => {
     if (r.request().method() === "POST") {
       const body = r.request().postDataJSON();
       expect(body.operationId).toBe("op1");
       if(body.action==='checklist_review_save'){
+        if(++saveAttempts===1)return r.fulfill({status:400,json:{error:'Não foi possível salvar os ajustes. Tente novamente.'}});
         expect(body.stages[0].answers).toEqual({f:'Corrigido pelo planejador',flag:'NOK'});
         operation.document.checklistRun.stages.s.answers=body.stages[0].answers;operation.version++;
         return r.fulfill({json:{operation}});
@@ -36,6 +38,16 @@ test("review window isolates operation data and enables PDF after successful rev
   await dialog.getByRole('tab',{name:'Peças',exact:true}).click();
   await dialog.getByRole('tab',{name:'Relatório',exact:true}).click();
   await expect(dialog.getByRole('textbox',{name:'Resultado',exact:true})).toHaveValue('Corrigido pelo planejador');
+  await expect(dialog.getByText('Há ajustes pendentes. Salve antes de concluir a revisão.')).toBeVisible();
+  await expect(dialog.getByRole('region',{name:'Etapa 1: salvar ajustes'}).getByRole('button',{name:'Salvar ajustes',exact:true})).toBeVisible();
+  await dialog.getByRole('button',{name:'Salvar ajustes',exact:true}).click();
+  await expect(dialog.getByRole('alert')).toContainText('Não foi possível salvar os ajustes.');
+  await expect(dialog.getByRole('button',{name:'Concluir revisão',exact:true})).toBeDisabled();
+  await expect(dialog.getByRole('textbox',{name:'Resultado',exact:true})).toHaveValue('Corrigido pelo planejador');
+  await page.setViewportSize({width:390,height:844});
+  expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  await dialog.locator('.operation-review-footer').screenshot({path:'/tmp/review-footer-mobile.png'});
+  await page.setViewportSize({width:1440,height:1080});
   await dialog.getByRole('button',{name:'Salvar ajustes',exact:true}).click();
   await expect(dialog.getByRole('button',{name:'Salvar ajustes',exact:true})).toHaveCount(0);
   await expect(dialog.getByRole("img", { name: "RJ Compressores", exact: true })).toHaveAttribute("src", "/logo-rj.png");
@@ -48,8 +60,9 @@ test("review window isolates operation data and enables PDF after successful rev
   await expect(dialog.getByText("10 · Filtro", { exact: true })).toBeVisible();
   await dialog.getByRole("tab", { name: "Apontamentos", exact: true }).click();
   await expect(dialog.getByText("Nenhum apontamento registrado nesta OS.")).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Concluir revisão", exact: true })).toBeDisabled();
-  await dialog.getByRole("checkbox", { name: /Conferi o relatório/ }).check();
+  await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Concluir revisão", exact: true })).toBeEnabled();
+  await expect(dialog.getByText(/Ao concluir, declaro: li, revisei/)).toBeVisible();
   await dialog.getByRole("button", { name: "Concluir revisão", exact: true }).click();
   await expect(dialog.getByRole("link", { name: "Gerar PDF", exact: true })).toHaveAttribute("href", "/api/service-scheduling/checklist-pdf?operationId=op1&mode=complete");
   await page.setViewportSize({ width: 390, height: 844 });

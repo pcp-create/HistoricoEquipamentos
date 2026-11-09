@@ -100,3 +100,7 @@ Instalação: executar `web/scripts/setup-flow-responsibilities.mts`, que aplica
 ## Quantidades informativas dos produtos
 
 Na aba Produtos, as quantidades Retirada, Devolvida e Utilizada são apenas para consulta. A utilização é calculada como retirada bruta menos devolvida, com três casas de precisão. Os registros dos portais técnico e de almoxarifado são conciliados sem somar duas vezes a mesma retirada/devolução; considera-se o maior total registrado entre as duas fontes, conforme a regra de saldo do almoxarifado. Cada item é identificado por empresa, OS de origem e ID, inclusive nas OSs vinculadas. O campo antigo de utilização manual não define esse cálculo.
+
+### Sequência das ações de revisão
+
+O rodapé da revisão separa as etapas “1. Salvar ajustes” e “2. Concluir revisão”. Alterações no relatório ou fotos em envio bloqueiam a conclusão até o salvamento confirmado; uma falha ao salvar mantém o rascunho e o bloqueio. Sem alterações pendentes, o relatório já está salvo e pode ser concluído. O botão Concluir revisão representa a concordância com o relatório, as peças e os apontamentos, com essa declaração visível ao lado da ação, sem checkbox adicional. Pendências de alertas e solicitações de apontamentos continuam impedindo a conclusão. A devolução ao técnico permanece como ação separada.

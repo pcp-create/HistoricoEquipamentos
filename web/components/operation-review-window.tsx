@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, FileDown } from "lucide-react";
+import { X, FileDown, CheckCheck } from "lucide-react";
 import ChecklistAlertReview, {type AlertTaskDraft} from "./checklist-alert-review";
 import {checklistAlerts,pendingChecklistAlerts,validateAlertTaskGroups} from "@/lib/service-scheduling/checklist-alerts";
 import ChecklistReviewReport from "./checklist-review-report";
@@ -17,7 +17,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
   const [reportMode,setReportMode]=useState("complete");
   const [tab, setTab] = useState("report");
   const [reportDirty,setReportDirty]=useState(false);
-  const updateReportDirty=(value:boolean)=>{setReportDirty(value);if(value)setConfirmed(false);};
+  const updateReportDirty=(value:boolean)=>setReportDirty(value);
   const close=()=>{if(!(reportDirty||alertTaskDirty)||window.confirm("Descartar as correções não salvas e fechar a revisão?")){onReportDirty?.(false);onClose();}};
   const [alertTasks,setAlertTasks]=useState<AlertTaskDraft[]>([]);
   useEffect(()=>{if(o.status!=='awaiting_review')setAlertTasks([]);},[o.status]);
@@ -27,7 +27,6 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
   useEffect(()=>{onReportDirty?.(reportDirty||alertTaskDirty);},[reportDirty,alertTaskDirty]);
   let missingAlertTask=false;
   try{validateAlertTaskGroups(pendingAlerts,alertTasks);}catch{missingAlertTask=true;}
-  const [confirmed, setConfirmed] = useState(false);
   const reviewed = ["reviewed", "completed"].includes(o.status);
   useEffect(() => {
     if(embedded)return;
@@ -37,7 +36,6 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
     document.body.style.overflow = "hidden";
     return () => { element.close(); document.body.style.overflow = overflow; };
   }, [embedded]);
-  useEffect(() => setConfirmed(false), [o.version]);
   const scoped = { ...data, operations: [o],
     events: (data.events || []).filter((v: any) => v.operation_id === o.id),
     fieldSessions: (data.fieldSessions || []).filter((v: any) => v.operation_id === o.id),
@@ -63,7 +61,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
     <div className="operation-review-content" role="tabpanel" id={`${tabsId}-panel`} aria-labelledby={`${tabsId}-${tab}`} tabIndex={0}>
       {dirty && <p role="alert">Há alterações não salvas na programação. Feche esta janela e salve a operação antes de revisar.</p>}
       {error && <p className="operation-review-error" role="alert">{error}</p>}
-      {tab==='alerts'&&<ChecklistAlertReview alerts={alerts} document={o.document} editable={data.canEditSettings&&o.status==='awaiting_review'} busy={busy||reportDirty||dirty} users={data.users||[]} value={o.status==='awaiting_review'?alertTasks:[]} onChange={value=>{setConfirmed(false);setAlertTasks(value);}}/>}
+      {tab==='alerts'&&<ChecklistAlertReview alerts={alerts} document={o.document} editable={data.canEditSettings&&o.status==='awaiting_review'} busy={busy||reportDirty||dirty} users={data.users||[]} value={o.status==='awaiting_review'?alertTasks:[]} onChange={setAlertTasks}/>}
       {tab==='alerts'&&reportDirty&&<p role="status">Salve os ajustes do relatório para atualizar os alertas e seus comentários.</p>}
       <div hidden={tab!=="report"}>{o.document.checklistId || o.document.checklistRun ? <ChecklistReviewReport operation={o} data={data} busy={busy} disabled={dirty} mutate={mutate} onDirtyChange={updateReportDirty} saveTarget={saveTarget}/> : <p>Esta operação não possui checklist.</p>}</div>
       {tab === "logs" && <ScheduleTimeLogs data={scoped} onChanged={() => window.dispatchEvent(new Event("service-schedule-updated"))}/>}
@@ -81,15 +79,24 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
       {tab === "history" && <ul className="operation-review-history">{scoped.events.map((event: any) => <li key={event.id}><strong>{event.display_name || event.actor}</strong> · {new Date(event.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}<p>{event.description || event.action}</p></li>)}</ul>}
     </div>
     <footer className="operation-review-footer">
-      {data.canEditSettings && !reviewed && reportSubmission(o.document.checklistRun) && <button type="button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}>Devolver relatório ao técnico</button>}
       {data.canEditSettings && o.status === "awaiting_review" && <>
-        <label><input type="checkbox" checked={confirmed} disabled={busy || dirty || reportDirty} onChange={e => setConfirmed(e.target.checked)}/> Conferi o relatório, as peças e os apontamentos desta operação.</label>
-        <div ref={setSaveTarget} className="review-save-actions"/>
-        <button type="button" disabled={busy || dirty || reportDirty || !confirmed || missingAlertTask || scoped.requests.some((r: any) => r.status === "pending")} onClick={() => void act("review")}>Concluir revisão</button>
-        {pendingAlerts.length>0&&<small>Ao concluir a revisão, as tarefas serão criadas com o relatório final. Todos os alertas precisam de responsável e descrição.</small>}
-        {missingAlertTask&&<button type="button" onClick={()=>setTab('alerts')}>Organizar tarefas dos alertas</button>}
-        {scoped.requests.some((r: any) => r.status === "pending") && <small>Há solicitações de apontamento aguardando aprovação.</small>}
+        <div className="review-completion-steps">
+          <section className={`review-completion-step${reportDirty?" review-step-pending":""}`} aria-label="Etapa 1: salvar ajustes">
+            <strong className="review-step-title"><span>1</span> Salvar ajustes</strong>
+            <p role="status">{reportDirty?"Há ajustes pendentes. Salve antes de concluir a revisão.":"Relatório salvo. Se alterar alguma informação, salve os ajustes antes de concluir."}</p>
+            <div ref={setSaveTarget} className="review-save-actions"/>
+          </section>
+          <section className="review-completion-step" aria-label="Etapa 2: concluir revisão">
+            <strong className="review-step-title"><span>2</span> Concluir revisão</strong>
+            {missingAlertTask&&<button type="button" disabled={busy||dirty||reportDirty} onClick={()=>setTab('alerts')}>Organizar tarefas dos alertas</button>}
+            {pendingAlerts.length>0&&<small>Ao concluir, as tarefas serão criadas com o relatório final. Todos os alertas precisam de responsável e descrição.</small>}
+            {scoped.requests.some((r: any) => r.status === "pending") && <small>Há solicitações de apontamento aguardando aprovação.</small>}
+            <button type="button" className="review-complete-button" aria-describedby={`${tabsId}-agreement`} disabled={busy || dirty || reportDirty || missingAlertTask || scoped.requests.some((r: any) => r.status === "pending")} onClick={() => void act("review")}><CheckCheck size={16} aria-hidden="true"/>Concluir revisão</button>
+            <p id={`${tabsId}-agreement`} className="review-agreement">Ao concluir, declaro: li, revisei e estou de acordo com as informações do relatório, das peças e dos apontamentos desta operação.</p>
+          </section>
+        </div>
       </>}
+      {data.canEditSettings && !reviewed && reportSubmission(o.document.checklistRun) && <div className="review-return-action"><button type="button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}>Devolver relatório ao técnico</button></div>}
       {reviewed && o.document.checklistRun && !busy ? <><select aria-label="Tipo de relatório" value={reportMode} onChange={e=>setReportMode(e.target.value)}><option value="complete">Relatório Completo</option><option value="summary">Relatório Resumido</option><option value="budget">Relatório de Orçamento</option></select><a href={`/api/service-scheduling/checklist-pdf?operationId=${o.id}&mode=${reportMode}`} target="_blank" rel="noreferrer"><FileDown size={16}/> Gerar PDF</a></> : o.document.checklistId && <small>O PDF será liberado após a conclusão da revisão.</small>}
 
     </footer>

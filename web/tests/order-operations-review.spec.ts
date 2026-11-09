@@ -120,7 +120,7 @@ test("planner reviews operations together and navigates in numeric order", async
   const third=dialog.getByRole('region',{name:'Revisão da operação 03',exact:true});
   await dialog.getByLabel('Ir para operação').selectOption(operations[2].id);
   await expect(third.getByRole('heading',{name:/14877\/03/})).toBeVisible();
-  await expect(dialog.getByRole('button',{name:'Concluir revisão',exact:true})).toBeDisabled();
+  await expect(dialog.getByRole('button',{name:'Concluir revisão',exact:true})).toBeEnabled();
   // Legacy operations have no alertOptions snapshot: NOK must still look negative.
   const condition=third.getByRole('radiogroup',{name:'Condição',exact:true});
   const nok=condition.getByRole('radio',{name:'NOK',exact:true});
@@ -138,7 +138,7 @@ test("planner reviews operations together and navigates in numeric order", async
   await expect(condition.getByRole('radio',{name:'NA',exact:true})).toBeChecked();
   await save.click();
   await expect(save).toHaveCount(0);
-  await third.getByLabel('Conferi o relatório, as peças e os apontamentos desta operação.').check();
+  await expect(third.getByRole('button',{name:'Concluir revisão',exact:true})).toBeEnabled();
   await dialog.getByRole('button',{name:'Concluir revisão',exact:true}).click();
   await expect(dialog.getByText('3 operações · 0 aguardando revisão · 3 revisadas')).toBeVisible();
   await dialog.getByLabel('Ir para operação').selectOption(operations[0].id);
