@@ -192,6 +192,19 @@ test("scheduling includes once, versions operations, protects execution and reco
     ops[0]=(await send("operation",{document:{...ops[0].document,date:originalDate,reschedulingHistory:[]},rescheduling:{confirmed:true,reason:"Cliente antecipou o atendimento"}})).operation;
     assert.equal(ops[0].document.reschedulingHistory.length,2);
     await assert.rejects(send("operation",{version:originalVersion,document:changedDate,rescheduling:{confirmed:true,reason:"Duplicada"}}),/alterada/);
+    // Existing returned rows can change equipment despite their historical lock and reading.
+    const savedDate=ops[0].document.date;
+    const meterRun={equipmentId:'77',meterDate:'2026-10-01',template:{stages:[]},stages:{}};
+    await db.exec("INSERT INTO m8_equipment_catalog VALUES(78,'Equipamento corrigido','NOVO',true)");
+    await db.query("UPDATE web_service_operations SET sent_at=NULL,status='scheduled',document=document||$2::jsonb WHERE id=$1",[ops[0].id,JSON.stringify({equipmentId:'77',equipmentUnassigned:false,equipmentLocked:true,checklistReturn:{reason:'Equipamento errado'},checklistRun:meterRun})]);
+    ops[0]=(await db.query<any>('SELECT * FROM web_service_operations WHERE id=$1',[ops[0].id])).rows[0];
+    ops[0]=(await send('operation',{document:{...ops[0].document,equipmentId:'78'}})).operation;
+    assert.equal(ops[0].document.equipmentId,'78');
+    assert.equal(ops[0].document.equipment.name,'Equipamento corrigido');
+    assert.equal(ops[0].document.checklistRun.equipmentId,'78');
+    assert.equal(ops[0].document.checklistRun.meterDate,meterRun.meterDate);
+    assert.equal(ops[0].document.equipmentLocked,false);
+    assert.equal(ops[0].document.date,savedDate);
     // A returned operation accepts a replacement template and starts with empty answers.
     const template={id:'replacement',name:'Checklist corrigido',items:[],stages:[{id:'step',name:'Etapa',fields:[{id:'answer',label:'Verificação',type:'text',required:false}]}]};
     await db.query("UPDATE web_service_schedule_settings SET document=jsonb_set(document,'{checklists}',$1::jsonb)",[JSON.stringify([template,{...template,id:"old"}])]);
@@ -209,6 +222,7 @@ test("scheduling includes once, versions operations, protects execution and reco
     assert.equal(ops[0].document.checklistRun.template.id,'replacement');
     assert.deepEqual(ops[0].document.checklistRun.stages.step.answers,{});
     assert.equal(ops[0].document.checklistReturn,undefined);
+    await assert.rejects(send('operation',{document:{...ops[0].document,equipmentId:'77',equipmentUnassigned:false}}),/equipamento não pode ser alterado/);
     // Restore the original no-checklist fixture for the remaining lifecycle assertions.
     await db.query("UPDATE web_service_operations SET document=(document-'checklistRun')||'{\"checklistId\":\"\"}'::jsonb WHERE id=$1",[ops[0].id]);
 

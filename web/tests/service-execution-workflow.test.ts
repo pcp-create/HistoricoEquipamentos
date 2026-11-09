@@ -169,6 +169,7 @@ test("execution handoffs preserve one task; releases, customer sends and approva
     await assert.rejects(()=>recallOperation(db,recallBefore,'planner@test.com',{confirmReturn:true,reason:'Ajuste'}),/apontamentos ativos/);
     await query("UPDATE web_field_sessions SET state='finished',finished_at=now() WHERE id=$1",[activeSession]);
     const recalled=await recallOperation(db,recallBefore,'planner@test.com',{confirmReturn:true,reason:'Ajustar programação'});
+    assert.equal(recalled.document.equipmentLocked,false);
     assert.equal(recalled.sent_at,null);assert.equal(recalled.version,recallBefore.version+1);
     assert.deepEqual(recalled.document.checklistRun,draftRun);
     assert.equal(recalled.document.checklistReturn.reason,'Ajustar programação');
@@ -250,8 +251,8 @@ test("execution handoffs preserve one task; releases, customer sends and approva
       phone: "5547999999999",
       requestId: randomUUID(),
     };
-    const emailInput={scheduleId:'1',to:'cliente@example.com',subject:'Relatório OS 12345',body:'Segue o relatório resumido.'};
-    await assert.rejects(prepareCustomerEmail(emailInput,'planner@test.com'),/Conclua a revisão/);
+    const emailInput={scheduleId:'1',operationIds:[id],to:'cliente@example.com',subject:'Relatório OS 12345',body:'Segue o relatório resumido.'};
+    await assert.rejects(prepareCustomerEmail(emailInput,'planner@test.com'),/operações revisadas/);
     await assert.rejects(
       prepareCustomerDelivery(db, request, "planner@test.com"),
       /Conclua a revisão/,

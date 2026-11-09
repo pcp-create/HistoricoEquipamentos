@@ -1,3 +1,4 @@
+import {equipmentSelectionLocked} from "./equipment-selection";
 import {cleanEmailBodyHtml} from './email-body-html';
 import {withMaterialMovements} from "./material-movements";
 import {flowOwnerRows} from "./flow-responsibility";
@@ -567,7 +568,7 @@ export async function mutateSchedule(b: any, email: string) {
       status="awaiting_execution";
     } else if (b.action === "operation") {
       try{validateResponsibleChange(operation,b.document,b.confirmResponsibleChange);}catch(e){throw new ScheduleInputError((e as Error).message);}
-      if((operation.sent_at||operation.document.equipmentLocked) &&
+      if(equipmentSelectionLocked(operation) &&
         ((b.document?.equipmentId||'')!==(operation.document.equipmentId||'') || (b.document?.equipmentUnassigned===true)!==(operation.document.equipmentUnassigned===true)))
         throw new ScheduleInputError('O equipamento não pode ser alterado após o envio ao técnico.');
       if (["awaiting_review", "reviewed"].includes(status))
@@ -582,9 +583,12 @@ export async function mutateSchedule(b: any, email: string) {
         if(operation.sent_at && (b.document.responsible!==operation.document.responsible || JSON.stringify(b.document.support)!==JSON.stringify(operation.document.support) || b.document.vehicleId!==operation.document.vehicleId) && (await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[operation.id])).rows.length)throw Error("Finalize os apontamentos ativos antes de alterar a equipe ou o veículo.");
         const checked = validateOperation({...b.document, checklistRun: replacing ? undefined : operation.document.checklistRun}, config.document, users);
         const equipmentId=checked.document.equipmentId;
-        if((operation.sent_at || operation.document.equipmentLocked || operation.document.checklistRun?.equipmentId) && (equipmentId!==(operation.document.equipmentId||'') || checked.document.equipmentUnassigned!==(operation.document.equipmentUnassigned===true)))
+        if(equipmentSelectionLocked(operation) && (equipmentId!==(operation.document.equipmentId||'') || checked.document.equipmentUnassigned!==(operation.document.equipmentUnassigned===true)))
           throw Error('O equipamento não pode ser alterado após o envio ao técnico ou registro de leitura.');
-        checked.document.equipmentLocked=!!(operation.sent_at||operation.document.equipmentLocked);
+        checked.document.equipmentLocked=equipmentSelectionLocked(operation);
+        if(checked.document.checklistRun&&(equipmentId!==(operation.document.equipmentId||'')||checked.document.equipmentUnassigned!==(operation.document.equipmentUnassigned===true))&&operation.document.checklistRun?.equipmentId){
+          checked.document.checklistRun={...checked.document.checklistRun,equipmentId};
+        }
         if(equipmentId){
           const equipment=(await c.query('SELECT equipment_id::text,name,serial FROM m8_equipment_catalog WHERE equipment_id=$1 AND present FOR SHARE',[equipmentId])).rows[0];
           if(!equipment)throw Error('Selecione um equipamento ativo cadastrado.');

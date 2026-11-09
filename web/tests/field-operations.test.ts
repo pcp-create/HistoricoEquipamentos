@@ -427,6 +427,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     await act('report_return',{version:beforeReturn.version,reason:'Checklist incorreto',confirmReturn:true,stages:[{stageId:'s',answers:{f:'Preservar rascunho ao devolver'}}],offline:{owner:'tech',capturedAt:new Date().toISOString(),baseVersion:beforeReturn.version}});
     const returnedOperation=(await db.query<any>('SELECT * FROM web_service_operations WHERE id=$1',[id])).rows[0];
     assert.equal(returnedOperation.sent_at,null);
+    assert.equal(returnedOperation.document.equipmentLocked,false);
     assert.equal(returnedOperation.document.checklistRun.stages.s.answers.f,"Preservar rascunho ao devolver");
     assert.equal(returnedOperation.document.checklistReturn.reason,'Checklist incorreto');
     assert.equal(returnedOperation.status,'scheduled');

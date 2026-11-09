@@ -522,7 +522,7 @@ export async function fieldAction(b: any, email: string) {
         if(!Array.isArray(b.stages)||b.stages.length>100||new Set(b.stages.map((stage:any)=>stage.stageId)).size!==b.stages.length)throw new FieldError("Etapas inválidas.");
         for(const stage of b.stages)returned=await updateChecklist(c,{...stage,action:"checklist_save"},returned,s,settings,email,false,{returning:true});
       }
-      const document={...returned.document};
+      const document={...returned.document,equipmentLocked:false};
       document.checklistReturn={at:occurredAt,by:email,reason,checklistId:p.document.checklistId};
       await c.query('UPDATE web_service_operations SET document=$2,status=$3,sent_at=NULL,version=version+1,updated_at=now(),updated_by=$4 WHERE id=$1',[p.id,JSON.stringify(document),planningStatus(document),email]);
       await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[p.id,b.action,email,'Devolvida para ajuste do checklist. Preenchimento e fotos preservados. Motivo: '+reason]);

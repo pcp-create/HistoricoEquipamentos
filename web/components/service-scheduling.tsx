@@ -1,4 +1,5 @@
 "use client";
+import {equipmentSelectionLocked} from "@/lib/service-scheduling/equipment-selection";
 import {changesDispatchedResponsible,responsibleChangeWarning} from "@/lib/service-scheduling/responsible-change";
 import ScheduleCustomerEmailSettings from "./schedule-customer-email-settings";
 import ScheduleFlowResponsibilities from "./schedule-flow-responsibilities";
@@ -1036,7 +1037,7 @@ function OperationRow({
             {d.description.length}/40
           </small>
         </td>
-        <td><OperationEquipmentSelect scheduleId={data.schedule.id} displayLabel={operationEquipmentLabel(d,data.detail?.order)} value={d.equipmentId||''} unassigned={d.equipmentUnassigned===true} label={d.equipment?.name||''} orderLabel={data.detail?.order?.equipamento||data.detail?.equipment_links?.map((e:any)=>e.name).filter(Boolean).join(' · ')||''} disabled={locked||!!o.sent_at||!!o.document.equipmentLocked||!!o.document.checklistRun?.equipmentId} onChange={(id,equipment,unassigned)=>change('equipmentId',id,false,equipment,unassigned)}/></td>
+        <td><OperationEquipmentSelect scheduleId={data.schedule.id} displayLabel={operationEquipmentLabel(d,data.detail?.order)} value={d.equipmentId||''} unassigned={d.equipmentUnassigned===true} label={d.equipment?.name||''} orderLabel={data.detail?.order?.equipamento||data.detail?.equipment_links?.map((e:any)=>e.name).filter(Boolean).join(' · ')||''} disabled={locked||equipmentSelectionLocked(o)} onChange={(id,equipment,unassigned)=>change('equipmentId',id,false,equipment,unassigned)}/></td>
         <td>
           <div className="operation-checklist-select" title={checklist ? [checklist.prefix, checklist.name].filter(Boolean).join(" - ") : "Sem checklist"}>
           <select

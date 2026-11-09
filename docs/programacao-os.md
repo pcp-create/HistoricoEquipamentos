@@ -202,3 +202,12 @@ Enviar fica desabilitado enquanto houver campos obrigatórios incompletos ou alt
 pendentes de salvamento. O rascunho compatível do aparelho é recuperado automaticamente,
 sem avisos ou botão de recuperação. A recuperação aplica os campos alterados localmente
 e preserva atualizações do servidor nos demais campos.
+
+
+### Equipamento de operações retornadas ao planejamento
+
+Retornar OS ao planejamento e Devolver relatório pelo técnico liberam a edição do
+equipamento enquanto a operação estiver no planejamento e não tiver sido reenviada.
+Operações retornadas anteriormente também ficam editáveis. A troca mantém as respostas,
+fotos e datas do relatório; se havia leitura de horímetro, seu vínculo acompanha o
+equipamento corrigido. Reenviar ao técnico bloqueia novamente a seleção.
