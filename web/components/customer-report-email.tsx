@@ -1,12 +1,14 @@
 "use client";
 import {useEffect,useState} from 'react';
 import {Mail,Download} from 'lucide-react';
+import {gmailDraftError} from "@/lib/service-scheduling/gmail-draft-error";
 import {companyName} from '@/lib/company-names';
 import {defaultCustomerEmail,fillCustomerEmail} from '@/lib/service-scheduling/customer-email-template';
 export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=>void}){
  const order=data.detail?.order||{},config={...defaultCustomerEmail,...data.settings?.document?.customerEmail};
  const values={os:String(order.numero_sequencia||data.schedule.order_id),cliente:order.cliente_nome||order.cliente_razao_social||'',equipamento:order.equipamento||'',empresa:companyName(data.schedule.company_id),responsavel:data.users?.find((u:any)=>u.email===data.email)?.display_name||data.email||''};
  const [to,setTo]=useState(order.cliente_email||order.payload?.clienteEmail||''),[subject,setSubject]=useState(()=>fillCustomerEmail(config.subject,values)),[body,setBody]=useState(()=>fillCustomerEmail(config.body,values));
+ const [gmailHelp,setGmailHelp]=useState(false);
  const [busy,setBusy]=useState(false),[ready,setReady]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[gmailUrl,setGmailUrl]=useState('');
  useEffect(()=>{
   if(!config.gmailClientId)return;
@@ -23,14 +25,14 @@ export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=
  }
  function valid(){return !!(to.trim()&&subject.trim()&&body.trim());}
  async function download(){
-  if(busy||!valid())return;setBusy(true);setError('');setMessage('');
+  if(busy||!valid())return;setBusy(true);setError('');setMessage('');setGmailHelp(false);
   try{const result=await prepare(),encoded=result.raw.replace(/-/g,'+').replace(/_/g,'/');const bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
    const url=URL.createObjectURL(new Blob([bytes],{type:'message/rfc822'})),link=document.createElement('a');link.href=url;link.download=result.filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
    setMessage('E-mail baixado com o PDF anexado. Abra o arquivo no seu aplicativo de e-mail e confira antes de enviar.');
   }catch(e){setError((e as Error).message);}finally{setBusy(false);}
  }
  function gmail(){
-  if(busy||!ready||!valid())return;setBusy(true);setError('');setMessage('');setGmailUrl('');
+  if(busy||!ready||!valid())return;setBusy(true);setError('');setMessage('');setGmailHelp(false);setGmailUrl('');
   try{const client=(window as any).google.accounts.oauth2.initTokenClient({client_id:config.gmailClientId,scope:'openid email https://www.googleapis.com/auth/gmail.compose',
    error_callback:()=>{setBusy(false);setError('A conexão com o Google foi cancelada ou bloqueada. Tente novamente.');},
    callback:async(token:any)=>{
@@ -38,8 +40,9 @@ export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=
     try{
      const result=await prepare();
      const response=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/drafts',{method:'POST',headers:{Authorization:'Bearer '+token.access_token,'Content-Type':'application/json'},body:JSON.stringify({message:{raw:result.raw}})});
-     if(!response.ok)throw Error(response.status===401?'A conexão com o Google expirou. Tente novamente.':'Não foi possível criar o rascunho no Gmail. Confira se o acesso foi autorizado.');
-     await response.json();
+     const responseBody=await response.json().catch(()=>null);
+     if(!response.ok){const failure=gmailDraftError(response.status,responseBody);setGmailHelp(failure.enableApi);throw Error(failure.message);}
+
      const profile:{email?:string}=await fetch('https://openidconnect.googleapis.com/v1/userinfo',{headers:{Authorization:'Bearer '+token.access_token}}).then(r=>r.ok?r.json():{}).catch(()=>({}));
      const gmail=new URL('https://mail.google.com/mail/');if(profile.email)gmail.searchParams.set('authuser',profile.email);gmail.hash='drafts';const url=gmail.toString();setGmailUrl(url);setMessage('Rascunho criado no Gmail com o relatório resumido em anexo. Confira o destinatário e o texto antes de enviar.');
      window.open(url,'_blank','noopener,noreferrer');
@@ -55,6 +58,7 @@ export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=
   <p>O relatório resumido revisado será anexado ao rascunho. Confira o e-mail e faça o envio no seu aplicativo.</p>
   {!config.gmailClientId&&<small>Para criar o rascunho diretamente no Gmail, configure a conexão Google em Configurações → Envio por e-mail.</small>}
   {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
+  {gmailHelp&&<a href={'https://console.cloud.google.com/apis/library/gmail.googleapis.com?project='+encodeURIComponent(config.gmailClientId.split('-')[0])} target="_blank" rel="noopener noreferrer">Abrir Gmail API no Google Cloud para ativar</a>}
   {gmailUrl&&<a href={gmailUrl} target="_blank" rel="noreferrer">Abrir rascunhos no Gmail</a>}
   <div className="scheduling-actions">{config.gmailClientId&&<button type="button" disabled={busy||!ready||!valid()} onClick={gmail}><Mail size={16}/>{busy?'Preparando…':'Criar rascunho no Gmail'}</button>}<button type="submit" disabled={busy||!valid()}><Download size={16}/>{busy?'Preparando…':'Baixar e-mail com anexo'}</button><button type="button" disabled={busy} onClick={onClose}>Fechar</button></div>
  </form>;

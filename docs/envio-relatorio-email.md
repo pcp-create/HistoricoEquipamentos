@@ -19,3 +19,7 @@ O login do Gmail no navegador não autoriza o portal a criar rascunhos. É neces
 A autorização temporária permanece apenas em memória. O navegador chama `users.drafts.create`, com a mensagem MIME e o PDF anexado, e abre os rascunhos na conta Google autorizada. O portal não chama endpoints de envio e não armazena tokens no banco, cookies ou localStorage. Se o navegador bloquear a abertura da nova aba, há um link para os rascunhos. O envio final é feito pelo usuário no Gmail.
 
 Referências oficiais: [modelo de autorização Google Identity](https://developers.google.com/identity/oauth2/web/guides/use-token-model) e [criação de rascunhos Gmail](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.drafts/create).
+
+## Erros após a autorização Google
+
+Se a autorização terminar mas a criação do rascunho falhar, o portal interpreta o retorno da Gmail API: API desativada (`SERVICE_DISABLED`/`accessNotConfigured`), token inválido/expirado, escopo insuficiente, política do domínio e cotas. Quando a API está desativada, mostra um link para a biblioteca da Gmail API no projeto do Client ID cadastrado. Outros erros mostram HTTP e o código retornado, sem expor tokens ou o conteúdo do e-mail. A criação do rascunho só é informada como concluída após confirmação da API.

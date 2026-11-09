@@ -5,15 +5,20 @@ test('Gmail creates a draft with attachment in the connected account; email defa
  try{
  const page=await browser.newPage();await page.addInitScript("window.google={accounts:{oauth2:{initTokenClient:function(options){return {requestAccessToken:function(){options.callback({access_token:'test-token'})}}}}}};window.open=function(url){window.opened=String(url);return null;};");
  await page.route('https://accounts.google.com/**',r=>r.abort());
- let prepared:any,draft:any;
+ let prepared:any,draft:any;let apiDisabled=true;
  const raw=Buffer.from('MIME-Version: 1.0\r\nContent-Type: application/pdf\r\n').toString('base64url');
  await page.route('**/api/service-scheduling/customer-email',r=>{prepared=r.request().postDataJSON();return r.fulfill({json:{raw,filename:'OS 15253.eml'}})});
- await page.route('https://gmail.googleapis.com/**',r=>{assert.ok(r.request().url().endsWith('/drafts'),'never calls an email sending endpoint');draft=r.request().postDataJSON();return r.fulfill({json:{id:'draft1',message:{id:'m1'}}});});
+ await page.route('https://gmail.googleapis.com/**',r=>{assert.ok(r.request().url().endsWith('/drafts'),'never calls an email sending endpoint');draft=r.request().postDataJSON();if(apiDisabled)return r.fulfill({status:403,json:{error:{status:'PERMISSION_DENIED',details:[{reason:'SERVICE_DISABLED'}]}}});return r.fulfill({json:{id:'draft1',message:{id:'m1'}}});});
  await page.route('https://openidconnect.googleapis.com/v1/userinfo',r=>r.fulfill({json:{email:'connected@gmail.com'}}));
  await page.goto('http://127.0.0.1:'+(server.address() as any).port);
  await expect(page.getByLabel('Assunto',{exact:true})).toHaveValue('OS 15253 · Cliente Teste');
  await expect(page.getByLabel('Mensagem',{exact:true})).toHaveValue('Olá Cliente Teste, segue relatório. Planejador');
  await page.getByLabel('Destinatário',{exact:true}).fill('cliente@example.com');
+ await page.getByRole('button',{name:'Criar rascunho no Gmail',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('Gmail API não está ativada');
+ await expect(page.getByRole('link',{name:'Abrir Gmail API no Google Cloud para ativar'})).toHaveAttribute('href','https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=123');
+ await expect(page.getByRole('status')).toHaveCount(0);
+ apiDisabled=false;
  await page.getByRole('button',{name:'Criar rascunho no Gmail',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('Rascunho criado no Gmail');
  assert.equal(prepared.to,'cliente@example.com');assert.equal(draft.message.raw,raw);
