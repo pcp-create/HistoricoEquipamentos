@@ -104,3 +104,9 @@ Na aba Produtos, as quantidades Retirada, Devolvida e Utilizada são apenas para
 ### Sequência das ações de revisão
 
 O rodapé da revisão separa as etapas “1. Salvar ajustes” e “2. Concluir revisão”. Alterações no relatório ou fotos em envio bloqueiam a conclusão até o salvamento confirmado; uma falha ao salvar mantém o rascunho e o bloqueio. Sem alterações pendentes, o relatório já está salvo e pode ser concluído. O botão Concluir revisão representa a concordância com o relatório, as peças e os apontamentos, com essa declaração visível ao lado da ação, sem checkbox adicional. Pendências de alertas e solicitações de apontamentos continuam impedindo a conclusão. A devolução ao técnico permanece como ação separada.
+
+### Anexo automático ao editar observações e Status Fluxo
+
+A edição traz “Anexar relatório resumido automaticamente na OS” marcado por padrão a cada abertura. Ao salvar no ERP, o sistema salva o cabeçalho e envia o PDF resumido unificado das operações revisadas para os anexos da própria OS no M8. O destino é obtido no servidor pela programação, com conferência de acesso e revisão de todas as operações. O usuário pode desmarcar a opção para salvar somente as alterações.
+
+O PDF não inclui linha do tempo, usa o nome padrão de exportação e é otimizado para o limite de 3 MB do ERP. A identidade do conteúdo impede repetir o mesmo relatório em novas tentativas, mesmo que os metadados internos do PDF mudem. Envios incertos permanecem bloqueados para conferência no ERP. Se o cabeçalho for salvo e um anexo falhar, a tela mostra o resultado parcial e permite reenviar apenas os anexos pendentes, preservando a alteração já confirmada. Nenhuma migration é necessária.

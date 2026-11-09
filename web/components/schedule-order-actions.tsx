@@ -26,6 +26,7 @@ export default function ScheduleOrderActions({
   data: any;
   onChanged: () => void;
 }) {
+  const [attachSummary,setAttachSummary]=useState(true),[summaryAttached,setSummaryAttached]=useState(false),[headerSaved,setHeaderSaved]=useState(false);
   const [attachmentFiles,setAttachmentFiles]=useState<File[]>([]);
   const [edit, setEdit] = useState<any>(null),
     [flows, setFlows] = useState<any[]>([]),
@@ -64,6 +65,7 @@ export default function ScheduleOrderActions({
         api("/api/warehouse?flowStatuses=1"),
       ]);
       setAttachmentFiles([]);
+      setAttachSummary(true);setSummaryAttached(false);setHeaderSaved(false);
       setEdit(e);
       setFlows(f.rows);
       editRequest.current = null;
@@ -71,6 +73,8 @@ export default function ScheduleOrderActions({
   }
   async function saveHeader() {
     await run(async () => {
+      if(attachSummary&&!reviewed)throw Error("Conclua a revisão de todas as operações ou desmarque o anexo automático.");
+      if(!headerSaved){
       const id =
         editRequest.current || (editRequest.current = crypto.randomUUID());
       await api("/api/service-orders", {
@@ -94,10 +98,16 @@ export default function ScheduleOrderActions({
           result.message ||
             "Envio aguardando conferência. Consulte a edição da OS antes de tentar novamente.",
         );
+      setHeaderSaved(true);
+      }
+      if(attachSummary&&!summaryAttached){
+        try{await api('/api/service-scheduling/summary-attachment',{scheduleId:String(data.schedule.id)});setSummaryAttached(true);}
+        catch(e){throw Error('A OS foi atualizada no ERP, mas o relatório resumido não foi anexado. '+(e as Error).message);}
+      }
       try{await sendOrderAttachments(company,order,attachmentFiles,file=>setAttachmentFiles(files=>files.filter(f=>f!==file)));}
       catch(e){throw Error('A OS foi atualizada no ERP, mas há anexos pendentes. '+(e as Error).message);}
       setEdit(null);
-      setMessage("Observações e status do fluxo atualizados no ERP.");
+      setMessage("Observações e status do fluxo atualizados no ERP."+(attachSummary?" Relatório resumido anexado à OS.":""));
       onChanged();
     });
   }
@@ -129,6 +139,11 @@ export default function ScheduleOrderActions({
           }}
         >
           <OrderAttachments company={company} order={order} files={attachmentFiles} onFilesChange={setAttachmentFiles} disabled={busy} onBusy={setBusy}/>
+          <div className="schedule-summary-attachment">
+            <label><input type="checkbox" checked={attachSummary} disabled={busy||summaryAttached} onChange={e=>setAttachSummary(e.target.checked)}/> Anexar relatório resumido automaticamente na OS</label>
+            <small>{reviewed?'Ao salvar no ERP, o relatório resumido das operações revisadas será gerado e anexado à OS no M8.':'Para anexar automaticamente, revise todas as operações. Você pode desmarcar esta opção para salvar somente as alterações da OS.'}</small>
+          </div>
+          {headerSaved&&<p role="status">As alterações da OS já foram salvas. Falta concluir o envio dos anexos.</p>}
           <label>
             Observação
             <textarea
@@ -141,7 +156,7 @@ export default function ScheduleOrderActions({
                   draft: { ...edit.draft, notes: e.target.value },
                 })
               }
-              disabled={busy}
+              disabled={busy||headerSaved}
             />
           </label>
           <label>
@@ -156,7 +171,7 @@ export default function ScheduleOrderActions({
                   draft: { ...edit.draft, internalNotes: e.target.value },
                 })
               }
-              disabled={busy}
+              disabled={busy||headerSaved}
             />
           </label>
           <div className="schedule-flow-field">
@@ -167,7 +182,7 @@ export default function ScheduleOrderActions({
               selectedLabel={flows.find(f => String(f.id) === String(edit.draft.flowStatus))?.name || edit.labels.flowStatus}
               options={flows.map(f => ({id: String(f.id), displayId: String(f.id), name: f.name}))}
               placeholder="Digite para pesquisar o status"
-              disabled={busy}
+              disabled={busy||headerSaved}
               onChange={row => {
                 editRequest.current = null;
                 setEdit((current: any) => ({
@@ -180,9 +195,9 @@ export default function ScheduleOrderActions({
           </div>
           <div className="scheduling-actions">
             <button disabled={busy} type="submit">
-              Salvar no ERP
+              {busy?"Salvando e enviando anexos…":headerSaved?"Reenviar anexos pendentes":"Salvar no ERP"}
             </button>
-            <button disabled={busy} type="button" onClick={() => setEdit(null)}>
+            <button disabled={busy} type="button" onClick={() => {setEdit(null);if(headerSaved)onChanged();}}>
               Cancelar
             </button>
           </div>

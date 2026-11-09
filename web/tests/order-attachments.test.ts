@@ -43,6 +43,16 @@ test('M8 attachment upload is company-scoped, deduplicated, audited and never re
   const attempted=posts;await assert.rejects(()=>uploadOrderAttachment('1','15128','incerto.pdf',file,'planner@test.com'),/não repete/);assert.equal(posts,attempted);
   mode='rejected';await assert.rejects(()=>uploadOrderAttachment('1','15128','recusado.pdf',file,'planner@test.com'),/recusado/);
   mode='ok';await uploadOrderAttachment('1','15128','recusado.pdf',file,'planner@test.com');
+  await uploadOrderAttachment('1','15128','gerado.pdf',Buffer.from('PDF metadata A'),'planner@test.com','snapshot-1');
+  const generatedPosts=posts;
+  assert.equal((await uploadOrderAttachment('1','15128','gerado.pdf',Buffer.from('PDF metadata B'),'planner@test.com','snapshot-1')).alreadySent,true);
+  assert.equal(posts,generatedPosts,'generated PDF metadata must not cause duplicate uploads');
+  mode='uncertain';
+  await assert.rejects(uploadOrderAttachment('1','15128','gerado-incerto.pdf',file,'planner@test.com','snapshot-2'));
+  const uncertainPosts=posts;
+  await assert.rejects(uploadOrderAttachment('1','15128','gerado-incerto.pdf',Buffer.from('different metadata'),'planner@test.com','snapshot-2'),/não repete/);
+  assert.equal(posts,uncertainPosts);
+  mode='ok';
   assert.deepEqual(await listOrderAttachments('1','15128'),[{id:'123',name:'relatório.pdf'}]);
   assert.deepEqual((await downloadOrderAttachment('1','15128','123')).bytes,file);
  }finally{

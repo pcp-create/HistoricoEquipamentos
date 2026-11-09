@@ -39,10 +39,10 @@ export async function downloadOrderAttachment(company:string,order:string,id:str
  const bytes=decodeAttachment(data),extension=String(data.tipo||'bin').replace(/[^a-zA-Z0-9]/g,'').slice(0,12)||'bin';
  return {bytes,name:`OS-${order}-anexo-${id}.${extension}`};
 }
-export async function uploadOrderAttachment(company:string,order:string,name:string,bytes:Buffer,actor:string){
+export async function uploadOrderAttachment(company:string,order:string,name:string,bytes:Buffer,actor:string,identity?:string){
  const path=attachmentTarget(company,order),payload=attachmentPayload(name,bytes);
  const m8=await m8Session(Number(company));
- const digest=createHash('sha256').update(bytes).digest('hex');
+ const digest=createHash('sha256').update(identity?'generated-report:'+identity:bytes).digest('hex');
  const db=database(),c=await db.connect();
  let reserved=false;
  try{

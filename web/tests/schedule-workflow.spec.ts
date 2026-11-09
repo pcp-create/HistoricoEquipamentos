@@ -116,10 +116,14 @@ test("reviewed OS exposes ERP edits and customer delivery", async ({
     display_name: "Faturamento",
     enabled: true,
   });
-  const calls: any[] = [];
+  const calls: any[] = [];let summaryAttempts=0;
   await page.route("**/api/service-scheduling**", (r) => {
     if (r.request().method() === "POST") {
       calls.push(r.request().postDataJSON());
+      if(r.request().url().includes('/summary-attachment')){
+        if(++summaryAttempts===1)return r.fulfill({status:503,json:{error:'Anexo pendente de envio.'}});
+        return r.fulfill({json:{id:'321',filename:'OS 123 - Cliente.pdf'}});
+      }
       if(r.request().url().includes('/customer-email'))return r.fulfill({json:{raw:Buffer.from('X-Unsent: 1\r\n').toString('base64url'),filename:'OS 12345.eml',reportFilename:'OS 12345.pdf'}});
       return r.fulfill({ json: { released: true, queued: true } });
     }
@@ -165,7 +169,13 @@ test("reviewed OS exposes ERP edits and customer delivery", async ({
   await page
     .getByLabel("Observação Interna", { exact: true })
     .fill("Conferir cadastro");
+  await expect(page.getByRole('checkbox',{name:'Anexar relatório resumido automaticamente na OS'})).toBeChecked();
   await page.getByRole("button", { name: "Salvar no ERP" }).click();
+  await expect(page.locator('.schedule-order-actions').getByRole('alert')).toContainText('A OS foi atualizada no ERP, mas o relatório resumido não foi anexado.');
+  const headerWrites=calls.filter(c=>c.action?.startsWith('edit-')).length;
+  await page.getByRole('button',{name:'Reenviar anexos pendentes',exact:true}).click();
+  expect(calls.filter(c=>c.action?.startsWith('edit-')).length).toBe(headerWrites);
+  expect(summaryAttempts).toBe(2);
   await expect(
     page.locator(".schedule-order-actions").getByRole("status"),
   ).toContainText("atualizados no ERP");
@@ -175,6 +185,12 @@ test("reviewed OS exposes ERP edits and customer delivery", async ({
   expect(calls.find((c) => c.action === "edit-prepare").draft.notes).toBe(
     "Cliente solicitou retorno",
   );
+  await page.getByRole('button',{name:'Editar observações e Status Fluxo'}).click();
+  await expect(page.getByRole('checkbox',{name:'Anexar relatório resumido automaticamente na OS'})).toBeChecked();
+  await page.getByRole('checkbox',{name:'Anexar relatório resumido automaticamente na OS'}).uncheck();
+  await page.getByRole('button',{name:'Salvar no ERP',exact:true}).click();
+  await expect(page.locator('.schedule-order-actions').getByRole('status')).toContainText('atualizados no ERP');
+  expect(summaryAttempts).toBe(2);
   await page.getByRole('button',{name:'Enviar por e-mail',exact:true}).click();
   await page.getByLabel('Destinatário',{exact:true}).fill('cliente@example.com');
   const download=page.waitForEvent('download');

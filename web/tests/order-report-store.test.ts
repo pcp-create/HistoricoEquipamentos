@@ -5,12 +5,17 @@ import {
   loadOrderReport,
   validateOrderReportSelection,
 } from "../lib/service-scheduling/order-report-store";
+import {attachSummaryReport} from "../lib/service-scheduling/summary-attachment";
+import {readFileSync} from "node:fs";
+import sharp from "sharp";
 const one = "10000000-0000-4000-8000-000000000001",
   two = "20000000-0000-4000-8000-000000000002";
 test("unified export validates selection, scopes data to the OS, and checks current review and photo ownership", async () => {
   const db = new PGlite(),
     g = globalThis as any,
     old = g.historyPool;
+  const originalFetch=globalThis.fetch;
+  const keys=["M8_API_URL","M8_TENANT","M8_USERNAME","M8_PASSWORD"],env=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
   g.historyPool = {
     connect: async () => ({ query: db.query.bind(db), release() {} }),
   };
@@ -18,8 +23,8 @@ test("unified export validates selection, scopes data to the OS, and checks curr
     await db.exec(`CREATE TABLE web_user_access(email text,role text,enabled boolean,display_name text);
    INSERT INTO web_user_access VALUES('admin','admin',true,'Planejador'),('tech','user',true,'Técnico'),('disabled','admin',false,'Desativado');
    CREATE TABLE web_service_schedule_settings(id integer,document jsonb);
-   CREATE TABLE web_service_schedules(id bigint,company_id integer,order_id bigint);
-   INSERT INTO web_service_schedules VALUES(1,1,100),(2,2,100);
+   CREATE TABLE web_service_schedules(id bigint,company_id integer,order_id bigint,active boolean DEFAULT true);
+   INSERT INTO web_service_schedules(id,company_id,order_id) VALUES(1,1,100),(2,2,100);
    CREATE TABLE m8_ordens_servico(company_id integer,id_m8 bigint,numero_sequencia bigint,cliente_nome text);
    INSERT INTO m8_ordens_servico VALUES(1,100,14877,'Cliente correto'),(2,100,99,'Outra empresa');
    CREATE TABLE web_service_operations(id uuid,schedule_id bigint,position integer,status text,document jsonb);
@@ -45,8 +50,8 @@ test("unified export validates selection, scopes data to the OS, and checks curr
       [one, two, JSON.stringify({ responsible: "tech", checklistRun: run })],
     );
     await db.query(
-      "INSERT INTO web_service_checklist_photos VALUES(1,$1,decode('abcd','hex'))",
-      [one],
+      "INSERT INTO web_service_checklist_photos VALUES(1,$1,$2)",
+      [one,await sharp({create:{width:10,height:10,channels:3,background:'#ffffff'}}).png().toBuffer()],
     );
     const body = { scheduleId: "1", operationIds: [one], mode: "complete" };
     assert.throws(() => validateOrderReportSelection({...body,includeTimeline:"false"}), /linha do tempo/);
@@ -97,10 +102,27 @@ test("unified export validates selection, scopes data to the OS, and checks curr
     assert.equal(result.photos.length, 1);
     assert.equal(result.model.chapters.length, 1);
     assert.ok(!JSON.stringify(result.model).includes("Outra empresa"));
+    await db.exec("CREATE ROLE anon;CREATE ROLE authenticated;CREATE TABLE web_access_events(event text,email text,actor text,details jsonb)");
+    await db.exec(readFileSync('sql/096_order_attachments.sql','utf8'));
+    for(const k of keys)process.env[k]=k==='M8_API_URL'?'https://erp.test':'fixture';
+    let uploads=0;
+    globalThis.fetch=async(url:any,init:any)=>{
+      if(String(url).endsWith('/auth/token'))return Response.json({data:{token:'test-token'}});
+      assert.equal(String(url),'https://erp.test/v1/assistenciatecnica/ordemservico/100/anexo');
+      const body=JSON.parse(init.body);assert.match(body.nome,/^OS 14877 - Cliente correto/);
+      assert.ok(Buffer.from(body.arquivo,'base64').subarray(0,4).equals(Buffer.from('%PDF')));
+      uploads++;return Response.json({data:{id:123}});
+    };
+    await assert.rejects(attachSummaryReport({scheduleId:'1'},'disabled'));
+    const attached=await attachSummaryReport({scheduleId:'1'},'admin');assert.equal(attached.id,'123');
+    assert.equal((await attachSummaryReport({scheduleId:'1'},'admin')).alreadySent,true);
+    assert.equal(uploads,1,'repeat saves must not duplicate the generated PDF');
     await db.query(
       "UPDATE web_service_operations SET status='awaiting_review' WHERE id=$1",
       [one],
     );
+    await assert.rejects(attachSummaryReport({scheduleId:"1"},"admin"),/revisão de todas/);
+    assert.equal(uploads,1);
     const preliminary = await loadOrderReport({...body, preliminary:false}, "admin");
     assert.equal(preliminary.model.preliminary, true);
     assert.equal(preliminary.model.chapters.length, 1);
@@ -122,6 +144,8 @@ test("unified export validates selection, scopes data to the OS, and checks curr
       /não possui relatório/,
     );
   } finally {
+    globalThis.fetch=originalFetch;
+    for(const k of keys){if(env[k]===undefined)delete process.env[k];else process.env[k]=env[k];}
     g.historyPool = old;
     await db.close();
   }
