@@ -104,14 +104,16 @@ test("order task requires reviewed reports and submits the selected attachment a
   await page.route('**/api/service-scheduling**',r=>r.fulfill({json:data}));
   await page.route('**/api/service-scheduling/order-task',r=>{sent=r.request().postDataJSON();tasks=[{id:'123',title:'Tarefa da OS 14877',status:'not_started',assignee_name:'Técnico'}];return r.fulfill({json:{taskId:'123'}});});
   await page.goto('/programacao?id=1');
-  await page.getByRole('button',{name:'Gerar tarefa da OS',exact:true}).click();
+  await page.getByRole('region',{name:'Tarefas da OS',exact:true}).locator('summary').click();
+  await page.getByRole('region',{name:'Tarefas da OS',exact:true}).getByRole('button',{name:'Gerar tarefa da OS',exact:true}).click();
   let dialog=page.getByRole('dialog',{name:'Gerar tarefa da OS',exact:true});
   await expect(dialog.getByRole('button',{name:'Criar tarefa',exact:true})).toBeDisabled();
   await expect(dialog.getByRole('alert')).toContainText('Conclua a revisão');
   await dialog.getByRole('button',{name:'Fechar tarefa da OS'}).click();
   operations[2].status='reviewed';
   await page.reload();
-  await page.getByRole('button',{name:'Gerar tarefa da OS',exact:true}).click();
+  await page.getByRole('region',{name:'Tarefas da OS',exact:true}).locator('summary').click();
+  await page.getByRole('region',{name:'Tarefas da OS',exact:true}).getByRole('button',{name:'Gerar tarefa da OS',exact:true}).click();
   await dialog.getByLabel('Responsável pela tarefa').selectOption('tech');
   await dialog.getByLabel('Relatório anexo').selectOption('budget');
   await dialog.getByLabel('Comentário da tarefa').fill('Preparar orçamento para o cliente.');
@@ -121,8 +123,6 @@ test("order task requires reviewed reports and submits the selected attachment a
   expect(sent.requestId).toMatch(/^[a-f0-9-]{36}$/);
   await dialog.getByRole('button',{name:'Fechar tarefa da OS'}).click();
   const linked=page.getByRole('region',{name:'Tarefas da OS',exact:true});
-  await expect(linked.getByRole('link',{name:/TAR-123/})).toBeHidden();
-  await linked.locator('summary').click();
   await expect(linked.getByRole('link',{name:/TAR-123/})).toBeVisible();
   await expect(linked).toContainText('Responsável: Técnico');
   await linked.locator('summary').click();

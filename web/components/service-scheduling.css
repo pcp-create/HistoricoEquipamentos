@@ -1069,3 +1069,6 @@
 .operations-table .operation-programming-date .rescheduling-badge:hover{background:transparent;text-decoration:underline}
 
 .schedule-order-actions textarea{min-width:0;max-width:100%;overflow-wrap:anywhere}
+
+.order-linked-task-actions{display:flex;justify-content:flex-end;margin:0 0 10px}
+.order-linked-task-actions button{display:inline-flex;align-items:center;gap:7px}
