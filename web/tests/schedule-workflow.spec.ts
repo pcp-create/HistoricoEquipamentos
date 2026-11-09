@@ -163,6 +163,15 @@ test("reviewed OS exposes ERP edits and customer delivery", async ({
   await page
     .getByRole("button", { name: "Editar observações e Status Fluxo" })
     .click();
+  for(const label of ['Observação','Observação Interna']){
+    const field=page.getByRole('textbox',{name:label,exact:true});
+    const initial=await field.boundingBox();
+    await field.fill(Array.from({length:20},(_,i)=>`Linha ${i+1}: informações da OS`).join('\n'));
+    expect((await field.boundingBox())!.height).toBeGreaterThan(initial!.height);
+    expect((await field.boundingBox())!.width).toBeCloseTo(initial!.width,0);
+    await expect(field).toHaveCSS('resize','none');
+    expect(await field.evaluate(el=>el.scrollHeight<=el.clientHeight+1)).toBe(true);
+  }
   await page
     .getByLabel("Observação", { exact: true })
     .fill("Cliente solicitou retorno");

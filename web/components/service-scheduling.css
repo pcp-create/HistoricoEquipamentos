@@ -1067,3 +1067,5 @@
 .operation-programming-date{position:relative;min-height:calc(var(--operation-control-height) + 16px)}
 .operations-table .operation-programming-date .rescheduling-badge{position:absolute;top:calc(var(--operation-control-height) + 1px);left:0;display:block;width:auto;height:auto;min-height:0;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;color:#bd8500;font-size:11px;font-weight:400;line-height:15px;text-align:left;white-space:nowrap}
 .operations-table .operation-programming-date .rescheduling-badge:hover{background:transparent;text-decoration:underline}
+
+.schedule-order-actions textarea{min-width:0;max-width:100%;overflow-wrap:anywhere}

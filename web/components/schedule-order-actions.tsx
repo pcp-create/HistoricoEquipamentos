@@ -1,4 +1,5 @@
 "use client";
+import AutoResizeTextarea from "./auto-resize-textarea";
 import CustomerReportEmail from "./customer-report-email";
 import OrderSearchSelect from "./order-search-select";
 import OrderAttachments,{sendOrderAttachments} from "./order-attachments";
@@ -147,7 +148,7 @@ export default function ScheduleOrderActions({
           {headerSaved&&<p role="status">As alterações da OS já foram salvas. Falta concluir o envio dos anexos.</p>}
           <label>
             Observação
-            <textarea
+            <AutoResizeTextarea
               aria-label="Observação"
               rows={3}
               value={edit.draft.notes}
@@ -162,7 +163,7 @@ export default function ScheduleOrderActions({
           </label>
           <label>
             Observação Interna
-            <textarea
+            <AutoResizeTextarea
               aria-label="Observação Interna"
               rows={3}
               value={edit.draft.internalNotes}
