@@ -127,3 +127,16 @@ Nas abas de apontamentos da programação da OS e da revisão da operação, o p
 Apontamentos finalizados com início e fim podem ser replicados para outras pessoas ativas na mesma operação, preservando horários e pausas. O sistema impede sobreposição de horários e cópias repetidas para a mesma pessoa. Lançamentos antigos sem início e fim precisam ser ajustados antes da replicação.
 
 A exclusão de um apontamento finalizado exige confirmação e motivo. Remove suas horas e custos dos totais, preserva os dados originais na auditoria e mantém as cópias já atribuídas a outras pessoas. Apontamentos em andamento ou com solicitação de ajuste pendente não podem ser excluídos. Não há migração de banco para esta alteração.
+
+
+### Destinatários, contatos e envio direto do relatório
+
+O envio por e-mail carrega o e-mail já cadastrado no cliente do ERP e permite até 20 destinatários, separados por vírgula ou ponto e vírgula. Contatos cadastrados no portal ficam vinculados ao cliente (compartilhados entre suas OSs), com e-mail, nome, cargo e telefone; o cadastro no portal não altera o ERP.
+
+O nome do PDF aparece antes do envio e pode ser editado. O padrão é `OS {número} - {cliente} {serviço abreviado} {modelo e série}.pdf`. O nome exibido é enviado ao servidor e usado no anexo real, inclusive no arquivo `.eml` baixado.
+
+Além de criar rascunho, o usuário pode enviar diretamente pelo Gmail, após conferir a confirmação com destinatários e anexo. O remetente é a conta Google autenticada pelo usuário. Tokens permanecem no navegador e não são armazenados no portal. A criação do PDF continua exigindo todas as operações revisadas/concluídas.
+
+Aplicar `web/sql/102_customer_contact_email.sql` antes de publicar a interface. A migração adiciona e-mail e cargo ao cadastro de contatos existente, preservando nomes e telefones.
+
+Referência da integração: [Gmail API — envio de mensagens](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send).

@@ -11,8 +11,8 @@ test('email draft includes the PDF itself, encoded Portuguese text and safe head
  assert.ok(mime.includes(Buffer.from('Olá, segue em anexo.\nAtenciosamente, João.').toString('base64')));
  assert.match(mime,/filename\*0\*=UTF-8''OS%2015253/);
  assert.ok(mime.split('\r\n').every(line=>line.length<=998));
- assert.throws(()=>emailMessage({to:'victim@example.com\r\nBcc: x@y.com',subject:'Teste',body:'Texto',filename:'x',pdf}),/destinatário/);
- assert.throws(()=>emailMessage({to:'a@b.com',subject:'Teste\r\nBcc: x@y.com',body:'Texto',filename:'x',pdf}),/assunto/);
+ assert.throws(()=>emailMessage({to:'victim@example.com\r\nBcc: x@y.com',subject:'Teste',body:'Texto',filename:'x.pdf',pdf}),/destinatários/);
+ assert.throws(()=>emailMessage({to:'a@b.com',subject:'Teste\r\nBcc: x@y.com',body:'Texto',filename:'x.pdf',pdf}),/assunto/);
 });
 test('email settings validate templates and expand only the supported placeholders',()=>{
  assert.deepEqual(validateCustomerEmail(undefined),defaultCustomerEmail);
@@ -20,4 +20,13 @@ test('email settings validate templates and expand only the supported placeholde
  assert.throws(()=>validateCustomerEmail({subject:'Assunto\nCabeçalho'}),/assunto/);
  assert.throws(()=>validateCustomerEmail({gmailClientId:'segredo'}),/Client ID/);
  assert.equal(validateCustomerEmail({gmailClientId:'123-public.apps.googleusercontent.com'}).gmailClientId,'123-public.apps.googleusercontent.com');
+});
+
+test('multiple recipients are normalized and unsafe attachment names rejected',()=>{
+ const base={subject:'Teste',body:'Mensagem',filename:'OS 123 - Cliente.pdf',pdf:new Uint8Array()};
+ const mime=emailMessage({...base,to:'a@example.com; b@example.com, a@example.com'});
+ assert.match(mime,/To: a@example.com,\r\n b@example.com\r\n/);
+ assert.match(mime,/filename="OS 123 - Cliente.pdf"/);
+ assert.throws(()=>emailMessage({...base,to:'a@example.com,invalid'}),/válidos/);
+ assert.throws(()=>emailMessage({...base,to:'a@example.com',filename:'file.pdf\r\nBcc: victim@example.com'}),/anexo/);
 });
