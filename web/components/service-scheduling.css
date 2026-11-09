@@ -1043,3 +1043,20 @@
 .schedule-order-actions .schedule-summary-attachment label{display:flex;align-items:center;gap:9px;margin:0;font-size:13px}
 .schedule-summary-attachment input[type="checkbox"]{width:16px;height:16px;min-height:0;margin:0;flex:none;accent-color:#245e91}
 .schedule-summary-attachment small{color:#64748b;font-size:12px;line-height:1.45}
+
+.review-edit-photos{align-items:flex-start;gap:10px}
+.review-edit-photos>.review-photo-card{position:relative;display:block;width:150px;height:132px;flex:0 0 150px;border:1px solid #dce5ee;border-radius:9px;background:#f6f9fc;overflow:hidden}
+.review-photo-card>a{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+.review-edit-photos .review-photo-card img{display:block;max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain}
+.checklist-review-report .review-photo-card .review-photo-remove{position:absolute;top:5px;right:5px;display:grid;place-items:center;width:28px;height:28px;min-height:28px;padding:0;border:1px solid #d4dfea;border-radius:50%;background:#fff;color:#a33140;box-shadow:0 1px 5px #18324b26}
+.review-photo-remove:focus-visible{outline:2px solid #245e91;outline-offset:2px}
+.review-edit-photos>.report-photo-card{display:block;flex:0 0 150px;width:150px;margin:0}
+.review-edit-photos .report-photo-card .report-photo-add{height:132px;min-height:132px;padding:12px;flex-direction:column;gap:7px;font-size:13px;border-style:dashed}
+.review-edit-photos .report-photo-card .report-photo-choices{position:absolute;top:100%;right:0;z-index:5;width:min(270px,calc(100vw - 48px));box-sizing:border-box;grid-template-columns:1fr}
+.review-photo-confirm{width:min(400px,calc(100vw - 32px));box-sizing:border-box;border:1px solid #dce5ee;border-radius:12px;padding:20px;color:#27445f;box-shadow:0 16px 48px #14283c33}
+.review-photo-confirm::backdrop{background:rgb(20 40 60 / 45%)}
+.review-photo-confirm h3{font-size:17px;margin:0 0 10px}
+.review-photo-confirm p{font-size:13px;line-height:1.5;margin:0 0 18px}
+.review-photo-confirm>div{display:flex;justify-content:flex-end;gap:8px}
+.review-photo-confirm button{padding:8px 12px;font:inherit;font-size:13px;border:1px solid #c9dbed;border-radius:7px;background:#fff;color:#245e91;cursor:pointer}
+.review-photo-confirm .review-photo-confirm-remove{background:#ae3544;border-color:#ae3544;color:#fff}

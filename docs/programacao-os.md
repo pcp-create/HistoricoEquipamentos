@@ -110,3 +110,7 @@ O rodapé compacto mantém “Salvar ajustes”, “Concluir revisão” e “De
 A edição traz “Anexar relatório resumido automaticamente na OS” marcado por padrão a cada abertura. Ao salvar no ERP, o sistema salva o cabeçalho e envia o PDF resumido unificado das operações revisadas para os anexos da própria OS no M8. O destino é obtido no servidor pela programação, com conferência de acesso e revisão de todas as operações. O usuário pode desmarcar a opção para salvar somente as alterações.
 
 O PDF não inclui linha do tempo, usa o nome padrão de exportação e é otimizado para o limite de 3 MB do ERP. A identidade do conteúdo impede repetir o mesmo relatório em novas tentativas, mesmo que os metadados internos do PDF mudem. Envios incertos permanecem bloqueados para conferência no ERP. Se o cabeçalho for salvo e um anexo falhar, a tela mostra o resultado parcial e permite reenviar apenas os anexos pendentes, preservando a alteração já confirmada. Nenhuma migration é necessária.
+
+### Fotos na revisão do relatório
+
+As fotos aparecem em cards e o card “+ Adicionar foto” fica depois da última imagem, mantendo as opções de câmera e galeria. O X no canto superior direito abre uma confirmação de remoção; cancelar preserva a foto e confirmar altera apenas o rascunho. É necessário salvar os ajustes para aplicar a remoção ao relatório. A mesma apresentação é usada nas fotos adicionais dos campos.
