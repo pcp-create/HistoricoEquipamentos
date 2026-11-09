@@ -1010,7 +1010,6 @@ function OperationRow({
       >
         <td>
           <strong className="operation-cell-value operation-number">{operationNumber(o.position)}</strong>
-          <ReschedulingHistory entries={o.document.reschedulingHistory || []} users={data.users}/>
         </td>
         <td>
           <select
@@ -1082,6 +1081,7 @@ function OperationRow({
           />
         </td>
         <td>
+          <div className="operation-programming-date">
           <DateTimePicker editable
             label={"Data de Programação " + operationNumber(o.position)}
             mode="date"
@@ -1089,6 +1089,8 @@ function OperationRow({
             value={d.date}
             onChange={(value) => change("date", value)}
           />
+          <ReschedulingHistory entries={o.document.reschedulingHistory || []} users={data.users}/>
+          </div>
           {rescheduleDraft && <ReschedulingConfirmation previous={o.document} next={rescheduleDraft} busy={busy} error={error}
             onCancel={()=>{setRescheduleDraft(null);setD((current:any)=>({...current,date:o.document.date,time:o.document.time}));}}
             onConfirm={async reason=>{if(await persist(rescheduleDraft,{confirmed:true,reason}))setRescheduleDraft(null);}}/>}

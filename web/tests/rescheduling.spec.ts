@@ -61,6 +61,10 @@ test("sent operations require confirmation, retain history and support cancellat
   await dialog.getByRole("button",{name:"Confirmar e salvar"}).click();
   await expect(dialog).toHaveCount(0);
  }
+ const comment=page.getByRole('button',{name:'Reprogramada ×2',exact:true});
+ await expect(comment).toHaveCSS('border-top-width','0px');
+ await expect(comment).toHaveCSS('font-size','11px');
+ await expect(comment.locator('..').getByRole('textbox',{name:'Data de Programação 01',exact:true})).toBeVisible();
  await page.getByRole("button",{name:"Reprogramada ×2",exact:true}).click();
  const history=page.getByRole("dialog",{name:"Histórico de reprogramações",exact:true});
  await expect(history).toContainText("20/10/2026");
