@@ -1060,3 +1060,6 @@
 .review-photo-confirm>div{display:flex;justify-content:flex-end;gap:8px}
 .review-photo-confirm button{padding:8px 12px;font:inherit;font-size:13px;border:1px solid #c9dbed;border-radius:7px;background:#fff;color:#245e91;cursor:pointer}
 .review-photo-confirm .review-photo-confirm-remove{background:#ae3544;border-color:#ae3544;color:#fff}
+
+.operation-review-footer .review-save-pending,.operation-review-footer .review-return-button,.checklist-review-report>.review-save-pending{display:inline-flex;align-items:center;gap:6px}
+.operation-review-footer button>svg{flex-shrink:0}

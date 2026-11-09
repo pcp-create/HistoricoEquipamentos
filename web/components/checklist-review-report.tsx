@@ -1,4 +1,5 @@
 "use client";
+import {Save} from "lucide-react";
 import ReportWritingReview from "./report-writing-review";
 import {WritingSuggestion} from "@/lib/service-scheduling/review-writing";
 import {createPortal} from "react-dom";
@@ -33,7 +34,7 @@ export default function ChecklistReviewReport({ operation, data, busy=false, dis
   const report = technicalReport({...operation,document:{...operation.document,checklistRun:run}}, data.detail?.order || {}, data.users || [], data.fieldSessions || [], data.fieldEvents || [], data.events || []);
   return <article className="checklist-review-report">
     {editable&&<div className="review-edit-toolbar"><span>{edited?'Alterações não salvas':'Corrija os campos abaixo e salve antes de concluir a revisão.'}</span>{edited&&<button type="button" disabled={busy||uploads>0} onClick={()=>{setDraft(null);draftRef.current=null;onDirtyChange?.(false);}}>Descartar alterações</button>}</div>}
-    {editable&&edited&&(saveTarget?createPortal(<button type="button" className="review-save-pending" disabled={busy||disabled||uploads>0} onClick={()=>void save()}>Salvar ajustes</button>,saveTarget):<button type="button" disabled={busy||disabled||uploads>0} onClick={()=>void save()}>Salvar ajustes</button>)}
+    {editable&&edited&&(saveTarget?createPortal(<button type="button" className="review-save-pending" disabled={busy||disabled||uploads>0} onClick={()=>void save()}><Save size={15} aria-hidden="true"/>Salvar ajustes</button>,saveTarget):<button type="button" className="review-save-pending" disabled={busy||disabled||uploads>0} onClick={()=>void save()}><Save size={15} aria-hidden="true"/>Salvar ajustes</button>)}
     {editable&&<ReportWritingReview operation={operation} run={run} disabled={busy||disabled||uploads>0} onHighlight={setAiFields} onApply={(s:WritingSuggestion)=>change(s.stageId,s.fieldId,s.key,s.suggested)}/>}
     <header className="technical-report-banner">
       <img src="/logo-rj.png" alt="RJ Compressores"/>
