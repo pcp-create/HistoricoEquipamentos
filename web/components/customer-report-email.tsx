@@ -13,9 +13,10 @@ import {companyName} from '@/lib/company-names';
 import {customerEmailEquipment,equipmentEmailBodyTemplate} from '@/lib/service-scheduling/customer-email-equipment';
 import {defaultCustomerEmail,fillCustomerEmail,fillCustomerEmailHtml} from '@/lib/service-scheduling/customer-email-template';
 export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=>void}){
- const order=data.detail?.order||{},config={...defaultCustomerEmail,...data.settings?.document?.customerEmail};
+ const [savedConfig,setSavedConfig]=useState<any>(null);
+ const order=data.detail?.order||{},config={...defaultCustomerEmail,...(savedConfig||data.settings?.document?.customerEmail)};
  const values={os:String(order.numero_sequencia||data.schedule.order_id),cliente:order.cliente_nome||order.cliente_razao_social||'',...customerEmailEquipment(order,(data.operations||[]).filter(canEmailOperation)),empresa:companyName(data.schedule.company_id),responsavel:data.users?.find((u:any)=>u.email===data.email)?.display_name||data.email||''};
- const [to,setTo]=useState(order.cliente_email||order.payload?.clienteEmail||''),[subject,setSubject]=useState(()=>fillCustomerEmail(config.subject,values).replace(/[\r\n]+/g,'; ')),[body,setBody]=useState(()=>fillCustomerEmail(equipmentEmailBodyTemplate(config.body),values));
+ const [to,setTo]=useState(order.cliente_email||order.payload?.clienteEmail||''),[subject,setSubject]=useState(()=>summaryReportFilename(order,data.operations||[],String(data.schedule.order_id)).replace(/\.pdf$/i,'')),[body,setBody]=useState(()=>fillCustomerEmail(equipmentEmailBodyTemplate(config.body),values));
  const [recipientDraft,setRecipientDraft]=useState('');
  const effectiveTo=[to,recipientDraft.trim()].filter(Boolean).join(', ');
  const htmlTemplate=config.bodyHtml?(config.bodyHtml+(/\{equipamento(?:_\d{2,3})?\}/.test(config.body)?'':emailTextHtml('\n\nEquipamentos atendidos:\n{equipamento}'))):undefined;
@@ -25,14 +26,14 @@ export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=
  const equipmentValues=customerEmailEquipment(order,operations.filter(op=>selectedIds.includes(op.id)));
  const activeValues={...values,...equipmentValues};
  const suggestedHtml=htmlTemplate?fillCustomerEmailHtml(htmlTemplate,activeValues):undefined;
- const suggestedSubject=fillCustomerEmail(config.subject,activeValues).replace(/[\r\n]+/g,'; '),suggestedBody=fillCustomerEmail(equipmentEmailBodyTemplate(config.body),activeValues),equipmentSignature=JSON.stringify(equipmentValues);
- useEffect(()=>{if(!subjectEdited)setSubject(suggestedSubject);},[suggestedSubject,subjectEdited]);
+ const suggestedBody=fillCustomerEmail(equipmentEmailBodyTemplate(config.body),activeValues),equipmentSignature=JSON.stringify(equipmentValues);
  useEffect(()=>{if(!bodyEdited){setBody(suggestedBody);setBodyHtml(suggestedHtml);setBodyResetKey(key=>key+1);}},[suggestedBody,suggestedHtml,bodyEdited]);
  const [filename,setFilename]=useState(()=>summaryReportFilename(order,data.operations||[],String(data.schedule.order_id)));
+ useEffect(()=>{if(!subjectEdited)setSubject(filename.replace(/\.pdf$/i,''));},[filename,subjectEdited]);
  const [contacts,setContacts]=useState<any[]>([]),[contactsReady,setContactsReady]=useState(false),[contactError,setContactError]=useState(''),[canCreate,setCanCreate]=useState(false),[showContact,setShowContact]=useState(false),[savingContact,setSavingContact]=useState(false);
  const [contact,setContact]=useState({email:'',name:'',job_title:'',phone:''});
  const [confirmSend,setConfirmSend]=useState(false);
- useEffect(()=>{let active=true;fetch('/api/service-scheduling/customer-email/contacts?scheduleId='+encodeURIComponent(data.schedule.id)).then(async r=>{const v=await r.json();if(!r.ok)throw Error(v.error);if(active){setOperations(v.operations||[]);setSelectedIds((v.operations||[]).filter(canEmailOperation).map((op:any)=>op.id));setContacts(v.contacts||[]);setCanCreate(v.canCreate);setTo((current:string)=>current||v.defaultEmail||(v.contacts||[]).find((c:any)=>c.email)?.email||'');if(v.reportFilename)setFilename(v.reportFilename);setContactsReady(true);}}).catch(e=>{if(active)setContactError(e.message||'Não foi possível carregar os contatos.');});return()=>{active=false;};},[data.schedule.id]);
+ useEffect(()=>{let active=true;fetch('/api/service-scheduling/customer-email/contacts?scheduleId='+encodeURIComponent(data.schedule.id)).then(async r=>{const v=await r.json();if(!r.ok)throw Error(v.error);if(active){if(v.customerEmail)setSavedConfig(v.customerEmail);setOperations(v.operations||[]);setSelectedIds((v.operations||[]).filter(canEmailOperation).map((op:any)=>op.id));setContacts(v.contacts||[]);setCanCreate(v.canCreate);setTo((current:string)=>current||v.defaultEmail||(v.contacts||[]).find((c:any)=>c.email)?.email||'');if(v.reportFilename)setFilename(v.reportFilename);setContactsReady(true);}}).catch(e=>{if(active)setContactError(e.message||'Não foi possível carregar os contatos.');});return()=>{active=false;};},[data.schedule.id]);
  function chooseOperations(ids:string[]){setSelectedIds(ids);setConfirmSend(false);if(!filenameEdited)setFilename(summaryReportFilename(order,operations.filter(op=>ids.includes(op.id)),String(data.schedule.order_id)));}
  function addRecipient(email:string){try{setTo(emailRecipients([to,email].filter(Boolean).join(', ')).join(', '));}catch(e){setContactError((e as Error).message);}}
  async function saveContact(){setSavingContact(true);setContactError('');try{const r=await fetch('/api/service-scheduling/customer-email/contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...contact,scheduleId:String(data.schedule.id)})});const result=await r.json();if(!r.ok)throw Error(result.error);setContacts(result.contacts);addRecipient(result.saved.email);setContact({email:'',name:'',job_title:'',phone:''});setShowContact(false);}catch(e){setContactError((e as Error).message);}finally{setSavingContact(false);}}
@@ -95,7 +96,7 @@ export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=
   <small>Relatório resumido em PDF. Este será o nome do arquivo anexado ao e-mail.</small>
   <label>Assunto<input required maxLength={300} value={subject} disabled={busy} onChange={e=>{setSubject(e.target.value);setSubjectEdited(true);}}/></label>
   {bodyEdited&&editedEquipment!==equipmentSignature&&<p className="email-equipment-update">Os equipamentos selecionados mudaram. Sua mensagem foi preservada. <button type="button" disabled={busy} onClick={()=>setBodyEdited(false)}>Reaplicar texto padrão com os equipamentos atuais</button><small>Substitui as edições e a formatação da mensagem.</small></p>}
-  <EmailMessageEditor initialText={body} initialHtml={bodyHtml} resetKey={bodyResetKey} disabled={busy} onChange={(text,html)=>{setBody(text);setBodyHtml(html);setBodyEdited(true);setEditedEquipment(equipmentSignature);}}/>
+  <EmailMessageEditor initialText={body} initialHtml={bodyHtml} resetKey={bodyResetKey} disabled={busy||!contactsReady} onChange={(text,html)=>{setBody(text);setBodyHtml(html);setBodyEdited(true);setEditedEquipment(equipmentSignature);}}/>
   <p>Confira os destinatários, o nome do anexo e a mensagem antes de enviar ou criar o rascunho.</p>
   {!config.gmailClientId&&<small>Para criar o rascunho diretamente no Gmail, configure a conexão Google em Configurações → Envio por e-mail.</small>}
   {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}

@@ -1,4 +1,4 @@
-import {reportSubmission} from './checklists';
+import {technicianTimeChangesLocked} from "./execution-locks";
 import {teamSessionsAvailable} from "./team-sessions";
 import {offlineTime} from "./offline-action";
 import { operationNumber } from "./operation-number";
@@ -287,7 +287,7 @@ export async function changeTimeRequest(b: any, email: string) {
       ])
     ).rows[0];
     if (!operation) throw new TimeRequestError("Operação não encontrada.");
-    if(!direct&&reportSubmission(operation.document?.checklistRun)&&!b.sessionId&&!b.legacyEventId)throw new TimeRequestError("Relatório enviado. Devolva o relatório antes de incluir novos apontamentos.");
+    if(!direct&&technicianTimeChangesLocked(operation))throw new TimeRequestError("Relatório enviado ou operação finalizada. Correções de apontamentos pelo técnico não estão mais disponíveis.");
     const legacy = b.legacyEventId
       ? (
           await c.query(

@@ -587,7 +587,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
 
                 </section>
               )}
-              {view === "logs" && <FieldTimeLogs operationId={row.id} />}
+              {view === "logs" && <FieldTimeLogs operationId={row.id} readOnly={locked||!!data.reportSubmission} />}
               {!view && <>
               {!data.infoRead && !locked && <p className="field-step"><b>1. Leia as informações</b><br/>Abra Informações e confirme a leitura das observações internas para continuar.</p>}
               {data.infoRead && !data.checked && !locked && (
@@ -603,7 +603,6 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                   <Info />
                   <MenuLight status={data.infoRead?"complete":"empty"}/><span>Informações</span>
                 </button>
-                <button disabled={busy} onClick={()=>void show("bo")}><FilePlus2/><span>Registrar B.O</span></button>
                 <button
                   disabled={busy || (!locked && !data.infoRead)}
                   onClick={() => void show("parts")}
@@ -707,6 +706,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                   <ClipboardList />
                   <MenuLight status={reportStatus}/><span>Relatório</span>
                 </button>
+                <button disabled={busy} onClick={()=>void show("bo")}><FilePlus2/><span>Registrar B.O</span></button>
                 <button
                   disabled={!canFinish}
                   onClick={() => void show("send")}
@@ -761,7 +761,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                   {data.infoRead ? <p className="field-checked"><CheckCircle2 size={16}/> Leitura confirmada</p> : <button disabled={busy||locked} onClick={async()=>{if(await act({action:'info_read'}))setView('');}}>Li e compreendi as informações</button>}
                 </section>
               )}
-              {view === "parts" && <Parts data={data} returnsOnly={locked||!!data.reportSubmission} busy={busy} save={async (body: any) => {
+              {view === "parts" && <Parts data={data} readOnly={locked} returnsOnly={!!data.reportSubmission} busy={busy} save={async (body: any) => {
                 if (await act(body)) {if(finishAfterMaterials){if(await act({action:"finish_full"})){setFinishAfterMaterials(false);setView("");}else setView("send");}else setView("");}
               }} />}
               {view === "send" && (

@@ -1,4 +1,6 @@
 "use client";
+import {Save, X, Mail, PencilLine} from "lucide-react";
+import {orderObservation,appendOrderObservation} from '@/lib/service-scheduling/order-observation';
 import AutoResizeTextarea from "./auto-resize-textarea";
 import {canEmailOperation} from '@/lib/service-scheduling/customer-email-operations';
 import CustomerReportEmail from "./customer-report-email";
@@ -24,9 +26,13 @@ async function api(url: string, body?: any) {
 export default function ScheduleOrderActions({
   data,
   onChanged,
+  reviewAction,
+  reportAction,
 }: {
   data: any;
   onChanged: () => void;
+  reviewAction?: React.ReactNode;
+  reportAction?: React.ReactNode;
 }) {
   const [attachSummary,setAttachSummary]=useState(true),[summaryAttached,setSummaryAttached]=useState(false),[headerSaved,setHeaderSaved]=useState(false);
   const [attachmentFiles,setAttachmentFiles]=useState<File[]>([]);
@@ -39,6 +45,7 @@ export default function ScheduleOrderActions({
   const editRequest = useRef<string | null>(null);
   const company = String(data.schedule.company_id),
     order = String(data.schedule.order_id);
+  const standardObservation=orderObservation(data.detail?.order||{},data.operations||[],String(data.schedule.order_id));
   const reviewed =
     data.operations?.length > 0 &&
     data.operations.every((o: any) =>
@@ -68,7 +75,7 @@ export default function ScheduleOrderActions({
       ]);
       setAttachmentFiles([]);
       setAttachSummary(true);setSummaryAttached(false);setHeaderSaved(false);
-      setEdit(e);
+      setEdit({...e,draft:{...e.draft,notes:appendOrderObservation(e.draft.notes||'',standardObservation)}});
       setFlows(f.rows);
       editRequest.current = null;
     });
@@ -85,7 +92,7 @@ export default function ScheduleOrderActions({
         company,
         order,
         version: edit.version,
-        draft: edit.draft,
+        draft: {...edit.draft,notes:appendOrderObservation(edit.draft.notes||'',standardObservation)},
       });
       let result;
       for (let i = 0; i < 3; i++) {
@@ -115,16 +122,18 @@ export default function ScheduleOrderActions({
   }
   return (
     <section className="schedule-order-actions">
-      <div className="scheduling-actions">
+      <div className="scheduling-actions schedule-order-toolbar">
+        {reviewAction}
         <button disabled={busy} onClick={() => void openEdit()}>
-          Editar observações e Status Fluxo
+          <PencilLine size={18} aria-hidden="true"/>Editar observações e Status Fluxo
         </button>
         <button
           disabled={busy || !data.operations?.some(canEmailOperation)}
           onClick={() => setCustomer((v) => !v)}
         >
-          Enviar por e-mail
+          <Mail size={18} aria-hidden="true"/>Enviar por e-mail
         </button>
+        {reportAction}
       </div>
       {!data.operations?.some(canEmailOperation) && (
         <small>
@@ -147,6 +156,7 @@ export default function ScheduleOrderActions({
           </div>
           </OrderAttachments>
           {headerSaved&&<p role="status">As alterações da OS já foram salvas. Falta concluir o envio dos anexos.</p>}
+          {standardObservation&&<details className="schedule-observation-reference"><summary>Informações padrão da OS para o histórico</summary><pre>{standardObservation}</pre><button type="button" disabled={busy||headerSaved} onClick={()=>setEdit({...edit,draft:{...edit.draft,notes:appendOrderObservation(edit.draft.notes||'',standardObservation)}})}>Inserir informações na observação</button></details>}
           <label>
             Observação
             <AutoResizeTextarea
@@ -197,11 +207,11 @@ export default function ScheduleOrderActions({
             />
           </div>
           <div className="scheduling-actions">
-            <button disabled={busy} type="submit">
+            <button className="schedule-save-erp" disabled={busy} type="submit"><Save size={18} aria-hidden="true"/>
               {busy?"Salvando e enviando anexos…":headerSaved?"Reenviar anexos pendentes":"Salvar no ERP"}
             </button>
             <button disabled={busy} type="button" onClick={() => {setEdit(null);if(headerSaved)onChanged();}}>
-              Cancelar
+              <X size={18} aria-hidden="true"/>Cancelar
             </button>
           </div>
         </form>

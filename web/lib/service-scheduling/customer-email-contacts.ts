@@ -1,4 +1,5 @@
 import 'server-only';
+import {validateCustomerEmail} from './customer-email-template';
 import {randomUUID} from 'node:crypto';
 import {database} from '../db';
 import {Forbidden} from '../auth';
@@ -26,7 +27,9 @@ export async function customerEmailContacts(scheduleId:string,actor:string,input
   const contacts=key?(await c.query('SELECT id,name,phone,email,job_title FROM web_customer_contacts WHERE customer_key=$1 ORDER BY lower(name),id',[key])).rows:[];
   const operations=(await c.query('SELECT id,position,status,document FROM web_service_operations WHERE schedule_id=$1 ORDER BY position',[scheduleId])).rows;
   const emailOperations=operations.map(op=>({...op,document:{description:op.document.description,serviceType:op.document.serviceType,equipment:op.document.equipment,equipmentId:op.document.equipmentId,equipmentUnassigned:op.document.equipmentUnassigned,checklistRun:op.document.checklistRun?{template:{prefix:op.document.checklistRun.template?.prefix,name:op.document.checklistRun.template?.name}}:null}}));
+  const settings=(await c.query('SELECT document FROM web_service_schedule_settings WHERE id=1')).rows[0];
+  const customerEmail=validateCustomerEmail(settings?.document?.customerEmail);
   await c.query('COMMIT');
-  return {operations:emailOperations,contacts,saved,canCreate:!!key,defaultEmail:order.cliente_email||order.directory_email||order.payload?.clienteEmail||'',reportFilename:summaryReportFilename(order,operations.filter(canEmailOperation),String(order.id_m8))};
+  return {customerEmail,operations:emailOperations,contacts,saved,canCreate:!!key,defaultEmail:order.cliente_email||order.directory_email||order.payload?.clienteEmail||'',reportFilename:summaryReportFilename(order,operations.filter(canEmailOperation),String(order.id_m8))};
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }

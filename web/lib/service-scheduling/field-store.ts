@@ -281,9 +281,9 @@ export async function fieldAction(b: any, email: string) {
         (b.action.startsWith("report_") || b.action.startsWith("checklist_") || b.action.startsWith("finish_")))
       throw new FieldError("Somente o técnico responsável pode acessar o relatório ou finalizar a operação.");
 
-    if (b.action!=='materials' && ["awaiting_review", "reviewed", "completed"].includes(p.status))
+    if (["awaiting_review", "reviewed", "completed"].includes(p.status))
       throw new FieldError(
-        "Esta operação já foi enviada para revisão e não permite novos apontamentos.",
+        b.action==='materials'?"Operação finalizada. Peças disponíveis somente para consulta; devoluções não são permitidas.":"Esta operação já foi enviada para revisão e não permite novos apontamentos.",
       );
     if (b.action === "finish_partial")
       throw new FieldError("A finalização parcial não está mais disponível. Conclua os módulos para encerrar a operação.");
@@ -341,7 +341,7 @@ export async function fieldAction(b: any, email: string) {
       details={internalNote:p.document.internalNote||""};
       operationUpdated=true;
     } else if (b.action === "materials") {
-      const returnsOnly=!!reportSubmission(p.document.checklistRun)||['awaiting_review','reviewed','completed'].includes(p.status);
+      const returnsOnly=!!reportSubmission(p.document.checklistRun);
       if (b.quantityScope !== "operation")
         throw new FieldError("O controle de retiradas mudou. Atualize a página e reabra a conferência.");
       await c.query("SELECT pg_advisory_xact_lock(829201,0)");

@@ -400,6 +400,9 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     await assert.rejects(act("report_return",{version:sentReport.operation.version,reason:"Checklist incorreto",confirmDiscard:true}),/Após o envio/);
     assert.deepEqual(sentReport.finishPending, []);
     await act("finish_full");
+    const beforeClosedMaterials=JSON.stringify((await fieldData('tech',id)).materials);
+    await assert.rejects(act('materials',parts(0,1)),/Operação finalizada/);
+    assert.equal(JSON.stringify((await fieldData('tech',id)).materials),beforeClosedMaterials);
     const visible = (await fieldData("tech")).rows || [];
     assert.ok(!visible.some((row: any) => row.id === id));
     assert.ok(visible.some((row: any) => row.id === other));

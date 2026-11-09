@@ -116,7 +116,7 @@ test("review alerts show red flags and require task details before completion", 
     return r.fulfill({json:data});
   });
   await page.goto('/programacao?id=1');
-  await page.getByRole('button',{name:'Revisar operações da OS',exact:true}).click();
+  await page.getByRole('button',{name:'Revisar operações',exact:true}).click();
   const dialog=page.getByRole('dialog');
   await dialog.getByLabel('Ir para operação').selectOption(operations[2].id);
   const review=dialog.getByRole('region',{name:'Revisão da operação 03',exact:true});

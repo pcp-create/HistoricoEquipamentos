@@ -1,7 +1,7 @@
 "use client";
 import {lastSeen} from "@/lib/last-seen";
 import { technicianMarkerLayout } from "@/lib/service-scheduling/technician-marker-layout";
-import { clusterMapPoints } from "@/lib/service-scheduling/map-clusters";
+import { clusterMapPoints, nextClusterExpansionZoom } from "@/lib/service-scheduling/map-clusters";
 import { customerMapLabel, singleCustomerLabel } from "@/lib/service-scheduling/customer-map-label";
 import {useEffect,useRef,useState} from 'react';
 import {nativePortal} from '@/lib/native-portal';
@@ -37,6 +37,8 @@ export function useAutomaticFieldLocation(enabled:boolean) {
 export default function FieldMap({visible}:{visible:boolean}) {
  const [data,setData]=useState<any>(null),[mode,setMode]=useState('technicians'),[error,setError]=useState('');
  const container=useRef<HTMLDivElement>(null),map=useRef<Leaflet.Map|null>(null);
+ const fittedMode=useRef<string|null>(null);
+ useEffect(()=>()=>{map.current?.remove();map.current=null;fittedMode.current=null;},[visible]);
  async function refresh(){try{const r=await fetch('/api/field/map',{cache:'no-store'});const b=await r.json();if(!r.ok)throw Error(b.error);setData(b);setError('')}catch(e){setError((e as Error).message)}}
  useEffect(()=>{void refresh();const t=setInterval(()=>{if(document.visibilityState==='visible')void refresh()},300000);const resumed=()=>{if(document.visibilityState==='visible')void refresh()};document.addEventListener("visibilitychange",resumed);window.addEventListener("rj-network-change",resumed);return()=>{clearInterval(t);document.removeEventListener("visibilitychange",resumed);window.removeEventListener("rj-network-change",resumed)}},[]);
  useEffect(()=>{if(visible)void refresh()},[visible]);
@@ -44,11 +46,13 @@ export default function FieldMap({visible}:{visible:boolean}) {
   if(!visible||!container.current)return;
   let disposed=false;
   let resize:ResizeObserver|undefined;
+  let cleanLayers=()=>{};
   import('leaflet').then(L=>{
    if(disposed||!container.current)return;
-   const m=L.map(container.current).setView([-27,-50],6);map.current=m;
+   const existing=map.current;
+   const m=existing||L.map(container.current).setView([-27,-50],6);map.current=m;
    resize=new ResizeObserver(()=>{if(!disposed)m.invalidateSize({pan:false})});resize.observe(container.current);
-   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',maxZoom:19,referrerPolicy:'origin'}).addTo(m);
+   if(!existing)L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',maxZoom:19,referrerPolicy:'origin'}).addTo(m);
    const points:Leaflet.LatLngExpression[]=[];
    const entries:{point:Leaflet.LatLngExpression;marker:Leaflet.Layer;popup:HTMLElement;name:string;customerId?:string;status:string;address:string;number:string}[]=[];
    const markers=L.layerGroup().addTo(m);
@@ -106,7 +110,7 @@ export default function FieldMap({visible}:{visible:boolean}) {
        }
        const count=document.createElement('span');count.className='field-map-cluster';count.textContent=String(group.items.length);
        const cluster=L.marker(m.unproject([group.x,group.y],m.getZoom()),{icon:L.divIcon({html:count,className:'field-map-cluster-icon',iconSize:[36,36],iconAnchor:[18,18]}),title:`${group.items.length} técnicos — aproximar para visualizar`}).addTo(markers);
-       cluster.on('click',()=>m.fitBounds(L.latLngBounds(group.items.map(e=>e.point)),{padding:[80,80],maxZoom:Math.min(15,m.getZoom()+3)}));
+       cluster.on('click',()=>{const zoom=nextClusterExpansionZoom(group.items,(entry,z)=>m.project(entry.point,z),m.getZoom(),15,60);m.setView(m.unproject([group.x,group.y],m.getZoom()),zoom);});
       }
       return;
      }
@@ -166,10 +170,11 @@ export default function FieldMap({visible}:{visible:boolean}) {
      }
     }
    };
-   if(points.length)m.fitBounds(L.latLngBounds(points),{padding:[30,30],maxZoom:14});
+   if(points.length&&fittedMode.current!==mode){m.fitBounds(L.latLngBounds(points),{padding:[30,30],maxZoom:14});fittedMode.current=mode;}
    draw();m.on('zoomend',draw);
+   cleanLayers=()=>{m.off('zoomend',draw);markers.remove();};
   }).catch(()=>setError('Não foi possível carregar o mapa.'));
-  return()=>{disposed=true;resize?.disconnect();map.current?.remove();map.current=null};
+  return()=>{disposed=true;resize?.disconnect();cleanLayers();};
  },[visible,data,mode]);
  if(!visible)return null;
  return <section className="field-map" aria-label="Mapa da equipe e programação">

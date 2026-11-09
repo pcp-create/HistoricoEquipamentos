@@ -8,6 +8,8 @@ test('email contacts persist by customer across orders and prefill the ERP email
  g.historyPool={query,connect:async()=>({query,release(){}})};
  try{
   await db.exec(`CREATE TABLE web_user_access(email text,enabled boolean);INSERT INTO web_user_access VALUES('planner',true),('disabled',false);
+  CREATE TABLE web_service_schedule_settings(id int,document jsonb);
+  INSERT INTO web_service_schedule_settings VALUES(1,'{"customerEmail":{"body":"Olá {cliente}","bodyHtml":"<p><strong>Olá {cliente}</strong></p>"}}');
   CREATE TABLE web_service_schedules(id bigint,company_id bigint,order_id bigint,active boolean);
   INSERT INTO web_service_schedules VALUES(1,1,100,true),(2,1,101,true),(3,1,102,true);
   CREATE TABLE m8_ordens_servico(company_id bigint,id_m8 bigint,cliente_id bigint,numero_sequencia bigint,cliente_nome text,payload jsonb);
@@ -18,7 +20,7 @@ test('email contacts persist by customer across orders and prefill the ERP email
   INSERT INTO web_service_operations(schedule_id,position,document) VALUES(1,1,'{"checklistRun":{},"serviceType":"Corretiva","equipment":{"model":"GA22","serial":"ABC"}}');
   CREATE TABLE web_customer_contacts(id uuid,customer_key text,name text,phone text,created_by text,UNIQUE(customer_key,name,phone));`);
   await db.exec(readFileSync('sql/102_customer_contact_email.sql','utf8'));
-  const initial=await customerEmailContacts('1','planner');assert.equal(initial.defaultEmail,'erp@example.com');assert.match(initial.reportFilename,/OS 123 - Cliente A C GA22 Série ABC.pdf/);
+  const initial=await customerEmailContacts('1','planner');assert.equal(initial.customerEmail.bodyHtml,'<p><strong>Olá {cliente}</strong></p>');assert.equal(initial.defaultEmail,'erp@example.com');assert.match(initial.reportFilename,/OS 123 - Cliente A - GA22 - SÉRIE ABC.pdf/);
   const input={name:'Ana',email:'ana@example.com',job_title:'Compras',phone:'47999999999'};
   await customerEmailContacts('1','planner',input);
   await customerEmailContacts('1','planner',{...input,job_title:'Gerência'});

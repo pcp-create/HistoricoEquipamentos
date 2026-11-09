@@ -161,6 +161,6 @@ export async function orderReportPdf(body: any, email: string, portal = false, t
       equipment: "",
       photos,
     }),
-    filename: model.mode==="summary"?model.summaryFilename:`Relatorio-OS-${model.order.replace(/[^\w-]/g, "")}-unificado-${model.preliminary ? "PREVIO-" : ""}${reportFilenameMode[model.mode]}.pdf`,
+    filename: model.mode!=="budget"?model.summaryFilename:`Relatorio-OS-${model.order.replace(/[^\w-]/g, "")}-unificado-${model.preliminary ? "PREVIO-" : ""}${reportFilenameMode[model.mode]}.pdf`,
   };
 }

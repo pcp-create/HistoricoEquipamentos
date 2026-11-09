@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.15
+# Portal Técnico RJ — APK 2.2.16
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -265,3 +265,22 @@ Falhas no envio mantêm a assinatura na tela para tentar novamente.
 - Salvamento automático em segundo plano permite continuar preenchendo. O envio encerra o apontamento ativo e abre a conferência de devolução de materiais para finalizar a operação.
 - Falhas definitivas da fila não bloqueiam registros independentes nem novas OSs. O painel permite excluir uma pendência com falha, mediante confirmação, preservando cópia para exportação.
 - Mantém o identificador e a assinatura existentes. Instalar como atualização, sem desinstalar nem limpar os dados.
+
+
+## Versão 2.2.16 — mapa da equipe e encerramento
+
+A atualização das posições renova os marcadores sem recriar o mapa ou alterar o
+zoom e a posição escolhidos. O enquadramento automático ocorre na primeira carga
+ou na troca explícita entre Técnicos e OSs. Clicar em um agrupamento avança até o
+primeiro nível em que ele se divide; os grupos remanescentes podem ser abertos
+sucessivamente. Técnicos no mesmo ponto abrem diretamente em posições individuais
+com seus nomes. O módulo Registrar B.O fica após Relatório e antes de Finalizar
+Operação. Correções, inclusão e replicação de apontamentos pelo técnico ficam
+indisponíveis após o envio do relatório ou a finalização. Peças ficam somente para
+consulta após finalizar a operação; devoluções devem ser registradas antes disso.
+A conferência de devolução após enviar o relatório continua disponível enquanto a
+operação ainda não foi finalizada. Mantém assinatura, identificador e dados da
+instalação anterior. Os bloqueios são revalidados pelo servidor e pela projeção
+offline; publicar também o backend para proteger requisições de APKs anteriores.
+
+Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.16

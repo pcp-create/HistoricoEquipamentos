@@ -32,3 +32,11 @@ export function clusterMapPoints<T>(
   }
   return groups;
 }
+
+/** Skip zoom levels that leave the clicked group unchanged; open one grouping level per click. */
+export function nextClusterExpansionZoom<T>(items:T[],project:(item:T,zoom:number)=>{x:number;y:number},currentZoom:number,openZoom=15,radius=60){
+ for(let zoom=Math.floor(currentZoom)+1;zoom<openZoom;zoom++){
+  if(clusterMapPoints(items,item=>project(item,zoom),radius).length>1)return zoom;
+ }
+ return Math.max(currentZoom,openZoom);
+}

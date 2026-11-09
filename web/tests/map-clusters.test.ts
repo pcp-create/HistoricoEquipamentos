@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clusterMapPoints } from "../lib/service-scheduling/map-clusters";
+import { clusterMapPoints, nextClusterExpansionZoom } from "../lib/service-scheduling/map-clusters";
 test("zoom merges nearby OSs, separates distinct locations and keeps identical points together", () => {
   const orders = [
     { id: 1, x: 0, y: 0 },
@@ -30,4 +30,15 @@ test("zoom merges nearby OSs, separates distinct locations and keeps identical p
     wide.reduce((n, g) => n + g.items.length, 0),
     orders.length,
   );
+});
+
+test('cluster clicks skip unchanged zooms, open one partial level and eventually spread colocated people',()=>{
+ const items=[{x:0},{x:0},{x:1},{x:20}];
+ const project=(item:{x:number},zoom:number)=>({x:item.x*2**(zoom-5),y:0});
+ const zoom=nextClusterExpansionZoom(items,project,3,15,60);
+ assert.equal(zoom,7);
+ const groups=clusterMapPoints(items,item=>project(item,zoom),60);
+ assert.deepEqual(groups.map(group=>group.items.length),[3,1]);
+ assert.equal(nextClusterExpansionZoom(groups[0].items,project,zoom,15,60),11);
+ assert.equal(nextClusterExpansionZoom(items.slice(0,2),project,3,15,60),15);
 });

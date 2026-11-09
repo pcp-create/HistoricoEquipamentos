@@ -1,3 +1,4 @@
+import {technicianTimeChangesLocked} from "./execution-locks";
 import "server-only";
 import {randomUUID} from "node:crypto";
 import {database} from "../db";
@@ -75,6 +76,7 @@ export async function replicateTimeLog(body:any,email:string,planner=false) {
   if(!source)throw new Forbidden();
   if(source.state!=="finished")throw new TeamSessionError("Finalize o apontamento antes de replicar.");
   const operation=(await c.query("SELECT * FROM web_service_operations WHERE id=$1 FOR UPDATE",[source.operation_id])).rows[0];
+  if(!planner&&technicianTimeChangesLocked(operation))throw new TeamSessionError("Relatório enviado ou operação finalizada. Não é permitido replicar apontamentos.");
   if(!planner&&operation.document.responsible!==email && !operation.document.support?.includes(email))throw new Forbidden();
   if((await c.query("SELECT 1 FROM web_field_time_requests WHERE session_id=$1 AND status='pending'",[source.id])).rows.length)throw new TeamSessionError("Aguarde a aprovação do ajuste antes de replicar.");
   const members=await selectedMembers(c,operation,source.actor,body.members,planner);

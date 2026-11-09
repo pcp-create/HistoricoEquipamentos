@@ -98,6 +98,15 @@ test("requests require managers, stay pending, approve once, retain originals an
       changeTimeRequest(input(), "outsider"),
       (e: any) => e.constructor.name === "Forbidden",
     );
+    for(const status of ['awaiting_review','reviewed','completed']){
+      await db.query('UPDATE web_service_operations SET status=$2 WHERE id=$1',[op,status]);
+      await assert.rejects(changeTimeRequest(input(),'tech'),/Correções de apontamentos/);
+    }
+    await db.exec("ALTER TABLE web_service_operations DISABLE TRIGGER USER");
+    await db.query("UPDATE web_service_operations SET status='executing',document=document||$2::jsonb WHERE id=$1",[op,JSON.stringify({checklistRun:{submission:{at:new Date().toISOString(),by:'tech'}}})]);
+    await db.exec("ALTER TABLE web_service_operations ENABLE TRIGGER USER");
+    await assert.rejects(changeTimeRequest(input(),'tech'),/Correções de apontamentos/);
+    await db.query("UPDATE web_service_operations SET document=document-'checklistRun' WHERE id=$1",[op]);
     const b = input(),
       result = await changeTimeRequest(b, "tech");
     assert.equal((await changeTimeRequest(b, "tech")).id, result.id);

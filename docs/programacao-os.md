@@ -133,7 +133,7 @@ A exclusão de um apontamento finalizado exige confirmação e motivo. Remove su
 
 O envio por e-mail carrega o e-mail já cadastrado no cliente do ERP e permite até 20 destinatários, separados por vírgula ou ponto e vírgula. Contatos cadastrados no portal ficam vinculados ao cliente (compartilhados entre suas OSs), com e-mail, nome, cargo e telefone; o cadastro no portal não altera o ERP.
 
-O nome do PDF aparece antes do envio e pode ser editado. O padrão é `OS {número} - {cliente} {serviço abreviado} {modelo e série}.pdf`. O nome exibido é enviado ao servidor e usado no anexo real, inclusive no arquivo `.eml` baixado.
+O nome do PDF aparece antes do envio e pode ser editado. O padrão é `OS {número} - {duas primeiras palavras do cliente} - {tipo da OS sem prefixos} - {modelo} - SÉRIE {série}.pdf`. O nome exibido é enviado ao servidor e usado no anexo real, inclusive no arquivo `.eml` baixado.
 
 Além de criar rascunho, o usuário pode enviar diretamente pelo Gmail, após conferir a confirmação com destinatários e anexo. O remetente é a conta Google autenticada pelo usuário. Tokens permanecem no navegador e não são armazenados no portal. Antes do envio, o usuário escolhe as operações do PDF. As operações revisadas/concluídas com relatório vêm marcadas por padrão; operações pendentes ficam indisponíveis. O envio exige ao menos uma seleção e o servidor confere novamente se cada operação pertence à OS e está revisada. A mesma seleção é usada no envio direto, no rascunho e no download do e-mail. O nome padrão do anexo acompanha a seleção até ser editado manualmente.
 
@@ -211,3 +211,40 @@ equipamento enquanto a operação estiver no planejamento e não tiver sido reen
 Operações retornadas anteriormente também ficam editáveis. A troca mantém as respostas,
 fotos e datas do relatório; se havia leitura de horímetro, seu vínculo acompanha o
 equipamento corrigido. Reenviar ao técnico bloqueia novamente a seleção.
+
+
+### Observação padrão e nomes dos relatórios
+
+Ao editar observações e Status Fluxo, a observação recebe os dados das operações sem
+apagar o texto existente. O bloco usa o tipo da OS (campo tipo_nome), sem os trechos
+inicial e final separados por ` - `, descrição do equipamento, série, número OS/OP e
+horímetro total registrado no relatório. Leituras ausentes ficam identificadas como
+`HT: NÃO INFORMADO`. O salvamento reinsere blocos obrigatórios ausentes sem repetir
+blocos já presentes; uma referência recolhível permite conferir ou reinserir o texto.
+
+O nome compartilhado pelos anexos de e-mail, anexos resumidos na OS e exportações
+completas/resumidas usa as duas primeiras palavras do cliente e o tipo da OS por extenso.
+A sigla do checklist não é usada. Informações elétricas, como 220V/60HZ, são descartadas
+na identificação do modelo a partir da descrição. Exemplo: `OS 15253 - MAGAZINE RURAL -
+GARANTIA DE SERVIÇO - SRS 30 - SÉRIE 10612.pdf`. Relatórios de orçamento mantêm sua
+identificação específica.
+
+
+### Encerramento no portal técnico — APK 2.2.16
+
+O técnico pode consultar os apontamentos após o encerramento, mas não incluir,
+solicitar correções ou replicar registros depois do envio do relatório ou da finalização.
+A revisão e os ajustes autorizados do planejador permanecem disponíveis. Solicitações
+já registradas continuam sujeitas à análise existente.
+
+Devoluções de peças podem ocorrer na conferência após enviar o relatório, antes de
+finalizar a operação. Após entrar em Aguardando Revisão, Revisado ou Concluído, o
+módulo Peças é somente para consulta; servidor e projeção offline rejeitam alterações.
+Registrar B.O fica após Relatório e antes de Finalizar Operação no menu do APK.
+
+
+O assunto sugerido do e-mail acompanha o nome do PDF sem a extensão `.pdf`, inclusive
+quando o usuário altera o nome do anexo ou seleciona outras operações. Se o usuário
+editar o assunto manualmente, sua edição é preservada. O modelo antigo de assunto
+nas configurações deixa de ser aplicado; o texto padrão formatado da mensagem continua
+configurável.

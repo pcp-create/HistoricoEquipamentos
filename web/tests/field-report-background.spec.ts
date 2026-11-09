@@ -36,7 +36,9 @@ for(const returnMaterials of [false,true])test(`background saves preserve newer 
  release();
  await expect(report.getByLabel('Segundo texto *',{exact:true})).toHaveValue('Escrito durante o salvamento');
  await expect(report.getByRole('button',{name:'Salvar',exact:true})).toBeEnabled();
- await report.getByRole('button',{name:'Salvar',exact:true}).click();
+ // A scheduled background save may finish between the enabled assertion and the click.
+ try{await report.getByRole('button',{name:'Salvar',exact:true}).click({timeout:1000});}
+ catch(error){if(!await report.getByRole('button',{name:'Enviar',exact:true}).isEnabled())throw error;}
  await expect(report.getByRole('button',{name:'Salvar',exact:true})).toBeDisabled();
  expect(operation.document.checklistRun.stages.a.answers.first).toBe('Primeira resposta alterada durante o salvamento');
  await report.getByRole('button',{name:'Enviar',exact:true}).click();
@@ -49,6 +51,9 @@ for(const returnMaterials of [false,true])test(`background saves preserve newer 
   await page.getByRole('button',{name:/Confirmar conferência/}).click();
  }else await finish.getByRole('button',{name:'Não, finalizar operação',exact:true}).click();
  await expect.poll(()=>operation.status).toBe('awaiting_review');
+ await page.getByRole('button',{name:'Peças',exact:true}).click();
+ await expect(page.getByText('Peças desta operação · somente visualização.',{exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Confirmar conferência',exact:true})).toBeHidden();
  expect(actions.indexOf('finish_full')).toBeGreaterThan(actions.indexOf('report_send'));
  if(returnMaterials)expect(actions.indexOf('materials')).toBeGreaterThan(actions.indexOf('report_send'));
 });

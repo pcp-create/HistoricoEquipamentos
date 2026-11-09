@@ -32,3 +32,13 @@ test('offline full report send stops running or paused work while retaining its 
   assert.ok(result.detail.reportSubmission);assert.deepEqual(result.detail.finishPending,[]);
  }
 });
+
+test('offline finalized operations reject materials and returns before mutating local stock',()=>{
+ for(const status of ['awaiting_review','reviewed','completed']){
+  const home={email:'tech',rows:[],active:null};
+  const detail={operation:{id:'op',status,document:{responsible:'tech'}}};
+  const before=JSON.stringify({home,detail});
+  assert.throws(()=>projectField(home,detail,{action:'materials',offline:{capturedAt:new Date().toISOString()}}),/devoluções não são permitidas/);
+  assert.equal(JSON.stringify({home,detail}),before);
+ }
+});

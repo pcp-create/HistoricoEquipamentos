@@ -39,6 +39,7 @@ import {
   Eye,
   Undo2,
   FileOutput,
+  FileText,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -662,8 +663,10 @@ export default function ServiceScheduling() {
                 Ver detalhes da OS
               </OrderDetailLink>
             </section>
-            <ScheduleOrderActions data={data} onChanged={()=>void load()}/><OrderTaskLinks company={String(data.schedule.company_id)} orderId={String(data.schedule.order_id)} revision={(data.operations||[]).map((o:any)=>`${o.id}:${o.version}`).join(",")}>{data.canEditSettings && <button type="button" disabled={busy} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações antes de gerar a tarefa da OS.");return;}setOrderTaskOpen(true);}}><ClipboardPlus size={18} aria-hidden="true"/>Gerar tarefa da OS</button>}</OrderTaskLinks>
-            {data.canEditSettings && <div className="scheduling-actions order-report-launch"><button type="button" disabled={busy} onClick={()=>setOrderReportOpen(true)}>Gerar relatório da OS</button><button type="button" disabled={busy||!data.operations?.length} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações das operações antes de iniciar a revisão da OS.");return;}setOrderReviewOpen(true);}}><ListChecks size={18}/>Revisar operações da OS</button></div>}
+            <ScheduleOrderActions data={data} onChanged={()=>void load()}
+              reviewAction={data.canEditSettings&&<button type="button" disabled={busy||!data.operations?.length} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações das operações antes de iniciar a revisão da OS.");return;}setOrderReviewOpen(true);}}><ListChecks size={18} aria-hidden="true"/>Revisar operações</button>}
+              reportAction={data.canEditSettings&&<button type="button" disabled={busy} onClick={()=>setOrderReportOpen(true)}><FileText size={18} aria-hidden="true"/>Gerar relatório da OS</button>}
+            /><OrderTaskLinks company={String(data.schedule.company_id)} orderId={String(data.schedule.order_id)} revision={(data.operations||[]).map((o:any)=>`${o.id}:${o.version}`).join(",")}>{data.canEditSettings && <button type="button" disabled={busy} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações antes de gerar a tarefa da OS.");return;}setOrderTaskOpen(true);}}><ClipboardPlus size={18} aria-hidden="true"/>Gerar tarefa da OS</button>}</OrderTaskLinks>
             {orderReviewOpen && <OrderOperationsReview key={data.schedule.id} data={data} busy={busy} error={error} mutate={mutate} dirtyOperations={dirtyOperations.current} onClose={()=>setOrderReviewOpen(false)}/>}
             {orderTaskOpen && <OrderTaskWindow data={data} onClose={()=>setOrderTaskOpen(false)}/>}
             {orderReportOpen && <OrderReportWindow key={data.schedule.id} data={data} onClose={()=>setOrderReportOpen(false)}/>}

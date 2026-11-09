@@ -1,4 +1,5 @@
 "use client";
+import {technicianTimeChangesLocked} from "@/lib/service-scheduling/execution-locks";
 import {Plus,FilePenLine,Copy,Trash2} from "lucide-react";
 import TimeLogDeleteDialog from "./time-log-delete-dialog";
 import TeamMemberPicker from "./team-member-picker";
@@ -18,6 +19,8 @@ export default function ScheduleTimeLogs({
   onChanged,
   onRefresh,
 }: any) {
+  const technicianCanChange=(operation:any)=>!data.technicianTimeReadOnly&&!technicianTimeChangesLocked(operation);
+  const editableOperations=technician?(data.operations||[]).filter(technicianCanChange):(data.operations||[]);
   const canManage=!technician&&data.canEditSettings===true;
   const [deleting,setDeleting]=useState<any>(null);
   const [editing, setEditing] = useState<any>(null);
@@ -46,14 +49,14 @@ export default function ScheduleTimeLogs({
     <section className="schedule-time-logs" aria-label="Apontamentos da OS">
       {(technician||canManage) && (
         <div className="time-log-toolbar">
-          {data.timeAdjustmentsAvailable !== false && (
+          {data.timeAdjustmentsAvailable !== false && (!technician||editableOperations.length>0) && (
             <button className="time-log-primary-action" onClick={() => setEditing({})}><Plus size={17}/>Incluir apontamento manual</button>
           )}
           {onRefresh && <button onClick={onRefresh}>Atualizar</button>}
         </div>
       )}
       {replicationMessage && <p role="status">{replicationMessage}</p>}
-      {replicating && <TeamMemberPicker title="Replicar apontamento" description="Os horários e as pausas deste apontamento serão copiados para os integrantes selecionados. Cada pessoa terá seu próprio registro." confirmLabel="Replicar apontamento"
+      {replicating && (!technician||editableOperations.length>0) && <TeamMemberPicker title="Replicar apontamento" description="Os horários e as pausas deste apontamento serão copiados para os integrantes selecionados. Cada pessoa terá seu próprio registro." confirmLabel="Replicar apontamento"
         members={(data.users || []).filter((user:any)=>user.enabled!==false&&user.email!==replicating.row.actor&&(canManage||replicating.support.includes(user.email)))}
         onClose={()=>setReplicating(null)} onConfirm={async members=>{
           const response=await fetch(canManage?"/api/service-scheduling/time-logs":"/api/field/replicate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...(canManage?{action:"replicate"}:{}),sessionId:replicating.row.id,members})});
@@ -62,10 +65,10 @@ export default function ScheduleTimeLogs({
           await onChanged?.();
         }}/>}
       {deleting&&<TimeLogDeleteDialog row={deleting} onClose={()=>setDeleting(null)} onDeleted={async()=>{setReplicationMessage("Apontamento excluído. Totais atualizados.");await onChanged?.();}}/>}
-      {editing && (
+      {editing && (!technician||editableOperations.length>0) && (
         <TimeAdjustmentForm
           row={editing.id ? editing : null}
-          operations={data.operations || []}
+          operations={editableOperations}
           users={data.users||[]}
           planner={!technician}
           onClose={() => setEditing(null)}
@@ -128,11 +131,11 @@ export default function ScheduleTimeLogs({
                       key={r.id}
                       row={r}
                       technician={technician}
-                      canAdjust={data.timeAdjustmentsAvailable !== false&&(technician||canManage)}
+                      canAdjust={data.timeAdjustmentsAvailable !== false&&(canManage||(technician&&technicianCanChange(operation)))}
                       onEdit={() => setEditing(r)}
                       canDelete={canManage&&data.timeAdjustmentsAvailable!==false}
                       onDelete={()=>setDeleting(r)}
-                      canReplicate={canManage||(technician && (operation.document?.support || []).some((email:string)=>email!==data.email))}
+                      canReplicate={canManage||(technician && technicianCanChange(operation) && (operation.document?.support || []).some((email:string)=>email!==data.email))}
                       onReplicate={()=>setReplicating({row:r,support:operation.document?.support || []})}
                       pending={data.requests?.some(
                         (q: any) =>

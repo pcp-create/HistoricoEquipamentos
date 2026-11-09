@@ -150,8 +150,8 @@ test("unified report modes retain zero, flags and budget notes while excluding u
     const report = orderReport(copy, ["one", "other"], mode),
       json = JSON.stringify(report);
     assert.equal(report.chapters.length, 1);
-    assert.equal(json.includes("Campo vazio"), mode === "complete");
-    assert.equal(json.includes("Tempo de paradas"), mode === "complete");
+    assert.equal(json.includes("Campo vazio"), mode !== "summary");
+    assert.equal(json.includes("Tempo de paradas"), mode !== "summary");
     assert.equal(json.includes("Nota interna"), mode === "budget");
     assert.equal(
       report.chapters[0].report.find((s) => s.id === "s")!.groups[0].fields[0]

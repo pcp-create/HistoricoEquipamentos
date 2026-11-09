@@ -7,7 +7,8 @@ function projectField(home, detail, body) {
       (/^(report_|checklist_|finish_)/.test(action)))
     throw new Error("Somente o técnico responsável pode acessar o relatório ou finalizar a operação.");
   const submitted=!!(detail.reportSubmission||op.document.checklistRun?.submission);
-  const returnsOnly=submitted||['awaiting_review','reviewed','completed'].includes(op.status);
+  if(action==='materials'&&['awaiting_review','reviewed','completed'].includes(op.status))throw Error('Operação finalizada. Peças disponíveis somente para consulta; devoluções não são permitidas.');
+  const returnsOnly=submitted;
   if(submitted&&['start_work','start_travel','pause','resume','stop'].includes(action))throw Error('Relatório enviado. Novos apontamentos exigem devolução pelo planejador.');
   if(action==='report_send_partial'&&(detail.active||home.active)?.operation_id===op.id)throw Error('Finalize o apontamento aberto antes de enviar o relatório.');
   if (action === "report_send") {

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import ScheduleTimeLogs from "./schedule-time-logs";
-export default function FieldTimeLogs({ operationId }: { operationId: string }) {
+export default function FieldTimeLogs({ operationId,readOnly=false }: { operationId: string;readOnly?:boolean }) {
   const [data, setData] = useState<any>(null),
     [error, setError] = useState("");
   async function load() {
@@ -29,7 +29,7 @@ export default function FieldTimeLogs({ operationId }: { operationId: string }) 
       <h2>Apontamentos da operação</h2>
       {error && <p role="alert">{error}</p>}
       {data ? (
-        <ScheduleTimeLogs data={data} technician onChanged={load} />
+        <ScheduleTimeLogs data={{...data,technicianTimeReadOnly:readOnly}} technician onChanged={load} />
       ) : (
         !error && <p>Carregando apontamentos…</p>
       )}

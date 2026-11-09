@@ -110,7 +110,7 @@ test("planner reviews operations together and navigates in numeric order", async
     return r.fulfill({json:data});
   });
   await page.goto('/programacao?id=1');
-  await page.getByRole('button',{name:'Revisar operações da OS',exact:true}).click();
+  await page.getByRole('button',{name:'Revisar operações',exact:true}).click();
   let dialog=page.getByRole('dialog');
   await expect(dialog).toHaveCount(1);
   await expect(dialog.getByText('3 operações · 1 aguardando revisão · 2 revisadas')).toBeVisible();

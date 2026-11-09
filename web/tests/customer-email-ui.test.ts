@@ -12,7 +12,7 @@ test('Gmail creates a draft with attachment in the connected account; email defa
  await page.route('https://gmail.googleapis.com/**',r=>{if(r.request().url().endsWith('/messages/send')){sent=r.request().postDataJSON();return r.fulfill({json:{id:'sent1'}});}draft=r.request().postDataJSON();if(apiDisabled)return r.fulfill({status:403,json:{error:{status:'PERMISSION_DENIED',details:[{reason:'SERVICE_DISABLED'}]}}});return r.fulfill({json:{id:'draft1',message:{id:'m1'}}});});
  await page.route('https://openidconnect.googleapis.com/v1/userinfo',r=>r.fulfill({json:{email:'connected@gmail.com'}}));
  await page.goto('http://127.0.0.1:'+(server.address() as any).port);
- await expect(page.getByLabel('Assunto',{exact:true})).toHaveValue('OS 15253 · Cliente Teste · · OP01 - Atlas GA22 · Série ABC; · OP02 - Secador SR30 · Série DEF');
+ await expect(page.getByLabel('Assunto',{exact:true})).toHaveValue('OS 15253 - Cliente Teste CCP Série ABC');
  await expect(page.getByRole('textbox',{name:'Mensagem',exact:true})).toContainText('Atlas GA22 · Série ABC');
  await expect(page.getByRole('textbox',{name:'Mensagem',exact:true})).toContainText('Secador SR30 · Série DEF');
  await expect(page.getByRole('button',{name:'Remover registered@example.com',exact:true})).toBeVisible();
@@ -21,7 +21,8 @@ test('Gmail creates a draft with attachment in the connected account; email defa
  await page.getByRole('checkbox',{name:/Operação 02/}).uncheck();
  await expect(page.getByRole('textbox',{name:'Mensagem',exact:true})).not.toContainText('Secador SR30');
  await expect(page.getByRole('textbox',{name:'Mensagem',exact:true})).toContainText('Primeiro: Atlas GA22 · Série ABC');
- await expect(page.getByLabel('Nome do anexo')).toHaveValue('OS 15253 - Cliente Teste MP Atlas GA22 Série ABC.pdf');
+ await expect(page.getByLabel('Nome do anexo')).toHaveValue('OS 15253 - Cliente Teste - GA22 - SÉRIE ABC.pdf');
+ await expect(page.getByLabel('Assunto',{exact:true})).toHaveValue('OS 15253 - Cliente Teste - GA22 - SÉRIE ABC');
  await page.getByRole('button',{name:'Selecionar contatos do cliente',exact:true}).click();
  const contactsPanel=page.getByRole('region',{name:'Contatos do cliente',exact:true});
  await expect(contactsPanel.getByRole('checkbox',{name:/registered@example.com/})).toBeChecked();
@@ -76,7 +77,7 @@ test('Gmail creates a draft with attachment in the connected account; email defa
  apiDisabled=false;
  await page.getByRole('button',{name:'Criar rascunho no Gmail',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('Rascunho criado no Gmail');
- assert.match(prepared.bodyHtml,/<strong>/);assert.match(prepared.bodyHtml,/<em>/);assert.match(prepared.bodyHtml,/<ul>/);assert.match(prepared.bodyHtml,/https:\/\/rjcompressores.app\/relatorio/);assert.match(prepared.bodyHtml,/font-size: 18px/);assert.equal(prepared.to,'cliente@example.com, segundo@example.com');assert.deepEqual(prepared.operationIds,['00000000-0000-4000-8000-000000000001']);assert.equal(prepared.reportFilename,'OS 15253 - Relatório revisado.pdf');assert.equal(draft.message.raw,raw);
+ assert.match(prepared.bodyHtml,/<strong>/);assert.match(prepared.bodyHtml,/<em>/);assert.match(prepared.bodyHtml,/<ul>/);assert.match(prepared.bodyHtml,/https:\/\/rjcompressores.app\/relatorio/);assert.match(prepared.bodyHtml,/font-size: 18px/);assert.equal(prepared.to,'cliente@example.com, segundo@example.com');assert.deepEqual(prepared.operationIds,['00000000-0000-4000-8000-000000000001']);assert.equal(prepared.reportFilename,'OS 15253 - Relatório revisado.pdf');assert.equal(prepared.subject,'OS 15253 - Relatório revisado');assert.equal(draft.message.raw,raw);
  assert.match(await page.evaluate(()=>(window as any).opened),/authuser=connected%40gmail.com#drafts/);
  await page.getByRole('checkbox',{name:/Operação 01/}).uncheck();
  await expect(page.getByRole('button',{name:'Enviar diretamente pelo Gmail',exact:true})).toBeDisabled();

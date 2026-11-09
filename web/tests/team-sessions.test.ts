@@ -62,6 +62,15 @@ test("joint sessions mirror timers atomically, prevent member control and replic
   assert.equal(logs.rows.length,3);
   assert.equal(logs.summary.people,3);
   assert.equal(logs.rows.find((row:any)=>row.actor==="second")?.active,900);
+  for(const status of ['awaiting_review','reviewed','completed']){
+   await query('UPDATE web_service_operations SET status=$2 WHERE id=$1',[id,status]);
+   await assert.rejects(replicateTimeLog({sessionId:source.id,members:['helper']},'tech'),/Não é permitido replicar/);
+  }
+  await query("ALTER TABLE web_service_operations DISABLE TRIGGER USER");
+  await query("UPDATE web_service_operations SET status='executing',document=document||$2::jsonb WHERE id=$1",[id,JSON.stringify({checklistRun:{submission:{at:new Date().toISOString(),by:'tech'}}})]);
+  await query("ALTER TABLE web_service_operations ENABLE TRIGGER USER");
+  await assert.rejects(replicateTimeLog({sessionId:source.id,members:['helper']},'tech'),/Não é permitido replicar/);
+  await query("UPDATE web_service_operations SET document=document-'checklistRun' WHERE id=$1",[id]);
   // An overlapping target prevents the entire request, including previously valid selections.
   const conflictId=randomUUID();
   await query("DELETE FROM web_field_session_links WHERE actor='second'");
