@@ -16,11 +16,11 @@ export default function OrderTaskLinks({company,orderId,revision,children}:{comp
   return()=>{disposed=true;controller?.abort();window.removeEventListener('order-tasks-updated',load);window.removeEventListener('focus',load);};
  },[company,orderId,revision]);
  return <section className="order-linked-tasks" aria-label="Tarefas da OS"><details><summary><ClipboardList size={18}/><span>Tarefas da OS {!loading&&`(${tasks.length})`}</span><ChevronRight className="order-linked-tasks-chevron" size={18}/></summary>
-  {children&&<div className="order-linked-task-actions">{children}</div>}
   {loading?<p role="status">Carregando tarefas…</p>:error?<p role="alert">{error}</p>:!tasks.length?<p>Nenhuma tarefa vinculada a esta OS.</p>:<ul>{tasks.map(task=><li key={task.id}>
    <a href={`/tarefas?task=${encodeURIComponent(task.id)}`} target="_blank" rel="noopener noreferrer">TAR-{task.id} · {task.redacted?'Tarefa restrita':task.title}<ExternalLink size={14}/></a>
    <span className={`order-linked-task-status ${task.status}`}>{({not_started:'Não iniciada',in_progress:'Em andamento',completed:'Concluída'} as Record<string,string>)[task.status]||task.status}</span>
    {!task.redacted&&<small>Responsável: {task.assignee_name||task.assigned_to||'Não atribuído'}</small>}
   </li>)}</ul>}
+  {children&&<div className="order-linked-task-actions">{children}</div>}
  </details></section>;
 }
