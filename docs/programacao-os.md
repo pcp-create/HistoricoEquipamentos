@@ -103,7 +103,7 @@ Na aba Produtos, as quantidades Retirada, Devolvida e Utilizada são apenas para
 
 ### Sequência das ações de revisão
 
-O rodapé da revisão separa as etapas “1. Salvar ajustes” e “2. Concluir revisão”. Alterações no relatório ou fotos em envio bloqueiam a conclusão até o salvamento confirmado; uma falha ao salvar mantém o rascunho e o bloqueio. Sem alterações pendentes, o relatório já está salvo e pode ser concluído. O botão Concluir revisão representa a concordância com o relatório, as peças e os apontamentos, com essa declaração visível ao lado da ação, sem checkbox adicional. Pendências de alertas e solicitações de apontamentos continuam impedindo a conclusão. A devolução ao técnico permanece como ação separada.
+O rodapé compacto mantém “Salvar ajustes”, “Concluir revisão” e “Devolver relatório ao técnico” na mesma linha quando há largura disponível, com quebra somente em telas menores. Os avisos e a declaração ficam em uma linha discreta abaixo das ações. Alterações no relatório ou fotos em envio bloqueiam a conclusão até o salvamento confirmado; uma falha ao salvar mantém o rascunho e o bloqueio. Sem alterações pendentes, o relatório já está salvo e pode ser concluído. O botão Concluir revisão representa a concordância com o relatório, as peças e os apontamentos, com essa declaração visível ao lado da ação, sem checkbox adicional. Pendências de alertas e solicitações de apontamentos continuam impedindo a conclusão. A devolução ao técnico permanece na mesma barra de ações.
 
 ### Anexo automático ao editar observações e Status Fluxo
 

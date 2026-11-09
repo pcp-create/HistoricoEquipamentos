@@ -35,6 +35,12 @@ test("review window isolates operation data and enables PDF after successful rev
   await dialog.getByRole('textbox',{name:'Resultado',exact:true}).fill('Corrigido pelo planejador');
   await dialog.getByRole('radio',{name:'NOK',exact:true}).check();
   await expect(dialog.getByRole('button',{name:'Concluir revisão',exact:true})).toBeDisabled();
+  const footer=dialog.locator('.operation-review-footer');
+  const saveBounds=await dialog.getByRole('button',{name:'Salvar ajustes',exact:true}).boundingBox();
+  const returnBounds=await dialog.getByRole('button',{name:'Devolver relatório ao técnico',exact:true}).boundingBox();
+  expect(Math.abs(saveBounds!.y-returnBounds!.y)).toBeLessThan(2);
+  expect((await footer.boundingBox())!.height).toBeLessThan(115);
+
   await dialog.getByRole('tab',{name:'Peças',exact:true}).click();
   await dialog.getByRole('tab',{name:'Relatório',exact:true}).click();
   await expect(dialog.getByRole('textbox',{name:'Resultado',exact:true})).toHaveValue('Corrigido pelo planejador');
@@ -46,6 +52,7 @@ test("review window isolates operation data and enables PDF after successful rev
   await expect(dialog.getByRole('textbox',{name:'Resultado',exact:true})).toHaveValue('Corrigido pelo planejador');
   await page.setViewportSize({width:390,height:844});
   expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  expect((await footer.boundingBox())!.height).toBeLessThan(160);
   await dialog.locator('.operation-review-footer').screenshot({path:'/tmp/review-footer-mobile.png'});
   await page.setViewportSize({width:1440,height:1080});
   await dialog.getByRole('button',{name:'Salvar ajustes',exact:true}).click();

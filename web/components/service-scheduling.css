@@ -1027,20 +1027,17 @@
 
 @media(min-width:1200px){.schedule-order-fields .schedule-order-total-field{justify-self:end;min-width:120px}}
 
-/* Review follows saving, then explicit agreement through the completion action. */
-.review-completion-steps{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;width:100%}
-.review-completion-step{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0}
-.review-step-title{display:flex;align-items:center;gap:8px;font-size:13px;color:#27445f}
-.review-step-title>span{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#edf4fa;color:#245e91;font-size:12px}
-.review-completion-step p{margin:0;font-size:12px;line-height:1.45;color:#64748b}
-.review-step-pending>p{color:#946000;font-weight:500}
-.operation-review-footer .review-complete-button{display:inline-flex;align-items:center;gap:7px;background:#245e91;border-color:#245e91;color:#fff}
-.operation-review-footer .review-save-pending,.operation-review-footer .review-complete-button{min-height:36px;padding:8px 12px;border-radius:7px;font-size:13px}
+/* Compact review actions leave the report visible while keeping save-before-review. */
+.operation-review-footer:has(.review-completion-steps){gap:6px;padding:10px 20px}
+.review-completion-steps{display:flex;align-items:center;flex-wrap:wrap;gap:8px;width:100%}
+.review-completion-step{display:flex;align-items:center;min-width:0}
+.review-saved{color:#64748b;font-size:12px;padding-right:6px}
+.operation-review-footer .review-complete-button{display:inline-flex;align-items:center;gap:6px;background:#245e91;border-color:#245e91;color:#fff}
+.operation-review-footer .review-completion-steps button{min-height:32px;padding:6px 10px;border-radius:7px;font-size:12px;line-height:1.4;margin:0}
 .operation-review-footer .review-complete-button:disabled{background:#edf2f7;border-color:#dce5ee;color:#7a8da0;cursor:not-allowed}
-.review-completion-step .review-agreement{font-size:11px;max-width:540px}
-.review-return-action{width:100%;padding-top:10px;border-top:1px solid #edf2f7}
-.review-return-action button{font-size:12px;padding:7px 10px;min-height:32px}
-@media(max-width:600px){.review-completion-steps{grid-template-columns:1fr;gap:14px}.review-completion-step{gap:6px}}
+.review-completion-notes{display:flex;flex-wrap:wrap;gap:2px 12px;color:#64748b;font-size:11px;line-height:1.4;width:100%}
+.review-completion-notes .review-pending-note{color:#946000;font-weight:500}
+@media(max-width:600px){.operation-review-footer:has(.review-completion-steps){padding:8px 12px}.review-completion-steps{gap:6px}}
 
 .schedule-summary-attachment{display:grid;gap:6px;padding:12px 14px;border:1px solid #dce5ee;border-radius:9px;background:#f6f9fc}
 .schedule-order-actions .schedule-summary-attachment label{display:flex;align-items:center;gap:9px;margin:0;font-size:13px}

@@ -81,23 +81,25 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
     <footer className="operation-review-footer">
       {data.canEditSettings && o.status === "awaiting_review" && <>
         <div className="review-completion-steps">
-          <section className={`review-completion-step${reportDirty?" review-step-pending":""}`} aria-label="Etapa 1: salvar ajustes">
-            <strong className="review-step-title"><span>1</span> Salvar ajustes</strong>
-            <p role="status">{reportDirty?"Há ajustes pendentes. Salve antes de concluir a revisão.":"Relatório salvo. Se alterar alguma informação, salve os ajustes antes de concluir."}</p>
+          <section className="review-completion-step" aria-label="Etapa 1: salvar ajustes">
             <div ref={setSaveTarget} className="review-save-actions"/>
+            {!reportDirty&&<span className="review-saved">Ajustes salvos</span>}
           </section>
+          {missingAlertTask&&<button type="button" disabled={busy||dirty||reportDirty} onClick={()=>setTab('alerts')}>Organizar tarefas dos alertas</button>}
           <section className="review-completion-step" aria-label="Etapa 2: concluir revisão">
-            <strong className="review-step-title"><span>2</span> Concluir revisão</strong>
-            {missingAlertTask&&<button type="button" disabled={busy||dirty||reportDirty} onClick={()=>setTab('alerts')}>Organizar tarefas dos alertas</button>}
-            {pendingAlerts.length>0&&<small>Ao concluir, as tarefas serão criadas com o relatório final. Todos os alertas precisam de responsável e descrição.</small>}
-            {scoped.requests.some((r: any) => r.status === "pending") && <small>Há solicitações de apontamento aguardando aprovação.</small>}
             <button type="button" className="review-complete-button" aria-describedby={`${tabsId}-agreement`} disabled={busy || dirty || reportDirty || missingAlertTask || scoped.requests.some((r: any) => r.status === "pending")} onClick={() => void act("review")}><CheckCheck size={16} aria-hidden="true"/>Concluir revisão</button>
-            <p id={`${tabsId}-agreement`} className="review-agreement">Ao concluir, declaro: li, revisei e estou de acordo com as informações do relatório, das peças e dos apontamentos desta operação.</p>
           </section>
+          {reportSubmission(o.document.checklistRun)&&<button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}>Devolver relatório ao técnico</button>}
+        </div>
+        <div className="review-completion-notes">
+          {reportDirty&&<span className="review-pending-note" role="status">Há ajustes pendentes. Salve antes de concluir a revisão.</span>}
+          {missingAlertTask&&<span>Defina responsável e descrição para todos os alertas.</span>}
+          {scoped.requests.some((r:any)=>r.status==='pending')&&<span>Há solicitações de apontamento aguardando aprovação.</span>}
+          <span id={`${tabsId}-agreement`}>Ao concluir, declaro: li, revisei e estou de acordo com as informações do relatório, das peças e dos apontamentos.</span>
         </div>
       </>}
-      {data.canEditSettings && !reviewed && reportSubmission(o.document.checklistRun) && <div className="review-return-action"><button type="button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}>Devolver relatório ao técnico</button></div>}
-      {reviewed && o.document.checklistRun && !busy ? <><select aria-label="Tipo de relatório" value={reportMode} onChange={e=>setReportMode(e.target.value)}><option value="complete">Relatório Completo</option><option value="summary">Relatório Resumido</option><option value="budget">Relatório de Orçamento</option></select><a href={`/api/service-scheduling/checklist-pdf?operationId=${o.id}&mode=${reportMode}`} target="_blank" rel="noreferrer"><FileDown size={16}/> Gerar PDF</a></> : o.document.checklistId && <small>O PDF será liberado após a conclusão da revisão.</small>}
+      {data.canEditSettings && !reviewed && o.status!=="awaiting_review" && reportSubmission(o.document.checklistRun) && <button type="button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}>Devolver relatório ao técnico</button>}
+      {reviewed && o.document.checklistRun && !busy ? <><select aria-label="Tipo de relatório" value={reportMode} onChange={e=>setReportMode(e.target.value)}><option value="complete">Relatório Completo</option><option value="summary">Relatório Resumido</option><option value="budget">Relatório de Orçamento</option></select><a href={`/api/service-scheduling/checklist-pdf?operationId=${o.id}&mode=${reportMode}`} target="_blank" rel="noreferrer"><FileDown size={16}/> Gerar PDF</a></> : o.status!=="awaiting_review" && o.document.checklistId && <small>O PDF será liberado após a conclusão da revisão.</small>}
 
     </footer>
   </>;
