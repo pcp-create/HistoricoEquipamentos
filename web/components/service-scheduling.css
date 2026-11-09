@@ -1039,10 +1039,10 @@
 .review-completion-notes .review-pending-note{color:#946000;font-weight:500}
 @media(max-width:600px){.operation-review-footer:has(.review-completion-steps){padding:8px 12px}.review-completion-steps{gap:6px}}
 
-.schedule-summary-attachment{display:grid;gap:6px;padding:12px 14px;border:1px solid #dce5ee;border-radius:9px;background:#f6f9fc}
-.schedule-order-actions .schedule-summary-attachment label{display:flex;align-items:center;gap:9px;margin:0;font-size:13px}
-.schedule-summary-attachment input[type="checkbox"]{width:16px;height:16px;min-height:0;margin:0;flex:none;accent-color:#245e91}
-.schedule-summary-attachment small{color:#64748b;font-size:12px;line-height:1.45}
+.schedule-summary-attachment{display:grid;gap:3px;margin-top:12px;padding:0;border:0;background:transparent}
+.schedule-order-actions .order-attachments .schedule-summary-attachment label{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:7px;margin:0;font-size:12px;font-weight:400;line-height:1.4;color:#647b94;text-align:left}
+.schedule-order-actions .order-attachments .schedule-summary-attachment input[type="checkbox"]{width:14px;height:14px;min-height:0;margin:0;padding:0;flex:0 0 14px;accent-color:#245e91}
+.schedule-order-actions .order-attachments .schedule-summary-attachment small{margin-left:21px;color:#74879b;font-size:11px;line-height:1.4}
 
 .review-edit-photos{align-items:flex-start;gap:10px}
 .review-edit-photos>.review-photo-card{position:relative;display:block;width:150px;height:132px;flex:0 0 150px;border:1px solid #dce5ee;border-radius:9px;background:#f6f9fc;overflow:hidden}

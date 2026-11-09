@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useState} from 'react';
+import {useEffect,useState,type ReactNode} from 'react';
 import './order-attachments.css';
 const maxBytes=3*1024*1024;
 export async function sendOrderAttachments(company:string,order:string,files:File[],sent:(file:File)=>void){
@@ -10,7 +10,7 @@ export async function sendOrderAttachments(company:string,order:string,files:Fil
   sent(file);
  }
 }
-export default function OrderAttachments({company,order,files:controlled,onFilesChange,disabled=false,onBusy}:{company:string;order?:string;files?:File[];onFilesChange?:(files:File[])=>void;disabled?:boolean;onBusy?:(busy:boolean)=>void}){
+export default function OrderAttachments({company,order,files:controlled,onFilesChange,disabled=false,onBusy,children}:{company:string;order?:string;files?:File[];onFilesChange?:(files:File[])=>void;disabled?:boolean;onBusy?:(busy:boolean)=>void;children?:ReactNode}){
  const [own,setOwn]=useState<File[]>([]),[rows,setRows]=useState<any[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[revision,setRevision]=useState(0);
  const files=controlled??own,setFiles=onFilesChange??setOwn;
  useEffect(()=>{
@@ -37,6 +37,7 @@ export default function OrderAttachments({company,order,files:controlled,onFiles
   {!!files.length&&<ul>{files.map((file,index)=><li key={index}>{file.name} <small>({Math.ceil(file.size/1024)} KB · aguardando envio)</small><button type="button" aria-label={`Remover anexo ${file.name}`} disabled={busy||disabled} onClick={()=>setFiles(files.filter((_,i)=>i!==index))}>Remover</button></li>)}</ul>}
   {order&&!!files.length&&<button type="button" disabled={busy||disabled} onClick={()=>void upload()}>{busy?'Enviando anexos…':'Enviar anexos ao ERP'}</button>}
   {order&&<><button type="button" disabled={busy||disabled} onClick={()=>setRevision(v=>v+1)}>Atualizar anexos</button><ul>{rows.map(row=><li key={row.id}><a href={'/api/service-orders/attachments?'+new URLSearchParams({company,order,id:row.id})}>{row.name}</a></li>)}</ul>{!rows.length&&!error&&<small>Nenhum anexo listado no ERP.</small>}</>}
+  {children}
   {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
  </section>;
 }

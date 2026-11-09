@@ -170,6 +170,8 @@ test("reviewed OS exposes ERP edits and customer delivery", async ({
     .getByLabel("Observação Interna", { exact: true })
     .fill("Conferir cadastro");
   await expect(page.getByRole('checkbox',{name:'Anexar relatório resumido automaticamente na OS'})).toBeChecked();
+  await expect(page.getByRole('region',{name:'Anexos da OS'}).getByRole('checkbox')).toBeChecked();
+  await expect(page.locator('.schedule-summary-attachment label')).toHaveCSS('flex-direction','row');
   await page.getByRole("button", { name: "Salvar no ERP" }).click();
   await expect(page.locator('.schedule-order-actions').getByRole('alert')).toContainText('A OS foi atualizada no ERP, mas o relatório resumido não foi anexado.');
   const headerWrites=calls.filter(c=>c.action?.startsWith('edit-')).length;

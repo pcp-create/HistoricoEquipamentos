@@ -138,11 +138,12 @@ export default function ScheduleOrderActions({
             void saveHeader();
           }}
         >
-          <OrderAttachments company={company} order={order} files={attachmentFiles} onFilesChange={setAttachmentFiles} disabled={busy} onBusy={setBusy}/>
+          <OrderAttachments company={company} order={order} files={attachmentFiles} onFilesChange={setAttachmentFiles} disabled={busy} onBusy={setBusy}>
           <div className="schedule-summary-attachment">
             <label><input type="checkbox" checked={attachSummary} disabled={busy||summaryAttached} onChange={e=>setAttachSummary(e.target.checked)}/> Anexar relatório resumido automaticamente na OS</label>
-            <small>{reviewed?'Ao salvar no ERP, o relatório resumido das operações revisadas será gerado e anexado à OS no M8.':'Para anexar automaticamente, revise todas as operações. Você pode desmarcar esta opção para salvar somente as alterações da OS.'}</small>
+            <small>{reviewed?'Será anexado ao salvar no ERP.':'Revise todas as operações para anexar ou desmarque esta opção.'}</small>
           </div>
+          </OrderAttachments>
           {headerSaved&&<p role="status">As alterações da OS já foram salvas. Falta concluir o envio dos anexos.</p>}
           <label>
             Observação
