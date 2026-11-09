@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
-import { CloudOff, RefreshCw, Wifi, X, Download, AlertTriangle, LogOut, LoaderCircle } from "lucide-react";
+import { CloudOff, RefreshCw, Wifi, X, Download, AlertTriangle, LogOut, LoaderCircle, Trash2 } from "lucide-react";
 import "./field-offline.css";
 import { nativePortal } from "@/lib/native-portal";
 type SyncState = {
@@ -14,8 +14,11 @@ type SyncState = {
     operationLabel?: string;
     at: string;
     error?: string;
+    blockedReason?:string;
+    dependents?:number;
   }[];
   prepared?: string;
+  discarded?:number;
   syncing?: boolean;
   syncingId?: string;
   lastSync?: string;
@@ -27,9 +30,9 @@ const update = (next: Partial<SyncState>) => {
   state = { ...state, ...next };
   for (const fn of listeners) fn(state);
 };
-export async function offlineMessage(type: string): Promise<any> {
+export async function offlineMessage(type: string,payload:Record<string,unknown>={}): Promise<any> {
   if (nativePortal()) {
-    const result = await nativePortal()!.message(type);
+    const result = await nativePortal()!.message(type,payload);
     if (!result.backup) update(result);
     return result;
   }
@@ -55,7 +58,7 @@ export async function offlineMessage(type: string): Promise<any> {
       if (!event.data.backup) update(event.data);
       resolve(event.data);
     };
-    worker.postMessage({ type }, [channel.port2]);
+    worker.postMessage({ ...payload,type }, [channel.port2]);
   });
 }
 function useSyncState() {
@@ -102,7 +105,7 @@ export function FieldConnection({showExit=true}:{showExit?:boolean}={}) {
             ? "Conectado"
             : "Sem internet"}
       </strong>
-      {status.pending > 0 && (
+      {(status.pending > 0 || !!status.discarded) && (
         <span>
           {status.syncing&&<RefreshCw size={13} className="spin" aria-label="Sincronizando"/>} {status.pending} pendente{status.pending === 1 ? "" : "s"}
         </span>
@@ -143,6 +146,7 @@ export default function FieldOffline({
   onClose: () => void;
 }) {
   const status = useSyncState();
+  const [discarding,setDiscarding]=useState<SyncState['queue'][number]|null>(null),[discardDependents,setDiscardDependents]=useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   useEffect(() => {
@@ -328,7 +332,7 @@ export default function FieldOffline({
                 {nativePortal() || status.pending ? "Sincronizar agora" : "Atualizar programação"}
               </button>
               {nativePortal() && <button
-                disabled={busy || status.syncing || status.pending > 0 || status.connected === false}
+                disabled={busy || status.syncing || status.connected === false}
                 onClick={() => void run("FIELD_PREPARE")}
               >
                 <Download size={16} />
@@ -343,6 +347,13 @@ export default function FieldOffline({
                 {error}
               </p>
             )}
+            {status.queue.some(item=>item.error||item.blockedReason)&&<p className="field-sync-notice">Falhas não bloqueiam o envio de registros independentes nem a chegada de novas OSs. Registros que dependem de uma falha permanecem protegidos.</p>}
+            {discarding&&<section role="alertdialog" aria-label="Excluir pendência de envio" className="field-sync-discard-confirm">
+              <strong>Excluir esta pendência de envio?</strong><p>{names[discarding.action]||discarding.action} · {discarding.operationLabel}</p>
+              <p>Este registro sairá da fila e não será enviado. Uma cópia local continuará disponível em Baixar cópia das pendências. Isso não exclui informações já recebidas pelo servidor.</p>
+              {!!discarding.dependents&&<><p>Há {discarding.dependents} registro(s) dependente(s). Se excluir somente este, os dependentes permanecerão bloqueados para conferência.</p><label><input type="checkbox" checked={discardDependents} disabled={busy} onChange={e=>setDiscardDependents(e.target.checked)}/>Excluir também os {discarding.dependents} registros dependentes</label></>}
+              <div><button type="button" disabled={busy} onClick={()=>setDiscarding(null)}>Cancelar exclusão</button><button type="button" disabled={busy||status.syncing} onClick={async()=>{setBusy(true);setError('');try{const result=await offlineMessage('FIELD_DISCARD',{id:discarding.id,includeDependents:discardDependents});if(!result.ok)throw Error(result.error);setDiscarding(null);onSynced();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Confirmar exclusão</button></div>
+            </section>}
             <ul>
               {status.queue.map((item) => (
                 <li key={item.id}>
@@ -350,11 +361,11 @@ export default function FieldOffline({
                   <small>
                     {item.operationLabel} · {date(item.at)}
                   </small>
-                  {item.error && <p role="alert">{item.error}</p>}
+                  {(item.error||item.blockedReason)&&<><p role="alert">{item.error||item.blockedReason}</p><button type="button" className="field-sync-discard" disabled={busy||status.syncing} onClick={()=>{setDiscarding(item);setDiscardDependents(false);}}><Trash2 size={15}/>Excluir pendência</button></>}
                 </li>
               ))}
             </ul>
-            {status.pending > 0 && (
+            {(status.pending > 0 || !!status.discarded) && (
               <button onClick={() => void exportPending()}>
                 Baixar cópia das pendências
               </button>

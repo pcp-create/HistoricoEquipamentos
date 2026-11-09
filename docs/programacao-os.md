@@ -140,3 +140,65 @@ Além de criar rascunho, o usuário pode enviar diretamente pelo Gmail, após co
 Aplicar `web/sql/102_customer_contact_email.sql` antes de publicar a interface. A migração adiciona e-mail e cargo ao cadastro de contatos existente, preservando nomes e telefones.
 
 Referência da integração: [Gmail API — envio de mensagens](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send).
+
+
+### Formatação da mensagem do e-mail
+
+O campo Mensagem tem uma barra de formatação com fonte, tamanho, cor, negrito, itálico, sublinhado, tachado, alinhamento, listas, recuos de listas, citação, links, remoção de formatação e desfazer/refazer. Links abrem um diálogo para informar o texto e o endereço. Textos antigos sem formatação são carregados com escape de HTML. Padrões formatados são salvos como texto simples e HTML sanitizado, e carregados no editor com a formatação preservada.
+
+O servidor remove tags, atributos e estilos não permitidos e limita os links a HTTP, HTTPS, mailto e tel. Mensagens formatadas são montadas com uma parte de texto simples e outra HTML dentro do mesmo e-mail, mantendo o PDF como anexo separado. Isso vale para o envio direto, o rascunho Gmail e o `.eml` baixado. O limite permanece em 10.000 caracteres de texto.
+
+Referências técnicas: [Tiptap com Next.js](https://tiptap.dev/docs/editor/getting-started/install/nextjs), [sanitização de HTML](https://github.com/apostrophecms/sanitize-html).
+
+
+### Seleção de destinatários em blocos
+
+O campo Destinatários exibe os e-mails como blocos removíveis. Ponto e vírgula, vírgula e Enter confirmam o endereço; ao sair do campo, um endereço válido também é confirmado. Colar uma lista separada por vírgulas, ponto e vírgula ou quebras de linha adiciona seus endereços. Entradas inválidas permanecem visíveis para correção e bloqueiam o envio.
+
+O botão `+` à direita abre uma lista pesquisável com os contatos do cliente e os endereços já selecionados. As caixas de seleção incluem ou removem destinatários, e o botão Adicionar contato ao cliente abre o cadastro dentro da própria lista. Ao salvar um contato, ele também entra na seleção. Remover um bloco afeta apenas o e-mail atual, preservando o cadastro do cliente.
+
+
+### Equipamentos das operações selecionadas no texto do e-mail
+
+`{equipamento}` lista uma linha por operação selecionada, na ordem das operações, no formato `· OP01 - Nome do equipamento`, incluindo série quando disponível. Se o equipamento for o mesmo em operações diferentes, cada operação mantém sua própria linha. `{equipamento_01}`, `{equipamento_02}` e seguintes permitem posicionar cada equipamento separadamente; posições sem equipamento ficam em branco. A numeração acompanha a seleção atual, sem reservar posições para operações não selecionadas. No assunto, a lista usa ponto e vírgula em vez de quebras de linha.
+
+O texto padrão e o assunto são atualizados quando a seleção muda, enquanto não houver edições manuais. Edições na mensagem e sua formatação são preservadas; se os equipamentos mudarem depois disso, um aviso oferece reaplicar o texto padrão, deixando explícito que isso substitui as edições. Configurações antigas sem campos de equipamento recebem uma seção adicional com a lista de equipamentos no texto sugerido, sem alterar a configuração salva.
+
+
+### Salvamento em segundo plano e envio pelo técnico
+
+Ao trocar etapas/grupos do relatório ou sair da tela, o salvamento automático ocorre sem bloquear o preenchimento. As gravações são serializadas por operação. A confirmação de uma gravação anterior atualiza a base do rascunho sem substituir respostas mais recentes digitadas enquanto a requisição estava em andamento. O rascunho local continua disponível em caso de falha; o botão Salvar aparece somente enquanto há alterações pendentes.
+
+O envio completo aguarda a gravação em andamento e valida as respostas atuais. O servidor encerra o apontamento de atividade do responsável, inclusive pausas e apontamentos vinculados iniciados em equipe, junto com o envio do relatório. Se houver erro de validação, toda a transação é desfeita e a atividade permanece aberta. Deslocamentos continuam exigindo odômetro final; apontamentos independentes de outros integrantes precisam ser encerrados por seus responsáveis.
+
+Após enviar, abre a conferência de materiais: Não finaliza a operação e envia para revisão; Sim abre Peças e conclui a operação após salvar a conferência/devolução. O fluxo offline projeta o encerramento da atividade e preserva as ações na fila para sincronização. Não há migração de banco nesta alteração.
+
+
+A seleção e o catálogo de endereços disponíveis no e-mail são independentes: os e-mails automáticos e os já utilizados neste preenchimento permanecem na lista do `+` ao serem desmarcados ou removidos pelo `x`. A desmarcação afeta somente os destinatários atuais. Os blocos selecionados e o campo de digitação compartilham uma única área com borda.
+
+
+### Texto padrão formatado nas configurações
+
+A configuração Texto padrão do e-mail usa a mesma barra do editor de mensagem. Ao salvar, o portal mantém o texto simples para compatibilidade e o HTML para preservar fonte, tamanho, cores, links e demais formatos. O HTML é sanitizado no servidor antes de entrar na configuração; não há migração de banco, pois os campos ficam no documento JSON existente.
+
+Ao abrir o envio, o padrão formatado é aplicado automaticamente. Os campos dinâmicos são substituídos por texto escapado, preservando a formatação ao redor deles; a lista de equipamentos acompanha a seleção sem perder os estilos. Reaplicar o padrão também recupera a formatação salva.
+
+
+### Sincronização do APK com pendências em falha
+
+Uma falha permanente de envio fica preservada e deixa de ser reenviada automaticamente. A fila continua processando registros independentes; os dependentes de um registro ou foto com falha permanecem protegidos e são identificados na tela. Falhas temporárias de conexão continuam elegíveis para nova tentativa.
+
+A presença de pendências deixa de congelar a programação inteira: a sincronização atualiza a lista de novas OSs e os detalhes das operações sem pendências, mantendo as projeções locais das operações que ainda aguardam confirmação. O botão Baixar programação também fica disponível com pendências. Uma edição capturada enquanto um download ocorre prevalece sobre a resposta antiga do servidor.
+
+Na tela Sincronismo, Excluir pendência exige confirmação. A tela informa os registros dependentes e oferece excluí-los somente por escolha explícita. Se excluir apenas o primeiro, os dependentes ficam bloqueados para conferência. A exclusão afeta a fila local, preserva os dados já recebidos pelo servidor e guarda uma cópia local recuperável na exportação de pendências.
+
+A lógica compartilhada é empacotada em `web/native/runtime.js` pelo build nativo. Publicar somente o site não atualiza o mecanismo dos APKs já instalados; a correção requer uma nova compilação/instalação do aplicativo. Não há migração de banco do servidor ou SQLite.
+
+
+### Salvamento e recuperação no portal técnico — APK 2.2.15
+
+Salvar fica sempre visível, vermelho com alterações pendentes e cinza quando salvo.
+Enviar fica desabilitado enquanto houver campos obrigatórios incompletos ou alterações
+pendentes de salvamento. O rascunho compatível do aparelho é recuperado automaticamente,
+sem avisos ou botão de recuperação. A recuperação aplica os campos alterados localmente
+e preserva atualizações do servidor nos demais campos.

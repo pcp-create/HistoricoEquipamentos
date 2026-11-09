@@ -14,3 +14,19 @@ export function writeReportDraft(storage:Pick<Storage,'setItem'|'removeItem'>,ke
  if(sameReportDraft(base,value))storage.removeItem(key);
  else storage.setItem(key,JSON.stringify({schema:1,context,base,value,updatedAt:new Date().toISOString()} satisfies StoredReportDraft));
 }
+
+// Reapply only locally edited values, retaining unrelated updates from the server.
+export function recoverReportDraft(base:ReportStageDraft,local:ReportStageDraft,server:ReportStageDraft):ReportStageDraft{
+ const merge=(before:any,phone:any,remote:any):any=>{
+  if(sameReportDraft(before,phone))return remote;
+  if(object(before)&&object(phone)&&object(remote)){
+   const result:any={};
+   for(const key of new Set([...Object.keys(before),...Object.keys(phone),...Object.keys(remote)])){
+    const value=merge(before[key],phone[key],remote[key]);if(value!==undefined)result[key]=value;
+   }
+   return result;
+  }
+  return phone;
+ };
+ return merge(base,local,server);
+}

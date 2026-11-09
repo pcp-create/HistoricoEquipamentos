@@ -1,18 +1,33 @@
 "use client";
 import {useEffect,useState} from 'react';
+import EmailRecipientsField from './email-recipients-field';
+import EmailMessageEditor from './email-message-editor';
 import {Mail,Download} from 'lucide-react';
 import {gmailDraftError} from "@/lib/service-scheduling/gmail-draft-error";
 import {emailRecipients,reportAttachmentName} from '@/lib/service-scheduling/email-recipients';
 import {canEmailOperation} from '@/lib/service-scheduling/customer-email-operations';
 import {operationNumber} from '@/lib/service-scheduling/operation-number';
 import {summaryReportFilename} from '@/lib/service-scheduling/report-filename';
+import {emailTextHtml} from '@/lib/service-scheduling/email-body-text';
 import {companyName} from '@/lib/company-names';
-import {defaultCustomerEmail,fillCustomerEmail} from '@/lib/service-scheduling/customer-email-template';
+import {customerEmailEquipment,equipmentEmailBodyTemplate} from '@/lib/service-scheduling/customer-email-equipment';
+import {defaultCustomerEmail,fillCustomerEmail,fillCustomerEmailHtml} from '@/lib/service-scheduling/customer-email-template';
 export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=>void}){
  const order=data.detail?.order||{},config={...defaultCustomerEmail,...data.settings?.document?.customerEmail};
- const values={os:String(order.numero_sequencia||data.schedule.order_id),cliente:order.cliente_nome||order.cliente_razao_social||'',equipamento:order.equipamento||'',empresa:companyName(data.schedule.company_id),responsavel:data.users?.find((u:any)=>u.email===data.email)?.display_name||data.email||''};
- const [to,setTo]=useState(order.cliente_email||order.payload?.clienteEmail||''),[subject,setSubject]=useState(()=>fillCustomerEmail(config.subject,values)),[body,setBody]=useState(()=>fillCustomerEmail(config.body,values));
+ const values={os:String(order.numero_sequencia||data.schedule.order_id),cliente:order.cliente_nome||order.cliente_razao_social||'',...customerEmailEquipment(order,(data.operations||[]).filter(canEmailOperation)),empresa:companyName(data.schedule.company_id),responsavel:data.users?.find((u:any)=>u.email===data.email)?.display_name||data.email||''};
+ const [to,setTo]=useState(order.cliente_email||order.payload?.clienteEmail||''),[subject,setSubject]=useState(()=>fillCustomerEmail(config.subject,values).replace(/[\r\n]+/g,'; ')),[body,setBody]=useState(()=>fillCustomerEmail(equipmentEmailBodyTemplate(config.body),values));
+ const [recipientDraft,setRecipientDraft]=useState('');
+ const effectiveTo=[to,recipientDraft.trim()].filter(Boolean).join(', ');
+ const htmlTemplate=config.bodyHtml?(config.bodyHtml+(/\{equipamento(?:_\d{2,3})?\}/.test(config.body)?'':emailTextHtml('\n\nEquipamentos atendidos:\n{equipamento}'))):undefined;
+ const [bodyHtml,setBodyHtml]=useState<string|undefined>(()=>htmlTemplate?fillCustomerEmailHtml(htmlTemplate,values):undefined);
  const [operations,setOperations]=useState<any[]>(data.operations||[]),[selectedIds,setSelectedIds]=useState<string[]>((data.operations||[]).filter(canEmailOperation).map((op:any)=>op.id)),[filenameEdited,setFilenameEdited]=useState(false);
+ const [subjectEdited,setSubjectEdited]=useState(false),[bodyEdited,setBodyEdited]=useState(false),[bodyResetKey,setBodyResetKey]=useState(0),[editedEquipment,setEditedEquipment]=useState('');
+ const equipmentValues=customerEmailEquipment(order,operations.filter(op=>selectedIds.includes(op.id)));
+ const activeValues={...values,...equipmentValues};
+ const suggestedHtml=htmlTemplate?fillCustomerEmailHtml(htmlTemplate,activeValues):undefined;
+ const suggestedSubject=fillCustomerEmail(config.subject,activeValues).replace(/[\r\n]+/g,'; '),suggestedBody=fillCustomerEmail(equipmentEmailBodyTemplate(config.body),activeValues),equipmentSignature=JSON.stringify(equipmentValues);
+ useEffect(()=>{if(!subjectEdited)setSubject(suggestedSubject);},[suggestedSubject,subjectEdited]);
+ useEffect(()=>{if(!bodyEdited){setBody(suggestedBody);setBodyHtml(suggestedHtml);setBodyResetKey(key=>key+1);}},[suggestedBody,suggestedHtml,bodyEdited]);
  const [filename,setFilename]=useState(()=>summaryReportFilename(order,data.operations||[],String(data.schedule.order_id)));
  const [contacts,setContacts]=useState<any[]>([]),[contactsReady,setContactsReady]=useState(false),[contactError,setContactError]=useState(''),[canCreate,setCanCreate]=useState(false),[showContact,setShowContact]=useState(false),[savingContact,setSavingContact]=useState(false);
  const [contact,setContact]=useState({email:'',name:'',job_title:'',phone:''});
@@ -33,10 +48,10 @@ export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=
   return()=>{script.removeEventListener('load',loaded);script.removeEventListener('error',failed);};
  },[config.gmailClientId]);
  async function prepare(){
-  const response=await fetch('/api/service-scheduling/customer-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scheduleId:String(data.schedule.id),to,subject,body,operationIds:selectedIds,reportFilename:filename})});
+  const response=await fetch('/api/service-scheduling/customer-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scheduleId:String(data.schedule.id),to:effectiveTo,subject,body,bodyHtml,operationIds:selectedIds,reportFilename:filename})});
   const result=await response.json();if(!response.ok)throw Error(result.error||'Não foi possível preparar o e-mail.');return result;
  }
- function valid(){try{emailRecipients(to);reportAttachmentName(filename);return !!(selectedIds.length&&subject.trim()&&body.trim());}catch{return false;}}
+ function valid(){try{emailRecipients(effectiveTo);reportAttachmentName(filename);return !!(selectedIds.length&&subject.trim()&&body.trim()&&body.length<=10000&&(bodyHtml===undefined||bodyHtml.length<=100000));}catch{return false;}}
  async function download(){
   if(busy||!contactsReady||savingContact||!valid())return;setBusy(true);setError('');setMessage('');setGmailHelp(false);
   try{const result=await prepare(),encoded=result.raw.replace(/-/g,'+').replace(/_/g,'/');const bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
@@ -66,27 +81,27 @@ export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=
  }
  return <form className="customer-report-email" onSubmit={e=>{e.preventDefault();void download();}}>
   <h3>Enviar relatório por e-mail</h3>
-  <fieldset disabled={busy||!contactsReady}><legend>Operações do relatório</legend>
-   <label style={{display:'flex',alignItems:'center',gap:8}}><input type="checkbox" style={{width:'auto'}} checked={operations.some(canEmailOperation)&&selectedIds.length===operations.filter(canEmailOperation).length} onChange={e=>chooseOperations(e.target.checked?operations.filter(canEmailOperation).map(op=>op.id):[])}/>Selecionar todas as operações revisadas</label>
-   {operations.map(op=><label key={op.id} style={{display:'flex',alignItems:'center',gap:8}}><input type="checkbox" style={{width:'auto'}} disabled={!canEmailOperation(op)} checked={selectedIds.includes(op.id)} onChange={e=>chooseOperations(e.target.checked?[...selectedIds,op.id]:selectedIds.filter(id=>id!==op.id))}/><span>Operação {operationNumber(op.position)} · {op.document?.description||op.document?.serviceType||'Sem descrição'}{!canEmailOperation(op)?' — indisponível: revisão ou relatório pendente':''}</span></label>)}
+  <fieldset className="email-operation-selection" disabled={busy||!contactsReady}><legend>Operações do relatório</legend>
+   <label className="email-operation-choice email-operation-select-all"><input type="checkbox" checked={operations.some(canEmailOperation)&&selectedIds.length===operations.filter(canEmailOperation).length} onChange={e=>chooseOperations(e.target.checked?operations.filter(canEmailOperation).map(op=>op.id):[])}/>Selecionar todas as operações revisadas</label>
+   {operations.map(op=><label key={op.id} className="email-operation-choice" data-disabled={!canEmailOperation(op)}><input type="checkbox" disabled={!canEmailOperation(op)} checked={selectedIds.includes(op.id)} onChange={e=>chooseOperations(e.target.checked?[...selectedIds,op.id]:selectedIds.filter(id=>id!==op.id))}/><span>Operação {operationNumber(op.position)} · {op.document?.description||op.document?.serviceType||'Sem descrição'}{!canEmailOperation(op)?' — indisponível: revisão ou relatório pendente':''}</span></label>)}
    {contactsReady&&!selectedIds.length&&<small>Selecione pelo menos uma operação revisada com relatório técnico.</small>}
   </fieldset>
-  <label>Destinatários<input type="text" aria-label="Destinatários" required maxLength={6000} value={to} disabled={busy} onChange={e=>setTo(e.target.value)}/></label>
-  <small>Separe os e-mails por vírgula ou ponto e vírgula. O remetente será a conta Gmail que você autenticar.</small>
-  {contacts.filter(c=>c.email).length>0&&<label>Adicionar contato do cliente<select aria-label="Adicionar contato do cliente" value="" disabled={busy} onChange={e=>addRecipient(e.target.value)}><option value="">Selecione um contato</option>{contacts.filter(c=>c.email).map(c=><option key={c.id} value={c.email}>{c.name} · {c.email}{c.job_title?' · '+c.job_title:''}{c.phone?' · '+c.phone:''}</option>)}</select></label>}
-  {canCreate&&<button type="button" disabled={busy} onClick={()=>setShowContact(!showContact)}>{showContact?'Cancelar cadastro':'Cadastrar contato do cliente'}</button>}
-  {showContact&&<fieldset disabled={savingContact||busy}><legend>Contato do cliente</legend>{[['email','E-mail do contato'],['name','Nome do contato'],['job_title','Cargo'],['phone','Telefone']].map(([key,label])=><label key={key}>{label}<input type={key==='email'?'email':'text'} value={(contact as any)[key]} maxLength={key==='phone'?40:key==='email'?254:160} onChange={e=>setContact({...contact,[key]:e.target.value})}/></label>)}<button type="button" disabled={!contact.name.trim()||!contact.email.trim()} onClick={()=>void saveContact()}>{savingContact?'Salvando…':'Salvar contato'}</button></fieldset>}
-  {contactError&&<p role="alert">{contactError}</p>}
+  <EmailRecipientsField value={to} draft={recipientDraft} onChange={value=>{setTo(value);setConfirmSend(false);}} onDraftChange={value=>{setRecipientDraft(value);setConfirmSend(false);}} contacts={contacts} disabled={busy||savingContact||!contactsReady} canCreate={canCreate} onCreate={()=>setShowContact(!showContact)}>
+  {showContact&&<fieldset disabled={savingContact||busy}><legend>Contato do cliente</legend>{[['email','E-mail do contato'],['name','Nome do contato'],['job_title','Cargo'],['phone','Telefone']].map(([key,label])=><label key={key}>{label}<input type={key==='email'?'email':'text'} value={(contact as any)[key]} maxLength={key==='phone'?40:key==='email'?254:160} onChange={e=>setContact({...contact,[key]:e.target.value})}/></label>)}<div className="scheduling-actions"><button type="button" onClick={()=>setShowContact(false)}>Cancelar cadastro</button><button type="button" disabled={!contact.name.trim()||!contact.email.trim()} onClick={()=>void saveContact()}>{savingContact?'Salvando…':'Salvar contato'}</button></div></fieldset>}
+  {showContact&&contactError&&<p role="alert">{contactError}</p>}
+  </EmailRecipientsField>
+  {!showContact&&contactError&&<p role="alert">{contactError}</p>}
   <label>Nome do anexo<input aria-label="Nome do anexo" required maxLength={220} value={filename} disabled={busy||!contactsReady} onChange={e=>{setFilename(e.target.value);setFilenameEdited(true);}}/></label>
   <small>Relatório resumido em PDF. Este será o nome do arquivo anexado ao e-mail.</small>
-  <label>Assunto<input required maxLength={300} value={subject} disabled={busy} onChange={e=>setSubject(e.target.value)}/></label>
-  <label>Mensagem<textarea aria-label="Mensagem" required rows={9} maxLength={10000} value={body} disabled={busy} onChange={e=>setBody(e.target.value)}/></label>
+  <label>Assunto<input required maxLength={300} value={subject} disabled={busy} onChange={e=>{setSubject(e.target.value);setSubjectEdited(true);}}/></label>
+  {bodyEdited&&editedEquipment!==equipmentSignature&&<p className="email-equipment-update">Os equipamentos selecionados mudaram. Sua mensagem foi preservada. <button type="button" disabled={busy} onClick={()=>setBodyEdited(false)}>Reaplicar texto padrão com os equipamentos atuais</button><small>Substitui as edições e a formatação da mensagem.</small></p>}
+  <EmailMessageEditor initialText={body} initialHtml={bodyHtml} resetKey={bodyResetKey} disabled={busy} onChange={(text,html)=>{setBody(text);setBodyHtml(html);setBodyEdited(true);setEditedEquipment(equipmentSignature);}}/>
   <p>Confira os destinatários, o nome do anexo e a mensagem antes de enviar ou criar o rascunho.</p>
   {!config.gmailClientId&&<small>Para criar o rascunho diretamente no Gmail, configure a conexão Google em Configurações → Envio por e-mail.</small>}
   {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
   {gmailHelp&&<a href={'https://console.cloud.google.com/apis/library/gmail.googleapis.com?project='+encodeURIComponent(config.gmailClientId.split('-')[0])} target="_blank" rel="noopener noreferrer">Abrir Gmail API no Google Cloud para ativar</a>}
   {gmailUrl&&<a href={gmailUrl} target="_blank" rel="noreferrer">Abrir rascunhos no Gmail</a>}
-  {confirmSend&&<div role="dialog" aria-label="Confirmar envio do relatório"><p>Enviar o relatório para {to}?</p><p>Anexo: {filename}</p><p>Operações: {operations.filter(op=>selectedIds.includes(op.id)).map(op=>operationNumber(op.position)).join(', ')}</p><button type="button" disabled={busy} onClick={()=>gmail(true)}>Confirmar envio</button><button type="button" onClick={()=>setConfirmSend(false)}>Cancelar envio</button></div>}
+  {confirmSend&&<div role="dialog" aria-label="Confirmar envio do relatório"><p>Enviar o relatório para {effectiveTo}?</p><p>Anexo: {filename}</p><p>Operações: {operations.filter(op=>selectedIds.includes(op.id)).map(op=>operationNumber(op.position)).join(', ')}</p><button type="button" disabled={busy} onClick={()=>gmail(true)}>Confirmar envio</button><button type="button" onClick={()=>setConfirmSend(false)}>Cancelar envio</button></div>}
   <div className="scheduling-actions">{config.gmailClientId&&<button type="button" disabled={busy||!ready||!contactsReady||!valid()} onClick={()=>setConfirmSend(true)}><Mail size={16}/>Enviar diretamente pelo Gmail</button>}{config.gmailClientId&&<button type="button" disabled={busy||!ready||!contactsReady||!valid()} onClick={()=>gmail(false)}><Mail size={16}/>{busy?'Preparando…':'Criar rascunho no Gmail'}</button>}<button type="submit" disabled={busy||!contactsReady||!valid()}><Download size={16}/>{busy?'Preparando…':'Baixar e-mail com anexo'}</button><button type="button" disabled={busy} onClick={onClose}>Fechar</button></div>
  </form>;
 }

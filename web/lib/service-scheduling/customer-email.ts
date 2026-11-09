@@ -1,4 +1,5 @@
 import 'server-only';
+import {emailBodyHtml} from './email-body-html';
 import {selectEmailOperations} from './customer-email-operations';
 import {emailRecipients,reportAttachmentName} from './email-recipients';
 import {randomUUID} from 'node:crypto';
@@ -6,7 +7,7 @@ import {database} from '../db';
 import {Forbidden} from '../auth';
 import {orderReportPdf} from './order-report-store';
 export class CustomerEmailError extends Error {}
-export function emailMessage({to,subject,body,filename,pdf}:{to:string;subject:string;body:string;filename:string;pdf:Uint8Array}){
+export function emailMessage({to,subject,body,filename,pdf,bodyHtml}:{to:string;subject:string;body:string;filename:string;pdf:Uint8Array;bodyHtml?:string}){
  try{to=emailRecipients(to).join(',\r\n ');filename=reportAttachmentName(filename);}catch(e){throw new CustomerEmailError((e as Error).message);}
  if(!subject.trim()||subject.length>300||/[\r\n]/.test(subject))throw new CustomerEmailError('Informe um assunto válido.');
  if(!body.trim()||body.length>10000)throw new CustomerEmailError('Informe o texto do e-mail (até 10.000 caracteres).');
@@ -16,7 +17,11 @@ export function emailMessage({to,subject,body,filename,pdf}:{to:string;subject:s
  const nameParts=(encodedName.match(/%[0-9A-F]{2}|./g)||[]).reduce((parts:string[],token)=>{if(!parts.length||parts.at(-1)!.length+token.length>48)parts.push(token);else parts[parts.length-1]+=token;return parts;},[]);
  const fallback=filename.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7e]|["\\]/g,'_');
  const disposition='Content-Disposition: attachment; filename="'+fallback+'";\r\n'+nameParts.map((part,i)=>' filename*'+i+'*='+(i===0?"UTF-8''":'')+part).join(';\r\n');
- return ['X-Unsent: 1','To: '+to,'Subject: '+encodedSubject,'MIME-Version: 1.0','Content-Type: multipart/mixed; boundary="'+boundary+'"','','--'+boundary,'Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',base64(body),'--'+boundary,'Content-Type: application/pdf',disposition,'Content-Transfer-Encoding: base64','',base64(pdf),'--'+boundary+'--',''].join('\r\n');
+ let html:string|undefined;try{html=emailBodyHtml(bodyHtml);}catch(e){throw new CustomerEmailError((e as Error).message);}
+ const alternative='rj_alt_'+randomUUID();
+ const textPart=['Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',base64(body)];
+ const messagePart=html?['Content-Type: multipart/alternative; boundary="'+alternative+'"','','--'+alternative,...textPart,'--'+alternative,'Content-Type: text/html; charset=UTF-8','Content-Transfer-Encoding: base64','',base64(html),'--'+alternative+'--']:textPart;
+ return ['X-Unsent: 1','To: '+to,'Subject: '+encodedSubject,'MIME-Version: 1.0','Content-Type: multipart/mixed; boundary="'+boundary+'"','','--'+boundary,...messagePart,'--'+boundary,'Content-Type: application/pdf',disposition,'Content-Transfer-Encoding: base64','',base64(pdf),'--'+boundary+'--',''].join('\r\n');
 }
 export async function prepareCustomerEmail(input:any,actor:string){
  if(!/^\d{1,18}$/.test(input?.scheduleId||''))throw new CustomerEmailError('Programação inválida.');

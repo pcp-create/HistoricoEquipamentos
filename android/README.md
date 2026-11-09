@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.14
+# Portal Técnico RJ — APK 2.2.15
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -256,3 +256,12 @@ tem Limpar, Salvar e Cancelar, com confirmação antes da limpeza irreversível
 do campo. Cancelar mantém a assinatura previamente salva. A área de desenho
 acompanha a rotação do telefone e preserva os traços durante o redimensionamento.
 Falhas no envio mantêm a assinatura na tela para tentar novamente.
+
+
+## Versão 2.2.15 — relatório e sincronização
+
+- Salvar permanece visível: vermelho com alterações pendentes e cinza após salvar. Enviar só é habilitado com os campos obrigatórios preenchidos e o relatório salvo.
+- Recuperação automática do rascunho do aparelho, sem confirmação ou avisos de recuperação. Alterações locais são reaplicadas preservando atualizações de outros campos no servidor.
+- Salvamento automático em segundo plano permite continuar preenchendo. O envio encerra o apontamento ativo e abre a conferência de devolução de materiais para finalizar a operação.
+- Falhas definitivas da fila não bloqueiam registros independentes nem novas OSs. O painel permite excluir uma pendência com falha, mediante confirmação, preservando cópia para exportação.
+- Mantém o identificador e a assinatura existentes. Instalar como atualização, sem desinstalar nem limpar os dados.

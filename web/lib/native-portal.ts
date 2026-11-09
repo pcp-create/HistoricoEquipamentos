@@ -4,7 +4,7 @@ type NativePortal = {
   connection: () => Promise<boolean>;
   permissions: () => Promise<void>;
   launchOperation: () => Promise<string | null>;
-  message: (type: string) => Promise<any>;
+  message: (type: string, payload?:Record<string,unknown>) => Promise<any>;
   exportBackup: (data: string) => Promise<void>;
 };
 export function nativePortal(): NativePortal | undefined {

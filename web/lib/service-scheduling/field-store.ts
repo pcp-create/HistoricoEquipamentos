@@ -541,7 +541,7 @@ export async function fieldAction(b: any, email: string) {
     } else if (b.action === "report_send" || b.action === "report_send_partial") {
       if(reportSubmission(p.document.checklistRun))throw new FieldError("Relatório enviado. O planejador precisa reabrir a edição.");
       if(p.document.responsible!==email)throw new FieldError('Somente o responsável pode enviar o relatório.');
-      if((await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[p.id])).rows.length)throw new FieldError('Finalize os apontamentos abertos de toda a equipe antes de enviar o relatório.');
+      if(b.action==='report_send_partial'&&(await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[p.id])).rows.length)throw new FieldError('Finalize os apontamentos abertos de toda a equipe antes de enviar o relatório.');
       if(p.version!==b.version)throw new FieldError('O checklist foi atualizado. Reabra para carregar a versão atual.');
       if(!p.document.checklistId)throw new FieldError('Esta operação não possui checklist.');
       let current=p;
@@ -553,6 +553,18 @@ export async function fieldAction(b: any, email: string) {
       if(!current.document.checklistRun)throw new FieldError('Preencha e salve o relatório antes do envio.');
       const checklistRun=partial?structuredClone(current.document.checklistRun):prepareChecklistSubmission(current.document.checklistRun,email);
       validateRunAlertComments(checklistRun);
+      if(!partial&&active?.operation_id===p.id){
+        if(active.kind!=='work')throw new FieldError('Finalize o deslocamento informando o odômetro antes de enviar o relatório.');
+        if(await teamController(c,active.id))throw new FieldError('Peça a quem iniciou a atividade em equipe para encerrar o apontamento antes do envio.');
+        if(occurredMs<new Date(active.segment_at).getTime())throw new FieldError('O horário é anterior ao último apontamento.');
+        const totals=sessionTotals(active,occurredMs),stopDetails={sessionId:active.id,seconds:totals,closedByReport:true};
+        await c.query("UPDATE web_field_sessions SET state='finished',finished_at=$4,active_seconds=$2,pause_seconds=$3,segment_at=$4 WHERE id=$1",[active.id,totals.active,totals.pause,occurredAt]);
+        await c.query("INSERT INTO web_service_operation_events(operation_id,action,hours,actor,description,created_at) VALUES($1,'work_log',$2,$3,$4,$5)",[p.id,totals.active/3600,email,'Atividade encerrada automaticamente no envio do relatório',occurredAt]);
+        await c.query("INSERT INTO web_field_events(request_id,operation_id,actor,action,latitude,longitude,accuracy,located_at,document,created_at) VALUES($1,$2,$3,'stop',$4,$5,$6,$7,$8,$9)",[randomUUID(),p.id,email,location.latitude,location.longitude,location.accuracy,location.at,JSON.stringify(stopDetails),occurredAt]);
+        await syncTeam(c,active.id,'stop',stopDetails,location,occurredAt,email);
+      }
+      if(!partial&&(await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[p.id])).rows.length)throw new FieldError('Há apontamentos independentes da equipe em andamento. Solicite o encerramento antes de enviar o relatório.');
+
       const receipt={at:occurredAt,by:email,name:(await user(c,email)).display_name||email};
       if(partial)checklistRun.partialSubmission=receipt;
       else checklistRun.submission=receipt;

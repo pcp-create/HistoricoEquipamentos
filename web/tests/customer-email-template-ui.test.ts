@@ -1,0 +1,42 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {createServer} from 'node:http';
+import {chromium,expect} from '@playwright/test';
+import {cleanEmailBodyHtml} from '../lib/service-scheduling/email-body-html';
+import {validateCustomerEmail} from '../lib/service-scheduling/customer-email-template';
+test('formatted email defaults survive saving/reopening and selected equipment expansion',async()=>{
+ const base={subject:'OS {os}',body:'Olá {cliente}\n\nEquipamentos: {equipamento}\n\nContato',bodyHtml:'<p><strong>Olá {cliente}</strong></p><p>Equipamentos: <u>{equipamento}</u></p><p><a href="https://example.com/contato">Contato</a></p>',gmailClientId:''};
+ const compiled=await build({stdin:{contents:`import React,{useState}from'react';import{createRoot}from'react-dom/client';import Settings from'./components/schedule-customer-email-settings';import Email from'./components/customer-report-email';function App(){const[settings,setSettings]=useState(()=>({customerEmail:JSON.parse(localStorage.getItem('saved-email-config')||'null')||${JSON.stringify(base)}}));return <><Settings settings={settings} onChange={setSettings} busy={false} onSave={async value=>{localStorage.setItem('saved-email-config',JSON.stringify(value.customerEmail));return true;}}/><Email data={{schedule:{id:1,company_id:1,order_id:123},detail:{order:{numero_sequencia:123,cliente_nome:'Cliente Teste'}},settings:{document:settings},email:'planner'}} onClose={()=>{}}/></>}createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,outfile:'app.js',platform:'browser',jsx:'automatic'});
+ const server=createServer((req,res)=>{if(req.url==='/app.js'){res.setHeader('Content-Type','text/javascript');res.end(compiled.outputFiles[0].text);}else{res.setHeader('Content-Type','text/html');res.end('<div id="root"></div><script src="/app.js"></script>');}});
+ await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));const browser=await chromium.launch();
+ try{
+  const page=await browser.newPage();let prepared:any;
+  await page.route('**/api/service-scheduling/customer-email/contacts*',r=>r.fulfill({json:{defaultEmail:'client@example.com',contacts:[],canCreate:true,reportFilename:'OS 123.pdf',operations:[{id:'00000000-0000-4000-8000-000000000001',position:1,status:'reviewed',document:{equipmentId:'10',equipment:{label:'Compressor GA22',serial:'ABC'},description:'Manutenção',checklistRun:{}}},{id:'00000000-0000-4000-8000-000000000002',position:2,status:'reviewed',document:{equipmentId:'20',equipment:{label:'Secador SR30',serial:'DEF'},description:'Inspeção',checklistRun:{}}}]}}));
+  await page.route('**/api/service-scheduling/customer-email',r=>{prepared=r.request().postDataJSON();return r.fulfill({json:{raw:Buffer.from('MIME-Version: 1.0\r\n').toString('base64url'),filename:'OS 123.eml'}});});
+  await page.goto('http://127.0.0.1:'+(server.address() as any).port);
+  const settings=page.getByRole('group',{name:'Texto padrão do e-mail',exact:true}),editor=settings.getByRole('textbox',{name:'Texto padrão do e-mail',exact:true});
+  await expect(editor.locator('strong')).toHaveText('Olá {cliente}');
+  await editor.click();await editor.press('ControlOrMeta+a');
+  await settings.getByRole('button',{name:'Itálico',exact:true}).click();
+  await settings.getByLabel('Tamanho da fonte',{exact:true}).selectOption('18px');
+  await page.getByRole('button',{name:'Salvar configuração de e-mail',exact:true}).click();
+  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('saved-email-config')!));
+  const validated=validateCustomerEmail(saved);const safe=cleanEmailBodyHtml(validated.bodyHtml)!;
+  assert.match(safe,/<em>/);assert.match(safe,/font-size:18px/);assert.match(safe,/https:\/\/example.com\/contato/);
+  await page.reload();
+  await expect(editor.locator('em')).not.toHaveCount(0);
+  const message=page.getByRole('textbox',{name:'Mensagem',exact:true});
+  await expect(message.locator('strong')).toHaveText('Olá Cliente Teste');
+  await expect(message.locator('u')).toContainText('Compressor GA22 · Série ABC');
+  await expect(message.locator('u')).toContainText('Secador SR30 · Série DEF');
+  await page.getByRole('checkbox',{name:/Operação 02/}).uncheck();
+  await expect(message).not.toContainText('Secador SR30');
+  await expect(message).toContainText('· OP01 - Compressor GA22 · Série ABC');
+  await expect(message.locator('em')).not.toHaveCount(0);
+  await expect(message.locator('a')).toHaveAttribute('href','https://example.com/contato');
+  await page.getByRole('button',{name:'Baixar e-mail com anexo',exact:true}).click();
+  await expect(page.getByRole('status')).toContainText('E-mail baixado');
+  assert.match(prepared.bodyHtml,/<strong>/);assert.match(prepared.bodyHtml,/Olá Cliente Teste/);assert.match(prepared.bodyHtml,/<em>/);assert.match(prepared.bodyHtml,/Compressor GA22/);assert.doesNotMatch(prepared.bodyHtml,/Secador SR30|\{cliente\}|\{equipamento\}/);
+ }finally{await browser.close();await new Promise<void>(resolve=>server.close(()=>resolve()));}
+});

@@ -1,3 +1,4 @@
+import {cleanEmailBodyHtml} from './email-body-html';
 import {withMaterialMovements} from "./material-movements";
 import {flowOwnerRows} from "./flow-responsibility";
 import {flowAreaFromRows} from "./flow-responsibility-model";
@@ -258,6 +259,7 @@ export async function mutateSchedule(b: any, email: string) {
       let document;
       try {
         document = validateSettings(b.document);
+        if(document.customerEmail.bodyHtml)document.customerEmail.bodyHtml=cleanEmailBodyHtml(document.customerEmail.bodyHtml)!;
       } catch (e) {
         throw new ScheduleInputError((e as Error).message);
       }

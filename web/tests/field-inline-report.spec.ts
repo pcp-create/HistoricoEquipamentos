@@ -33,6 +33,8 @@ operation.version++;await r.fulfill({json:{saved:true}});}else {if(r.request().u
  await expect(page.getByRole('dialog')).toHaveCount(1);
  await page.getByRole('dialog').getByRole('button',{name:'Voltar',exact:true}).click();
  await page.clock.fastForward(16000);
+ await expect(page.locator('.field-inline-report').getByText('Rascunho salvo automaticamente.',{exact:true})).toBeAttached();
+ await page.clock.fastForward(16000);
  let release!:()=>void;
  const wait=new Promise<void>(r=>{release=r});
  let refreshes=0;

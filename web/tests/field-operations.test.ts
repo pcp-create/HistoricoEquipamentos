@@ -68,7 +68,9 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
       "030_service_schedule_visibility",
       "031_schedule_item_sources",
       "037_field_operations",
+      "038_time_adjustment_requests",
       "039_material_withdrawals",
+      "058_field_session_teams",
     ])
       await db.exec(
         readFileSync(
@@ -192,7 +194,8 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     assert.equal(afterSave.operation.document.checklistRun.stages.s2.answers.f2,'Dois');
     await assert.rejects(act('report_save',{version:afterSave.operation.version,stages:[{stageId:'s1',answers:{f1:'Não persistir'}},{stageId:'inexistente',answers:{}}]}));
     assert.equal((await fieldData('tech',id) as any).operation.document.checklistRun.stages.s1.answers.f1,'Um');
-    await assert.rejects(act('report_send',{version:afterSave.operation.version}),/Finalize os apontamentos/);
+    await assert.rejects(act('report_send',{version:afterSave.operation.version,stages:[{stageId:'s2',answers:{f2:''}}]}),/Texto/);
+    assert.equal((await db.query<any>('SELECT state FROM web_field_sessions WHERE id=$1',[reportSession])).rows[0].state,'running');
     await act('stop',{sessionId:reportSession});
     const stopped=await fieldData('tech',id);
     await act('report_send_partial',{version:stopped.operation.version,stages:[{stageId:'s2',answers:{f2:''}}]});
@@ -201,7 +204,14 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     assert.ok(partial.operation.document.checklistRun.partialSubmission.at);
     assert.equal(partial.operation.document.checklistRun.stages.s2.status,'released');
     await assert.rejects(act('report_send',{version:partial.operation.version}),/Texto/);
-    await act('report_send',{version:partial.operation.version,stages:[{stageId:'s2',answers:{f2:'Dois'}}]});
+    await act('start_work',{teamMembers:['helper']});
+    const beforeAutomaticStop:any=await fieldData('tech',id);
+    const sendRequest=randomUUID();
+    await act('report_send',{requestId:sendRequest,version:beforeAutomaticStop.operation.version,stages:[{stageId:'s2',answers:{f2:'Dois'}}]});
+    await act('report_send',{requestId:sendRequest,version:beforeAutomaticStop.operation.version});
+    assert.equal((await db.query<any>("SELECT count(*) count FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[id])).rows[0].count,0);
+    assert.equal((await db.query<any>("SELECT count(*) count FROM web_field_events WHERE operation_id=$1 AND actor='tech' AND action='stop' AND document->>'closedByReport'='true'",[id])).rows[0].count,1);
+
 
     await assert.rejects(act('start_work'),/Relatório enviado/);
     const sent:any=await fieldData('tech',id);

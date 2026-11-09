@@ -10,3 +10,12 @@ test('drafts survive a storage reload and are isolated by user, operation, stage
  storage.setItem(key,'broken json');assert.equal(readReportDraft(storage,key,'template-v1'),null);
  assert.throws(()=>writeReportDraft({...storage,setItem(){throw Error('quota')}},key,'template-v1',base,value),/quota/);
 });
+
+test('automatic phone recovery keeps local edits and unrelated server updates',async()=>{
+ const {recoverReportDraft}=await import('../lib/service-scheduling/report-draft');
+ const base:ReportStageDraft={answers:{a:'original',b:'original'},details:{a:{comment:'antes',photos:['1']}},equipmentId:'10',meterDate:'2026-11-05'};
+ const local={...base,answers:{a:'telefone',b:'original'},details:{a:{comment:'telefone',photos:['1']}}};
+ const server={...base,answers:{a:'sistema',b:'atualizado'},details:{a:{comment:'antes',photos:['1','2']}}};
+ assert.deepEqual(recoverReportDraft(base,local,server),{...base,answers:{a:'telefone',b:'atualizado'},details:{a:{comment:'telefone',photos:['1','2']}}});
+ assert.deepEqual(recoverReportDraft(base,{...base,answers:{b:"original"}},server).answers,{b:'atualizado'});
+});

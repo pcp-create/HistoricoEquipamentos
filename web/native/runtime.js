@@ -129,10 +129,10 @@ window.RJOffline = {
   connection: () => nativeCall("network", {}),
   permissions: () => nativeCall("permissions", {}),
   launchOperation: () => nativeCall("launchOperation", {}),
-  message: (type) =>
+  message: (type,payload={}) =>
     new Promise((resolve) =>
       handlers.message({
-        data: { type },
+        data: { ...payload,type },
         ports: [{ postMessage: async (result) => { if (typeof result.connected === "boolean") { result.serverConnected = result.connected; result.connected = await nativeCall("network", {}); } resolve(result); } }],
         waitUntil: (p) => p.catch(() => {}),
       }),

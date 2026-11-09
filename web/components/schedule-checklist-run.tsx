@@ -11,7 +11,7 @@ import {checklistProgress,progressLabels,checklistCounts} from '@/lib/service-sc
 import { ChevronRight, Plus, Minus } from "lucide-react";
 import SaveActionIcon from "./save-action-icon";
 import {useState,useEffect,useRef,useId} from 'react';
-import {hasAlertComment,requiresAlertComment,stagesOf,groupsOf,photoLimit,isStatusField,fieldOptions,type ChecklistField} from '@/lib/service-scheduling/checklists';
+import {validateAnswers,validateFieldDetails,validateAlertComments,hasAlertComment,requiresAlertComment,stagesOf,groupsOf,photoLimit,isStatusField,fieldOptions,type ChecklistField} from '@/lib/service-scheduling/checklists';
 import {apiFetch} from '@/lib/client-api-cache';
 import {DictationText,SignatureInput} from './checklist-inputs';
 import './schedule-checklists.css';
@@ -32,23 +32,28 @@ function scrollOpenedChecklist(event:React.SyntheticEvent<HTMLElement>) {
 
 }
 export default function ScheduleChecklistRun({operation,data,mutate,busy,dirty,renderActions,compact=false,readOnly=false}:any){
- const drafts=useRef<Record<string,()=>any>>({});
+ const drafts=useRef<Record<string,{get:()=>any;beginSave:(snapshot:any)=>void}>>({});
+ const [pendingStages,setPendingStages]=useState<Record<string,boolean>>({}),[isSaving,setIsSaving]=useState(false);
+ const [completeStages,setCompleteStages]=useState<Record<string,boolean>>({});
+ const hasPending=Object.values(pendingStages).some(Boolean);
  const stageAccordionName=useId();
  const section=useRef<HTMLElement>(null);
  const latest=useRef<any>({});latest.current={operation,data,mutate,busy,dirty,readOnly,renderActions};
  const timer=useRef<ReturnType<typeof setTimeout>|null>(null),saving=useRef<Promise<any>|null>(null);
  const [autoStatus,setAutoStatus]=useState('');
- function collect(changedOnly=false){return Object.values(drafts.current).map(get=>get()).filter(d=>d&&(!changedOnly||d.changed)).map(({changed,...payload}:any)=>payload);}
+ function collect(changedOnly=false){return Object.values(drafts.current).map(({get})=>get()).filter(d=>d&&(!changedOnly||d.changed)).map(({changed,...payload}:any)=>payload);}
  async function saveReport(automatic=false):Promise<any>{
   if(saving.current){await saving.current;return automatic?false:saveReport(false);}
   const current=latest.current;
   if(current.busy||current.dirty||current.readOnly||!current.renderActions)return false;
-  const stages=collect(automatic);if(!stages.length)return true;
+  const stages=collect(true);if(!stages.length)return true;
   if(automatic)setAutoStatus('Salvando rascunho automaticamente…');
-  const pending=Promise.resolve(current.mutate({action:'report_save',operationId:current.operation.id,version:current.operation.version,stages}));saving.current=pending;
+  for(const stage of stages)drafts.current[stage.stageId]?.beginSave(stage);
+  setIsSaving(true);
+  const pending=Promise.resolve(current.mutate({action:'report_save',operationId:current.operation.id,version:current.operation.version,stages},{background:automatic}));saving.current=pending;
   try{const result=await pending;if(automatic)setAutoStatus(result===false?'Rascunho mantido no aparelho. Use Salvar para tentar novamente.':'Rascunho salvo automaticamente.');return result;}
   catch{setAutoStatus('Rascunho mantido no aparelho. Use Salvar para tentar novamente.');return false;}
-  finally{saving.current=null;}
+  finally{saving.current=null;setIsSaving(false);}
  }
  function autoSave(){
   if(!latest.current.renderActions)return;
@@ -64,16 +69,16 @@ export default function ScheduleChecklistRun({operation,data,mutate,busy,dirty,r
  const locked=readOnly||busy||dirty||['completed','reviewed','awaiting_review'].includes(operation.status);
  return <section ref={section} className="checklist-run"><h4>{template.prefix?template.prefix+' — ':''}{template.name}</h4>{compact?null:<><p>Preencha os grupos de cada etapa. O rascunho é preservado neste aparelho durante o preenchimento. Depois, utilize Enviar relatório ao final do checklist. Fotos de até 20 MB cada, reduzidas automaticamente antes do envio.</p><p>Equipamento: {operation.document.equipment?.name||data.detail?.order?.equipamento||'Selecione o equipamento da OS ao registrar o horímetro.'}</p>
  {run&&canWork&&['reviewed','completed'].includes(operation.status)&&<a href={`/api/service-scheduling/checklist-pdf?operationId=${operation.id}`} target="_blank" rel="noreferrer">Gerar PDF do checklist</a>}</>}
- {stagesOf(template).map(stage=><Stage key={operation.id+':'+stage.id+':'+(run?.reportReturnedAt||'')} stageAccordionName={stageAccordionName} draftContext={reportDraftSignature({template:template.id,stage,returned:run?.reportReturnedAt||'',checklistId:operation.document.checklistId})} stage={stage} operation={operation} data={data} mutate={mutate} locked={locked} readOnly={readOnly} canWork={canWork} showStageSave={!renderActions} register={(id:string,get:any)=>{if(get)drafts.current[id]=get;else delete drafts.current[id];}}/>)}
+ {stagesOf(template).map(stage=><Stage key={operation.id+':'+stage.id+':'+(run?.reportReturnedAt||'')} stageAccordionName={stageAccordionName} draftContext={reportDraftSignature({template:template.id,stage,returned:run?.reportReturnedAt||'',checklistId:operation.document.checklistId})} stage={stage} operation={operation} data={data} mutate={mutate} locked={locked} readOnly={readOnly} canWork={canWork} showStageSave={!renderActions} onCompleteChange={(id:string,complete:boolean)=>setCompleteStages(previous=>previous[id]===complete?previous:{...previous,[id]:complete})} onPendingChange={(id:string,changed:boolean)=>setPendingStages(previous=>previous[id]===changed?previous:{...previous,[id]:changed})} register={(id:string,get:any,beginSave:any)=>{if(get)drafts.current[id]={get,beginSave};else delete drafts.current[id];}}/>)}
  {autoStatus&&<p className="checklist-autosave-status" role="status">{autoStatus}</p>}
- {renderActions?.(()=>saveReport(false),()=>collect())}
+ {renderActions?.(()=>saveReport(false),()=>collect(),{pending:hasPending,saving:isSaving,complete:stagesOf(template).every(stage=>completeStages[stage.id]),waitForSave:async()=>{if(timer.current){clearTimeout(timer.current);timer.current=null;}if(saving.current)await saving.current;}})}
  </section>;
 }
 function Progress({fields,answers}: {fields:ChecklistField[],answers:Record<string,any>}) {
  const status=checklistProgress(fields,answers);
  return <span className={'checklist-progress checklist-progress-'+status} role="img" aria-label={progressLabels[status]} title={progressLabels[status]}/>;
 }
-function Stage({draftContext,stageAccordionName,stage,operation,data,mutate,locked,readOnly,canWork,showStageSave,register}:any){
+function Stage({draftContext,stageAccordionName,stage,operation,data,mutate,locked,readOnly,canWork,showStageSave,register,onPendingChange,onCompleteChange}:any){
  const groupAccordionName=useId();
  const run=operation.document.checklistRun,saved=run?.stages[stage.id]||{status:'pending',answers:{}};
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -89,8 +94,15 @@ function Stage({draftContext,stageAccordionName,stage,operation,data,mutate,lock
   ? String(selectedEquipment.equipment_id)+' - '+selectedEquipment.name+(selectedEquipment.serial&&!String(selectedEquipment.name).includes(String(selectedEquipment.serial))?' - SÉRIE '+selectedEquipment.serial:'')
   : operation.document.equipment?.name||data.detail?.order?.equipamento||equipmentId;
 
- useEffect(()=>{register(stage.id,()=>saved.status==='released'?{stageId:stage.id,...draft.current.current,changed:draft.changed}:null);return()=>register(stage.id,null);});
+ useEffect(()=>{register(stage.id,()=>saved.status==='released'?{stageId:stage.id,...draft.current.current,changed:draft.changed}:null,(snapshot:any)=>{const {stageId,...value}=snapshot;draft.beginSave(value);});return()=>register(stage.id,null);});
  const edited=draft.changed;
+ let complete=saved.status!=='pending';
+ try{validateAnswers(stage,answers,true);validateFieldDetails(stage,details);validateAlertComments(stage,answers,details);
+ if(groupsOf(stage).some(group=>group.fields.some(field=>field.type==='meter'&&answers[field.id]!=null))&&(!equipmentId||!meterDate))complete=false;
+ }catch{complete=false;}
+ useEffect(()=>{onCompleteChange(stage.id,complete);},[stage.id,complete]);
+ useEffect(()=>{onPendingChange(stage.id,saved.status==='released'&&edited);},[stage.id,edited,saved.status]);
+ useEffect(()=>()=>onPendingChange(stage.id,false),[stage.id]);
  const disabled=locked||busy||!canWork||saved.status!=='released';
  const answer=(id:string,v:any)=>draft.update({answers:{...draft.current.current.answers,[id]:v}});
  const detail=(id:string,key:string,v:any)=>draft.update({details:{...draft.current.current.details,[id]:{...draft.current.current.details[id],[key]:v}}});
@@ -138,10 +150,8 @@ function Stage({draftContext,stageAccordionName,stage,operation,data,mutate,lock
  </div>;
  })}</fieldset></Container>;})}
  </div>}
- {draft.recovered&&edited&&<p className="checklist-autosave-status" role="status">Rascunho recuperado deste aparelho.</p>}
- {draft.conflict&&<p role="alert">Existe um rascunho deste aparelho, mas o relatório também mudou no sistema. Confira antes de recuperar.{!disabled&&<button type="button" onClick={draft.restore}>Recuperar rascunho do aparelho</button>}</p>}
  {draft.storageError&&<p role="alert">{draft.storageError}</p>}
  {error&&<p role="alert">{error}</p>}
- <div className="checklist-toolbar">{saved.status==='pending'&&data.canEditSettings&&<button type="button" disabled={locked||busy} onClick={()=>void act('checklist_release')}>Liberar etapa para o técnico</button>}{showStageSave&&!readOnly&&saved.status==='released'&&canWork&&<><button type="button" disabled={disabled} onClick={()=>void act('checklist_save')} aria-label="Salvar rascunho da etapa" title="Salvar rascunho da etapa"><SaveActionIcon /></button></>}{saved.status==='submitted'&&data.canEditSettings&&<button type="button" disabled={locked||busy} onClick={()=>void act('checklist_reopen')}>Reabrir para correção</button>}</div>
+ <div className="checklist-toolbar">{saved.status==='pending'&&data.canEditSettings&&<button type="button" disabled={locked||busy} onClick={()=>void act('checklist_release')}>Liberar etapa para o técnico</button>}{showStageSave&&edited&&!readOnly&&saved.status==='released'&&canWork&&<><button type="button" disabled={disabled} onClick={()=>void act('checklist_save')} aria-label="Salvar rascunho da etapa" title="Salvar rascunho da etapa"><SaveActionIcon /></button></>}{saved.status==='submitted'&&data.canEditSettings&&<button type="button" disabled={locked||busy} onClick={()=>void act('checklist_reopen')}>Reabrir para correção</button>}</div>
  </details>;
 }

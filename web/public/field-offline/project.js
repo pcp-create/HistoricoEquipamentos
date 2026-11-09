@@ -9,7 +9,7 @@ function projectField(home, detail, body) {
   const submitted=!!(detail.reportSubmission||op.document.checklistRun?.submission);
   const returnsOnly=submitted||['awaiting_review','reviewed','completed'].includes(op.status);
   if(submitted&&['start_work','start_travel','pause','resume','stop'].includes(action))throw Error('Relatório enviado. Novos apontamentos exigem devolução pelo planejador.');
-  if(['report_send','report_send_partial'].includes(action)&&(detail.active||home.active)?.operation_id===op.id)throw Error('Finalize o apontamento aberto antes de enviar o relatório.');
+  if(action==='report_send_partial'&&(detail.active||home.active)?.operation_id===op.id)throw Error('Finalize o apontamento aberto antes de enviar o relatório.');
   if (action === "report_send") {
     const run = op.document.checklistRun;
     if (!run?.template) throw Error("Baixe o checklist antes de enviar o relatório.");
@@ -32,6 +32,16 @@ function projectField(home, detail, body) {
   let active = home.active,
     closed = null;
   const same = active?.operation_id === op.id;
+  if(action==='report_send'&&same){
+    if(active.kind!=='work')throw Error('Finalize o deslocamento informando o odômetro antes de enviar o relatório.');
+    if(active.teamController)throw Error('Peça a quem iniciou a atividade em equipe para encerrar o apontamento.');
+    const seconds=Math.max(0,(Date.parse(at)-Date.parse(active.segment_at))/1000);
+    if(active.state==='running')active.active_seconds=Number(active.active_seconds)+seconds;else active.pause_seconds=Number(active.pause_seconds)+seconds;
+    active.segment_at=at;
+    detail.progress={...detail.progress,work:true};
+    detail.pause_history_seconds=Number(detail.pause_history_seconds||0)+Number(active.pause_seconds||0);
+    closed={...active,state:'finished',finished_at:at,closedByReport:true};active=null;
+  }
   if (action === "info_read") detail.infoRead = true;
   if (action === "materials") {
     detail.checked = true;

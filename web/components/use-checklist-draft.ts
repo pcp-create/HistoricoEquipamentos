@@ -1,8 +1,9 @@
 "use client";
 import {useEffect,useRef,useState} from 'react';
-import {readReportDraft,writeReportDraft,reportDraftSignature,sameReportDraft,type ReportStageDraft,type StoredReportDraft} from '@/lib/service-scheduling/report-draft';
+import {recoverReportDraft,readReportDraft,writeReportDraft,reportDraftSignature,sameReportDraft,type ReportStageDraft} from '@/lib/service-scheduling/report-draft';
 export function useChecklistDraft(key:string,context:string,server:ReportStageDraft,editable:boolean){
- const [value,setValue]=useState(server),[storageError,setStorageError]=useState(''),[recovered,setRecovered]=useState(false),[conflict,setConflict]=useState<StoredReportDraft|null>(null);
+ const [value,setValue]=useState(server),[storageError,setStorageError]=useState('');
+ const savingSnapshots=useRef<ReportStageDraft[]>([]);
  const current=useRef(server),base=useRef(server),allowed=useRef(editable);allowed.current=editable;
  const signature=reportDraftSignature(server);
  function persist(next:ReportStageDraft){
@@ -12,13 +13,17 @@ export function useChecklistDraft(key:string,context:string,server:ReportStageDr
  useEffect(()=>{
   base.current=server;
   let next=server;
+  const acknowledged=savingSnapshots.current.some(snapshot=>sameReportDraft(snapshot,server));
   try{
    const cached=key?readReportDraft(localStorage,key,context):null;
-   if(cached){
-    if(sameReportDraft(cached.value,server)){localStorage.removeItem(key);setConflict(null);setRecovered(false);}
-    else if(editable&&sameReportDraft(cached.base,server)){next=cached.value;setRecovered(true);setConflict(null);}
-    else {setConflict(cached);setRecovered(false);}
-   }else {setConflict(null);setRecovered(false);}
+   if(acknowledged){
+    next=current.current;savingSnapshots.current=[];
+    if(key)writeReportDraft(localStorage,key,context,server,next);
+   }else if(cached){
+    if(sameReportDraft(cached.value,server)){localStorage.removeItem(key);}
+    else if(sameReportDraft(cached.base,server)){next=cached.value;}
+    else if(editable){next=recoverReportDraft(cached.base,cached.value,server);writeReportDraft(localStorage,key,context,server,next);}
+   }else {}
   }catch{setStorageError('Não foi possível ler o rascunho do aparelho. Use Salvar para confirmar as alterações.');}
   current.current=next;setValue(next);
  },[key,context,signature,editable]);
@@ -28,5 +33,5 @@ export function useChecklistDraft(key:string,context:string,server:ReportStageDr
   window.addEventListener('pagehide',flush);window.addEventListener('rj-report-persist',flush);document.addEventListener('visibilitychange',flush);
   return()=>{flush();window.removeEventListener('pagehide',flush);window.removeEventListener('rj-report-persist',flush);document.removeEventListener('visibilitychange',flush);};
  },[key,context]);
- return {value,current,update,storageError,recovered,conflict,restore(){if(!allowed.current||!conflict)return;update(conflict.value);setConflict(null);setRecovered(true);},changed:!sameReportDraft(server,value)};
+ return {value,current,update,beginSave(snapshot:ReportStageDraft){savingSnapshots.current.push(structuredClone(snapshot));},storageError,changed:!sameReportDraft(server,value)};
 }

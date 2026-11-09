@@ -126,3 +126,10 @@
 .field-sync-actions {display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .field-sync-actions button {justify-content:center!important;padding:10px!important;font-size:13px!important;}
 .field-sync-panel li b {display:flex;align-items:center;gap:6px;}
+.field-sync-panel .field-sync-discard {display:inline-flex;align-items:center;gap:6px;padding:6px 8px;margin-top:5px;font-size:12px;color:#ad3940;border-color:#e8cbd0;background:#fff;}
+.field-sync-notice {padding:10px;border-radius:8px;background:#fff7e6;color:#84651e;font-size:12px;line-height:1.5;}
+.field-sync-discard-confirm {padding:14px;border:1px solid #e7cbd0;border-radius:10px;background:#fff8f8;margin:12px 0;}
+.field-sync-discard-confirm p {font-size:13px;line-height:1.5;}
+.field-sync-discard-confirm label {display:flex;align-items:center;gap:8px;font-size:12px;}
+.field-sync-discard-confirm input[type=checkbox] {width:16px;height:16px;min-height:0;margin:0;flex:0 0 16px;}
+.field-sync-discard-confirm > div {display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}

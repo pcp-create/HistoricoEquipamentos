@@ -377,6 +377,8 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     return () => cancelAnimationFrame(frame);
   }, [open]);
   const lastLoadedAt=useRef(0),reportOpening=useRef(false);
+  const actionQueue=useRef<Promise<any>>(Promise.resolve()),latestData=useRef<any>(null),sendingReport=useRef(false),backgroundSavePending=useRef(false);
+  const [finishAfterMaterials,setFinishAfterMaterials]=useState(false);
   const [teamPicker,setTeamPicker]=useState(false);
   const [reportLoading,setReportLoading]=useState(false);
   const [data, setData] = useState<any>(null),
@@ -389,7 +391,8 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     [reason, setReason] = useState("");
   async function load() {
     try {
-      setData(await api("/api/field?operation=" + row.id));
+      const loaded=await api("/api/field?operation=" + row.id);
+      if(Number(loaded.operation?.version||0)>=Number(latestData.current?.operation?.version||0)){latestData.current=loaded;setData(loaded);}
       lastLoadedAt.current=Date.now();
       setError("");
     } catch (e) {
@@ -416,13 +419,14 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     return () => { clearInterval(timer); window.removeEventListener('focus', refreshLocked); };
   }, [open, data?.reportSubmission?.at, data?.operation.status]);
 
-  async function act(body: any) {
-    setError("");
-    setMessage("");
-    setBusy(true);
+  function act(body:any,options:{background?:boolean}={}){
+    if(options.background)backgroundSavePending.current=true;
+    const pending=actionQueue.current.catch(()=>{}).then(()=>performAction(body,!!options.background)).finally(()=>{if(options.background)backgroundSavePending.current=false;});actionQueue.current=pending;return pending;
+  }
+  async function performAction(body: any,background=false) {
+    if(!background){setError("");setMessage("");setBusy(true);}
     try {
       if (body.action === "report_send") {
-        if(data.active&&data.active.operation_id===row.id)throw Error("Finalize o apontamento aberto antes de enviar o relatório.");
         const run = data?.operation.document.checklistRun;
         const template = run?.template || data?.settings.document.checklists.find((item:any)=>item.id===data.operation.document.checklistId);
         if (!template) throw Error("Carregue o checklist antes de enviar o relatório.");
@@ -438,19 +442,20 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
       const location = await position();
       const result=await api("/api/field", {
         ...body,
+        ...(body.version!==undefined?{version:latestData.current?.operation.version??body.version}:{}),
         operationId: row.id,
         requestId: crypto.randomUUID(),
         location,
       });
       await Promise.all([body.action!=="report_return"?load():Promise.resolve(),refresh()]);
-      setMessage(result.queued?"Salvo no dispositivo. Aguardando sincronização.":"Registro salvo.");
+      if(!background)setMessage(result.queued?"Salvo no dispositivo. Aguardando sincronização.":"Registro salvo.");
       return true;
     } catch (e) {
-      setError((e as Error).message);
+      if(!background)setError((e as Error).message);
       if(body.teamMembers)throw e;
       return false;
     } finally {
-      setBusy(false);
+      if(!background)setBusy(false);
     }
   }
   const operation = data?.operation,
@@ -492,6 +497,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
       setView('report');
       setError('');setMessage('');
       // The operation detail already includes the report. Reuse a recent response.
+      if(backgroundSavePending.current)return;
       if(data && Date.now()-lastLoadedAt.current<15000 && Number(row.version||0)<=Number(data.operation.version||0))return;
       reportOpening.current=true;setReportLoading(true);
       try{await load();}finally{reportOpening.current=false;setReportLoading(false);}
@@ -510,7 +516,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
         <p>Há peças não utilizadas que ainda não foram devolvidas?</p>
         <p>Se houver, registre a devolução no módulo <strong>Peças</strong> antes de encerrar a operação. Isso libera o saldo para outras operações.</p>
         <div className="field-finish-actions">
-          <button type="button" autoFocus onClick={() => { setConfirmFinish(false); void show("parts"); }}>Sim, ir para Peças</button>
+          <button type="button" autoFocus onClick={() => { setConfirmFinish(false); setFinishAfterMaterials(!!data?.reportSubmission); void show("parts"); }}>Sim, ir para Peças</button>
           <button type="button" disabled={!canFinish} onClick={async () => {
             setConfirmFinish(false);
             if (await act({ action: "finish_full" })) setView("");
@@ -558,7 +564,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                     busy={busy}
                     dirty={false}
                     mutate={act}
-                    renderActions={(save:()=>Promise<any>,getDrafts:()=>any[])=><div className="field-report-footer">
+                    renderActions={(save:()=>Promise<any>,getDrafts:()=>any[],saveState:any)=><div className="field-report-footer">
                       {busy&&<p role="status">Obtendo localização e salvando…</p>}
                       {error&&<p className="field-error" role="alert">{error}</p>}
                       {message&&<p className="field-success" role="status">{message}</p>}
@@ -566,14 +572,14 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                         {checklistRun?.partialSubmission&&<p className="field-success">Enviado parcial em {new Date(checklistRun.partialSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {checklistRun.partialSubmission.name||checklistRun.partialSubmission.by}. Você pode continuar editando.</p>}
                         <div className="field-report-actions">
                           <FieldPdfButton operationId={row.id}/>
-                          <button disabled={!ready||!reportActivityRunning||reportLoading} onClick={()=>void save()}><SaveActionIcon/> Salvar</button>
+                          <button className={"field-report-save"+(saveState.pending?" has-pending":"")} disabled={!saveState.pending||!ready||!reportActivityRunning||reportLoading||saveState.saving} onClick={()=>void save()}><SaveActionIcon/> Salvar</button>
                           <button type="button" disabled={busy||reportLoading||locked||!!checklistRun?.partialSubmission||operation.document.responsible!==data.email} onClick={async()=>{
                             const reason=window.prompt('Informe o motivo da devolução do checklist');
                             if(!reason?.trim())return;
                             if(!window.confirm('Devolver ao planejamento? O preenchimento e as fotos serão preservados. Os dados só serão apagados se o planejador confirmar a substituição do checklist.'))return;
                             if(await act({action:'report_return',version:operation.version,reason,confirmReturn:true,stages:getDrafts()}))setView('');
                           }}><ArrowLeft size={18}/> Devolver</button>
-                          <button disabled={!ready||reportLoading||operation.document.responsible!==data.email} onClick={async()=>{if(await act({action:'report_send',version:operation.version,stages:getDrafts()}))setView('');}}><Flag size={18}/> Enviar</button>
+                          <button className="field-report-send" disabled={!ready||reportLoading||saveState.pending||saveState.saving||!saveState.complete||operation.document.responsible!==data.email} onClick={async()=>{if(sendingReport.current||saveState.pending||saveState.saving||!saveState.complete)return;sendingReport.current=true;setBusy(true);try{await saveState.waitForSave();if(await act({action:'report_send',version:operation.version,stages:getDrafts()})){setView('send');setConfirmFinish(true);}}finally{sendingReport.current=false;setBusy(false);}}}><Flag size={18}/> Enviar</button>
                         </div>
                       </>}
                     </div>}
@@ -756,7 +762,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                 </section>
               )}
               {view === "parts" && <Parts data={data} returnsOnly={locked||!!data.reportSubmission} busy={busy} save={async (body: any) => {
-                if (await act(body)) setView("");
+                if (await act(body)) {if(finishAfterMaterials){if(await act({action:"finish_full"})){setFinishAfterMaterials(false);setView("");}else setView("send");}else setView("");}
               }} />}
               {view === "send" && (
                 <section className="field-panel">

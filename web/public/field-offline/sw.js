@@ -82,9 +82,39 @@ function replaceIds(value, mapping) {
     );
   return value;
 }
+function references(value,ids){
+  if(typeof value==='string')return [...ids].some(id=>value==='local-'+id);
+  return value&&typeof value==='object'&&Object.values(value).some(v=>references(v,ids));
+}
+function dependentIds(queue,id){
+  const ids=new Set([id]);let changed=true;
+  while(changed){changed=false;for(const item of queue)if(!ids.has(item.id)&&(ids.has(item.body?.offline?.previousRequestId)||references(item.body,ids))){ids.add(item.id);changed=true;}}
+  ids.delete(id);return ids;
+}
+function queueBlockers(queue){
+  const blocked=new Map();
+  for(const failed of queue.filter(item=>item.error||item.discardedDependency))for(const id of dependentIds(queue,failed.id))if(!blocked.has(id))blocked.set(id,'Depende de um registro com falha. Os registros independentes continuam sincronizando.');
+  return blocked;
+}
+async function discardPending(id,includeDependents=false){
+  if(flushing)throw Error('Aguarde a sincronização terminar antes de excluir.');
+  await exclusive(async()=>{
+    if(flushing)throw Error('Aguarde a sincronização terminar antes de excluir.');
+    const owner=await read('owner');if(!owner)throw Error('Entre no portal primeiro.');
+    const queue=(await read(owner+':queue'))||[],item=queue.find(v=>v.id===id),blockers=queueBlockers(queue);
+    if(!item||(!item.error&&!item.discardedDependency&&!blockers.has(id)))throw Error('Selecione um registro com falha ou bloqueado por uma falha.');
+    const dependents=dependentIds(queue,id),removed=new Set([id,...(includeDependents?dependents:[])]),remaining=queue.filter(v=>!removed.has(v.id));
+    if(!includeDependents)for(const pending of remaining)if(dependents.has(pending.id)){pending.discardedDependency=true;pending.error='O registro anterior foi excluído. Confira estes dados antes de reenviar ou excluir esta pendência.';pending.retryable=false;}
+    // Keep a recoverable copy of what was explicitly removed, including photos.
+    const archive=(await read(owner+':discardedQueue'))||[];
+    await write([[owner+':discardedQueue',[...archive,...queue.filter(v=>removed.has(v.id)).map(v=>({...v,discardedAt:new Date().toISOString()}))]],[owner+':queue',remaining],[owner+':unrefreshed',true]]);
+  });
+  await notify();
+}
 async function status() {
   const owner = await read("owner"),
     queue = owner ? ((self.nativeStorage?.readMetadata ? await self.nativeStorage.readMetadata(owner + ":queue") : await read(owner + ":queue")) || []) : [];
+  const blockers=queueBlockers(queue);
   return {
     owner,
     syncing: !!flushing,
@@ -99,19 +129,56 @@ async function status() {
       operationLabel: q.operationLabel,
       at: q.at,
       error: q.error,
+      blockedReason:q.discardedDependency?q.error:blockers.get(q.id),
+      dependents:dependentIds(queue,q.id).size,
     })),
     lastSync: owner ? await read(owner + ":lastSync") : null,
     prepared: owner ? await read(owner + ":prepared") : null,
+    discarded:owner?((await read(owner+':discardedQueue'))||[]).length:0,
   };
+}
+// Refresh unrelated operations without replacing local work still awaiting acknowledgement.
+function mergePendingHome(server,local,queue){
+  if(!local)return server;
+  const protectedIds=new Set(queue.map(item=>item.operationId));
+  const rows=(remote=[],saved=[])=>[...remote.filter(row=>!protectedIds.has(row.id)),...saved.filter(row=>protectedIds.has(row.id))];
+  const protectActive=protectedIds.has(local.active?.operation_id)||protectedIds.has(server.active?.operation_id);
+  return {...server,rows:rows(server.rows,local.rows),...(server.calendarRows||local.calendarRows?{calendarRows:rows(server.calendarRows||server.rows,local.calendarRows||local.rows)}:{}),active:protectActive?local.active||null:server.active};
+}
+const queueMetadata=async owner=>(self.nativeStorage?.readMetadata?await self.nativeStorage.readMetadata(owner+':queue'):await read(owner+':queue'))||[];
+async function refreshScheduling(owner,home,force=false){
+  if(!home){const response=await request('/api/field');if(!response.ok)throw Error('Não foi possível atualizar a programação.');home=await response.json();}
+  if(home.email!==owner)throw Error('Conta alterada.');
+  const pending=await queueMetadata(owner),protectedIds=new Set(pending.map(item=>item.operationId)),initialIds=new Set(pending.map(item=>item.id)),snapshots=[];
+  let complete=true;
+  const rows=new Map([...(home.rows||[]),...(home.calendarRows||[])].map(row=>[row.id,row]));
+  for(const row of rows.values()){
+    if((await queueMetadata(owner)).some(item=>!initialIds.has(item.id)&&!item.error)){complete=false;break;}
+    if(protectedIds.has(row.id))continue;
+    if((await read('owner'))!==owner)throw Error('Conta alterada.');
+    const url='/api/field?operation='+row.id,cached=await read(key(owner,url));
+    if(!force&&cached?.operation?.version!=null&&row.version===cached.operation.version)continue;
+    try{const response=await request(url);if(!response.ok)throw Error('Operação indisponível.');const detail=await response.json();if(detail.operation?.id!==row.id)throw Error('Operação inválida.');snapshots.push([row.id,url,detail]);}catch{complete=false;}
+  }
+  let logs;
+  if(!pending.length){const response=await request('/api/field/time-requests');if(response.ok)logs=await response.json();}
+  await exclusive(async()=>{
+    if((await read('owner'))!==owner)throw Error('Conta alterada.');
+    const currentQueue=await queueMetadata(owner),currentIds=new Set(currentQueue.map(item=>item.operationId)),local=await read(key(owner,'/api/field'));
+    const entries=[[key(owner,'/api/field'),mergePendingHome(home,local,currentQueue)],[owner+':server-home',home],['connected',true],[owner+':unrefreshed',!complete]];
+    for(const [id,url,detail]of snapshots)if(!currentIds.has(id))entries.push([key(owner,url),detail]);
+    if(logs&&!currentQueue.length)entries.push([key(owner,'/api/field/time-requests'),logs]);
+    if(complete)entries.push([owner+':prepared',new Date().toISOString()]);
+    await write(entries);
+  });
+  await notify();
 }
 async function cacheGet(url) {
   const owner = await read("owner");
   // A pending projection must not be replaced by stale server state.
-  if (
-    owner &&
-    (((await read(owner + ":queue")) || []).length ||
-      (await read(owner + ":unrefreshed")))
-  ) {
+  const pending=owner?await queueMetadata(owner):[];
+  const operationId=new URL(url,'https://portal.local').searchParams.get('operation');
+  if(owner&&pending.length&&(url==='/api/field'||url==='/api/field/time-requests'||pending.some(item=>item.operationId===operationId))) {
     const saved = await read(key(owner, url));
     if (saved) return json(saved);
   }
@@ -130,7 +197,7 @@ async function cacheGet(url) {
           ["owner", identity],
           ["connected", true],
         ]);
-        if (projected) return json(projected);
+        if(projected){const merged=mergePendingHome(body,projected,pending);await write([[key(identity,url),merged]]);return json(merged);}
       }
       await write([
         ["owner", identity],
@@ -349,7 +416,7 @@ async function flush() {
   const owner = await read("owner");
   if (!owner) return;
   const attempted=new Set();
-  let failedTimer=false;
+  const failedTimers=new Set();
   const timer=item=>item.type==="action"&&["start_work","start_travel","pause","resume","stop"].includes(item.body.action);
   async function nextItem(){
     const queue = (await read(owner+":queue")) || [];
@@ -361,9 +428,11 @@ async function flush() {
       return false;
     }
     return queue.find(item => !attempted.has(item.id)
+      && !item.discardedDependency
+      && !item.failedPermanent
       && !pendingIds.has(item.body?.offline?.previousRequestId)
       && !unresolved(item.body)
-      && !(failedTimer && timer(item))
+      && !(failedTimers.has(item.body?.offline?.timerChainId||item.operationId) && timer(item))
       && !(item.type === "action" && ["pause","stop","report_send","report_send_partial","report_return","finish_full"].includes(item.body.action)
         && queue.slice(0, queue.indexOf(item)).some(previous => previous.type === "photo" && previous.operationId === item.operationId)));
 
@@ -389,7 +458,7 @@ async function flush() {
         await write([[key(owner,"/api/field"),home]]);
         return true;
       });
-      if(idle)return;
+      if(idle){await refreshScheduling(owner,home);return;}
       let item = await nextItem();
       while (item) {
         if ((await read("owner")) !== owner)
@@ -437,13 +506,14 @@ async function flush() {
             if (pending) {
               pending.error = data.error || "Falha ao sincronizar.";
               pending.retryable = result.status === 408 || result.status === 429 || result.status >= 500 || (result.ok && (!parsed || (item.type==="photo"&&!/^\d+$/.test(String(data.id)))));
+              pending.failedPermanent=!pending.retryable&&result.status!==401&&typeof parsed?.error==='string';
             }
             await write([[owner + ":queue", queue]]);
           });
           if(result.status===401 || result.status>=500)await write([["connected",false]]);
           await notify();
           if(result.status===401)return;
-          if(timer(item))failedTimer=true;
+          if(timer(item))failedTimers.add(item.body?.offline?.timerChainId||item.operationId);
           item=await nextItem();
           continue;
         }
@@ -474,7 +544,7 @@ async function flush() {
         item = await nextItem();
       }
       // Preserve projections while failed/dependent records remain pending.
-      if(((await read(owner+":queue"))||[]).length)return;
+      if(((await read(owner+":queue"))||[]).length){await refreshScheduling(owner);return;}
       // Fetch a coherent replacement while local edits remain available.
       const latestResponse = await request("/api/field");
       if (!latestResponse.ok)
@@ -573,10 +643,11 @@ async function preparedCache(owner, url, body) {
 async function prepare() {
   const owner = await read("owner");
   if (!owner) throw Error("Entre no portal primeiro.");
-  if (((await read(owner + ":queue")) || []).length)
-    throw Error(
-      "Sincronize os registros pendentes antes de atualizar a programação.",
-    );
+  if (((await read(owner + ":queue")) || []).length){
+    const response=await request('/api/field');if(!response.ok)throw Error('Sem conexão com o sistema.');
+    const home=await response.json();if(home.email!==owner)throw Error('Conta alterada.');
+    await refreshScheduling(owner,home,true);return;
+  }
   const homeResponse = await request("/api/field");
   if (!homeResponse.ok) throw Error("Sem conexão com o sistema.");
   const home = await homeResponse.json();
@@ -706,12 +777,14 @@ self.addEventListener("message", (event) => {
           await sync();
           await prepare();
         }
+        if(type==='FIELD_DISCARD'){await discardPending(event.data.id,event.data.includeDependents===true);}
         if (type === "FIELD_SYNC") await sync();
         if (type === "FIELD_EXPORT") {
           const owner = await read("owner"),
             queue = owner ? (await read(owner + ":queue")) || [] : [];
           const exported = [];
-          for (const item of queue) {
+          const discarded=owner?(await read(owner+':discardedQueue'))||[]:[];
+          for (const item of [...queue,...discarded]) {
             if (item.type !== "photo") {
               exported.push(item);
               continue;
@@ -735,7 +808,8 @@ self.addEventListener("message", (event) => {
               format: "rj-field-offline-v1",
               owner,
               exportedAt: new Date().toISOString(),
-              queue: exported,
+              queue: exported.slice(0,queue.length),
+              discarded:exported.slice(queue.length),
               mapping: (await read(owner + ":mapping")) || {},
             },
           });
