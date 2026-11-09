@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, FileDown, CheckCheck, Undo2 } from "lucide-react";
+import { X, FileDown, CheckCheck, FileOutput } from "lucide-react";
 import ChecklistAlertReview, {type AlertTaskDraft} from "./checklist-alert-review";
 import {checklistAlerts,pendingChecklistAlerts,validateAlertTaskGroups} from "@/lib/service-scheduling/checklist-alerts";
 import ChecklistReviewReport from "./checklist-review-report";
@@ -89,7 +89,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
           <section className="review-completion-step" aria-label="Etapa 2: concluir revisão">
             <button type="button" className="review-complete-button" aria-describedby={`${tabsId}-agreement`} disabled={busy || dirty || reportDirty || missingAlertTask || scoped.requests.some((r: any) => r.status === "pending")} onClick={() => void act("review")}><CheckCheck size={16} aria-hidden="true"/>Concluir revisão</button>
           </section>
-          {reportSubmission(o.document.checklistRun)&&<button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}><Undo2 size={15} aria-hidden="true"/>Devolver relatório ao técnico</button>}
+          {reportSubmission(o.document.checklistRun)&&<button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}><FileOutput size={15} aria-hidden="true"/>Devolver relatório ao técnico</button>}
         </div>
         <div className="review-completion-notes">
           {reportDirty&&<span className="review-pending-note" role="status">Há ajustes pendentes. Salve antes de concluir a revisão.</span>}
@@ -98,7 +98,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
           <span id={`${tabsId}-agreement`}>Ao concluir, declaro: li, revisei e estou de acordo com as informações do relatório, das peças e dos apontamentos.</span>
         </div>
       </>}
-      {data.canEditSettings && !reviewed && o.status!=="awaiting_review" && reportSubmission(o.document.checklistRun) && <button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}><Undo2 size={15} aria-hidden="true"/>Devolver relatório ao técnico</button>}
+      {data.canEditSettings && !reviewed && o.status!=="awaiting_review" && reportSubmission(o.document.checklistRun) && <button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}><FileOutput size={15} aria-hidden="true"/>Devolver relatório ao técnico</button>}
       {reviewed && o.document.checklistRun && !busy ? <><select aria-label="Tipo de relatório" value={reportMode} onChange={e=>setReportMode(e.target.value)}><option value="complete">Relatório Completo</option><option value="summary">Relatório Resumido</option><option value="budget">Relatório de Orçamento</option></select><a href={`/api/service-scheduling/checklist-pdf?operationId=${o.id}&mode=${reportMode}`} target="_blank" rel="noreferrer"><FileDown size={16}/> Gerar PDF</a></> : o.status!=="awaiting_review" && o.document.checklistId && <small>O PDF será liberado após a conclusão da revisão.</small>}
 
     </footer>

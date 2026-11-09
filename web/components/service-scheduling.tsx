@@ -37,6 +37,7 @@ import {
   Send,
   Eye,
   Undo2,
+  FileOutput,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -1214,7 +1215,7 @@ function OperationRow({
           <button className="operation-icon-action" type="button" title="Acompanhar execução" aria-label="Acompanhar execução" onClick={() => setExpanded(true)}>
             <Eye size={18} aria-hidden="true"/>
           </button>
-          {o.document.checklistId && data.canEditSettings&&reportSubmission(o.document.checklistRun)&&!['reviewed','completed'].includes(o.status)&&<button className="operation-icon-action" type="button" title="Devolver relatório ao técnico" aria-label="Devolver relatório ao técnico" disabled={busy||dirty} onClick={()=>void mutate({action:'report_reopen',operationId:o.id,version:o.version})}><Undo2 size={18} aria-hidden="true"/></button>}
+          {o.document.checklistId && data.canEditSettings&&reportSubmission(o.document.checklistRun)&&!['reviewed','completed'].includes(o.status)&&<button className="operation-icon-action" type="button" title="Devolver relatório ao técnico" aria-label="Devolver relatório ao técnico" disabled={busy||dirty} onClick={()=>void mutate({action:'report_reopen',operationId:o.id,version:o.version})}><FileOutput size={18} aria-hidden="true"/></button>}
           <button
             className="operation-icon-action operation-icon-action--danger"
             title={"Remover operação " + operationNumber(o.position)}
