@@ -14,8 +14,8 @@ test('email contacts persist by customer across orders and prefill the ERP email
   INSERT INTO m8_ordens_servico VALUES(1,100,50,123,'Cliente A','{}'),(1,101,50,124,'Cliente A','{}'),(1,102,60,125,'Cliente B','{}');
   CREATE TABLE m8_customer_directory(company_id bigint,person_id bigint,payload jsonb);
   INSERT INTO m8_customer_directory VALUES(1,50,'{"email":"erp@example.com"}');
-  CREATE TABLE web_service_operations(schedule_id bigint,position int,document jsonb);
-  INSERT INTO web_service_operations VALUES(1,1,'{"serviceType":"Corretiva","equipment":{"model":"GA22","serial":"ABC"}}');
+  CREATE TABLE web_service_operations(schedule_id bigint,position int,document jsonb,id uuid DEFAULT gen_random_uuid(),status text DEFAULT 'reviewed');
+  INSERT INTO web_service_operations(schedule_id,position,document) VALUES(1,1,'{"checklistRun":{},"serviceType":"Corretiva","equipment":{"model":"GA22","serial":"ABC"}}');
   CREATE TABLE web_customer_contacts(id uuid,customer_key text,name text,phone text,created_by text,UNIQUE(customer_key,name,phone));`);
   await db.exec(readFileSync('sql/102_customer_contact_email.sql','utf8'));
   const initial=await customerEmailContacts('1','planner');assert.equal(initial.defaultEmail,'erp@example.com');assert.match(initial.reportFilename,/OS 123 - Cliente A C GA22 Série ABC.pdf/);

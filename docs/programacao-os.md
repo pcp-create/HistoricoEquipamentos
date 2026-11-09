@@ -135,7 +135,7 @@ O envio por e-mail carrega o e-mail já cadastrado no cliente do ERP e permite a
 
 O nome do PDF aparece antes do envio e pode ser editado. O padrão é `OS {número} - {cliente} {serviço abreviado} {modelo e série}.pdf`. O nome exibido é enviado ao servidor e usado no anexo real, inclusive no arquivo `.eml` baixado.
 
-Além de criar rascunho, o usuário pode enviar diretamente pelo Gmail, após conferir a confirmação com destinatários e anexo. O remetente é a conta Google autenticada pelo usuário. Tokens permanecem no navegador e não são armazenados no portal. A criação do PDF continua exigindo todas as operações revisadas/concluídas.
+Além de criar rascunho, o usuário pode enviar diretamente pelo Gmail, após conferir a confirmação com destinatários e anexo. O remetente é a conta Google autenticada pelo usuário. Tokens permanecem no navegador e não são armazenados no portal. Antes do envio, o usuário escolhe as operações do PDF. As operações revisadas/concluídas com relatório vêm marcadas por padrão; operações pendentes ficam indisponíveis. O envio exige ao menos uma seleção e o servidor confere novamente se cada operação pertence à OS e está revisada. A mesma seleção é usada no envio direto, no rascunho e no download do e-mail. O nome padrão do anexo acompanha a seleção até ser editado manualmente.
 
 Aplicar `web/sql/102_customer_contact_email.sql` antes de publicar a interface. A migração adiciona e-mail e cargo ao cadastro de contatos existente, preservando nomes e telefones.
 

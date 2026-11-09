@@ -1,4 +1,5 @@
 import 'server-only';
+import {selectEmailOperations} from './customer-email-operations';
 import {emailRecipients,reportAttachmentName} from './email-recipients';
 import {randomUUID} from 'node:crypto';
 import {database} from '../db';
@@ -29,9 +30,7 @@ export async function prepareCustomerEmail(input:any,actor:string){
   const schedule=(await c.query('SELECT id FROM web_service_schedules WHERE id=$1 AND active',[input.scheduleId])).rows[0];
   if(!schedule)throw new CustomerEmailError('Programação indisponível.');
   const ops=(await c.query('SELECT id,status,document FROM web_service_operations WHERE schedule_id=$1 ORDER BY position',[input.scheduleId])).rows;
-  if(!ops.length||ops.some(op=>!['reviewed','completed'].includes(op.status)))throw new CustomerEmailError('Conclua a revisão de todas as operações antes de preparar o e-mail.');
-  const selected=ops.filter(op=>op.document.checklistRun).map(op=>op.id);
-  if(!selected.length)throw new CustomerEmailError('A OS não possui relatório técnico para enviar.');
+  let selected:string[];try{selected=selectEmailOperations(ops,input.operationIds).map(op=>op.id);}catch(e){throw new CustomerEmailError((e as Error).message);}
   if(input.reportFilename!==undefined){try{reportAttachmentName(input.reportFilename);}catch(e){throw new CustomerEmailError((e as Error).message);}}
   const pdf=await orderReportPdf({scheduleId:input.scheduleId,operationIds:selected,mode:'summary',includeTimeline:false},actor,false,c);
   if(input.reportFilename)pdf.filename=reportAttachmentName(input.reportFilename);

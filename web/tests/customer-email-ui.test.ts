@@ -6,7 +6,7 @@ test('Gmail creates a draft with attachment in the connected account; email defa
  const page=await browser.newPage();await page.addInitScript("window.google={accounts:{oauth2:{initTokenClient:function(options){return {requestAccessToken:function(){options.callback({access_token:'test-token'})}}}}}};window.open=function(url){window.opened=String(url);return null;};");
  await page.route('https://accounts.google.com/**',r=>r.abort());
  let prepared:any,draft:any,sent:any,contactSaved:any;let apiDisabled=true;
- await page.route('**/api/service-scheduling/customer-email/contacts*',r=>{if(r.request().method()==='POST'){contactSaved=r.request().postDataJSON();return r.fulfill({json:{saved:{...contactSaved,id:'contact1'},contacts:[{...contactSaved,id:'contact1'}]}});}return r.fulfill({json:{defaultEmail:'registered@example.com',contacts:[],canCreate:true,reportFilename:'OS 15253 - Cliente Teste CCP Série ABC.pdf'}});});
+ await page.route('**/api/service-scheduling/customer-email/contacts*',r=>{if(r.request().method()==='POST'){contactSaved=r.request().postDataJSON();return r.fulfill({json:{saved:{...contactSaved,id:'contact1'},contacts:[{...contactSaved,id:'contact1'}]}});}return r.fulfill({json:{defaultEmail:'registered@example.com',contacts:[],canCreate:true,operations:[{id:'00000000-0000-4000-8000-000000000001',position:1,status:'reviewed',document:{description:'Preventiva',checklistRun:{},serviceType:'MP'}},{id:'00000000-0000-4000-8000-000000000002',position:2,status:'completed',document:{description:'Corretiva',checklistRun:{},serviceType:'MC'}},{id:'00000000-0000-4000-8000-000000000003',position:3,status:'awaiting_review',document:{description:'Pendente',checklistRun:{}}}],reportFilename:'OS 15253 - Cliente Teste CCP Série ABC.pdf'}});});
  const raw=Buffer.from('MIME-Version: 1.0\r\nContent-Type: application/pdf\r\n').toString('base64url');
  await page.route('**/api/service-scheduling/customer-email',r=>{prepared=r.request().postDataJSON();return r.fulfill({json:{raw,filename:'OS 15253.eml'}})});
  await page.route('https://gmail.googleapis.com/**',r=>{if(r.request().url().endsWith('/messages/send')){sent=r.request().postDataJSON();return r.fulfill({json:{id:'sent1'}});}draft=r.request().postDataJSON();if(apiDisabled)return r.fulfill({status:403,json:{error:{status:'PERMISSION_DENIED',details:[{reason:'SERVICE_DISABLED'}]}}});return r.fulfill({json:{id:'draft1',message:{id:'m1'}}});});
@@ -16,6 +16,9 @@ test('Gmail creates a draft with attachment in the connected account; email defa
  await expect(page.getByLabel('Mensagem',{exact:true})).toHaveValue('Olá Cliente Teste, segue relatório. Planejador');
  await expect(page.getByLabel('Destinatários',{exact:true})).toHaveValue('registered@example.com');
  await expect(page.getByLabel('Nome do anexo')).toHaveValue('OS 15253 - Cliente Teste CCP Série ABC.pdf');
+ await expect(page.getByRole('checkbox',{name:/Operação 03/})).toBeDisabled();
+ await page.getByRole('checkbox',{name:/Operação 02/}).uncheck();
+ await expect(page.getByLabel('Nome do anexo')).toHaveValue('OS 15253 - Cliente Teste MP.pdf');
  await page.getByLabel('Destinatários',{exact:true}).fill('cliente@example.com; segundo@example.com');
  await page.getByLabel('Nome do anexo').fill('OS 15253 - Relatório revisado.pdf');
  await page.getByRole('button',{name:'Criar rascunho no Gmail',exact:true}).click();
@@ -25,8 +28,12 @@ test('Gmail creates a draft with attachment in the connected account; email defa
  apiDisabled=false;
  await page.getByRole('button',{name:'Criar rascunho no Gmail',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('Rascunho criado no Gmail');
- assert.equal(prepared.to,'cliente@example.com; segundo@example.com');assert.equal(prepared.reportFilename,'OS 15253 - Relatório revisado.pdf');assert.equal(draft.message.raw,raw);
+ assert.equal(prepared.to,'cliente@example.com; segundo@example.com');assert.deepEqual(prepared.operationIds,['00000000-0000-4000-8000-000000000001']);assert.equal(prepared.reportFilename,'OS 15253 - Relatório revisado.pdf');assert.equal(draft.message.raw,raw);
  assert.match(await page.evaluate(()=>(window as any).opened),/authuser=connected%40gmail.com#drafts/);
+ await page.getByRole('checkbox',{name:/Operação 01/}).uncheck();
+ await expect(page.getByRole('button',{name:'Enviar diretamente pelo Gmail',exact:true})).toBeDisabled();
+ await page.getByRole('checkbox',{name:/Operação 02/}).check();
+ await expect(page.getByLabel('Nome do anexo')).toHaveValue('OS 15253 - Relatório revisado.pdf');
  await page.getByRole('button',{name:'Cadastrar contato do cliente',exact:true}).click();
  await page.getByLabel('E-mail do contato',{exact:true}).fill('contato@example.com');
  await page.getByLabel('Nome do contato',{exact:true}).fill('Ana');
@@ -41,7 +48,7 @@ test('Gmail creates a draft with attachment in the connected account; email defa
  await expect(confirmation).toContainText('OS 15253 - Relatório revisado.pdf');
  await confirmation.getByRole('button',{name:'Confirmar envio',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('E-mail enviado com sucesso');
- assert.equal((sent as any).raw,raw);assert.equal((sent as any).message,undefined);
+ assert.deepEqual(prepared.operationIds,['00000000-0000-4000-8000-000000000002']);assert.equal((sent as any).raw,raw);assert.equal((sent as any).message,undefined);
  await page.getByLabel('Texto padrão do e-mail',{exact:true}).fill('Novo texto da OS {os}');
  await page.getByRole('button',{name:'Salvar configuração de e-mail'}).click();
  assert.equal(await page.evaluate(()=>(window as any).saved.customerEmail.body),'Novo texto da OS {os}');

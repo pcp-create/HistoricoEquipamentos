@@ -1,5 +1,6 @@
 "use client";
 import AutoResizeTextarea from "./auto-resize-textarea";
+import {canEmailOperation} from '@/lib/service-scheduling/customer-email-operations';
 import CustomerReportEmail from "./customer-report-email";
 import OrderSearchSelect from "./order-search-select";
 import OrderAttachments,{sendOrderAttachments} from "./order-attachments";
@@ -119,15 +120,15 @@ export default function ScheduleOrderActions({
           Editar observações e Status Fluxo
         </button>
         <button
-          disabled={busy || !reviewed}
+          disabled={busy || !data.operations?.some(canEmailOperation)}
           onClick={() => setCustomer((v) => !v)}
         >
           Enviar por e-mail
         </button>
       </div>
-      {!reviewed && (
+      {!data.operations?.some(canEmailOperation) && (
         <small>
-          Envio ao cliente disponível após revisar todas as operações.
+          Envio ao cliente disponível quando houver uma operação revisada com relatório.
         </small>
       )}
       {error && <p role="alert">{error}</p>}
