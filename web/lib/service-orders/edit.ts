@@ -328,7 +328,7 @@ export async function prepareEdit(
     draft.customer !== initial.customer &&
     !(
       await database().query(
-        "SELECT 1 FROM m8_customer_directory WHERE company_id=1 AND person_id=$1",
+        "SELECT 1 FROM m8_customer_directory WHERE person_id=$1",
         [draft.customer],
       )
     ).rows.length
@@ -397,7 +397,7 @@ export async function prepareEdit(
         t.customer_equipment_only &&
         !(
           await database().query(
-            "SELECT 1 FROM m8_person_equipment WHERE company_id=1 AND person_id=$1 AND equipment_id=$2 AND present",
+            "SELECT 1 FROM web_effective_person_equipment WHERE person_id=$1 AND equipment_id=$2 AND present",
             [draft.customer, draft.equipment],
           )
         ).rows.length

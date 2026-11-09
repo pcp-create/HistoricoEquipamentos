@@ -24,11 +24,11 @@ export default function VisitAutomationSettings() {
     <section className="sales-panel">
       <h2>Tarefas automáticas</h2>
       <p>
-        Responsável por receber as solicitações de cadastro de máquinas
+        Responsável por receber as solicitações de vínculo de máquinas ao cliente
         registradas nas visitas.
       </p>
       <label>
-        Responsável pelo cadastro de equipamentos
+        Responsável pelo vínculo manual de equipamentos
         <select
           value={value}
           disabled={busy}

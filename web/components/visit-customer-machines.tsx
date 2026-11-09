@@ -46,6 +46,7 @@ export default function VisitCustomerMachines({
           <VisitEquipmentGroup key={c.key} customer={c.key} equipment={c.equipment||[]} online={online} inlineActions render={(item,inactive,actions) => (
             <article className="visit-machine-record-card" key={item.id}>
               <strong>{item.name}</strong>
+              <p>{item.integrationPending&&<small className="ws-integration-pending">Vínculo com cliente pendente de integração</small>}</p>
               <p>Modelo: {item.model || "Não informado"}</p>
               <p>Série: {item.serial || "Não informada"}</p>
               <p>

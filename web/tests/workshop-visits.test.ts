@@ -11,6 +11,7 @@ test("batched workshop list preserves exact OS links, task privacy, imports and 
  CREATE TABLE web_workshops(id bigint,name text);
  CREATE TABLE m8_equipment_catalog(equipment_id bigint,name text,model text,serial text,payload jsonb);
  CREATE TABLE m8_person_equipment(equipment_id bigint,person_name text,present boolean);
+ CREATE VIEW web_effective_person_equipment AS SELECT *,false integration_pending FROM m8_person_equipment;
  CREATE TABLE m8_ordens_servico(company_id int,id_m8 bigint,numero_sequencia bigint,produto_equipamento_id bigint,status text,status_lancamento_nome text);
  CREATE TABLE m8_order_equipment_links(company_id int,order_id bigint,equipment_id bigint,stale boolean);
  CREATE TABLE web_tasks(id bigint,title text,status text,equipment_id bigint,order_company int,order_id bigint,source_key text,restricted boolean);

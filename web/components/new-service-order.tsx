@@ -1,4 +1,5 @@
 "use client";
+import EquipmentCreateDialog from "./equipment-create-dialog";
 import OrderAttachments,{sendOrderAttachments} from "./order-attachments";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -60,6 +61,8 @@ async function api(body?: unknown, query = "") {
 export default function NewServiceOrder({
   editing, returnTo,
 }: { returnTo?: string; editing?: { company: string; id: string } } = {}) {
+  const [addingEquipment,setAddingEquipment]=useState(false);
+  const [equipmentPending,setEquipmentPending]=useState(false);
   const [attachmentFiles,setAttachmentFiles]=useState<File[]>([]);
   const [attachmentBusy,setAttachmentBusy]=useState(false);
   const [noteEditor, setNoteEditor] = useState<{index:number; field:"notes"|"internalNotes"; text:string}|null>(null);
@@ -578,7 +581,7 @@ export default function NewServiceOrder({
                       endpoint="/api/service-orders?lookup=customers"
                       placeholder="Selecione o cliente"
                       onChange={(r) => {
-                        choose("customer", r.id);
+                        choose("customer", r.id);setEquipmentPending(false);
                         setNames({ customer: r.name, equipment: "" });
                       }}
                     />
@@ -587,6 +590,7 @@ export default function NewServiceOrder({
                     <span className="os-field-title">
                       Equipamento {!editing && <b>*</b>}
                     </span>
+                    <div className="os-equipment-create-row">
                     <OrderSearchSelect
                       label="Equipamento"
                       value={form.equipment}
@@ -602,10 +606,12 @@ export default function NewServiceOrder({
                       }
                       placeholder="Selecione o equipamento"
                       onChange={(r) => {
-                        set("equipment", r.id);
+                        set("equipment", r.id);setEquipmentPending(!!r.data?.integrationPending);
                         setNames((n) => ({ ...n, equipment: r.name }));
                       }}
                     />
+                    <button type="button" aria-label="Cadastrar equipamento" title="Cadastrar equipamento" disabled={!form.customer||!form.type} onClick={()=>setAddingEquipment(true)}><Plus size={18}/></button></div>
+                    {equipmentPending&&<small className="ws-integration-pending">Vínculo com cliente pendente de integração</small>}
                     <small>
                       {type?.customer_equipment_only === true
                         ? "Somente equipamentos do cliente"
@@ -992,6 +998,7 @@ export default function NewServiceOrder({
           })}
         />}
       </main>
+      {addingEquipment&&<EquipmentCreateDialog source="service-order" customer={{id:"m8:"+form.customer,name:names.customer}} onClose={()=>setAddingEquipment(false)} onCreated={equipment=>{set("equipment",equipment.id);setNames(n=>({...n,equipment:equipment.name}));setEquipmentPending(!!equipment.integrationPending);setAddingEquipment(false);}}/>}
     </>
   );
 }

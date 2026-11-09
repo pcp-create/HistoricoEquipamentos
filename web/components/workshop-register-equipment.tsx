@@ -1,18 +1,26 @@
 'use client';
+import OrderSearchSelect from './order-search-select';
+import {normalizedEquipmentSerial} from '@/lib/equipment/serial';
 import {clearApiCache} from '@/lib/client-api-cache';
-import {useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {ArrowLeft,CheckCircle2,Plus} from 'lucide-react';
 import {equipmentRegistrationInput,equipmentRegistrationName,workshopEquipmentTypes} from '@/lib/workshop/equipment-registration-model';
-export default function WorkshopRegisterEquipment({onCreated,onCancel,onBusy}:{onCreated:(equipment:any)=>void;onCancel:()=>void;onBusy:(busy:boolean)=>void}){
- const [input,setInput]=useState({ownership:'customer',type:'',model:'',serial:'',hp:'',pcm:'',bar:'',notes:'',price:'',minimumPrice:'',noSerial:false,voltage:'',frequency:'',pressure:'',pressureUnit:'PSI',configuration:'',capacity:'',characteristics:'',internalCode:'',height:'',width:'',length:'',weight:''});
+export default function WorkshopRegisterEquipment({onCreated,onCancel,onBusy,customer,source="workshop",customerOnly=false,onDraft,endpoint="/api/workshop/equipment"}:{customer?:{id:string;name:string};source?:"workshop"|"visits"|"service-order";endpoint?:string;customerOnly?:boolean;onDraft?:(input:any)=>void;onCreated:(equipment:any)=>void;onCancel:()=>void;onBusy:(busy:boolean)=>void}){
+ const [input,setInput]=useState({brand:'',meter:'',customerKey:customer?.id||'',source,ownership:'customer',type:'',model:'',serial:'',hp:'',pcm:'',bar:'',notes:'',price:'',minimumPrice:'',noSerial:false,voltage:'',frequency:'',pressure:'',pressureUnit:'PSI',configuration:'',capacity:'',characteristics:'',internalCode:'',height:'',width:'',length:'',weight:''});
  const [busy,setBusy]=useState(false),[locked,setLocked]=useState(false),[error,setError]=useState('');
+ const [customerName,setCustomerName]=useState(customer?.name||'');
+ const [candidates,setCandidates]=useState<any[]>([]),[checking,setChecking]=useState(false),[serialError,setSerialError]=useState('');
+ useEffect(()=>{const controller=new AbortController();setCandidates([]);setSerialError('');const serial=normalizedEquipmentSerial(input.serial);if(!serial||input.noSerial){setChecking(false);return;}setChecking(true);const timer=setTimeout(async()=>{try{const r=await fetch('/api/workshop/equipment?serial='+encodeURIComponent(input.serial),{signal:controller.signal,cache:'no-store'});const body=await r.json();if(!r.ok)throw Error(body.error);setCandidates(body.rows||[]);}catch(e){if(!controller.signal.aborted)setSerialError((e as Error).message);}finally{if(!controller.signal.aborted)setChecking(false);}},350);return()=>{clearTimeout(timer);controller.abort();};},[input.serial,input.noSerial]);
  const request=useRef<string|null>(null);
  function change<K extends keyof typeof input>(key:K,value:(typeof input)[K]){setInput(current=>({...current,[key]:value,...(key==='ownership'&&value==='customer'&&current.type==='piston-unit'?{type:''}:{})}));request.current=null;setError('');}
  async function create(){
   let normalized;try{normalized=equipmentRegistrationInput(input);}catch(e){setError((e as Error).message);return;}
+  if(input.ownership==='customer'&&!input.customerKey&&!onDraft){setError('Selecione o cliente para vincular o equipamento.');return;}
+  if(!locked&&(checking||serialError||candidates.some(row=>row.exact))){setError('Confira os equipamentos encontrados pela série antes de cadastrar.');return;}
+  if(onDraft){onDraft(normalized);return;}
   request.current??=crypto.randomUUID();setBusy(true);onBusy(true);setLocked(true);setError('');
   try{
-   const response=await fetch('/api/workshop/equipment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...normalized,requestId:request.current})});
+   const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...normalized,requestId:request.current})});
    const result=await response.json();
    if(!response.ok){if(response.status>=400&&response.status<500){setLocked(false);request.current=null;}throw Error(result.error||'Não foi possível confirmar o cadastro.');}
    if(result.state==='complete'&&result.equipment){clearApiCache();window.dispatchEvent(new Event('equipment-created'));onCreated(result.equipment);return;}
@@ -25,12 +33,17 @@ export default function WorkshopRegisterEquipment({onCreated,onCancel,onBusy}:{o
  const separator=own&&input.type==='separator',unit=own&&input.type==='piston-unit';
  return <section className="ws-register-equipment" aria-label="Adicionar equipamento">
   <div className="ws-register-heading"><h3>Adicionar equipamento</h3><button type="button" disabled={busy} onClick={onCancel}><ArrowLeft size={14}/>Voltar à pesquisa</button></div>
-  <p className="ws-helper">Cadastre a máquina para selecioná-la nesta entrada.</p>{own&&<p className="ws-helper">Nome e apelido seguem o POP de locação. Preencha somente as características confirmadas na plaqueta ou documentação; dados opcionais não informados serão omitidos.</p>}
+  <p className="ws-helper">Cadastre a máquina para selecioná-la no sistema.</p>{own&&<p className="ws-helper">Nome e apelido seguem o POP de locação. Preencha somente as características confirmadas na plaqueta ou documentação; dados opcionais não informados serão omitidos.</p>}
   <fieldset disabled={busy||locked}>
-   <legend>Propriedade do equipamento</legend>
-   <div className="ws-register-ownership">{[['customer','Equipamento de cliente'],['own','Equipamento Próprio']].map(([value,label])=><label className="ws-check" key={value}><input type="radio" name="equipmentOwnership" value={value} checked={input.ownership===value} onChange={()=>change('ownership',value)}/>{label}</label>)}</div>
+   <legend>{customerOnly?'Dados do equipamento':'Propriedade do equipamento'}</legend>
+   {!customerOnly&&<div className="ws-register-ownership">{[['customer','Equipamento de cliente'],['own','Equipamento Próprio']].map(([value,label])=><label className="ws-check" key={value}><input type="radio" name="equipmentOwnership" value={value} checked={input.ownership===value} onChange={()=>change('ownership',value)}/>{label}</label>)}</div>}
+   {!own&&<div><label>Cliente *{customer?<input readOnly value={customer.name}/>:onDraft?<input readOnly value="Novo Lead — vínculo será salvo ao confirmar a visita"/>:<OrderSearchSelect label="Cliente do equipamento" value={input.customerKey} selectedLabel={customerName} endpoint="/api/visits/customers" placeholder="Pesquise o cliente" onChange={row=>{change('customerKey',row.id);setCustomerName(row.name);}}/>}</label><small>Pesquise todos os clientes da base, inclusive os que ainda não possuem máquinas. O vínculo ficará salvo no sistema como pendência até ser identificado pela integração do ERP.</small></div>}
    <label>Tipo do equipamento *<select value={input.type} onChange={e=>change('type',e.target.value)}><option value="">Selecione o tipo</option>{workshopEquipmentTypes.filter(type=>own||!('ownOnly' in type)).map(type=><option key={type.id} value={type.id}>{type.label}</option>)}</select></label>
    <div className="ws-form-grid"><label>{separator?'Modelo':'Modelo *'}<input value={input.model} maxLength={100} onChange={e=>change('model',e.target.value)}/></label><label>{own&&input.noSerial?'Série':'Série *'}<input value={own&&input.noSerial?'N/C':input.serial} disabled={own&&input.noSerial} maxLength={100} onChange={e=>change('serial',e.target.value)}/></label></div>
+   <div className="ws-form-grid"><label>Marca<input value={input.brand} maxLength={100} onChange={e=>change('brand',e.target.value)}/></label>{source==='visits'&&<label>Horímetro (h)<input type="number" min="0" step="0.01" value={input.meter} onChange={e=>change('meter',e.target.value)}/></label>}</div>
+   {checking&&<p role="status">Conferindo número de série…</p>}
+   {serialError&&<p role="alert">{serialError}</p>}
+   {!!candidates.length&&<div className="ws-serial-matches"><strong>Possíveis equipamentos já cadastrados</strong>{candidates.map(row=><div key={row.id}><p>{row.id} · {row.name}<small>Série: {row.serial} · {row.client||'Cliente não informado'}{row.exact?' · Série equivalente':''}</small></p><button type="button" disabled={busy||(!own&&!input.customerKey)} onClick={async()=>{setBusy(true);onBusy(true);setError('');try{if(own){onCreated(row);return;}const response=await fetch('/api/workshop/equipment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'link-existing',equipmentId:row.id,customerKey:input.customerKey,source})});const result=await response.json();if(!response.ok)throw Error(result.error);clearApiCache();window.dispatchEvent(new Event('equipment-created'));onCreated(result.equipment);}catch(e){setError((e as Error).message);}finally{setBusy(false);onBusy(false);}}}>Usar este equipamento</button></div>)}</div>}
    {own&&<div className="ws-register-internal"><h4>Identificação, dimensões e peso</h4><label>Código de Identificação Interno *<input required value={input.internalCode} maxLength={100} onChange={e=>change('internalCode',e.target.value)}/></label><div className="ws-form-grid">{([['height','Altura (m)'],['width','Largura (m)'],['length','Comprimento (m)'],['weight','Peso bruto (kg)']] as const).map(([key,label])=><label key={key}>{label} *<input required type="number" min="0.001" max="1000000000" step="0.001" inputMode="decimal" value={input[key]} onChange={e=>change(key,e.target.value)}/></label>)}</div></div>}
    {own&&<label className="ws-check"><input type="checkbox" checked={input.noSerial} onChange={e=>change('noSerial',e.target.checked)}/>Confirmo que o equipamento não possui série disponível</label>}
    {separator&&<div className="ws-form-grid"><label>Configuração<input value={input.configuration} maxLength={80} placeholder="Ex.: VERTICAL" onChange={e=>change('configuration',e.target.value)}/></label><label>Capacidade (L)<input type="number" min="0" step="0.001" inputMode="decimal" value={input.capacity} onChange={e=>change('capacity',e.target.value)}/></label></div>}
@@ -43,6 +56,6 @@ export default function WorkshopRegisterEquipment({onCreated,onCancel,onBusy}:{o
   </fieldset>
   {preview&&<p className="ws-register-preview"><small>Nome do equipamento</small><strong>{preview}</strong></p>}
   {error&&<p role="alert" className="ws-error">{error}</p>}
-  <div className="ws-register-actions"><button className="ws-primary" type="button" disabled={busy} onClick={()=>void create()}>{busy?'Confirmando cadastro…':locked?'Consultar confirmação':<><Plus size={15}/>Cadastrar e selecionar</>}</button><small><CheckCircle2 size={13}/>A entrada será registrada na confirmação abaixo.</small></div>
+  <div className="ws-register-actions"><button className="ws-primary" type="button" disabled={busy||(!locked&&(checking||!!serialError||candidates.some(row=>row.exact)))} onClick={()=>void create()}>{busy?'Confirmando cadastro…':locked?'Consultar confirmação':<><Plus size={15}/>Cadastrar e selecionar</>}</button><small><CheckCircle2 size={13}/>{source==='workshop'?'A entrada será registrada na confirmação abaixo.':'O vínculo com o cliente ficará pendente até a confirmação pela integração.'}</small></div>
  </section>;
 }

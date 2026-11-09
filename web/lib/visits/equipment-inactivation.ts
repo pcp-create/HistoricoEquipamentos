@@ -15,7 +15,7 @@ export async function inactivateVisitEquipment(body:any,email:string){
   await c.query('BEGIN READ WRITE');await contactAccess(c,customer,email);
   let allowed=false;
   if(/^pending:[0-9a-f-]{36}$/i.test(equipment))allowed=(await c.query('SELECT 1 FROM web_visit_machine_registrations WHERE id=$1 AND customer_key=$2',[equipment.slice(8),customer])).rows.length>0;
-  else if(/^m8:\d+$/.test(customer)&&/^\d+$/.test(equipment))allowed=(await c.query('SELECT 1 FROM m8_person_equipment WHERE person_id=$1 AND equipment_id=$2 AND present',[customer.slice(3),equipment])).rows.length>0;
+  else if(/^\d+$/.test(equipment))allowed=(await c.query('SELECT 1 FROM web_effective_person_equipment WHERE customer_key=$1 AND equipment_id=$2 AND present',[customer,equipment])).rows.length>0;
   if(!allowed)throw new AdminInputError('Selecione um equipamento deste cliente.');
   const inserted=await c.query('INSERT INTO web_visit_equipment_inactivations(customer_key,equipment_key,reason,actor) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING *',[customer,equipment,reason,email]);
   const row=inserted.rows[0]||(await c.query('SELECT * FROM web_visit_equipment_inactivations WHERE customer_key=$1 AND equipment_key=$2',[customer,equipment])).rows[0];

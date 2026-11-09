@@ -37,7 +37,7 @@ export default function VisitRecordFields({customer,customerName,online,equipmen
    {selected&&fields(m.id,`Registro na máquina ${m.id}`,selected)}
   </article>}}/>
   {customer||onDraftMachines ? <VisitMachineRegistration key={customer||"draft"} customer={customer||"draft"} draftMachines={draftMachines} onDraftMachines={onDraftMachines} name={customerName||"Cliente / Lead"} online={online&&!disabled} renderVisitRecord={m=>{
-    const key=`pending:${m.id}`,selected=records.find(r=>r.equipment===key);
+    const key=m.equipmentId||`pending:${m.id}`,selected=records.find(r=>r.equipment===key);
     return <div><label className="sales-check"><input type="checkbox" disabled={disabled} checked={!!selected} onChange={e=>toggle(key,e.target.checked)}/>Adicionar observação nesta visita</label>{selected&&fields(key,`Observação da visita · ${m.model}`,selected)}</div>;
   }}/> : <p>Selecione um cliente ou preencha os dados do novo Lead para cadastrar máquinas.</p>}
   </div></details>

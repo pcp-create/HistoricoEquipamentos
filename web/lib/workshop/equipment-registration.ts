@@ -1,4 +1,6 @@
 import 'server-only';
+import {normalizedEquipmentSerial} from '../equipment/serial';
+import {customerForEquipment,saveEquipmentCustomerLink,linkTaskAssignee} from '../equipment/customer-links';
 import {database} from '../db';
 import {m8Session,M8RequestError} from '../service-orders/m8';
 import {equipmentRegistrationInput,equipmentRegistrationName,equipmentRegistrationPayload,EquipmentRegistrationError,type RegistrationInput} from './equipment-registration-model';
@@ -24,16 +26,18 @@ async function saveLocal(db:any,row:any){
  const c=await db.connect();
  try{await c.query('BEGIN READ WRITE');
   await c.query('SELECT pg_advisory_xact_lock(81014,0)');
-  await c.query(`INSERT INTO m8_equipment_catalog(company_id,equipment_id,name,alias,model,models,serial,serial_source,issues,payload,present,collected_at)
-   VALUES(1,$1,$2,$2,$3,$4,$5,'portal','[]',$6,true,now())
+  await c.query(`INSERT INTO m8_equipment_catalog(company_id,equipment_id,name,alias,model,models,serial,serial_source,issues,payload,present,collected_at,brand)
+   VALUES(1,$1,$2,$2,$3,$4,$5,'portal','[]',$6,true,now(),$7)
    ON CONFLICT(equipment_id) DO UPDATE SET present=true WHERE m8_equipment_catalog.serial_source='portal'`,
-   [row.equipment_id,payload.nome,input.model||null,input.model?[input.model]:[],input.serial,JSON.stringify({...payload,id:Number(row.equipment_id),numeroSerie:input.serial,modeloResumido:input.model})]);
+   [row.equipment_id,payload.nome,input.model||null,input.model?[input.model]:[],input.serial,JSON.stringify({...payload,id:Number(row.equipment_id),numeroSerie:input.serial,modeloResumido:input.model}),input.brand||null]);
   if(input.ownership==='own')await c.query(`INSERT INTO m8_product_catalog(company_id,product_id,name,unit,sale_price,minimum_price,collected_at,payload)
    VALUES(1,$1,$2,'UN',$3,$4,now(),$5) ON CONFLICT(company_id,product_id) DO NOTHING`,
    [row.equipment_id,payload.nome,payload.precoVenda??null,payload.precoVendaMinimo??null,JSON.stringify({...payload,id:Number(row.equipment_id)})]);
+  const equipment={id:String(row.equipment_id),name:payload.nome,model:input.model,serial:input.serial,brand:input.brand||'',client:''};
+  const link=input.customerKey?await saveEquipmentCustomerLink(c,equipment,input.customerKey,row.actor,input.source||'workshop',row.id):{client:'',integrationPending:false,taskId:null as string|null};
   await c.query('COMMIT');
+  return {...equipment,...link};
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
- return {id:String(row.equipment_id),name:payload.nome,model:input.model,serial:input.serial,client:''};
 }
 /** Persist the request before the single ERP write. Never replay an uncertain POST. */
 export async function registerWorkshopEquipment(raw:any,actor:string,session=m8Session){
@@ -49,14 +53,18 @@ export async function registerWorkshopEquipment(raw:any,actor:string,session=m8S
  if(prior)return replay(prior);
 
  input=equipmentRegistrationInput(raw);
+ if(input.ownership==='customer'){if(!input.customerKey)throw new EquipmentRegistrationError('Selecione o cliente para vincular o equipamento.');await customerForEquipment(db,input.customerKey,actor);}
+ if(input.source==='visits')await linkTaskAssignee(db);
  const api=await session(1),defaults=await registrationDefaults(api,input),payload=equipmentRegistrationPayload(input,defaults);
  const c=await db.connect();
  try{await c.query('BEGIN READ WRITE');await c.query('SELECT pg_advisory_xact_lock(829203,0)');
   const existing=(await c.query('SELECT *,document=$2::jsonb same FROM web_workshop_equipment_registrations WHERE id=$1',[raw.requestId,document])).rows[0];
   if(existing){await c.query('COMMIT');return replay(existing);}
-  const matches=(await c.query(`SELECT equipment_id::text id,name,model,serial FROM m8_equipment_catalog WHERE present AND (($3::boolean=false AND lower(name)=lower($1)) OR (length($2)>=3 AND upper($2) NOT IN('NC','N/C','SEM SERIE') AND lower(serial)=lower($2))) LIMIT 1`,[equipmentRegistrationName(input),input.serial,input.noSerial])).rows;
+  const matches=(await c.query(`SELECT equipment_id::text id,name,model,serial FROM m8_equipment_catalog WHERE present AND (($3::boolean=false AND lower(name)=lower($1)) OR (length($2)>0 AND web_equipment_serial_key(serial)=$2)) LIMIT 1`,[equipmentRegistrationName(input),normalizedEquipmentSerial(input.serial),input.noSerial])).rows;
   if(matches.length)throw new EquipmentRegistrationError(`Este equipamento já está cadastrado (${matches[0].id}). Pesquise pela série ou pelo código antes de adicionar.`);
-  const pending=(await c.query("SELECT 1 FROM web_workshop_equipment_registrations WHERE state IN('sending','uncertain') AND ((length($1)>=3 AND upper($1) NOT IN('NC','N/C','SEM SERIE') AND lower(document->>'serial')=lower($1)) OR lower(payload->>'nome')=lower($2))",[input.serial,payload.nome])).rows.length;
+  const pending=(await c.query("SELECT 1 FROM web_workshop_equipment_registrations WHERE state IN('sending','uncertain') AND ((length($1)>0 AND web_equipment_serial_key(document->>'serial')=$1) OR lower(payload->>'nome')=lower($2))",[normalizedEquipmentSerial(input.serial),payload.nome])).rows.length;
+  const queued=normalizedEquipmentSerial(input.serial)?(await c.query("SELECT 1 FROM web_visit_machine_registrations WHERE equipment_id IS NULL AND id<>$2::uuid AND web_equipment_serial_key(serial)=$1 LIMIT 1",[normalizedEquipmentSerial(input.serial),raw.requestId])).rows.length:0;
+  if(queued)throw new EquipmentRegistrationError('Já existe uma solicitação de cadastro desta série nas Visitas.');
   if(pending)throw new EquipmentRegistrationError('Já existe um cadastro desta máquina aguardando confirmação. Confira o M8 antes de um novo envio.');
   await c.query("INSERT INTO web_workshop_equipment_registrations(id,actor,document,payload,state) VALUES($1,$2,$3,$4,'sending')",[raw.requestId,actor,document,JSON.stringify(payload)]);
   await c.query('COMMIT');
@@ -69,5 +77,16 @@ export async function registerWorkshopEquipment(raw:any,actor:string,session=m8S
  }catch(e){state=e instanceof M8RequestError&&!e.uncertain?'rejected':'uncertain';message=e instanceof M8RequestError?e.message:'Não foi possível confirmar o cadastro no M8. Confira o ERP antes de reenviar.';}
  const save=await db.connect();
  try{await save.query('BEGIN READ WRITE');await save.query('UPDATE web_workshop_equipment_registrations SET state=$2,equipment_id=$3,message=$4,updated_at=now() WHERE id=$1',[raw.requestId,state,equipmentId,message]);await save.query('COMMIT');}catch(e){await save.query('ROLLBACK');throw e;}finally{save.release();}
- return {state,message,equipment:state==='complete'?await saveLocal(db,{equipment_id:equipmentId,payload,document:input}):null};
+ return {state,message,equipment:state==='complete'?await saveLocal(db,{id:raw.requestId,actor,equipment_id:equipmentId,payload,document:input}):null};
+}
+
+export async function linkExistingEquipment(raw:any,actor:string){
+ if(!/^\d+$/.test(raw.equipmentId||'')||!/^m8:\d+$|^lead:[0-9a-f-]{36}$/i.test(raw.customerKey||''))throw new EquipmentRegistrationError('Cliente ou equipamento inválido.');
+ const c=await database().connect();
+ try{await c.query('BEGIN READ WRITE');await c.query('SELECT pg_advisory_xact_lock(81014,0)');
+ const row=(await c.query('SELECT equipment_id::text id,name,model,serial FROM m8_equipment_catalog WHERE equipment_id=$1 AND present',[raw.equipmentId])).rows[0];
+ if(!row)throw new EquipmentRegistrationError('Equipamento não encontrado.');
+ const link=await saveEquipmentCustomerLink(c,row,raw.customerKey,actor,['visits','service-order'].includes(raw.source)?raw.source:'workshop',null);
+ await c.query('COMMIT');return {state:'complete',equipment:{...row,...link}};
+ }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }

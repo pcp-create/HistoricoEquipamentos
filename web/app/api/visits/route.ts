@@ -1,3 +1,4 @@
+import {EquipmentRegistrationError} from '@/lib/workshop/equipment-registration-model';
 import {inactivateVisitEquipment} from "@/lib/visits/equipment-inactivation";
 import {createVisitTask} from "@/lib/visits/tasks";
 import {TaskInputError,TaskConflict} from "@/lib/tasks/store";
@@ -17,7 +18,7 @@ function fail(e: unknown) {
   return json(
     {
       error:
-        (e instanceof AdminInputError || e instanceof TaskInputError || e instanceof TaskConflict || e instanceof EquipmentInputError || e instanceof EquipmentConflict)
+        (e instanceof EquipmentRegistrationError || e instanceof AdminInputError || e instanceof TaskInputError || e instanceof TaskConflict || e instanceof EquipmentInputError || e instanceof EquipmentConflict)
           ? e.message
           : e instanceof Unauthorized
             ? "Sessão expirada."
@@ -25,7 +26,7 @@ function fail(e: unknown) {
               ? "Acesso não permitido. Confira se o usuário está ativo e se a visita pertence a ele."
               : "Não foi possível carregar as visitas.",
     },
-    e instanceof EquipmentConflict || e instanceof TaskConflict ? 409 : (e instanceof AdminInputError || e instanceof TaskInputError || e instanceof TaskConflict || e instanceof EquipmentInputError)
+    e instanceof EquipmentConflict || e instanceof TaskConflict ? 409 : (e instanceof EquipmentRegistrationError || e instanceof AdminInputError || e instanceof TaskInputError || e instanceof TaskConflict || e instanceof EquipmentInputError)
       ? 400
       : e instanceof Unauthorized
         ? 401

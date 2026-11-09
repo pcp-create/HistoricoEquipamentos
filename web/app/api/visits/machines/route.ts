@@ -1,3 +1,5 @@
+import {EquipmentRegistrationError} from '@/lib/workshop/equipment-registration-model';
+import {M8RequestError} from '@/lib/service-orders/m8';
 import {customerEquipment} from "@/lib/visits/customer-equipment";
 import {database} from "@/lib/db";
 import { requireUser, sameOrigin, Forbidden, Unauthorized } from "@/lib/auth";
@@ -16,7 +18,7 @@ function fail(e: unknown) {
   return json(
     {
       error:
-        e instanceof AdminInputError || e instanceof TaskInputError
+        e instanceof EquipmentRegistrationError || e instanceof M8RequestError || e instanceof AdminInputError || e instanceof TaskInputError
           ? e.message
           : "Não foi possível acessar o cadastro de máquinas.",
     },
@@ -24,7 +26,7 @@ function fail(e: unknown) {
       ? 401
       : e instanceof Forbidden
         ? 403
-        : e instanceof AdminInputError || e instanceof TaskInputError
+        : e instanceof EquipmentRegistrationError || e instanceof M8RequestError || e instanceof AdminInputError || e instanceof TaskInputError
           ? 400
           : 503,
   );
@@ -45,7 +47,7 @@ export async function POST(r: Request) {
   try {
     const u = await requireUser(),
       raw = await r.text();
-    if (raw.length > 5000) throw new AdminInputError("Dados muito longos.");
+    if (raw.length > 12000) throw new AdminInputError("Dados muito longos.");
     let b;
     try {
       b = JSON.parse(raw);

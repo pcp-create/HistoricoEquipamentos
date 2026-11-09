@@ -1,3 +1,4 @@
+import {normalizedEquipmentSerial} from '../equipment/serial';
 export const workshopEquipmentTypes = [
   {id:'dryer',label:'Secador de Ar',ncm:'84193900'},
   {id:'screw',label:'Compressor Parafuso',ncm:'84148012'},
@@ -24,6 +25,9 @@ export function equipmentRegistrationInput(input:any,{requireInternalDetails=tru
  if(type&&input.ownership==='customer'&&'ownOnly' in type)throw new EquipmentRegistrationError('Selecione um tipo de equipamento de cliente.');
  if(!type)throw new EquipmentRegistrationError('Selecione o tipo do equipamento.');
  const own=input.ownership==='own';
+ const customerKey=own?'':clean(input.customerKey,'o cliente',120);
+ if(customerKey&&!/^(m8:\d+|lead:[0-9a-f-]{36})$/i.test(customerKey))throw new EquipmentRegistrationError('Selecione um cliente válido.');
+ const source=['workshop','visits','service-order'].includes(input.source)?input.source:'workshop';
  const internalCode=own?clean(input.internalCode,'o Código de Identificação Interno',100,requireInternalDetails):'';
  const measure=(key:string,label:string)=>{
   if(!own)return null;
@@ -35,9 +39,12 @@ export function equipmentRegistrationInput(input:any,{requireInternalDetails=tru
  const height=measure('height','a altura'),width=measure('width','a largura'),length=measure('length','o comprimento'),weight=measure('weight','o peso bruto');
  if(own&&input.noSerial!=null&&typeof input.noSerial!=='boolean')throw new EquipmentRegistrationError('Confirme se o equipamento não possui série disponível.');
  const noSerial=own&&input.noSerial===true;
+ const brand=clean(input.brand,'a marca',100);
+ const meter=number(input.meter,'o horímetro',2);
  const model=clean(input.model,'o modelo',100,!(own&&type.id==='separator'));
  const serial=noSerial?'N/C':clean(input.serial,'a série',100,true),notes=clean(input.notes,'as informações complementares',2000);
  if(own&&!noSerial&&isMissingSerial(serial))throw new EquipmentRegistrationError('Confirme que o equipamento não possui número de série disponível para usar SÉRIE N/C.');
+ if(requireInternalDetails&&!noSerial&&!normalizedEquipmentSerial(serial))throw new EquipmentRegistrationError('Informe uma série válida, com letras ou números.');
  const hp=own&&['dryer','separator'].includes(type.id)?null:number(input.hp,'HP');
  const pcm=own&&type.id==='separator'?null:number(input.pcm,'PCM');
  const bar=own&&['dryer','piston-unit'].includes(type.id)?null:number(input.bar,'BAR');
@@ -53,7 +60,7 @@ export function equipmentRegistrationInput(input:any,{requireInternalDetails=tru
  const price=own?number(input.price,'o valor de venda',2):null;
  const minimumPrice=own?number(input.minimumPrice,'o valor mínimo de venda',2):null;
  if(price!=null&&minimumPrice!=null&&minimumPrice>price)throw new EquipmentRegistrationError('O valor mínimo não pode superar o valor de venda.');
- return {ownership:input.ownership as 'own'|'customer',type:type.id,model,serial,hp,pcm,bar,notes,price,minimumPrice,origin:'Nacional' as const,noSerial,voltage:voltage.replace(/\s/g,''),frequency,pressure,pressureUnit,configuration,capacity,characteristics,internalCode,height,width,length,weight};
+ return {...(brand?{brand}:{}),...(meter!=null?{meter}:{}),...(customerKey?{customerKey,source}:{}),ownership:input.ownership as 'own'|'customer',type:type.id,model,serial,hp,pcm,bar,notes,price,minimumPrice,origin:'Nacional' as const,noSerial,voltage:voltage.replace(/\s/g,''),frequency,pressure,pressureUnit,configuration,capacity,characteristics,internalCode,height,width,length,weight};
 }
 export type RegistrationInput=ReturnType<typeof equipmentRegistrationInput>;
 const decimal=(value:number|null,unit:string,min=0)=>value==null?'':`${value.toLocaleString('pt-BR',{useGrouping:false,minimumFractionDigits:min,maximumFractionDigits:3})}${unit}`;
@@ -77,5 +84,5 @@ export function equipmentRegistrationPayload(input:RegistrationInput,ids:{family
  const specifications=[input.hp!=null?`${input.hp} HP`:'',input.pcm!=null?`${input.pcm} PCM`:'',input.bar!=null?`${input.bar} BAR`:'',input.pressure!=null?`${input.pressure} ${input.pressureUnit}`:'',input.voltage?`${input.voltage} V`:'',input.frequency!=null?`${input.frequency} HZ`:'',input.configuration,input.capacity!=null?`${input.capacity} L`:'',input.characteristics].filter(Boolean).join(' · ');
  return {origem:input.origin,nome:equipmentRegistrationName(input),apelido:equipmentRegistrationName(input),ncm:own?type.ncm:'00000000',codigoGenero:own?'84':'00',codigoTipoSped:own?'00':'07',unidadeId:ids.unit,familiaId:ids.family,grupoEstoqueId:own?96:97,
  ...(own?{tipoProduto:'EquipamentoProduto',codigoIdentificacaoInterno:input.internalCode,produtoAltura:input.height,produtoLargura:input.width,produtoComprimento:input.length,pesoBruto:input.weight,tipoPeso:'Quilo',categoriaId:ids.category,precoVenda:input.price??0,precoVendaMinimo:input.minimumPrice??0,...(input.model?{modeloResumido:input.model}:{}),...(input.hp!=null?{potencia:input.hp}:{})}:{modeloGerador:input.model,numeroSerieGerador:input.serial,...(input.hp!=null?{potencia:String(input.hp)}:{})}),
- informacoesComplementares:[own?`Série: ${input.serial}`:'',specifications,input.notes].filter(Boolean).join('\n')||null};
+ informacoesComplementares:[input.brand?`Marca: ${input.brand}`:'',input.meter!=null?`Horímetro: ${input.meter} h`:'',own?`Série: ${input.serial}`:'',specifications,input.notes].filter(Boolean).join('\n')||null};
 }

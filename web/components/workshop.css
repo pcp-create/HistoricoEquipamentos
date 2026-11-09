@@ -108,3 +108,16 @@
 .ws-modal .ws-select-add-row>.ws-add-icon{flex:0 0 42px;width:42px;min-height:42px;padding:0;border-radius:8px;border:1px solid #c9dbe9;background:#f4f8fc;color:#245f91}
 .ws-modal .ws-select-add-row>.ws-add-icon:hover{background:#e6f0f9;border-color:#92b4d2}
 .ws-component-picker>label{margin-bottom:6px}
+.ws-serial-matches { border:1px solid #e4c687; background:#fffaf0; border-radius:8px; padding:12px; }
+.ws-serial-matches > div { display:flex; align-items:center; justify-content:space-between; gap:12px; border-top:1px solid #eadbb9; padding:8px 0; }
+.ws-serial-matches small { display:block; color:#6e7b87; }
+.ws-integration-pending { color:#9a6400; font-size:12px; }
+dialog.equipment-create-dialog { width:min(760px,calc(100vw - 24px)); max-height:90dvh; margin:auto; padding:22px; border:1px solid #cadce9; border-radius:14px; overflow-y:auto; color:#264862; }
+dialog.equipment-create-dialog::backdrop { background:#132c4c66; }
+.equipment-create-dialog > header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.equipment-create-dialog h2 { font-size:22px; margin:0 0 18px; }
+.equipment-create-dialog .ws-register-equipment { margin-top:0; }
+.os-equipment-create-row { display:flex; gap:8px; align-items:flex-start; }
+.os-equipment-create-row > div { flex:1; min-width:0; }
+.ws-serial-matches > div { flex-wrap:wrap; }
+.ws-serial-matches p { min-width:0; flex:1 1 200px; overflow-wrap:anywhere; }

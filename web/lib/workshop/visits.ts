@@ -28,7 +28,7 @@ export async function workshopVisits(db: any, admin: boolean): Promise<any[]> {
  task_groups AS (
    SELECT l.visit_id,jsonb_agg(jsonb_build_object('id',t.id::text,'title',t.title,'status',t.status) ORDER BY t.id) tasks FROM task_visits l JOIN open_tasks t ON t.id=l.task_id GROUP BY l.visit_id
  ),
- clients AS (SELECT p.equipment_id,max(p.person_name) client FROM m8_person_equipment p JOIN equipment_ids e USING(equipment_id) WHERE p.present GROUP BY p.equipment_id),
+ clients AS (SELECT p.equipment_id,max(p.person_name||CASE WHEN p.integration_pending THEN ' · Vínculo pendente de integração' ELSE '' END) client FROM web_effective_person_equipment p JOIN equipment_ids e USING(equipment_id) WHERE p.present GROUP BY p.equipment_id),
  quote_groups AS (SELECT l.visit_id,jsonb_agg(jsonb_build_object('id',q.id::text,'company',q.company_id,'number',q.number,'status',q.status,'amount',q.total) ORDER BY q.company_id,q.id) quotes FROM web_workshop_quotes l JOIN m8_quotes q ON q.company_id=l.company_id AND q.id=l.quote_id GROUP BY l.visit_id),
  draft_groups AS (SELECT q.document->>'equipmentId' equipment_id,jsonb_agg(jsonb_build_object('id',q.id,'number',q.number,'client',q.client_name) ORDER BY q.id) drafts FROM web_quotes q WHERE q.document->>'deletedAt' IS NULL GROUP BY q.document->>'equipmentId')
  SELECT v.*,v.equipment_id::text,COALESCE(e.payload->>'familiaId'='3',false) rental,CASE WHEN v.source->>'entryKind'='component' THEN (v.source->>'componentName')||' · Componente de '||COALESCE(e.name,v.source->>'equipment_description','máquina') ELSE COALESCE(e.name,v.source->>'equipment_description') END name,COALESCE(e.name,v.source->>'equipment_description') machine_name,e.model,e.serial,COALESCE(w.name,'Oficina a confirmar') workshop,

@@ -70,7 +70,7 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
       [draft.equipment],
     ),
     db.query(
-      "SELECT person_id FROM m8_customer_directory WHERE company_id=1 AND person_id=$1",
+      "SELECT person_id FROM m8_customer_directory WHERE person_id=$1",
       [draft.customer],
     ),
   ]);
@@ -89,7 +89,7 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
     type.customer_equipment_only &&
     !(
       await db.query(
-        "SELECT 1 FROM m8_person_equipment WHERE company_id=1 AND person_id=$1 AND equipment_id=$2 AND present LIMIT 1",
+        "SELECT 1 FROM web_effective_person_equipment WHERE person_id=$1 AND equipment_id=$2 AND present LIMIT 1",
         [draft.customer, draft.equipment],
       )
     ).rows.length

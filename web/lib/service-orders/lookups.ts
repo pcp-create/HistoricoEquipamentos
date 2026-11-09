@@ -74,7 +74,7 @@ export async function orderLookups(p: URLSearchParams) {
     return {
       rows: (
         await db.query(
-          `SELECT e.equipment_id::text id,concat_ws(' · ',e.equipment_id,e.name,NULLIF(e.model,''),NULLIF(e.serial,'')) name FROM m8_equipment_catalog e WHERE e.present AND concat_ws(' ',e.equipment_id,e.name,e.model,e.serial) ILIKE ALL($1::text[]) AND (NOT $2::boolean OR EXISTS(SELECT 1 FROM m8_person_equipment p WHERE p.company_id=1 AND p.person_id=$3 AND p.equipment_id=e.equipment_id AND p.present)) ORDER BY e.equipment_id LIMIT 31 OFFSET $4`,
+          `SELECT e.equipment_id::text id,concat_ws(' · ',e.equipment_id,e.name,NULLIF(e.model,''),NULLIF(e.serial,'')) name,jsonb_build_object('integrationPending',EXISTS(SELECT 1 FROM web_effective_person_equipment pending WHERE pending.equipment_id=e.equipment_id AND pending.person_id=$3 AND pending.integration_pending)) data FROM m8_equipment_catalog e WHERE e.present AND concat_ws(' ',e.equipment_id,e.name,e.model,e.serial) ILIKE ALL($1::text[]) AND (NOT $2::boolean OR EXISTS(SELECT 1 FROM web_effective_person_equipment p WHERE p.person_id=$3 AND p.equipment_id=e.equipment_id AND p.present)) ORDER BY e.equipment_id LIMIT 31 OFFSET $4`,
           [q, t.customer_equipment_only, customer, (page - 1) * 30],
         )
       ).rows,

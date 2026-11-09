@@ -10,6 +10,8 @@ test('a missing workshop machine can be registered and selected without losing t
  await page.route('**/api/workshop*',r=>r.fulfill({json:new URL(r.request().url()).searchParams.has('q')?{rows:[]}:{workshops:[{id:'1',name:'RJ Compressores',active:true}],visits:[],external:[]}}));
  let saved:any,entry:any;
  await page.route('**/api/workshop/equipment',r=>{saved=r.request().postDataJSON();return r.fulfill({json:{state:'complete',equipment}});});
+ await page.route('**/api/workshop/equipment?*',r=>r.fulfill({json:{rows:[]}}));
+ await page.route('**/api/visits/customers*',r=>r.fulfill({json:{rows:[{id:'m8:10',name:'Cliente sem máquinas',detail:'Sem equipamento cadastrado'}]}}));
  await page.goto('/oficina');await page.getByRole('button',{name:'Registrar entrada',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Registrar entrada de máquina'});
  await dialog.getByLabel('Condição de entrada / observações').fill('Entrada urgente');
@@ -22,12 +24,16 @@ test('a missing workshop machine can be registered and selected without losing t
  await expect(registration.getByLabel('Valor de venda (R$)',{exact:true})).toBeVisible();
  await registration.getByLabel('Equipamento de cliente',{exact:true}).check();
  await expect(registration.getByLabel('Valor de venda (R$)',{exact:true})).toHaveCount(0);
+ await registration.getByRole('combobox',{name:'Cliente do equipamento',exact:true}).click();
+ await registration.getByRole('option').filter({hasText:'Cliente sem máquinas'}).click();
  await registration.getByRole('combobox',{name:'Tipo do equipamento *',exact:true}).selectOption('screw');
  await registration.getByLabel('Modelo *',{exact:true}).fill('GA30');await registration.getByLabel('Série *',{exact:true}).fill('SN500');
  await registration.getByLabel('PCM',{exact:true}).fill('120');
+ await registration.getByLabel('Marca',{exact:true}).fill('Atlas Copco');
+ await page.screenshot({path:'/tmp/equipment-registration-client.png',fullPage:true});
  await registration.getByRole('button',{name:'Cadastrar e selecionar'}).click();
  await expect(registration).toHaveCount(0);await expect(dialog).toContainText('500 - '+equipment.name);
- expect(saved).toMatchObject({ownership:'customer',type:'screw',model:'GA30',serial:'SN500',pcm:120,origin:'Nacional'});
+ expect(saved).toMatchObject({ownership:'customer',type:'screw',model:'GA30',serial:'SN500',pcm:120,origin:'Nacional',customerKey:'m8:10',brand:'Atlas Copco'});
  await expect(dialog.getByLabel('Condição de entrada / observações')).toHaveValue('Entrada urgente');
  await page.route('**/api/workshop',r=>{if(r.request().method()==='POST'){entry=r.request().postDataJSON();return r.fulfill({json:{saved:true}});}return r.fulfill({json:{workshops:[{id:'1',name:'RJ Compressores',active:true}],visits:[],external:[]}});});
  await dialog.getByRole('button',{name:'Confirmar entrada',exact:true}).click();
@@ -39,8 +45,12 @@ test('uncertain equipment registration keeps the same request and prevents editi
  await page.route('**/api/workshop',r=>r.fulfill({json:{workshops:[{id:'1',name:'RJ Compressores',active:true}],visits:[],external:[]}}));
  const requests:any[]=[];
  await page.route('**/api/workshop/equipment',r=>{requests.push(r.request().postDataJSON());return r.fulfill({json:requests.length===1?{state:'uncertain',message:'Confira o cadastro no ERP.'}:{state:'complete',equipment}});});
+ await page.route('**/api/workshop/equipment?*',r=>r.fulfill({json:{rows:[]}}));
+ await page.route('**/api/visits/customers*',r=>r.fulfill({json:{rows:[{id:'m8:10',name:'Cliente sem máquinas',detail:'Sem equipamento cadastrado'}]}}));
  await page.goto('/oficina');await page.getByRole('button',{name:'Registrar entrada',exact:true}).click();await page.getByRole('button',{name:'Adicionar equipamento',exact:true}).click();
  const registration=page.getByRole('region',{name:'Adicionar equipamento'});
+ await registration.getByRole('combobox',{name:'Cliente do equipamento',exact:true}).click();
+ await registration.getByRole('option').filter({hasText:'Cliente sem máquinas'}).click();
  await registration.getByRole('combobox',{name:'Tipo do equipamento *',exact:true}).selectOption('screw');await registration.getByLabel('Modelo *').fill('GA30');await registration.getByLabel('Série *').fill('SN500');
  await registration.getByRole('button',{name:'Cadastrar e selecionar'}).click();
  await expect(registration.getByRole('alert')).toContainText('Confira');await expect(registration.getByLabel('Modelo *')).toBeDisabled();
@@ -54,6 +64,8 @@ test('owned equipment accepts optional sale prices and returns directly to the w
  let entryCalls=0,registration:any;
  await page.route('**/api/workshop',r=>{if(r.request().method()==='POST')entryCalls++;return r.fulfill({json:{workshops:[{id:'1',name:'RJ Compressores',active:true}],visits:[],external:[]}});});
  await page.route('**/api/workshop/equipment',r=>{registration=r.request().postDataJSON();return r.fulfill({json:{state:'complete',equipment:{...equipment,id:'501'}}});});
+ await page.route('**/api/workshop/equipment?*',r=>r.fulfill({json:{rows:[]}}));
+ await page.route('**/api/visits/customers*',r=>r.fulfill({json:{rows:[{id:'m8:10',name:'Cliente sem máquinas',detail:'Sem equipamento cadastrado'}]}}));
  await page.goto('/oficina');await page.getByRole('button',{name:'Registrar entrada',exact:true}).click();await page.getByRole('button',{name:'Adicionar equipamento',exact:true}).click();
  const form=page.getByRole('region',{name:'Adicionar equipamento'});
  await form.getByLabel('Equipamento Próprio',{exact:true}).check();
@@ -76,6 +88,8 @@ test('POP names preview type-specific characteristics and require confirmation b
  await page.route('**/api/workshop',r=>r.fulfill({json:{workshops:[{id:'1',name:'RJ Compressores',active:true}],visits:[],external:[]}}));
  let submitted:any;
  await page.route('**/api/workshop/equipment',r=>{submitted=r.request().postDataJSON();return r.fulfill({json:{state:'complete',equipment}});});
+ await page.route('**/api/workshop/equipment?*',r=>r.fulfill({json:{rows:[]}}));
+ await page.route('**/api/visits/customers*',r=>r.fulfill({json:{rows:[{id:'m8:10',name:'Cliente sem máquinas',detail:'Sem equipamento cadastrado'}]}}));
  await page.goto('/oficina');await page.getByRole('button',{name:'Registrar entrada',exact:true}).click();await page.getByRole('button',{name:'Adicionar equipamento',exact:true}).click();
  const form=page.getByRole('region',{name:'Adicionar equipamento'}),type=form.getByRole('combobox',{name:'Tipo do equipamento *',exact:true});
  await expect(type.locator('option[value="piston-unit"]')).toHaveCount(0);
@@ -96,4 +110,23 @@ test('POP names preview type-specific characteristics and require confirmation b
  await expect(form.locator('.ws-register-preview strong')).toHaveText('UNIDADE COMPRESSORA PISTÃO 60PCM - W900 - 15HP - 5 CILINDROS - SÉRIE N/C');
  await page.setViewportSize({width:390,height:844});expect(await form.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
  await form.getByRole('button',{name:'Cadastrar e selecionar'}).click();await expect(form).toHaveCount(0);expect(submitted).toMatchObject({type:'piston-unit',noSerial:true,serial:'N/C',bar:null,voltage:'',configuration:'',capacity:null});
+});
+
+test('normalized serial candidates can be reused with a customer without creating a duplicate',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/**',r=>r.fulfill({json:{}}));
+ await page.route('**/api/workshop',r=>r.fulfill({json:{workshops:[{id:'1',name:'Oficina',active:true}],visits:[],external:[]}}));
+ await page.route('**/api/visits/customers*',r=>r.fulfill({json:{rows:[{id:'m8:10',name:'Cliente sem máquinas'}]}}));
+ await page.route('**/api/workshop/equipment?*',r=>r.fulfill({json:{rows:[{id:'500',name:'Compressor existente',serial:'SN00123',model:'GA30',exact:true,client:'Cliente anterior'}]}}));
+ let body:any;
+ await page.route('**/api/workshop/equipment',r=>{body=r.request().postDataJSON();return r.fulfill({json:{state:'complete',equipment:{id:'500',name:'Compressor existente',serial:'SN00123',client:'Cliente sem máquinas',integrationPending:true}}});});
+ await page.goto('/oficina');await page.getByRole('button',{name:'Registrar entrada',exact:true}).click();await page.getByRole('button',{name:'Adicionar equipamento',exact:true}).click();
+ const form=page.getByRole('region',{name:'Adicionar equipamento'});
+ await form.getByRole('combobox',{name:'Cliente do equipamento',exact:true}).click();await form.getByRole('option').filter({hasText:'Cliente sem máquinas'}).click();
+ await form.getByLabel('Série *',{exact:true}).fill('sn.00 123');
+ await expect(form.getByText('Possíveis equipamentos já cadastrados')).toBeVisible();
+ await expect(form.getByRole('button',{name:'Cadastrar e selecionar'})).toBeDisabled();
+ await form.getByRole('button',{name:'Usar este equipamento'}).click();
+ expect(body).toMatchObject({action:'link-existing',equipmentId:'500',customerKey:'m8:10'});
+ await expect(page.getByText('Vínculo com cliente pendente de integração',{exact:true})).toBeVisible();
 });

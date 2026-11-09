@@ -189,6 +189,11 @@ test("new OS selects company, filters equipment, fills seller and submits header
   await expect(
     page.getByRole("combobox", { name: "Vendedor", exact: true }),
   ).toHaveValue(/Vendedor padrão/);
+  await page.getByRole('button',{name:'Cadastrar equipamento',exact:true}).click();
+  const registrationDialog=page.getByRole('dialog',{name:'Cadastrar equipamento',exact:true});
+  await expect(registrationDialog.getByLabel('Cliente *',{exact:true})).toHaveValue('Cliente Teste');
+  await expect(registrationDialog.getByLabel('Marca',{exact:true})).toBeVisible();
+  await registrationDialog.getByRole('button',{name:'Fechar cadastro de equipamento',exact:true}).click();
   await choose("Equipamento", "100");
   expect(equipmentQueries[0]).toContain("customer=10");
   expect(equipmentQueries[0]).toContain("type=1");

@@ -17,7 +17,7 @@ export async function workshopSearch(q:string,quotes=false,components=false){
  const term=text(q,120);if(term.length<2)return [];
  if(quotes)return (await database().query(`SELECT company_id,id::text,number,client,status FROM m8_quotes WHERE concat_ws(' ',id,number,client) ILIKE ALL($1::text[]) AND status NOT IN ('Concretizado','Cancelado','Perdido') ORDER BY id,company_id LIMIT 40`,[searchPatterns(term)])).rows;
  return (await database().query(`SELECT e.equipment_id::text id,e.name,e.model,e.serial,
- (SELECT max(person_name) FROM m8_person_equipment p WHERE p.equipment_id=e.equipment_id AND p.present) client
+ (SELECT max(person_name||CASE WHEN integration_pending THEN ' · Vínculo pendente de integração' ELSE '' END) FROM web_effective_person_equipment p WHERE p.equipment_id=e.equipment_id AND p.present) client
  FROM m8_equipment_catalog e WHERE e.present AND concat_ws(' ',e.equipment_id,e.name,e.model,e.serial) ILIKE ALL($1::text[])
  AND ($2::boolean OR NOT EXISTS(SELECT 1 FROM web_workshop_visits v WHERE v.equipment_id=e.equipment_id AND v.exited_at IS NULL AND v.reconciled_out_at IS NULL AND COALESCE(v.source->>'entryKind','equipment')='equipment'))
  ORDER BY e.equipment_id LIMIT 40`,[searchPatterns(term),components])).rows;

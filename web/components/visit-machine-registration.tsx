@@ -1,9 +1,11 @@
 "use client";
-import VisitEquipmentGroup from "./visit-equipment-group";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
-import type { DraftMachine } from "@/lib/visits/draft-machines";
+import { useEffect, useState } from "react";
 import { Plus, Wrench } from "lucide-react";
+import type { ReactNode } from "react";
+import type { DraftMachine } from "@/lib/visits/draft-machines";
+import { workshopEquipmentTypes } from "@/lib/workshop/equipment-registration-model";
+import VisitEquipmentGroup from "./visit-equipment-group";
+import EquipmentCreateDialog from "./equipment-create-dialog";
 export default function VisitMachineRegistration({
   customer,
   name,
@@ -15,30 +17,19 @@ export default function VisitMachineRegistration({
   customer: string;
   name: string;
   online: boolean;
+  renderVisitRecord?: (machine: {
+    id: string;
+    model: string;
+    equipmentId?: string;
+  }) => ReactNode;
   draftMachines?: DraftMachine[];
   onDraftMachines?: (machines: DraftMachine[]) => void;
-  renderVisitRecord?: (machine: { id: string; model: string }) => ReactNode;
 }) {
-  const [machines, setMachines] = useState<any[]>([]),
-    [open, setOpen] = useState(false),
-    [busy, setBusy] = useState(false),
+  const [open, setOpen] = useState(false),
+    [machines, setMachines] = useState<any[]>([]),
     [error, setError] = useState(""),
-    [message, setMessage] = useState("");
+    [busy, setBusy] = useState("");
   const drafting = !!onDraftMachines;
-  const displayedMachines = drafting
-    ? (draftMachines || []).map((m) => ({
-        id: m.requestId,
-        equipment_type: m.equipmentType,
-        model: m.model,
-        brand: m.brand,
-        serial: m.serial,
-        meter: m.meter,
-        observations: m.observations,
-        task_id: null,
-      }))
-    : machines;
-  const dialog = useRef<HTMLDialogElement>(null),
-    request = useRef("");
   async function load() {
     const r = await fetch(
       "/api/visits/machines?customer=" + encodeURIComponent(customer),
@@ -46,207 +37,190 @@ export default function VisitMachineRegistration({
     );
     const b = await r.json();
     if (!r.ok) throw Error(b.error);
-    setMachines(b.machines);
+    setMachines(b.machines || []);
   }
   useEffect(() => {
-    if (!drafting) load().catch((e) => setError(e.message));
-  }, [customer, drafting]);
-  useEffect(() => {
-    if (open) dialog.current?.showModal();
-  }, [open]);
+    if (drafting || !online) return;
+    let active = true;
+    const refresh = () => {
+      if (active && document.visibilityState === "visible")
+        void load().catch((e) => {
+          if (active) setError(e.message);
+        });
+    };
+    refresh();
+    const timer = setInterval(refresh, 60000);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("equipment-created", refresh);
+    return () => {
+      active = false;
+      clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("equipment-created", refresh);
+    };
+  }, [customer, drafting, online]);
+  const items = drafting
+    ? (draftMachines || []).map((m) => ({
+        ...m,
+        id: m.requestId,
+        equipment_type: m.equipmentType,
+      }))
+    : machines;
   return (
     <>
-      {message && <p role="status">{message}</p>}
-      {error && !open && <p role="alert">{error}</p>}
-      {displayedMachines.length > 0 && (
-        <p>
-          <strong>
-            {drafting
-              ? "Máquinas incluídas no novo Lead"
-              : "Máquinas aguardando cadastro"}{" "}
-            ({displayedMachines.length})
-          </strong>
-        </p>
-      )}
-      <VisitEquipmentGroup key={customer} customer={customer} equipment={displayedMachines} online={online&&!busy} prefix="pending:" canInactivate={!drafting} render={(m,inactive) => (
-        <article key={m.id}>
-          <strong>
-            {m.equipment_type} - {m.model}
-          </strong>
-          <p>
-            Marca: {m.brand} · Série: {m.serial}
-          </p>
-          <p>Horímetro: {Number(m.meter).toLocaleString("pt-BR")} h</p>
-          {m.observations && (
-            <p style={{ whiteSpace: "pre-wrap" }}>
-              <strong>Observações:</strong> {m.observations}
-            </p>
-          )}
-          {drafting ? (
-            <>
-              <small>Será salva junto com o Lead e a visita.</small>
-              <button
-                type="button"
-                disabled={busy || !online}
-                onClick={() =>
-                  onDraftMachines?.(
-                    (draftMachines || []).filter(
-                      (item) => item.requestId !== m.id,
-                    ),
-                  )
-                }
-              >
-                Remover máquina {m.model}
-              </button>
-            </>
-          ) : (
-            <>
-              <small>Cadastro pendente</small> ·{" "}
-              <a href={"/tarefas?task=" + m.task_id}>Tarefa TAR-{m.task_id}</a>
-            </>
-          )}
-          {!inactive&&renderVisitRecord?.(m)}
-        </article>
-      )}/>
+      {error && <p role="alert">{error}</p>}
+      <VisitEquipmentGroup
+        customer={customer}
+        equipment={items}
+        online={online && !busy}
+        canInactivate={!drafting}
+        equipmentKey={(m) =>
+          m.equipment_id ? String(m.equipment_id) : "pending:" + m.id
+        }
+        render={(m, inactive) => (
+          <article key={m.id}>
+            <strong>
+              {m.equipment_type} - {m.model}
+            </strong>
+            <p>Série: {m.serial}</p>
+            {m.brand && <p>Marca: {m.brand}</p>}
+            {m.meter != null && (
+              <p>Horímetro: {Number(m.meter).toLocaleString("pt-BR")} h</p>
+            )}
+            {m.observations && <p>{m.observations}</p>}
+            {drafting ? (
+              <>
+                <small>
+                  O equipamento será cadastrado ao confirmar a visita do novo
+                  Lead.
+                </small>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onDraftMachines?.(
+                      (draftMachines || []).filter(
+                        (item) => item.requestId !== m.id,
+                      ),
+                    )
+                  }
+                >
+                  Remover máquina {m.model}
+                </button>
+              </>
+            ) : (
+              <>
+                <p>
+                  {m.equipment_id
+                    ? `Equipamento ${m.equipment_id} cadastrado no ERP`
+                    : "Cadastro aguardando confirmação"}
+                </p>
+                {m.integration_pending && (
+                  <small className="ws-integration-pending">
+                    Vínculo com cliente pendente de integração
+                  </small>
+                )}
+                {m.task_id && m.integration_pending && (
+                  <p>
+                    <a href={"/tarefas?task=" + m.task_id}>
+                      Tarefa TAR-{m.task_id} · Vínculo manual
+                    </a>
+                  </p>
+                )}
+                {!m.equipment_id && (
+                  <button
+                    type="button"
+                    disabled={!online || !!busy}
+                    onClick={async () => {
+                      setBusy(m.id);
+                      setError("");
+                      try {
+                        const r = await fetch("/api/visits/machines", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            requestId: m.id,
+                            customerKey: customer,
+                            resume: true,
+                          }),
+                        });
+                        const body = await r.json();
+                        if (!r.ok) throw Error(body.error);
+                        if (body.state !== "complete")
+                          throw Error(body.message);
+                        await load();
+                      } catch (e) {
+                        setError((e as Error).message);
+                      } finally {
+                        setBusy("");
+                      }
+                    }}
+                  >
+                    Consultar / concluir cadastro
+                  </button>
+                )}
+              </>
+            )}
+            {!inactive &&
+              renderVisitRecord?.({
+                id: m.id,
+                model: m.model,
+                equipmentId: m.equipment_id
+                  ? String(m.equipment_id)
+                  : undefined,
+              })}
+          </article>
+        )}
+      />
       <button
         type="button"
         className="sales-machine-create"
         disabled={
-          !online || busy || (drafting && (draftMachines?.length || 0) >= 20)
+          !online || !!busy || (drafting && (draftMachines?.length || 0) >= 20)
         }
         onClick={() => {
-          request.current = crypto.randomUUID();
           setError("");
-          setMessage("");
           setOpen(true);
         }}
       >
-        <span className="sales-machine-create-icon" aria-hidden="true">
-          <Wrench size={18} />
-        </span>
+        <Wrench size={18} />
         <span>Cadastrar máquina</span>
-        <Plus size={17} aria-hidden="true" />
+        <Plus size={17} />
       </button>
-      {open &&
-        createPortal(
-          <dialog
-            ref={dialog}
-            className="sales-dialog visit-task-dialog"
-            aria-label="Cadastrar máquina"
-            onCancel={(e) => {
-              if (busy) e.preventDefault();
-              else setOpen(false);
-            }}
-          >
-            <h2>Cadastrar máquina</h2>
-            <p>{name}</p>
-            <p>
-              {drafting
-                ? "Adicione a máquina ao novo Lead. As informações e a tarefa de cadastro serão salvas ao confirmar a visita."
-                : "As informações serão salvas e uma tarefa será enviada ao responsável pelo cadastro. Você acompanhará essa tarefa."}
-            </p>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const values = Object.fromEntries(
-                  new FormData(e.currentTarget),
-                );
-                setBusy(true);
-                setError("");
-                try {
-                  if (drafting) {
-                    onDraftMachines?.([
-                      ...(draftMachines || []),
-                      { ...values, requestId: request.current } as DraftMachine,
-                    ]);
-                    setOpen(false);
-                    setMessage(
-                      "Máquina incluída no Lead. Confirme a visita para salvar.",
-                    );
-                    return;
-                  }
-                  const r = await fetch("/api/visits/machines", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        ...values,
-                        customer,
-                        requestId: request.current,
-                      }),
-                    }),
-                    b = await r.json();
-                  if (!r.ok) throw Error(b.error);
+      {open && (
+        <EquipmentCreateDialog
+          source="visits"
+          customer={drafting ? undefined : { id: customer, name }}
+          onClose={() => setOpen(false)}
+          onCreated={() => {
+            setOpen(false);
+            void load().catch((e) => setError(e.message));
+            window.dispatchEvent(new Event("equipment-created"));
+          }}
+          onDraft={
+            drafting
+              ? (input) => {
+                  onDraftMachines?.([
+                    ...(draftMachines || []),
+                    {
+                      requestId: crypto.randomUUID(),
+                      equipmentType:
+                        workshopEquipmentTypes.find(
+                          (type) => type.id === input.type,
+                        )?.label || input.type,
+                      model: input.model,
+                      serial: input.serial,
+                      brand: input.brand || "",
+                      meter: String(input.meter ?? 0),
+                      observations: input.notes,
+                      registration: input,
+                    },
+                  ]);
                   setOpen(false);
-                  setMessage(
-                    "Máquina registrada. Tarefa TAR-" +
-                      b.taskId +
-                      " criada para cadastro.",
-                  );
-                  await load();
-                } catch (e) {
-                  setError((e as Error).message);
-                } finally {
-                  setBusy(false);
                 }
-              }}
-            >
-              {error && <p role="alert">{error}</p>}
-              {(
-                [
-                  ["equipmentType", "Tipo de equipamento"],
-                  ["model", "Modelo"],
-                  ["brand", "Marca"],
-                  ["serial", "Número de série"],
-                ] as const
-              ).map(([key, label]) => (
-                <label key={key}>
-                  {label}
-                  <input name={key} required maxLength={200} disabled={busy} />
-                </label>
-              ))}
-              <label>
-                Horímetro (h)
-                <input
-                  required
-                  name="meter"
-                  type="number" onWheel={e=>e.currentTarget.blur()}
-                  min="0"
-                  max="1000000000"
-                  step="0.01"
-                  disabled={busy}
-                />
-              </label>
-              <label>
-                Observações
-                <textarea
-                  name="observations"
-                  rows={3}
-                  maxLength={2000}
-                  disabled={busy}
-                  placeholder="Informações adicionais sobre a máquina (opcional)"
-                />
-              </label>
-              <div className="visit-machine-actions">
-                <button type="submit" disabled={busy}>
-                  {busy
-                    ? "Salvando…"
-                    : drafting
-                      ? "Adicionar ao Lead"
-                      : "Salvar e gerar tarefa"}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setOpen(false)}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          </dialog>,
-          document.body,
-        )}
+              : undefined
+          }
+        />
+      )}
     </>
   );
 }

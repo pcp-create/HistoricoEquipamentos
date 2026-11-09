@@ -77,6 +77,19 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
       INSERT INTO m8_customer_directory(company_id,person_id,name,document,payload) VALUES
       (1,4,'Vínculo removido','4','{"municipioNome":"São José","ufSigla":"SC"}'),
       (1,5,'Sem máquinas','5','{"municipioNome":"São José","ufSigla":"SC"}');`);
+    await db.exec(`ALTER TABLE m8_equipment_catalog ADD COLUMN brand text;ALTER TABLE m8_equipment_catalog ADD COLUMN present boolean DEFAULT true;ALTER TABLE m8_equipment_catalog ADD COLUMN company_id int;ALTER TABLE m8_equipment_catalog ADD COLUMN alias text;ALTER TABLE m8_equipment_catalog ADD COLUMN models text[];ALTER TABLE m8_equipment_catalog ADD COLUMN serial_source text;ALTER TABLE m8_equipment_catalog ADD COLUMN issues jsonb;ALTER TABLE m8_equipment_catalog ADD COLUMN payload jsonb;
+    ALTER TABLE m8_person_equipment ADD COLUMN person_name text;
+    CREATE TABLE m8_product_catalog(company_id bigint,product_id bigint,name text,unit text,sale_price numeric,minimum_price numeric,collected_at timestamptz,payload jsonb,PRIMARY KEY(company_id,product_id));ALTER TABLE m8_equipment_catalog ADD COLUMN collected_at timestamptz;`);
+    await db.exec(readFileSync('sql/088_workshop_equipment_registrations.sql','utf8'));
+    await db.exec(readFileSync('sql/103_equipment_customer_links.sql','utf8'));
+    let equipmentSequence=10000;
+    const equipmentApi=async()=>async(path:string,body?:any)=>{
+      if(body)return {id:++equipmentSequence};
+      if(path.includes('/familia?'))return [{id:1,nome:'USO E CONSUMO'}];
+      if(path.includes('/unidade?'))return [{id:1,nome:'UNIDADE',abreviatura:'UN'}];
+      return [{id:97,nome:'EQUIPAMENTOS DE CLIENTES'}];
+    };
+    const registerEquipment=(body:any,user:any)=>registerMachine(body,user,undefined,equipmentApi as any);
     await saveTerritory(
       {
         action: "save",
@@ -307,43 +320,49 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
 
 
     assert.equal((await db.query<any>("SELECT status FROM web_tasks WHERE source_key=$1",['visit:'+linked.id])).rows[0].status,'completed');
-    const registration={customer:'m8:5',requestId:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',equipmentType:'Compressor',model:'GA22',brand:'Atlas Copco',serial:'ABC123',meter:'1234,5'};
-    await assert.rejects(()=>registerMachine(registration,{email:'a@test.com'} as any),/Defina o responsável/);
+    const registration={customer:'m8:5',requestId:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',equipmentType:'Compressor Parafuso',model:'GA22',brand:'Atlas Copco',serial:'ABC123',meter:'1234,5'};
+    await assert.rejects(()=>registerEquipment(registration,{email:'a@test.com'} as any),/Defina o responsável/);
     await assert.rejects(()=>saveMachineSettings('a@test.com','b@test.com'),/WhatsApp/);
     await saveMachineSettings('a@test.com','tech@test.com');
     assert.equal((await machineSettings('a@test.com')).equipmentAssignee,'tech@test.com');
-    const machine=await registerMachine(registration,{email:'a@test.com'} as any);
-    assert.equal((await registerMachine(registration,{email:'a@test.com'} as any)).taskId,machine.taskId);
+    const machine=await registerEquipment(registration,{email:'a@test.com'} as any);
+    assert.equal((await registerEquipment(registration,{email:'a@test.com'} as any)).taskId,machine.taskId);
     assert.equal((await listMachines('m8:5','tech@test.com')).length,1);
     assert.equal(Number((await listMachines('m8:5','tech@test.com'))[0].meter),1234.5);
     const machineTask=(await db.query<any>('SELECT * FROM web_tasks WHERE id=$1',[machine.taskId])).rows[0];
     assert.equal(machineTask.assigned_to,'tech@test.com');
-    assert.equal(machineTask.customer,'Sem máquinas');
+    assert.equal(machineTask.customer,'Sem máquinas');assert.match(machineTask.title,/Vincular equipamento/);assert.match((await db.query<any>('SELECT description FROM web_task_notes WHERE task_id=$1 ORDER BY id LIMIT 1',[machine.taskId])).rows[0].description,/já foi cadastrado no ERP/);
     assert.deepEqual(machineTask.followers,['a@test.com']);
-    await assert.rejects(()=>registerMachine({...registration,meter:'-1'},{email:'a@test.com'} as any),/horímetro/);
+    await assert.rejects(()=>registerEquipment({...registration,meter:'-1'},{email:'a@test.com'} as any),/horímetro/);
     await assert.rejects(()=>registerMachine({...registration,customer:'m8:999'},{email:'a@test.com'} as any));
     for(const action of ['schedule','history']){
       const draftId=crypto.randomUUID(),leadId=crypto.randomUUID(),visitId=crypto.randomUUID();
-      const staged={...lead,id:visitId,action,purpose_id:'2',seller:'tech@test.com',scheduled_at:action==='history'?'2026-01-10T12:00:00Z':'2026-11-20T12:00:00Z',outcome:action==='history'?'Máquina conferida':'',lead:{...lead.lead,id:leadId,name:'Novo Lead com máquina'},newMachines:[{requestId:draftId,equipmentType:'Compressor',model:'GA30',brand:'Atlas Copco',serial:'NOVO-123',meter:'100',observations:'Máquina do novo Lead'}],machineRecords:action==='history'?[{equipment:'pending:'+draftId,note:'Inspeção na máquina recém-cadastrada'}]:[]};
-      await saveVisit(staged,'a@test.com');
+      const staged={...lead,id:visitId,action,purpose_id:'2',seller:'tech@test.com',scheduled_at:action==='history'?'2026-01-10T12:00:00Z':'2026-11-20T12:00:00Z',outcome:action==='history'?'Máquina conferida':'',lead:{...lead.lead,id:leadId,name:'Novo Lead com máquina'},newMachines:[{requestId:draftId,equipmentType:'Compressor Parafuso',model:'GA30',brand:'Atlas Copco',serial:'NOVO-'+action,meter:'100',observations:'Máquina do novo Lead'}],machineRecords:action==='history'?[{equipment:'pending:'+draftId,note:'Inspeção na máquina recém-cadastrada'}]:[]};
+      await saveVisit(staged,'a@test.com',registerEquipment);
       const registrations=(await db.query<any>('SELECT * FROM web_visit_machine_registrations WHERE customer_key=$1',['lead:'+leadId])).rows;
       assert.equal(registrations.length,1);assert.equal(registrations[0].created_by,'a@test.com');
       const task=(await db.query<any>('SELECT assigned_to,followers FROM web_tasks WHERE id=$1',[registrations[0].task_id])).rows[0];
       assert.equal(task.assigned_to,'tech@test.com');assert.deepEqual(task.followers,['a@test.com']);
       if(action==='history')assert.equal((await db.query<any>('SELECT machine_records FROM web_sales_visits WHERE id=$1',[visitId])).rows[0].machine_records[0].equipment,'pending:'+draftId);
-      await saveVisit(staged,'a@test.com');
+      await saveVisit(staged,'a@test.com',registerEquipment);
       assert.equal((await db.query<any>('SELECT count(*) n FROM web_visit_machine_registrations WHERE customer_key=$1',['lead:'+leadId])).rows[0].n,1);
     }
     const failedLead=crypto.randomUUID(),failedVisit=crypto.randomUUID(),firstMachine=crypto.randomUUID();
     const taskCount=(await db.query<any>('SELECT count(*) n FROM web_tasks')).rows[0].n;
-    await assert.rejects(()=>saveVisit({...lead,id:failedVisit,purpose_id:'2',lead:{...lead.lead,id:failedLead},newMachines:[{...registration,requestId:firstMachine},{...registration,requestId:crypto.randomUUID(),meter:'-1'}]},'a@test.com'),/horímetro/);
+    await assert.rejects(()=>saveVisit({...lead,id:failedVisit,purpose_id:'2',lead:{...lead.lead,id:failedLead},newMachines:[{...registration,serial:'FIRST-NEW',requestId:firstMachine},{...registration,serial:'SECOND-NEW',requestId:crypto.randomUUID(),meter:'-1'}]},'a@test.com'),/horímetro/);
     assert.equal((await db.query<any>('SELECT count(*) n FROM web_sales_leads WHERE id=$1',[failedLead])).rows[0].n,0);
     assert.equal((await db.query<any>('SELECT count(*) n FROM web_sales_visits WHERE id=$1',[failedVisit])).rows[0].n,0);
     assert.equal((await db.query<any>('SELECT count(*) n FROM web_visit_machine_registrations WHERE id=$1',[firstMachine])).rows[0].n,0);
     assert.equal((await db.query<any>('SELECT count(*) n FROM web_tasks')).rows[0].n,taskCount);
     await db.exec("UPDATE web_user_access SET enabled=false WHERE email='tech@test.com'");
-    await assert.rejects(()=>registerMachine({...registration,requestId:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'},{email:'a@test.com'} as any),/ativo/);
+    await assert.rejects(()=>registerEquipment({...registration,requestId:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',serial:'NOVO999'},{email:'a@test.com'} as any),/ativo/);
     assert.equal((await listMachines('m8:5','a@test.com')).length,1);
+    await db.query('INSERT INTO m8_person_equipment(company_id,person_id,equipment_id,present) VALUES(1,1,$1,true)',[machine.equipment!.id]);
+    assert.equal((await listMachines('m8:5','a@test.com')).length,1);
+    await db.query('INSERT INTO m8_person_equipment(company_id,person_id,equipment_id,present) VALUES(1,5,$1,true)',[machine.equipment!.id]);
+    assert.equal((await listMachines('m8:5','a@test.com')).length,0);
+    assert.equal((await db.query<any>('SELECT status FROM web_tasks WHERE id=$1',[machine.taskId])).rows[0].status,'completed');
+
 
     await db.exec("UPDATE web_user_access SET enabled=true WHERE email='b@test.com'");
     await db.exec("UPDATE web_sales_visit_purposes SET active=true WHERE id=1");

@@ -164,6 +164,7 @@ test("creation uses customer equipment rule, persists progress, isolates users a
  INSERT INTO m8_person_equipment VALUES(1,10,100,true);
  INSERT INTO m8_product_catalog VALUES(1,50);INSERT INTO m8_service_catalog VALUES(1,60);
  INSERT INTO service_order_registries(kind,id,name,updated_by,warranty_id,warranty_description) VALUES('service-types',1,'Corretiva','test',3,'90 dias'),('service-origins',1,'Contato','test',null,null),('payment-terms',1,'À vista','test',null,null),('order-statuses',1,'Aberta','test',null,null),('freight',1,'Sem frete','test',null,null),('flow-statuses',1,'Aberta','test',null,null);`);
+    await db.exec('CREATE TABLE web_equipment_customer_links(person_id bigint,equipment_id bigint);CREATE VIEW web_effective_person_equipment AS SELECT *,false integration_pending FROM m8_person_equipment UNION ALL SELECT 1,person_id,equipment_id,true,true FROM web_equipment_customer_links');
     const query = db.query.bind(db);
     g.historyPool = { query, connect: async () => ({ query, release() {} }) };
     Object.assign(process.env, {
@@ -206,6 +207,10 @@ test("creation uses customer equipment rule, persists progress, isolates users a
         }),
       /ID do técnico/,
     );
+    await db.exec('INSERT INTO web_equipment_customer_links VALUES(10,101)');
+    const local=await orderLookups(new URLSearchParams('lookup=equipment&type=1&customer=10'));
+    assert.equal(local.rows?.find((row:any)=>row.id==='101').data.integrationPending,true);
+    await prepareOrder('local-pending-test',randomUUID(),{...draft,equipment:'101'});
     const withoutTech = randomUUID();
     await prepareOrder("optional-user", withoutTech, {
       ...draft,

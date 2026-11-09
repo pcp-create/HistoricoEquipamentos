@@ -1,7 +1,7 @@
 "use client";
 import {Ban} from 'lucide-react';
 import {useState,type ReactNode} from 'react';
-export default function VisitEquipmentGroup({customer,equipment,online,prefix='',canInactivate=true,inlineActions=false,render,onInactive}:{customer?:string;equipment:any[];online:boolean;prefix?:string;canInactivate?:boolean;inlineActions?:boolean;render:(item:any,inactive:boolean,actions:ReactNode)=>ReactNode;onInactive?:(id:string)=>void}){
+export default function VisitEquipmentGroup({customer,equipment,online,prefix='',canInactivate=true,inlineActions=false,render,onInactive,equipmentKey}:{customer?:string;equipment:any[];online:boolean;prefix?:string;canInactivate?:boolean;inlineActions?:boolean;render:(item:any,inactive:boolean,actions:ReactNode)=>ReactNode;onInactive?:(id:string)=>void;equipmentKey?:(item:any)=>string}){
  const [overrides,setOverrides]=useState<Record<string,any>>({}),[busy,setBusy]=useState(''),[error,setError]=useState('');
  const items=equipment.map(item=>({...item,inactivation:overrides[item.id]||item.inactivation}));
  async function inactivate(item:any){
@@ -9,7 +9,7 @@ export default function VisitEquipmentGroup({customer,equipment,online,prefix=''
   if(reason===null)return;if(!reason.trim()){setError('Informe a justificativa da inativação.');return;}
   setBusy(item.id);setError('');
   try{
-   const r=await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'inactivate_equipment',customer,equipment:prefix+item.id,reason})});
+   const r=await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'inactivate_equipment',customer,equipment:equipmentKey?equipmentKey(item):prefix+item.id,reason})});
    const b=await r.json();if(!r.ok)throw Error(b.error);setOverrides(v=>({...v,[item.id]:b.inactivation}));onInactive?.(item.id);
   }catch(e){setError((e as Error).message);}finally{setBusy('');}
  }

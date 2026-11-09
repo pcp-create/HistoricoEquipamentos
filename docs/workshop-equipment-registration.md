@@ -1,6 +1,6 @@
 # Cadastro de máquinas pela entrada da oficina
 
-“Adicionar equipamento” aparece na pesquisa da entrada. O cadastro ocorre dentro da mesma janela, preservando oficina, datas e observações já preenchidas. Ao confirmar o M8, o catálogo compartilhado é preenchido imediatamente e a máquina fica selecionada; a entrada na oficina ainda depende de “Confirmar entrada”. Não é criado vínculo automático com uma pessoa/cliente, pois o formulário não solicita cliente.
+“Adicionar equipamento” aparece na pesquisa da entrada. O cadastro ocorre dentro da mesma janela, preservando oficina, datas e observações já preenchidas. Ao confirmar o M8, o catálogo compartilhado é preenchido imediatamente e a máquina fica selecionada; a entrada na oficina ainda depende de “Confirmar entrada”. Para equipamentos de cliente, a seleção do cliente é obrigatória. A pesquisa usa o cadastro completo de clientes, inclusive aqueles que ainda não possuem máquinas. O equipamento é criado no M8 e seu vínculo com o cliente fica persistido no portal, sinalizado como pendente de integração; nenhum endpoint não disponibilizado é chamado para simular o vínculo.
 
 O servidor fixa origem **Nacional** (confirmada pelo usuário), e gera nome e apelido em caixa alta. Clientes mantêm `TIPO - MODELO XXX - SÉRIE XXX`. Para próprios, a nomenclatura segue os itens 3 e 4 do **POP – Gestão e Controle dos Equipamentos de Locação**, revisão 0, fornecido pelo usuário:
 
@@ -48,3 +48,20 @@ Validação: testes do modelo/payload, gravação única, confirmação idempote
 A confirmação do M8 salva imediatamente o catálogo local com os dados informados e, para próprios, a cópia do produto com identificação interna e preços. Não são presumidos saldos de estoque. A interface invalida o cache persistente da lista e avisa telas de equipamentos já abertas para recarregar. Reconsultar o mesmo cadastro não repete o POST nem sobrescreve dados já atualizados pelo ERP.
 
 O integrador preserva registros locais com origem `portal` até recebê-los no catálogo do M8; após essa confirmação, passam a seguir a reconciliação normal de exclusões. Essa proteção requer a atualização do integrador; a disponibilidade imediata e a invalidação do cache são mudanças no portal web.
+
+
+## Cadastro compartilhado e vínculo pendente
+
+Aplicar `web/sql/103_equipment_customer_links.sql` com `node --env-file=.env.local --conditions=react-server --import tsx scripts/setup-equipment-customer-links.mts`, a partir de `web`. A estrutura foi aplicada ao banco configurado para a validação local. Nenhum equipamento real foi cadastrado durante a implementação.
+
+Oficina, Visitas e criação/edição de OS reutilizam o formulário e o envio idempotente ao ERP. A OS oferece o botão de criação ao lado da seleção, preenche o cliente do formulário e seleciona o equipamento confirmado. O equipamento com vínculo local também participa da busca e da validação de propriedade da OS. Próprios continuam usando o fluxo fiscal existente e não exigem cliente.
+
+`web_equipment_customer_links` preserva equipamento, cliente, autor, origem, solicitação e tarefa de vínculo. O catálogo importado do M8 não recebe vínculos fictícios. `web_effective_person_equipment` reúne os vínculos integrados e os locais ainda pendentes para os módulos que usam o cadastro compartilhado. Ao receber o mesmo par cliente/equipamento em `m8_person_equipment` com `present=true`, um trigger registra a confirmação e conclui a tarefa vinculada. Outro cliente ou equipamento não encerra essa pendência. Depois de confirmado, o ERP passa a ser a fonte do vínculo; uma remoção posterior no ERP não ressuscita o vínculo local.
+
+Nas Visitas, a tarefa passa a solicitar **somente o vínculo manual com o cliente**: o equipamento já foi cadastrado no ERP. Usa o responsável configurado para equipamentos nas Visitas, que deve estar ativo e ter WhatsApp. Um cadastro reutilizado também pode gerar essa tarefa de vínculo, sem novo POST de equipamento. Pedidos para novos Leads são reservados na transação da visita e enviados ao ERP somente depois do commit. Falhas deixam a solicitação recuperável pela lista de máquinas, sem repetir uma criação cujo resultado seja incerto. Registros e observações legados são preservados.
+
+A série é comparada em caixa alta, sem pontuação, espaços ou acentos, preservando zeros à esquerda. O formulário consulta possíveis registros ao digitar e permite usar um cadastro existente. Equivalência exata bloqueia nova inclusão, inclusive no servidor e entre solicitações pendentes. Correspondências parciais são apresentadas para conferência. `N/C` para próprios continua dependendo da confirmação explícita de ausência de série. A validação server-side mantém o bloqueio mesmo quando o navegador não faz a consulta.
+
+Validação adicional: cliente sem máquinas disponível na busca; reuso de série normalizada sem novo cadastro; seleção na OS; cadastro direto nas Visitas; tarefa somente para vínculo; pendência não confirmada por outro cliente e concluída pelo par correto; preservação de dados e idempotência de Leads, visitas e solicitações.
+
+O campo Marca está disponível no cadastro compartilhado da Oficina, Visitas e OS, inclusive para próprios. É preservado no registro da solicitação e no catálogo local e enviado nas informações complementares do equipamento ao ERP; não é enviado um ID de marca presumido.

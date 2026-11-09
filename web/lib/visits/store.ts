@@ -39,9 +39,9 @@ export async function visitsData(email: string, db: any = database(), management
   const source = (
     await db.query(
       `SELECT DISTINCT ON (d.person_id) d.company_id,d.person_id::text,d.name,d.document,d.payload,
-         EXISTS(SELECT 1 FROM m8_person_equipment e WHERE e.person_id=d.person_id AND e.present) AS has_equipment
+         EXISTS(SELECT 1 FROM web_effective_person_equipment e WHERE e.person_id=d.person_id AND e.present) AS has_equipment
        FROM m8_customer_directory d
-       WHERE EXISTS (SELECT 1 FROM m8_person_equipment e WHERE e.person_id=d.person_id AND e.present) OR ('m8:' || d.person_id::text)=ANY($1::text[])
+       WHERE EXISTS (SELECT 1 FROM web_effective_person_equipment e WHERE e.person_id=d.person_id AND e.present) OR ('m8:' || d.person_id::text)=ANY($1::text[])
        ORDER BY d.person_id,d.collected_at DESC,d.company_id`,
       [[...historical,...assignedKeys]],
     )
@@ -79,21 +79,21 @@ export async function visitsData(email: string, db: any = database(), management
     points.map((r: any) => [r.person_id, r]),
   );
   const equipmentRows = (await db.query(`
-    SELECT DISTINCT p.person_id::text,p.equipment_id::text AS id,
+    SELECT DISTINCT p.customer_key,p.person_id::text,p.equipment_id::text AS id,
       COALESCE(e.name,'Equipamento') AS name,COALESCE(e.model,'') AS model,
-      COALESCE(e.serial,'') AS serial,s.document AS settings,s.version
-    FROM m8_person_equipment p
+      COALESCE(e.serial,'') AS serial,p.integration_pending,s.document AS settings,s.version
+    FROM web_effective_person_equipment p
     LEFT JOIN m8_equipment_catalog e ON e.equipment_id=p.equipment_id
     LEFT JOIN web_equipment_settings s ON s.equipment_id=p.equipment_id
-    WHERE p.present AND p.person_id=ANY($1::bigint[])
+    WHERE p.present AND p.customer_key=ANY($1::text[])
     ORDER BY p.person_id::text,p.equipment_id::text`,
-    [mine.map((r: any) => r.person_id)])).rows;
+    [[...mine.map((r:any)=>`m8:${r.person_id}`),...leads.map((r:any)=>`lead:${r.id}`)]])).rows;
   const inactivations=await equipmentInactivations(db);
   const equipmentMap = new Map<string, NonNullable<VisitCustomer["equipment"]>>();
   for (const row of equipmentRows) {
-    const items = equipmentMap.get(row.person_id) || [];
-    items.push({inactivation:inactivations.find((i:any)=>i.customer_key===`m8:${row.person_id}`&&i.equipment_key===row.id),id: row.id, name: row.name, model: row.model, serial: row.serial, meter: row.settings?.meter ?? null, meterDate: row.settings?.meterDate || "", version: row.version ?? null});
-    equipmentMap.set(row.person_id, items);
+    const items = equipmentMap.get(row.customer_key) || [];
+    items.push({inactivation:inactivations.find((i:any)=>i.customer_key===row.customer_key&&i.equipment_key===row.id),integrationPending:row.integration_pending,id: row.id, name: row.name, model: row.model, serial: row.serial, meter: row.settings?.meter ?? null, meterDate: row.settings?.meterDate || "", version: row.version ?? null});
+    equipmentMap.set(row.customer_key, items);
   }
   const customers: VisitCustomer[] = [
     ...mine.map((r: any) => {
@@ -111,7 +111,7 @@ export async function visitsData(email: string, db: any = database(), management
         seller_ids: directSellers.has(r.person_id) ? [directSellers.get(r.person_id)!] : rules.filter((rule:any)=>rule.city_key === cityKey(r.payload?.municipioNome || "") && rule.uf === String(r.payload?.ufSigla || "").toUpperCase()).map((rule:any)=>rule.seller_user).filter(Boolean),
         in_portfolio: directSellers.has(r.person_id) ? (management || directSellers.get(r.person_id)===email) : r.has_equipment && (management || territories.has(cityKey(r.payload?.municipioNome || "") + ":" + String(r.payload?.ufSigla || "").toUpperCase())),
         lead: false,
-        equipment: equipmentMap.get(r.person_id) || [],
+        equipment: equipmentMap.get(`m8:${r.person_id}`) || [],
         latitude: p?.latitude ?? null,
         longitude: p?.longitude ?? null,
       };
@@ -126,7 +126,7 @@ export async function visitsData(email: string, db: any = database(), management
       seller_ids: [r.owner],
       in_portfolio: false,
       lead: true,
-      equipment: [],
+      equipment: equipmentMap.get(`lead:${r.id}`)||[],
       latitude: null,
       longitude: null,
     })),
@@ -179,7 +179,7 @@ function instant(value: unknown) {
     throw new AdminInputError("Informe data e horário válidos.");
   return new Date(value);
 }
-export async function saveVisit(b: any, email: string) {
+export async function saveVisit(b: any, email: string,registerEquipment=registerMachine) {
   email = email.toLowerCase();
   if (!uuid.test(b?.id || ""))
     throw new AdminInputError("Identificador inválido.");
@@ -318,6 +318,10 @@ export async function saveVisit(b: any, email: string) {
     throw e;
   } finally {
     c.release();
+  }
+  if(b.lead&&Array.isArray(b.newMachines))for(const machine of b.newMachines){
+   try{await registerEquipment({requestId:machine.requestId,customerKey:'lead:'+b.lead.id,resume:true},{id:email,email});}
+   catch(error){console.error('VISIT_EQUIPMENT_REGISTRATION_PENDING',machine.requestId);}
   }
 }
 
