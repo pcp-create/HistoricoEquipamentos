@@ -287,7 +287,7 @@ export async function changeTimeRequest(b: any, email: string) {
       ])
     ).rows[0];
     if (!operation) throw new TimeRequestError("Operação não encontrada.");
-    if(reportSubmission(operation.document?.checklistRun)&&!b.sessionId&&!b.legacyEventId)throw new TimeRequestError("Relatório enviado. Devolva o relatório antes de incluir novos apontamentos.");
+    if(!direct&&reportSubmission(operation.document?.checklistRun)&&!b.sessionId&&!b.legacyEventId)throw new TimeRequestError("Relatório enviado. Devolva o relatório antes de incluir novos apontamentos.");
     const legacy = b.legacyEventId
       ? (
           await c.query(
@@ -323,8 +323,6 @@ export async function changeTimeRequest(b: any, email: string) {
       : null;
     if (b.sessionId && !s)
       throw new TimeRequestError("Apontamento não encontrado.");
-    if (direct && !s && !legacy)
-      throw new TimeRequestError("Selecione um apontamento para ajustar.");
     if (
       s &&
       (s.state !== "finished" ||
@@ -346,7 +344,9 @@ export async function changeTimeRequest(b: any, email: string) {
             ))
     )
       throw new Forbidden();
-    const actor = s?.actor || legacy?.actor || email;
+    const actor = s?.actor || legacy?.actor || (direct ? b.actor : email);
+    if(typeof actor!=='string'||!actor.trim())throw new TimeRequestError('Selecione a pessoa do apontamento.');
+    if(direct&&!s&&!legacy&&!(await c.query('SELECT 1 FROM web_user_access WHERE email=$1 AND enabled',[actor])).rows.length)throw new TimeRequestError('Selecione uma pessoa com acesso ativo.');
     const kind =
       s?.kind ||
       (legacy ? (legacy.action === "work_log" ? "work" : "travel") : b.kind);

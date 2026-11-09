@@ -118,3 +118,12 @@ As fotos aparecem em cards e o card “+ Adicionar foto” fica depois da últim
 ### Movimentações na aba Peças da revisão
 
 A revisão da operação mostra Entregue (saída registrada pelo almoxarifado), Devolvido (devolução informada pelo técnico no app) e Recebido (entrada da devolução confirmada no almoxarifado). São totais da OS de origem de cada item, inclusive nas OSs vinculadas, independentes da retirada da operação atual. Os campos são somente informativos e mantêm visível a diferença entre devolução declarada e recebimento físico, sem somar os dois como movimentos distintos.
+
+
+### Gestão de apontamentos pelo planejamento
+
+Nas abas de apontamentos da programação da OS e da revisão da operação, o planejador pode incluir um apontamento manual selecionando a operação, a pessoa, os horários, as pausas e o motivo. O lançamento é salvo diretamente, inclusive após o envio do relatório, sem criar uma localização GPS fictícia.
+
+Apontamentos finalizados com início e fim podem ser replicados para outras pessoas ativas na mesma operação, preservando horários e pausas. O sistema impede sobreposição de horários e cópias repetidas para a mesma pessoa. Lançamentos antigos sem início e fim precisam ser ajustados antes da replicação.
+
+A exclusão de um apontamento finalizado exige confirmação e motivo. Remove suas horas e custos dos totais, preserva os dados originais na auditoria e mantém as cópias já atribuídas a outras pessoas. Apontamentos em andamento ou com solicitação de ajuste pendente não podem ser excluídos. Não há migração de banco para esta alteração.

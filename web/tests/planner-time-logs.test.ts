@@ -1,0 +1,52 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {PGlite} from '@electric-sql/pglite';
+import {readFileSync} from 'node:fs';
+import {randomUUID} from 'node:crypto';
+import {changeTimeRequest} from '../lib/service-scheduling/time-request-store';
+import {replicateTimeLog} from '../lib/service-scheduling/team-sessions';
+import {deleteTimeLog} from '../lib/service-scheduling/time-log-delete';
+import {timeLogs} from '../lib/service-scheduling/time-logs';
+test('planner includes for a selected person after report submission, replicates pauses once, and deletes with audit and consistent costs',async()=>{
+ const db=new PGlite(),g=globalThis as any,old=g.historyPool;
+ const query:any=db.query.bind(db);g.historyPool={query,connect:async()=>({query,release(){}})};
+ try{
+  await db.exec('CREATE ROLE anon;CREATE ROLE authenticated;');
+  for(const name of ['008_administration','009_employees','028_service_scheduling','030_service_schedule_visibility','037_field_operations','038_time_adjustment_requests','058_field_session_teams'])await db.exec(readFileSync('sql/'+name+'.sql','utf8'));
+  await db.exec("INSERT INTO web_user_access(email,display_name,role,updated_by) VALUES('planner','Planejador','admin','test'),('tech','Técnico','user','test'),('helper','Apoio','user','test'),('disabled','Inativo','user','test');UPDATE web_user_access SET enabled=false WHERE email='disabled'");
+  const schedule=(await query("INSERT INTO web_service_schedules(company_id,order_id,created_by) VALUES(1,100,'test') RETURNING id")).rows[0].id,op=randomUUID();
+  await query("INSERT INTO web_service_operations(id,schedule_id,position,status,document,updated_by) VALUES($1,$2,1,'reviewed',$3,'test')",[op,schedule,JSON.stringify({responsible:'tech',support:[],checklistRun:{submission:{at:'2026-11-09T12:00:00Z',by:'tech'}}})]);
+  const body={action:'planner_adjust',requestId:randomUUID(),operationId:op,actor:'tech',kind:'work',reason:'Inclusão pelo planejamento',proposed:{started_at:'2026-11-09T11:00:00Z',finished_at:'2026-11-09T13:00:00Z',pauses:[{start:'2026-11-09T12:00:00Z',end:'2026-11-09T12:15:00Z',reason:'Intervalo'}]}};
+  await assert.rejects(changeTimeRequest({...body,actor:'disabled',requestId:randomUUID()},'planner'),/acesso ativo/);
+  await changeTimeRequest(body,'planner');await changeTimeRequest(body,'planner');
+  let sessions=(await query('SELECT * FROM web_field_sessions')).rows;assert.equal(sessions.length,1);const source=sessions[0];
+  assert.equal(source.actor,'tech');assert.equal(Number(source.active_seconds),6300);assert.equal(source.correction.requestLocation.source,'planner');
+  await assert.rejects(replicateTimeLog({sessionId:source.id,members:['helper']},'planner'));
+  await assert.rejects(replicateTimeLog({sessionId:source.id,members:['disabled']},'planner',true));
+  assert.equal((await replicateTimeLog({sessionId:source.id,members:['helper']},'planner',true)).copied,1);
+  assert.equal((await replicateTimeLog({sessionId:source.id,members:['helper']},'planner',true)).copied,0);
+  sessions=(await query('SELECT * FROM web_field_sessions')).rows;
+  const costs=(await query('SELECT * FROM web_service_operation_events')).rows;
+  assert.equal(timeLogs(sessions,[],costs).rows.length,2);
+  const target=sessions.find((s:any)=>s.actor==='helper');assert.equal(target.correction.pauses.length,1);assert.equal(Number(target.active_seconds),6300);
+  const deletion={requestId:randomUUID(),operationId:op,sessionId:source.id,version:0,reason:'Registro incluído em duplicidade'};
+  await assert.rejects(deleteTimeLog({...deletion,reason:''},'planner'),/motivo/);
+  await assert.rejects(deleteTimeLog({...deletion,version:99},'planner'),/atualize/);
+  await assert.rejects(deleteTimeLog(deletion,'disabled'));
+  await deleteTimeLog(deletion,'planner');assert.equal((await deleteTimeLog(deletion,'planner')).alreadyDeleted,true);
+  assert.equal((await query('SELECT * FROM web_field_sessions')).rows.length,1);
+  assert.equal((await query("SELECT * FROM web_service_operation_events WHERE action='work_log'")).rows.length,1);
+  const audit=(await query("SELECT details FROM web_access_events WHERE event='planner_time_log_deleted'")).rows[0].details;
+  assert.equal(audit.session.actor,'tech');assert.equal(audit.events.length,1);
+  assert.equal((await query('SELECT session_id FROM web_field_time_requests')).rows[0].session_id,null);
+  const legacy=(await query("INSERT INTO web_service_operation_events(operation_id,action,actor,hours) VALUES($1,'work_log','tech',1.5) RETURNING id",[op])).rows[0];
+  await deleteTimeLog({requestId:randomUUID(),operationId:op,legacyEventId:String(legacy.id),hours:1.5,reason:'Correção do lançamento antigo'},'planner');
+  assert.equal((await query('SELECT id FROM web_service_operation_events WHERE id=$1',[legacy.id])).rows.length,0);
+  // Pending adjustments and active timers cannot be removed.
+  const pending=randomUUID();await query("INSERT INTO web_field_time_requests(id,request_key,operation_id,session_id,requester,actor,kind,reason,proposed,location) VALUES($1,$1,$2,$3,'planner','helper','work','Conferir','{}','{}')",[pending,op,target.id]);
+  await assert.rejects(deleteTimeLog({...deletion,requestId:randomUUID(),sessionId:target.id},'planner'),/aprovação/);
+  await query('DELETE FROM web_field_time_requests WHERE id=$1',[pending]);
+  await query("UPDATE web_field_sessions SET state='running' WHERE id=$1",[target.id]);
+  await assert.rejects(deleteTimeLog({...deletion,requestId:randomUUID(),sessionId:target.id},'planner'),/Finalize/);
+ }finally{g.historyPool=old;await db.close();}
+});

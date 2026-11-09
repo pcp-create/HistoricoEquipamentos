@@ -1,5 +1,6 @@
 "use client";
-import {Plus,FilePenLine,Copy} from "lucide-react";
+import {Plus,FilePenLine,Copy,Trash2} from "lucide-react";
+import TimeLogDeleteDialog from "./time-log-delete-dialog";
 import TeamMemberPicker from "./team-member-picker";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import TimeAdjustmentForm from "./time-adjustment-form";
@@ -17,6 +18,8 @@ export default function ScheduleTimeLogs({
   onChanged,
   onRefresh,
 }: any) {
+  const canManage=!technician&&data.canEditSettings===true;
+  const [deleting,setDeleting]=useState<any>(null);
   const [editing, setEditing] = useState<any>(null);
   const [replicating,setReplicating]=useState<any>(null);
   const [replicationMessage,setReplicationMessage]=useState("");
@@ -41,7 +44,7 @@ export default function ScheduleTimeLogs({
   ];
   return (
     <section className="schedule-time-logs" aria-label="Apontamentos da OS">
-      {technician && (
+      {(technician||canManage) && (
         <div className="time-log-toolbar">
           {data.timeAdjustmentsAvailable !== false && (
             <button className="time-log-primary-action" onClick={() => setEditing({})}><Plus size={17}/>Incluir apontamento manual</button>
@@ -51,17 +54,19 @@ export default function ScheduleTimeLogs({
       )}
       {replicationMessage && <p role="status">{replicationMessage}</p>}
       {replicating && <TeamMemberPicker title="Replicar apontamento" description="Os horários e as pausas deste apontamento serão copiados para os integrantes selecionados. Cada pessoa terá seu próprio registro." confirmLabel="Replicar apontamento"
-        members={(data.users || []).filter((user:any)=>user.email!==data.email && replicating.support.includes(user.email))}
+        members={(data.users || []).filter((user:any)=>user.enabled!==false&&user.email!==replicating.row.actor&&(canManage||replicating.support.includes(user.email)))}
         onClose={()=>setReplicating(null)} onConfirm={async members=>{
-          const response=await fetch("/api/field/replicate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:replicating.row.id,members})});
+          const response=await fetch(canManage?"/api/service-scheduling/time-logs":"/api/field/replicate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...(canManage?{action:"replicate"}:{}),sessionId:replicating.row.id,members})});
           const result=await response.json();if(!response.ok)throw Error(result.error);
           setReplicationMessage(result.copied ? "Apontamento replicado para "+result.copied+" integrante(s)." : "Este apontamento já foi replicado para os integrantes selecionados.");
           await onChanged?.();
         }}/>}
+      {deleting&&<TimeLogDeleteDialog row={deleting} onClose={()=>setDeleting(null)} onDeleted={async()=>{setReplicationMessage("Apontamento excluído. Totais atualizados.");await onChanged?.();}}/>}
       {editing && (
         <TimeAdjustmentForm
           row={editing.id ? editing : null}
           operations={data.operations || []}
+          users={data.users||[]}
           planner={!technician}
           onClose={() => setEditing(null)}
           onSaved={onChanged}
@@ -123,9 +128,11 @@ export default function ScheduleTimeLogs({
                       key={r.id}
                       row={r}
                       technician={technician}
-                      canAdjust={data.timeAdjustmentsAvailable !== false}
+                      canAdjust={data.timeAdjustmentsAvailable !== false&&(technician||canManage)}
                       onEdit={() => setEditing(r)}
-                      canReplicate={technician && (operation.document?.support || []).some((email:string)=>email!==data.email)}
+                      canDelete={canManage&&data.timeAdjustmentsAvailable!==false}
+                      onDelete={()=>setDeleting(r)}
+                      canReplicate={canManage||(technician && (operation.document?.support || []).some((email:string)=>email!==data.email))}
                       onReplicate={()=>setReplicating({row:r,support:operation.document?.support || []})}
                       pending={data.requests?.some(
                         (q: any) =>
@@ -145,7 +152,7 @@ export default function ScheduleTimeLogs({
     </section>
   );
 }
-function LogRows({ row: r, technician, onEdit, pending, canAdjust,canReplicate,onReplicate }: any) {
+function LogRows({ row: r, technician, onEdit, pending, canAdjust,canReplicate,onReplicate,canDelete,onDelete }: any) {
   return (
     <>
       <tr>
@@ -226,6 +233,7 @@ function LogRows({ row: r, technician, onEdit, pending, canAdjust,canReplicate,o
             </button>
           )}
           {canReplicate && r.state==="finished" && <button className="time-log-action" disabled={pending || !!r.legacyEventId || r.manual} title={r.legacyEventId || r.manual ? "Disponível para apontamentos com início e fim registrados" : "Replicar para a equipe de apoio"} onClick={onReplicate}><Copy size={16}/>Replicar apontamento</button>}
+          {canDelete&&r.state==='finished'&&<button className="time-log-action time-log-delete" disabled={pending} onClick={onDelete}><Trash2 size={16}/>Excluir apontamento</button>}
           </div>
         </td>
       </tr>
@@ -256,7 +264,7 @@ function Coordinates({ label, value }: any) {
   return (
     <small>
       {label}:{" "}
-      {value?.document?.replicatedBy && <span>Local registrado por {value.document.replicatedBy} · </span>}
+      {value?.document?.replicatedBy && <span>Local registrado por {value.document.locationRecordedBy || value.document.replicatedBy} · </span>}
       {value?.latitude != null && value?.longitude != null ? (
         <>
           <span>Lat. {Number(value.latitude).toFixed(6)}</span>

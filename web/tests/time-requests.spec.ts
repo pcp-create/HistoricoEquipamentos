@@ -137,7 +137,7 @@ test("planner adjusts hours from the scheduling tab", async ({
   const data = {
     ...logs(),
     canEditSettings: true,
-    users: [],
+    users: [{email:'tech',display_name:'Técnico de teste',enabled:true},{email:'helper',display_name:'Apoio',enabled:true}],
     email: "planner",
     schedule: { id: "1", company_id: 1, order_id: "123" },
     settings: {
@@ -171,6 +171,8 @@ test("planner adjusts hours from the scheduling tab", async ({
     body = r.request().postDataJSON();
     return r.fulfill({ json: { ok: true } });
   });
+  let management:any;
+  await page.route('**/api/service-scheduling/time-logs',r=>{management=r.request().postDataJSON();if(management.action==='delete')data.fieldSessions=[];return r.fulfill({json:management.action==='replicate'?{copied:1}:{deleted:true}});});
   await page.goto("/programacao?id=1");
   await page.getByRole("button", { name: "Apontamentos", exact: true }).click();
   await page.getByRole("button", { name: "Ajustar horas" }).click();
@@ -182,6 +184,37 @@ test("planner adjusts hours from the scheduling tab", async ({
   await expect(dialog).toHaveCount(0);
   expect(body.action).toBe("planner_adjust");
   expect(body.location).toBeUndefined();
+  await page.getByRole('button',{name:'Incluir apontamento manual',exact:true}).click();
+  const inclusion=page.getByRole('dialog',{name:'Incluir apontamento manual',exact:true});
+  await inclusion.getByLabel('Pessoa do apontamento').selectOption('helper');
+  await inclusion.getByLabel('Início',{exact:true}).fill('2026-01-02T08:00');
+  await inclusion.getByLabel('Fim',{exact:true}).fill('2026-01-02T09:00');
+  await inclusion.getByLabel('Motivo da solicitação / ajuste').fill('Inclusão pelo planejador');
+  await inclusion.getByRole('button',{name:'Incluir apontamento',exact:true}).click();
+  await expect(inclusion).toHaveCount(0);
+  expect(body.actor).toBe('helper');expect(body.action).toBe('planner_adjust');
+  await page.getByRole('button',{name:'Replicar apontamento',exact:true}).click();
+  const replication=page.getByRole('dialog',{name:'Replicar apontamento',exact:true});
+  await replication.getByRole('checkbox',{name:'Apoio',exact:true}).check();
+  await replication.getByRole('button',{name:'Replicar apontamento',exact:true}).click();
+  await expect(replication).toHaveCount(0);expect(management).toMatchObject({action:'replicate',sessionId:session.id,members:['helper']});
+  await page.getByRole('button',{name:'Operações',exact:true}).click();
+  await page.getByRole('button',{name:'Acompanhar execução',exact:true}).click();
+  const review=page.getByRole('dialog',{name:'Revisão da operação 01',exact:true});
+  await review.getByRole('tab',{name:'Apontamentos',exact:true}).click();
+  await expect(review.getByRole('button',{name:'Incluir apontamento manual',exact:true})).toBeVisible();
+  await expect(review.getByRole('button',{name:'Replicar apontamento',exact:true})).toBeVisible();
+  await review.getByRole('button',{name:'Excluir apontamento',exact:true}).click();
+  const deletion=page.getByRole('dialog',{name:'Excluir apontamento',exact:true});
+  await expect(deletion.getByRole('button',{name:'Confirmar exclusão',exact:true})).toBeDisabled();
+  await deletion.getByRole('button',{name:'Cancelar',exact:true}).click();
+  expect(management.action).toBe('replicate');
+  await review.getByRole('button',{name:'Excluir apontamento',exact:true}).click();
+  await deletion.getByLabel('Motivo da exclusão').fill('Registro duplicado');
+  await deletion.getByRole('button',{name:'Confirmar exclusão',exact:true}).click();
+  await expect(deletion).toHaveCount(0);expect(management).toMatchObject({action:'delete',sessionId:session.id,operationId:op.id,reason:'Registro duplicado'});
+  await expect(review.getByText('Nenhum apontamento registrado nesta OS.')).toBeVisible();
+
 });
 test("manager task shows reason and approves through the dedicated action", async ({
   page,

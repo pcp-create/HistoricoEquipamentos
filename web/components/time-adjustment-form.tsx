@@ -39,6 +39,7 @@ async function gps(): Promise<any> {
 export default function TimeAdjustmentForm({
   row,
   operations,
+  users=[],
   planner = false,
   onClose,
   onSaved,
@@ -48,6 +49,7 @@ export default function TimeAdjustmentForm({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [operation, setOperation] = useState(row?.operation_id || (operations.length === 1 ? operations[0].id : "")),
+    [actor,setActor]=useState(row?.actor||(operations.length===1?operations[0].document?.responsible:'')||''),
     [kind, setKind] = useState(row?.kind || "work"),
     [start, setStart] = useState(local(row?.started_at)),
     [end, setEnd] = useState(local(row?.finished_at)),
@@ -91,6 +93,7 @@ export default function TimeAdjustmentForm({
           operationId: operation,
           version: row?.correction_version || 0,
           kind,
+          ...(planner&&!row?{actor}:{}),
           proposed,
           reason,
           location,
@@ -112,7 +115,7 @@ export default function TimeAdjustmentForm({
       className="time-adjustment-dialog"
       aria-label={
         planner
-          ? "Ajustar apontamento"
+          ? row ? "Ajustar apontamento" : "Incluir apontamento manual"
           : row
             ? "Solicitar ajuste"
             : "Incluir apontamento manual"
@@ -124,7 +127,7 @@ export default function TimeAdjustmentForm({
     >
       <h2>
         {planner
-          ? "Ajustar apontamento"
+          ? row ? "Ajustar apontamento" : "Incluir apontamento manual"
           : row
             ? "Solicitar ajuste"
             : "Incluir apontamento manual"}
@@ -142,7 +145,7 @@ export default function TimeAdjustmentForm({
             aria-label="Operação"
             value={operation}
             disabled={!!row}
-            onChange={(e) => setOperation(e.target.value)}
+            onChange={(e) => {setOperation(e.target.value);if(planner&&!row)setActor(operations.find((o:any)=>o.id===e.target.value)?.document?.responsible||'');}}
           >
             <option value="">Selecione</option>
             {operations.map((o: any) => (
@@ -153,6 +156,7 @@ export default function TimeAdjustmentForm({
             ))}
           </select>
         </label>
+        {planner&&!row&&<label>Pessoa<select aria-label="Pessoa do apontamento" value={actor} onChange={e=>setActor(e.target.value)}><option value="">Selecione</option>{users.filter((u:any)=>u.enabled!==false).map((u:any)=><option key={u.email} value={u.email}>{u.display_name||u.email}</option>)}</select></label>}
         <label>
           Tipo
           <select
@@ -260,13 +264,13 @@ export default function TimeAdjustmentForm({
           Cancelar
         </button>
         <button
-          disabled={busy || !operation || !reason.trim() || !start || !end}
+          disabled={busy || !operation || (planner&&!row&&!actor) || !reason.trim() || !start || !end}
           onClick={() => void save()}
         >
           {busy
             ? "Salvando…"
             : planner
-              ? "Salvar ajuste"
+              ? row ? "Salvar ajuste" : "Incluir apontamento"
               : "Solicitar aprovação"}
         </button>
       </div>
