@@ -215,12 +215,13 @@ equipamento corrigido. Reenviar ao técnico bloqueia novamente a seleção.
 
 ### Observação padrão e nomes dos relatórios
 
-Ao editar observações e Status Fluxo, a observação recebe os dados das operações sem
-apagar o texto existente. O bloco usa o tipo da OS (campo tipo_nome), sem os trechos
+Ao editar observações e Status Fluxo, os dados das operações aparecem como referência.
+Somente o botão Inserir informações na observação acrescenta o texto, sem apagar o
+histórico existente. Abrir a edição e salvar no ERP não acrescentam informações. O bloco usa o tipo da OS (campo tipo_nome), sem os trechos
 inicial e final separados por ` - `, descrição do equipamento, série, número OS/OP e
 horímetro total registrado no relatório. Leituras ausentes ficam identificadas como
-`HT: NÃO INFORMADO`. O salvamento reinsere blocos obrigatórios ausentes sem repetir
-blocos já presentes; uma referência recolhível permite conferir ou reinserir o texto.
+`HT: NÃO INFORMADO`. O botão evita repetir blocos já presentes; uma referência recolhível permite conferir
+e inserir o texto quando desejado.
 
 O nome compartilhado pelos anexos de e-mail, anexos resumidos na OS e exportações
 completas/resumidas usa as duas primeiras palavras do cliente e o tipo da OS por extenso.

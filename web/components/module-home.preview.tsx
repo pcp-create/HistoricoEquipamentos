@@ -23,6 +23,7 @@ const modules = [
     description: "Faturamento, projeção de vendas e preparação de propostas.",
     links: [
       ["Projeção de Vendas", "/comercial/projecao"],
+      ["Gráfico de Evolução", "/comercial/evolucao"],
       ["Contratos", "/comercial/contratos"],
       ["Vendas", "/comercial/vendas"],
       ["Orçamentos", "/orcamentos"],

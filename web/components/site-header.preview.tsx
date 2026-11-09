@@ -23,6 +23,7 @@ const screens: Record<string, { label: string; modules: string[] }> = {
   occurrences: {label:"B.O",modules:["assistencia-tecnica"]},
   commercialContracts: {label:"Contratos",modules:["crm"]},
   commercialSales: {label:"Vendas",modules:["crm"]},
+  billingEvolution: {label:"Gráfico de Evolução",modules:["crm"]},
   salesProjection: {label:"Projeção de Vendas",modules:["crm"]},
   warehouse: {label:"Entrega de materiais",modules:["almoxarifado"]},
   workshop: {label:"Painel da oficina",modules:["oficina"]},
@@ -65,6 +66,7 @@ export default function SiteHeader({
   active:
     | "occurrences"
     | "salesProjection"
+    | "billingEvolution"
     | "commercialContracts"
     | "commercialSales"
     | "workshop"

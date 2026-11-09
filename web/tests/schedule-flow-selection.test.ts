@@ -19,6 +19,14 @@ test('flow status searches by text or ID, retains click and keyboard choices and
  });
  await page.goto('http://127.0.0.1:'+(server.address() as any).port);
  await page.getByRole('button',{name:'Editar observações e Status Fluxo'}).click();
+ const notes=page.getByLabel('Observação',{exact:true});
+ await expect(notes).toHaveValue('Texto original');
+ await page.getByText('Informações padrão da OS para o histórico',{exact:true}).click();
+ await page.getByRole('button',{name:'Inserir informações na observação',exact:true}).click();
+ await expect(notes).toHaveValue(/Texto original[\s\S]*RELATÓRIO Nº 14811\/01 - HT: NÃO INFORMADO/);
+ const inserted=await notes.inputValue();
+ await page.getByRole('button',{name:'Inserir informações na observação',exact:true}).click();
+ await expect(notes).toHaveValue(inserted);
  const input=page.getByRole('combobox',{name:'Status Fluxo'});
  await expect(input).toHaveValue('Serviço agendado');
  await input.fill('faturamento');await expect(page.getByRole('option')).toHaveCount(1);
@@ -32,6 +40,6 @@ test('flow status searches by text or ID, retains click and keyboard choices and
  await expect(input).toHaveValue('Aguardando revisão');
  await page.getByRole('button',{name:'Salvar no ERP',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('atualizados no ERP');
- assert.equal(submitted.draft.flowStatus,'13');assert.ok(submitted.draft.notes.startsWith('Observação ajustada\n\n'));assert.match(submitted.draft.notes,/MANUTENÇÃO PREVENTIVA EM COMPRESSOR SK15 - SÉRIE 1282/);assert.match(submitted.draft.notes,/RELATÓRIO Nº 14811\/01 - HT: NÃO INFORMADO/);
+ assert.equal(submitted.draft.flowStatus,'13');assert.equal(submitted.draft.notes,'Observação ajustada');
  }finally{await browser.close();await new Promise<void>(r=>server.close(()=>r()));}
 });

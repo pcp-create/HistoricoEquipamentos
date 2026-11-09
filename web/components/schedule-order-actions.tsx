@@ -75,7 +75,7 @@ export default function ScheduleOrderActions({
       ]);
       setAttachmentFiles([]);
       setAttachSummary(true);setSummaryAttached(false);setHeaderSaved(false);
-      setEdit({...e,draft:{...e.draft,notes:appendOrderObservation(e.draft.notes||'',standardObservation)}});
+      setEdit(e);
       setFlows(f.rows);
       editRequest.current = null;
     });
@@ -92,7 +92,7 @@ export default function ScheduleOrderActions({
         company,
         order,
         version: edit.version,
-        draft: {...edit.draft,notes:appendOrderObservation(edit.draft.notes||'',standardObservation)},
+        draft: edit.draft,
       });
       let result;
       for (let i = 0; i < 3; i++) {
