@@ -20,7 +20,9 @@ export async function withMaterialMovements(items:any[],db:any=database()){
  ]);
  return items.map(item=>{
   const key=`${item.item_company}:${item.item_order}:${item.id_m8}`;
-  const rows=usage.rows.filter((u:any)=>String(u.item_company)===String(item.item_company)&&String(u.item_order)===String(item.item_order)&&String(u.item_id)===String(item.id_m8));
-  return {...item,movement:materialMovementTotals(rows,Number(delivery.get(key)?.quantity||0),Number(receipt.get(key)?.quantity||0))};
+  const rows:any[]=usage.rows.filter((u:any)=>String(u.item_company)===String(item.item_company)&&String(u.item_order)===String(item.item_order)&&String(u.item_id)===String(item.id_m8));
+  const delivered=materialQuantity(delivery.get(key)?.quantity),received=materialQuantity(receipt.get(key)?.quantity);
+  const returnedInApp=materialQuantity(rows.flatMap(materialWithdrawals).reduce((sum,row)=>sum+Number(row.returned||0),0));
+  return {...item,movement:{...materialMovementTotals(rows,delivered,received),delivered,returnedInApp,received}};
  });
 }

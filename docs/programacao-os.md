@@ -114,3 +114,7 @@ O PDF não inclui linha do tempo, usa o nome padrão de exportação e é otimiz
 ### Fotos na revisão do relatório
 
 As fotos aparecem em cards e o card “+ Adicionar foto” fica depois da última imagem, mantendo as opções de câmera e galeria. O X no canto superior direito abre uma confirmação de remoção; cancelar preserva a foto e confirmar altera apenas o rascunho. É necessário salvar os ajustes para aplicar a remoção ao relatório. A mesma apresentação é usada nas fotos adicionais dos campos.
+
+### Movimentações na aba Peças da revisão
+
+A revisão da operação mostra Entregue (saída registrada pelo almoxarifado), Devolvido (devolução informada pelo técnico no app) e Recebido (entrada da devolução confirmada no almoxarifado). São totais da OS de origem de cada item, inclusive nas OSs vinculadas, independentes da retirada da operação atual. Os campos são somente informativos e mantêm visível a diferença entre devolução declarada e recebimento físico, sem somar os dois como movimentos distintos.

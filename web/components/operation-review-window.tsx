@@ -66,12 +66,12 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
       <div hidden={tab!=="report"}>{o.document.checklistId || o.document.checklistRun ? <ChecklistReviewReport operation={o} data={data} busy={busy} disabled={dirty} mutate={mutate} onDirtyChange={updateReportDirty} saveTarget={saveTarget}/> : <p>Esta operação não possui checklist.</p>}</div>
       {tab === "logs" && <ScheduleTimeLogs data={scoped} onChanged={() => window.dispatchEvent(new Event("service-schedule-updated"))}/>}
       {tab === "parts" && <>
-        <p>Retiradas desta operação e utilização registrada na OS.</p>
-        <div className="scheduling-table"><table><thead><tr><th>Peça</th><th>Unidade</th><th>Reservado na OS</th><th>Retirado nesta operação</th><th>Utilizado na OS</th></tr></thead><tbody>
+        <p>Retiradas desta operação e movimentações da OS. Entregue e Recebido: almoxarifado. Devolvido: informado pelo técnico no app.</p>
+        <div className="scheduling-table"><table><thead><tr><th>Peça</th><th>Unidade</th><th>Reservado na OS</th><th>Retirado nesta operação</th><th>Entregue</th><th>Devolvido</th><th>Recebido</th><th>Utilizado na OS</th></tr></thead><tbody>
           {(data.detail?.materials || []).map((item: any) => {
             const usage = (data.usage || []).find((v: any) => String(v.item_id) === String(item.id_m8) && String(v.item_company) === String(item.item_company) && String(v.item_order) === String(item.item_order));
             const own = materialWithdrawals(usage).find(v => v.operationId === o.id)?.quantity || 0;
-            return <tr key={`${item.item_company}:${item.item_order}:${item.id_m8}`}><td>{item.produto_id} · {item.produto_nome}</td><td>{item.unidade_nome}</td><td>{Number(item.quantidade || 0).toLocaleString("pt-BR")}</td><td>{own.toLocaleString("pt-BR")}</td><td>{usage?.used == null ? "Não informado" : Number(usage.used).toLocaleString("pt-BR")}</td></tr>;
+            return <tr key={`${item.item_company}:${item.item_order}:${item.id_m8}`}><td>{item.produto_id} · {item.produto_nome}</td><td>{item.unidade_nome}</td><td>{Number(item.quantidade || 0).toLocaleString("pt-BR")}</td><td>{own.toLocaleString("pt-BR")}</td><td>{Number(item.movement?.delivered||0).toLocaleString("pt-BR")}</td><td>{Number(item.movement?.returnedInApp||0).toLocaleString("pt-BR")}</td><td>{Number(item.movement?.received||0).toLocaleString("pt-BR")}</td><td>{usage?.used == null ? "Não informado" : Number(usage.used).toLocaleString("pt-BR")}</td></tr>;
           })}
         </tbody></table></div>
         {!data.detail?.materials?.length && <p>Nenhuma peça cadastrada nesta OS.</p>}

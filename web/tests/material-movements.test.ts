@@ -22,7 +22,7 @@ test('programming quantities combine both portals and isolate company, order and
  INSERT INTO web_service_item_usage VALUES(1,1,100,7,5,99,'[{"quantity":5,"gross":8,"returned":3}]');`);
  const items=[{item_company:1,item_order:'100',id_m8:'7'},{item_company:2,item_order:'200',id_m8:'7'},{item_company:1,item_order:'100',id_m8:'8'}];
  const result=await withMaterialMovements(items,db);
- assert.deepEqual(result.map(i=>i.movement),[{withdrawn:8,returned:3,used:5},{withdrawn:2,returned:1,used:1},{withdrawn:0,returned:0,used:0}]);
+ assert.deepEqual(result.map(i=>i.movement),[{withdrawn:8,returned:3,used:5,delivered:8,returnedInApp:3,received:3},{withdrawn:2,returned:1,used:1,delivered:2,returnedInApp:0,received:1},{withdrawn:0,returned:0,used:0,delivered:0,returnedInApp:0,received:0}]);
  assert.equal((await db.query<any>('SELECT used FROM web_service_item_usage')).rows[0].used,'99','consultation never changes process records');
  }finally{await db.close();}
 });
