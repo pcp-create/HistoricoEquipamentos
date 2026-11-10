@@ -21,7 +21,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input=$input.first().json.body;\nconst instance='BotDemandas';\nif(!input || input.instance!==instance || !['messages.upsert','MESSAGES_UPSERT'].includes(input.event) || input.data?.key?.fromMe!==false) return [];\n// Encaminhar apenas os campos necessários; nunca a apikey recebida da Evolution.\nconst data=input.data;\nreturn [{json:{systemUrl:'https://rjcompressores.app',evolutionUrl:'http://187.77.36.214:8080',instance,payload:{instance:input.instance,event:input.event,data:{key:data.key,messageTimestamp:data.messageTimestamp,message:data.message}}}}];"
+        "jsCode": "const input=$input.first().json.body;\nconst instance='BotDemandas';\nif(!input || input.instance!==instance || !['messages.upsert','MESSAGES_UPSERT'].includes(input.event) || input.data?.key?.fromMe!==false) return [];\n// Encaminhar apenas os campos necessários; nunca a apikey recebida da Evolution.\nconst data=input.data;\nreturn [{json:{systemUrl:'https://rjcompressores.app',evolutionUrl:'http://187.77.36.214:8080',instance,payload:{instance:input.instance,event:input.event,data:{key:data.key,messageTimestamp:data.messageTimestamp,pushName:data.pushName,message:data.message}}}}];"
       },
       "id": "f3b827ff-041e-47ee-8353-358e7138628d",
       "name": "Configuração",

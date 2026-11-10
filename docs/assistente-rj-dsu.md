@@ -7,7 +7,7 @@ Versão atual preparada para a instância **BotDemandas**, com menus numerados e
 ## Conversa
 
 - Número associado a exatamente um usuário ativo: inicia menu Colaborador → Tarefas somente ao receber `menu` (sem distinguir maiúsculas/minúsculas). Após iniciar, as respostas seguem a sessão por até 30 minutos de inatividade.
-- Número externo, desativado ou ambíguo: nenhuma resposta, inclusive ao receber Menu; sessões anteriores são removidas. Atendimento a clientes temporariamente desabilitado. Telefones brasileiros são normalizados com DDI e variação do nono dígito de celular.
+- Número sem cadastro de colaborador: abre automaticamente o menu de setores. Número associado a cadastro desativado ou ambíguo: nenhuma resposta e remoção de sessões anteriores. Telefones brasileiros são normalizados com DDI e variação do nono dígito de celular.
 - Criar tarefa: título → responsável → descrição → vencimento → tarefa restrita (sim/não) → alerta opcional com data/hora → confirmar/corrigir/cancelar.
 - Menu numerado de responsáveis ativos com WhatsApp cadastrado (regra atual de atribuição), opção Para mim, pesquisa por nome e paginação. Máximo de dez opções por lista.
 - Datas DD/MM/AAAA, hoje e amanhã, considerando Brasília. A data completa é confirmada antes de gravar.
@@ -15,7 +15,7 @@ Versão atual preparada para a instância **BotDemandas**, com menus numerados e
 - Concluir: opção do menu ou comando `Concluir TAR-1521`. Exige confirmação; apenas tarefas manuais atribuídas ao remetente ou acessíveis por administrador. Tarefas de origem automática continuam sendo resolvidas na origem.
 - Tarefas restritas: não revelam título, descrição, datas ou etapa para não administradores; mostram apenas código, responsável e status. Conclusão exige administrador.
 - `Menu`, `Voltar`, `0` ou `Cancelar`: reinicia a conversa. Estado expira após 30 minutos de inatividade. IDs de botões antigos são rejeitados quando expirados. As respostas numéricas se referem sempre ao menu mais recente.
-- Menu Cliente: atendimento técnico, orçamento e falar com a equipe. Nesta primeira versão, informa que o atendimento está em preparação, sem alegar abertura ou encaminhamento de solicitações.
+- Menu Cliente: Comercial, Assistência Técnica, Financeiro e RH. Ao selecionar, recebe um link para conversar com o setor; o número do setor recebe aviso com nome no WhatsApp, telefone e link para responder ao cliente.
 
 ## Implantação
 
@@ -104,3 +104,15 @@ Na criação de uma tarefa, após o vencimento, o DSU pergunta se deseja agendar
 ### Preparação de listas interativas
 
 As respostas de menu também incluem o campo `menu`, com título, descrição, texto do botão e linhas com `rowId` associado à sessão. O texto numerado continua em `body.text`, compatível com o adaptador existente. O clique deve devolver o `rowId` intacto; opções de menus anteriores são rejeitadas pela sessão. Essa estrutura permite escolher o transporte sem reconstruir as opções a partir do texto. Ainda não ativa o envio interativo: a integração de envio/recebimento e a renderização no aparelho precisam ser validadas antes da troca em produção.
+
+## Menu externo por setor — 10/11/2026
+
+A alteração permite que números sem correspondência em `web_user_access` recebam o menu automaticamente, sem precisar digitar Menu: 1 Comercial, 2 Assistência Técnica, 3 Financeiro, 4 RH. Colaboradores ativos mantêm o fluxo atual de tarefas; números associados a cadastros desativados ou ambíguos continuam sem assumir uma identidade. Clientes não são encaminhados aos comandos legados nem recebem acesso às tarefas internas. A escolha do setor fica na sessão por até 30 minutos.
+
+Os contatos informados foram incluídos como links `wa.me`, removendo somente o zero de tronco e acrescentando DDI 55: Comercial `5547999410228`, Assistência Técnica `554735212910`, Financeiro `5547992113869`, RH `5547996182708`. O nono dígito de Comercial e RH foi confirmado pelo responsável em 10/11/2026. A resposta orienta o cliente a abrir o link e enviar a mensagem. Após a escolha, o setor também recebe um aviso com o nome recebido do WhatsApp (ou Não informado), telefone original com DDI e link para responder ao cliente. O nome é apenas o nome informado no WhatsApp, não uma identidade validada. Não há transferência automática da conversa nem abertura de tarefa. Eventos duplicados não geram novos avisos; o transporte mantém a política de não repetir envios automaticamente.
+
+Backup dos 14 fluxos existentes: `/home/codespace/backups/n8n/20261110T113942Z-fluxos-originais.zip`, com exportações JSON e manifesto SHA-256. São exportações dos fluxos com referências a credenciais, não um backup completo do banco/segredos da instância. Arquivos privados fora do Git.
+
+O fluxo ativo `My workflow` contém o ramo DSU. A inspeção encontrou dois nós de envio conectados à saída `DSU — Preparar respostas`; a correção mantém somente `DSU — Responder WhatsApp1`. O nó Configuração passa a preservar `data.pushName` para identificar o cliente no aviso. Aplicar no workflow existente e conferir a versão publicada, sem criar um segundo webhook ativo.
+
+O workflow existente foi atualizado e a publicação foi confirmada na versão `60de4e2e-0c78-444e-b721-b92b6209a06b`, com um único nó de envio e preservação do nome do WhatsApp. A verificação não enviou mensagens de teste aos setores. Os testes automatizados cobrem as quatro opções, destino do aviso, nome/telefone/link, sessão expirada, permissões e eventos duplicados.

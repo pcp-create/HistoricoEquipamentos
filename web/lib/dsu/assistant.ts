@@ -22,6 +22,8 @@ type State = {
   page?: number;
   search?: string;
   task?: { id: string; version: number };
+  sector?: string;
+  senderName?: string;
 };
 export type Reply = {
   endpoint: "sendText";
@@ -34,6 +36,14 @@ export type Reply = {
   };
   body: Record<string, unknown>;
 };
+// Telefones informados pelo atendimento: remover somente o zero de tronco e incluir DDI.
+// Não inserir nono dígito automaticamente: confirmar alterações com o responsável.
+const clientSectors = [
+  { title: "Comercial", value: "client:commercial", phone: "5547999410228" },
+  { title: "Assistência Técnica", value: "client:support", phone: "554735212910" },
+  { title: "Financeiro", value: "client:finance", phone: "5547992113869" },
+  { title: "RH", value: "client:hr", phone: "5547996182708" },
+];
 const name = "Assistente RJ (DSU)";
 const footer = "Digital Support Unit · Digite *Menu* ou *Cancelar*";
 const clip = (s: string, n: number) => [...s].slice(0, n).join("");
@@ -53,7 +63,7 @@ async function respond(
   event: Incoming,
   state: State,
   actor: any,
-): Promise<Reply> {
+): Promise<Reply | Reply[]> {
   const text = (message: string): Reply => ({
     endpoint: "sendText",
     body: { number: event.phone, text: `*${name}*\n\n${message}` },
@@ -83,17 +93,14 @@ async function respond(
     state.step = "home";
     state.draft = undefined;
     state.task = undefined;
+    state.sector = undefined;
     return menu(
       actor
         ? `Olá, ${actor.display_name || "colaborador"}! Como posso ajudar?`
-        : "Olá! Sou o assistente digital da RJ Compressores. Como posso ajudar?",
+        : "Olá! Sou o assistente digital da RJ Compressores. Com qual setor você deseja falar?",
       actor
         ? [{ title: "Tarefas", value: "tasks" }]
-        : [
-            { title: "Atendimento técnico", value: "client:support" },
-            { title: "Solicitar orçamento", value: "client:quote" },
-            { title: "Falar com a equipe", value: "client:team" },
-          ],
+        : clientSectors.map(({title, value}) => ({title, value})),
     );
   };
   let input = event.text;
@@ -130,10 +137,28 @@ async function respond(
     ]);
   };
   if (!actor) {
-    if (state.step === "home" && input.startsWith("client:"))
-      return text(
-        "O atendimento ao cliente ainda está em preparação. Nenhuma solicitação foi aberta. Entre em contato com a equipe pelo canal habitual. Digite Menu para voltar.",
-      );
+    const sector = state.step === "home" && state.choices?.some(choice => choice.value === input)
+      && clientSectors.find(choice => choice.value === input);
+    if (sector) {
+      state.step = "client-sector";
+      state.sector = sector.title;
+      state.choices = undefined;
+      state.nonce = undefined;
+      const phone = event.phone;
+      const formattedPhone = /^55\d{10,11}$/.test(phone)
+        ? `+55 (${phone.slice(2, 4)}) ${phone.slice(4, -4)}-${phone.slice(-4)}`
+        : `+${phone}`;
+      return [
+        text(`Para falar com *${sector.title}*, toque no link abaixo e envie sua mensagem:\nhttps://wa.me/${sector.phone}\n\nDigite Menu para escolher outro setor.`),
+        {
+          endpoint: "sendText",
+          body: {
+            number: sector.phone,
+            text: `*📩 Novo contato pelo Assistente RJ (DSU)*\n\nCliente (nome no WhatsApp): ${state.senderName || "Não informado"}\nTelefone: ${formattedPhone}\nSetor: ${sector.title}\n\nO cliente entrou em contato com o assistente e selecionou este setor.\nPara responder: https://wa.me/${phone}`,
+          },
+        },
+      ];
+    }
     return home();
   }
   const auth = {
@@ -488,7 +513,7 @@ export async function processMessage(
     // Número ambíguo/desabilitado nunca assume a identidade de colaborador.
     const actor =
       matches.length === 1 && matches[0].enabled ? matches[0] : null;
-    if (!actor) {
+    if (!actor && matches.length > 0) {
       await c.query("DELETE FROM web_dsu_sessions WHERE instance=$1 AND phone=$2", [event.instance, phone]);
       await c.query("COMMIT");
       return { replies: [] };
@@ -516,23 +541,24 @@ export async function processMessage(
       "complete-id",
       "confirm-complete",
     ].includes(state.step || "");
-    if (legacyCommand && !filling) {
+    if (actor && legacyCommand && !filling) {
       await c.query("COMMIT");
       return { replies: [], route: "legacy" };
     }
-    if (!state.step && !/^menu$/i.test(event.text.trim())) {
+    if (actor && !state.step && !/^menu$/i.test(event.text.trim())) {
       await c.query("COMMIT");
       return { replies: [] };
     }
     const input = event.text.trim();
     const selected = /^\d+$/.test(input) && Number(input) > 0 && Number(input) <= (state.choices?.length || 0);
     const command = /^(menu|cancelar|voltar|0)$/i.test(input) || /^concluir\s+(?:tarefa\s+)?(?:tar[- ]?)?\d{1,18}$/i.test(input);
-    if (!filling && !selected && !command && !input.startsWith("dsu:")) {
+    if (actor && !filling && !selected && !command && !input.startsWith("dsu:")) {
       await c.query("COMMIT");
       return { replies: [] };
     }
+    if (!actor && event.senderName) state.senderName = event.senderName;
     await c.query("SAVEPOINT dsu_action");
-    let reply: Reply;
+    let reply: Reply | Reply[];
     try {
       reply = await respond(c, event, state, actor);
     } catch (e) {
@@ -560,7 +586,7 @@ export async function processMessage(
       [event.instance, phone, actor?.email || null, JSON.stringify(state)],
     );
     await c.query("COMMIT");
-    return { replies: [reply] };
+    return { replies: Array.isArray(reply) ? reply : [reply] };
   } catch (e) {
     await c.query("ROLLBACK");
     throw e;

@@ -25,6 +25,8 @@ test("DSU: protocolo filtra mensagens próprias, grupos, instância errada e his
     },
   };
   assert.equal(incomingEvent(body, "BotDemandas")?.text, "Oi");
+  assert.equal(incomingEvent({...body, data:{...body.data,pushName:"Maria\n*Silva*\u202e"}}, "BotDemandas")?.senderName, "Maria Silva");
+  assert.equal(incomingEvent({...body, data:{...body.data,pushName:{name:"invalido"}}}, "BotDemandas")?.senderName, undefined);
   assert.equal(incomingEvent(body, "Outro"), null);
   assert.equal(
     incomingEvent(
@@ -311,9 +313,54 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
       ).rows.length,
       1,
     );
-    r = await send("Oi", "5547777777777");
-    assert.equal(r, undefined);
-    assert.equal(await send("Menu", "5547777777777"), undefined);
+    const external = "5547777777777";
+    const initialClient = await processMessage({text:"Oi",phone:external,id:"external-start",instance:"BotDemandas",senderName:"Maria Silva"});
+    assert.equal(initialClient.replies.length, 1);
+    r = initialClient.replies[0];
+    assert.deepEqual(r.menu?.rows.map(row => row.title), ["Comercial", "Assistência Técnica", "Financeiro", "RH"]);
+    assert.doesNotMatch(String(r.body.text), /Tarefas|Ana|Bia/);
+    assert.equal((await db.query<{actor_email: string | null}>("SELECT actor_email FROM web_dsu_sessions WHERE phone=$1", [phoneKey(external)])).rows[0].actor_email, null);
+    for (const [index, [sector, phone]] of [
+      ["Comercial", "5547999410228"],
+      ["Assistência Técnica", "554735212910"],
+      ["Financeiro", "5547992113869"],
+      ["RH", "5547996182708"],
+    ].entries()) {
+      await send("Menu", external);
+      const selectionEvent = {text:String(index+1),phone:external,id:`external-sector-${index}`,instance:"BotDemandas"};
+      const selectedSector = await processMessage(selectionEvent);
+      assert.equal(selectedSector.replies.length, 2);
+      r = selectedSector.replies[0];
+      assert.ok(String(r.body.text).includes(sector));
+      assert.ok(String(r.body.text).includes(`https://wa.me/${phone}`));
+      assert.doesNotMatch(String(r.body.text), /encaminhad|transferid/);
+      const notice = selectedSector.replies[1];
+      assert.equal(notice.endpoint, "sendText");
+      assert.equal(notice.body.number, phone);
+      assert.ok(String(notice.body.text).includes(sector));
+      assert.match(String(notice.body.text), /Maria Silva/);
+      assert.ok(String(notice.body.text).includes(`https://wa.me/${external}`));
+      assert.deepEqual(await processMessage(selectionEvent), {replies:[], duplicate:true});
+      const repeatedChoice = await processMessage({...selectionEvent,id:`external-repeat-${index}`});
+      assert.equal(repeatedChoice.replies.length, 1);
+    }
+    r = await send("listar @ana", external, "external-legacy", true);
+    assert.match(String(r.body.text), /Comercial/);
+    assert.deepEqual(await processMessage({text:"listar @ana",phone:external,id:"external-legacy",instance:"BotDemandas"},true),{replies:[],duplicate:true});
+    r = await send("999", external);
+    assert.equal(r.menu?.rows.length, 4);
+    const externalChoice = r.menu!.rows[0].rowId;
+    await send("Menu", external);
+    r = await send(externalChoice, external);
+    assert.match(String(r.body.text), /expirou/);
+    r = await send("Concluir TAR-1", external);
+    assert.equal(r.menu?.rows.length, 4);
+    await db.query("UPDATE web_dsu_sessions SET updated_at=now()-interval '31 minutes' WHERE phone=$1", [phoneKey(external)]);
+    r = await send("2", external);
+    assert.equal(r.menu?.rows[0].title, "Comercial");
+    await send("Cancelar", external);
+    r = await send("Boa tarde", external);
+    assert.equal(r.menu?.rows.length, 4);
     await db.query(
       "UPDATE web_user_access SET enabled=false WHERE email='ana@example.com'",
     );
@@ -379,4 +426,16 @@ test("DSU identifica comandos antigos sem confundir códigos TAR", () => {
     },
   };
   assert.equal(incomingEvent(body, "BotDemandas")?.text, "Conferir peça @ana");
+});
+
+
+test("DSU: adaptador n8n preserva o nome do cliente sem encaminhar a chave Evolution", () => {
+  const workflow = JSON.parse(readFileSync(new URL("../../automations/n8n/assistente-rj-dsu.json", import.meta.url), "utf8"));
+  const config = workflow.nodes.find((node: any) => node.name === "Configuração");
+  const payload = {instance:"BotDemandas",event:"messages.upsert",apikey:"segredo-nao-encaminhar",data:{key:{id:"teste",fromMe:false,remoteJid:"5547777777777@s.whatsapp.net"},pushName:"Maria Silva",messageTimestamp:Date.now()/1000,message:{conversation:"Oi"}}};
+  const result = new Function("$input", config.parameters.jsCode)({first:()=>({json:{body:payload}})});
+  assert.equal(result.length,1);
+  assert.equal(result[0].json.payload.data.pushName,"Maria Silva");
+  assert.doesNotMatch(JSON.stringify(result), /segredo-nao-encaminhar/);
+  assert.equal(incomingEvent(result[0].json.payload, "BotDemandas")?.senderName, "Maria Silva");
 });
