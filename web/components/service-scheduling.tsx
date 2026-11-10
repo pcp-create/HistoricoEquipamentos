@@ -956,7 +956,9 @@ function OperationRow({
   }
   const dirty = JSON.stringify(d) !== JSON.stringify(o.document);
   useEffect(()=>{if(dirty)dirtyOperations.add(o.id);else dirtyOperations.delete(o.id);return ()=>{dirtyOperations.delete(o.id);};},[dirty,o.id,dirtyOperations]);
+  const durationOnly = dirty && JSON.stringify({...d,duration:o.document.duration})===JSON.stringify(o.document);
   async function persist(next = d, rescheduling?: {confirmed:true;reason:string}) {
+    if(!busy && o.status!=='completed' && durationOnly && o.sent_at)return await mutate({action:'operation_duration',operationId:o.id,version:o.version,duration:next.duration});
     if (locked) return false;
     if(needsRescheduling(o,next) && !rescheduling){setRescheduleDraft(next);return false;}
     const changingResponsible=changesDispatchedResponsible(o,next);
@@ -1095,7 +1097,7 @@ function OperationRow({
             min="0"
             max="10000"
             step="0.001"
-            disabled={locked}
+            disabled={busy || o.status==='completed'}
             value={d.duration ?? ""}
             onChange={(e) => change("duration", number(e.target.value))}
           />
@@ -1185,7 +1187,7 @@ function OperationRow({
           <div className="operation-execution-actions">
           <button
             className="operation-icon-action"
-            disabled={locked || !dirty}
+            disabled={busy || !dirty || (locked && !(durationOnly && o.sent_at && o.status!=="completed"))}
             aria-label={"Salvar operação " + operationNumber(o.position)}
             onClick={() => void persist()}
            title={"Salvar operação " + operationNumber(o.position)}><SaveActionIcon /></button>

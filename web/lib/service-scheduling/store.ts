@@ -468,6 +468,16 @@ export async function mutateSchedule(b: any, email: string) {
       );
     if (operation.status === "completed")
       throw new ScheduleInputError("Operação concluída não pode ser alterada.");
+    if(b.action==='operation_duration'){
+      const duration=b.duration;
+      if(duration!==null&&(typeof duration!=='number'||!Number.isFinite(duration)||duration<0||duration>10000||Math.abs(Math.round(duration*1000)-duration*1000)>0.000001))throw new ScheduleInputError('Duração inválida. Informe de 0 a 10000 horas, com até três casas decimais.');
+      const document={...operation.document,duration};
+      let ends;
+      try{ends=calendarEnd(document,config.document.calendars.find((calendar:any)=>calendar.id===(document.calendarId||'standard')));}catch(e){throw new ScheduleInputError((e as Error).message);}
+      const result=(await c.query("UPDATE web_service_operations SET document=$2,ends_at=$3,version=version+1,updated_at=now(),updated_by=$4 WHERE id=$1 RETURNING *",[operation.id,JSON.stringify(document),ends,email])).rows[0];
+      await audit(c,email,'service_schedule_operation_duration',{operation_id:operation.id,before:operation.document.duration,after:duration});
+      await c.query('COMMIT');return {operation:result};
+    }
     if(b.action==='recall'){
       if(!admin)throw new Forbidden();
       let result;

@@ -179,6 +179,17 @@ test("scheduling includes once, versions operations, protects execution and reco
     await assert.rejects(send('operation',{document:{...ops[0].document,equipmentUnassigned:false}}),/equipamento não pode ser alterado/);
 
     assert.equal(ops[0].status,"awaiting_execution");assert.ok(ops[0].sent_at);
+    const beforeDuration=structuredClone(ops[0]);
+    ops[0]=(await send('operation_duration',{duration:3.5,document:{responsible:'outsider'}})).operation;
+    assert.equal(ops[0].status,'awaiting_execution');
+    assert.deepEqual(ops[0].document,{...beforeDuration.document,duration:3.5});
+    assert.deepEqual(ops[0].sent_at,beforeDuration.sent_at);
+    await assert.rejects(send('operation_duration',{duration:-1}),/Duração inválida/);
+    await assert.rejects(send('operation_duration',{duration:'4'}),/Duração inválida/);
+    await db.query("UPDATE web_service_operations SET status='awaiting_review' WHERE id=$1",[ops[0].id]);
+    ops[0]=(await send('operation_duration',{duration:4})).operation;
+    assert.equal(ops[0].status,'awaiting_review');assert.equal(ops[0].document.duration,4);
+    await db.query("UPDATE web_service_operations SET status='awaiting_execution' WHERE id=$1",[ops[0].id]);
     const originalDate=ops[0].document.date;
     const originalVersion=ops[0].version;
     const changedDate={...ops[0].document,date:"2026-10-05"};
