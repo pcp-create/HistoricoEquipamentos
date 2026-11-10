@@ -173,11 +173,6 @@ export default function EquipmentCreateDialog({
           onBusy={setBusy}
           onCancel={onClose}
           onDraft={onDraft}
-          actionHint={
-            equipmentOptions
-              ? "O vínculo com o cliente será confirmado pela integração com o M8."
-              : undefined
-          }
         />
       )}
     </dialog>,
