@@ -294,12 +294,11 @@ export async function fieldAction(b: any, email: string) {
         if (!previous) throw new FieldError("Um registro anterior ainda não foi sincronizado.");
         expected = previous.document?.resultVersion;
       }
-      // Execution events apply to the current operation; they do not replace its
-      // planning document. Rescheduling must not strand already captured work.
-      // Full report/checklist writes still require their exact original version.
-      const replayOnCurrentVersion = ["info_read","materials","start_work","start_travel","pause","resume","stop"].includes(b.action);
-      if (!Number.isInteger(expected) || expected < 1 || expected > p.version || (p.version !== expected && !replayOnCurrentVersion))
-        throw new FieldError("Conflito: a operação foi alterada no sistema. Os dados offline foram preservados para conferência.");
+      // The offline snapshot is normally older after a period without internet.
+      // Apply captured execution/report data to the existing operation, keeping
+      // its current planning document. Receipts still enforce order/idempotency.
+      if (!Number.isInteger(expected) || expected < 1)
+        throw new FieldError("Versão do registro offline inválida. Preserve as pendências para conferência.");
       b.version = p.version;
       const timerAction=["start_work","start_travel","pause","resume","stop"].includes(b.action);
       const last = timerAction?(await c.query("SELECT max(created_at) AS at FROM web_field_events WHERE actor=$1 AND action IN ('start_work','start_travel','pause','resume','stop')", [email])).rows[0]?.at:null;

@@ -21,7 +21,7 @@ test("offline timestamps reject invalid, future and expired dates", () => {
     new Date(now - 86400000).toISOString(),
   );
 });
-test("server replays work across rescheduling, preserves timestamps and rejects conflicting report writes", async () => {
+test("server replays offline reports across planning changes while preserving current planning, receipts and timestamps", async () => {
   const db = new PGlite(),
     g = globalThis as any,
     old = g.historyPool;
@@ -110,6 +110,7 @@ test("server replays work across rescheduling, preserves timestamps and rejects 
       [
         op,
         JSON.stringify({
+          checklistId:"frozen",
           checklistRun: {
             template: {
               stages: [
@@ -209,11 +210,27 @@ test("server replays work across rescheduling, preserves timestamps and rejects 
     assert.equal(latest.started_at.toISOString(),new Date(start+47*60000).toISOString());
     assert.equal(latest.finished_at.toISOString(),new Date(start+50*60000).toISOString());
     await db.query("UPDATE web_service_operations SET version=version+1 WHERE id=$1",[op]);
-    await assert.rejects(action("report_save",51,{stages:[]}),/Conflito/);
+    const thirdWork=await action("start_work",51);
+    await db.query("UPDATE web_service_operations SET version=version+1,document=document||'{\"internalNote\":\"Nova observação do planejador\"}'::jsonb WHERE id=$1",[op]);
+    const saved=await action("report_save",52,{stages:[{stageId:'s',answers:{photo:[photo.id]},details:{},equipmentId:'',meterDate:''}]});
+    await fieldAction(saved,'tech'); // Lost acknowledgement must not duplicate the write.
+    const current=(await db.query<any>('SELECT document FROM web_service_operations WHERE id=$1',[op])).rows[0].document;
+    assert.equal(current.internalNote,'Nova observação do planejador');
+    assert.equal(current.date,'2026-11-11');
+    assert.deepEqual(current.checklistRun.stages.s.answers.photo,[photo.id]);
+    assert.equal((await db.query<any>('SELECT count(*)::int n FROM web_field_events WHERE request_id=$1',[saved.requestId])).rows[0].n,1);
+    await action('stop',53,{sessionId:thirdWork.requestId});
+    await db.query('UPDATE web_service_operations SET version=version+1 WHERE id=$1',[op]);
+    const sent=await action('report_send',54,{stages:[{stageId:'s',answers:{photo:[photo.id]},details:{},equipmentId:'',meterDate:''}]});
+    await fieldAction(sent,'tech');
+    const submitted=(await db.query<any>('SELECT document FROM web_service_operations WHERE id=$1',[op])).rows[0].document;
+    assert.equal(submitted.internalNote,'Nova observação do planejador');
+    assert.ok(submitted.checklistRun.submission);
+    assert.equal((await db.query<any>('SELECT count(*)::int n FROM web_field_events WHERE request_id=$1',[sent.requestId])).rows[0].n,1);
     assert.equal(
       (await db.query<any>("SELECT count(*)::int n FROM web_field_sessions"))
         .rows[0].n,
-      2,
+      3,
     );
   } finally {
     g.historyPool = old;

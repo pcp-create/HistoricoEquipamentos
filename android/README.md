@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.19
+# Portal Técnico RJ — APK 2.2.20
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -304,3 +304,9 @@ O reprocessamento individual aguarda uma sincronização automática em andament
 Sem equipamento explicitamente vinculado à operação, o horímetro permanece somente no relatório: não gera coleta nem atualiza equipamento ou preventiva. Essa condição aparece como alerta na revisão e é registrada no histórico da revisão. As demais validações obrigatórias continuam valendo. Instalar como atualização, sem desinstalar ou limpar dados.
 
 Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.19
+
+## Versão 2.2.20 — reenvio após falta de internet
+
+A sincronização de relatórios e apontamentos offline não exige que a versão da programação continue igual à versão baixada antes da perda de internet. O servidor aplica o registro à operação atual, mantendo a programação atual, os horários capturados, a sequência dos registros e os recibos contra duplicidade. Pendências antigas marcadas com o erro de alteração da operação são tentadas novamente. As validações de acesso, existência da operação e regras do relatório continuam sendo verificadas. Instalar como atualização, sem desinstalar nem limpar dados.
+
+Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.20

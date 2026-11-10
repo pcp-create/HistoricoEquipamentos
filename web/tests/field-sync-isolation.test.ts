@@ -114,3 +114,12 @@ test('timer dependencies span operations and photos wait for the pending work se
  await message({type:'FIELD_RETRY',id:'report'});
  assert.deepEqual(sequence,['report_save','stop','start_work','photo','report_save']);assert.equal(records.get('tech:queue').length,0);
 });
+
+test('legacy version conflict is retried automatically after offline replay rules change',async()=>{
+ const {context,records}=fixture();
+ Object.assign(records.get('tech:queue')[0],{error:'Conflito: a operação foi alterada no sistema. Os dados offline foram preservados para conferência.',retryable:false,failedPermanent:true});
+ const previous=context.fetch as any;
+ context.fetch=async(url:string,options:any={})=>options.method?Response.json({saved:true}):previous(url,options);
+ await runInContext('sync()',context);
+ assert.equal(records.get('tech:queue').length,0);
+});
