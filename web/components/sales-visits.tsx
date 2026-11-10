@@ -101,6 +101,7 @@ type Form = {
 };
 export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,initialMode="schedule",initialCustomer,initialSeller}:{scheduleOnly?:boolean;onClose?:()=>void;onScheduled?:()=>void|Promise<void>;initialMode?:"schedule"|"history";initialCustomer?:VisitCustomer;initialSeller?:string} = {}) {
   const [calendarView,setCalendarView]=useState<'month'|'week'|'day'>('month');
+  const [calendarStatus,setCalendarStatus]=useState<'all'|SalesVisit['status']>('all');
   const [nextVisit,setNextVisit]=useState<(Form & {customerName:string})|null>(null);
   const [whatsapp,setWhatsapp]=useState(false);
   const [home, setHome] = useState(true);
@@ -257,6 +258,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
     const c = customerMap.get(v.customer_key);
     return c && matches(c) && (filter === "all" || (filter === "leads" ? c.lead : c.health === filter));
   });
+  const calendarVisits=visitRows.filter(v=>calendarStatus==='all'||v.status===calendarStatus);
   const completed = visits.filter((v) => v.status === "completed"),
     planned = visits.filter((v) => v.status === "scheduled");
   const portfolio = customers.filter(c=>!c.lead&&c.in_portfolio !== false);
@@ -876,7 +878,19 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
               </>
             )}
             {tab === "calendar" && (
-              <section className="field-calendar" aria-label="Calendário de visitas"><div className="sales-actions">{([['month','Mês'],['week','Semana'],['day','Dia']] as const).map(([id,label])=><button key={id} aria-pressed={calendarView===id} onClick={()=>setCalendarView(id)}>{label}</button>)}</div>{calendarView!=='month'?<VisitsPeriodCalendar mode={calendarView} visits={visitRows.filter(v=>v.status==='scheduled')} renderVisit={renderVisit}/>:<>
+              <section className="field-calendar" aria-label="Calendário de visitas">
+                <div className="sales-actions sales-calendar-controls">
+                  {([['month','Mês'],['week','Semana'],['day','Dia']] as const).map(([id,label])=><button key={id} aria-pressed={calendarView===id} onClick={()=>setCalendarView(id)}>{label}</button>)}
+                  <label>Status da visita
+                    <select aria-label="Status da visita" value={calendarStatus} onChange={e=>setCalendarStatus(e.target.value as typeof calendarStatus)}>
+                      <option value="all">Todas</option>
+                      <option value="scheduled">Agendadas</option>
+                      <option value="completed">Realizadas</option>
+                      <option value="cancelled">Canceladas</option>
+                    </select>
+                  </label>
+                </div>
+                {calendarView!=='month'?<VisitsPeriodCalendar mode={calendarView} visits={calendarVisits} renderVisit={renderVisit}/>:<>
                 <div className="field-calendar-heading">
                   <button aria-label="Mês anterior" onClick={() => changeMonth(-1)}>
                     <ChevronLeft size={18} />
@@ -894,12 +908,12 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
                     <span className="field-calendar-weekday" key={day}>{day}</span>
                   ))}
                   {days.map((day, i) => {
-                    const daily = visitRows.filter(v => v.status === "scheduled" && brazilDay(v.scheduled_at) === day);
+                    const daily = calendarVisits.filter(v => brazilDay(v.scheduled_at) === day);
                     return day ? (
                       <button key={day} aria-pressed={day === selectedDay}
                         aria-current={day === today ? "date" : undefined}
                         aria-label={`${day.split("-").reverse().join("/")}: ${daily.length} visitas`}
-                        className={daily.length > 0 && day < today ? "field-calendar-overdue" : ""}
+                        className={daily.some(v=>v.status==="scheduled") && day < today ? "field-calendar-overdue" : ""}
                         onClick={() => setSelectedDay(day)}>
                         <span>{Number(day.slice(-2))}</span>
                         {daily.length > 0 && <small>{daily.length} visita{daily.length > 1 ? "s" : ""}</small>}
@@ -908,7 +922,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
                   })}
                 </div>
                 <h2 className="field-calendar-selected">
-                  {selectedDay ? "Visitas de " + selectedDay.split("-").reverse().join("/") : "Agendadas no mês"}
+                  {selectedDay ? "Visitas de " + selectedDay.split("-").reverse().join("/") : "Visitas no mês"}
                 </h2>
                 <div className="sales-calendar-actions">
                   {selectedDay && (
@@ -922,10 +936,9 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
                     Agendar visita
                   </button>
                 </div>
-                {visitRows
+                {calendarVisits
                   .filter(
                     (v) =>
-                      v.status === "scheduled" &&
                       (selectedDay
                         ? brazilDay(v.scheduled_at) === selectedDay
                         : brazilDay(v.scheduled_at).startsWith(month)),

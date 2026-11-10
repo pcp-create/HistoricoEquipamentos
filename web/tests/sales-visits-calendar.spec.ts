@@ -1,0 +1,33 @@
+import {test,expect} from '@playwright/test';
+
+test('seller calendar shows completed visits and filters status in month, week and day',async({page,context})=>{
+ await page.clock.setFixedTime(new Date('2026-11-10T15:00:00Z'));
+ await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
+ const customers=['Agendada','Realizada','Cancelada'].map((name,index)=>({key:'m8:'+index,name,document:'',city:'Lages',uf:'SC',lead:false,health:'current',equipment:[]}));
+ const visits=['scheduled','completed','cancelled'].map((status,index)=>({id:'v'+index,customer_key:'m8:'+index,seller:'seller@test',status,version:1,scheduled_at:'2026-11-'+(index?'09':'10')+'T12:00:00-03:00',completed_at:status==='completed'?'2026-11-09T13:00:00-03:00':null,contact:'Contato',phone:'47999999999',description:'',outcome:''}));
+ await page.route('**/api/visits',r=>r.fulfill({json:{name:'Vendedor',customers,visits,purposes:[],sellers:[]}}));
+ await page.goto('/visitas');
+ await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
+ await page.getByRole('button',{name:'Calendário',exact:true}).click();
+ const calendar=page.getByRole('region',{name:'Calendário de visitas'}),rows=calendar.locator('.sales-visit-row');
+ await expect(rows).toHaveCount(3);
+ const yesterday=calendar.getByRole('button',{name:'09/11/2026: 2 visitas',exact:true});
+ await expect(yesterday).not.toHaveClass(/field-calendar-overdue/);
+ await calendar.getByLabel('Status da visita',{exact:true}).selectOption('completed');
+ await expect(rows).toHaveCount(1);await expect(rows).toContainText('Realizada');
+ await calendar.getByRole('button',{name:'Semana',exact:true}).click();
+ await expect(rows).toHaveCount(1);await expect(rows).toContainText('Realizada');
+ await calendar.getByRole('button',{name:'Dia',exact:true}).click();
+ await calendar.getByLabel('Data do calendário',{exact:true}).fill('2026-11-09');
+ await expect(rows).toHaveCount(1);await expect(rows).toContainText('Realizada');
+ await calendar.getByLabel('Status da visita',{exact:true}).selectOption('cancelled');
+ await expect(rows).toHaveCount(1);await expect(rows).toContainText('Cancelada');
+ await calendar.getByRole('button',{name:'Mês',exact:true}).click();
+ await expect(rows).toHaveCount(1);await expect(rows).toContainText('Cancelada');
+ await calendar.getByLabel('Status da visita',{exact:true}).selectOption('scheduled');
+ await expect(rows).toHaveCount(1);await expect(rows).toContainText('Agendada');
+ await calendar.getByLabel('Status da visita',{exact:true}).selectOption('all');
+ await expect(rows).toHaveCount(3);
+ await calendar.getByRole('button',{name:'09/11/2026: 2 visitas',exact:true}).click();
+ await expect(rows).toHaveCount(2);await expect(calendar.getByRole('heading',{name:'Visitas de 09/11/2026'})).toBeVisible();
+});

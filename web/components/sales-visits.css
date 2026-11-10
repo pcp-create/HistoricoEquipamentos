@@ -1118,3 +1118,6 @@
 
 .visit-equipment-origin{display:block;width:fit-content;margin:8px 0;padding:4px 8px;border-radius:5px;background:#f0f3f7;color:#61758b;font-size:11px;font-weight:500}
 .visit-equipment-origin.is-visits{background:#eaf3fd;color:#245e91}
+
+.sales-calendar-controls { align-items: flex-end; flex-wrap: wrap; }
+.sales-calendar-controls > label { min-width: 160px; }
