@@ -6,6 +6,7 @@ import { database } from "../db";
 import { m8Session, M8RequestError } from "./m8";
 import {
   parseOrder,
+  equipmentOptionalForOrderType,
   positiveId,
   OrderInputError,
   itemPayload,
@@ -405,7 +406,8 @@ export async function prepareEdit(
         numeroSerie: e.serial ?? null,
         equipamentoModelo: e.model ?? null,
       };
-    } else throw new OrderInputError("Selecione o equipamento.");
+    } else if (!equipmentOptionalForOrderType(draft.type)) throw new OrderInputError("Selecione o equipamento.");
+    else header.equipamentoProduto = null;
   }
   for (const [key, field] of [
     ["expected", "dataEntregaPrevista"],

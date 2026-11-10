@@ -1,4 +1,5 @@
 import { extraFields } from "./extra-fields";
+export const equipmentOptionalForOrderType = (type: unknown) => String(type) === "6";
 export class OrderInputError extends Error {}
 export function positiveId(v: unknown, label: string) {
   const n = Number(v);
@@ -56,7 +57,7 @@ export function parseOrder(value: unknown, editing = false): OrderDraft {
   }))
     if (
       !b[k] &&
-      (k === "origin" ||
+      (k === "origin" || (k === "equipment" && equipmentOptionalForOrderType(b.type)) ||
         (editing && ["equipment", "serviceType", "situation", "flowStatus"].includes(k)))
     )
       out[k] = "";
