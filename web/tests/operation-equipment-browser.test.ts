@@ -13,13 +13,20 @@ test('equipment picker starts with client machines, supports all, search and sel
    const u=new URL(r.request().url());
    if(u.pathname==='/')return r.fulfill({contentType:'text/html',body:'<div id="root"></div>'});
    queries.push(u.search);
-   return r.fulfill({json:{rows:[{equipment_id:u.searchParams.get('scope')==='all'?'8':'7',name:u.searchParams.get('scope')==='all'?'Outro equipamento':'Equipamento do cliente',serial:'ABC'}],hasMore:false}});
+   return r.fulfill({json:{rows:[{equipment_id:u.searchParams.get('scope')==='all'?'8':'7',name:u.searchParams.get('scope')==='all'?'Outro equipamento':'Equipamento do cliente',serial:'ABC',origin:u.searchParams.get('scope')==='all'?'other':'client'},...(u.searchParams.get('scope')==='all'?[]:[{equipment_id:'9',name:'Máquina locada',serial:'LOC',origin:'rental'}])],hasMore:false}});
   });
   await page.goto('http://test.local/');await page.addScriptTag({content:compiled.outputFiles[0].text});
   await page.addStyleTag({content:readFileSync('components/operation-equipment-select.css','utf8')});
   await page.getByRole('button',{name:'Compressor da OS',exact:true}).click();
   await page.getByRole('button',{name:/Equipamento do cliente/}).waitFor();
   assert.ok(queries.at(-1)?.includes('scope=client'));
+  await page.getByRole('heading',{name:'Equipamentos locados para o cliente',exact:true}).waitFor();
+  const labels=await page.locator('.equipment-picker-results h4').allTextContents();
+  assert.deepEqual(labels,['Equipamentos do cliente','Equipamentos locados para o cliente']);
+  const rental=await page.getByRole('button',{name:/Máquina locada/}).boundingBox();
+  const all=await page.getByRole('button',{name:'Ver todos os equipamentos',exact:true}).boundingBox();
+  assert.ok(rental&&all&&all.y>rental.y);
+
   await page.screenshot({path:'/tmp/equipment-picker-desktop.png'});
   await page.setViewportSize({width:390,height:844});
   const bounds=await page.getByRole('dialog').boundingBox();

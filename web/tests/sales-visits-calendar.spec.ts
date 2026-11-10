@@ -49,7 +49,8 @@ test('mobile calendar groups compact filters and separates counts with completed
  expect(Math.abs(portfolio!.y-status!.y)).toBeLessThan(2);expect(status!.x).toBeGreaterThan(portfolio!.x);
  const completed=calendar.getByRole('button',{name:'05/11/2026: 2 visitas',exact:true});
  await expect(completed).toHaveClass(/visit-day-completed/);await expect(completed).toContainText('2');
- await expect(completed.locator('.visit-calendar-totals>span').first()).toContainText('2');await expect(completed.locator('.visit-calendar-totals>span').nth(1)).toContainText('0');
+ await expect(completed.locator('.visit-calendar-totals>span').first()).toContainText('2');await expect(completed.locator('.visit-calendar-totals>span')).toHaveCount(1);
+ await expect(completed).not.toContainText('pend.');
  const overdue=calendar.getByRole('button',{name:'06/11/2026: 2 visitas',exact:true});
  await expect(overdue).toHaveClass(/visit-day-overdue/);await expect(overdue.locator('.visit-calendar-totals>span').first()).toContainText('1');await expect(overdue.locator('.visit-calendar-totals>span').nth(1)).toContainText('1');
  const pending=calendar.getByRole('button',{name:'12/11/2026: 1 visitas',exact:true});

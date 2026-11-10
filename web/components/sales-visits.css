@@ -1155,3 +1155,19 @@
 }
 .sales-app .visit-period>.sales-actions { display: grid; grid-template-columns: 34px minmax(0,1fr) 34px auto; gap: 6px; max-width: 400px; }
 .sales-app .visit-period>.sales-actions button,.sales-app .visit-period>.sales-actions input { min-height: 36px; min-width: 0; padding: 6px; font-size: 13px; }
+.sales-app .sales-visits-calendar .field-calendar-grid button>span:first-child { align-self: flex-start; margin-left: 3px; line-height: 1; }
+
+/* Weekly columns need their own stacked rows, independent of viewport width. */
+.sales-app .visit-period-grid.week .sales-visit-summary {
+ grid-template-columns: minmax(0,1fr) auto;
+ gap: 6px 8px;
+ padding: 12px 2px;
+ min-width: 0;
+}
+.sales-app .visit-period-grid.week .sales-visit-summary>* { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.sales-app .visit-period-grid.week .sales-visit-customer { grid-column: 1 / -1; grid-row: 1; }
+.sales-app .visit-period-grid.week .sales-visit-seller { grid-column: 1 / -1; grid-row: 2; }
+.sales-app .visit-period-grid.week .sales-visit-summary time { grid-column: 1 / -1; grid-row: 3; font-size: 12px; }
+.sales-app .visit-period-grid.week .sales-visit-summary .sales-badge { grid-column: 1; grid-row: 4; justify-self: start; }
+.sales-app .visit-period-grid.week .sales-visit-expand { grid-column: 2; grid-row: 4; justify-self: end; }
+.sales-app .visit-period-grid.week .sales-visit-details { min-width: 0; overflow-wrap: anywhere; }

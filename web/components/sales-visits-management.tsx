@@ -1,4 +1,6 @@
 "use client";
+import {visitCalendarDay} from "@/lib/visits/calendar-day";
+import VisitCalendarTotals from "./visit-calendar-totals";
 import VisitListRow from "./visit-list-row";
 import { matchesSearch } from "@/lib/filters";
 
@@ -268,7 +270,7 @@ export default function SalesVisitsManagement() {
   return (
     <div className="sales-shell">
       <SiteHeader active="visitsManagement" moduleId="visitas" />
-      <main className="field-app sales-app sales-management">
+      <main className={"field-app sales-app sales-management"+(tab==="calendar"?" sales-management-calendar":"")}>
         <header className="sales-management-header">
           <div>
             <h1>Gestão de Visitas</h1>
@@ -666,8 +668,8 @@ export default function SalesVisitsManagement() {
               </section>
             )}
             {tab === "calendar" && (
-              <section className="field-calendar">
-                <div className="sales-actions visit-calendar-modes">{(["month","week","day"] as const).map(mode=><button key={mode} aria-pressed={calendarView===mode} onClick={()=>setCalendarView(mode)}>{mode==="month"?"Mês":mode==="week"?"Semana":"Dia"}</button>)}</div>{calendarView!=="month"?<VisitsPeriodCalendar mode={calendarView} visits={filteredVisits} renderVisit={renderVisit}/>:<>
+              <section className="field-calendar sales-visits-calendar" aria-label="Calendário de visitas">
+                <div className="sales-actions sales-calendar-controls">{(["month","week","day"] as const).map(mode=><button key={mode} aria-pressed={calendarView===mode} onClick={()=>setCalendarView(mode)}>{mode==="month"?"Mês":mode==="week"?"Semana":"Dia"}</button>)}</div>{calendarView!=="month"?<VisitsPeriodCalendar mode={calendarView} visits={filteredVisits} renderVisit={renderVisit}/>:<>
 <div className="field-calendar-heading">
                   <button
                     aria-label="Mês anterior"
@@ -694,6 +696,7 @@ export default function SalesVisitsManagement() {
                     Hoje
                   </button>
                 </div>
+                <div className="visit-calendar-legend"><span className="completed">Realizadas</span><span className="neutral">Pendentes</span><span className="overdue">Atrasadas</span></div>
                 <div className="field-calendar-grid">
                   {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(
                     (d) => (
@@ -707,20 +710,19 @@ export default function SalesVisitsManagement() {
                   ))}
                   {Array.from({ length: days }, (_, i) => {
                     const d = `${month}-${String(i + 1).padStart(2, "0")}`,
-                      rows = filteredVisits.filter(
-                        (v) => brazilDay(v.scheduled_at) === d,
-                      );
+                      summary = visitCalendarDay(filteredVisits,d,today);
                     return (
                       <button
                         key={d}
+                        aria-label={`${d.split("-").reverse().join("/")}: ${summary.rows.length} visitas`}
+                        aria-description={`${summary.completed} realizadas, ${summary.pending} pendentes, ${summary.cancelled} canceladas`}
+                        className={"visit-day-"+summary.tone+(summary.tone==="overdue"?" field-calendar-overdue":"")}
                         aria-pressed={day === d}
                         aria-current={today === d ? "date" : undefined}
                         onClick={() => setDay(d)}
                       >
                         <span>{i + 1}</span>
-                        {rows.length > 0 && (
-                          <small>{rows.length} visita(s)</small>
-                        )}
+                        <VisitCalendarTotals day={summary}/>
                       </button>
                     );
                   })}

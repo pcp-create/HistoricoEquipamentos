@@ -29,3 +29,5 @@
 .equipment-picker-footer nav { display:flex; align-items:center; gap:10px; white-space:nowrap; font-size:12px; color:#728ba1; }
 .equipment-picker-footer nav button { padding:8px; }
 @media(max-width:520px) { .equipment-picker-header {padding:18px 16px 14px;} .equipment-picker-header h3 {font-size:19px;} .equipment-picker-tools {padding:0 16px 12px;} .equipment-picker-results {padding:12px;} .equipment-picker-footer {padding:12px;flex-wrap:wrap;} .equipment-picker-footer nav {margin-left:auto;} .equipment-picker-icon {display:none;} }
+.equipment-picker-group { margin:16px 0 8px; font-size:13px; color:#526d83; }
+.equipment-picker-results .equipment-picker-scope { margin:16px 0 4px; }
