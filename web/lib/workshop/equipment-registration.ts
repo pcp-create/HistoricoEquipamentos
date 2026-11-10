@@ -1,3 +1,4 @@
+import {synchronizeEquipmentCustomerLink} from '../equipment/relationship-integration';
 import 'server-only';
 import {normalizedEquipmentSerial} from '../equipment/serial';
 import {customerForEquipment,saveEquipmentCustomerLink,linkTaskAssignee} from '../equipment/customer-links';
@@ -21,8 +22,9 @@ async function registrationDefaults(api:Awaited<ReturnType<typeof m8Session>>,in
  choose(groups,r=>r.id===(own?96:97)&&normalized(r.nome)===(own?'EQUIPAMENTOS USADOS (COMPRESSORES, SEPARADORES, SECADORES, MOTORES)':'EQUIPAMENTOS DE CLIENTES'),'grupo de estoque');
  return {family,unit,...(own?{category:choose(categories,r=>normalized(r.nome)==='DIVERSOS','categoria')}:{})};
 }
-async function saveLocal(db:any,row:any){
+async function saveLocal(db:any,row:any,session=m8Session){
  const input=equipmentRegistrationInput(row.document,{requireInternalDetails:false}),payload=row.payload;
+ let equipment:any,link:any;
  const c=await db.connect();
  try{await c.query('BEGIN READ WRITE');
   await c.query('SELECT pg_advisory_xact_lock(81014,0)');
@@ -33,11 +35,12 @@ async function saveLocal(db:any,row:any){
   if(input.ownership==='own')await c.query(`INSERT INTO m8_product_catalog(company_id,product_id,name,unit,sale_price,minimum_price,collected_at,payload)
    VALUES(1,$1,$2,'UN',$3,$4,now(),$5) ON CONFLICT(company_id,product_id) DO NOTHING`,
    [row.equipment_id,payload.nome,payload.precoVenda??null,payload.precoVendaMinimo??null,JSON.stringify({...payload,id:Number(row.equipment_id)})]);
-  const equipment={id:String(row.equipment_id),name:payload.nome,model:input.model,serial:input.serial,brand:input.brand||'',client:''};
-  const link=input.customerKey?await saveEquipmentCustomerLink(c,equipment,input.customerKey,row.actor,input.source||'workshop',row.id):{client:'',integrationPending:false,taskId:null as string|null};
+  equipment={id:String(row.equipment_id),name:payload.nome,model:input.model,serial:input.serial,brand:input.brand||'',client:''};
+  link=input.customerKey?await saveEquipmentCustomerLink(c,equipment,input.customerKey,row.actor,input.source||'workshop',row.id):{client:'',integrationPending:false,taskId:null as string|null};
   await c.query('COMMIT');
-  return {...equipment,...link};
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+ const integration=input.customerKey&&link.integrationPending?await synchronizeEquipmentCustomerLink(db,equipment.id,input.customerKey,session):{};
+ return {...equipment,...link,...integration};
 }
 /** Persist the request before the single ERP write. Never replay an uncertain POST. */
 export async function registerWorkshopEquipment(raw:any,actor:string,session=m8Session){
@@ -46,7 +49,7 @@ export async function registerWorkshopEquipment(raw:any,actor:string,session=m8S
  const db=database();
  const replay=async(row:any)=>{
   if(row.actor!==actor||JSON.stringify(equipmentRegistrationInput(row.document,{requireInternalDetails:false}))!==document)throw new EquipmentRegistrationError('Identificador utilizado para outro cadastro.');
-  return {state:row.state,message:row.message,equipment:row.state==='complete'?await saveLocal(db,row):null};
+  return {state:row.state,message:row.message,equipment:row.state==='complete'?await saveLocal(db,row,session):null};
  };
  if(!(await db.query('SELECT 1 FROM web_user_access WHERE email=$1 AND enabled',[actor])).rows.length)throw new EquipmentRegistrationError('Usuário sem acesso ativo.');
  const prior=(await db.query('SELECT *,document=$2::jsonb same FROM web_workshop_equipment_registrations WHERE id=$1',[raw.requestId,document])).rows[0];
@@ -54,7 +57,7 @@ export async function registerWorkshopEquipment(raw:any,actor:string,session=m8S
 
  input=equipmentRegistrationInput(raw);
  if(input.ownership==='customer'){if(!input.customerKey)throw new EquipmentRegistrationError('Selecione o cliente para vincular o equipamento.');await customerForEquipment(db,input.customerKey,actor);}
- if(input.source==='visits')await linkTaskAssignee(db);
+ if(input.source==='visits'&&input.customerKey?.startsWith('lead:'))await linkTaskAssignee(db);
  const api=await session(1),defaults=await registrationDefaults(api,input),payload=equipmentRegistrationPayload(input,defaults);
  const c=await db.connect();
  try{await c.query('BEGIN READ WRITE');await c.query('SELECT pg_advisory_xact_lock(829203,0)');
@@ -77,16 +80,17 @@ export async function registerWorkshopEquipment(raw:any,actor:string,session=m8S
  }catch(e){state=e instanceof M8RequestError&&!e.uncertain?'rejected':'uncertain';message=e instanceof M8RequestError?e.message:'Não foi possível confirmar o cadastro no M8. Confira o ERP antes de reenviar.';}
  const save=await db.connect();
  try{await save.query('BEGIN READ WRITE');await save.query('UPDATE web_workshop_equipment_registrations SET state=$2,equipment_id=$3,message=$4,updated_at=now() WHERE id=$1',[raw.requestId,state,equipmentId,message]);await save.query('COMMIT');}catch(e){await save.query('ROLLBACK');throw e;}finally{save.release();}
- return {state,message,equipment:state==='complete'?await saveLocal(db,{id:raw.requestId,actor,equipment_id:equipmentId,payload,document:input}):null};
+ return {state,message,equipment:state==='complete'?await saveLocal(db,{id:raw.requestId,actor,equipment_id:equipmentId,payload,document:input},async()=>api):null};
 }
 
-export async function linkExistingEquipment(raw:any,actor:string){
+export async function linkExistingEquipment(raw:any,actor:string,session=m8Session){
  if(!/^\d+$/.test(raw.equipmentId||'')||!/^m8:\d+$|^lead:[0-9a-f-]{36}$/i.test(raw.customerKey||''))throw new EquipmentRegistrationError('Cliente ou equipamento inválido.');
- const c=await database().connect();
+ let row:any,link:any;const c=await database().connect();
  try{await c.query('BEGIN READ WRITE');await c.query('SELECT pg_advisory_xact_lock(81014,0)');
- const row=(await c.query('SELECT equipment_id::text id,name,model,serial FROM m8_equipment_catalog WHERE equipment_id=$1 AND present',[raw.equipmentId])).rows[0];
+ row=(await c.query('SELECT equipment_id::text id,name,model,serial FROM m8_equipment_catalog WHERE equipment_id=$1 AND present',[raw.equipmentId])).rows[0];
  if(!row)throw new EquipmentRegistrationError('Equipamento não encontrado.');
- const link=await saveEquipmentCustomerLink(c,row,raw.customerKey,actor,['visits','service-order'].includes(raw.source)?raw.source:'workshop',null);
- await c.query('COMMIT');return {state:'complete',equipment:{...row,...link}};
+ link=await saveEquipmentCustomerLink(c,row,raw.customerKey,actor,['visits','service-order'].includes(raw.source)?raw.source:'workshop',null);
+ await c.query('COMMIT');
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+ const integration=link.integrationPending?await synchronizeEquipmentCustomerLink(database(),row.id,raw.customerKey,session):{};return {state:'complete',equipment:{...row,...link,...integration}};
 }

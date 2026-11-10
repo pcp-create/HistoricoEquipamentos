@@ -1,3 +1,5 @@
+import {synchronizeEquipmentActivity} from '@/lib/equipment/relationship-integration';
+import {database} from '@/lib/db';
 import { syncTasks } from "@/lib/tasks/store";
 import { NextResponse } from "next/server";
 import { requireUser, sameOrigin, Unauthorized } from "@/lib/auth";
@@ -53,7 +55,8 @@ export async function POST(req: Request) {
     } catch {
       throw new EquipmentInputError("Dados inválidos.");
     }
-    const result = await saveEquipment(input, user);
+    let result:any = await saveEquipment(input, user);
+    if(['inactivate','reactivate'].includes(input.action)){try{result={...result,...await synchronizeEquipmentActivity(database(),input.equipment)};}catch{result={...result,integrationPending:true,integrationError:'Status salvo no sistema; aguardando confirmação no M8.'};}}
     try {
       await syncTasks();
     } catch {

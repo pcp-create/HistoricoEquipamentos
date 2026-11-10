@@ -1,3 +1,4 @@
+import {equipmentRelationshipStates,annotateEquipmentClients} from '../equipment/relationship-state';
 
 import { matchesSearch } from "@/lib/filters";
 import {equipmentWorkshopStatus} from "../workshop/equipment-status";
@@ -67,6 +68,8 @@ export async function equipmentList(params: URLSearchParams) {
  WHERE l.equipment_id=e.equipment_id AND l.present GROUP BY l.person_id) p) c ON true
  WHERE e.present ORDER BY e.name,e.equipment_id`)
   ).rows;
+  const relationships=await equipmentRelationshipStates(db,rows.map(e=>e.id));
+  for(const row of rows)row.clients=annotateEquipmentClients(row.clients,relationships.get(row.id));
   const workshops = await equipmentWorkshopStatus(rows.map(e => e.id));
   for (const row of rows) row.workshop = workshops.get(row.id) || null;
   const plans = (
@@ -106,7 +109,7 @@ export async function equipmentList(params: URLSearchParams) {
       const lastModifiedPlan = [...(byEquipment.get(e.id) || [])].filter(p => p.updatedAt).sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime() || String(a.id).localeCompare(String(b.id)))[0];
       return {
         ...e,
-        inactivation:e.settings.inactivation||null,
+        inactivation:e.settings.inactivation&&e.settings.inactivation.erpStatus!=='confirmed'?e.settings.inactivation:relationships.get(e.id)?.inactivation||null,
         ownership: e.rental ? "own" : e.settings.ownership || "unknown",
         rentalStatus: e.workshop && !e.rental ? {key:"in_workshop",label:"Em Oficina",order:null,company:null,customer:null} : rentalStates.get(e.id) || null,
         plans: planned.length,
@@ -217,6 +220,9 @@ export async function equipmentDetail(raw: string) {
       [id],
     )
   ).rows[0] || { document: emptyOperating, version: null };
+  const relationship=(await equipmentRelationshipStates(db,[id])).get(id);
+  const annotated=annotateEquipmentClients(clients,relationship);clients.splice(0,clients.length,...annotated);
+  if(!settings.document.inactivation||settings.document.inactivation.erpStatus==='confirmed'){settings.document={...settings.document};if(relationship?.inactivation)settings.document.inactivation=relationship.inactivation;else delete settings.document.inactivation;}
   const plans = (
     await db.query(
       "SELECT id,document,version,updated_at,updated_by FROM web_equipment_plans WHERE equipment_id=$1 AND NOT archived ORDER BY NULLIF(document->>'hours', '')::numeric ASC NULLS LAST, document->>'name', id",
@@ -297,6 +303,9 @@ export async function saveEquipment(input: any, user: AuthUser) {
       if(input.action==='inactivate'&&(!reason||reason.length>2000))throw new EquipmentInputError('Informe o motivo da inativação (até 2.000 caracteres).');
       const after={...(current?.document||{})};
       if(input.action==='inactivate')after.inactivation={reason,at:new Date().toISOString(),by:user.email,erpStatus:'not_sent'};else delete after.inactivation;
+      after.erpActivity={active:input.action==='reactivate',reason:input.action==='inactivate'?reason:'',at:new Date().toISOString(),by:user.email,erpStatus:'pending'};
+      if(input.action==='reactivate')await c.query('UPDATE web_visit_equipment_inactivations SET reactivated_at=now() WHERE equipment_key=$1 AND reactivated_at IS NULL',[equipment]);
+      else await c.query("UPDATE web_visit_equipment_inactivations SET integration_status='superseded' WHERE equipment_key=$1 AND reactivated_at IS NULL",[equipment]);
       await c.query(`INSERT INTO web_equipment_settings(equipment_id,document,updated_by) VALUES($1,$2,$3) ON CONFLICT(equipment_id) DO UPDATE SET document=$2,updated_by=$3,updated_at=now(),version=web_equipment_settings.version+1`,[equipment,JSON.stringify(after),user.email]);
       await c.query("INSERT INTO web_equipment_events(equipment_id,kind,document,created_by,display_name) VALUES($1,'settings',$2,$3,$4)",[equipment,JSON.stringify({action:input.action,before:current?.document||null,after}),user.email,userDisplayName(user)]);
       await c.query('COMMIT');return {saved:true};
@@ -320,6 +329,7 @@ export async function saveEquipment(input: any, user: AuthUser) {
           "Configuração alterada por outra pessoa. Reabra o equipamento.",
         );
       if(before?.document?.inactivation)after={...after,inactivation:before.document.inactivation};
+      if(before?.document?.erpActivity)after={...after,erpActivity:before.document.erpActivity};
       const baselines = (
         await c.query(
           "SELECT document FROM web_equipment_plans WHERE equipment_id=$1 AND NOT archived",

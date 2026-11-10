@@ -1,3 +1,4 @@
+export const maxDuration=60;
 import {requireUser,sameOrigin,Unauthorized,Forbidden} from '@/lib/auth';
 import {registerWorkshopEquipment,linkExistingEquipment,EquipmentRegistrationError} from '@/lib/workshop/equipment-registration';
 import {M8RequestError} from '@/lib/service-orders/m8';

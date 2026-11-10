@@ -106,7 +106,7 @@ export async function registerMachine(
     throw new AdminInputError("Cliente ou solicitação inválida.");
   const db = transaction || database();
   await contactAccess(db, key, user.email);
-  await linkTaskAssignee(db);
+  if(key.startsWith("lead:"))await linkTaskAssignee(db);
   const old = (
     await db.query(
       "SELECT * FROM web_visit_machine_registrations WHERE id=$1",

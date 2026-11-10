@@ -469,12 +469,12 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
     const inactive=!!row.inactivation;
     let reason='';
     if(inactive){if(!window.confirm(`Reativar o equipamento ${row.name}?`))return;}
-    else{const value=window.prompt(`Informe o motivo da inativação de ${row.name}. A alteração será somente no sistema, sem modificar o ERP M8.`);if(value===null)return;reason=value.trim();if(!reason){setError('Informe o motivo da inativação.');return;}}
+    else{const value=window.prompt(`Informe o motivo da inativação de ${row.name}. O status e o motivo serão enviados aos vínculos no ERP M8.`);if(value===null)return;reason=value.trim();if(!reason){setError('Informe o motivo da inativação.');return;}}
     setActivityBusy(String(row.id));setError('');setMessage('');
     try{
       const current=await api('?id='+row.id,{cache:'reload'});
       await api('',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({equipment:String(row.id),action:inactive?'reactivate':'inactivate',version:current.settings.version,document:{reason}})});
-      setRefresh(value=>value+1);setMessage(inactive?'Equipamento reativado no sistema.':'Equipamento inativado no sistema. O cadastro no ERP M8 não foi alterado.');
+      setRefresh(value=>value+1);setMessage(inactive?'Solicitação de reativação registrada. Confira a confirmação de integração no detalhe.':'Inativação registrada. Confira a confirmação de integração no detalhe.');
     }catch(e){setError((e as Error).message);}finally{setActivityBusy('');}
   }
   async function save(action: string, document: any, existing?: any) {
@@ -1052,7 +1052,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                             <EquipmentPhoto id={e.id} name={e.name} />
                           )}
                           <div>
-                            <strong>{e.name}</strong>{e.inactivation&&<small className="equipment-inactive-tag" title={e.inactivation.reason}>Inativo no sistema</small>}{e.workshop&&<small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>{e.rental ? "Em Revisão" : "Em Oficina"} · {e.workshop.workshop}</small>}{!e.workshop && e.rentalStatus?.key === "available" && <small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>Disponível · {e.location || (e.rental ? "RJ Compressores" : "Localização não informada")}</small>}
+                            <strong>{e.name}</strong>{e.inactivation&&<><small className="equipment-inactive-tag" title={e.inactivation.reason}>INATIVO</small><small>{e.inactivation.reason}</small></>}{e.workshop&&<small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>{e.rental ? "Em Revisão" : "Em Oficina"} · {e.workshop.workshop}</small>}{!e.workshop && e.rentalStatus?.key === "available" && <small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>Disponível · {e.location || (e.rental ? "RJ Compressores" : "Localização não informada")}</small>}
                             {rentalOnly && <span className="fleet-serial">Série <b>{e.serial || "Não informada"}</b></span>}
                             <small>
                               {e.brand || "Marca não informada"} ·{" "}
@@ -1082,7 +1082,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                         {rentalOnly && e.rentalStatus?.customer ? <strong className="fleet-customer">{e.rentalStatus.customer}</strong> : e.clients.length
                           ? e.clients.map((c: any) => (
                               <small key={c.id}>
-                                {c.name || `Cliente ${c.id}`}
+                                {c.name || `Cliente ${c.id}`}{c.inactivation&&<span className="equipment-inactive-tag"> · INATIVO · {c.inactivation.reason}</span>}
                               </small>
                             ))
                           : <span className="fleet-empty">{rentalOnly ? "Sem cliente atribuído" : "Sem vínculo no cadastro"}</span>}
@@ -1233,7 +1233,8 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                     </a>
                   </p>
                   <div className="equipment-activity-actions">
-                    {detail.settings.document?.inactivation?<><p className="equipment-inactive-message"><b>Equipamento inativado no sistema</b><br/>{detail.settings.document.inactivation.reason}<br/><small>Registrado em {date(detail.settings.document.inactivation.at)} · {detail.settings.document.inactivation.by}. O cadastro no ERP M8 não foi alterado.</small></p><button type="button" disabled={saving} onClick={()=>{if(window.confirm('Reativar este equipamento no controle de preventivas?'))void save('reactivate',{});}}>Reativar equipamento</button></>:<button type="button" disabled={saving} onClick={()=>{const reason=window.prompt('Informe o motivo da inativação. Esta alteração será feita somente no sistema, sem modificar o ERP M8.');if(reason!==null){if(!reason.trim()){setSaveError('Informe o motivo da inativação.');return;}void save('inactivate',{reason});}}}>Inativar equipamento</button>}
+                    {detail.settings.document?.erpActivity?.erpStatus==='pending'&&<p role="status">Alteração de status pendente de confirmação no ERP M8. {detail.settings.document.erpActivity.error}</p>}
+                    {detail.settings.document?.inactivation?<><p className="equipment-inactive-message"><b>Equipamento INATIVO</b><br/>{detail.settings.document.inactivation.reason}<br/><small>{detail.settings.document.inactivation.source==='m8'?'Situação informada pelo ERP M8.':<>Registrado em {date(detail.settings.document.inactivation.at)} · {detail.settings.document.inactivation.by}. {detail.settings.document.inactivation.erpStatus==='confirmed'?'Status confirmado no ERP M8.':'Sincronização com o ERP M8 pendente.'}</>}</small></p><button type="button" disabled={saving} onClick={()=>{if(window.confirm('Reativar este equipamento no controle de preventivas?'))void save('reactivate',{});}}>Reativar equipamento</button></>:<button type="button" disabled={saving} onClick={()=>{const reason=window.prompt('Informe o motivo da inativação. O status e o motivo serão enviados aos vínculos deste equipamento no ERP M8.');if(reason!==null){if(!reason.trim()){setSaveError('Informe o motivo da inativação.');return;}void save('inactivate',{reason});}}}>Inativar equipamento</button>}
                   </div>
                   <form
                     onSubmit={(e) => {

@@ -5,6 +5,7 @@ test('equipment inactivation requires justification and customer ownership, pres
  try{
   await db.exec("CREATE ROLE anon;CREATE ROLE authenticated;CREATE TABLE web_user_access(email text,enabled boolean,role text);INSERT INTO web_user_access VALUES('seller@test.com',true,'user'),('blocked@test.com',false,'user');CREATE TABLE m8_customer_directory(person_id bigint);INSERT INTO m8_customer_directory VALUES(1),(2);CREATE TABLE m8_person_equipment(person_id bigint,equipment_id bigint,present boolean);CREATE VIEW web_effective_person_equipment AS SELECT *,false integration_pending,'m8:'||person_id::text customer_key FROM m8_person_equipment;INSERT INTO m8_person_equipment VALUES(1,7,true);CREATE TABLE web_visit_machine_registrations(id uuid,customer_key text);CREATE TABLE web_access_events(event text,email text,actor text,details jsonb);");
   await db.exec(readFileSync('sql/097_visit_equipment_inactivation.sql','utf8'));
+  await db.exec("ALTER TABLE web_visit_equipment_inactivations ADD COLUMN integration_status text DEFAULT 'pending';ALTER TABLE web_visit_equipment_inactivations ADD COLUMN reactivated_at timestamptz;ALTER TABLE web_visit_equipment_inactivations ADD COLUMN integration_error text;ALTER TABLE web_visit_equipment_inactivations ADD COLUMN confirmed_at timestamptz");
   const query=db.query.bind(db);g.historyPool={query,connect:async()=>({query,release(){}})};
   const input={customer:'m8:1',equipment:'7',reason:'Equipamento vendido'};
   await assert.rejects(()=>inactivateVisitEquipment({...input,reason:''},'seller@test.com'),/justificativa/);

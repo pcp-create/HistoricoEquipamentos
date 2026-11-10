@@ -33,13 +33,17 @@ test('equipment creation writes once, immediately selects the saved catalog entr
   await db.exec(readFileSync('sql/088_workshop_equipment_registrations.sql','utf8'));
   await db.exec(`ALTER TABLE web_user_access ADD COLUMN role text DEFAULT 'employee';
   CREATE TABLE m8_customer_directory(person_id bigint,name text,collected_at timestamptz);INSERT INTO m8_customer_directory VALUES(10,'Cliente Teste',now());
-  CREATE TABLE m8_person_equipment(company_id int,person_id bigint,equipment_id bigint,person_name text,present boolean);
+  CREATE TABLE m8_person_equipment(company_id int,person_id bigint,equipment_id bigint,person_name text,present boolean,link_id bigint,equipment_name text,payload jsonb,collected_at timestamptz,PRIMARY KEY(company_id,person_id,link_id));
+  CREATE TABLE web_visit_equipment_inactivations(customer_key text,equipment_key text);
   CREATE TABLE web_tasks(id bigint PRIMARY KEY,status text,source_resolved boolean,completed_at timestamptz,updated_at timestamptz,updated_by text,version int);
   CREATE TABLE web_visit_machine_registrations(id uuid,serial text,equipment_id bigint);`);
   await db.exec(readFileSync('sql/103_equipment_customer_links.sql','utf8'));
+  await db.exec(readFileSync('sql/105_equipment_relation_integration.sql','utf8'));
 
+  const personLinks:any[]=[];
   const writes:any[]=[],session=async(company:number)=>async(path:string,body?:any)=>{
    assert.equal(company,1);
+   if(path.startsWith('/v1/estoque/equipamento/pessoa')){if(body){const row={id:body.equipamentoId+10000,pessoaId:body.pessoaId,equipamentoId:body.equipamentoId,pessoaNome:'Cliente Teste',ativo:true,motivoInativacao:''};personLinks.push(row);return {id:row.id};}return structuredClone(personLinks);}
    if(body){assert.equal(path,body.tipoProduto==='EquipamentoProduto'?'/v1/estoque/produto':'/v1/estoque/equipamento');writes.push(body);return {id:122+writes.length};}
    if(path.includes('/familia?'))return [{id:1,nome:'USO E CONSUMO'},{id:3,nome:'EQUIPAMENTO DE LOCAÇÃO'}];
    if(path.includes('/unidade?'))return [{id:1,nome:'UNIDADE',abreviatura:'UN'}];
@@ -49,7 +53,7 @@ test('equipment creation writes once, immediately selects the saved catalog entr
   const input={...customer,requestId:randomUUID()};
 
   await assert.rejects(registerWorkshopEquipment(input,'disabled',session as any),/acesso/);
-  const result=await registerWorkshopEquipment(input,'user',session as any);assert.equal(result.state,'complete');assert.equal(result.equipment?.id,'123');assert.equal(result.equipment?.serial,customer.serial);assert.equal(result.equipment?.brand,'Atlas Copco');assert.equal((await db.query<any>('SELECT brand FROM m8_equipment_catalog WHERE equipment_id=123')).rows[0].brand,'Atlas Copco');assert.match(writes[0].informacoesComplementares,/Marca: Atlas Copco/);assert.equal(result.equipment?.client,'Cliente Teste');assert.equal(result.equipment?.integrationPending,true);const candidates=await serialCandidates('s.n 12-34',g.historyPool);assert.equal(candidates[0].id,'123');assert.equal(candidates[0].exact,true);assert.equal(candidates[0].client,'Cliente Teste');await assert.rejects(registerWorkshopEquipment({...input,serial:'s.n 12-34',requestId:randomUUID()},'user',session as any),/já está cadastrado/);assert.equal(writes.length,1);await db.query("INSERT INTO m8_person_equipment VALUES(1,10,123,'Cliente Teste',true)");assert.equal((await db.query<any>('SELECT integration_pending FROM web_effective_person_equipment WHERE equipment_id=123')).rows[0].integration_pending,false);
+  const result=await registerWorkshopEquipment(input,'user',session as any);assert.equal(result.state,'complete');assert.equal(result.equipment?.id,'123');assert.equal(result.equipment?.serial,customer.serial);assert.equal(result.equipment?.brand,'Atlas Copco');assert.equal((await db.query<any>('SELECT brand FROM m8_equipment_catalog WHERE equipment_id=123')).rows[0].brand,'Atlas Copco');assert.match(writes[0].informacoesComplementares,/Marca: Atlas Copco/);assert.equal(result.equipment?.client,'Cliente Teste');assert.equal(result.equipment?.integrationPending,false);const candidates=await serialCandidates('s.n 12-34',g.historyPool);assert.equal(candidates[0].id,'123');assert.equal(candidates[0].exact,true);assert.equal(candidates[0].client,'Cliente Teste');await assert.rejects(registerWorkshopEquipment({...input,serial:'s.n 12-34',requestId:randomUUID()},'user',session as any),/já está cadastrado/);assert.equal(writes.length,1);await db.query("INSERT INTO m8_person_equipment(company_id,person_id,equipment_id,person_name,present,link_id) VALUES(1,10,123,'Cliente Teste',true,12399)");assert.equal((await db.query<any>('SELECT integration_pending FROM web_effective_person_equipment WHERE equipment_id=123')).rows[0].integration_pending,false);
   assert.equal((await registerWorkshopEquipment(input,'user',session as any)).equipment?.id,'123');assert.equal(writes.length,1);
   await db.query("UPDATE m8_equipment_catalog SET name='Nome atualizado no ERP' WHERE equipment_id=123");
   await registerWorkshopEquipment(input,'user',session as any);

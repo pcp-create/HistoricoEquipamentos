@@ -26,6 +26,8 @@ export function equipmentRows(body: unknown) {
 }
 export function personRows(body: unknown, person?: string) {
   return uniqueRows(listData(body)).map((row) => {
+    if(row.ativo!==undefined&&typeof row.ativo!=='boolean')throw new SafeError('Status do vínculo inválido; preservar cadastro anterior');
+    if(row.motivoInativacao!=null&&typeof row.motivoInativacao!=='string')throw new SafeError('Motivo de inativação inválido; preservar cadastro anterior');
     const personId = positiveId(row.pessoaId);
     if (person && personId !== person)
       throw new SafeError(

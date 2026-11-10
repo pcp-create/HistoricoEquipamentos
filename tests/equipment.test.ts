@@ -204,3 +204,11 @@ test("equipment import is canonical in company 1; per-person snapshots reconcile
     await db.close();
   }
 });
+
+test('customer relationship inactive status and reason are preserved without removing the association',()=>{
+ const payload={id:1,pessoaId:7,equipamentoId:10,ativo:false,motivoInativacao:'Equipamento vendido'};
+ const result=personRows({data:[payload]},'7');
+ assert.equal(result[0]?.payload.ativo,false);
+ assert.equal(result[0]?.payload.motivoInativacao,'Equipamento vendido');
+ assert.throws(()=>personRows({data:[{...payload,ativo:'false'}]},'7'),/Status do vínculo inválido/);
+});

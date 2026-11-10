@@ -1,6 +1,6 @@
 # Cadastro de máquinas pela entrada da oficina
 
-“Adicionar equipamento” aparece na pesquisa da entrada. O cadastro ocorre dentro da mesma janela, preservando oficina, datas e observações já preenchidas. Ao confirmar o M8, o catálogo compartilhado é preenchido imediatamente e a máquina fica selecionada; a entrada na oficina ainda depende de “Confirmar entrada”. Para equipamentos de cliente, a seleção do cliente é obrigatória. A pesquisa usa o cadastro completo de clientes, inclusive aqueles que ainda não possuem máquinas. O equipamento é criado no M8 e seu vínculo com o cliente fica persistido no portal, sinalizado como pendente de integração; nenhum endpoint não disponibilizado é chamado para simular o vínculo.
+“Adicionar equipamento” aparece na pesquisa da entrada. O cadastro ocorre dentro da mesma janela, preservando oficina, datas e observações já preenchidas. Ao confirmar o M8, o catálogo compartilhado é preenchido imediatamente e a máquina fica selecionada; a entrada na oficina ainda depende de “Confirmar entrada”. Para equipamentos de cliente, a seleção do cliente é obrigatória. A pesquisa usa o cadastro completo de clientes, inclusive aqueles que ainda não possuem máquinas. O equipamento é criado no M8 e, para clientes já cadastrados no ERP, o vínculo é enviado pelo novo POST de pessoa/equipamento e confirmado pelo GET. A pendência local permanece somente enquanto não houver confirmação. Consulte `docs/integracao-vinculos-equipamentos.md` para a implementação atual; o histórico abaixo descreve a solução provisória anterior.
 
 O servidor fixa origem **Nacional** (confirmada pelo usuário), e gera nome e apelido em caixa alta. Clientes mantêm `TIPO - MODELO XXX - SÉRIE XXX`. Para próprios, a nomenclatura segue os itens 3 e 4 do **POP – Gestão e Controle dos Equipamentos de Locação**, revisão 0, fornecido pelo usuário:
 
@@ -65,3 +65,7 @@ A série é comparada em caixa alta, sem pontuação, espaços ou acentos, prese
 Validação adicional: cliente sem máquinas disponível na busca; reuso de série normalizada sem novo cadastro; seleção na OS; cadastro direto nas Visitas; tarefa somente para vínculo; pendência não confirmada por outro cliente e concluída pelo par correto; preservação de dados e idempotência de Leads, visitas e solicitações.
 
 O campo Marca está disponível no cadastro compartilhado da Oficina, Visitas e OS, inclusive para próprios. É preservado no registro da solicitação e no catálogo local e enviado nas informações complementares do equipamento ao ERP; não é enviado um ID de marca presumido.
+
+## Endpoints de vínculo disponíveis
+
+O cadastro compartilhado agora integra o vínculo automaticamente via POST `/v1/estoque/equipamento/pessoa`, com confirmação por GET. Clientes M8 não geram tarefa de vínculo manual; tarefas antigas são concluídas quando o par correto é confirmado. Leads sem ID M8 continuam pendentes. Detalhes, migração 105, rotina e status/inativação: `docs/integracao-vinculos-equipamentos.md`.

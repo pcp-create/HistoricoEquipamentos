@@ -64,7 +64,7 @@ export async function saveEquipmentCustomerLink(
       [equipment.id, key, name, actor, source, registration, confirmed],
     )
   ).rows[0];
-  if (!confirmed && source === "visits" && !row.task_id) {
+  if (!confirmed && source === "visits" && key.startsWith("lead:") && !row.task_id) {
     const assignee = await linkTaskAssignee(db);
     const result = await createTask(
       {

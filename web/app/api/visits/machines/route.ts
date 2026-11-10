@@ -1,3 +1,4 @@
+export const maxDuration=60;
 import {EquipmentRegistrationError} from '@/lib/workshop/equipment-registration-model';
 import {M8RequestError} from '@/lib/service-orders/m8';
 import {customerEquipment} from "@/lib/visits/customer-equipment";
