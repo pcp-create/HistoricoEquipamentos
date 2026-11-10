@@ -45,7 +45,7 @@ const clientSectors = [
   { title: "RH", value: "client:hr", phone: "5547996182708" },
 ];
 const name = "Assistente RJ (DSU)";
-const footer = "Digital Support Unit · Digite *Menu* ou *Cancelar*";
+const footer = "Digital Support Unit · *Menu*: início · *Cancelar*: pausar atendimento automático";
 const clip = (s: string, n: number) => [...s].slice(0, n).join("");
 const dateLabel = (value: any) =>
   value
@@ -80,7 +80,7 @@ async function respond(
         title: name,
         description,
         buttonText: "Escolha uma opção",
-        footerText: "Digite Menu ou Cancelar para voltar",
+        footerText: "Menu: início · Cancelar: pausar atendimento automático",
         rows: choices.map((choice, index) => ({
           title: clip(choice.title, 24),
           description: clip(choice.description || (choice.title.length > 24 ? choice.title : ""), 72),
@@ -105,7 +105,7 @@ async function respond(
   };
   let input = event.text;
   if (/^menu$/i.test(input)) return home();
-  if (/^(cancelar|voltar|0)$/i.test(input)) {
+  if (/^(voltar|0)$/i.test(input)) {
     for (const key of Object.keys(state)) delete (state as any)[key];
     return text("Atendimento encerrado. Digite Menu para iniciar novamente.");
   }
@@ -487,6 +487,7 @@ export async function processMessage(
   event: Incoming,
   legacyCommand = false,
 ): Promise<{ replies: Reply[]; duplicate?: boolean; route?: "legacy" }> {
+  if (event.outgoingControl && !/^(menu|cancelar)$/i.test(event.text.trim())) return {replies:[]};
   const c = await database().connect();
   try {
     await c.query("BEGIN READ WRITE");
@@ -504,6 +505,26 @@ export async function processMessage(
       await c.query("COMMIT");
       return { replies: [], duplicate: true };
     }
+    const old = (
+      await c.query(
+        "SELECT * FROM web_dsu_sessions WHERE instance=$1 AND phone=$2",
+        [event.instance, phone],
+      )
+    ).rows[0];
+    const control = event.text.trim();
+    if (/^cancelar$/i.test(control)) {
+      // Pause is persistent and belongs to the conversation, not the current actor or draft TTL.
+      await c.query(
+        "INSERT INTO web_dsu_sessions(instance,phone,actor_email,state) VALUES($1,$2,NULL,$3::jsonb) ON CONFLICT(instance,phone) DO UPDATE SET actor_email=NULL,state=excluded.state,updated_at=now()",
+        [event.instance, phone, JSON.stringify({step:"paused"})],
+      );
+      await c.query("COMMIT");
+      return {replies: event.outgoingControl || old?.state?.step === "paused" ? [] : [{endpoint:"sendText",body:{number:event.phone,text:"Atendimento automático encerrado e pausado nesta conversa. Digite MENU para reativar o assistente."}}]};
+    }
+    if (old?.state?.step === "paused" && !/^menu$/i.test(control)) {
+      await c.query("COMMIT");
+      return {replies:[]};
+    }
     const users = (
       await c.query(
         "SELECT email,display_name,phone,user_id,role,enabled FROM web_user_access WHERE coalesce(phone,'')<>''",
@@ -518,12 +539,6 @@ export async function processMessage(
       await c.query("COMMIT");
       return { replies: [] };
     }
-    const old = (
-      await c.query(
-        "SELECT * FROM web_dsu_sessions WHERE instance=$1 AND phone=$2",
-        [event.instance, phone],
-      )
-    ).rows[0];
     const state: State =
       old &&
       old.actor_email === (actor?.email || null) &&

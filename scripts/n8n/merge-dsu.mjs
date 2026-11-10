@@ -44,16 +44,7 @@ node(
   "DSU — Roteamento",
   "code",
   {
-    jsCode: `// Somente mensagens privadas recebidas pela BotDemandas seguem para o DSU.
-return $input.all().flatMap((item,i)=>{
- const b=item.json.body, key=b?.data?.key;
- if(b?.instance==='BotDemandas' && key?.fromMe===true) return [];
- const jid=typeof key?.remoteJid==='string' ? key.remoteJid : '';
- const alt=typeof key?.remoteJidAlt==='string' ? key.remoteJidAlt : '';
- const privateMessage=jid.endsWith('@s.whatsapp.net') || (jid.endsWith('@lid') && alt.endsWith('@s.whatsapp.net'));
- const dsu=b?.instance==='BotDemandas' && ['messages.upsert','MESSAGES_UPSERT'].includes(b?.event) && key?.fromMe===false && privateMessage;
- return [{json:{...item.json,dsu},pairedItem:{item:i}}];
-});`,
+    jsCode: readFileSync("scripts/n8n/dsu-routing.js", "utf8"),
   },
   [240, -400],
 );

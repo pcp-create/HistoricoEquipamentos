@@ -4,6 +4,7 @@ export type Incoming = {
   id: string;
   text: string;
   senderName?: string;
+  outgoingControl?: true;
 };
 export function phoneKey(value: string): string {
   let digits = value.replace(/\D/g, "");
@@ -28,7 +29,7 @@ export function incomingEvent(
     key = data?.key;
   if (
     !key ||
-    key.fromMe !== false ||
+    (key.fromMe !== false && key.fromMe !== true) ||
     typeof key.id !== "string" ||
     key.id.length > 200
   )
@@ -73,10 +74,12 @@ export function incomingEvent(
         m.documentMessage?.fileName));
   if (typeof text !== "string" || !text.trim() || text.length > 12000)
     return null;
-  const senderName = typeof data.pushName === "string"
+  // Only explicit manual controls may come from our own account. Ignore all bot replies.
+  if (key.fromMe === true && !/^(menu|cancelar)$/i.test(text.trim())) return null;
+  const senderName = key.fromMe === false && typeof data.pushName === "string"
     ? data.pushName.replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069*_~`]/g, " ").replace(/\s+/g, " ").trim().slice(0, 100)
     : "";
-  return { instance, phone: jid.split("@")[0], id: key.id, text: text.trim(), ...(senderName ? {senderName} : {}) };
+  return { instance, phone: jid.split("@")[0], id: key.id, text: text.trim(), ...(senderName ? {senderName} : {}), ...(key.fromMe === true ? {outgoingControl:true as const} : {}) };
 }
 export function dueDate(value: string, now = new Date()): string | null {
   const today = now.toLocaleDateString("en-CA", {

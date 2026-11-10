@@ -14,7 +14,7 @@ Versão atual preparada para a instância **BotDemandas**, com menus numerados e
 - Minhas tarefas: tarefas abertas atribuídas ao remetente, ordenadas por vencimento e paginadas. A seleção mostra etapa, descrição inicial de tarefas manuais e link do sistema.
 - Concluir: opção do menu ou comando `Concluir TAR-1521`. Exige confirmação; apenas tarefas manuais atribuídas ao remetente ou acessíveis por administrador. Tarefas de origem automática continuam sendo resolvidas na origem.
 - Tarefas restritas: não revelam título, descrição, datas ou etapa para não administradores; mostram apenas código, responsável e status. Conclusão exige administrador.
-- `Menu`, `Voltar`, `0` ou `Cancelar`: reinicia a conversa. Estado expira após 30 minutos de inatividade. IDs de botões antigos são rejeitados quando expirados. As respostas numéricas se referem sempre ao menu mais recente.
+- `Cancelar`: pausa o atendimento automático somente naquela conversa, até receber `Menu`. A pausa não expira com a sessão de 30 minutos. `Voltar` e `0` encerram o fluxo atual sem estabelecer pausa persistente. IDs de botões antigos são rejeitados quando expirados. As respostas numéricas se referem sempre ao menu mais recente.
 - Menu Cliente: Comercial, Assistência Técnica, Financeiro e RH. Ao selecionar, recebe um link para conversar com o setor; o número do setor recebe aviso com nome no WhatsApp, telefone e link para responder ao cliente.
 
 ## Implantação
@@ -29,7 +29,7 @@ Versão atual preparada para a instância **BotDemandas**, com menus numerados e
    - **Receber mensagem**: Header Auth exclusivo para autenticar a Evolution. Configurar o mesmo header no webhook da Evolution. Sem essa autenticação, não ativar: o remetente é a identidade usada para operações de tarefas.
    - **Processar conversa**: Header Auth `Authorization: Bearer <DSU_AUTOMATION_TOKEN>`.
    - **Responder WhatsApp**: Header Auth `apikey` da Evolution, reutilizando a credencial existente.
-6. Configurar `MESSAGES_UPSERT` para a URL de produção do webhook `/webhook/assistente-rj-dsu`, com `webhookByEvents=false`. Verificar o webhook atual antes de alterar: se já atende outro consumidor, encaminhar esse evento pelo roteador existente em vez de substituí-lo. O fluxo ignora mensagens próprias, grupos, broadcasts, eventos antigos e instâncias diferentes.
+6. Configurar `MESSAGES_UPSERT` para a URL de produção do webhook `/webhook/assistente-rj-dsu`, com `webhookByEvents=false`. Verificar o webhook atual antes de alterar: se já atende outro consumidor, encaminhar esse evento pelo roteador existente em vez de substituí-lo. O fluxo ignora mensagens próprias (exceto os controles manuais exatos MENU e CANCELAR em conversa privada), grupos, broadcasts, eventos antigos e instâncias diferentes.
 7. Testar com um colaborador autorizado: menu, lista de responsáveis, criação, tarefa no sistema, consulta e conclusão. Validar a renderização real dos menus na versão instalada da Evolution/WhatsApp. O workflow fica inativo no arquivo até configurar credenciais e encaminhamento.
 
 Referência dos payloads interativos: [DTO oficial da Evolution API](https://github.com/EvolutionAPI/evolution-api/blob/main/src/api/dto/sendMessage.dto.ts), `SendListDto` e `SendButtonsDto`. A compatibilidade efetiva depende da versão e do transporte instalado. Não foi feita simulação de envio real nos testes automatizados.
@@ -40,7 +40,7 @@ A API `/api/dsu` exige token próprio. O número é extraído do remetente da me
 
 Sessões ficam no PostgreSQL, por instância/telefone. Um bloqueio serializa mensagens do mesmo contato. Criação/conclusão, histórico, fila de notificações, estado e recibo da mensagem são gravados na mesma transação. Eventos repetidos não repetem operações nem respostas. Ações usam as mesmas funções de tarefas do sistema, com autoria do colaborador identificado.
 
-O processamento HTTP pode ser repetido com segurança. O envio WhatsApp não tem repetição automática: se a resposta for perdida após commit, ou a Evolution falhar, a tarefa pode ter sido gravada; confira pelo sistema ou envie Menu/Minhas tarefas antes de tentar criar de novo. Não há garantia de entrega exatamente uma vez pelo provedor. Nenhum payload de entrada é persistido integralmente; o workflow evita salvar execuções, pois mensagens podem conter informações internas. Recibos de deduplicação devem ser mantidos por pelo menos 24 horas; sessões expiradas podem ser removidas pela rotina operacional de retenção.
+O processamento HTTP pode ser repetido com segurança. O envio WhatsApp não tem repetição automática: se a resposta for perdida após commit, ou a Evolution falhar, a tarefa pode ter sido gravada; confira pelo sistema ou envie Menu/Minhas tarefas antes de tentar criar de novo. Não há garantia de entrega exatamente uma vez pelo provedor. Nenhum payload de entrada é persistido integralmente; o workflow evita salvar execuções, pois mensagens podem conter informações internas. Recibos de deduplicação devem ser mantidos por pelo menos 24 horas; sessões expiradas podem ser removidas pela rotina operacional de retenção, preservando as sessões com `state.step=paused`.
 
 ## Trocar para a instância do Assistente
 
@@ -116,3 +116,13 @@ Backup dos 14 fluxos existentes: `/home/codespace/backups/n8n/20261110T113942Z-f
 O fluxo ativo `My workflow` contém o ramo DSU. A inspeção encontrou dois nós de envio conectados à saída `DSU — Preparar respostas`; a correção mantém somente `DSU — Responder WhatsApp1`. O nó Configuração passa a preservar `data.pushName` para identificar o cliente no aviso. Aplicar no workflow existente e conferir a versão publicada, sem criar um segundo webhook ativo.
 
 O workflow existente foi atualizado e a publicação foi confirmada na versão `60de4e2e-0c78-444e-b721-b92b6209a06b`, com um único nó de envio e preservação do nome do WhatsApp. A verificação não enviou mensagens de teste aos setores. Os testes automatizados cobrem as quatro opções, destino do aviso, nome/telefone/link, sessão expirada, permissões e eventos duplicados.
+
+## Pausa por conversa — CANCELAR / MENU
+
+`CANCELAR` (sem distinguir maiúsculas/minúsculas e com espaços externos ignorados) persiste `state.step=paused` por instância/telefone. O cliente recebe uma confirmação única; depois, nenhuma mensagem, escolha numérica, botão antigo ou comando legado recebe resposta nem é encaminhado ao ramo de demandas. `MENU` reativa a mesma conversa e apresenta o menu adequado à identidade atual. Outras conversas continuam funcionando. A pausa é verificada antes da identidade do colaborador e antes da expiração de 30 minutos, para não ser perdida por inatividade ou mudança de cadastro.
+
+Quem atende manualmente pelo próprio número BotDemandas também pode enviar os textos exatos `CANCELAR` e `MENU` no privado daquele cliente. O destino da conversa (`remoteJid`, ou telefone alternativo quando aplicável) identifica qual conversa será pausada. Não há confirmação automática para o CANCELAR enviado pelo próprio número. MENU enviado pelo próprio número reabre o menu para aquele contato. As demais mensagens próprias são ignoradas, inclusive as respostas do assistente que apenas mencionam MENU/CANCELAR. Não são permitidas operações internas por mensagens próprias.
+
+No n8n, atualizar somente os códigos dos nós `DSU — Roteamento` e `DSU — Configuração`. O roteador canônico está em `scripts/n8n/dsu-routing.js`, reutilizado pelo gerador integrado. Preservar os nós legados, credenciais e conexão única de envio. Backup anterior à mudança: ver pasta privada `/home/codespace/backups/n8n`, arquivo com sufixo `antes-pausa.zip`. Nenhuma migração de banco é necessária.
+
+Backup desta publicação: `/home/codespace/backups/n8n/20261110T163415Z-antes-pausa.zip`. Workflow existente atualizado e confirmado na versão `80cf2460-bd09-4dc2-bb95-22685d89425f`, sem mensagens WhatsApp de teste.
