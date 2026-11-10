@@ -471,8 +471,9 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
   const checklistRun=operation?.document.checklistRun;
   const reportFields=checklistRun?stagesOf(checklistRun.template).flatMap(stage=>groupsOf(stage).flatMap(group=>group.fields)):[];
   const reportAnswers=Object.assign({},...Object.values(checklistRun?.stages||{}).map((stage:any)=>stage.answers||{}));
+  const reportDetails=Object.assign({},...Object.values(checklistRun?.stages||{}).map((stage:any)=>stage.details||{}));
   const partsStatus=!data?.checked?'empty':data?.materials?.complete?'complete':'partial';
-  const reportStatus=data?.reportSubmission?'complete':reportFields.length?checklistProgress(reportFields,reportAnswers):'empty';
+  const reportStatus=data?.reportSubmission?'complete':reportFields.length?checklistProgress(reportFields,reportAnswers,reportDetails):'empty';
   const workStatus=session?.kind==='work'?'partial':data?.progress?.work?'complete':'empty';
   const reportActivityRunning = session?.kind === 'work' && session?.state === 'running';
   const ready = data?.infoRead && data?.checked && !locked && !busy && !session?.teamController;
