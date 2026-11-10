@@ -4,6 +4,7 @@ import { database } from "../db";
 import { m8Session, M8RequestError } from "./m8";
 import {
   parseOrder,
+  equipmentOptionalForOrderType,
   OrderInputError,
   itemPayload,
   brazilNow,
@@ -67,7 +68,7 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
     ),
     db.query(
       "SELECT * FROM m8_equipment_catalog WHERE equipment_id=$1 AND present",
-      [draft.equipment],
+      [draft.equipment || null],
     ),
     db.query(
       "SELECT person_id FROM m8_customer_directory WHERE person_id=$1",
@@ -79,14 +80,14 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
     equipment = equip.rows[0];
   if (!type || type.customer_equipment_only == null)
     throw new OrderInputError("Atualize e selecione um tipo de OS ativo.");
-  if (!customer.rows.length || !equipment)
+  if (!customer.rows.length || (draft.equipment ? !equipment : !equipmentOptionalForOrderType(draft.type)))
     throw new OrderInputError("Selecione cliente e equipamento válidos.");
   if (draft.technician && !technician)
     throw new OrderInputError(
       "Configure o ID do técnico no M8 no cadastro do usuário.",
     );
   if (
-    type.customer_equipment_only &&
+    draft.equipment && type.customer_equipment_only &&
     !(
       await db.query(
         "SELECT 1 FROM web_effective_person_equipment WHERE person_id=$1 AND equipment_id=$2 AND present LIMIT 1",
@@ -153,7 +154,7 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
   // Equipment is a separate persisted step; never also include it in the header.
   // Previously prepared submissions retain their original header/steps unchanged.
   const items = [
-    {
+    ...(equipment ? [{
       kind: "equipment",
       payload: {
         equipamentoProdutoId: Number(draft.equipment),
@@ -164,7 +165,7 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
         equipamentoModelo: equipment.model || undefined,
         ...(technician ? { tecnicoId: technician } : {}),
       },
-    },
+    }] : []),
     ...draft.items.map((i) => ({
       kind: i.kind,
       payload: itemPayload(i, technician),

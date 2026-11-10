@@ -12,7 +12,7 @@ import CurrencyInput from "./currency-input";
 import QuoteCatalogPicker from "./quote-catalog-picker";
 import type { QuoteItem } from "@/lib/quotes/types";
 
-import { type OrderDraft, parseOrder } from "@/lib/service-orders/model";
+import { type OrderDraft, parseOrder, equipmentOptionalForOrderType } from "@/lib/service-orders/model";
 import { companyName } from "@/lib/company-names";
 import "./new-service-order.css";
 import { extraFields } from "@/lib/service-orders/extra-fields";
@@ -589,7 +589,7 @@ export default function NewServiceOrder({
                   </label>
                   <label>
                     <span className="os-field-title">
-                      Equipamento {!editing && <b>*</b>}
+                      Equipamento {!editing && !equipmentOptionalForOrderType(form.type) && <b>*</b>}
                     </span>
                     <div className="os-equipment-create-row">
                     <OrderSearchSelect
@@ -605,13 +605,14 @@ export default function NewServiceOrder({
                           type: form.type,
                         })
                       }
-                      placeholder="Selecione o equipamento"
+                      placeholder={equipmentOptionalForOrderType(form.type) ? "Equipamento opcional" : "Selecione o equipamento"}
                       onChange={(r) => {
                         set("equipment", r.id);setEquipmentPending(!!r.data?.integrationPending);
                         setNames((n) => ({ ...n, equipment: r.name }));
                       }}
                     />
                     <button type="button" aria-label="Cadastrar equipamento" title="Cadastrar equipamento" disabled={!form.customer||!form.type} onClick={()=>setAddingEquipment(true)}><Plus size={18}/></button></div>
+                    {equipmentOptionalForOrderType(form.type)&&<small>Equipamento opcional para visita de inspeção / cortesia.</small>}
                     {equipmentPending&&<small className="ws-integration-pending">Vínculo com cliente pendente de integração</small>}
                     <small>
                       {type?.customer_equipment_only === true

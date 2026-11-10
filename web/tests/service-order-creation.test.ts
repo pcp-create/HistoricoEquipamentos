@@ -51,6 +51,11 @@ const draft = {
     },
   ],
 };
+test("inspection type 6 permits no equipment while other types still require it",()=>{
+ assert.equal(parseOrder({...draft,type:'6',equipment:''}).equipment,'');
+ assert.throws(()=>parseOrder({...draft,type:'1',equipment:''}),/equipamento/);
+ assert.throws(()=>parseOrder({...draft,type:'6',equipment:'invalid'}),/equipamento/);
+});
 test("validates required headers, dates, item IDs, quantities and totals", () => {
   assert.deepEqual(parseOrder(draft), draft);
   assert.throws(() => parseOrder({ ...draft, extra: { clienteId: "50" } }));
@@ -207,6 +212,12 @@ test("creation uses customer equipment rule, persists progress, isolates users a
         }),
       /ID do técnico/,
     );
+    await db.exec("INSERT INTO m8_order_type_catalog SELECT 6,name,active,customer_equipment_only FROM m8_order_type_catalog WHERE id=1");
+    const inspectionId=randomUUID();
+    await prepareOrder('inspection-test',inspectionId,{...draft,type:'6',equipment:''});
+    const inspection=(await db.query<any>('SELECT items,header FROM service_order_submissions WHERE id=$1',[inspectionId])).rows[0];
+    assert.equal(inspection.items.some((item:any)=>item.kind==='equipment'),false);
+    assert.equal(inspection.header.tipoId,6);
     await db.exec('INSERT INTO web_equipment_customer_links VALUES(10,101)');
     const local=await orderLookups(new URLSearchParams('lookup=equipment&type=1&customer=10'));
     assert.equal(local.rows?.find((row:any)=>row.id==='101').data.integrationPending,true);
