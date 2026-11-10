@@ -25,3 +25,9 @@ test('operation date is independent of delivery and intersects executor on the s
  assert.equal(filterScheduleDateView(schedule,'operation','').operation_count,4);
  assert.equal(filterScheduleDateView({...schedule,calendar_operations:[]},'operation','2026-10'),null);
 });
+
+test('multiple executors include responsible or support without repeating operations',()=>{
+ assert.deepEqual(filterScheduleDateView(schedule,'operation','',['ana','bruno']).calendar_operations.map((o:any)=>o.id),['oct','nov','cross','none']);
+ assert.equal(filterScheduleDateView(schedule,'operation','',[]),null);
+ assert.deepEqual(filterScheduleDateView(schedule,'operation','2026-10',['ana','bruno']).calendar_operations.map((o:any)=>o.id),['oct','cross']);
+});

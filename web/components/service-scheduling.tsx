@@ -25,6 +25,7 @@ import {reportStatusLabel,reportSubmission} from "@/lib/service-scheduling/check
 import OrderOperationsReview from "./order-operations-review";
 import OrderReportWindow from "./order-report-window";
 import OrderTaskLinks from "./order-task-links";
+import ScheduleMultiFilter from "./schedule-multi-filter";
 import OrderTaskWindow from "./order-task-window";
 import OperationReviewWindow from "./operation-review-window";
 import ScheduleOrdersMap from "./schedule-orders-map";
@@ -194,7 +195,8 @@ export default function ServiceScheduling() {
   const [deliveryYear, setDeliveryYear] = useState(() => new Intl.DateTimeFormat("en", {year:"numeric",timeZone:"America/Sao_Paulo"}).format(new Date()));
   const [completedExpanded, setCompletedExpanded] = useState(false);
   const [stageFilter, setStageFilter] = useState("");
-  const [executor, setExecutor] = useState("");
+  const [executors, setExecutors] = useState<string[]|undefined>(undefined);
+  const [programmingStatuses,setProgrammingStatuses]=useState<string[]|undefined>(undefined);
   const [flowOwner,setFlowOwner] = useState("");
   const flowOwners = [...new Set<string>((data?.schedules||[]).map((s:any)=>flowResponsible(s)))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   const deliveryMonths = [...new Set<string>((data?.schedules || [])
@@ -208,12 +210,13 @@ export default function ServiceScheduling() {
   }
   const searchedSchedules = (data?.schedules || []).filter((s: any) =>
     displayedScheduleStatus(s) !== "cancelled" &&
+    (programmingStatuses===undefined||programmingStatuses.includes(displayedScheduleStatus(s))) &&
     (!flowOwner || flowResponsible(s)===flowOwner) &&
     matchesSearch(`${s.numero_sequencia || s.order_id} ${s.cliente_nome} ${s.equipamento} ${s.customer_city || ""}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(), query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase())
   );
-  const filteredSchedules = searchedSchedules.map((s:any) => filterScheduleDateView(s,dateView,deliveryMonth,executor)).filter(Boolean);
+  const filteredSchedules = searchedSchedules.map((s:any) => filterScheduleDateView(s,dateView,deliveryMonth,executors)).filter(Boolean);
   // The calendar uses operation dates and its own navigation, never delivery projections.
-  const calendarSchedules = searchedSchedules.map((s:any) => filterScheduleDateView(s,"operation","",executor)).filter(Boolean);
+  const calendarSchedules = searchedSchedules.map((s:any) => filterScheduleDateView(s,"operation","",executors)).filter(Boolean);
   const stageSchedules = filteredSchedules.filter((s:any)=>!stageFilter || displayedScheduleStatus(s)===stageFilter);
   const sortedSchedules = listSort ? [...stageSchedules].sort((a, b) => {
     if (listSort.key === "value") {
@@ -229,6 +232,7 @@ export default function ServiceScheduling() {
   const listEntries = [...pendingSchedules, ...(completedSchedules.length ? [
     { completedGroup: true, id: "completed-group" }, ...(completedExpanded ? completedSchedules : [])
   ] : [])];
+  const [taskRefreshKey,setTaskRefreshKey]=useState(0);
   async function load() {
     setError("");
     try {
@@ -247,27 +251,6 @@ export default function ServiceScheduling() {
     window.addEventListener("service-schedule-updated", refresh);
     return () => { window.removeEventListener("order-link-updated", refresh); window.removeEventListener("service-schedule-updated", refresh); };
   }, [id]);
-  useEffect(() => {
-    let disposed=false,inFlight=false;
-    const canRefresh=()=>!disposed&&!busy&&!config&&!dirtyOperations.current.size
-      && document.visibilityState==='visible'
-      && !document.activeElement?.matches('input,textarea,select,[contenteditable="true"]');
-    const refresh=async()=>{
-      if(inFlight||!canRefresh())return;
-      inFlight=true;
-      try{
-        clearApiCache();
-        const fresh=await request(undefined,id);
-        if(canRefresh()){setData(fresh);setError("");}
-      }catch{ /* Keep the last successful view when a background refresh fails. */ }
-      finally{inFlight=false;}
-    };
-    const timer=window.setInterval(()=>void refresh(),15000);
-    const onFocus=()=>void refresh();
-    window.addEventListener('focus',onFocus);
-    document.addEventListener('visibilitychange',onFocus);
-    return ()=>{disposed=true;window.clearInterval(timer);window.removeEventListener('focus',onFocus);document.removeEventListener('visibilitychange',onFocus);};
-  },[id,busy,config]);
   async function mutate(body: any) {
     if (busy) return false;
     const before = data;
@@ -409,6 +392,7 @@ export default function ServiceScheduling() {
               disabled={busy}
               onClick={() => {
                 clearApiCache();
+                setTaskRefreshKey(value=>value+1);
                 void load();
               }}
             >
@@ -446,13 +430,8 @@ export default function ServiceScheduling() {
               Pesquisar OS, cliente, equipamento ou cidade
               <input value={query} onChange={(e) => setQuery(e.target.value)} />
             </label>
-            <label className="scheduling-search">
-              Executante
-              <select aria-label="Executante" value={executor} onChange={(e) => setExecutor(e.target.value)}>
-                <option value="">Todos os executantes</option>
-                {[...executorOptions].sort((a,b) => a[1].localeCompare(b[1], "pt-BR")).map(([email,name]) => <option key={email} value={email}>{name}</option>)}
-              </select>
-            </label>
+            <ScheduleMultiFilter label="Executante" options={[...executorOptions].sort((a,b)=>a[1].localeCompare(b[1],"pt-BR")).map(([id,name])=>({id,name}))} selected={executors} onChange={setExecutors}/>
+            <ScheduleMultiFilter label="Status da programação" options={Object.entries(scheduleStatusNames).filter(([id])=>id!=="cancelled").map(([id,name])=>({id,name}))} selected={programmingStatuses} onChange={setProgrammingStatuses}/>
             <label className="scheduling-search">
               Responsável do fluxo
               <select aria-label="Responsável do fluxo" value={flowOwner} onChange={e=>setFlowOwner(e.target.value)}>
@@ -666,7 +645,7 @@ export default function ServiceScheduling() {
             <ScheduleOrderActions data={data} onChanged={()=>void load()}
               reviewAction={data.canEditSettings&&<button type="button" disabled={busy||!data.operations?.length} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações das operações antes de iniciar a revisão da OS.");return;}setOrderReviewOpen(true);}}><ListChecks size={18} aria-hidden="true"/>Revisar operações</button>}
               reportAction={data.canEditSettings&&<button type="button" disabled={busy} onClick={()=>setOrderReportOpen(true)}><FileText size={18} aria-hidden="true"/>Gerar relatório da OS</button>}
-            /><OrderTaskLinks company={String(data.schedule.company_id)} orderId={String(data.schedule.order_id)} revision={(data.operations||[]).map((o:any)=>`${o.id}:${o.version}`).join(",")}>{data.canEditSettings && <button type="button" disabled={busy} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações antes de gerar a tarefa da OS.");return;}setOrderTaskOpen(true);}}><ClipboardPlus size={18} aria-hidden="true"/>Gerar tarefa da OS</button>}</OrderTaskLinks>
+            /><OrderTaskLinks company={String(data.schedule.company_id)} orderId={String(data.schedule.order_id)} refreshKey={taskRefreshKey}>{data.canEditSettings && <button type="button" disabled={busy} onClick={()=>{if(dirtyOperations.current.size){setError("Salve as alterações antes de gerar a tarefa da OS.");return;}setOrderTaskOpen(true);}}><ClipboardPlus size={18} aria-hidden="true"/>Gerar tarefa da OS</button>}</OrderTaskLinks>
             {orderReviewOpen && <OrderOperationsReview key={data.schedule.id} data={data} busy={busy} error={error} mutate={mutate} dirtyOperations={dirtyOperations.current} onClose={()=>setOrderReviewOpen(false)}/>}
             {orderTaskOpen && <OrderTaskWindow data={data} onClose={()=>setOrderTaskOpen(false)}/>}
             {orderReportOpen && <OrderReportWindow key={data.schedule.id} data={data} onClose={()=>setOrderReportOpen(false)}/>}

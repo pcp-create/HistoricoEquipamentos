@@ -6,12 +6,14 @@ export function operationDates(operation: any): string[] {
     .filter((date: unknown): date is string => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date));
 }
 /** Filter the operations themselves so calendar, map and totals share one period. */
-export function filterScheduleDateView(schedule: any, view: ScheduleDateView, month: string, executor = '') {
+export function filterScheduleDateView(schedule: any, view: ScheduleDateView, month: string, executor: string | string[] = '') {
   if (view === 'delivery' && !matchesDeliveryProjection(schedule, month)) return null;
+  const executorIds=Array.isArray(executor)?executor:executor?[executor]:[];
+  const hasExecutorFilter=Array.isArray(executor)||!!executor;
   const operations = (schedule.calendar_operations || []).filter((operation: any) =>
-    (!executor || operation.responsibleEmail === executor || (operation.support || []).includes(executor)) &&
+    (!hasExecutorFilter || executorIds.some(executor=>operation.responsibleEmail===executor||(operation.support||[]).includes(executor))) &&
     (view !== 'operation' || !month || operationDates(operation).some(date => date.startsWith(month + '-'))));
-  if ((executor || (view === 'operation' && month)) && !operations.length) return null;
+  if ((hasExecutorFilter || (view === 'operation' && month)) && !operations.length) return null;
   if (view === 'delivery') return {...schedule, calendar_operations: operations};
   const counts: Record<string, number> = {};
   for (const operation of operations) {

@@ -4,7 +4,7 @@ test('daily schedule groups operations by executor and displays registered photo
  await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
  await page.route('**/api/activity',r=>r.fulfill({json:{}}));
  await page.route('**/api/users/photo?*',r=>r.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="blue"/></svg>'}));
- await page.route('**/api/service-scheduling',r=>r.fulfill({json:{users:[{email:'ana@test',display_name:'Ana',has_photo:true},{email:'bruno@test',display_name:'Bruno',has_photo:false}],schedules:[1,2,3].map(n=>({id:String(n),order_id:String(15000+n),expected_delivery_date:'2026-10-15',programming_status:'scheduled',calendar_operations:[{id:'op'+n,position:n,date:'2026-10-15',time:n===2?'07:30':'08:00',responsibleEmail:n===3?'bruno@test':'ana@test',responsible:n===3?'Bruno':'Ana',status:'scheduled',description:'Serviço '+n}]}))}}));
+ await page.route('**/api/service-scheduling',r=>r.fulfill({json:{users:[{email:'ana@test',display_name:'Ana',has_photo:true},{email:'bruno@test',display_name:'Bruno',has_photo:false}],schedules:[1,2,3].map(n=>({id:String(n),order_id:String(15000+n),expected_delivery_date:'2026-10-15',programming_status:n===3?'executing':'scheduled',calendar_operations:[{id:'op'+n,position:n,date:'2026-10-15',time:n===2?'07:30':'08:00',responsibleEmail:n===3?'bruno@test':'ana@test',responsible:n===3?'Bruno':'Ana',status:n===3?'executing':'scheduled',description:'Serviço '+n}]}))}}));
  await page.goto('/programacao');
  await page.getByRole('button',{name:'Calendário',exact:true}).click();
  await page.getByRole('button',{name:'Dia',exact:true}).click();
@@ -16,9 +16,24 @@ test('daily schedule groups operations by executor and displays registered photo
  await expect(groups.first().locator('.schedule-executor-cell')).toHaveAttribute('rowspan','2');
  await expect(groups.first().getByRole('img',{name:'Foto de Ana'})).toBeVisible();
  await expect(groups.first().locator('tr').first()).toContainText('Serviço 2');
- await expect(groups.first().locator('tr').first().getByRole('link')).toHaveText('OS 15002/02');
+ await expect(groups.first().locator('tr').first().getByRole('link')).toHaveText('OS 15002');
  await expect(groups.last().locator('.schedule-executor-initials')).toHaveText('B');
- await page.getByLabel('Executante',{exact:true}).selectOption('bruno@test');
+ await page.getByRole('button',{name:'Executante',exact:true}).click();
+ const filter=page.getByRole('dialog',{name:'Filtrar Executante',exact:true});await filter.getByRole('checkbox',{name:'Selecionar todos',exact:true}).uncheck();await filter.getByRole('checkbox',{name:'Bruno',exact:true}).check();await page.keyboard.press('Escape');
  await expect(groups).toHaveCount(1);
  await expect(groups.first().locator('.schedule-executor-cell')).toContainText('Bruno');
+ await page.getByRole('button',{name:'Executante',exact:true}).click();await filter.getByRole('checkbox',{name:'Ana',exact:true}).check();await page.keyboard.press('Escape');await expect(groups).toHaveCount(2);
+ await page.getByRole('button',{name:'Status da programação',exact:true}).click();
+ const statuses=page.getByRole('dialog',{name:'Filtrar Status da programação',exact:true});
+ await statuses.getByRole('checkbox',{name:'Selecionar todos',exact:true}).uncheck();
+ await statuses.getByRole('checkbox',{name:'Programado',exact:true}).check();await page.keyboard.press('Escape');await expect(groups).toHaveCount(1);await expect(groups.first().locator('.schedule-executor-cell')).toContainText('Ana');
+ await page.getByRole('button',{name:'Status da programação',exact:true}).click();await statuses.getByRole('checkbox',{name:'Em Execução',exact:true}).check();await page.keyboard.press('Escape');await expect(groups).toHaveCount(2);
+ await page.getByRole('button',{name:'Status da programação',exact:true}).click();await statuses.getByRole('checkbox',{name:'Programado',exact:true}).uncheck();
+ const checkbox=await statuses.getByRole('checkbox',{name:'Em Execução',exact:true}).boundingBox();const label=await statuses.getByText('Em Execução',{exact:true}).boundingBox();expect(checkbox!.x).toBeLessThan(label!.x);
+ await page.keyboard.press('Escape');await expect(groups).toHaveCount(1);await expect(groups.first().locator('.schedule-executor-cell')).toContainText('Bruno');
+ await page.getByRole('button',{name:'Mês',exact:true}).click();await page.getByRole('button',{name:'Dia',exact:true}).click();await expect(groups).toHaveCount(1);
+ await page.getByRole('button',{name:'Status da programação',exact:true}).click();await statuses.getByRole('button',{name:'Limpar filtro',exact:true}).click();await page.keyboard.press('Escape');await expect(groups).toHaveCount(2);
+ await page.getByRole('button',{name:'Executante',exact:true}).click();await filter.getByRole('checkbox',{name:'Selecionar todos',exact:true}).uncheck();await page.keyboard.press('Escape');await expect(page.getByText('Nenhum serviço programado para este dia.',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Executante',exact:true}).click();await filter.getByRole('button',{name:'Limpar filtro',exact:true}).click();await page.keyboard.press('Escape');await expect(groups).toHaveCount(2);
+
 });

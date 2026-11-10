@@ -9,7 +9,7 @@ test('calendar always shows scheduled operations while list and map follow the s
  ].map(s=>({...s,programming_status:'scheduled',operation_count:1,operation_status_counts:{scheduled:1}}));
  await page.route('**/api/service-scheduling',r=>r.fulfill({json:{schedules,users:[{email:'ana',display_name:'Ana'}],settings:{document:{vehicles:[]}}}}));
  await page.route('**/api/service-scheduling/map**',r=>r.fulfill({json:{schedules:[],territories:[],sellers:[]}}));
- await page.goto('/programacao');const list=page.locator('.scheduling-orders-list');
+ await page.goto('/programacao');await page.getByLabel('Mês da entrega prevista').selectOption('10');const list=page.locator('.scheduling-orders-list');
  await expect(list).toContainText('Entrega anterior');await expect(list).not.toContainText('Entrega futura');
  await page.getByRole('button',{name:'Calendário',exact:true}).click();
  await expect(page.locator('.schedule-calendar-order')).toContainText(['OS 15002']);

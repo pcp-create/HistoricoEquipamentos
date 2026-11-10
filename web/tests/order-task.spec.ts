@@ -98,13 +98,24 @@ test("order task requires reviewed reports and submits the selected attachment a
   };
 
 
+  let taskReads=0,scheduleReads=0;
   let sent:any;
   let tasks:any[]=[];
-  await page.route("**/api/tasks?**",r=>{const url=new URL(r.request().url());expect(url.searchParams.get("orderId")).toBe("14877");expect(url.searchParams.get("orderCompany")).toBe("1");return r.fulfill({json:{tasks}});});
-  await page.route('**/api/service-scheduling**',r=>r.fulfill({json:data}));
+  await page.route("**/api/tasks?**",r=>{taskReads++;const url=new URL(r.request().url());expect(url.searchParams.get("orderId")).toBe("14877");expect(url.searchParams.get("orderCompany")).toBe("1");return r.fulfill({json:{tasks}});});
+  await page.route('**/api/service-scheduling**',r=>{scheduleReads++;return r.fulfill({json:data});});
   await page.route('**/api/service-scheduling/order-task',r=>{sent=r.request().postDataJSON();tasks=[{id:'123',title:'Tarefa da OS 14877',status:'not_started',assignee_name:'Técnico'}];return r.fulfill({json:{taskId:'123'}});});
   await page.goto('/programacao?id=1');
+  await expect.poll(()=>taskReads).toBe(1);
+  const initialSchedules=scheduleReads;
+  await page.clock.install();await page.clock.runFor(45000);
+  await page.evaluate(()=>{window.dispatchEvent(new Event('focus'));document.dispatchEvent(new Event('visibilitychange'));});
+  await page.clock.runFor(1000);
+  expect(taskReads).toBe(1);expect(scheduleReads).toBe(initialSchedules);
+  await page.getByRole('button',{name:'Atualizar',exact:true}).click();
+  await expect.poll(()=>taskReads).toBe(2);await expect.poll(()=>scheduleReads).toBe(initialSchedules+1);
+
   await page.getByRole('region',{name:'Tarefas da OS',exact:true}).locator('summary').click();
+  await expect.poll(()=>taskReads).toBe(3);
   await page.getByRole('region',{name:'Tarefas da OS',exact:true}).getByRole('button',{name:'Gerar tarefa da OS',exact:true}).click();
   let dialog=page.getByRole('dialog',{name:'Gerar tarefa da OS',exact:true});
   await expect(dialog.getByRole('button',{name:'Criar tarefa',exact:true})).toBeDisabled();

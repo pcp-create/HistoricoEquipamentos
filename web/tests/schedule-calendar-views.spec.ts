@@ -36,11 +36,12 @@ test('monthly week numbers, weekly services and detailed daily schedule respect 
  await page.getByRole('button',{name:'Próximo dia',exact:true}).click();
  await expect(first).toContainText('1 h neste dia');
  await expect(first).toContainText('07:30');
- await page.getByLabel('Executante',{exact:true}).selectOption('ana@test');
+ await page.getByRole('button',{name:'Executante',exact:true}).click();
+ const filter=page.getByRole('dialog',{name:'Filtrar Executante',exact:true});await filter.getByRole('checkbox',{name:'Selecionar todos',exact:true}).uncheck();await filter.getByRole('checkbox',{name:'Ana',exact:true}).check();await page.keyboard.press('Escape');
  await expect(page.locator('.schedule-daily-table tbody tr')).toHaveCount(1);
  await page.getByRole('button',{name:'Mês',exact:true}).click();
  await page.getByRole('button',{name:'Ver semana de 11/10/2026 a 17/10/2026',exact:true}).click();
- await expect(page.getByLabel('Executante',{exact:true})).toHaveValue('ana@test');
+ await expect(page.getByRole('button',{name:'Executante',exact:true})).toContainText('Ana');
  await page.getByRole('button',{name:'Ver programação de 16/10/2026',exact:true}).click();
  await page.getByRole('button',{name:'Próximo dia',exact:true}).click();
  await expect(page.getByText('Nenhum serviço programado para este dia.')).toBeVisible();

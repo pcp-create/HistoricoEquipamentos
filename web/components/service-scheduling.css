@@ -1184,3 +1184,14 @@
 .schedule-order-actions .schedule-save-erp { background: #245e91; border-color: #245e91; color: #fff; }
 .schedule-observation-reference { padding: 10px 12px; border-radius: 8px; background: #f5f8fc; color: #647b94; font-size: 12px; }
 .schedule-observation-reference pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.5; }
+
+.schedule-multi-filter-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:40px;padding:9px 12px;border:1px solid #c9dcee;border-radius:8px;background:white;color:#315878;text-align:left;font:inherit}
+.schedule-multi-filter-trigger>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.schedule-multi-filter-panel{position:fixed;inset:auto;margin:0;padding:14px;border:1px solid #c9dcee;border-radius:10px;background:white;color:#315878;box-shadow:0 12px 32px #254b7029;font-size:13px;box-sizing:border-box;overflow:auto}
+.schedule-multi-filter-panel:popover-open{display:grid;gap:10px}
+.schedule-multi-filter-panel>input{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #c9dcee;border-radius:7px;font:inherit}
+.schedule-multi-filter-options{display:grid;gap:2px;max-height:230px;overflow:auto}
+.schedule-multi-filter-panel label{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:9px;padding:7px 4px;cursor:pointer;font-size:13px}
+.schedule-multi-filter-panel label>input[type=checkbox]{appearance:auto;flex:0 0 16px;width:16px;height:16px;min-height:0;margin:0;padding:0;accent-color:#2567a3}
+.schedule-multi-filter-panel label>span{flex:1;overflow-wrap:anywhere}
+.schedule-multi-filter-panel>button{justify-self:start;border:0;background:transparent;color:#2567a3;padding:5px 0;font:inherit;cursor:pointer}
