@@ -5,7 +5,7 @@ export default function VisitEquipmentGroup({customer,equipment,online,prefix=''
  const [overrides,setOverrides]=useState<Record<string,any>>({}),[busy,setBusy]=useState(''),[error,setError]=useState('');
  const items=equipment.map(item=>({...item,inactivation:overrides[item.id]||item.inactivation}));
  async function inactivate(item:any){
-  const reason=window.prompt('Informe a justificativa para inativar este equipamento no portal de visitas. O cadastro no ERP não será alterado:');
+  const reason=window.prompt('Informe a justificativa para inativar este equipamento neste cliente. O status será integrado ao ERP quando houver vínculo confirmado:');
   if(reason===null)return;if(!reason.trim()){setError('Informe a justificativa da inativação.');return;}
   setBusy(item.id);setError('');
   try{

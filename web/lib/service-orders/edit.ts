@@ -1,4 +1,5 @@
 import "server-only";
+import {orderSellers} from "./sellers";
 import { refreshProjectionOrder } from "../sales-projection/refresh-order";
 import { createHash } from "node:crypto";
 import { database } from "../db";
@@ -346,14 +347,8 @@ export async function prepareEdit(
     throw new OrderInputError("Tipo de OS inválido.");
   if (draft.seller !== initial.seller || draft.customer !== initial.customer) {
     const m8 = await session(Number(company));
-    const sellers = await m8(
-      `/v1/configuracoes/cliente/${draft.customer}/vendedor?Page=0&PageSize=0`,
-    );
-    if (
-      !Array.isArray(sellers) ||
-      !sellers.some((r: any) => text(r.vendedorId) === draft.seller)
-    )
-      throw new OrderInputError("Vendedor inválido para o cliente.");
+    const sellers = await orderSellers(m8);
+    if(!sellers.some(r=>r.id===draft.seller&&!r.disabled))throw new OrderInputError("Selecione um vendedor habilitado no M8.");
   }
   if (draft.technician !== initial.technician) {
     const tech = users.find((u) => u.email === draft.technician);

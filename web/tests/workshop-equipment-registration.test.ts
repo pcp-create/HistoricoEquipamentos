@@ -1,6 +1,7 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {readFileSync} from 'node:fs';import {PGlite} from '@electric-sql/pglite';
 import {equipmentRegistrationInput,equipmentRegistrationPayload,equipmentRegistrationName,workshopEquipmentTypes} from '../lib/workshop/equipment-registration-model';
 import {registerWorkshopEquipment} from '../lib/workshop/equipment-registration';
+import {reserveInternalSerial} from '../lib/equipment/internal-serial';
 import {serialCandidates} from '../lib/equipment/serial-search';
 import {M8RequestError} from '../lib/service-orders/m8';
 const internalDetails={internalCode:'00042',height:'1.2',width:'0.8',length:'2.1',weight:'500.5'};
@@ -38,6 +39,7 @@ test('equipment creation writes once, immediately selects the saved catalog entr
   CREATE TABLE web_tasks(id bigint PRIMARY KEY,status text,source_resolved boolean,completed_at timestamptz,updated_at timestamptz,updated_by text,version int);
   CREATE TABLE web_visit_machine_registrations(id uuid,serial text,equipment_id bigint);`);
   await db.exec(readFileSync('sql/103_equipment_customer_links.sql','utf8'));
+  await db.exec(readFileSync('sql/104_equipment_internal_serials.sql','utf8'));
   await db.exec(readFileSync('sql/105_equipment_relation_integration.sql','utf8'));
 
   const personLinks:any[]=[];
@@ -51,6 +53,7 @@ test('equipment creation writes once, immediately selects the saved catalog entr
    return [{id:97,nome:'EQUIPAMENTOS DE CLIENTES'},{id:96,nome:'EQUIPAMENTOS USADOS (COMPRESSORES, SEPARADORES, SECADORES, MOTORES)'}];
   };
   const input={...customer,requestId:randomUUID()};
+  const internal=await reserveInternalSerial(randomUUID(),'user');assert.equal(internal.serial,'RJ-0002');assert.equal(writes.length,0);
 
   await assert.rejects(registerWorkshopEquipment(input,'disabled',session as any),/acesso/);
   const result=await registerWorkshopEquipment(input,'user',session as any);assert.equal(result.state,'complete');assert.equal(result.equipment?.id,'123');assert.equal(result.equipment?.serial,customer.serial);assert.equal(result.equipment?.brand,'Atlas Copco');assert.equal((await db.query<any>('SELECT brand FROM m8_equipment_catalog WHERE equipment_id=123')).rows[0].brand,'Atlas Copco');assert.match(writes[0].informacoesComplementares,/Marca: Atlas Copco/);assert.equal(result.equipment?.client,'Cliente Teste');assert.equal(result.equipment?.integrationPending,false);const candidates=await serialCandidates('s.n 12-34',g.historyPool);assert.equal(candidates[0].id,'123');assert.equal(candidates[0].exact,true);assert.equal(candidates[0].client,'Cliente Teste');await assert.rejects(registerWorkshopEquipment({...input,serial:'s.n 12-34',requestId:randomUUID()},'user',session as any),/já está cadastrado/);assert.equal(writes.length,1);await db.query("INSERT INTO m8_person_equipment(company_id,person_id,equipment_id,person_name,present,link_id) VALUES(1,10,123,'Cliente Teste',true,12399)");assert.equal((await db.query<any>('SELECT integration_pending FROM web_effective_person_equipment WHERE equipment_id=123')).rows[0].integration_pending,false);

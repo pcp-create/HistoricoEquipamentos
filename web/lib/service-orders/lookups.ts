@@ -1,3 +1,4 @@
+import {customerOrderSellers} from "./sellers";
 import {searchPatterns} from "@/lib/filters";
 import "server-only";
 import { database } from "../db";
@@ -28,19 +29,7 @@ export async function orderLookups(p: URLSearchParams) {
     const company = positiveId(p.get("company"), "a empresa"),
       id = positiveId(p.get("customer"), "o cliente");
     const m = await m8Session(company);
-    const rows = await m(
-      `/v1/configuracoes/cliente/${id}/vendedor?Page=0&PageSize=0`,
-    );
-    if (!Array.isArray(rows))
-      throw new Error("Consulta de vendedores indisponível.");
-    const sellers = rows
-      .filter((r) => Number.isInteger(r.vendedorId) && r.vendedorId > 0)
-      .map((r) => ({
-        id: String(r.vendedorId),
-        name: r.vendedorNome || String(r.vendedorId),
-        default: r.padrao === true,
-      }));
-    return { rows: [...new Map(sellers.map((r) => [r.id, r])).values()].sort((a,b)=>Number(a.id)-Number(b.id)) };
+    return customerOrderSellers(m,id);
   }
   const q = searchPatterns((p.get("q") || "").trim().slice(0,120));
   const page = Number(p.get("page") || 1);

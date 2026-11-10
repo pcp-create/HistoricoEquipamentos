@@ -1,4 +1,5 @@
 import "server-only";
+import {orderSellers} from "./sellers";
 import { database } from "../db";
 import { m8Session, M8RequestError } from "./m8";
 import {
@@ -8,7 +9,6 @@ import {
   brazilNow,
   extraPayload,
 } from "./model";
-import { orderLookups } from "./lookups";
 const validUUID = (id: unknown) => {
   if (
     typeof id !== "string" ||
@@ -115,20 +115,8 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
     throw new OrderInputError(
       "Configure o prazo de garantia no tipo de atendimento.",
     );
-  const sellers = await orderLookups(
-    new URLSearchParams({
-      lookup: "sellers",
-      company: draft.company,
-      customer: draft.customer,
-    }),
-  );
-  if (
-    !("rows" in sellers) ||
-    !sellers.rows?.some((r: any) => r.id === draft.seller)
-  )
-    throw new OrderInputError(
-      "O vendedor não está cadastrado para este cliente.",
-    );
+  const sellers = await orderSellers(await m8Session(Number(draft.company)));
+  if(!sellers.some(s=>s.id===draft.seller&&!s.disabled))throw new OrderInputError("Selecione um vendedor habilitado no M8.");
   for (const kind of ["material", "service"]) {
     const ids = draft.items.filter((i) => i.kind === kind).map((i) => i.code);
     if (!ids.length) continue;

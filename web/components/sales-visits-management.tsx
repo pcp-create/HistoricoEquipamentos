@@ -120,6 +120,7 @@ export default function SalesVisitsManagement() {
       setLoading(false);
     }
   }, []);
+  useEffect(()=>{const refreshEquipment=()=>void reload();window.addEventListener("equipment-created",refreshEquipment);return()=>window.removeEventListener("equipment-created",refreshEquipment);},[reload]);
   useEffect(() => {
     void reload();
     const timer = setInterval(() => {

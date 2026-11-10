@@ -70,6 +70,7 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
     assert.equal(company, 2);
     return async (path: string, body?: any, method?: string) => {
       if (body === undefined) {
+        if(path.includes('/configuracoes/vendedor?'))return [{id:20,razaoSocial:'Vendedor atual',ativo:true},{id:21,razaoSocial:'Outro vendedor',ativo:true}];
         assert.ok(path.includes("Id=800"));
         return [structuredClone(current)];
       }
@@ -99,6 +100,9 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
 
     assert.equal(draft.technician, "m8:99");
     assert.equal(draft.items[0].id, "101");
+    const sellerDraft={...draft,seller:'21'},manualSellerEdit=randomUUID();
+    await prepareEdit('manual-seller-user',manualSellerEdit,'2','800',fingerprint(source),sellerDraft,session);
+    await db.query('DELETE FROM service_order_edits WHERE id=$1',[manualSellerEdit]);
     const dateEditId = randomUUID();
     const rescheduled = { ...draft, expected: "2026-11-10" };
     await assert.rejects(() => prepareEdit("user", dateEditId, "2", "800", fingerprint(source), rescheduled, session), /justificativa/);

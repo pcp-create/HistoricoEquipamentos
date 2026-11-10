@@ -46,9 +46,13 @@ export default function VisitCustomerMachines({
           <VisitEquipmentGroup key={c.key} customer={c.key} equipment={c.equipment||[]} online={online} inlineActions render={(item,inactive,actions) => (
             <article className="visit-machine-record-card" key={item.id}>
               <strong>{item.name}</strong>
+              <small className={`visit-equipment-origin${item.registrationOrigin==="visits"?" is-visits":""}`}>{item.registrationOrigin==="visits"?"Incluído pelas Visitas":"Cadastro ERP / sistema"}</small>
               <p>{item.integrationPending&&<small className="ws-integration-pending">Vínculo com cliente pendente de integração</small>}</p>
+              {item.integrationPending&&item.registrationTaskId&&<p><a href={"/tarefas?task="+item.registrationTaskId}>Tarefa TAR-{item.registrationTaskId} · Vínculo com o cliente</a></p>}
               <p>Modelo: {item.model || "Não informado"}</p>
               <p>Série: {item.serial || "Não informada"}</p>
+              {item.brand&&<p>Marca: {item.brand}</p>}
+              {item.registrationNotes&&<p>{item.registrationNotes}</p>}
               <p>
                 Horímetro:{" "}
                 <b>
@@ -77,6 +81,7 @@ export default function VisitCustomerMachines({
           )}/>
           <VisitMachineRegistration
             customer={c.key}
+            knownEquipmentIds={(c.equipment||[]).map(item=>item.id)}
             name={c.name}
             online={online}
           />

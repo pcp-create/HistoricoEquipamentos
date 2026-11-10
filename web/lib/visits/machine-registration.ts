@@ -1,3 +1,4 @@
+import {claimInternalSerial} from '../equipment/internal-serial';
 import { linkTaskAssignee } from "../equipment/customer-links";
 import { m8Session } from "../service-orders/m8";
 import { registerWorkshopEquipment } from "../workshop/equipment-registration";
@@ -96,6 +97,7 @@ export async function registerMachine(
   transaction?: any,
   session?: typeof m8Session,
 ) {
+  if(b.resume!=null&&typeof b.resume!=="boolean")throw new AdminInputError("Solicitação de retomada inválida.");
   const key = String(b.customerKey || b.customer || "");
   if (
     !/^(m8:\d+|lead:[0-9a-f-]{36})$/i.test(key) ||
@@ -113,7 +115,7 @@ export async function registerMachine(
       [b.requestId],
     )
   ).rows[0];
-  if (old && (old.customer_key !== key || old.created_by !== user.email))
+  if (old && (old.customer_key !== key || (!b.resume && old.created_by !== user.email)))
     throw new AdminInputError("Solicitação já utilizada.");
   if (b.resume && !old)
     throw new AdminInputError("Solicitação não encontrada.");
@@ -130,7 +132,7 @@ export async function registerMachine(
   const raw = b.resume
     ? old.registration_document || {
         ownership: "customer",
-        type: legacyType,
+        type: legacyType || (workshopEquipmentTypes.some(type=>type.id===b.type)?b.type:undefined),
         model: old.model,
         serial: old.serial,
         brand: old.brand,
@@ -159,6 +161,7 @@ export async function registerMachine(
     try {
       if (!transaction) await c.query("BEGIN READ WRITE");
       await c.query("SELECT pg_advisory_xact_lock(829203,0)");
+      await claimInternalSerial(c,input,user.email,b.requestId);
       const keySerial = normalizedEquipmentSerial(input.serial);
       const duplicate = (
         await c.query(
@@ -229,7 +232,7 @@ export async function registerMachine(
     };
   const result = await registerWorkshopEquipment(
     { ...input, requestId: b.requestId },
-    user.email,
+    old && b.resume ? old.created_by : user.email,
     session,
   );
   if (result.state === "complete" && result.equipment) {
@@ -241,10 +244,21 @@ export async function registerMachine(
         [
           b.requestId,
           result.equipment.id,
-          result.equipment.taskId || null,
-          JSON.stringify(input),
+          result.equipment.taskId || old?.task_id || null,
+          JSON.stringify({...input,...(b.resume?{resumedBy:user.email,resumedAt:new Date().toISOString()}:{})}),
         ],
       );
+      if(old?.task_id){
+        const task=(await c.query("SELECT id,status FROM web_tasks WHERE id=$1 AND origin='Cadastro de equipamento · Visitas' FOR UPDATE",[old.task_id])).rows[0];
+        if(task){
+          await c.query("UPDATE web_equipment_customer_links SET task_id=coalesce(task_id,$3) WHERE equipment_id=$1 AND customer_key=$2",[result.equipment.id,key,task.id]);
+          if(!result.equipment.integrationPending)await c.query("UPDATE web_tasks SET status='completed',source_resolved=true,completed_at=coalesce(completed_at,now()),updated_at=now(),updated_by=$2,version=version+1 WHERE id=$1 AND status<>'completed'",[task.id,user.email]);
+          else if(task.status!=='completed'){
+            await c.query("UPDATE web_tasks SET title=$2,origin='Vínculo de equipamento · Visitas',updated_at=now(),updated_by=$3,version=version+1 WHERE id=$1",[task.id,'Vincular equipamento ao cliente - '+result.equipment.id,user.email]);
+            await c.query("INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,'Equipamento cadastrado no ERP',$2,true,$3,$3)",[task.id,`Equipamento ${result.equipment.id} já cadastrado no ERP. Pendente somente o vínculo com o cliente.`,user.email]);
+          }
+        }
+      }
       await c.query("COMMIT");
     } catch (e) {
       await c.query("ROLLBACK");

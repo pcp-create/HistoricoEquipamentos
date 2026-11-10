@@ -9,7 +9,7 @@ import { database } from "../db";
 import { AdminInputError } from "../admin-store";
 import { Forbidden } from "../auth";
 import { cityKey } from "../tasks/territories";
-import { customerTradeName, visitHealth, type VisitCustomer } from "./model";
+import { customerTradeName, visitHealth, brazilDay, type VisitCustomer } from "./model";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function visitIdentity(db: any, email: string) {
   const u = (
@@ -80,11 +80,14 @@ export async function visitsData(email: string, db: any = database(), management
   );
   const equipmentRows = (await db.query(`
     SELECT DISTINCT p.customer_key,p.person_id::text,p.equipment_id::text AS id,
-      COALESCE(e.name,'Equipamento') AS name,COALESCE(e.model,'') AS model,
-      COALESCE(e.serial,'') AS serial,p.integration_pending,s.document AS settings,s.version
+      COALESCE(e.name,'Equipamento') AS name,COALESCE(NULLIF(trim(e.model),''),vr.model,'') AS model,COALESCE(NULLIF(trim(e.brand),''),vr.brand,'') AS brand,vr.observations AS registration_notes,vr.meter AS registered_meter,vr.created_at AS registered_at,
+      COALESCE(e.serial,'') AS serial,p.integration_pending,s.document AS settings,s.version,
+      EXISTS(SELECT 1 FROM web_equipment_customer_links l WHERE l.equipment_id=p.equipment_id AND l.customer_key=p.customer_key AND l.source='visits') AS from_visits,
+      CASE WHEN p.integration_pending THEN (SELECT l.task_id::text FROM web_equipment_customer_links l WHERE l.equipment_id=p.equipment_id AND l.customer_key=p.customer_key LIMIT 1) END AS registration_task_id
     FROM web_effective_person_equipment p
     LEFT JOIN m8_equipment_catalog e ON e.equipment_id=p.equipment_id
     LEFT JOIN web_equipment_settings s ON s.equipment_id=p.equipment_id
+    LEFT JOIN LATERAL(SELECT model,brand,observations,meter,created_at FROM web_visit_machine_registrations m WHERE m.equipment_id=p.equipment_id AND m.customer_key=p.customer_key ORDER BY m.created_at DESC,m.id DESC LIMIT 1) vr ON true
     WHERE p.present AND p.customer_key=ANY($1::text[])
     ORDER BY p.person_id::text,p.equipment_id::text`,
     [[...mine.map((r:any)=>`m8:${r.person_id}`),...leads.map((r:any)=>`lead:${r.id}`)]])).rows;
@@ -92,7 +95,7 @@ export async function visitsData(email: string, db: any = database(), management
   const equipmentMap = new Map<string, NonNullable<VisitCustomer["equipment"]>>();
   for (const row of equipmentRows) {
     const items = equipmentMap.get(row.customer_key) || [];
-    items.push({inactivation:inactivations.find((i:any)=>i.customer_key===row.customer_key&&i.equipment_key===row.id),integrationPending:row.integration_pending,id: row.id, name: row.name, model: row.model, serial: row.serial, meter: row.settings?.meter ?? null, meterDate: row.settings?.meterDate || "", version: row.version ?? null});
+    items.push({registrationTaskId:row.registration_task_id,registrationOrigin:row.from_visits?"visits":"system",inactivation:inactivations.find((i:any)=>i.customer_key===row.customer_key&&i.equipment_key===row.id),integrationPending:row.integration_pending,id: row.id, name: row.name, model: row.model, brand:row.brand,registrationNotes:row.registration_notes,serial: row.serial, meter: row.settings?.meter ?? (row.registered_meter==null?null:Number(row.registered_meter)), meterDate: row.settings?.meterDate || (row.registered_at?brazilDay(row.registered_at):""), version: row.version ?? null});
     equipmentMap.set(row.customer_key, items);
   }
   const customers: VisitCustomer[] = [

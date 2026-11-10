@@ -1,4 +1,6 @@
 "use client";
+import EquipmentCreateDialog from "./equipment-create-dialog";
+import {apiFetch} from "@/lib/client-api-cache";
 import { matchesSearch } from "@/lib/filters";
 
 import { useEffect, useState } from "react";
@@ -11,6 +13,7 @@ import {
   Factory,
   FileText,
   Printer,
+  Plus,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -46,6 +49,16 @@ export default function CustomerFleet() {
     [filter, setFilter] = useState("all"),
     [query, setQuery] = useState(""),
     [expanded, setExpanded] = useState("");
+  const [addingEquipment,setAddingEquipment]=useState<{customer?:{id:string;name:string};options:any[]}|null>(null),
+    [openingEquipment,setOpeningEquipment]=useState(false),[message,setMessage]=useState("");
+  async function openEquipment(customer?:{id:string;name:string}){
+    setOpeningEquipment(true);setError("");setMessage("");
+    try{
+      const response=await apiFetch("/api/equipment-management?all=1"),body=await response.json();
+      if(!response.ok)throw Error(body.error||"Não foi possível consultar os equipamentos.");
+      setAddingEquipment({customer,options:(body.rows||[]).map((e:any)=>({id:String(e.id),name:e.name,detail:[e.model,e.serial,...(e.clients||[]).map((c:any)=>c.name)].filter(Boolean).join(" · ")}))});
+    }catch(e){setError((e as Error).message);}finally{setOpeningEquipment(false);}
+  }
   const client = selectedClients.join(",");
   useEffect(() => {
     const c = new AbortController();
@@ -54,7 +67,7 @@ export default function CustomerFleet() {
         const b = await r.json();
         if (!r.ok) throw Error(b.error);
         setClients(b.clients);
-        if (b.clients.length) setSelectedClients([b.clients[0].id]);
+        if (b.clients.length) setSelectedClients(previous=>previous.length?previous:[b.clients[0].id]);
         else setLoading(false);
       })
       .catch((e) => {
@@ -64,7 +77,7 @@ export default function CustomerFleet() {
         }
       });
     return () => c.abort();
-  }, []);
+  }, [refresh]);
   useEffect(() => {
     if (!client) { setData(null); setLoading(false); return; }
     const c = new AbortController();
@@ -113,6 +126,11 @@ export default function CustomerFleet() {
   return (
     <div className="fleet-shell">
       <SiteHeader active="equipmentClients" moduleId="equipamentos" />
+      {addingEquipment&&<EquipmentCreateDialog source="workshop" customer={addingEquipment.customer} equipmentOptions={addingEquipment.options} onClose={()=>setAddingEquipment(null)} onCreated={equipment=>{
+        setAddingEquipment(null);setMessage(equipment.integrationPending?"Equipamento incluído. O vínculo com o cliente aguarda confirmação no M8.":"Equipamento incluído e vinculado ao cliente.");
+        if(/^m8:[1-9]\d*$/.test(equipment.customerKey||""))setSelectedClients([equipment.customerKey.slice(3)]);
+        setRefresh(value=>value+1);
+      }}/>}
       <main className="fleet-page">
         <header className="fleet-heading">
           <div>
@@ -124,6 +142,7 @@ export default function CustomerFleet() {
             </p>
           </div>
           <div className="fleet-toolbar">
+            <button type="button" disabled={openingEquipment} onClick={()=>void openEquipment()}><Plus size={17}/>{openingEquipment?"Consultando equipamentos…":"Cadastrar / incluir equipamento"}</button>
             <button
               disabled={loading || !client}
               aria-label="Atualizar painel"
@@ -173,6 +192,7 @@ export default function CustomerFleet() {
               {!clients.some(c => matchesSearch(c.id + " " + c.name, clientQuery)) && <p>Nenhum cliente encontrado.</p>}
             </div>}
           </div>
+          {selectedClients.length===1&&clients.some(c=>c.id===selectedClients[0])&&<button type="button" className="fleet-add-equipment" disabled={openingEquipment} onClick={()=>void openEquipment({id:"m8:"+selectedClients[0],name:clients.find(c=>c.id===selectedClients[0])!.name})}><Plus size={17}/>Incluir equipamento neste cliente</button>}
           <span>
             <ShieldCheck size={17} />
             Visão gerencial de manutenção
@@ -183,6 +203,7 @@ export default function CustomerFleet() {
             {error}
           </p>
         )}
+        {message&&<p role="status">{message}</p>}
         {loading && <p role="status">Carregando o parque de máquinas…</p>}
         {!loading && !client && <p className="fleet-empty">Selecione um ou mais clientes para consultar as máquinas.</p>}
         {data && (

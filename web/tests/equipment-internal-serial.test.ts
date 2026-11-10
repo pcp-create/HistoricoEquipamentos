@@ -1,0 +1,46 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {readFileSync} from 'node:fs';
+import {PGlite} from '@electric-sql/pglite';
+import {reserveInternalSerial,claimInternalSerial,internalSerial} from '../lib/equipment/internal-serial';
+import {equipmentRegistrationInput,equipmentRegistrationPayload} from '../lib/workshop/equipment-registration-model';
+test('internal series seed existing numbers, reserve idempotently and protect ownership and reuse',async()=>{
+ const db=new PGlite(),g=globalThis as any,previous=g.historyPool;
+ const query=(sql:string,args?:any[])=>db.query(sql.replace('BEGIN READ WRITE','BEGIN'),args);
+ g.historyPool={query,connect:async()=>({query,release(){}})};
+ try{
+  await db.exec(`CREATE ROLE anon;CREATE ROLE authenticated;
+   CREATE TABLE web_user_access(email text,enabled boolean);INSERT INTO web_user_access VALUES('alice',true),('bob',true),('disabled',false);
+   CREATE TABLE m8_equipment_catalog(serial text);INSERT INTO m8_equipment_catalog VALUES('RJ-0001');
+   CREATE TABLE web_workshop_equipment_registrations(id uuid,state text,document jsonb);
+   CREATE TABLE web_visit_machine_registrations(serial text);`);
+  await db.exec(readFileSync('sql/103_equipment_customer_links.sql','utf8').match(/CREATE OR REPLACE FUNCTION web_equipment_serial_key[\s\S]*?\$\$;/)![0]);
+  await db.exec(readFileSync('sql/104_equipment_internal_serials.sql','utf8'));
+  const id=randomUUID(),reserved=await reserveInternalSerial(id,'alice');
+  assert.equal(reserved.serial,'RJ-0002');
+  assert.deepEqual(await reserveInternalSerial(id,'alice'),reserved);
+  await assert.rejects(reserveInternalSerial(id,'bob'),/outro usuário/);
+  await assert.rejects(reserveInternalSerial(randomUUID(),'disabled'),/acesso/);
+  assert.equal((await reserveInternalSerial(randomUUID(),'bob')).serial,'RJ-0003');
+  assert.equal((await reserveInternalSerial(randomUUID(),'alice')).serial,'RJ-0004');
+  const input=equipmentRegistrationInput({ownership:'customer',type:'screw',model:'GA30',serial:reserved.serial,internalSerial:true,internalSerialId:id});
+  assert.equal(input.internalSerial,true);
+  assert.match(equipmentRegistrationPayload(input,{family:1,unit:1}).informacoesComplementares!,/Identificação interna: RJ-0002/);
+  const registration=randomUUID();
+  await claimInternalSerial({query},input,'alice',registration);
+  await claimInternalSerial({query},input,'alice',registration);
+  await assert.rejects(claimInternalSerial({query},input,'bob',registration),/reserva/);
+  await assert.rejects(claimInternalSerial({query},{...input,serial:'RJ-9999'},'alice',registration),/reserva/);
+  await assert.rejects(claimInternalSerial({query},input,'alice',randomUUID()),/outro cadastro/);
+  await assert.rejects(claimInternalSerial({query},equipmentRegistrationInput({...input,internalSerial:false}),'alice',randomUUID()),/opção/);
+  await db.query("INSERT INTO web_workshop_equipment_registrations(id,state) VALUES($1,'rejected')",[registration]);
+  const retry=randomUUID();await claimInternalSerial({query},input,'alice',retry);
+  await db.query("INSERT INTO web_workshop_equipment_registrations(id,state) VALUES($1,'uncertain')",[retry]);
+  await assert.rejects(claimInternalSerial({query},input,'alice',randomUUID()),/outro cadastro/);
+  await db.exec("INSERT INTO m8_equipment_catalog VALUES('rj.0042');INSERT INTO web_workshop_equipment_registrations(document) VALUES('{\"serial\":\"RJ-0080\"}');INSERT INTO web_visit_machine_registrations VALUES('RJ-0090')");
+  assert.equal((await reserveInternalSerial(randomUUID(),'alice')).serial,'RJ-0091');
+  assert.equal(internalSerial(10000),'RJ-10000');
+  assert.throws(()=>equipmentRegistrationInput({...input,noSerial:true,ownership:'own'},{requireInternalDetails:false}),/Gere a série interna/);
+ }finally{g.historyPool=previous;await db.close();}
+});

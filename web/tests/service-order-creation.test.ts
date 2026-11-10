@@ -176,7 +176,7 @@ test("creation uses customer equipment rule, persists progress, isolates users a
       String(url).endsWith("/auth/token")
         ? Response.json({ data: { token: "fake" } })
         : Response.json({
-            data: [{ vendedorId: 20, vendedorNome: "Vendedor", padrao: true }],
+            data: String(url).includes('/configuracoes/vendedor?')?[{id:20,razaoSocial:'Vendedor',ativo:true},{id:21,razaoSocial:'Outro vendedor',ativo:true},{id:22,razaoSocial:'Vendedor inativo',ativo:false}]:[{ vendedorId: 20, vendedorNome: "Vendedor", padrao: true }],
           });
     const only = await orderLookups(
       new URLSearchParams("lookup=equipment&type=1&customer=10"),
@@ -211,6 +211,11 @@ test("creation uses customer equipment rule, persists progress, isolates users a
     const local=await orderLookups(new URLSearchParams('lookup=equipment&type=1&customer=10'));
     assert.equal(local.rows?.find((row:any)=>row.id==='101').data.integrationPending,true);
     await prepareOrder('local-pending-test',randomUUID(),{...draft,equipment:'101'});
+    const manualSeller=randomUUID();
+    await prepareOrder('manual-seller-test',manualSeller,{...draft,seller:'21'});
+    assert.equal((await db.query<any>('SELECT header FROM service_order_submissions WHERE id=$1',[manualSeller])).rows[0].header.funcionarioId,21);
+    await assert.rejects(()=>prepareOrder('manual-seller-test',randomUUID(),{...draft,seller:'22'}),/vendedor habilitado/);
+    await assert.rejects(()=>prepareOrder('manual-seller-test',randomUUID(),{...draft,seller:'999999'}),/vendedor habilitado/);
     const withoutTech = randomUUID();
     await prepareOrder("optional-user", withoutTech, {
       ...draft,

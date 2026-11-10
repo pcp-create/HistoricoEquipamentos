@@ -188,10 +188,12 @@ export default function NewServiceOrder({
         return d;
       })
       .then((d) => {
+        if(c.signal.aborted)return;
         setSellers(d.rows);
         const defaults = d.rows.filter((r: any) => r.default);
-        const chosen =
-          defaults.length === 1
+        const chosen = Object.hasOwn(d,"defaultSellerId")
+          ? d.rows.find((r:any)=>r.id===d.defaultSellerId)
+          : defaults.length === 1
             ? defaults[0]
             : d.rows.length === 1
               ? d.rows[0]
@@ -201,10 +203,8 @@ export default function NewServiceOrder({
             ? f
             : { ...f, seller: chosen?.id || "" },
         );
-        if (!d.rows.length)
-          setSellerError(
-            "Cliente sem vendedor cadastrado no M8. Atualize o cadastro do cliente para continuar.",
-          );
+        if(!d.rows.some((r:any)=>!r.disabled))setSellerError("Nenhum vendedor habilitado disponível no M8.");
+        else if(d.warning)setSellerError(d.warning);
       })
       .catch((e) => {
         if (!c.signal.aborted) setSellerError(e.message);
@@ -375,6 +375,7 @@ export default function NewServiceOrder({
       <OrderSearchSelect
         label={label}
         value={String(form[key])}
+        disabled={key==="seller"&&(sellerBusy||!form.customer)}
         options={(editing &&
         form[key] &&
         !options.some((r) => String(r.id) === String(form[key]))
@@ -390,7 +391,7 @@ export default function NewServiceOrder({
           .sort((a, b) => Number(a.id) - Number(b.id))
           .map((r) => ({
             ...r,
-            detail: key === "technician" ? "" : `ID ${r.id}`,
+            detail: key === "technician" ? "" : key === "seller" ? r.detail || `ID ${r.id}` : `ID ${r.id}`,
           }))}
         onChange={(r) =>
           key === "type" ? choose("type", r.id) : set(key, r.id)
@@ -637,7 +638,7 @@ export default function NewServiceOrder({
                     sellerBusy
                       ? "Consultando vendedor do cliente…"
                       : sellerError ||
-                          "Preenchido pelo vendedor padrão do cliente. Se houver vários sem padrão, selecione.",
+                          "Preenchido pelo padrão do cliente, quando disponível. Clique para selecionar ou trocar o vendedor.",
                   )}
                   {select(
                     "payment",

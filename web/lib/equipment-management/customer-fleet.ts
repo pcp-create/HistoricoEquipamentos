@@ -8,7 +8,7 @@ export async function customerFleet(customer: string) {
     return {
       clients: (
         await db.query(
-          `SELECT person_id::text id,max(person_name) name,count(DISTINCT equipment_id)::int machines FROM m8_person_equipment WHERE present GROUP BY person_id ORDER BY max(person_name),person_id`,
+          `SELECT person_id::text id,max(person_name) name,count(DISTINCT equipment_id)::int machines FROM web_effective_person_equipment WHERE present AND person_id IS NOT NULL GROUP BY person_id ORDER BY max(person_name),person_id`,
         )
       ).rows,
     };

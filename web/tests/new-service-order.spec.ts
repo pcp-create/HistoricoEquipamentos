@@ -34,6 +34,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
       },
     }),
   );
+  let sellerDefault:string|null="20";
   let saved: any,
     step = 0,
     equipmentQueries: string[] = [];
@@ -101,7 +102,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
         return r.fulfill({ json: metadata });
       case "customers":
         return r.fulfill({
-          json: { rows: [{ id: "10", name: "Cliente Teste" }] },
+          json: { rows: [{ id: "10", name: "Cliente Teste" },{id:"11",name:"Cliente sem vendedor"}] },
         });
       case "equipment":
         equipmentQueries.push(p.toString());
@@ -111,7 +112,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
       case "sellers":
         return r.fulfill({
           json: {
-            rows: [{ id: "20", name: "Vendedor padrão", default: true }],
+            rows: [{ id: "20", name: "Vendedor padrão" },{id:"21",name:"Vendedor manual"}],defaultSellerId:sellerDefault,
           },
         });
       default:
@@ -189,6 +190,14 @@ test("new OS selects company, filters equipment, fills seller and submits header
   await expect(
     page.getByRole("combobox", { name: "Vendedor", exact: true }),
   ).toHaveValue(/Vendedor padrão/);
+  sellerDefault=null;
+  await choose("Cliente","11");
+  await expect(page.getByRole("combobox",{name:"Vendedor",exact:true})).toHaveValue("");
+  await choose("Vendedor","21");
+  await expect(page.getByRole("combobox",{name:"Vendedor",exact:true})).toHaveValue(/Vendedor manual/);
+  await choose("Cliente","10");
+  await choose("Vendedor","21");
+  await expect(page.getByRole("combobox",{name:"Vendedor",exact:true})).toHaveValue(/Vendedor manual/);
   await page.getByRole('button',{name:'Cadastrar equipamento',exact:true}).click();
   const registrationDialog=page.getByRole('dialog',{name:'Cadastrar equipamento',exact:true});
   await expect(registrationDialog.getByLabel('Cliente *',{exact:true})).toHaveValue('Cliente Teste');
@@ -257,6 +266,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
     page.getByRole("heading", {name:"Cliente recém criado", exact:true}),
   ).toBeVisible();
   expect(saved.company).toBe("2");
+  expect(saved.seller).toBe("21");
   expect(saved.origin).toBe("");
   expect(saved.internalNotes).toBe("");
   expect(saved.extra.contato).toBe("Contato técnico");

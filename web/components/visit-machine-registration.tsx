@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Plus, Wrench } from "lucide-react";
+import { Plus, Wrench, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import type { DraftMachine } from "@/lib/visits/draft-machines";
 import { workshopEquipmentTypes } from "@/lib/workshop/equipment-registration-model";
@@ -13,7 +13,9 @@ export default function VisitMachineRegistration({
   renderVisitRecord,
   draftMachines,
   onDraftMachines,
+  knownEquipmentIds = [],
 }: {
+  knownEquipmentIds?: string[];
   customer: string;
   name: string;
   online: boolean;
@@ -29,6 +31,8 @@ export default function VisitMachineRegistration({
     [machines, setMachines] = useState<any[]>([]),
     [error, setError] = useState(""),
     [busy, setBusy] = useState("");
+  const [resumeTypes,setResumeTypes]=useState<Record<string,string>>({});
+  const knownType=(machine:any)=>!!machine.registration_document?.type||workshopEquipmentTypes.some(type=>type.label.toLocaleUpperCase('pt-BR')===String(machine.equipment_type).toLocaleUpperCase('pt-BR'));
   const drafting = !!onDraftMachines;
   async function load() {
     const r = await fetch(
@@ -65,7 +69,7 @@ export default function VisitMachineRegistration({
         id: m.requestId,
         equipment_type: m.equipmentType,
       }))
-    : machines;
+    : machines.filter(m=>!m.equipment_id||!knownEquipmentIds.includes(String(m.equipment_id)));
   return (
     <>
       {error && <p role="alert">{error}</p>}
@@ -74,14 +78,17 @@ export default function VisitMachineRegistration({
         equipment={items}
         online={online && !busy}
         canInactivate={!drafting}
+        inlineActions
         equipmentKey={(m) =>
           m.equipment_id ? String(m.equipment_id) : "pending:" + m.id
         }
-        render={(m, inactive) => (
-          <article key={m.id}>
+        render={(m, inactive, actions) => (
+          <article className="visit-machine-record-card" key={m.id}>
             <strong>
               {m.equipment_type} - {m.model}
             </strong>
+            <small className="visit-equipment-origin is-visits">Incluído pelas Visitas</small>
+            <p>Modelo: {m.model}</p>
             <p>Série: {m.serial}</p>
             {m.brand && <p>Marca: {m.brand}</p>}
             {m.meter != null && (
@@ -95,6 +102,7 @@ export default function VisitMachineRegistration({
                   Lead.
                 </small>
                 <button
+                  className="visit-equipment-remove"
                   type="button"
                   onClick={() =>
                     onDraftMachines?.(
@@ -126,10 +134,13 @@ export default function VisitMachineRegistration({
                     </a>
                   </p>
                 )}
+                {!m.equipment_id&&!knownType(m)&&<label>Tipo do equipamento para concluir o cadastro<select value={resumeTypes[m.id]||""} disabled={!online||!!busy} onChange={e=>setResumeTypes(current=>({...current,[m.id]:e.target.value}))}><option value="">Selecione o tipo</option>{workshopEquipmentTypes.filter(type=>!("ownOnly" in type)).map(type=><option value={type.id} key={type.id}>{type.label}</option>)}</select></label>}
+                <div className="visit-equipment-card-actions">
                 {!m.equipment_id && (
                   <button
+                    className="visit-equipment-resume"
                     type="button"
-                    disabled={!online || !!busy}
+                    disabled={!online || !!busy || (!knownType(m)&&!resumeTypes[m.id])}
                     onClick={async () => {
                       setBusy(m.id);
                       setError("");
@@ -141,6 +152,7 @@ export default function VisitMachineRegistration({
                             requestId: m.id,
                             customerKey: customer,
                             resume: true,
+                            ...(resumeTypes[m.id]?{type:resumeTypes[m.id]}:{}),
                           }),
                         });
                         const body = await r.json();
@@ -148,6 +160,7 @@ export default function VisitMachineRegistration({
                         if (body.state !== "complete")
                           throw Error(body.message);
                         await load();
+                        window.dispatchEvent(new Event("equipment-created"));
                       } catch (e) {
                         setError((e as Error).message);
                       } finally {
@@ -155,9 +168,11 @@ export default function VisitMachineRegistration({
                       }
                     }}
                   >
-                    Consultar / concluir cadastro
+                    <RefreshCw size={14} aria-hidden="true"/>{busy===m.id?'Consultando…':'Concluir cadastro'}
                   </button>
                 )}
+                {actions}
+                </div>
               </>
             )}
             {!inactive &&

@@ -1,4 +1,5 @@
 import {synchronizeEquipmentCustomerLink} from '../equipment/relationship-integration';
+import {claimInternalSerial} from '../equipment/internal-serial';
 import 'server-only';
 import {normalizedEquipmentSerial} from '../equipment/serial';
 import {customerForEquipment,saveEquipmentCustomerLink,linkTaskAssignee} from '../equipment/customer-links';
@@ -64,6 +65,7 @@ export async function registerWorkshopEquipment(raw:any,actor:string,session=m8S
   const existing=(await c.query('SELECT *,document=$2::jsonb same FROM web_workshop_equipment_registrations WHERE id=$1',[raw.requestId,document])).rows[0];
   if(existing){await c.query('COMMIT');return replay(existing);}
   const matches=(await c.query(`SELECT equipment_id::text id,name,model,serial FROM m8_equipment_catalog WHERE present AND (($3::boolean=false AND lower(name)=lower($1)) OR (length($2)>0 AND web_equipment_serial_key(serial)=$2)) LIMIT 1`,[equipmentRegistrationName(input),normalizedEquipmentSerial(input.serial),input.noSerial])).rows;
+  await claimInternalSerial(c,input,actor,raw.requestId);
   if(matches.length)throw new EquipmentRegistrationError(`Este equipamento já está cadastrado (${matches[0].id}). Pesquise pela série ou pelo código antes de adicionar.`);
   const pending=(await c.query("SELECT 1 FROM web_workshop_equipment_registrations WHERE state IN('sending','uncertain') AND ((length($1)>0 AND web_equipment_serial_key(document->>'serial')=$1) OR lower(payload->>'nome')=lower($2))",[normalizedEquipmentSerial(input.serial),payload.nome])).rows.length;
   const queued=normalizedEquipmentSerial(input.serial)?(await c.query("SELECT 1 FROM web_visit_machine_registrations WHERE equipment_id IS NULL AND id<>$2::uuid AND web_equipment_serial_key(serial)=$1 LIMIT 1",[normalizedEquipmentSerial(input.serial),raw.requestId])).rows.length:0;

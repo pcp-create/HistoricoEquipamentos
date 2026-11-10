@@ -19,3 +19,11 @@
 .fleet-client-options button[aria-selected=true]{background:#eaf3fb}
 .fleet-client-options button:hover{background:#f1f6fa}
 .fleet-client-options p{padding:10px;color:#70889b}
+
+.fleet-add-equipment{display:inline-flex;align-items:center;gap:7px;padding:10px 14px;background:#fff;border:1px solid #bcd3ec;border-radius:8px;color:#245d92;font:inherit;cursor:pointer}
+.equipment-client-link-form{display:grid;gap:18px;padding:20px}
+.equipment-client-link-form label{display:grid;gap:8px}
+.equipment-client-link-form>button{display:flex;align-items:center;justify-content:center;gap:8px}
+.equipment-create-dialog>.app-section-tabs{margin:12px 20px;display:flex;gap:8px}
+
+.fleet-toolbar{flex-wrap:wrap}

@@ -1115,3 +1115,6 @@
 .visit-equipment-card-actions>button:hover:not(:disabled){background:#eaf2fa}
 .visit-equipment-card-actions>button.visit-equipment-inactivate:hover:not(:disabled){background:#fff2f2}
 .visit-equipment-card-actions>button:focus-visible{outline:2px solid #286ba5;outline-offset:2px}
+
+.visit-equipment-origin{display:block;width:fit-content;margin:8px 0;padding:4px 8px;border-radius:5px;background:#f0f3f7;color:#61758b;font-size:11px;font-weight:500}
+.visit-equipment-origin.is-visits{background:#eaf3fd;color:#245e91}
