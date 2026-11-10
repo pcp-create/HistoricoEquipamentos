@@ -19,16 +19,24 @@ test('offline report submission validates NOK photo and comment before stopping 
  assert.throws(()=>projectField(home,detail,body),/foto/);assert.equal(home.active.state,'running');
  home.active=null;assert.throws(()=>projectField(home,detail,body),/foto/);
  detail.operation.document.checklistRun.stages.s.details.f.photos=['1'];projectField(home,detail,body);
- assert.ok(detail.reportSubmission);assert.throws(()=>projectField(home,detail,{...body,action:'start_work'}),/Relatório enviado/);
+ assert.ok(detail.reportSubmission);projectField(home,detail,{...body,action:'start_work'});
 });
 
-test('offline full report send stops running or paused work while retaining its totals',()=>{
+test('offline report send preserves the clock; explicit finish closes it and waits for support',()=>{
  for(const state of ['running','paused']){
   const home:any={email:'tech',displayName:'Técnico',rows:[],active:{id:'session',operation_id:'op',kind:'work',state,segment_at:'2026-11-09T12:00:00Z',active_seconds:100,pause_seconds:20}};
-  const detail:any={operation:{id:'op',version:1,document:{responsible:'tech',checklistId:'test',checklistRun:{template:{stages:[{id:'s',fields:[{id:'f',label:'Texto',required:true}]}]},stages:{s:{status:'released',answers:{f:'Texto'}}}}}},checked:true,infoRead:true,materials:{complete:true},history:[]};
+  const detail:any={operation:{id:'op',version:1,document:{responsible:'tech',support:['helper'],checklistId:'test',checklistRun:{template:{stages:[{id:'s',fields:[{id:'f',label:'Texto',required:true}]}]},stages:{s:{status:'released',answers:{f:'Texto'}}}}}},checked:true,infoRead:true,materials:{complete:true},history:[]};
   const result=projectField(home,detail,{action:'report_send',offline:{capturedAt:'2026-11-09T12:01:00Z'}});
-  assert.equal(result.home.active,null);assert.equal(result.session.state,'finished');
-  assert.equal(result.session.active_seconds,state==='running'?160:100);assert.equal(result.session.pause_seconds,state==='paused'?80:20);
+  assert.equal(result.home.active.state,state);
+  assert.equal(result.home.active.active_seconds,100);
+  assert.ok(result.detail.reportSubmission);
+  const finished=projectField(result.home,result.detail,{action:'finish_full',offline:{capturedAt:'2026-11-09T12:01:00Z'}});
+  assert.equal(finished.home.active,null);assert.equal(finished.session.state,'finished');
+  assert.equal(finished.detail.operation.status,'executing');
+  assert.deepEqual(finished.detail.pendingTechnicians,['helper']);
+  assert.throws(()=>projectField(finished.home,finished.detail,{action:'start_work',offline:{capturedAt:'2026-11-09T12:02:00Z'}}),/encerrada/);
+  assert.equal(finished.session.active_seconds,state==='running'?160:100);assert.equal(finished.session.pause_seconds,state==='paused'?80:20);
+
   assert.ok(result.detail.reportSubmission);assert.deepEqual(result.detail.finishPending,[]);
  }
 });

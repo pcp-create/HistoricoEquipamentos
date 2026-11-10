@@ -1,3 +1,4 @@
+import {pendingTechnicianClosures,technicianTimeChangesLocked} from './execution-locks';
 import {occurrencesForEquipment,operationOccurrenceEquipment} from "../equipment-occurrences/store";
 import {handoffOperation} from './workflow';
 import {beginTeam,syncTeam,teamController,teamSessionsAvailable} from "./team-sessions";
@@ -133,7 +134,7 @@ export async function fieldData(email: string, operationId?: string | null) {
   if (!operationId) {
     const rows = (
       await c.query(
-        `SELECT p.id,p.schedule_id,p.position,p.status,p.version,(p.document->>'responsible'=$1) can_report,p.document->>'description' description,p.document->>'date' date,p.document->>'time' time,p.document->'duration' duration,p.document->>'calendarId' calendar_id,
+        `SELECT p.id,p.schedule_id,p.position,p.status,p.version,COALESCE(p.document->'technicianClosures' ? $1,false) technician_closed,(p.document->>'responsible'=$1) can_report,p.document->>'description' description,p.document->>'date' date,p.document->>'time' time,p.document->'duration' duration,p.document->>'calendarId' calendar_id,
    o.id_m8::text AS order_id,COALESCE(o.numero_sequencia,o.id_m8)::text AS number,o.cliente_nome customer,o.equipamento equipment,CASE WHEN p.document->>'equipmentUnassigned'='true' THEN 'Sem equipamento específico' ELSE COALESCE(NULLIF(p.document->'equipment'->>'label',''),NULLIF(p.document->'equipment'->>'name',''),o.equipamento) END operation_equipment,c.payload->>'municipioNome' city,c.payload->>'ufSigla' state,
    EXISTS(SELECT 1 FROM web_field_material_checks k WHERE k.operation_id=p.id AND k.actor=$1) checked
    FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id
@@ -144,7 +145,7 @@ export async function fieldData(email: string, operationId?: string | null) {
       )
     ).rows;
     if(active)active.pause_history_seconds=Number((await c.query("SELECT COALESCE(sum(pause_seconds),0) total FROM web_field_sessions WHERE operation_id=$1 AND id<>$2 AND state='finished'",[active.operation_id,active.id])).rows[0].total);
-    return { rows: rows.filter((row:any)=>!["awaiting_review","reviewed","completed"].includes(row.status)).map((row: any) => ({
+    return { rows: rows.filter((row:any)=>!row.technician_closed&&!["awaiting_review","reviewed","completed"].includes(row.status)).map((row: any) => ({
       ...row, estimated_end: estimatedEnd(row, settings),calendar_name:settings.calendars?.find((c:any)=>c.id===(row.calendar_id||"standard"))?.name,
     })), calendarRows: rows.map((row:any)=>({...row,estimated_end:estimatedEnd(row,settings),calendar_name:settings.calendars?.find((c:any)=>c.id===(row.calendar_id||"standard"))?.name})), active, email, isTechnician: ["técnico","tecnico"].includes((profile.job_title || "").trim().toLowerCase()), displayName: profile.display_name };
   }
@@ -195,6 +196,9 @@ export async function fieldData(email: string, operationId?: string | null) {
     supportMembers:(await c.query("SELECT email,display_name FROM web_user_access WHERE email=ANY($1::text[]) AND enabled",[p.document.support || []])).rows,
     finishPending: await finishPending(c, p, email, materialData.complete),
     reportSubmission:submission,
+    responsibleName:(await c.query("SELECT display_name FROM web_user_access WHERE email=$1",[p.document.responsible])).rows[0]?.display_name||p.document.responsible,
+    technicianClosed:!!p.document.technicianClosures?.[email],
+    pendingTechnicians:pendingTechnicianClosures(p.document),
     estimated_end: estimatedEnd(p.document, settings),
     calendar_name:settings.calendars?.find((c:any)=>c.id===(p.document.calendarId||"standard"))?.name,
     pause_history_seconds:Number((await c.query("SELECT COALESCE(sum(pause_seconds),0) total FROM web_field_sessions WHERE operation_id=$1 AND state='finished'",[p.id])).rows[0].total),
@@ -226,14 +230,14 @@ async function finishPending(c: any, p: any, email: string, materialsComplete: b
   const progress = (await c.query(`SELECT
     EXISTS(SELECT 1 FROM web_field_events WHERE operation_id=$1 AND actor=$2 AND action='info_read') AS info,
     EXISTS(SELECT 1 FROM web_field_material_checks WHERE operation_id=$1 AND actor=$2) AS checked,
-    EXISTS(SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND kind='work' AND state='finished') AS worked,
-    EXISTS(SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished') AS active
+    EXISTS(SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND kind='work' AND (state='finished' OR actor=$2)) AS worked,
+    EXISTS(SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND actor=$2 AND kind<>'work' AND state<>'finished') AS active
   `, [p.id, email])).rows[0];
   const pending: string[] = [];
   if (!progress.info) pending.push("Informações: leia e confirme as observações internas.");
   if (!materialsComplete || !progress.checked) pending.push("Peças: conclua a conferência dos materiais.");
   if (!progress.worked) pending.push("Atividade: registre e conclua um apontamento de atividade.");
-  if (progress.active) pending.push("Apontamentos: finalize os apontamentos de atividade, deslocamento e pausas de toda a equipe.");
+  if (progress.active) pending.push("Apontamentos: finalize seu deslocamento informando o odômetro antes de encerrar.");
   if (p.document.checklistId) {
     if (!reportSubmission(p.document.checklistRun)) pending.push("Relatório: conclua as etapas obrigatórias e faça o envio completo.");
     else {
@@ -278,12 +282,12 @@ export async function fieldAction(b: any, email: string) {
     ).rows[0];
     if (!p) throw new Forbidden();
     if (p.document.responsible !== email &&
-        (b.action.startsWith("report_") || b.action.startsWith("checklist_") || b.action.startsWith("finish_")))
+        (b.action.startsWith("report_") || b.action.startsWith("checklist_")))
       throw new FieldError("Somente o técnico responsável pode acessar o relatório ou finalizar a operação.");
 
-    if (["awaiting_review", "reviewed", "completed"].includes(p.status))
+    if (technicianTimeChangesLocked(p,email))
       throw new FieldError(
-        b.action==='materials'?"Operação finalizada. Peças disponíveis somente para consulta; devoluções não são permitidas.":"Esta operação já foi enviada para revisão e não permite novos apontamentos.",
+        b.action==='materials'?"Operação finalizada. Peças disponíveis somente para consulta; devoluções não são permitidas.":p.document.technicianClosures?.[email]?"Sua participação na operação foi encerrada e não permite novos apontamentos.":"Esta operação já foi enviada para revisão e não permite novos apontamentos.",
       );
     if (b.action === "finish_partial")
       throw new FieldError("A finalização parcial não está mais disponível. Conclua os módulos para encerrar a operação.");
@@ -305,7 +309,6 @@ export async function fieldAction(b: any, email: string) {
       if (last && occurredMs < new Date(last).getTime())
         throw new FieldError("Conflito de horários com outro apontamento. Confira os registros antes de sincronizar.");
     }
-    if(reportSubmission(p.document.checklistRun)&&['start_work','start_travel','pause','resume','stop'].includes(b.action))throw new FieldError('Relatório enviado. Novos apontamentos exigem devolução do relatório pelo planejador.');
     const location = locationOf(b.location, occurredMs);
     const s = {
       id: p.schedule_id,
@@ -552,48 +555,34 @@ export async function fieldAction(b: any, email: string) {
       if(!current.document.checklistRun)throw new FieldError('Preencha e salve o relatório antes do envio.');
       const checklistRun=partial?structuredClone(current.document.checklistRun):prepareChecklistSubmission(current.document.checklistRun,email,current.document);
       validateRunAlertComments(checklistRun);
-      if(!partial&&active?.operation_id===p.id){
-        if(active.kind!=='work')throw new FieldError('Finalize o deslocamento informando o odômetro antes de enviar o relatório.');
-        if(await teamController(c,active.id))throw new FieldError('Peça a quem iniciou a atividade em equipe para encerrar o apontamento antes do envio.');
-        if(occurredMs<new Date(active.segment_at).getTime())throw new FieldError('O horário é anterior ao último apontamento.');
-        const totals=sessionTotals(active,occurredMs),stopDetails={sessionId:active.id,seconds:totals,closedByReport:true};
-        await c.query("UPDATE web_field_sessions SET state='finished',finished_at=$4,active_seconds=$2,pause_seconds=$3,segment_at=$4 WHERE id=$1",[active.id,totals.active,totals.pause,occurredAt]);
-        await c.query("INSERT INTO web_service_operation_events(operation_id,action,hours,actor,description,created_at) VALUES($1,'work_log',$2,$3,$4,$5)",[p.id,totals.active/3600,email,'Atividade encerrada automaticamente no envio do relatório',occurredAt]);
-        await c.query("INSERT INTO web_field_events(request_id,operation_id,actor,action,latitude,longitude,accuracy,located_at,document,created_at) VALUES($1,$2,$3,'stop',$4,$5,$6,$7,$8,$9)",[randomUUID(),p.id,email,location.latitude,location.longitude,location.accuracy,location.at,JSON.stringify(stopDetails),occurredAt]);
-        await syncTeam(c,active.id,'stop',stopDetails,location,occurredAt,email);
-      }
-      if(!partial&&(await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[p.id])).rows.length)throw new FieldError('Há apontamentos independentes da equipe em andamento. Solicite o encerramento antes de enviar o relatório.');
-
       const receipt={at:occurredAt,by:email,name:(await user(c,email)).display_name||email};
       if(partial)checklistRun.partialSubmission=receipt;
       else checklistRun.submission=receipt;
-      await c.query("UPDATE web_service_operations SET document=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1",[p.id,JSON.stringify({...p.document,checklistRun}),email]);
+      await c.query("UPDATE web_service_operations SET document=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1",[p.id,JSON.stringify({...p.document,checklistRun,...(!partial?{requireTechnicianClosure:true,technicianClosures:{}}:{})}),email]);
       await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[p.id,b.action,email,partial?'Relatório enviado parcialmente; edição permanece liberada':'Relatório enviado completo pelo técnico']);
       operationUpdated=true;
     } else if (b.action === "finish_full") {
-      if (p.document.responsible !== email)
-        throw new FieldError("Somente o responsável pode enviar a operação.");
       const materialData = await materials(c, s);
       const pending = await finishPending(c, p, email, materialData.complete);
       if (pending.length) throw new FieldError("Não é possível encerrar a operação. " + pending.join(" "));
-      await c.query(
-        "UPDATE web_service_operations SET status=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1",
-        [
-          p.id,
-          "awaiting_review",
-          email,
-        ],
-      );
+      if(active?.operation_id===p.id){
+        if(active.kind!=='work')throw new FieldError('Finalize o deslocamento informando o odômetro antes de encerrar a operação.');
+        if(await teamController(c,active.id))await c.query("UPDATE web_field_session_links SET mode='copy' WHERE target_session_id=$1 AND mode='live'",[active.id]);
+        if(occurredMs<new Date(active.segment_at).getTime())throw new FieldError('O horário é anterior ao último apontamento.');
+        const totals=sessionTotals(active,occurredMs),stopDetails={sessionId:active.id,seconds:totals,closedByFinish:true};
+        await c.query("UPDATE web_field_sessions SET state='finished',finished_at=$4,active_seconds=$2,pause_seconds=$3,segment_at=$4 WHERE id=$1",[active.id,totals.active,totals.pause,occurredAt]);
+        await c.query("INSERT INTO web_service_operation_events(operation_id,action,hours,actor,description,created_at) VALUES($1,'work_log',$2,$3,$4,$5)",[p.id,totals.active/3600,email,'Atividade encerrada na finalização da operação',occurredAt]);
+        await c.query("INSERT INTO web_field_events(request_id,operation_id,actor,action,latitude,longitude,accuracy,located_at,document,created_at) VALUES($1,$2,$3,'stop',$4,$5,$6,$7,$8,$9)",[randomUUID(),p.id,email,location.latitude,location.longitude,location.accuracy,location.at,JSON.stringify(stopDetails),occurredAt]);
+        await syncTeam(c,active.id,'stop',stopDetails,location,occurredAt,email);
+      }
+      const document={...p.document,requireTechnicianClosure:true,technicianClosures:{...p.document.technicianClosures,[email]:{at:occurredAt,by:email}}};
+      const waiting=pendingTechnicianClosures(document);
+      const hasActive=(await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[p.id])).rows.length>0;
+      const status=waiting.length||hasActive?'executing':'awaiting_review';
+      await c.query("UPDATE web_service_operations SET document=$2,status=$3,version=version+1,updated_at=now(),updated_by=$4 WHERE id=$1",[p.id,JSON.stringify(document),status,email]);
+      if(status==='awaiting_review')await handoffOperation(c,p,s,email,'review');
       operationUpdated = true;
-      await c.query(
-        "INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)",
-        [
-          p.id,
-          b.action,
-          email,
-          "Operação finalizada pelo técnico após conclusão dos módulos",
-        ],
-      );
+      await c.query("INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)",[p.id,b.action,email,waiting.length?'Participação encerrada; aguardando encerramento dos demais técnicos':'Operação encerrada pela equipe e enviada para revisão']);
     } else if (["checklist_save", "checklist_submit"].includes(b.action)) {
       if (p.version !== b.version)
         throw new FieldError(
@@ -608,7 +597,7 @@ export async function fieldAction(b: any, email: string) {
         "UPDATE web_service_operations SET status=CASE WHEN status IN('awaiting_review','reviewed','completed') THEN status ELSE 'executing' END,version=version+1,updated_at=now(),updated_by=$2 WHERE id=$1",
         [p.id, email],
       );
-    if(b.action==='finish_full')await handoffOperation(c,p,s,email,'review');
+
     const resultVersion = (await c.query("SELECT version FROM web_service_operations WHERE id=$1", [p.id])).rows[0].version;
     details = {...details, resultVersion, ...(b.offline ? {offline:true,receivedAt:new Date().toISOString()} : {})};
     await c.query(

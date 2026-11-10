@@ -11,6 +11,7 @@ import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import { useState, useEffect, useId, useRef } from "react";
 import {
   Users,
+  AlertTriangle,
   ArrowLeft,
   Settings,
   LoaderCircle,
@@ -460,7 +461,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
   }
   const operation = data?.operation,
     session = active?.operation_id === row.id ? active : null,
-    locked = ["awaiting_review", "reviewed", "completed"].includes(
+    locked = !!data?.technicianClosed || !!operation?.document.technicianClosures?.[data?.email] || ["awaiting_review", "reviewed", "completed"].includes(
       operation?.status || row.status,
     );
   const endingTravel = session?.kind === "travel";
@@ -479,7 +480,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
   const ready = data?.infoRead && data?.checked && !locked && !busy && !session?.teamController;
   const finishPending: string[] = data?.finishPending ?? ["Atualize a operação para verificar as pendências."];
   const canAccessReport = !!data?.email && operation?.document.responsible === data.email;
-  const canFinish = ready && finishPending.length === 0 && operation?.document.responsible === data?.email;
+  const canFinish = data?.infoRead && data?.checked && !locked && !busy && finishPending.length === 0;
   const limit = session?.state === "paused" && !session?.teamController && session.pause_reason?.minutes;
   const alert =
     limit &&
@@ -492,7 +493,8 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     if (which === "send" && !canFinish) return;
     if (which === "logs" && !data?.infoRead) return;
     if(which==='report') {
-      if(!canAccessReport || reportOpening.current)return;
+      if(!canAccessReport){setView('report-info');return;}
+      if(reportOpening.current)return;
       if(!data?.reportSubmission&&!reportActivityRunning)window.alert('Inicie ou retome a atividade para editar o relatório e anexar fotos.');
       setReportVisited(true);
       setView('report');
@@ -512,8 +514,9 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
   }
   return (
     <section ref={section} className="field-operation">
-      <dialog ref={finishDialog} className="field-finish-dialog" aria-label="Conferência antes de finalizar" onCancel={() => setConfirmFinish(false)}>
-        <h3>Antes de finalizar a operação</h3>
+      <dialog ref={finishDialog} className="field-finish-dialog" aria-label="Conferência antes de finalizar" onCancel={() => {setConfirmFinish(false);setView("");}}>
+        <h3>Deseja encerrar esta operação?</h3>
+        <p className="field-close-warning" role="alert"><AlertTriangle size={22} aria-hidden="true"/><span>Ao encerrar, seu apontamento de atividade será finalizado e você não poderá fazer novos apontamentos nesta operação. O relatório será liberado para revisão somente após o encerramento por todos os técnicos.</span></p>
         <p>Há peças não utilizadas que ainda não foram devolvidas?</p>
         <p>Se houver, registre a devolução no módulo <strong>Peças</strong> antes de encerrar a operação. Isso libera o saldo para outras operações.</p>
         <div className="field-finish-actions">
@@ -521,8 +524,8 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
           <button type="button" disabled={!canFinish} onClick={async () => {
             setConfirmFinish(false);
             if (await act({ action: "finish_full" })) setView("");
-          }}>Não, finalizar operação</button>
-          <button type="button" className="field-finish-cancel" onClick={() => setConfirmFinish(false)}>Cancelar</button>
+          }}>Não há peças a devolver, encerrar operação</button>
+          <button type="button" className="field-finish-cancel" onClick={() => {setConfirmFinish(false);setView("");}}>Continuar trabalhando</button>
         </div>
       </dialog>
       <button
@@ -588,7 +591,8 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
 
                 </section>
               )}
-              {view === "logs" && <FieldTimeLogs operationId={row.id} readOnly={locked||!!data.reportSubmission} />}
+              {view === "report-info" && <section className="field-panel" role="status"><h3>Relatório da operação</h3><p>Você participa desta OS como auxiliar para registrar apontamentos. O relatório deve ser preenchido pelo técnico responsável: <strong>{data.responsibleName||operation.document.responsible}</strong>.</p></section>}
+              {view === "logs" && <FieldTimeLogs operationId={row.id} readOnly={locked} />}
               {!view && <>
               {!data.infoRead && !locked && <p className="field-step"><b>1. Leia as informações</b><br/>Abra Informações e confirme a leitura das observações internas para continuar.</p>}
               {data.infoRead && !data.checked && !locked && (
@@ -614,7 +618,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                 <button
                   className={session?.kind === "travel" ? "is-active" : ""}
                   disabled={
-                    !ready || !!data.reportSubmission ||
+                    !ready ||
                     (!!active && active.id !== session?.id) ||
                     session?.kind === "work"
                   }
@@ -640,7 +644,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                 </button>
                 {!session || session.kind !== "work" ? (
                   <button
-                    disabled={!ready || !!data.reportSubmission || !!active}
+                    disabled={!ready || !!active}
                     onClick={() => void act({ action: "start_work" })}
                   >
                     <span className="field-icon-pair">
@@ -693,14 +697,14 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                     </button>
                   </>
                 )}
-                {data.teamAvailable && data.supportMembers?.some((member:any)=>member.email!==data.email) && (!session || session.kind!=="work") && <button disabled={!ready || !!data.reportSubmission || !!active} onClick={()=>setTeamPicker(true)}><span className="field-icon-pair"><Users/><Play size={15}/></span><span>Iniciar com equipe</span></button>}
+                {data.teamAvailable && data.supportMembers?.some((member:any)=>member.email!==data.email) && (!session || session.kind!=="work") && <button disabled={!ready || !!active} onClick={()=>setTeamPicker(true)}><span className="field-icon-pair"><Users/><Play size={15}/></span><span>Iniciar com equipe</span></button>}
                 {teamPicker && <TeamMemberPicker title="Iniciar com equipe" description="Início, pausas, retomadas e encerramento desta atividade serão registrados também para os integrantes selecionados." confirmLabel="Iniciar com equipe" members={(data.supportMembers || []).filter((member:any)=>member.email!==data.email)} onClose={()=>setTeamPicker(false)} onConfirm={async members=>{if(!navigator.onLine)throw Error("Conecte-se à internet para iniciar com a equipe.");const saved=await act({action:"start_work",teamMembers:members});if(!saved)throw Error("Não foi possível iniciar. Confira a mensagem da operação e tente novamente.");return true;}}/>}
                 <button disabled={busy || !data.infoRead} onClick={() => void show("logs")}>
                   <Clock3 />
                   <span>Apontamentos</span>
                 </button>
                 <button
-                  disabled={!canAccessReport || busy || !data.infoRead || !data.checked || !operation.document.checklistId}
+                  disabled={busy || (canAccessReport&&(!data.infoRead || !data.checked || !operation.document.checklistId))}
                   title={!canAccessReport ? "Relatório disponível somente para o técnico responsável." : undefined}
                   onClick={() => void show("report")}
                 >
@@ -763,7 +767,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                 </section>
               )}
               {view === "parts" && <Parts data={data} readOnly={locked} returnsOnly={!!data.reportSubmission} busy={busy} save={async (body: any) => {
-                if (await act(body)) {if(finishAfterMaterials){if(await act({action:"finish_full"})){setFinishAfterMaterials(false);setView("");}else setView("send");}else setView("");}
+                if (await act(body)) {if(finishAfterMaterials){setFinishAfterMaterials(false);setView("send");setConfirmFinish(true);}else setView("");}
               }} />}
               {view === "send" && (
                 <section className="field-panel">
@@ -776,7 +780,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                     disabled={!canFinish}
                     onClick={() => setConfirmFinish(true)}
                   >
-                    Finalizar operação · enviar para revisão
+                    Encerrar minha participação na operação
                   </button>
                 </section>
               )}

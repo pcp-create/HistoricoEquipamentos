@@ -310,3 +310,11 @@ Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/porta
 A sincronização de relatórios e apontamentos offline não exige que a versão da programação continue igual à versão baixada antes da perda de internet. O servidor aplica o registro à operação atual, mantendo a programação atual, os horários capturados, a sequência dos registros e os recibos contra duplicidade. Pendências antigas marcadas com o erro de alteração da operação são tentadas novamente. As validações de acesso, existência da operação e regras do relatório continuam sendo verificadas. Instalar como atualização, sem desinstalar nem limpar dados.
 
 Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.20
+
+## Versão 2.2.21 — envio e encerramento por técnico
+
+Enviar o relatório salva e envia as informações sem encerrar a atividade. O técnico decide quando encerrar sua participação, com aviso de bloqueio de novos apontamentos e conferência de devolução de peças. O encerramento fecha sua atividade e retira a operação da lista padrão do seu aparelho. A revisão pelo planejador aguarda o encerramento de todos os técnicos atribuídos. A programação identifica o envio parcial, quem já encerrou e quem está pendente. O auxiliar recebe a identificação do responsável ao abrir Relatório. O mesmo fluxo funciona offline e é confirmado na sincronização.
+
+Instalar como atualização, sem desinstalar nem limpar os dados do aplicativo.
+
+Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.21

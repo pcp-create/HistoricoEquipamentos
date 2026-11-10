@@ -54,6 +54,15 @@ export default function EquipmentCreateDialog({
         throw Error(result.error || "Não foi possível incluir o equipamento.");
       clearApiCache();
       window.dispatchEvent(new Event("equipment-created"));
+      if (result.equipment?.integrationPending) {
+        const detail = String(result.equipment.integrationError || "");
+        throw Error(
+          "O vínculo foi salvo como pendência no sistema, mas não foi confirmado no M8. " +
+          (detail.includes("falhahttp_URL_")
+            ? "O M8 apresentou uma falha interna ao cadastrar o vínculo. Encaminhe o erro ao suporte M8."
+            : detail || "Aguarde a confirmação da integração antes de considerar o equipamento vinculado."),
+        );
+      }
       onCreated({ ...result.equipment, customerKey: selectedCustomer.id });
     } catch (e) {
       setError((e as Error).message);

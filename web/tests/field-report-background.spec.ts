@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-for(const returnMaterials of [false,true])test(`background saves preserve newer answers; send finishes work and operation (returns=${returnMaterials})`,async({page,context})=>{
+for(const returnMaterials of [false,true])test(`background saves preserve newer answers; send keeps work running until explicit operation closure (returns=${returnMaterials})`,async({page,context})=>{
  await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
  await context.grantPermissions(['geolocation']);await context.setGeolocation({latitude:-27,longitude:-49});
  const template={id:'test',name:'Relatório',stages:[{id:'a',name:'Primeira etapa',fields:[{id:'first',label:'Primeiro texto',type:'text',required:true}]},{id:'b',name:'Segunda etapa',fields:[{id:'second',label:'Segundo texto',type:'text',required:true}]}]};
@@ -15,8 +15,8 @@ for(const returnMaterials of [false,true])test(`background saves preserve newer 
    if(body.action==='report_save'&&!firstSave){firstSave=body;await gate;}
    if(body.version!==undefined)expect(body.version).toBe(operation.version);
    for(const stage of body.stages||[])operation.document.checklistRun.stages[stage.stageId]={...stage,status:'released'};
-   if(body.action==='report_send'){active=null;detail.reportSubmission={at:new Date().toISOString(),by:'tech'};operation.document.checklistRun.submission=detail.reportSubmission;detail.finishPending=[];}
-   if(body.action==='finish_full'){operation.status='awaiting_review';row.status='awaiting_review';}
+   if(body.action==='report_send'){detail.reportSubmission={at:new Date().toISOString(),by:'tech'};operation.document.checklistRun.submission=detail.reportSubmission;detail.finishPending=[];}
+   if(body.action==='finish_full'){active=null;operation.status='awaiting_review';row.status='awaiting_review';}
    operation.version++;await r.fulfill({json:{saved:true}});
   }else await r.fulfill({json:r.request().url().includes('?')?{...detail,active}:{email:'tech',rows:[row],active}});
  });
@@ -43,17 +43,36 @@ for(const returnMaterials of [false,true])test(`background saves preserve newer 
  expect(operation.document.checklistRun.stages.a.answers.first).toBe('Primeira resposta alterada durante o salvamento');
  await report.getByRole('button',{name:'Enviar',exact:true}).click();
  const finish=page.getByRole('dialog',{name:'Conferência antes de finalizar',exact:true});
- await expect(finish).toBeVisible();expect(active).toBeNull();
+ await expect(finish).toBeVisible();expect(active?.state).toBe('running');expect(operation.status).toBe('executing');
+ await expect(finish.getByRole('alert')).toContainText('não poderá fazer novos apontamentos');
+ await finish.getByRole('button',{name:'Continuar trabalhando',exact:true}).click();
+ expect(active?.state).toBe('running');
+ expect(actions).not.toContain('finish_full');
+ await page.getByRole('button',{name:'Finalizar Operação',exact:true}).click();
+ await page.getByRole('button',{name:'Encerrar minha participação na operação',exact:true}).click();
  if(returnMaterials){
   await finish.getByRole('button',{name:'Sim, ir para Peças',exact:true}).click();
   await expect(page.getByText('Conferência de peças da OS',{exact:true})).toBeVisible();
   await page.getByRole('checkbox',{name:/Conferi/}).check();
   await page.getByRole('button',{name:/Confirmar conferência/}).click();
- }else await finish.getByRole('button',{name:'Não, finalizar operação',exact:true}).click();
+  await finish.getByRole('button',{name:'Não há peças a devolver, encerrar operação',exact:true}).click();
+ }else await finish.getByRole('button',{name:'Não há peças a devolver, encerrar operação',exact:true}).click();
  await expect.poll(()=>operation.status).toBe('awaiting_review');
  await page.getByRole('button',{name:'Peças',exact:true}).click();
  await expect(page.getByText('Peças desta operação · somente visualização.',{exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'Confirmar conferência',exact:true})).toBeHidden();
  expect(actions.indexOf('finish_full')).toBeGreaterThan(actions.indexOf('report_send'));
  if(returnMaterials)expect(actions.indexOf('materials')).toBeGreaterThan(actions.indexOf('report_send'));
+});
+
+test('support report button identifies the responsible technician without exposing report fields',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ const row={id:'op-helper',schedule_id:1,number:123,position:1,status:'executing',description:'Serviço',can_report:false};
+ const operation={...row,version:1,document:{responsible:'tech',support:['helper'],checklistId:'test'}};
+ await page.route('**/api/activity',r=>r.fulfill({json:{admin:false}}));
+ await page.route('**/api/field*',r=>r.fulfill({json:r.request().url().includes('?')?{operation,email:'helper',responsibleName:'João da Silva',checked:false,infoRead:false,settings:{document:{vehicles:[],checklists:[]}},materials:{complete:true,items:[]},finishPending:[],history:[]}:{email:'helper',rows:[row],active:null}}));
+ await page.goto('/tecnico');await page.getByRole('button',{name:/^Programação/}).click();await page.getByText('OS 123',{exact:true}).click();await page.getByRole('button',{name:/OP01/}).click();
+ await page.getByRole('button',{name:'Relatório',exact:true}).click();
+ await expect(page.getByText(/Você participa desta OS como auxiliar/)).toContainText('João da Silva');
+ await expect(page.getByRole('region',{name:'Relatório técnico da operação'})).toHaveCount(0);
 });

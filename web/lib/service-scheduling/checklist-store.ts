@@ -1,3 +1,4 @@
+import {pendingTechnicianClosures} from './execution-locks';
 import 'server-only';
 import {operationMeterEquipment} from './meter-equipment';
 import {requireReportActivity} from './report-activity';
@@ -8,6 +9,7 @@ function validateMeterDate(value:unknown): asserts value is string {
 }
 export async function updateChecklist(c:any,b:any,operation:any,schedule:any,settings:any,email:string,admin:boolean,options:{returning?:boolean;submittingReport?:boolean}={}){
  const reviewing=b.action==='checklist_review_save';
+ if(reviewing&&pendingTechnicianClosures(operation.document).length)throw Error('Aguarde o encerramento da operação por todos os técnicos antes de revisar o relatório.');
  if(reviewing&&(!admin||operation.status!=='awaiting_review'))throw Error('Somente o planejador pode corrigir o checklist enquanto aguarda revisão.');
  if(['completed','reviewed'].includes(operation.status)||operation.status==='awaiting_review'&&!reviewing)throw Error('A operação está concluída ou em revisão.');
  const assigned=operation.document.responsible===email;
@@ -56,7 +58,7 @@ export async function updateChecklist(c:any,b:any,operation:any,schedule:any,set
  }else throw Error('Ação de checklist inválida.');
  if(b.action==='checklist_save'){run.reportSavedAt=new Date().toISOString();run.reportSavedBy=email;}
  if(reviewing){run.reviewCorrectedAt=new Date().toISOString();run.reviewCorrectedBy=email;}
- const document={...operation.document,checklistRun:run};
+ const document={...operation.document,...(b.action==='checklist_reopen'?{technicianClosures:{}}:{}),checklistRun:run};
  const status=['checklist_save','checklist_submit'].includes(b.action)?'executing':operation.status;
  const result=(await c.query('UPDATE web_service_operations SET document=$2,status=$3,version=version+1,updated_at=now(),updated_by=$4 WHERE id=$1 RETURNING *',[operation.id,JSON.stringify(document),status,email])).rows[0];
  await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[operation.id,b.action,email,reviewing?'Correções do planejador na etapa '+stage.name:stage.name]);
@@ -96,7 +98,7 @@ export async function reopenReport(c:any,operation:any,email:string,admin:boolea
   const saved=run.stages[stage.id];
   if(saved?.status==='submitted')run.stages[stage.id]={...saved,status:'released',submittedAt:undefined,submittedBy:undefined,reopenedAt:run.reportReturnedAt,reopenedBy:email};
  }
- const result=(await c.query("UPDATE web_service_operations SET document=$2,status=CASE WHEN status='awaiting_review' THEN 'executing' ELSE status END,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1 RETURNING *",[operation.id,JSON.stringify({...operation.document,checklistRun:run}),email])).rows[0];
+ const result=(await c.query("UPDATE web_service_operations SET document=$2,status=CASE WHEN status='awaiting_review' THEN 'executing' ELSE status END,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1 RETURNING *",[operation.id,JSON.stringify({...operation.document,technicianClosures:{},checklistRun:run}),email])).rows[0];
  await c.query("INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,'report_reopen',$2,'Relatório devolvido ao técnico para edição')",[operation.id,email]);
  await c.query("INSERT INTO web_access_events(event,email,actor,details) VALUES('report_reopen',$1,$1,$2)",[email,JSON.stringify({operationId:operation.id,submission:receipt})]);
  return result;

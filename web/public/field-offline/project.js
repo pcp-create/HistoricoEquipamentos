@@ -4,12 +4,12 @@ function projectField(home, detail, body) {
     op = detail.operation,
     action = body.action;
   if (op.document.responsible !== home.email &&
-      (/^(report_|checklist_|finish_)/.test(action)))
+      (/^(report_|checklist_)/.test(action)))
     throw new Error("Somente o técnico responsável pode acessar o relatório ou finalizar a operação.");
   const submitted=!!(detail.reportSubmission||op.document.checklistRun?.submission);
   if(action==='materials'&&['awaiting_review','reviewed','completed'].includes(op.status))throw Error('Operação finalizada. Peças disponíveis somente para consulta; devoluções não são permitidas.');
   const returnsOnly=submitted;
-  if(submitted&&['start_work','start_travel','pause','resume','stop'].includes(action))throw Error('Relatório enviado. Novos apontamentos exigem devolução pelo planejador.');
+  if(op.document.technicianClosures?.[home.email]||['awaiting_review','reviewed','completed'].includes(op.status))throw Error('Operação encerrada. Novos apontamentos não são permitidos.');
   if(action==='report_send_partial'&&(detail.active||home.active)?.operation_id===op.id)throw Error('Finalize o apontamento aberto antes de enviar o relatório.');
   if (action === "report_send") {
     const run = op.document.checklistRun;
@@ -30,18 +30,19 @@ function projectField(home, detail, body) {
       }
     }
   }
+  if(action==='finish_full'&&op.document.checklistId&&!submitted)throw Error('Conclua e envie o relatório antes de encerrar.');
   let active = home.active,
     closed = null;
   const same = active?.operation_id === op.id;
-  if(action==='report_send'&&same){
-    if(active.kind!=='work')throw Error('Finalize o deslocamento informando o odômetro antes de enviar o relatório.');
-    if(active.teamController)throw Error('Peça a quem iniciou a atividade em equipe para encerrar o apontamento.');
+  if(action==='finish_full'&&same){
+    if(active.kind!=='work')throw Error('Finalize o deslocamento informando o odômetro antes de encerrar a operação.');
+
     const seconds=Math.max(0,(Date.parse(at)-Date.parse(active.segment_at))/1000);
     if(active.state==='running')active.active_seconds=Number(active.active_seconds)+seconds;else active.pause_seconds=Number(active.pause_seconds)+seconds;
     active.segment_at=at;
     detail.progress={...detail.progress,work:true};
     detail.pause_history_seconds=Number(detail.pause_history_seconds||0)+Number(active.pause_seconds||0);
-    closed={...active,state:'finished',finished_at:at,closedByReport:true};active=null;
+    closed={...active,state:'finished',finished_at:at,closedByFinish:true};active=null;
   }
   if (action === "info_read") detail.infoRead = true;
   if (action === "materials") {
@@ -108,7 +109,7 @@ function projectField(home, detail, body) {
     }
   }
   if (action === "start_work" || action === "start_travel") {
-    if (active)
+    if (active?.operation_id===op.id&&active.kind!=='work')
       throw Error(
         "Finalize o apontamento em andamento antes de iniciar outro.",
       );
@@ -189,6 +190,7 @@ function projectField(home, detail, body) {
       run.meterDate = stage.meterDate;
     }
     if (action === "report_send") {
+      op.document.requireTechnicianClosure=true;op.document.technicianClosures={};
       run.submission = { at, by: home.email, name: home.displayName };
       detail.reportSubmission = run.submission;
     }
@@ -197,7 +199,15 @@ function projectField(home, detail, body) {
     if(same&&active)throw Error("Finalize o apontamento antes de devolver o relatório.");
     op.status = "planning";
   }
-  else if (action === "finish_full") op.status = "awaiting_review";
+  else if (action === "finish_full") {
+    if(op.document.checklistId&&!submitted)throw Error('Conclua e envie o relatório antes de encerrar.');
+    op.document.requireTechnicianClosure=true;
+    op.document.technicianClosures={...op.document.technicianClosures,[home.email]:{at,by:home.email}};
+    detail.technicianClosed=true;
+    const pending=[...new Set([op.document.responsible,...(op.document.support||[])].filter(Boolean))].filter(email=>!op.document.technicianClosures[email]);
+    detail.pendingTechnicians=pending;
+    op.status=pending.length?'executing':'awaiting_review';
+  }
   else if (action !== "info_read"&&!(action==="materials"&&returnsOnly)) op.status = "executing";
   // The server resolves exact versions through the preceding request receipt.
   if (action !== "info_read") op.version = Number(op.version) + 1;
@@ -207,7 +217,7 @@ function projectField(home, detail, body) {
     if (row.id === op.id) {
       row.version = op.version;
       row.status = op.status;
-      row.checked = detail.checked;
+      row.checked = detail.checked;row.technician_closed=!!op.document.technicianClosures?.[home.email];
     }
   }
   if (action === "finish_full" || action === "report_return")
@@ -219,11 +229,11 @@ function projectField(home, detail, body) {
     );
   if (!detail.checked || !detail.materials?.complete)
     detail.finishPending.push("Peças: conclua a conferência dos materiais.");
-  if (!detail.progress?.work)
+  if (!detail.progress?.work&&!(active?.operation_id===op.id&&active.kind==='work'))
     detail.finishPending.push(
       "Atividade: registre e conclua um apontamento de atividade.",
     );
-  if (active)
+  if (active?.operation_id===op.id&&active.kind!=='work')
     detail.finishPending.push(
       "Apontamentos: finalize os apontamentos em andamento.",
     );

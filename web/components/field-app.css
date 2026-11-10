@@ -809,3 +809,6 @@ dialog.field-report-screen {
 .field-report-footer .field-report-actions .field-report-save.has-pending{background:#c8323e;border-color:#c8323e;color:#fff}
 .field-report-footer .field-report-actions .field-report-save:not(.has-pending):disabled,
 .field-report-footer .field-report-actions .field-report-send:disabled{background:#edf0f3;border-color:#dce1e6;color:#8a949f;opacity:1;cursor:default}
+
+.field-close-warning {display:flex;align-items:flex-start;gap:10px;padding:12px;background:#fff6df;color:#805410;border:1px solid #efd18b;border-radius:10px;}
+.field-close-warning svg {flex-shrink:0;}

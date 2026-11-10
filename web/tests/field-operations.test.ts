@@ -146,7 +146,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     await db.exec("UPDATE web_service_operations SET sent_at=now()");
     assert.equal((await fieldData("tech")).rows?.length, 2);
     assert.equal((await fieldData("helper")).rows?.length, 2);
-    for (const action of ["report_save","report_return","report_send","checklist_save","finish_full"]) {
+    for (const action of ["report_save","report_return","report_send","checklist_save"]) {
       await assert.rejects(act(action, {}, "helper"), /Somente o técnico responsável/);
     }
     await assert.rejects(fieldReportPdf("helper",{operationId:id}), e=>(e as Error).constructor.name==="Forbidden");
@@ -209,11 +209,17 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     const sendRequest=randomUUID();
     await act('report_send',{requestId:sendRequest,version:beforeAutomaticStop.operation.version,stages:[{stageId:'s2',answers:{f2:'Dois'}}]});
     await act('report_send',{requestId:sendRequest,version:beforeAutomaticStop.operation.version});
-    assert.equal((await db.query<any>("SELECT count(*) count FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[id])).rows[0].count,0);
-    assert.equal((await db.query<any>("SELECT count(*) count FROM web_field_events WHERE operation_id=$1 AND actor='tech' AND action='stop' AND document->>'closedByReport'='true'",[id])).rows[0].count,1);
-
-
-    await assert.rejects(act('start_work'),/Relatório enviado/);
+    assert.equal((await db.query<any>("SELECT count(*) count FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[id])).rows[0].count,2);
+    assert.equal((await db.query<any>("SELECT count(*) count FROM web_field_events WHERE operation_id=$1 AND actor='tech' AND action='stop' AND document->>'closedByReport'='true'",[id])).rows[0].count,0);
+    await db.query("INSERT INTO web_field_material_checks(operation_id,actor) VALUES($1,'helper')",[id]);
+    await act('finish_full',{},'helper');
+    assert.equal((await fieldData('helper',id) as any).technicianClosed,true);
+    assert.equal((await db.query<any>("SELECT count(*)::int n FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[id])).rows[0].n,1);
+    const runningAfterSend=(await db.query<any>("SELECT id FROM web_field_sessions WHERE operation_id=$1 AND actor='tech' AND state<>'finished'",[id])).rows[0];
+    await act('stop',{sessionId:runningAfterSend.id});
+    await act('start_work');
+    const resumedAfterSend=(await db.query<any>("SELECT id FROM web_field_sessions WHERE operation_id=$1 AND actor='tech' AND state<>'finished'",[id])).rows[0];
+    await act('stop',{sessionId:resumedAfterSend.id});
     const sent:any=await fieldData('tech',id);
     assert.equal(sent.reportSubmission.by,'tech');
     assert.ok(sent.reportSubmission.at);
@@ -266,6 +272,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     assert.deepEqual(edited.operation.document.checklistRun.stages.s1.answers.photo,[String(photo.id)]);
 
     await assert.rejects(reopenReport(db,{...latest.operation,status:'reviewed'},'planner',true),/revisados/);
+    await db.query("DELETE FROM web_field_material_checks WHERE operation_id=$1 AND actor='helper'",[id]);
     let detail: any = await fieldData("helper", id);
     assert.equal(detail.operation.document.checklistRun, undefined);
     assert.deepEqual(detail.settings.document.checklists, []);
@@ -349,7 +356,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
       /causa/,
     );
     await act("pause", { sessionId: session.id, reasonId: "rest" });
-    await assert.rejects(act("finish_full"), /apontamentos/);
+    await assert.rejects(act("finish_full"), /envio completo/);
     await db.exec(
       "UPDATE web_field_sessions SET segment_at=now()-interval '15 minutes'",
     );
@@ -377,7 +384,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
       /menor/,
     );
     await act("stop", { sessionId: session.id, odometer: 1010 });
-    await assert.rejects(act("finish_full", {}, "helper"), /responsável/);
+    await assert.rejects(act("finish_full", {}, "helper"), /envio completo/);
     await assert.rejects(act("finish_partial"), /não está mais disponível/);
     await act("start_work");
     session = (
@@ -399,14 +406,26 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     const sentReport:any=await fieldData("tech",id);
     await assert.rejects(act("report_return",{version:sentReport.operation.version,reason:"Checklist incorreto",confirmDiscard:true}),/Após o envio/);
     assert.deepEqual(sentReport.finishPending, []);
+    await act("start_work");
     await act("finish_full");
+    const waitingTeam:any=await fieldData('tech',id);
+    assert.equal(waitingTeam.operation.status,'executing');
+    assert.equal(waitingTeam.technicianClosed,true);
+    assert.deepEqual(waitingTeam.pendingTechnicians,['helper']);
+    assert.ok(!(await fieldData('tech')).rows?.some((row:any)=>row.id===id));
+    assert.ok((await fieldData('helper')).rows?.some((row:any)=>row.id===id));
+    await assert.rejects(act('start_work'),/encerrada|revisão/);
+    await act('start_work',{},'helper');
+    await act('finish_full',{},'helper');
+    assert.equal((await fieldData('tech',id) as any).operation.status,'awaiting_review');
+    assert.ok(!(await fieldData('helper')).rows?.some((row:any)=>row.id===id));
     const beforeClosedMaterials=JSON.stringify((await fieldData('tech',id)).materials);
     await assert.rejects(act('materials',parts(0,1)),/Operação finalizada/);
     assert.equal(JSON.stringify((await fieldData('tech',id)).materials),beforeClosedMaterials);
     const visible = (await fieldData("tech")).rows || [];
     assert.ok(!visible.some((row: any) => row.id === id));
     assert.ok(visible.some((row: any) => row.id === other));
-    await assert.rejects(act("start_work"), /revisão/);
+    await assert.rejects(act("start_work"), /encerrada|revisão/);
     const { checklistPdf, ChecklistPdfPending } = await import('../lib/service-scheduling/checklist-pdf');
     await assert.rejects(checklistPdf(id, 'planner'), ChecklistPdfPending);
     await db.query("UPDATE web_service_operations SET status='reviewed' WHERE id=$1", [id]);
@@ -421,7 +440,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
 
     // Return a draft to planning without erasing time records or material allocations.
     await db.exec(`CREATE TABLE IF NOT EXISTS web_service_checklist_photos(id bigint,operation_id uuid);`);
-    await db.query("UPDATE web_service_operations SET status='executing',document=document||$2::jsonb WHERE id=$1",[id,JSON.stringify({checklistId:'wrong',checklistRun:{template:{name:'Wrong',stages:[{id:'s',name:'Etapa',fields:[{id:'f',label:'Campo',type:'text'}]}]},stages:{s:{status:'released',answers:{f:'discard'}}}}})]);
+    await db.query("UPDATE web_service_operations SET status='executing',document=document||$2::jsonb WHERE id=$1",[id,JSON.stringify({technicianClosures:{},checklistId:'wrong',checklistRun:{template:{name:'Wrong',stages:[{id:'s',name:'Etapa',fields:[{id:'f',label:'Campo',type:'text'}]}]},stages:{s:{status:'released',answers:{f:'discard'}}}}})]);
     const beforeReturn=(await db.query<any>('SELECT * FROM web_service_operations WHERE id=$1',[id])).rows[0];
     await assert.rejects(act('report_return',{version:beforeReturn.version,reason:'Checklist incorreto',confirmDiscard:true},'helper'),/responsável/);
     await assert.rejects(act('report_return',{version:beforeReturn.version,reason:'Checklist incorreto'}),/Confirme/);

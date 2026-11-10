@@ -19,7 +19,7 @@ export default function ScheduleTimeLogs({
   onChanged,
   onRefresh,
 }: any) {
-  const technicianCanChange=(operation:any)=>!data.technicianTimeReadOnly&&!technicianTimeChangesLocked(operation);
+  const technicianCanChange=(operation:any)=>!data.technicianTimeReadOnly&&!technicianTimeChangesLocked(operation,data.email);
   const editableOperations=technician?(data.operations||[]).filter(technicianCanChange):(data.operations||[]);
   const canManage=!technician&&data.canEditSettings===true;
   const [deleting,setDeleting]=useState<any>(null);

@@ -1197,3 +1197,5 @@
 .schedule-multi-filter-panel>button{justify-self:start;border:0;background:transparent;color:#2567a3;padding:5px 0;font:inherit;cursor:pointer}
 
 .operation-review-meter-warning { padding: 12px 14px; border: 1px solid #eed59d; border-radius: 8px; background: #fff8e6; color: #805600; }
+
+.operation-closure-progress {display:flex;flex-direction:column;gap:5px;min-width:200px;margin-top:8px;padding:10px;border:1px solid #e8c778;border-radius:8px;background:#fff8e6;color:#805410;white-space:normal;}

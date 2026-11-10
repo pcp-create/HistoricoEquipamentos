@@ -15,6 +15,7 @@ async function selectedMembers(c:any,operation:any,actor:string,selected:any,pla
  if(!Array.isArray(selected)||!selected.length||selected.length>50||selected.some(v=>typeof v!=="string")||new Set(selected).size!==selected.length)
   throw new TeamSessionError("Selecione os integrantes da equipe de apoio.");
  const support=operation.document.support || [];
+ if(!planner&&selected.some(email=>technicianTimeChangesLocked(operation,email)))throw new TeamSessionError("Um integrante já encerrou a operação e não pode receber novos apontamentos.");
  if(selected.some(email=>email===actor || (!planner&&!support.includes(email))))throw new Forbidden();
  const users=(await c.query("SELECT email FROM web_user_access WHERE email=ANY($1::text[]) AND enabled",[selected])).rows;
  if(users.length!==selected.length)throw new TeamSessionError("Selecione apenas integrantes ativos da equipe de apoio.");
@@ -76,7 +77,7 @@ export async function replicateTimeLog(body:any,email:string,planner=false) {
   if(!source)throw new Forbidden();
   if(source.state!=="finished")throw new TeamSessionError("Finalize o apontamento antes de replicar.");
   const operation=(await c.query("SELECT * FROM web_service_operations WHERE id=$1 FOR UPDATE",[source.operation_id])).rows[0];
-  if(!planner&&technicianTimeChangesLocked(operation))throw new TeamSessionError("Relatório enviado ou operação finalizada. Não é permitido replicar apontamentos.");
+  if(!planner&&technicianTimeChangesLocked(operation,email))throw new TeamSessionError("Relatório enviado ou operação finalizada. Não é permitido replicar apontamentos.");
   if(!planner&&operation.document.responsible!==email && !operation.document.support?.includes(email))throw new Forbidden();
   if((await c.query("SELECT 1 FROM web_field_time_requests WHERE session_id=$1 AND status='pending'",[source.id])).rows.length)throw new TeamSessionError("Aguarde a aprovação do ajuste antes de replicar.");
   const members=await selectedMembers(c,operation,source.actor,body.members,planner);

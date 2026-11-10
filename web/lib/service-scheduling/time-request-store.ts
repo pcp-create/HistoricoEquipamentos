@@ -287,7 +287,7 @@ export async function changeTimeRequest(b: any, email: string) {
       ])
     ).rows[0];
     if (!operation) throw new TimeRequestError("Operação não encontrada.");
-    if(!direct&&technicianTimeChangesLocked(operation))throw new TimeRequestError("Relatório enviado ou operação finalizada. Correções de apontamentos pelo técnico não estão mais disponíveis.");
+    if(!direct&&technicianTimeChangesLocked(operation,email))throw new TimeRequestError("Relatório enviado ou operação finalizada. Correções de apontamentos pelo técnico não estão mais disponíveis.");
     const legacy = b.legacyEventId
       ? (
           await c.query(

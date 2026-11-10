@@ -1,3 +1,4 @@
+import {pendingTechnicianClosures} from './execution-locks';
 import {equipmentSelectionLocked} from "./equipment-selection";
 import {cleanEmailBodyHtml} from './email-body-html';
 import {withMaterialMovements} from "./material-movements";
@@ -595,7 +596,7 @@ export async function mutateSchedule(b: any, email: string) {
           checked.document.equipment={...equipment,...(equipmentId===operation.document.equipmentId && operation.document.equipment?.label?{label:operation.document.equipment.label}:{})};
         }
         if(replacing)await c.query("DELETE FROM web_service_checklist_photos WHERE operation_id=$1",[operation.id]);
-        document = withRescheduling(operation, {...checked.document,...(operation.document.checklistReturn?{checklistReturn:operation.document.checklistReturn}:{})}, b.rescheduling, email);
+        document = withRescheduling(operation, {...checked.document,requireTechnicianClosure:operation.document.requireTechnicianClosure,technicianClosures:operation.document.technicianClosures,...(operation.document.checklistReturn?{checklistReturn:operation.document.checklistReturn}:{})}, b.rescheduling, email);
         ends = checked.ends_at;
       } catch (e) {
         throw new ScheduleInputError((e as Error).message);
@@ -633,8 +634,10 @@ export async function mutateSchedule(b: any, email: string) {
         }
       }
       if(operation.sent_at && (await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[operation.id])).rows.length)throw new ScheduleInputError("Finalize os apontamentos da equipe antes de enviar a operação.");
+      if(b.action=== "finish_full" && pendingTechnicianClosures(document).length)throw new ScheduleInputError("Aguarde o encerramento da operação por todos os técnicos.");
       status = b.action === "finish_full" ? "awaiting_review" : "executing";
     } else if (b.action === "review") {
+      if(pendingTechnicianClosures(document).length)throw new ScheduleInputError("Aguarde o encerramento da operação por todos os técnicos antes de revisar o relatório.");
       if (!admin) throw new Forbidden();
       if (status !== "awaiting_review")
         throw new ScheduleInputError("A operação ainda não aguarda revisão.");

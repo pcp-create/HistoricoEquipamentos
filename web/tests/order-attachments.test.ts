@@ -1,10 +1,16 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {PDFDocument} from 'pdf-lib';
 import {PGlite} from '@electric-sql/pglite';
 import {readFileSync} from 'node:fs';
-import {attachmentPayload,attachmentTarget,decodeAttachment,uploadOrderAttachment,listOrderAttachments,downloadOrderAttachment} from '../lib/service-orders/attachments';
+import {attachmentErpName,attachmentPayload,attachmentTarget,decodeAttachment,uploadOrderAttachment,listOrderAttachments,downloadOrderAttachment} from '../lib/service-orders/attachments';
 test('attachment contract uses nome/arquivo Base64 and validates target, size and filename',()=>{
  assert.deepEqual(attachmentPayload('relatório.pdf',Buffer.from('example')),{nome:'relatório.pdf',arquivo:'ZXhhbXBsZQ=='});
+ const long='Relatório técnico - '+ 'Equipamento '.repeat(11)+'.pdf';
+ const short=attachmentPayload(long,Buffer.from('example')).nome;
+ assert.ok(short.length<=100);assert.ok(short.endsWith('.pdf'));
+ assert.equal(short,attachmentErpName(long));
+ assert.notEqual(short,attachmentErpName(long.replace('técnico','resumido')));
  assert.throws(()=>attachmentPayload('../file.pdf',Buffer.from('a')),/Nome/);
  assert.throws(()=>attachmentPayload('a.pdf',Buffer.alloc(0)),/3 MB/);
  assert.throws(()=>attachmentPayload('a.pdf',Buffer.alloc(3*1024*1024+1)),/3 MB/);
@@ -16,7 +22,7 @@ test('attachment contract uses nome/arquivo Base64 and validates target, size an
 test('M8 attachment upload is company-scoped, deduplicated, audited and never retries uncertain POST',async()=>{
  const db=new PGlite(),g=globalThis as any,pool=g.historyPool,originalFetch=globalThis.fetch;
  const keys=['M8_API_URL','M8_TENANT','M8_USERNAME','M8_PASSWORD'],env=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
- let posts=0,mode='ok';const calls:{url:string;body:any}[]=[];
+ let posts=0,mode='ok',visible=true;const received=new Map<string,{name:string;arquivo:string}>();const calls:{url:string;body:any}[]=[];
  try{
   await db.exec('CREATE ROLE anon;CREATE ROLE authenticated;CREATE TABLE web_access_events(event text,email text,actor text,details jsonb);');
   await db.exec(readFileSync('sql/096_order_attachments.sql','utf8'));
@@ -28,10 +34,16 @@ test('M8 attachment upload is company-scoped, deduplicated, audited and never re
    if(init?.method==='POST'){
     posts++;if(mode==='uncertain')throw Error('connection lost');
     if(mode==='rejected')return Response.json({errors:[{message:'Arquivo recusado'}]},{status:400});
+    if(mode==='missing-id'){
+     received.set(String(200+posts),{name:body.nome,arquivo:body.arquivo});
+     return Response.json({data:{id:0}});
+    }
     return Response.json({data:{id:123}});
    }
+   const stored=received.get(url.split('/').at(-1)!);
+   if(stored)return Response.json({data:{tipo:'pdf',arquivo:stored.arquivo}});
    if(url.endsWith('/123'))return Response.json({data:{tipo:'pdf',arquivo:'ZXhhbXBsZQ=='}});
-   return Response.json({data:[{id:123,descricao:'relatório.pdf'}]});
+   return Response.json({data:[{id:123,descricao:'relatório.pdf'},...(visible?[...received].map(([id,file])=>({id:Number(id),descricao:file.name})):[])]});
   };
   const file=Buffer.from('example');
   assert.deepEqual(await uploadOrderAttachment('1','15128','relatório.pdf',file,'planner@test.com'),{id:'123'});
@@ -52,7 +64,44 @@ test('M8 attachment upload is company-scoped, deduplicated, audited and never re
   const uncertainPosts=posts;
   await assert.rejects(uploadOrderAttachment('1','15128','gerado-incerto.pdf',Buffer.from('different metadata'),'planner@test.com','snapshot-2'),/não repete/);
   assert.equal(posts,uncertainPosts);
-  mode='ok';
+  mode='missing-id';
+  const recovered=await uploadOrderAttachment('1','15128','confirmado.pdf',file,'planner@test.com');
+  assert.ok(Number(recovered.id)>200);
+  const afterRecovery=posts;
+  assert.equal((await uploadOrderAttachment('1','15128','confirmado.pdf',file,'planner@test.com')).alreadySent,true);
+  assert.equal(posts,afterRecovery);
+  visible=false;
+  await assert.rejects(uploadOrderAttachment('1','15128','atrasado.pdf',file,'planner@test.com'),/ainda não pôde ser conferido/);
+  const afterDelayed=posts;
+  visible=true;
+  assert.equal((await uploadOrderAttachment('1','15128','atrasado.pdf',file,'planner@test.com')).alreadySent,true);
+  assert.equal(posts,afterDelayed,'recovery must only GET, never repeat the POST');
+  visible=false;
+  await assert.rejects(uploadOrderAttachment('1','15128','diferente.pdf',file,'planner@test.com'));
+  const different=[...received.values()].find(row=>row.name==='diferente.pdf')!;
+  different.arquivo=Buffer.from('other bytes').toString('base64');visible=true;
+  const afterMismatch=posts;
+  await assert.rejects(uploadOrderAttachment('1','15128','diferente.pdf',file,'planner@test.com'),/não repete/);
+  assert.equal(posts,afterMismatch,'matching filename alone is insufficient');
+  assert.equal((await query<{state:string}>("SELECT state FROM web_order_attachment_uploads WHERE filename='diferente.pdf'")).rows[0].state,'uncertain');
+  const makePdf=async(date:string,text='Relatório original')=>{
+   const pdf=await PDFDocument.create();pdf.addPage().drawText(text);
+   pdf.setCreationDate(new Date(date));pdf.setModificationDate(new Date(date));
+   return Buffer.from(await pdf.save());
+  };
+  const pdfA=await makePdf('2026-01-01');
+  visible=false;
+  await assert.rejects(uploadOrderAttachment('1','15128','metadata.pdf',pdfA,'planner@test.com','same-report'));
+  const pdfB=await makePdf('2026-11-10');visible=true;
+  assert.notDeepEqual(pdfA,pdfB);
+  const afterPdf=posts;
+  assert.equal((await uploadOrderAttachment('1','15128','metadata.pdf',pdfB,'planner@test.com','same-report')).alreadySent,true);
+  assert.equal(posts,afterPdf);
+  visible=false;
+  await assert.rejects(uploadOrderAttachment('1','15128','content.pdf',pdfA,'planner@test.com','other-report'));
+  visible=true;
+  await assert.rejects(uploadOrderAttachment('1','15128','content.pdf',await makePdf('2026-11-10','Conteúdo alterado'),'planner@test.com','other-report'),/não repete/);
+  received.clear();mode='ok';
   assert.deepEqual(await listOrderAttachments('1','15128'),[{id:'123',name:'relatório.pdf'}]);
   assert.deepEqual((await downloadOrderAttachment('1','15128','123')).bytes,file);
  }finally{

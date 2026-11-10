@@ -1,4 +1,5 @@
 "use client";
+import OperationClosureProgress from "./operation-closure-progress";
 import {equipmentSelectionLocked} from "@/lib/service-scheduling/equipment-selection";
 import {changesDispatchedResponsible,responsibleChangeWarning} from "@/lib/service-scheduling/responsible-change";
 import ScheduleCustomerEmailSettings from "./schedule-customer-email-settings";
@@ -1128,6 +1129,7 @@ function OperationRow({
           <div className="operation-cell-value"><span className={"operation-status " + (o.display_status || o.status)}>
             {o.document.checklistReturn?"Devolvida para ajuste do checklist":statusNames[o.display_status || o.status]}
           </span></div>
+          <OperationClosureProgress operation={o} users={data.users}/>
         </td>
         <td><span className="operation-cell-value">{o.sent_at ? "Sim" : "Não"}</span>{o.document.checklistReturn&&<small>Motivo: {o.document.checklistReturn.reason}</small>}</td>
         <td>

@@ -54,7 +54,8 @@ test("customer fleet links existing equipment, handles failure and refreshes the
             equipment: {
               id: "42",
               name: "Compressor GA30",
-              integrationPending: false,
+              integrationPending: requests.length === 2,
+              integrationError: requests.length === 2 ? "O M8 respondeu HTTP 400. falhahttp_URL_http://erp.test/Pessoa/EquipamentosPessoaCadastroExterno" : null,
             },
           },
         });
@@ -90,6 +91,10 @@ test("customer fleet links existing equipment, handles failure and refreshes the
   await expect(dialog.getByRole("alert")).toHaveText(
     "Falha temporária no vínculo",
   );
+  await submit.click();
+  await expect(dialog.getByRole("alert")).toContainText("O vínculo foi salvo como pendência");
+  await expect(dialog.getByRole("alert")).toContainText("O M8 apresentou uma falha interna");
+  await expect(dialog).toBeVisible();
   await submit.click();
   await expect(dialog).toHaveCount(0);
   expect(requests[1]).toEqual({
