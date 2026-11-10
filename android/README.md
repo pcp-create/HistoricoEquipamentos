@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.17
+# Portal Técnico RJ — APK 2.2.18
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -290,3 +290,9 @@ Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/porta
 Os faróis dos grupos, etapas e cartão Relatório ficam vermelhos quando faltar foto ou comentário obrigatório de um item NOK, mesmo quando todas as respostas estiverem preenchidas. Alertas configurados também consideram seus comentários obrigatórios. A indicação usa a mesma validação do envio e volta ao estado de preenchimento normal quando a pendência é atendida. Fotos de outros campos não satisfazem a exigência do item. Mantém assinatura, identificador e dados da instalação anterior; instalar como atualização, sem desinstalar.
 
 Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.17
+
+## Versão 2.2.18 — reprocessamento de pendências
+
+O painel Sincronismo permite reprocessar individualmente um registro com falha, inclusive quando a tentativa automática o marcou como falha permanente. A tentativa preserva os dados, os identificadores e a validação de versão. Os dependentes são liberados somente após a confirmação do servidor; se o erro persistir, continuam protegidos e o motivo é atualizado. Registros cujo antecessor foi excluído continuam bloqueados para conferência. Mantém assinatura e identificador: instalar por cima da versão existente, sem desinstalar nem limpar dados.
+
+Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.18

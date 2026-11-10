@@ -52,3 +52,27 @@ test('work captured during an operation download wins over the older server snap
  assert.equal(records.get('tech:cache:/api/field').rows.find((row:any)=>row.id==='b').description,'Nova edição local');
  assert.ok(records.get('tech:queue').some((item:any)=>item.id==='fresh-edit'));
 });
+
+test('explicit retry releases dependents only after acknowledgement and preserves request data',async()=>{
+ const {context,records,message,sent}=fixture();await runInContext('sync()',context);
+ const before=structuredClone(records.get('tech:queue')[0]),originalFetch=context.fetch as any,resent:any[]=[];
+ assert.equal((await message({type:'FIELD_RETRY',id:'dependent'})).ok,false);
+ assert.equal((await message({type:'FIELD_STATUS'})).queue.find((q:any)=>q.id==='failed').canRetry,true);
+ context.fetch=async(url:string,options:any={})=>{
+  if(options.method){const body=JSON.parse(options.body);resent.push(body);sent.push(body.action);return Response.json({saved:true});}
+  return originalFetch(url,options);
+ };
+ assert.equal((await message({type:'FIELD_RETRY',id:'failed'})).ok,true);
+ assert.deepEqual(records.get('tech:queue'),[]);
+ assert.deepEqual(resent[0],before.body);
+ assert.deepEqual(sent,['report_save','info_read','report_save','report_save']);
+});
+test('retry that still fails preserves dependent data and version checks',async()=>{
+ const {context,records,message,sent}=fixture();await runInContext('sync()',context);
+ const before=structuredClone(records.get('tech:queue')[0].body);
+ assert.equal((await message({type:'FIELD_RETRY',id:'failed'})).ok,true);
+ assert.equal(sent.filter(v=>v==='report_save').length,2);
+ assert.deepEqual(records.get('tech:queue')[0].body,before);
+ assert.equal(records.get('tech:queue')[0].failedPermanent,true);
+ assert.equal(records.get('tech:queue').length,2);
+});

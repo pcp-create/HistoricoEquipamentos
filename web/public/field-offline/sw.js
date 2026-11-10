@@ -96,6 +96,22 @@ function queueBlockers(queue){
   for(const failed of queue.filter(item=>item.error||item.discardedDependency))for(const id of dependentIds(queue,failed.id))if(!blocked.has(id))blocked.set(id,'Depende de um registro com falha. Os registros independentes continuam sincronizando.');
   return blocked;
 }
+async function retryPending(id){
+  if(flushing)throw Error('Aguarde a sincronização terminar antes de reprocessar.');
+  await exclusive(async()=>{
+    if(flushing)throw Error('Aguarde a sincronização terminar antes de reprocessar.');
+    const owner=await read('owner');if(!owner)throw Error('Entre no portal primeiro.');
+    const queue=(await read(owner+':queue'))||[],item=queue.find(value=>value.id===id);
+    if(!item)throw Error('Registro não encontrado na fila.');
+    if(item.discardedDependency||queueBlockers(queue).has(id))throw Error('Reprocesse primeiro o registro anterior que está com falha.');
+    if(!item.error)throw Error('Selecione um registro com falha.');
+    // Preserve request IDs and versions: a retry must remain idempotent and respect conflicts.
+    delete item.failedPermanent;delete item.error;item.retryable=true;
+    await write([[owner+':queue',queue]]);
+  });
+  await notify();
+  await sync();
+}
 async function discardPending(id,includeDependents=false){
   if(flushing)throw Error('Aguarde a sincronização terminar antes de excluir.');
   await exclusive(async()=>{
@@ -131,6 +147,7 @@ async function status() {
       error: q.error,
       blockedReason:q.discardedDependency?q.error:blockers.get(q.id),
       dependents:dependentIds(queue,q.id).size,
+      canRetry:!!q.error&&!q.discardedDependency&&!blockers.has(q.id),
     })),
     lastSync: owner ? await read(owner + ":lastSync") : null,
     prepared: owner ? await read(owner + ":prepared") : null,
@@ -777,6 +794,7 @@ self.addEventListener("message", (event) => {
           await sync();
           await prepare();
         }
+        if(type==='FIELD_RETRY'){await retryPending(event.data.id);}
         if(type==='FIELD_DISCARD'){await discardPending(event.data.id,event.data.includeDependents===true);}
         if (type === "FIELD_SYNC") await sync();
         if (type === "FIELD_EXPORT") {

@@ -16,6 +16,7 @@ type SyncState = {
     error?: string;
     blockedReason?:string;
     dependents?:number;
+    canRetry?:boolean;
   }[];
   prepared?: string;
   discarded?:number;
@@ -361,7 +362,7 @@ export default function FieldOffline({
                   <small>
                     {item.operationLabel} · {date(item.at)}
                   </small>
-                  {(item.error||item.blockedReason)&&<><p role="alert">{item.error||item.blockedReason}</p><button type="button" className="field-sync-discard" disabled={busy||status.syncing} onClick={()=>{setDiscarding(item);setDiscardDependents(false);}}><Trash2 size={15}/>Excluir pendência</button></>}
+                  {(item.error||item.blockedReason)&&<><p role="alert">{item.error||item.blockedReason}</p>{item.canRetry&&<button type="button" disabled={busy||status.syncing} onClick={async()=>{setBusy(true);setError('');try{const result=await offlineMessage('FIELD_RETRY',{id:item.id});if(!result.ok)throw Error(result.error);onSynced();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}><RefreshCw size={15}/>Reprocessar este registro</button>}<button type="button" className="field-sync-discard" disabled={busy||status.syncing} onClick={()=>{setDiscarding(item);setDiscardDependents(false);}}><Trash2 size={15}/>Excluir pendência</button></>}
                 </li>
               ))}
             </ul>
