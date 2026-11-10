@@ -1,7 +1,11 @@
 import 'server-only';
+import {operationMeterEquipment} from './meter-equipment';
 import {requireReportActivity} from './report-activity';
 import {isChecklistEquipmentLinked} from './checklist-equipment';
 import {validateAlertComments,reportSubmission,stagesOf,validateAnswers,validateFieldDetails} from './checklists';
+function validateMeterDate(value:unknown): asserts value is string {
+ if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value).toISOString().slice(0,10)!==value||value>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}))throw Error('Informe uma data válida para a leitura, sem data futura.');
+}
 export async function updateChecklist(c:any,b:any,operation:any,schedule:any,settings:any,email:string,admin:boolean,options:{returning?:boolean;submittingReport?:boolean}={}){
  const reviewing=b.action==='checklist_review_save';
  if(reviewing&&(!admin||operation.status!=='awaiting_review'))throw Error('Somente o planejador pode corrigir o checklist enquanto aguarda revisão.');
@@ -39,13 +43,14 @@ export async function updateChecklist(c:any,b:any,operation:any,schedule:any,set
     if(found.length!==ids.length)throw Error('Foto não pertence a este campo da operação.');}
   }
   const meter=stage.fields.find(f=>f.type==='meter');
-  if(meter&&answers[meter.id]!=null){
-   if(typeof b.equipmentId!=='string'||!/^\d{1,18}$/.test(b.equipmentId))throw Error('Selecione o equipamento vinculado à OS.');
-   if(typeof b.meterDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(b.meterDate)||!Number.isFinite(Date.parse(b.meterDate))||new Date(b.meterDate).toISOString().slice(0,10)!==b.meterDate||b.meterDate>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}))throw Error('Informe uma data válida para a leitura, sem data futura.');
-   if(run.equipmentId&&run.equipmentId!==b.equipmentId)throw Error('O equipamento desta leitura já foi definido.');
-   const linked=await isChecklistEquipmentLinked(c,b.equipmentId,schedule.company_id,schedule.order_id,operation.document.equipmentId);
+  if(meter&&answers[meter.id]!=null&&operationMeterEquipment(operation.document)){
+   const equipmentId=b.equipmentId||run.equipmentId||operationMeterEquipment(operation.document);
+   if(typeof equipmentId!=='string'||!/^\d{1,18}$/.test(equipmentId))throw Error('Selecione o equipamento vinculado à OS.');
+   validateMeterDate(b.meterDate);
+   if(run.equipmentId&&run.equipmentId!==equipmentId)throw Error('O equipamento desta leitura já foi definido.');
+   const linked=await isChecklistEquipmentLinked(c,equipmentId,schedule.company_id,schedule.order_id,operation.document.equipmentId);
    if(!linked)throw Error('O equipamento selecionado não está vinculado à OS.');
-   run.equipmentId=b.equipmentId;run.meterDate=b.meterDate;
+   run.equipmentId=equipmentId;run.meterDate=b.meterDate;
   }
   run.stages[stage.id]={...previous,answers,details,status:b.action==='checklist_submit'||reviewing?'submitted':'released',updatedBy:email,updatedAt:new Date().toISOString(),...(b.action==='checklist_submit'?{submittedBy:email,submittedAt:new Date().toISOString()}:{})};
  }else throw Error('Ação de checklist inválida.');
@@ -60,13 +65,17 @@ export async function updateChecklist(c:any,b:any,operation:any,schedule:any,set
 }
 
 // Individual stage submission is hidden in the pilot; full submission validates saved drafts.
-export function prepareChecklistSubmission(run:any,email:string){
+export function prepareChecklistSubmission(run:any,email:string,operationDocument?:any){
  if(!run)throw Error('Preencha e salve o checklist antes do envio completo.');
  const next=structuredClone(run);
  for(const stage of stagesOf(next.template)){
   const saved=next.stages[stage.id];
   if(!saved||saved.status==='pending')throw Error(`Preencha e salve a etapa ${stage.name} antes do envio completo.`);
   validateAnswers(stage,saved.answers,true);
+  if((operationDocument===undefined||operationMeterEquipment(operationDocument))&&stage.fields.some(field=>field.type==='meter'&&saved.answers[field.id]!=null)){
+   if(!/^\d{1,18}$/.test(next.equipmentId||''))throw Error('Selecione o equipamento vinculado à OS e informe a data da leitura antes de enviar o relatório.');
+   validateMeterDate(next.meterDate);
+  }
   validateFieldDetails(stage,saved.details||{});
   validateAlertComments(stage,saved.answers,saved.details);
   next.stages[stage.id]={...saved,status:'submitted',submittedBy:saved.submittedBy||email,submittedAt:saved.submittedAt||new Date().toISOString()};

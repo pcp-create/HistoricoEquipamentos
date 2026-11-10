@@ -1,4 +1,5 @@
 "use client";
+import {operationMeterEquipment,unlinkedMeterMessage} from "@/lib/service-scheduling/meter-equipment";
 import {useChecklistDraft} from './use-checklist-draft';
 import {reportDraftKey,reportDraftSignature} from '@/lib/service-scheduling/report-draft';
 import {uploadReportPhoto} from "@/lib/upload-report-photo";
@@ -83,7 +84,8 @@ function Stage({draftContext,stageAccordionName,stage,operation,data,mutate,lock
  const run=operation.document.checklistRun,saved=run?.stages[stage.id]||{status:'pending',answers:{}};
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
  const equipment=data.detail?.equipment_links||[];
- const savedEquipment=String(run?.equipmentId||operation.document.equipmentId||(!operation.document.equipmentUnassigned&&equipment.length===1?equipment[0].equipment_id:''));
+ const collectsMeter=!!operationMeterEquipment(operation.document);
+ const savedEquipment=collectsMeter?String(run?.equipmentId||operationMeterEquipment(operation.document)):'';
  const savedMeterDate=run?.meterDate||new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
  const draft=useChecklistDraft(data.email?reportDraftKey(data.email,operation.id,stage.id):'',draftContext,{answers:saved.answers||{},details:saved.details||{},equipmentId:savedEquipment,meterDate:savedMeterDate},!readOnly&&canWork&&saved.status==='released'&&!['completed','reviewed','awaiting_review'].includes(operation.status));
  const {answers,details,equipmentId,meterDate}=draft.value;
@@ -98,7 +100,7 @@ function Stage({draftContext,stageAccordionName,stage,operation,data,mutate,lock
  const edited=draft.changed;
  let complete=saved.status!=='pending';
  try{validateAnswers(stage,answers,true);validateFieldDetails(stage,details);validateAlertComments(stage,answers,details);
- if(groupsOf(stage).some(group=>group.fields.some(field=>field.type==='meter'&&answers[field.id]!=null))&&(!equipmentId||!meterDate))complete=false;
+ if(groupsOf(stage).some(group=>group.fields.some(field=>field.type==='meter'&&answers[field.id]!=null))&&collectsMeter&&(!equipmentId||!meterDate))complete=false;
  }catch{complete=false;}
  useEffect(()=>{onCompleteChange(stage.id,complete);},[stage.id,complete]);
  useEffect(()=>{onPendingChange(stage.id,saved.status==='released'&&edited);},[stage.id,edited,saved.status]);
@@ -134,7 +136,8 @@ function Stage({draftContext,stageAccordionName,stage,operation,data,mutate,lock
  f.type==='photo'?<><span className="checklist-field-title">{fieldLabel}</span>{photos(f)}</>:
  isStatusField(f.type)?<div className="checklist-status-field"><span className="checklist-field-title">{fieldLabel}</span><div className="checklist-status-options" role="radiogroup" aria-label={label}>{fieldOptions(f).map(option=><label key={option} className={'checklist-status-option'+(v===option?' selected':'')+(v===option&&requiresAlertComment(f,option)?' status-alert-selected':'')}><input type="radio" name={operation.id+':'+stage.id+':'+f.id} value={option} checked={v===option} disabled={disabled} onChange={()=>answer(f.id,option)}/><span>{option}</span></label>)}</div></div>:
  <label className="checklist-answer">{fieldLabel}{f.type==='select'?<select value={v} onChange={e=>answer(f.id,e.target.value)}><option value="">Selecione</option>{fieldOptions(f).map(x=><option key={x} value={x}>{x}</option>)}</select>:<input type={f.type==='number'||f.type==='meter'?'number':f.type==='date'||f.type==='time'?f.type:'text'} min={f.type==='meter'?0:undefined} step={f.type==='number'||f.type==='meter'?'any':undefined} value={v} onChange={e=>answer(f.id,(f.type==='number'||f.type==='meter')&&e.target.value!==''?Number(e.target.value):e.target.value)}/>}</label>}
- {f.type==='meter'&&<>
+ {f.type==='meter'&&!collectsMeter&&<small className="checklist-meter-note">{unlinkedMeterMessage}</small>}
+ {f.type==='meter'&&collectsMeter&&<>
  <EquipmentMeterReference equipmentId={equipmentId}/>
  <small className="checklist-meter-note">{equipmentId
   ? 'A leitura de horímetro será atualizada ao equipamento '+equipmentDescription+'.'

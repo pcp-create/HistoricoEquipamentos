@@ -39,7 +39,7 @@ test('stages freeze templates, restrict technicians, validate photos and update 
    INSERT INTO web_user_access(email,display_name,job_title,role,updated_by) VALUES('tech','Técnico','Técnico','user','test'),('outsider','Outro','Técnico','user','test');`);
   await db.exec(readFileSync(new URL('../sql/007_equipment_preventive.sql',import.meta.url),'utf8'));
   const schedule=(await db.query<any>("INSERT INTO web_service_schedules(company_id,order_id,created_by) VALUES(1,100,'admin') RETURNING *")).rows[0];
-  let op=(await db.query<any>("INSERT INTO web_service_operations(id,schedule_id,position,document,updated_by) VALUES($1,$2,1,$3,'admin') RETURNING *",[randomUUID(),schedule.id,JSON.stringify({responsible:'tech',support:[],checklistId:'ccp'})])).rows[0];
+  let op=(await db.query<any>("INSERT INTO web_service_operations(id,schedule_id,position,document,updated_by) VALUES($1,$2,1,$3,'admin') RETURNING *",[randomUUID(),schedule.id,JSON.stringify({responsible:'tech',support:[],equipmentId:'7',checklistId:'ccp'})])).rows[0];
   const config={checklists:[structuredClone(ccp)]};const stage=ccp.stages[0];
   async function act(action:string,extra:any={},email='tech',admin=false){
    await db.exec('BEGIN');try{const result=await updateChecklist(db,{action,stageId:stage.id,...extra},op,schedule,config,email,admin);await db.exec('COMMIT');op=result;return result;}catch(e){await db.exec('ROLLBACK');throw e;}
@@ -85,7 +85,7 @@ test('groups, configurable photo limits, signatures and report visibility preser
  const template=validateChecklists([{id:'t',name:'Teste',items:[],stages:[stage]}])[0];
  assert.equal(stagesOf(template)[0].fields.length,3);
  assert.throws(()=>validateAnswers(stage,{f1:'OK',f3:['1','2']},true),/Anexos/);
- assert.throws(()=>validateFieldDetails(stage,{f1:{photos:['1','2','3']}}),/Limite/);
+ assert.throws(()=>validateFieldDetails(stage,{f1:{photos:['1','2','3','4','5','6']}}),/Limite/);
  assert.throws(()=>validateFieldDetails(stage,{f2:{comment:'Não permitido'}}),/não permitido/);
  const details=validateFieldDetails(stage,{f1:{photos:['1','2'],comment:'Comentário público',internalNote:'Segredo interno'}});
  const run={template,stages:{s1:{status:'submitted',answers:{f1:'OK',f2:'Resposta oculta',f3:['3']},details}}};
@@ -146,7 +146,7 @@ test('review applies meter and mapped preventive atomically, creates once, prese
    CREATE TABLE web_user_access(email text,display_name text);`);
   await db.exec(readFileSync(new URL('../sql/007_equipment_preventive.sql',import.meta.url),'utf8'));
   const stage={id:'meter',name:'Leitura',fields:[{id:'hours',label:'Horímetro',type:'meter',required:true}]};
-  let op:any={id:randomUUID(),position:1,document:{checklistRun:{template:{id:'test',name:'Teste',m8Identifier:'Preventiva 2000',items:[],stages:[stage]},equipmentId:'7',meterDate:'2026-09-27',stages:{meter:{status:'submitted',answers:{hours:2000}}}}}};
+  let op:any={id:randomUUID(),position:1,document:{equipmentId:'7',checklistRun:{template:{id:'test',name:'Teste',m8Identifier:'Preventiva 2000',items:[],stages:[stage]},equipmentId:'7',meterDate:'2026-09-27',stages:{meter:{status:'submitted',answers:{hours:2000}}}}}};
   const schedule={company_id:1,order_id:100};const settings={preventiveTypes:[{m8Identifier:'Preventiva 2000',hours:2000,months:6}]};
   async function review(operation=op,config:any=settings){await db.exec('BEGIN');try{const doc=await reviewChecklist(db,operation,schedule,config,'admin');await db.exec('COMMIT');return doc;}catch(e){await db.exec('ROLLBACK');throw e;}}
   const incomplete=structuredClone(op);incomplete.document.checklistRun.stages.meter.status='released';await assert.rejects(review(incomplete),/Devolva/);
@@ -190,7 +190,8 @@ test('planner corrections retain submission and review status, enforce required 
   const template={id:'check',name:'Teste',stages:[{id:'s',name:'Inspeção',fields:[{id:'f',label:'Condição',type:'flag',required:true,options:['OK','NOK','NA']}]}]};
   const submission={at:'2026-09-30T10:00:00Z',by:'tech'};
   let op=(await db.query<any>("INSERT INTO web_service_operations(id,schedule_id,position,document,status,updated_by) VALUES($1,$2,1,$3,'awaiting_review','tech') RETURNING *",[randomUUID(),schedule.id,JSON.stringify({responsible:'tech',support:[],checklistId:'check',checklistRun:{template,submission,stages:{s:{status:'submitted',answers:{f:'OK'}}}}})])).rows[0];
-  const payload={action:'checklist_review_save',stageId:'s',answers:{f:'NOK'}};
+  await db.query("INSERT INTO web_service_checklist_photos(id,operation_id,stage_id,field_id,filename,mime,content,created_by) OVERRIDING SYSTEM VALUE VALUES(11,$1,'s','f','test.jpg','image/jpeg',decode('ff','hex'),'tech')",[op.id]);
+  const payload={action:'checklist_review_save',stageId:'s',answers:{f:'NOK'},details:{f:{comment:'Substituir conexão danificada',photos:['11']}}};
   await assert.rejects(updateChecklist(db,payload,op,schedule,{},'tech',false),/planejador/);
   await assert.rejects(updateChecklist(db,{...payload,answers:{}},op,schedule,{},'admin',true),/Condição/);
   const saved=await updateChecklist(db,payload,op,schedule,{},'admin',true);

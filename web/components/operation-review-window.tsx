@@ -1,4 +1,5 @@
 "use client";
+import {unlinkedMeterWarning} from "@/lib/service-scheduling/meter-equipment";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, FileDown, CheckCheck, FileOutput } from "lucide-react";
@@ -21,6 +22,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
   const close=()=>{if(!(reportDirty||alertTaskDirty)||window.confirm("Descartar as correções não salvas e fechar a revisão?")){onReportDirty?.(false);onClose();}};
   const [alertTasks,setAlertTasks]=useState<AlertTaskDraft[]>([]);
   useEffect(()=>{if(o.status!=='awaiting_review')setAlertTasks([]);},[o.status]);
+  const meterWarning=unlinkedMeterWarning(o.document);
   const alerts=checklistAlerts(o.document.checklistRun);
   const pendingAlerts=pendingChecklistAlerts(o.document,alerts);
   const alertTaskDirty=o.status==='awaiting_review'&&alertTasks.length>0;
@@ -56,9 +58,10 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
       e.preventDefault(); setTab(keys[next]);
       document.getElementById(`${tabsId}-${keys[next]}`)?.focus();
     }}>
-      {[["report", "Relatório"], ["alerts", `Alertas (${alerts.length})`], ["parts", "Peças"], ["logs", "Apontamentos"], ["history", "Histórico"]].map(([key, label]) => <button key={key} type="button" className={key==="alerts"&&alerts.length>0?"review-tab-alerts":undefined} role="tab" id={`${tabsId}-${key}`} aria-selected={tab === key} aria-controls={`${tabsId}-panel`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}>{label}</button>)}
+      {[["report", "Relatório"], ["alerts", `Alertas (${alerts.length+(meterWarning?1:0)})`], ["parts", "Peças"], ["logs", "Apontamentos"], ["history", "Histórico"]].map(([key, label]) => <button key={key} type="button" className={key==="alerts"&&(alerts.length>0||!!meterWarning)?"review-tab-alerts":undefined} role="tab" id={`${tabsId}-${key}`} aria-selected={tab === key} aria-controls={`${tabsId}-panel`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}>{label}</button>)}
     </nav>
     <div className="operation-review-content" role="tabpanel" id={`${tabsId}-panel`} aria-labelledby={`${tabsId}-${tab}`} tabIndex={0}>
+      {meterWarning&&<p className="operation-review-meter-warning" role="alert">{meterWarning}</p>}
       {dirty && <p role="alert">Há alterações não salvas na programação. Feche esta janela e salve a operação antes de revisar.</p>}
       {error && <p className="operation-review-error" role="alert">{error}</p>}
       {tab==='alerts'&&<ChecklistAlertReview alerts={alerts} document={o.document} editable={data.canEditSettings&&o.status==='awaiting_review'} busy={busy||reportDirty||dirty} users={data.users||[]} value={o.status==='awaiting_review'?alertTasks:[]} onChange={setAlertTasks}/>}

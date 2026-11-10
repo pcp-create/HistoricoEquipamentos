@@ -1195,3 +1195,5 @@
 .schedule-multi-filter-panel label>input[type=checkbox]{appearance:auto;flex:0 0 16px;width:16px;height:16px;min-height:0;margin:0;padding:0;accent-color:#2567a3}
 .schedule-multi-filter-panel label>span{flex:1;overflow-wrap:anywhere}
 .schedule-multi-filter-panel>button{justify-self:start;border:0;background:transparent;color:#2567a3;padding:5px 0;font:inherit;cursor:pointer}
+
+.operation-review-meter-warning { padding: 12px 14px; border: 1px solid #eed59d; border-radius: 8px; background: #fff8e6; color: #805600; }

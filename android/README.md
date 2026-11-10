@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.18
+# Portal Técnico RJ — APK 2.2.19
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -296,3 +296,11 @@ Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/porta
 O painel Sincronismo permite reprocessar individualmente um registro com falha, inclusive quando a tentativa automática o marcou como falha permanente. A tentativa preserva os dados, os identificadores e a validação de versão. Os dependentes são liberados somente após a confirmação do servidor; se o erro persistir, continuam protegidos e o motivo é atualizado. Registros cujo antecessor foi excluído continuam bloqueados para conferência. Mantém assinatura e identificador: instalar por cima da versão existente, sem desinstalar nem limpar dados.
 
 Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.18
+
+## Versão 2.2.19 — recuperação do sincronismo e horímetro sem equipamento
+
+O reprocessamento individual aguarda uma sincronização automática em andamento, sem rejeitar o clique. Falhas temporárias antigas são tentadas novamente. Apontamentos respeitam a sequência do técnico entre operações e fotos aguardam o início da atividade correspondente. Uma falha na consulta de conexão não substitui o motivo de erro do registro.
+
+Sem equipamento explicitamente vinculado à operação, o horímetro permanece somente no relatório: não gera coleta nem atualiza equipamento ou preventiva. Essa condição aparece como alerta na revisão e é registrada no histórico da revisão. As demais validações obrigatórias continuam valendo. Instalar como atualização, sem desinstalar ou limpar dados.
+
+Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.19

@@ -1,4 +1,5 @@
 "use client";
+import {operationMeterEquipment} from "@/lib/service-scheduling/meter-equipment";
 import {Save} from "lucide-react";
 import ReportWritingReview from "./report-writing-review";
 import {WritingSuggestion} from "@/lib/service-scheduling/review-writing";
@@ -49,7 +50,7 @@ export default function ChecklistReviewReport({ operation, data, busy=false, dis
           const definition=stagesOf(run.template).find(s=>s.id===stage.id)?.fields.find(f=>f.id===field.id);
           return <div key={field.id} className={`review-report-row ${aiFields.some(s=>s.stageId===stage.id&&s.fieldId===field.id)?"review-report-ai-field":""}`}>
           <dt>{field.label}{aiFields.some(s=>s.stageId===stage.id&&s.fieldId===field.id)&&<small className="report-writing-tag">Revisão de escrita · IA</small>}</dt>
-          <dd>{editable&&definition?<ReviewChecklistField field={definition} value={run.stages[stage.id]?.answers?.[field.id]} details={run.stages[stage.id]?.details?.[field.id]||{}} disabled={busy||disabled} operationId={operation.id} stageId={stage.id} meterDate={run.meterDate} equipmentId={run.equipmentId||operation.document.equipmentId} onUploading={uploading} onValue={(v:any)=>change(stage.id,field.id,'value',v)} onDetail={(key:string,v:any)=>change(stage.id,field.id,key,v)} onMeterDate={(v:string)=>change(stage.id,field.id,'meterDate',v)}/>:<>
+          <dd>{editable&&definition?<ReviewChecklistField field={definition} value={run.stages[stage.id]?.answers?.[field.id]} details={run.stages[stage.id]?.details?.[field.id]||{}} disabled={busy||disabled} operationId={operation.id} stageId={stage.id} meterDate={run.meterDate} equipmentId={operationMeterEquipment(operation.document)?run.equipmentId||operationMeterEquipment(operation.document):undefined} onUploading={uploading} onValue={(v:any)=>change(stage.id,field.id,'value',v)} onDetail={(key:string,v:any)=>change(stage.id,field.id,key,v)} onMeterDate={(v:string)=>change(stage.id,field.id,'meterDate',v)}/>:<>
             {field.options?<ReviewFlags label={field.label} options={field.options} alertOptions={field.alertOptions} value={field.value}/>:<span>{reportFieldValue(field)}</span>}
             {field.comment && <p className="review-report-comment"><strong>Comentário:</strong> {field.comment}</p>}
             {field.photos.length > 0 && <div className="review-report-photos">{field.photos.map((id: string, index: number) => <a key={`${id}-${index}`} href={`/api/service-scheduling/photos/${encodeURIComponent(id)}`} target="_blank" rel="noreferrer" aria-label={`Abrir ${field.type === "signature" ? "assinatura" : "foto"} de ${field.label}`}><img src={`/api/service-scheduling/photos/${encodeURIComponent(id)}`} alt={`${field.label} — ${index + 1}`} loading="lazy"/></a>)}</div>}

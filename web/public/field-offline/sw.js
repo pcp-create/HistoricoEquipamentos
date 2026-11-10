@@ -82,33 +82,67 @@ function replaceIds(value, mapping) {
     );
   return value;
 }
-function references(value,ids){
-  if(typeof value==='string')return [...ids].some(id=>value==='local-'+id);
-  return value&&typeof value==='object'&&Object.values(value).some(v=>references(v,ids));
+function localReferences(value,ids=new Set()){
+  if(typeof value==='string'&&value.startsWith('local-'))ids.add(value.slice(6));
+  else if(value&&typeof value==='object')for(const nested of Object.values(value))localReferences(nested,ids);
+  return ids;
 }
-function dependentIds(queue,id){
+const timerActions = new Set(['start_work','start_travel','pause','resume','stop']);
+const isTimer = item => item.type==='action'&&timerActions.has(item.body?.action);
+// Timers belong to the technician, not just one OS. Legacy queues did not record
+// cross-operation dependencies or the work session required by queued photos.
+function queueDependencies(queue){
+  const result=new Map(),activations=new Map();let previousTimer;
+  const pending=new Set(queue.map(item=>item.id));
+  for(const item of queue){
+    const dependencies=new Set();
+    const previous=item.body?.offline?.previousRequestId;
+    if(pending.has(previous))dependencies.add(previous);
+    for(const id of localReferences(item.body))if(id!==item.id&&pending.has(id))dependencies.add(id);
+    if(isTimer(item)){
+      if(previousTimer)dependencies.add(previousTimer);
+      previousTimer=item.id;
+      if(['start_work','resume'].includes(item.body.action))activations.set(item.operationId,item.id);
+    }
+    if(item.type==='photo'&&activations.has(item.operationId))dependencies.add(activations.get(item.operationId));
+    result.set(item.id,dependencies);
+  }
+  return result;
+}
+function dependentIds(queue,id,dependencies=queueDependencies(queue)){
   const ids=new Set([id]);let changed=true;
-  while(changed){changed=false;for(const item of queue)if(!ids.has(item.id)&&(ids.has(item.body?.offline?.previousRequestId)||references(item.body,ids))){ids.add(item.id);changed=true;}}
+  while(changed){changed=false;for(const item of queue)if(!ids.has(item.id)&&[...dependencies.get(item.id)].some(previous=>ids.has(previous))){ids.add(item.id);changed=true;}}
   ids.delete(id);return ids;
 }
-function queueBlockers(queue){
+function queueBlockers(queue,dependencies=queueDependencies(queue)){
   const blocked=new Map();
-  for(const failed of queue.filter(item=>item.error||item.discardedDependency))for(const id of dependentIds(queue,failed.id))if(!blocked.has(id))blocked.set(id,'Depende de um registro com falha. Os registros independentes continuam sincronizando.');
+  for(const failed of queue.filter(item=>item.error||item.discardedDependency))for(const id of dependentIds(queue,failed.id,dependencies))if(!blocked.has(id))blocked.set(id,'Depende de um registro com falha. Os registros independentes continuam sincronizando.');
   return blocked;
 }
+function recoverableFailure(item){
+  return item.retryable===true
+    || (isTimer(item)&&item.error==='Finalize o apontamento em andamento antes de iniciar outro.')
+    || (['photo','action'].includes(item.type)&&item.error==='Inicie ou retome a atividade desta operação para preencher o relatório técnico.');
+}
 async function retryPending(id){
-  if(flushing)throw Error('Aguarde a sincronização terminar antes de reprocessar.');
-  await exclusive(async()=>{
-    if(flushing)throw Error('Aguarde a sincronização terminar antes de reprocessar.');
-    const owner=await read('owner');if(!owner)throw Error('Entre no portal primeiro.');
-    const queue=(await read(owner+':queue'))||[],item=queue.find(value=>value.id===id);
-    if(!item)throw Error('Registro não encontrado na fila.');
-    if(item.discardedDependency||queueBlockers(queue).has(id))throw Error('Reprocesse primeiro o registro anterior que está com falha.');
-    if(!item.error)throw Error('Selecione um registro com falha.');
-    // Preserve request IDs and versions: a retry must remain idempotent and respect conflicts.
-    delete item.failedPermanent;delete item.error;item.retryable=true;
-    await write([[owner+':queue',queue]]);
-  });
+  const owner=await read('owner');if(!owner)throw Error('Entre no portal primeiro.');
+  // An automatic flush can start after the panel enabled the button. Wait for it
+  // instead of rejecting the user's retry; recheck under the queue lock.
+  let prepared=false;
+  while(!prepared){
+    if(flushing)await flushing.catch(()=>{});
+    prepared=await exclusive(async()=>{
+      if(flushing)return false;
+      if((await read('owner'))!==owner)throw Error('Conta alterada. Entre com a conta das pendências.');
+      const queue=(await read(owner+':queue'))||[],item=queue.find(value=>value.id===id);
+      if(!item)return true; // The automatic flush already acknowledged this item.
+      if(item.discardedDependency||queueBlockers(queue).has(id))throw Error('Reprocesse primeiro o registro anterior que está com falha.');
+      if(!item.error)throw Error('Selecione um registro com falha.');
+      // Preserve request IDs, original data and version checks.
+      delete item.failedPermanent;delete item.error;item.retryable=true;
+      await write([[owner+':queue',queue]]);return true;
+    });
+  }
   await notify();
   await sync();
 }
@@ -130,7 +164,7 @@ async function discardPending(id,includeDependents=false){
 async function status() {
   const owner = await read("owner"),
     queue = owner ? ((self.nativeStorage?.readMetadata ? await self.nativeStorage.readMetadata(owner + ":queue") : await read(owner + ":queue")) || []) : [];
-  const blockers=queueBlockers(queue);
+  const dependencies=queueDependencies(queue),blockers=queueBlockers(queue,dependencies);
   return {
     owner,
     syncing: !!flushing,
@@ -146,7 +180,7 @@ async function status() {
       at: q.at,
       error: q.error,
       blockedReason:q.discardedDependency?q.error:blockers.get(q.id),
-      dependents:dependentIds(queue,q.id).size,
+      dependents:dependentIds(queue,q.id,dependencies).size,
       canRetry:!!q.error&&!q.discardedDependency&&!blockers.has(q.id),
     })),
     lastSync: owner ? await read(owner + ":lastSync") : null,
@@ -444,9 +478,11 @@ async function flush() {
       if (value && typeof value === "object") return Object.values(value).some(unresolved);
       return false;
     }
+    const dependencies=queueDependencies(queue);
     return queue.find(item => !attempted.has(item.id)
       && !item.discardedDependency
-      && !item.failedPermanent
+      && (!item.failedPermanent||recoverableFailure(item))
+      && dependencies.get(item.id).size===0
       && !pendingIds.has(item.body?.offline?.previousRequestId)
       && !unresolved(item.body)
       && !(failedTimers.has(item.body?.offline?.timerChainId||item.operationId) && timer(item))
@@ -611,11 +647,13 @@ async function flush() {
     if (networkError) await write([["connected", false]]);
     await exclusive(async () => {
       const queue = (await read(owner + ":queue")) || [];
-      if (queue.length) {
-        (queue.find(item=>item.id===syncingId)||queue[0]).error = networkError
+      const pending=queue.find(item=>item.id===syncingId);
+      if (pending) {
+        pending.error = networkError
           ? "Sem conexão. O envio será retomado automaticamente."
           : e.message;
-        (queue.find(item=>item.id===syncingId)||queue[0]).retryable = networkError || e.retryable===true;
+        pending.retryable = networkError || e.retryable===true;
+        if(pending.retryable)delete pending.failedPermanent;
         await write([[owner + ":queue", queue]]);
         await registerSync();
       }
@@ -631,8 +669,8 @@ async function scheduleRetry(){
   const owner=await read("owner");
   const queue=owner?(await read(owner+":queue"))||[]:[];
   if(!queue.length){retryAttempt=0;return;}
-  const ids=new Set(queue.map(item=>item.id));
-  if(!queue.some(item=>item.retryable || (!item.error&&!ids.has(item.body?.offline?.previousRequestId))))return;
+  const dependencies=queueDependencies(queue);
+  if(!queue.some(item=>!item.discardedDependency&&dependencies.get(item.id).size===0&&(!item.failedPermanent||recoverableFailure(item))))return;
   const delay=Math.min(30000,2000*2**Math.min(retryAttempt++,4));
   retryTimer=setTimeout(()=>{retryTimer=null;void sync().catch(()=>{});},delay);
 }

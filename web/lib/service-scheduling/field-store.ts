@@ -237,7 +237,7 @@ async function finishPending(c: any, p: any, email: string, materialsComplete: b
   if (p.document.checklistId) {
     if (!reportSubmission(p.document.checklistRun)) pending.push("Relatório: conclua as etapas obrigatórias e faça o envio completo.");
     else {
-      try { prepareChecklistSubmission(p.document.checklistRun, email); }
+      try { prepareChecklistSubmission(p.document.checklistRun, email,p.document); }
       catch { pending.push("Relatório: há etapas obrigatórias pendentes. Solicite a reabertura ao planejamento para corrigir."); }
     }
   }
@@ -551,7 +551,7 @@ export async function fieldAction(b: any, email: string) {
       }
       const partial=b.action==='report_send_partial';
       if(!current.document.checklistRun)throw new FieldError('Preencha e salve o relatório antes do envio.');
-      const checklistRun=partial?structuredClone(current.document.checklistRun):prepareChecklistSubmission(current.document.checklistRun,email);
+      const checklistRun=partial?structuredClone(current.document.checklistRun):prepareChecklistSubmission(current.document.checklistRun,email,current.document);
       validateRunAlertComments(checklistRun);
       if(!partial&&active?.operation_id===p.id){
         if(active.kind!=='work')throw new FieldError('Finalize o deslocamento informando o odômetro antes de enviar o relatório.');

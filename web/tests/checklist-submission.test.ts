@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {prepareChecklistSubmission} from '../lib/service-scheduling/checklist-store';
 test('full submission validates saved drafts and submits all stages atomically',()=>{
- const run={template:{id:'t',name:'Checklist',stages:[{id:'s',name:'Inspeção',fields:[{id:'f',label:'Resultado',type:'text',required:true}]}]},stages:{s:{status:'released',answers:{f:''}}}};
+ const run:any={template:{id:'t',name:'Checklist',stages:[{id:'s',name:'Inspeção',fields:[{id:'f',label:'Resultado',type:'text',required:true}]}]},stages:{s:{status:'released',answers:{f:''}}}};
  assert.throws(()=>prepareChecklistSubmission(run,'tech'));
  run.stages.s.answers.f='Conferido';
  const submitted=prepareChecklistSubmission(run,'tech');
@@ -31,12 +31,13 @@ import {checklistReport} from '../lib/service-scheduling/checklist-report';
 test('configured alerts require meaningful comments even when optional comments are disabled',()=>{
  const field={id:'f',label:'Condição',type:'flag2',required:false,alertOptions:['NOK'],comment:false};
  const stage={id:'s',name:'Inspeção',fields:[field]};
- const run={template:{id:'t',name:'Checklist',items:[],stages:[stage]},stages:{s:{status:'released',answers:{f:'NOK'},details:{f:{comment:'   '}}}}};
+ const run:any={template:{id:'t',name:'Checklist',items:[],stages:[stage]},stages:{s:{status:'released',answers:{f:'NOK'},details:{f:{comment:'   '}}}}};
  assert.throws(()=>prepareChecklistSubmission(run,'tech'),/Informe um comentário.*Condição/);
  assert.throws(()=>validateAlertComments(stage,{f:'NOK'},{}),/comentário/);
  assert.doesNotThrow(()=>validateAlertComments(stage,{f:'OK'},{}));
- assert.doesNotThrow(()=>validateAlertComments({...stage,fields:[{...field,alertOptions:[]}]},{f:'NOK'},{}));
+ assert.throws(()=>validateAlertComments({...stage,fields:[{...field,alertOptions:[]}]},{f:'NOK'},{}),/comentário/);
  run.stages.s.details.f.comment='Vazamento na conexão';
+ run.stages.s.details.f.photos=['1'];
  assert.doesNotThrow(()=>validateFieldDetails(stage,run.stages.s.details));
  assert.doesNotThrow(()=>prepareChecklistSubmission(run,'tech'));
  assert.equal(checklistReport(run)[0].groups[0].fields[0].comment,'Vazamento na conexão');

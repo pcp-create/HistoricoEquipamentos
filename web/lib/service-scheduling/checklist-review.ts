@@ -1,4 +1,5 @@
 import 'server-only';
+import {operationMeterEquipment,unlinkedMeterMessage} from './meter-equipment';
 import {isChecklistEquipmentLinked} from './checklist-equipment';
 import {randomUUID} from 'node:crypto';
 import {stagesOf} from './checklists';
@@ -14,6 +15,11 @@ export async function reviewChecklist(c:any,operation:any,schedule:any,settings:
  const field=stage?.fields.find(f=>f.type==='meter');
  const meter=field&&stage?run.stages[stage.id]?.answers?.[field.id]:null;
  const applied:any={at:new Date().toISOString(),by:email};
+ if(meter!=null&&!operationMeterEquipment(operation.document)){
+  if(typeof meter!=='number'||!Number.isFinite(meter)||meter<0||meter>100000000)throw Error('Horímetro inválido.');
+  Object.assign(applied,{meter,meterUpdated:false,preventiveUpdated:false,reason:'operation_without_equipment',warning:unlinkedMeterMessage});
+  return {...operation.document,checklistRun:{...run,reviewApplied:applied}};
+ }
  if(meter!=null){
   if(typeof meter!=='number'||!Number.isFinite(meter)||meter<0||meter>100000000||!validDate(run.meterDate)||run.meterDate>brazilToday())throw Error('Horímetro ou data da leitura inválidos.');
   const equipment=run.equipmentId;

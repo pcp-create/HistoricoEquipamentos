@@ -12,13 +12,14 @@ function harness(queue:any[],fetcher:(url:string,options:any)=>Promise<Response>
  runInContext(source,context);return {records,timers,context,sync:()=>runInContext('sync()',context)};
 }
 test('idle sync checks identity without downloading every operation',async()=>{
- const urls:string[]=[];const h=harness([],async(url)=>{urls.push(url);return Response.json({email:'tech',rows:[{id:'a'},{id:'b'}]});});
- await h.sync();assert.deepEqual(urls,['/api/field']);assert.equal(h.timers.length,0);
+ const urls:string[]=[];const h=harness([],async(url)=>{urls.push(url);return Response.json({email:'tech',rows:[{id:'a',version:1},{id:'b',version:1}]});});
+ for(const id of ['a','b'])h.records.set('tech:cache:/api/field?operation='+id,{operation:{id,version:1}});
+ await h.sync();assert.deepEqual(urls,['/api/field','/api/field/time-requests']);assert.equal(h.timers.length,0);
 });
 test('temporary server failures retry after two seconds and keep the same receipt until confirmation',async()=>{
  let failed=true;const receipts:string[]=[];
  const h=harness([item('receipt')],async(url,options)=>{if(!options.method)return Response.json({email:'tech',rows:[]});receipts.push(JSON.parse(options.body).requestId);return failed?Response.json({error:'Unavailable'},{status:503}):Response.json({saved:true});});
- await h.sync();assert.equal(h.records.get('tech:queue').length,1);assert.equal(h.records.get('connected'),false);assert.equal(h.timers[0].delay,2000);
+ await h.sync();assert.equal(h.records.get('tech:queue').length,1);assert.equal(h.records.get('connected'),true,'successful schedule refresh confirms connectivity while the failed send remains queued');assert.equal(h.timers[0].delay,2000);
  failed=false;h.timers[0].fn();await runInContext('flushing',h.context);
  assert.equal(h.records.get('tech:queue').length,0);assert.deepEqual(receipts,['receipt','receipt']);
 });

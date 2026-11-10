@@ -33,3 +33,39 @@ test('stale equipment links use explicit current OS IDs and retain isolation and
   assert.equal(await linked(),true);
  }finally{await db.close();}
 });
+
+test('operation without equipment preserves and submits its meter only as report content',async()=>{
+ const {updateChecklist,prepareChecklistSubmission}=await import('../lib/service-scheduling/checklist-store');
+ const db=new PGlite();
+ try{
+  await db.exec(`CREATE TABLE web_service_operations(id text PRIMARY KEY,document jsonb,status text,version int,updated_at timestamptz,updated_by text);
+   CREATE TABLE web_service_operation_events(operation_id text,action text,actor text,description text);
+   CREATE TABLE web_access_events(event text,email text,actor text,details jsonb);`);
+  const template={id:'test',name:'Teste',items:[],stages:[{id:'s',name:'Medições',fields:[{id:'meter',label:'Horímetro',type:'meter',required:true}]}]};
+  const document={responsible:'tech',checklistRun:{template,stages:{s:{status:'released',answers:{}}},equipmentId:''}};
+  await db.query("INSERT INTO web_service_operations VALUES('op',$1,'executing',1,now(),'tech')",[JSON.stringify(document)]);
+  const initial=(await db.query<any>("SELECT * FROM web_service_operations WHERE id='op'")).rows[0];
+  const draft={action:'checklist_save',stageId:'s',answers:{meter:12028},equipmentId:'',meterDate:'2026-11-06'};
+  const saved=await updateChecklist(db,draft,initial,{company_id:1,order_id:100},{},'tech',false);
+  assert.equal(saved.document.checklistRun.stages.s.answers.meter,12028);
+  assert.equal(saved.document.checklistRun.equipmentId,'');
+  assert.equal(saved.document.checklistRun.meterDate,undefined);
+  assert.doesNotThrow(()=>prepareChecklistSubmission(saved.document.checklistRun,'tech',saved.document));
+  assert.throws(()=>prepareChecklistSubmission(saved.document.checklistRun,'tech'),/equipamento/);
+  await assert.doesNotReject(updateChecklist(db,draft,saved,{company_id:1,order_id:100},{},'tech',false,{submittingReport:true}));
+  const pinned=structuredClone(saved);pinned.document.equipmentId='7';
+  await assert.rejects(updateChecklist(db,{...draft,equipmentId:'invalid'},pinned,{company_id:1,order_id:100},{},'tech',false),/equipamento/);
+ }finally{await db.close();}
+});
+
+test('review of an unlinked operation warns without touching any equipment or preventive',async()=>{
+ const {reviewChecklist}=await import('../lib/service-scheduling/checklist-review');
+ const {unlinkedMeterWarning}=await import('../lib/service-scheduling/meter-equipment');
+ const document={equipmentId:'',checklistRun:{template:{items:[],stages:[{id:'s',name:'Leitura',fields:[{id:'meter',label:'Horímetro',type:'meter',required:true}]}]},equipmentId:'999',meterDate:'2026-11-06',stages:{s:{status:'submitted',answers:{meter:12028}}}}};
+ const result=await reviewChecklist({query(){throw Error('No equipment SQL is allowed');}},{id:'op',document},{company_id:1,order_id:100},{},'planner');
+ assert.equal(result.checklistRun.stages.s.answers.meter,12028);
+ assert.equal(result.checklistRun.reviewApplied.meterUpdated,false);
+ assert.equal(result.checklistRun.reviewApplied.preventiveUpdated,false);
+ assert.equal(result.checklistRun.reviewApplied.reason,'operation_without_equipment');
+ assert.match(unlinkedMeterWarning(result),/somente no relatório/);
+});

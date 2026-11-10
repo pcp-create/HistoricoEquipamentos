@@ -76,3 +76,41 @@ test('retry that still fails preserves dependent data and version checks',async(
  assert.equal(records.get('tech:queue')[0].failedPermanent,true);
  assert.equal(records.get('tech:queue').length,2);
 });
+
+test('manual retry waits for an automatic sync instead of rejecting the click',async()=>{
+ const {context,records,message}=fixture();await runInContext('sync()',context);
+ let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;}),originalFetch=context.fetch as any;let waiting=false;
+ context.fetch=async(url:string,options:any={})=>{if(!options.method&&!waiting){waiting=true;await gate;}return originalFetch(url,options);};
+ const automatic=runInContext('sync()',context);
+ while(!waiting)await new Promise(resolve=>setImmediate(resolve));
+ const retry=message({type:'FIELD_RETRY',id:'failed'});release();await automatic;
+ assert.equal((await retry).ok,true);
+ assert.equal(records.get('tech:queue')[0].error,'Conflito de versão');
+});
+
+test('legacy transient failure marked permanent is retried and a heartbeat cannot replace a validation error',async()=>{
+ const {context,records,sent}=fixture();Object.assign(records.get('tech:queue')[0],{error:'Sem conexão. O envio será retomado automaticamente.',retryable:true,failedPermanent:true});
+ await runInContext('sync()',context);assert.equal(sent[0],'report_save');
+ context.fetch=async()=>{throw new TypeError('network disconnected');};
+ await assert.rejects(runInContext('sync()',context));
+ assert.equal(records.get('tech:queue')[0].error,'Conflito de versão');
+ assert.equal(records.get('tech:queue')[0].failedPermanent,true);
+});
+
+test('timer dependencies span operations and photos wait for the pending work session',async()=>{
+ const {context,records,sent,message}=fixture();
+ records.set('tech:queue',[
+  {id:'report',type:'action',operationId:'a',error:'Conflito',failedPermanent:true,body:{action:'report_save'}},
+  {id:'stop-a',type:'action',operationId:'a',body:{action:'stop',offline:{previousRequestId:'report'}}},
+  {id:'start-b',type:'action',operationId:'b',error:'Finalize o apontamento em andamento antes de iniciar outro.',failedPermanent:true,body:{action:'start_work'}},
+  {id:'photo-b',type:'photo',operationId:'b',name:'b.jpg',file:new Blob(['photo']),stageId:'s',fieldId:'f',error:'Inicie ou retome a atividade desta operação para preencher o relatório técnico.',failedPermanent:true},
+  {id:'save-b',type:'action',operationId:'b',body:{action:'report_save',photos:['local-photo-b'],offline:{previousRequestId:'start-b'}}},
+  {id:'other',type:'action',operationId:'c',body:{action:'info_read'}}
+ ]);
+ await runInContext('sync()',context);assert.deepEqual(sent,['info_read']);
+ const status=await message({type:'FIELD_STATUS'});assert.equal(status.queue.find((q:any)=>q.id==='report').dependents,4);assert.ok(status.queue.find((q:any)=>q.id==='photo-b').blockedReason);
+ const sequence:string[]=[];const original=context.fetch as any;
+ context.fetch=async(url:string,options:any={})=>{if(!options.method)return original(url,options);if(options.body instanceof FormData){sequence.push('photo');return Response.json({id:'42'});}const body=JSON.parse(options.body);sequence.push(body.action);return Response.json({saved:true});};
+ await message({type:'FIELD_RETRY',id:'report'});
+ assert.deepEqual(sequence,['report_save','stop','start_work','photo','report_save']);assert.equal(records.get('tech:queue').length,0);
+});

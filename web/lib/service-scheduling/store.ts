@@ -628,7 +628,7 @@ export async function mutateSchedule(b: any, email: string) {
         const run=document.checklistRun;
         const template=run?.template || config.document.checklists.find((t:any)=>t.id===document.checklistId);
         if(template?.stages) {
-          try { document={...document,checklistRun:prepareChecklistSubmission(run,email)}; }
+          try { document={...document,checklistRun:prepareChecklistSubmission(run,email,document)}; }
           catch(e){throw new ScheduleInputError((e as Error).message);}
         }
       }
