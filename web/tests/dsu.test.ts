@@ -10,7 +10,7 @@ import {
 } from "../lib/dsu/protocol";
 import { processMessage, type Reply } from "../lib/dsu/assistant";
 
-test("DSU: protocolo filtra mensagens próprias, grupos, instância errada e histórico; interpreta listas e botões", () => {
+test("DSU: protocolo separa atividade própria, filtra grupos e histórico e interpreta listas e botões", () => {
   const body = {
     instance: "BotDemandas",
     event: "messages.upsert",
@@ -28,16 +28,7 @@ test("DSU: protocolo filtra mensagens próprias, grupos, instância errada e his
   assert.equal(incomingEvent({...body, data:{...body.data,pushName:"Maria\n*Silva*\u202e"}}, "BotDemandas")?.senderName, "Maria Silva");
   assert.equal(incomingEvent({...body, data:{...body.data,pushName:{name:"invalido"}}}, "BotDemandas")?.senderName, undefined);
   assert.equal(incomingEvent(body, "Outro"), null);
-  assert.equal(
-    incomingEvent(
-      {
-        ...body,
-        data: { ...body.data, key: { ...body.data.key, fromMe: true } },
-      },
-      "BotDemandas",
-    ),
-    null,
-  );
+  assert.equal(incomingEvent({...body,data:{...body.data,key:{...body.data.key,fromMe:true}}},"BotDemandas")?.outgoingActivity,true);
   assert.equal(
     incomingEvent(
       {
@@ -83,7 +74,7 @@ test("DSU: protocolo filtra mensagens próprias, grupos, instância errada e his
   assert.equal(incomingEvent(outgoing,"BotDemandas")?.phone,"5547999999999");
   assert.equal(incomingEvent(outgoing,"BotDemandas")?.senderName,undefined);
   assert.equal(incomingEvent({...outgoing,data:{...outgoing.data,message:{ephemeralMessage:{message:{extendedTextMessage:{text:"menu"}}}}}},"BotDemandas")?.text,"menu");
-  assert.equal(incomingEvent({...outgoing,data:{...outgoing.data,message:{conversation:"Atendimento pausado. Digite MENU."}}},"BotDemandas"),null);
+  assert.equal(incomingEvent({...outgoing,data:{...outgoing.data,message:{conversation:"Atendimento pausado. Digite MENU."}}},"BotDemandas")?.outgoingActivity,true);
   assert.equal(phoneKey("(47) 99999-9999"), phoneKey("554799999999"));
   assert.equal(dueDate("31/02/2026"), null);
   assert.equal(dueDate("15/10/2026"), "2026-10-15");
@@ -348,22 +339,51 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
       assert.ok(String(notice.body.text).includes(`https://wa.me/${external}`));
       assert.deepEqual(await processMessage(selectionEvent), {replies:[], duplicate:true});
       const repeatedChoice = await processMessage({...selectionEvent,id:`external-repeat-${index}`});
-      assert.equal(repeatedChoice.replies.length, 1);
+      assert.equal(repeatedChoice.replies.length, 0);
     }
+    await send("Menu", external);
     r = await send("listar @ana", external, "external-legacy", true);
-    assert.match(String(r.body.text), /Comercial/);
+    assert.match(String(r.body.text), /digite o número/);
     assert.deepEqual(await processMessage({text:"listar @ana",phone:external,id:"external-legacy",instance:"BotDemandas"},true),{replies:[],duplicate:true});
-    r = await send("999", external);
-    assert.equal(r.menu?.rows.length, 4);
+    assert.equal(await send("999", external), undefined);
+    r = await send("Menu", external);
     const externalChoice = r.menu!.rows[0].rowId;
     await send("Menu", external);
     r = await send(externalChoice, external);
-    assert.match(String(r.body.text), /expirou/);
-    r = await send("Concluir TAR-1", external);
-    assert.equal(r.menu?.rows.length, 4);
+    assert.match(String(r.body.text), /digite o número/);
+    assert.equal(await send("Concluir TAR-1", external), undefined);
+    await send("Menu", external);
     await db.query("UPDATE web_dsu_sessions SET updated_at=now()-interval '31 minutes' WHERE phone=$1", [phoneKey(external)]);
     r = await send("2", external);
     assert.equal(r.menu?.rows[0].title, "Comercial");
+    const invalidEvent = {text:"Gostaria de um orçamento",phone:external,id:"invalid-once",instance:"BotDemandas"};
+    assert.match(String((await processMessage(invalidEvent)).replies[0].body.text), /digite o número/);
+    assert.deepEqual(await processMessage(invalidEvent), {replies:[],duplicate:true});
+    assert.match(String((await send("1", external)).body.text), /Comercial/);
+    await send("Menu", external);
+    await send("Outra pergunta", external);
+    assert.equal(await send("Estou conversando", external), undefined);
+    assert.equal((await db.query<any>("SELECT state FROM web_dsu_sessions WHERE phone=$1",[phoneKey(external)])).rows[0].state.pauseReason,"invalid-menu");
+    await db.query("UPDATE web_dsu_sessions SET updated_at=now()-interval '119 minutes' WHERE phone=$1",[phoneKey(external)]);
+    assert.equal(await send("1",external),undefined);
+    assert.ok(Date.now()-new Date((await db.query<any>("SELECT updated_at FROM web_dsu_sessions WHERE phone=$1",[phoneKey(external)])).rows[0].updated_at).getTime()<10000);
+    await db.query("UPDATE web_dsu_sessions SET updated_at=now()-interval '3 hours' WHERE phone=$1",[phoneKey(external)]);
+    assert.deepEqual(await processMessage({text:"listar",phone:external,id:"human-activity",instance:"BotDemandas",outgoingActivity:true},true),{replies:[]});
+    assert.equal(await send("Bom dia",external),undefined);
+    await db.query("UPDATE web_dsu_sessions SET updated_at=now()-interval '121 minutes' WHERE phone=$1",[phoneKey(external)]);
+    assert.equal((await send("Bom dia",external)).menu?.rows.length,4);
+    const oldIdle = process.env.DSU_AUTO_PAUSE_IDLE_MINUTES;
+    try {
+      process.env.DSU_AUTO_PAUSE_IDLE_MINUTES = "5";
+      await send("Uma mensagem",external); await send("Outra mensagem",external);
+      await db.query("UPDATE web_dsu_sessions SET updated_at=now()-interval '6 minutes' WHERE phone=$1",[phoneKey(external)]);
+      assert.equal((await send("Olá",external)).menu?.rows.length,4);
+      await send("",external); assert.equal(await send("",external),undefined);
+      assert.equal((await send("Menu",external)).menu?.rows.length,4);
+    } finally { if(oldIdle===undefined)delete process.env.DSU_AUTO_PAUSE_IDLE_MINUTES;else process.env.DSU_AUTO_PAUSE_IDLE_MINUTES=oldIdle; }
+
+    assert.deepEqual(await processMessage({text:"Olá",phone:"5547333333333",id:"no-session-activity",instance:"BotDemandas",outgoingActivity:true}),{replies:[]});
+    assert.equal((await db.query<any>("SELECT 1 FROM web_dsu_sessions WHERE phone=$1",[phoneKey("5547333333333")])).rows.length,0);
     await send("Cancelar", external);
     assert.equal(await send("Boa tarde", external), undefined);
     assert.equal(await send("1", external), undefined);
@@ -462,7 +482,7 @@ test("DSU: adaptador n8n preserva o nome do cliente sem encaminhar a chave Evolu
 });
 
 
-test("DSU: roteamento aceita controles manuais privados e ignora respostas do próprio bot",()=>{
+test("DSU: roteamento separa controles privados de atividade sem resposta",()=>{
  const routing=readFileSync(new URL("../../scripts/n8n/dsu-routing.js",import.meta.url),"utf8");
  const workflow=JSON.parse(readFileSync(new URL("../../automations/n8n/assistente-rj-dsu.json",import.meta.url),"utf8"));
  const config=workflow.nodes.find((node:any)=>node.name==="Configuração").parameters.jsCode;
@@ -474,9 +494,16 @@ test("DSU: roteamento aceita controles manuais privados e ignora respostas do pr
   const {routed,configured}=run(text,true);assert.equal(routed[0].json.dsu,true);assert.equal(configured.length,1);assert.equal(incomingEvent(configured[0].json.payload,"BotDemandas")?.outgoingControl,true);
  }
  for(const text of ["Olá","Atendimento automático encerrado. Digite MENU.","Cliente entrou em contato"]){
-  const {routed,configured}=run(text,true);assert.equal(routed.length,0);assert.equal(configured.length,0);
+  const {routed,configured}=run(text,true);assert.equal(routed[0].json.dsu,true);assert.equal(configured.length,1);assert.equal(incomingEvent(configured[0].json.payload,"BotDemandas")?.outgoingActivity,true);
  }
  assert.equal(run("CANCELAR",true,"123@g.us").routed.length,0);
  assert.equal(run("Olá",false).routed[0].json.dsu,true);
  assert.equal(run("Olá",false,"123@g.us").routed[0].json.dsu,false);
+});
+
+test("DSU: mídia conta como atividade sem interpretar comandos",()=>{
+ const body={instance:"BotDemandas",event:"messages.upsert",data:{key:{id:"audio",fromMe:false,remoteJid:"5547777777777@s.whatsapp.net"},messageTimestamp:Date.now()/1000,message:{audioMessage:{mimetype:"audio/ogg"}}}};
+ assert.equal(incomingEvent(body,"BotDemandas")?.text,"");
+ assert.equal(incomingEvent({...body,data:{...body.data,key:{...body.data.key,fromMe:true}}},"BotDemandas")?.outgoingActivity,true);
+ assert.equal(incomingEvent({...body,data:{...body.data,message:{protocolMessage:{type:0}}}},"BotDemandas"),null);
 });

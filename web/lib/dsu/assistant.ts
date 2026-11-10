@@ -24,6 +24,8 @@ type State = {
   task?: { id: string; version: number };
   sector?: string;
   senderName?: string;
+  invalidMenuReplies?: number;
+  pauseReason?: "invalid-menu";
 };
 export type Reply = {
   endpoint: "sendText";
@@ -94,6 +96,8 @@ async function respond(
     state.draft = undefined;
     state.task = undefined;
     state.sector = undefined;
+    state.invalidMenuReplies = undefined;
+    state.pauseReason = undefined;
     return menu(
       actor
         ? `Olá, ${actor.display_name || "colaborador"}! Como posso ajudar?`
@@ -102,6 +106,19 @@ async function respond(
         ? [{ title: "Tarefas", value: "tasks" }]
         : clientSectors.map(({title, value}) => ({title, value})),
     );
+  };
+  const invalidClientReply = (): Reply[] | Reply => {
+    // After a sector handoff, never restart the menu over the ongoing conversation.
+    if (state.step === "client-sector" || (state.invalidMenuReplies || 0) >= 1) {
+      const senderName = state.senderName;
+      for (const key of Object.keys(state)) delete (state as any)[key];
+      state.step = "paused";
+      state.pauseReason = "invalid-menu";
+      state.senderName = senderName;
+      return [];
+    }
+    state.invalidMenuReplies = 1;
+    return text("Por favor, digite o número de uma das opções do menu: 1 — Comercial, 2 — Assistência Técnica, 3 — Financeiro ou 4 — RH. Para ver o menu novamente, digite MENU.");
   };
   let input = event.text;
   if (/^menu$/i.test(input)) return home();
@@ -116,7 +133,7 @@ async function respond(
       !/^\d+$/.test(index) ||
       !state.choices?.[Number(index)]
     )
-      return text("Essa opção expirou. Digite Menu para recomeçar.");
+      return actor ? text("Essa opção expirou. Digite Menu para recomeçar.") : invalidClientReply();
     input = state.choices[Number(index)].value;
   } else if (
     state.choices &&
@@ -141,6 +158,7 @@ async function respond(
       && clientSectors.find(choice => choice.value === input);
     if (sector) {
       state.step = "client-sector";
+      state.invalidMenuReplies = undefined;
       state.sector = sector.title;
       state.choices = undefined;
       state.nonce = undefined;
@@ -159,7 +177,7 @@ async function respond(
         },
       ];
     }
-    return home();
+    return state.step === "home" || state.step === "client-sector" ? invalidClientReply() : home();
   }
   const auth = {
     id: actor.user_id || actor.email,
@@ -511,7 +529,18 @@ export async function processMessage(
         [event.instance, phone],
       )
     ).rows[0];
+    // Outgoing echoes and human replies only refresh inactivity; they can never
+    // trigger a menu, a task action or legacy routing, even when they contain commands.
+    if (event.outgoingActivity) {
+      if (old) await c.query("UPDATE web_dsu_sessions SET updated_at=now() WHERE instance=$1 AND phone=$2", [event.instance, phone]);
+      await c.query("COMMIT");
+      return {replies:[]};
+    }
     const control = event.text.trim();
+    const configuredMinutes = Number(process.env.DSU_AUTO_PAUSE_IDLE_MINUTES || 120);
+    const idleMinutes = Number.isFinite(configuredMinutes) && configuredMinutes >= 1 && configuredMinutes <= 10080 ? configuredMinutes : 120;
+    const autoPauseExpired = old?.state?.step === "paused" && old.state.pauseReason === "invalid-menu"
+      && Date.now() - new Date(old.updated_at).getTime() >= idleMinutes * 60 * 1000;
     if (/^cancelar$/i.test(control)) {
       // Pause is persistent and belongs to the conversation, not the current actor or draft TTL.
       await c.query(
@@ -521,7 +550,8 @@ export async function processMessage(
       await c.query("COMMIT");
       return {replies: event.outgoingControl || old?.state?.step === "paused" ? [] : [{endpoint:"sendText",body:{number:event.phone,text:"Atendimento automático encerrado e pausado nesta conversa. Digite MENU para reativar o assistente."}}]};
     }
-    if (old?.state?.step === "paused" && !/^menu$/i.test(control)) {
+    if (old?.state?.step === "paused" && !autoPauseExpired && !/^menu$/i.test(control)) {
+      await c.query("UPDATE web_dsu_sessions SET updated_at=now() WHERE instance=$1 AND phone=$2", [event.instance, phone]);
       await c.query("COMMIT");
       return {replies:[]};
     }
@@ -540,7 +570,7 @@ export async function processMessage(
       return { replies: [] };
     }
     const state: State =
-      old &&
+      old && !autoPauseExpired &&
       old.actor_email === (actor?.email || null) &&
       Date.now() - new Date(old.updated_at).getTime() < 30 * 60 * 1000
         ? old.state

@@ -29,7 +29,7 @@ Versão atual preparada para a instância **BotDemandas**, com menus numerados e
    - **Receber mensagem**: Header Auth exclusivo para autenticar a Evolution. Configurar o mesmo header no webhook da Evolution. Sem essa autenticação, não ativar: o remetente é a identidade usada para operações de tarefas.
    - **Processar conversa**: Header Auth `Authorization: Bearer <DSU_AUTOMATION_TOKEN>`.
    - **Responder WhatsApp**: Header Auth `apikey` da Evolution, reutilizando a credencial existente.
-6. Configurar `MESSAGES_UPSERT` para a URL de produção do webhook `/webhook/assistente-rj-dsu`, com `webhookByEvents=false`. Verificar o webhook atual antes de alterar: se já atende outro consumidor, encaminhar esse evento pelo roteador existente em vez de substituí-lo. O fluxo ignora mensagens próprias (exceto os controles manuais exatos MENU e CANCELAR em conversa privada), grupos, broadcasts, eventos antigos e instâncias diferentes.
+6. Configurar `MESSAGES_UPSERT` para a URL de produção do webhook `/webhook/assistente-rj-dsu`, com `webhookByEvents=false`. Verificar o webhook atual antes de alterar: se já atende outro consumidor, encaminhar esse evento pelo roteador existente em vez de substituí-lo. O fluxo ignora grupos, broadcasts, eventos antigos e instâncias diferentes. Mensagens próprias privadas chegam somente como atividade sem resposta; os controles manuais exatos MENU e CANCELAR continuam disponíveis.
 7. Testar com um colaborador autorizado: menu, lista de responsáveis, criação, tarefa no sistema, consulta e conclusão. Validar a renderização real dos menus na versão instalada da Evolution/WhatsApp. O workflow fica inativo no arquivo até configurar credenciais e encaminhamento.
 
 Referência dos payloads interativos: [DTO oficial da Evolution API](https://github.com/EvolutionAPI/evolution-api/blob/main/src/api/dto/sendMessage.dto.ts), `SendListDto` e `SendButtonsDto`. A compatibilidade efetiva depende da versão e do transporte instalado. Não foi feita simulação de envio real nos testes automatizados.
@@ -126,3 +126,13 @@ Quem atende manualmente pelo próprio número BotDemandas também pode enviar os
 No n8n, atualizar somente os códigos dos nós `DSU — Roteamento` e `DSU — Configuração`. O roteador canônico está em `scripts/n8n/dsu-routing.js`, reutilizado pelo gerador integrado. Preservar os nós legados, credenciais e conexão única de envio. Backup anterior à mudança: ver pasta privada `/home/codespace/backups/n8n`, arquivo com sufixo `antes-pausa.zip`. Nenhuma migração de banco é necessária.
 
 Backup desta publicação: `/home/codespace/backups/n8n/20261110T163415Z-antes-pausa.zip`. Workflow existente atualizado e confirmado na versão `80cf2460-bd09-4dc2-bb95-22685d89425f`, sem mensagens WhatsApp de teste.
+
+## Respostas fora do menu e pausa automática — 10/11/2026
+
+No menu externo de setores, a primeira resposta fora das opções recebe uma única orientação para digitar 1, 2, 3 ou 4. Uma segunda resposta inválida pausa silenciosamente aquela conversa, sem repetir o menu ou emitir aviso de pausa. Uma escolha válida após a orientação continua funcionando. Mensagens duplicadas não contam duas vezes. MENU reinicia as opções e a contagem. Depois de selecionar um setor, mensagens livres não fazem reaparecer o menu: passam a manter a conversa em pausa automática.
+
+A pausa automática termina após **120 minutos sem mensagens**, configuráveis no backend por `DSU_AUTO_PAUSE_IDLE_MINUTES` (de 1 a 10.080; valor ausente/inválido usa 120). A retomada só responde à próxima mensagem recebida; não envia menu espontaneamente ao vencer o prazo. Mensagens recebidas e mensagens enviadas pelo número BotDemandas renovam a contagem daquela conversa. As mensagens próprias, inclusive ecos do assistente, não provocam respostas nem execução de tarefas ou comandos legados. Áudios e outras mídias também contam como atividade; no menu externo, são respostas fora das opções. Eventos de protocolo não contam como mensagem.
+
+A pausa explícita por CANCELAR permanece sem expiração e exige MENU. A regra automática não altera os formulários e comandos dos colaboradores. Sessão e contador persistem no PostgreSQL existente; nenhuma migração nova é necessária.
+
+Antes desta alteração foi preservado um novo backup dos 14 fluxos em `/home/codespace/backups/n8n/20261110T174839Z-antes-pausa-automatica.zip`. A atualização do n8n altera somente os códigos de DSU — Roteamento e DSU — Configuração, preservando credenciais, conexões e os demais nós. Os testes usam banco isolado e não enviam mensagens WhatsApp reais.

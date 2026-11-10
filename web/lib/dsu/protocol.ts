@@ -5,6 +5,7 @@ export type Incoming = {
   text: string;
   senderName?: string;
   outgoingControl?: true;
+  outgoingActivity?: true;
 };
 export function phoneKey(value: string): string {
   let digits = value.replace(/\D/g, "");
@@ -72,14 +73,15 @@ export function incomingEvent(
         m.videoMessage?.caption ||
         m.documentMessage?.caption ||
         m.documentMessage?.fileName));
-  if (typeof text !== "string" || !text.trim() || text.length > 12000)
-    return null;
-  // Only explicit manual controls may come from our own account. Ignore all bot replies.
-  if (key.fromMe === true && !/^(menu|cancelar)$/i.test(text.trim())) return null;
+  const content = typeof text === "string" ? text.trim() : "";
+  // Media messages count as conversation activity and as an unsupported menu answer.
+  const media = ["audioMessage", "imageMessage", "videoMessage", "documentMessage", "stickerMessage", "contactMessage", "contactsArrayMessage", "locationMessage", "liveLocationMessage"].some(type => m[type]);
+  if ((!content && !media) || content.length > 12000) return null;
+  const manualControl = key.fromMe === true && /^(menu|cancelar)$/i.test(content);
   const senderName = key.fromMe === false && typeof data.pushName === "string"
     ? data.pushName.replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069*_~`]/g, " ").replace(/\s+/g, " ").trim().slice(0, 100)
     : "";
-  return { instance, phone: jid.split("@")[0], id: key.id, text: text.trim(), ...(senderName ? {senderName} : {}), ...(key.fromMe === true ? {outgoingControl:true as const} : {}) };
+  return { instance, phone: jid.split("@")[0], id: key.id, text: content, ...(senderName ? {senderName} : {}), ...(key.fromMe === true ? manualControl ? {outgoingControl:true as const} : {outgoingActivity:true as const} : {}) };
 }
 export function dueDate(value: string, now = new Date()): string | null {
   const today = now.toLocaleDateString("en-CA", {
