@@ -1,4 +1,6 @@
 "use client";
+import {visitCalendarDay} from "@/lib/visits/calendar-day";
+import VisitCalendarTotals from "./visit-calendar-totals";
 import VisitFollowUpPrompt from "./visit-follow-up-prompt";
 import VisitListRow from "./visit-list-row";
 import VisitAdminActions from "./visit-admin-actions";
@@ -762,7 +764,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
               </>
             )}
             {tab !== "summary" && (
-              <div className="sales-filters">
+              <div className={"sales-filters"+(tab==="calendar"?" sales-calendar-filters":"")}>
                 <label>
                   <Search size={17} />
                   Pesquisar cliente, documento ou cidade
@@ -787,6 +789,14 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
                     ))}
                   </select>
                 </label>
+                {tab === "calendar" && <label>Status da visita
+                    <select aria-label="Status da visita" value={calendarStatus} onChange={e=>setCalendarStatus(e.target.value as typeof calendarStatus)}>
+                      <option value="all">Todas</option>
+                      <option value="scheduled">Agendadas</option>
+                      <option value="completed">Realizadas</option>
+                      <option value="cancelled">Canceladas</option>
+                    </select>
+                  </label>}
               </div>
             )}
             {tab === "list" && (
@@ -878,17 +888,10 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
               </>
             )}
             {tab === "calendar" && (
-              <section className="field-calendar" aria-label="Calendário de visitas">
+              <section className="field-calendar sales-visits-calendar" aria-label="Calendário de visitas">
                 <div className="sales-actions sales-calendar-controls">
                   {([['month','Mês'],['week','Semana'],['day','Dia']] as const).map(([id,label])=><button key={id} aria-pressed={calendarView===id} onClick={()=>setCalendarView(id)}>{label}</button>)}
-                  <label>Status da visita
-                    <select aria-label="Status da visita" value={calendarStatus} onChange={e=>setCalendarStatus(e.target.value as typeof calendarStatus)}>
-                      <option value="all">Todas</option>
-                      <option value="scheduled">Agendadas</option>
-                      <option value="completed">Realizadas</option>
-                      <option value="cancelled">Canceladas</option>
-                    </select>
-                  </label>
+
                 </div>
                 {calendarView!=='month'?<VisitsPeriodCalendar mode={calendarView} visits={calendarVisits} renderVisit={renderVisit}/>:<>
                 <div className="field-calendar-heading">
@@ -903,20 +906,22 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
                   </button>
                   <button onClick={() => { setMonth(today.slice(0, 7)); setSelectedDay(today); }}>Hoje</button>
                 </div>
+                <div className="visit-calendar-legend"><span className="completed">Realizadas</span><span className="neutral">Pendentes</span><span className="overdue">Atrasadas</span></div>
                 <div className="field-calendar-grid">
                   {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(day => (
                     <span className="field-calendar-weekday" key={day}>{day}</span>
                   ))}
                   {days.map((day, i) => {
-                    const daily = calendarVisits.filter(v => brazilDay(v.scheduled_at) === day);
+                    const daily = visitCalendarDay(calendarVisits,day,today);
                     return day ? (
                       <button key={day} aria-pressed={day === selectedDay}
                         aria-current={day === today ? "date" : undefined}
-                        aria-label={`${day.split("-").reverse().join("/")}: ${daily.length} visitas`}
-                        className={daily.some(v=>v.status==="scheduled") && day < today ? "field-calendar-overdue" : ""}
+                        aria-label={`${day.split("-").reverse().join("/")}: ${daily.rows.length} visitas`}
+                        aria-description={`${daily.completed} realizadas, ${daily.pending} pendentes, ${daily.cancelled} canceladas`}
+                        className={"visit-day-"+daily.tone+(daily.tone==="overdue"?" field-calendar-overdue":"")}
                         onClick={() => setSelectedDay(day)}>
                         <span>{Number(day.slice(-2))}</span>
-                        {daily.length > 0 && <small>{daily.length} visita{daily.length > 1 ? "s" : ""}</small>}
+                        <VisitCalendarTotals day={daily}/>
                       </button>
                     ) : <span key={"blank" + i} />;
                   })}

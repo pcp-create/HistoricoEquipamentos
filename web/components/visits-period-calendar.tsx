@@ -1,4 +1,6 @@
 "use client";
+import {visitCalendarDay} from "@/lib/visits/calendar-day";
+import VisitCalendarTotals from "./visit-calendar-totals";
 import { useState } from "react";
 import { brazilDay, type SalesVisit } from "@/lib/visits/model";
 export default function VisitsPeriodCalendar({
@@ -48,8 +50,8 @@ export default function VisitsPeriodCalendar({
         <button onClick={() => setAnchor(brazilDay(new Date()))}>Hoje</button>
       </div>
       <div className={"visit-period-grid " + mode}>
-        {days.map((day) => (
-          <section key={day}>
+        {days.map((day) => {const summary=visitCalendarDay(visits,day,brazilDay(new Date()));return (
+          <section key={day} className={"visit-day-"+summary.tone}>
             <h3>
               {new Date(day + "T12:00:00Z").toLocaleDateString("pt-BR", {
                 weekday: "short",
@@ -58,6 +60,7 @@ export default function VisitsPeriodCalendar({
                 timeZone: "UTC",
               })}
             </h3>
+            <VisitCalendarTotals day={summary}/>
             {visits
               .filter((v) => brazilDay(v.scheduled_at) === day)
               .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at))
@@ -66,7 +69,7 @@ export default function VisitsPeriodCalendar({
               <p>Sem visitas</p>
             )}
           </section>
-        ))}
+        );})}
       </div>
     </section>
   );

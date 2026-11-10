@@ -1121,3 +1121,37 @@
 
 .sales-calendar-controls { align-items: flex-end; flex-wrap: wrap; }
 .sales-calendar-controls > label { min-width: 160px; }
+
+/* Compact seller calendar: filters together, counts separate from day colors. */
+.sales-app .sales-calendar-filters { grid-template-columns: minmax(0,1fr) 190px 190px; gap: 8px; margin-bottom: 10px; align-items: end; }
+.sales-app .sales-calendar-filters label { min-width: 0; gap: 4px; font-size: 12px; margin: 0; }
+.sales-app .sales-calendar-filters input,.sales-app .sales-calendar-filters select { min-height: 38px; padding: 8px 10px; font-size: 13px; }
+.sales-app .sales-visits-calendar { padding: 12px; }
+.sales-app .sales-calendar-controls { gap: 6px; margin-bottom: 10px; }
+.sales-app .sales-calendar-controls button { min-height: 36px; padding: 7px 12px; font-size: 13px; border-radius: 8px; }
+.sales-app .sales-visits-calendar .field-calendar-heading { gap: 5px; margin-bottom: 6px; }
+.sales-app .sales-visits-calendar .field-calendar-heading strong { font-size: 13px; }
+.sales-app .sales-visits-calendar .field-calendar-heading button { min-height: 34px; padding: 6px; }
+.visit-calendar-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: #61758a; margin-bottom: 6px; }
+.visit-calendar-legend>span { display: inline-flex; gap: 4px; align-items: center; }
+.visit-calendar-legend>span::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #c3cdd6; }
+.visit-calendar-legend>.completed::before { background: #258552; }
+.visit-calendar-legend>.overdue::before { background: #c13d39; }
+.visit-calendar-totals { display: flex; flex-direction: column; gap: 2px; font-size: 11px; font-weight: 400; line-height: 1.3; }
+.visit-count-short { display: none; }
+.visit-count-cancelled { opacity: .7; }
+.sales-app .sales-visits-calendar .field-calendar-grid button { min-height: 64px; justify-content: flex-start; padding: 6px 2px; gap: 4px; color: #435b71; background: white; }
+.sales-app .sales-visits-calendar .field-calendar-grid .visit-day-completed,.visit-period-grid>section.visit-day-completed { background: #edf8f0; color: #216e40; border-color: #9fceb0; }
+.sales-app .sales-visits-calendar .field-calendar-grid .visit-day-overdue,.visit-period-grid>section.visit-day-overdue { background: #fff0ef; color: #b42318; border-color: #eab4af; }
+.visit-period-grid>section.visit-day-neutral { background: white; }
+.visit-period-grid>section>.visit-calendar-totals { margin: -6px 0 10px; }
+@media(max-width: 760px) {
+ .sales-app .sales-calendar-filters { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; }
+ .sales-app .sales-calendar-filters>label:first-child { grid-column: 1 / -1; }
+ .sales-visits-calendar .field-calendar-grid .visit-count-full { display: none; }
+ .sales-visits-calendar .field-calendar-grid .visit-count-short { display: inline; }
+ .sales-visits-calendar .field-calendar-grid .visit-calendar-totals { font-size: 10px; letter-spacing: -.2px; }
+ .sales-app .visit-period-grid.week { grid-template-columns: minmax(0,1fr); overflow: visible; }
+}
+.sales-app .visit-period>.sales-actions { display: grid; grid-template-columns: 34px minmax(0,1fr) 34px auto; gap: 6px; max-width: 400px; }
+.sales-app .visit-period>.sales-actions button,.sales-app .visit-period>.sales-actions input { min-height: 36px; min-width: 0; padding: 6px; font-size: 13px; }
