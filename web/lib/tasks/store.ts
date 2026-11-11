@@ -1,3 +1,4 @@
+import {operationTask} from './completion-policy';
 import {releaseSchedule} from '../service-scheduling/release';
 import {recordWorkshopTaskEvent} from "../workshop/task-history";
 import {repairOrderReportTasks} from "./order-task-repair";
@@ -358,6 +359,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
       throw new TaskConflict(
         "A tarefa foi atualizada. Recarregue antes de salvar.",
       );
+    if(operationTask(t)&&(body.action==='reopen'||body.action==='move'&&body.column==='completed'||t.status==='completed'&&['update','move','stage'].includes(body.action)))throw new TaskInputError('Tarefas de operações são concluídas automaticamente quando a operação atinge o status Revisado.');
     if(t.source_key.startsWith('time-request:')&&['move','reopen','update','stage'].includes(body.action))throw new TaskInputError('Esta tarefa deve ser analisada pelo botão Aprovar Solicitação ou Rejeitar Solicitação.');
     if(t.task_type === 'approval' && !['approval_decide','approval_close','approval_retry'].includes(body.action))throw new TaskInputError('Utilize as ações do fluxo de aprovação.');
     if(body.action==='approval_retry'){

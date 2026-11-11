@@ -491,6 +491,21 @@ export async function mutateSchedule(b: any, email: string) {
       await c.query("UPDATE web_service_schedules SET release_kind=NULL WHERE id=$1",[schedule.id]);
       await c.query('COMMIT');return {operation:result};
     }
+    if(b.action==='review_equipment'){
+      if(!admin)throw new Forbidden();
+      if(operation.status!=='awaiting_review'||operation.document.checklistRun?.reviewApplied)throw new ScheduleInputError('O equipamento só pode ser alterado antes de concluir a revisão.');
+      if(pendingTechnicianClosures(operation.document).length)throw new ScheduleInputError('Aguarde o encerramento de todos os técnicos.');
+      const equipmentId=b.equipmentId;
+      if(typeof equipmentId!=='string'||equipmentId!==''&&!/^[1-9]\d{0,17}$/.test(equipmentId))throw new ScheduleInputError('Selecione um equipamento válido ou a opção sem equipamento específico.');
+      const equipment=equipmentId?(await c.query('SELECT equipment_id::text,name,serial FROM m8_equipment_catalog WHERE equipment_id=$1 AND present FOR SHARE',[equipmentId])).rows[0]:null;
+      if(equipmentId&&!equipment)throw new ScheduleInputError('Equipamento não encontrado ou indisponível.');
+      const document={...operation.document,equipmentId,equipmentUnassigned:!equipmentId,equipment:equipment||undefined};
+      if(document.checklistRun)document.checklistRun={...document.checklistRun,equipmentId};
+      const result=(await c.query('UPDATE web_service_operations SET document=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1 RETURNING *',[operation.id,JSON.stringify(document),email])).rows[0];
+      await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[operation.id,b.action,email,equipment?`Equipamento corrigido na revisão: ${equipmentId} - ${equipment.name}`:'Revisão definida sem equipamento; horímetro permanece somente no relatório']);
+      await audit(c,email,'service_schedule_review_equipment',{operation_id:operation.id,before:{equipmentId:operation.document.equipmentId,equipmentUnassigned:operation.document.equipmentUnassigned},after:{equipmentId,equipmentUnassigned:!equipmentId},meterDate:document.checklistRun?.meterDate});
+      await c.query('COMMIT');return {operation:result};
+    }
     if(b.action==='checklist_review_save'){
       if(!admin)throw new Forbidden();
       if(!Array.isArray(b.stages)||!b.stages.length||b.stages.length>100||new Set(b.stages.map((s:any)=>s.stageId)).size!==b.stages.length)throw new ScheduleInputError('Etapas inválidas.');

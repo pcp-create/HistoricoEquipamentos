@@ -22,8 +22,9 @@ function PhotoRemovalConfirmation({disabled,onCancel,onConfirm}:{disabled:boolea
   <div><button type="button" disabled={disabled} onClick={onCancel} autoFocus>Cancelar</button><button type="button" className="review-photo-confirm-remove" disabled={disabled} onClick={onConfirm}>Remover foto</button></div>
  </dialog>,document.body);
 }
-export default function ReviewChecklistField({field:f,value,details,disabled,operationId,stageId,onValue,onDetail,meterDate,onMeterDate,onUploading,equipmentId}:any){
+export default function ReviewChecklistField({field:f,value,details,disabled,operationId,stageId,onValue,onDetail,meterDate,onMeterDate,onUploading,equipmentId,meterReference,meterWarning}:any){
  const [uploading,setUploading]=useState(false),[error,setError]=useState('');
+ const warningId=useId();
  const locked=disabled||uploading;
  const [removal,setRemoval]=useState<{id:string;extra:boolean}|null>(null);
  async function upload(files:File[],extra=false){
@@ -48,8 +49,9 @@ export default function ReviewChecklistField({field:f,value,details,disabled,ope
  {(isStatusField(f.type)||f.type==='select')?<ReviewFlags label={f.label} options={fieldOptions(f)} alertOptions={f.alertOptions} value={value} disabled={locked} onChange={onValue}/>:
  ['photo','signature'].includes(f.type)?photos():
  f.type==='textarea'?<AutoResizeTextarea aria-label={f.label} value={value??''} disabled={locked} onChange={e=>onValue(e.target.value)}/>:
- <input aria-label={f.label} type={['number','meter'].includes(f.type)?'number':['date','time'].includes(f.type)?f.type:'text'} step="any" min={f.type==='meter'?0:undefined} value={value??''} disabled={locked} onChange={e=>onValue(['number','meter'].includes(f.type)?e.target.value===''?null:Number(e.target.value):e.target.value)}/>}
- {f.type==='meter'&&<EquipmentMeterReference equipmentId={equipmentId}/>}
+ <input aria-label={f.label} aria-invalid={meterWarning?true:undefined} aria-describedby={meterWarning?warningId:undefined} className={meterWarning?"review-meter-invalid":undefined} type={['number','meter'].includes(f.type)?'number':['date','time'].includes(f.type)?f.type:'text'} step="any" min={f.type==='meter'?0:undefined} value={value??''} disabled={locked} onChange={e=>onValue(['number','meter'].includes(f.type)?e.target.value===''?null:Number(e.target.value):e.target.value)}/>}
+ {f.type==='meter'&&<EquipmentMeterReference equipmentId={equipmentId} state={meterReference}/>}
+ {meterWarning&&<p id={warningId} className="review-meter-regression-note">{meterWarning}</p>}
  {f.type==='meter'&&equipmentId&&<label>Data da leitura<input type="date" aria-label={'Data da leitura — '+f.label} value={meterDate||''} disabled={locked} onChange={e=>onMeterDate(e.target.value)}/></label>}
  {!['photo','signature'].includes(f.type)&&photoLimit(f)>0&&photos(true)}
  {(f.comment||hasAlertComment(f))&&<label><span>Comentário{requiresAlertComment(f,value)&&<> <RequiredMarker/></>}</span><AutoResizeTextarea required={requiresAlertComment(f,value)} aria-invalid={requiresAlertComment(f,value)&&!details.comment?.trim()} placeholder={requiresAlertComment(f,value)?"Preenchimento obrigatório":undefined} className={requiresAlertComment(f,value)&&!details.comment?.trim()?"alert-comment-empty":undefined} aria-label={'Comentário — '+f.label} value={details.comment||''} disabled={locked} onChange={e=>onDetail('comment',e.target.value)}/></label>}

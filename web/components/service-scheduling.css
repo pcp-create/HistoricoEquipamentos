@@ -1199,3 +1199,13 @@
 .operation-review-meter-warning { padding: 12px 14px; border: 1px solid #eed59d; border-radius: 8px; background: #fff8e6; color: #805600; }
 
 .operation-closure-progress {display:flex;flex-direction:column;gap:5px;min-width:200px;margin-top:8px;padding:10px;border:1px solid #e8c778;border-radius:8px;background:#fff8e6;color:#805410;white-space:normal;}
+
+
+.review-alert-equipment {display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:10px;}
+.operation-review-meter-warning>p {margin:0;}
+
+.review-meter-regression-alert {padding:12px;margin:10px 0;border:1px solid #dc7373;border-radius:8px;background:#fff1f1;color:#a32222;}
+.review-meter-regression-alert p {margin:6px 0 10px;}
+.review-report-row.review-report-meter-invalid>dt,.review-report-row.review-report-meter-invalid>dd {background:#fff1f1;color:#a32222;}
+.review-edit-field input.review-meter-invalid {border:2px solid #c83131;background:#fffafa;color:#a32222;}
+.review-meter-regression-note {color:#a32222;font-weight:500;margin:8px 0;}

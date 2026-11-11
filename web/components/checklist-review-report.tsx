@@ -1,4 +1,5 @@
 "use client";
+import {meterReviewAlerts} from "@/lib/service-scheduling/meter-review-alerts";
 import {operationMeterEquipment} from "@/lib/service-scheduling/meter-equipment";
 import {Save} from "lucide-react";
 import ReportWritingReview from "./report-writing-review";
@@ -10,13 +11,15 @@ import ReviewChecklistField,{ReviewFlags} from './review-checklist-field';
 import { reportFieldValue } from "@/lib/service-scheduling/checklist-report";
 import { technicalReport } from "@/lib/service-scheduling/technical-report";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
-export default function ChecklistReviewReport({ operation, data, busy=false, disabled=false, mutate, onDirtyChange, saveTarget }: any) {
+export default function ChecklistReviewReport({ operation, data, busy=false, disabled=false, mutate, onDirtyChange, saveTarget, equipmentControl, meterReference, onRunChange }: any) {
   const [aiFields,setAiFields]=useState<WritingSuggestion[]>([]);
   const savedRun=operation.document.checklistRun;
   const [draft,setDraft]=useState<any>(null),[uploads,setUploads]=useState(0);
   const draftRef=useRef<any>(null),uploadCount=useRef(0);
   const editable=!!mutate&&data.canEditSettings&&operation.status==='awaiting_review';
   const run=draft||savedRun;
+  const meterAlerts=meterReviewAlerts(run,meterReference?.reading?.meter);
+  useEffect(()=>{onRunChange?.(run);},[run,onRunChange]);
   const edited=!!draft&&JSON.stringify(draft)!==JSON.stringify(savedRun);
   useEffect(()=>{setDraft(null);draftRef.current=null;onDirtyChange?.(false);},[operation.version]);
   function change(stageId:string,fieldId:string,key:string,value:any){
@@ -48,9 +51,10 @@ export default function ChecklistReviewReport({ operation, data, busy=false, dis
         {group.name && <h5>{group.name}</h5>}
         {<dl>{group.fields.map(field => {
           const definition=stagesOf(run.template).find(s=>s.id===stage.id)?.fields.find(f=>f.id===field.id);
-          return <div key={field.id} className={`review-report-row ${aiFields.some(s=>s.stageId===stage.id&&s.fieldId===field.id)?"review-report-ai-field":""}`}>
+          const meterAlert=meterAlerts.find(alert=>alert.stageId===stage.id&&alert.fieldId===field.id);
+          return <div key={field.id} id={meterAlert?`review-meter-${operation.id}-${stage.id}-${field.id}`:undefined} className={`review-report-row ${meterAlert?"review-report-meter-invalid":""} ${aiFields.some(s=>s.stageId===stage.id&&s.fieldId===field.id)?"review-report-ai-field":""}`}>
           <dt>{field.label}{aiFields.some(s=>s.stageId===stage.id&&s.fieldId===field.id)&&<small className="report-writing-tag">Revisão de escrita · IA</small>}</dt>
-          <dd>{editable&&definition?<ReviewChecklistField field={definition} value={run.stages[stage.id]?.answers?.[field.id]} details={run.stages[stage.id]?.details?.[field.id]||{}} disabled={busy||disabled} operationId={operation.id} stageId={stage.id} meterDate={run.meterDate} equipmentId={operationMeterEquipment(operation.document)?run.equipmentId||operationMeterEquipment(operation.document):undefined} onUploading={uploading} onValue={(v:any)=>change(stage.id,field.id,'value',v)} onDetail={(key:string,v:any)=>change(stage.id,field.id,key,v)} onMeterDate={(v:string)=>change(stage.id,field.id,'meterDate',v)}/>:<>
+          <dd>{stage.id==='asset'&&field.label==='Ativo'&&equipmentControl?equipmentControl:editable&&definition?<ReviewChecklistField field={definition} value={run.stages[stage.id]?.answers?.[field.id]} details={run.stages[stage.id]?.details?.[field.id]||{}} disabled={busy||disabled} operationId={operation.id} stageId={stage.id} meterDate={run.meterDate} equipmentId={operationMeterEquipment(operation.document)?run.equipmentId||operationMeterEquipment(operation.document):undefined} meterReference={meterReference} meterWarning={meterAlert?.message} onUploading={uploading} onValue={(v:any)=>change(stage.id,field.id,'value',v)} onDetail={(key:string,v:any)=>change(stage.id,field.id,key,v)} onMeterDate={(v:string)=>change(stage.id,field.id,'meterDate',v)}/>:<>
             {field.options?<ReviewFlags label={field.label} options={field.options} alertOptions={field.alertOptions} value={field.value}/>:<span>{reportFieldValue(field)}</span>}
             {field.comment && <p className="review-report-comment"><strong>Comentário:</strong> {field.comment}</p>}
             {field.photos.length > 0 && <div className="review-report-photos">{field.photos.map((id: string, index: number) => <a key={`${id}-${index}`} href={`/api/service-scheduling/photos/${encodeURIComponent(id)}`} target="_blank" rel="noreferrer" aria-label={`Abrir ${field.type === "signature" ? "assinatura" : "foto"} de ${field.label}`}><img src={`/api/service-scheduling/photos/${encodeURIComponent(id)}`} alt={`${field.label} — ${index + 1}`} loading="lazy"/></a>)}</div>}

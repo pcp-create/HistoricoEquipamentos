@@ -1,3 +1,4 @@
+import NumberInputGuard from "@/components/number-input-guard";
 import type { Metadata, Viewport } from "next";
 import ChangePassword from "@/components/change-password";
 import { initialSessionAccess } from "@/lib/initial-access";
@@ -52,6 +53,7 @@ export default async function Layout({
         <meta name="app-cache-scope" content={access.cacheScope} />
       </head>
       <body className={access.cacheScope ? "operational-ui" : undefined}>
+        <NumberInputGuard/>
         <SessionAccessProvider access={access}>
           {"mustChangePassword" in access && access.mustChangePassword ? <ChangePassword/> : children}
         </SessionAccessProvider>

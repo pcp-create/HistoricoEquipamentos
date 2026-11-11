@@ -24,7 +24,8 @@ export async function reviewChecklist(c:any,operation:any,schedule:any,settings:
  }
  if(meter!=null){
   if(typeof meter!=='number'||!Number.isFinite(meter)||meter<0||meter>100000000||!validDate(run.meterDate)||run.meterDate>brazilToday())throw Error('Horímetro ou data da leitura inválidos.');
-  const equipment=run.equipmentId;
+  const equipment=operationMeterEquipment(operation.document);
+  if(run.equipmentId!==equipment)throw Error('O equipamento vinculado à leitura difere da operação. Confirme o equipamento na revisão antes de concluir.');
    const linked=await isChecklistEquipmentLinked(c,equipment,schedule.company_id,schedule.order_id,operation.document.equipmentId);
   if(!linked)throw Error('O equipamento da leitura não está mais vinculado à OS.');
   const old=(await c.query('SELECT document FROM web_equipment_settings WHERE equipment_id=$1 FOR UPDATE',[equipment])).rows[0]?.document||emptyOperating;

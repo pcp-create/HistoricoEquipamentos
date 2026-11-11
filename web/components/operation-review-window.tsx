@@ -1,4 +1,10 @@
 "use client";
+import {useEquipmentMeterReading} from './use-equipment-meter-reading';
+import {meterReviewAlerts} from '@/lib/service-scheduling/meter-review-alerts';
+import {operationMeterEquipment} from '@/lib/service-scheduling/meter-equipment';
+import {stagesOf} from '@/lib/service-scheduling/checklists';
+import OperationEquipmentSelect from "./operation-equipment-select";
+import {reportEquipment} from "@/lib/service-scheduling/technical-report";
 import {unlinkedMeterWarning} from "@/lib/service-scheduling/meter-equipment";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -22,6 +28,10 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
   const close=()=>{if(!(reportDirty||alertTaskDirty)||window.confirm("Descartar as correções não salvas e fechar a revisão?")){onReportDirty?.(false);onClose();}};
   const [alertTasks,setAlertTasks]=useState<AlertTaskDraft[]>([]);
   useEffect(()=>{if(o.status!=='awaiting_review')setAlertTasks([]);},[o.status]);
+  const [reviewRun,setReviewRun]=useState<any>(null);
+  useEffect(()=>setReviewRun(null),[o.id,o.version]);
+  const meterReference=useEquipmentMeterReading(stagesOf(o.document.checklistRun?.template||{items:[],stages:[]}).some(stage=>stage.fields.some(field=>field.type==='meter'))?operationMeterEquipment(o.document):undefined);
+  const meterAlerts=meterReviewAlerts(reviewRun||o.document.checklistRun,meterReference.reading?.meter);
   const meterWarning=unlinkedMeterWarning(o.document);
   const alerts=checklistAlerts(o.document.checklistRun);
   const pendingAlerts=pendingChecklistAlerts(o.document,alerts);
@@ -44,6 +54,8 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
     fieldEvents: (data.fieldEvents || []).filter((v: any) => v.operation_id === o.id),
     requests: (data.requests || []).filter((v: any) => v.operation_id === o.id) };
   const act = (action: string) => mutate({ action, operationId: o.id, version: o.version, ...(action==="review"?{alertTasks}:{}) });
+  const canChooseEquipment=data.canEditSettings&&o.status==='awaiting_review';
+  const equipmentPicker=(inReport=false)=><OperationEquipmentSelect scheduleId={String(data.schedule.id)} value={o.document.equipmentId||''} label={o.document.equipment?.name||''} displayLabel={inReport?reportEquipment(o,data.detail?.order||{}):undefined} unassigned={o.document.equipmentUnassigned===true} orderLabel="Selecionar equipamento" allowOrderFallback={false} unassignedLabel="Sem equipamento informado" disabled={busy||dirty||reportDirty} onChange={(equipmentId)=>void mutate({action:'review_equipment',operationId:o.id,version:o.version,equipmentId})}/>;
   const content=<>
     <header className="operation-review-header">
       <div><h2>OS {data.detail?.order?.numero_sequencia || data.schedule.order_id}/{operationNumber(o.position)} · Revisão da operação</h2><p>{o.document.description || "Sem descrição"} · {statusNames[o.status]}</p></div>
@@ -58,15 +70,23 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
       e.preventDefault(); setTab(keys[next]);
       document.getElementById(`${tabsId}-${keys[next]}`)?.focus();
     }}>
-      {[["report", "Relatório"], ["alerts", `Alertas (${alerts.length+(meterWarning?1:0)})`], ["parts", "Peças"], ["logs", "Apontamentos"], ["history", "Histórico"]].map(([key, label]) => <button key={key} type="button" className={key==="alerts"&&(alerts.length>0||!!meterWarning)?"review-tab-alerts":undefined} role="tab" id={`${tabsId}-${key}`} aria-selected={tab === key} aria-controls={`${tabsId}-panel`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}>{label}</button>)}
+      {[["report", "Relatório"], ["alerts", `Alertas (${alerts.length+(meterWarning?1:0)+meterAlerts.length})`], ["parts", "Peças"], ["logs", "Apontamentos"], ["history", "Histórico"]].map(([key, label]) => <button key={key} type="button" className={key==="alerts"&&(alerts.length>0||!!meterWarning||meterAlerts.length>0)?"review-tab-alerts":undefined} role="tab" id={`${tabsId}-${key}`} aria-selected={tab === key} aria-controls={`${tabsId}-panel`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}>{label}</button>)}
     </nav>
     <div className="operation-review-content" role="tabpanel" id={`${tabsId}-panel`} aria-labelledby={`${tabsId}-${tab}`} tabIndex={0}>
-      {meterWarning&&<p className="operation-review-meter-warning" role="alert">{meterWarning}</p>}
+      {tab==='alerts'&&meterWarning&&<div className="operation-review-meter-warning" role="alert">
+        <p>{meterWarning}</p>
+        {canChooseEquipment&&<div className="review-alert-equipment">
+          {equipmentPicker()}
+          <small>Defina o equipamento para atribuir a coleta ou escolha “Sem equipamento informado” para seguir com a leitura somente no relatório.</small>
+          {reportDirty&&<small>Salve os ajustes do relatório antes de definir o equipamento.</small>}
+        </div>}
+      </div>}
+      {tab==='alerts'&&meterAlerts.map(alert=><div key={alert.stageId+':'+alert.fieldId} className="review-meter-regression-alert" role="alert"><strong>Horímetro abaixo da última coleta</strong><p>{alert.message}</p><button type="button" onClick={()=>{setTab('report');requestAnimationFrame(()=>document.getElementById(`review-meter-${o.id}-${alert.stageId}-${alert.fieldId}`)?.scrollIntoView({block:'center',behavior:'smooth'}));}}>Verificar campo no relatório</button></div>)}
       {dirty && <p role="alert">Há alterações não salvas na programação. Feche esta janela e salve a operação antes de revisar.</p>}
       {error && <p className="operation-review-error" role="alert">{error}</p>}
       {tab==='alerts'&&<ChecklistAlertReview alerts={alerts} document={o.document} editable={data.canEditSettings&&o.status==='awaiting_review'} busy={busy||reportDirty||dirty} users={data.users||[]} value={o.status==='awaiting_review'?alertTasks:[]} onChange={setAlertTasks}/>}
       {tab==='alerts'&&reportDirty&&<p role="status">Salve os ajustes do relatório para atualizar os alertas e seus comentários.</p>}
-      <div hidden={tab!=="report"}>{o.document.checklistId || o.document.checklistRun ? <ChecklistReviewReport operation={o} data={data} busy={busy} disabled={dirty} mutate={mutate} onDirtyChange={updateReportDirty} saveTarget={saveTarget}/> : <p>Esta operação não possui checklist.</p>}</div>
+      <div hidden={tab!=="report"}>{o.document.checklistId || o.document.checklistRun ? <ChecklistReviewReport operation={o} data={data} busy={busy} disabled={dirty} mutate={mutate} onDirtyChange={updateReportDirty} saveTarget={saveTarget} equipmentControl={canChooseEquipment?equipmentPicker(true):null} meterReference={meterReference} onRunChange={setReviewRun}/> : <p>Esta operação não possui checklist.</p>}</div>
       {tab === "logs" && <ScheduleTimeLogs data={scoped} onChanged={() => window.dispatchEvent(new Event("service-schedule-updated"))}/>}
       {tab === "parts" && <>
         <p>Retiradas desta operação e movimentações da OS. Entregue e Recebido: almoxarifado. Devolvido: informado pelo técnico no app.</p>

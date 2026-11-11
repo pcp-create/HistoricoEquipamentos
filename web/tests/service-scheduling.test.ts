@@ -189,6 +189,18 @@ test("scheduling includes once, versions operations, protects execution and reco
     await db.query("UPDATE web_service_operations SET status='awaiting_review' WHERE id=$1",[ops[0].id]);
     ops[0]=(await send('operation_duration',{duration:4})).operation;
     assert.equal(ops[0].status,'awaiting_review');assert.equal(ops[0].document.duration,4);
+    const reviewEquipment=(equipmentId:string,actor=admin)=>mutateSchedule({action:'review_equipment',scheduleId:sid,operationId:ops[0].id,version:ops[0].version,equipmentId},actor);
+    await assert.rejects(reviewEquipment('77','outsider@test.com'),e=>(e as Error).constructor.name==='Forbidden');
+    await assert.rejects(reviewEquipment('999999'),/Equipamento não encontrado/);
+    const beforeEquipment=structuredClone(ops[0].document);
+    ops[0]=(await reviewEquipment('77')).operation;
+    assert.equal(ops[0].status,'awaiting_review');assert.equal(ops[0].document.equipmentId,'77');
+    assert.equal(ops[0].document.equipmentUnassigned,false);assert.equal(ops[0].document.equipment.name,'Máquina da OS');
+    assert.equal(ops[0].document.duration,beforeEquipment.duration);
+    ops[0]=(await reviewEquipment('')).operation;
+    assert.equal(ops[0].document.equipmentId,'');assert.equal(ops[0].document.equipmentUnassigned,true);
+    await db.query("UPDATE web_service_operations SET status='reviewed' WHERE id=$1",[ops[0].id]);
+    await assert.rejects(reviewEquipment('77'),/antes de concluir a revisão/);
     await db.query("UPDATE web_service_operations SET status='awaiting_execution' WHERE id=$1",[ops[0].id]);
     const originalDate=ops[0].document.date;
     const originalVersion=ops[0].version;

@@ -4412,3 +4412,7 @@ body .badge i,body .sales-profile-status i { --status-signal-color:currentColor;
 .bo-list .bo-record-footer .bo-delete{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;min-width:36px;min-height:36px;margin:0;padding:7px;border:0;background:transparent;color:#bd3342;cursor:pointer;font:inherit;font-size:12px;box-shadow:none}
 .bo-list .bo-record-footer .bo-delete:hover:not(:disabled){color:#932333;background:transparent}
 .bo-delete:focus-visible{outline:2px solid #bd3342;outline-offset:2px;border-radius:6px}
+
+/* Numeric values are typed explicitly; browser steppers are hidden. */
+input[type="number"] { appearance:textfield; -moz-appearance:textfield; }
+input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }

@@ -55,6 +55,7 @@ test("review window isolates operation data and enables PDF after successful rev
   await expect(dialog.getByRole('radio',{name:'OK',exact:true})).toBeChecked();
   await expect(dialog.getByRole('radio',{name:'NA',exact:true})).not.toBeChecked();
   await dialog.getByRole('textbox',{name:'Resultado',exact:true}).fill('Corrigido pelo planejador');
+  await expect(dialog.locator('.review-report-row').filter({has:page.getByText('Ativo',{exact:true})}).getByRole('button')).toBeDisabled();
   await dialog.getByRole('radio',{name:'NOK',exact:true}).check();
   await expect(dialog.getByRole('button',{name:'Concluir revisão',exact:true})).toBeDisabled();
   const footer=dialog.locator('.operation-review-footer');

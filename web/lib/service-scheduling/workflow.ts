@@ -102,6 +102,7 @@ export async function handoffOperation(
       [operation.id, phase],
     );
   }
+  if(['reviewed','internal','billing'].includes(phase))await c.query("UPDATE web_tasks SET status='completed',source_resolved=true,completed_at=COALESCE(completed_at,now()),kanban_column=NULL WHERE id=$1",[taskId]);
   await c.query(
     "INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,$2,$3,true,$4,COALESCE((SELECT display_name FROM web_user_access WHERE email=$4),$4))",
     [taskId, titles[phase], description, actor],

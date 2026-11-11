@@ -154,6 +154,9 @@ test("execution handoffs preserve one task; releases, customer sends and approva
       ).rows[0].assigned_to,
       "tech@test.com",
     );
+    const operationTaskVersion=(await query<any>('SELECT version FROM web_tasks WHERE id=$1',[taskId])).rows[0].version;
+    await assert.rejects(updateTask({id:taskId,version:operationTaskVersion,action:'move',column:'completed'},{email:'tech@test.com'} as any),/automaticamente/);
+    await assert.rejects(updateTask({id:taskId,version:operationTaskVersion,action:'reopen'},{email:'tech@test.com'} as any),/automaticamente/);
     // Recalling a sent operation preserves data, moves its task to planning and hides it from the portal.
     await assert.rejects(async()=>recallOperation(db,await op(),'planner@test.com',{confirmReturn:true,reason:'Ajuste'}),/revisão/);
     await db.exec('BEGIN');
@@ -268,6 +271,7 @@ test("execution handoffs preserve one task; releases, customer sends and approva
       "planner@test.com",
       "reviewed",
     );
+    assert.equal((await query<any>('SELECT status FROM web_tasks WHERE id=$1',[taskId])).rows[0].status,'completed');
     await releaseSchedule(
       db,
       "1",
@@ -309,7 +313,7 @@ test("execution handoffs preserve one task; releases, customer sends and approva
       await query<any>("SELECT * FROM web_service_customer_reports")
     ).rows;
     assert.equal(reports.length, 1);
-    assert.match(reports[0].filename, /Completo.pdf$/);
+    assert.equal(reports[0].filename,'OS 15128 - Cliente - Compressor.pdf');
     assert.ok(reports[0].content.length > 0);
     const messages = await claimServiceMessages();
     assert.equal(messages.length, 1);

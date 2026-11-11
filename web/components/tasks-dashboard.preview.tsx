@@ -1,4 +1,5 @@
 "use client";
+import {operationTask,manuallyCompletableTask} from "@/lib/tasks/completion-policy";
 import TaskNoteDescription from "./task-note-description";
 import { taskOriginGroup } from "@/lib/tasks/origin-group";
 import { matchesSearch } from "@/lib/filters";
@@ -454,7 +455,7 @@ export function TaskDrawer({
               </fieldset>
               {t.status === "completed" && (
                 <p>
-                  {t.source_key?.startsWith("manual:")
+                  {operationTask(t)?"Tarefa concluída automaticamente pela revisão da operação.":t.source_key?.startsWith("manual:")
                     ? "Tarefa manual concluída. Você pode reabri-la em Acompanhamento."
                     : "Esta ocorrência foi concluída e não será reaberta."}
                 </p>
@@ -476,7 +477,7 @@ export function TaskDrawer({
               <div className="task-followup-actions">
                 <button type="button" className="task-secondary-action" disabled={busy} onClick={()=>void save("followers")}><Save size={17}/>Salvar acompanhamento</button>
               {t.status === "completed" &&
-                t.source_key?.startsWith("manual:") && (
+                manuallyCompletableTask(t) && (
                   <button
                     type="button"
                     disabled={busy}
@@ -487,7 +488,7 @@ export function TaskDrawer({
                   </button>
                 )}
               {t.status !== "completed" &&
-                t.source_key?.startsWith("manual:") && (
+                manuallyCompletableTask(t) && (
                   <button
                     type="button"
                     disabled={busy}
@@ -531,7 +532,7 @@ export function TaskDrawer({
                 )}
               </dl>
               <p>
-                {t.source_key?.startsWith("manual:")
+                {operationTask(t)?"Esta tarefa será concluída automaticamente quando a operação atingir o status Revisado.":t.source_key?.startsWith("manual:")
                   ? "Esta tarefa manual pode ser concluída aqui ou pelo Kanban."
                   : "Esta tarefa será concluída automaticamente quando a pendência do processo de origem for resolvida."}
               </p>
@@ -998,7 +999,7 @@ export default function TasksDashboard() {
     if (
       busy ||
       optimisticTask.current ||
-      !task.source_key?.startsWith("manual:")
+      !manuallyCompletableTask(task)
     )
       return;
     const preview = {
@@ -1051,7 +1052,7 @@ export default function TasksDashboard() {
     }
   }
   async function toggleCardCompletion(task: any) {
-    if (busy || !task.source_key?.startsWith("manual:")) return;
+    if (busy || !manuallyCompletableTask(task)) return;
     const reopen = task.status === "completed";
     if (reopen && !window.confirm("Deseja reabrir esta tarefa?")) return;
     await saveCompletion(task, reopen);
@@ -1064,9 +1065,9 @@ export default function TasksDashboard() {
       (column === "completed" && task.status === "completed")
     )
       return;
-    if (column === "completed" && !task.source_key?.startsWith("manual:")) {
+    if (column === "completed" && !manuallyCompletableTask(task)) {
       setError(
-        "Tarefas de alertas são concluídas automaticamente após a resolução da pendência de origem.",
+        operationTask(task)?"Esta tarefa será concluída automaticamente quando a operação atingir o status Revisado.":"Tarefas de alertas são concluídas automaticamente após a resolução da pendência de origem.",
       );
       setDragging(null);
       return;
@@ -1630,7 +1631,7 @@ export default function TasksDashboard() {
                               }}
                             >
                               <div className="task-kanban-title">
-                                {t.source_key?.startsWith("manual:") ? (
+                                {manuallyCompletableTask(t) ? (
                                   <button
                                     type="button"
                                     className={

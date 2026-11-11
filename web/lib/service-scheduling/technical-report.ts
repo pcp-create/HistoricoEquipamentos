@@ -3,9 +3,9 @@ import { reportSubmission } from "./checklists";
 import { timeLogs, elapsedTime } from "./time-logs";
 
 export function reportEquipment(operation: any, order: any) {
-  if(operation.document?.equipmentUnassigned===true)return 'Sem equipamento específico';
+  if(operation.document?.equipmentUnassigned===true)return 'Sem equipamento informado';
   const equipment = operation.document?.equipment;
-  return equipment?.label || equipment?.name || (operation.document?.equipmentId ? "Equipamento " + operation.document.equipmentId : order.equipamento) || "Não informado";
+  return equipment?.label || equipment?.name || (operation.document?.equipmentId ? "Equipamento " + operation.document.equipmentId : order.equipamento) || "Sem equipamento informado";
 }
 export function customerPauses(rows: any[], reasons?: any[]) {
   const pauses = new Map<string, number>();

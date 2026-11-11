@@ -1,4 +1,5 @@
 import React from "react";
+import NumberInputGuard from "../components/number-input-guard";
 import { createRoot } from "react-dom/client";
 import NativePasswordGate from "../components/native-password-gate";
 import FieldApp from "../components/field-app";
@@ -34,6 +35,7 @@ class Boundary extends React.Component<
 }
 createRoot(document.getElementById("root")!).render(
   <Boundary>
+    <NumberInputGuard/>
     <NativePasswordGate><FieldApp /></NativePasswordGate>
   </Boundary>,
 );
