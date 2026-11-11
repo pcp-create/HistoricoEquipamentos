@@ -9,6 +9,7 @@ import {unlinkedMeterWarning} from "@/lib/service-scheduling/meter-equipment";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, FileDown, CheckCheck, FileOutput } from "lucide-react";
+import OrderTaskWindow from "./order-task-window";
 import ChecklistAlertReview, {type AlertTaskDraft} from "./checklist-alert-review";
 import {checklistAlerts,pendingChecklistAlerts,validateAlertTaskGroups} from "@/lib/service-scheduling/checklist-alerts";
 import ChecklistReviewReport from "./checklist-review-report";
@@ -21,6 +22,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
   const tabsId = useId();
   const [saveTarget,setSaveTarget]=useState<HTMLDivElement|null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
+  const [taskOpen,setTaskOpen]=useState(false);
   const [reportMode,setReportMode]=useState("complete");
   const [tab, setTab] = useState("report");
   const [reportDirty,setReportDirty]=useState(false);
@@ -85,6 +87,8 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
       {dirty && <p role="alert">Há alterações não salvas na programação. Feche esta janela e salve a operação antes de revisar.</p>}
       {error && <p className="operation-review-error" role="alert">{error}</p>}
       {tab==='alerts'&&<ChecklistAlertReview alerts={alerts} document={o.document} editable={data.canEditSettings&&o.status==='awaiting_review'} busy={busy||reportDirty||dirty} users={data.users||[]} value={o.status==='awaiting_review'?alertTasks:[]} onChange={setAlertTasks}/>}
+      {tab==='alerts'&&reviewed&&data.canEditSettings&&<div className="alert-group-actions"><button type="button" disabled={busy||dirty||reportDirty||!o.document.checklistRun} onClick={()=>setTaskOpen(true)}>Criar tarefa da operação</button><small>O relatório anexo será somente desta operação.</small></div>}
+      {taskOpen&&<OrderTaskWindow data={data} operation={o} onClose={()=>setTaskOpen(false)}/>}
       {tab==='alerts'&&reportDirty&&<p role="status">Salve os ajustes do relatório para atualizar os alertas e seus comentários.</p>}
       <div hidden={tab!=="report"}>{o.document.checklistId || o.document.checklistRun ? <ChecklistReviewReport operation={o} data={data} busy={busy} disabled={dirty} mutate={mutate} onDirtyChange={updateReportDirty} saveTarget={saveTarget} equipmentControl={canChooseEquipment?equipmentPicker(true):null} meterReference={meterReference} onRunChange={setReviewRun}/> : <p>Esta operação não possui checklist.</p>}</div>
       {tab === "logs" && <ScheduleTimeLogs data={scoped} onChanged={() => window.dispatchEvent(new Event("service-schedule-updated"))}/>}

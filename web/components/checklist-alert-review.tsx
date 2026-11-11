@@ -17,16 +17,16 @@ export default function ChecklistAlertReview({alerts,document,editable,busy,user
  }
  function edit(index:number,patch:Partial<AlertTaskDraft>){onChange(value.map((v,i)=>i===index?{...v,...patch}:v));}
  const summary=(a:ChecklistAlert)=><div><strong>{a.label}: {a.value}</strong><small>{a.stage}</small><p className="alert-comment"><b>Comentário:</b> {a.comment||'Não informado'}</p></div>;
- if(!alerts.length)return <p>Nenhum alerta identificado nesta operação.</p>;
  return <section className="checklist-review-alerts" aria-label="Alertas do checklist">
-  <h3><AlertTriangle size={20}/>{alerts.length} alerta(s) identificado(s)</h3>
-  {editable&&<p>Selecione os alertas para agrupar em uma tarefa ou separar em tarefas individuais. Cada tarefa terá seu responsável, descrição e relatório anexo. As tarefas serão criadas e encaminhadas somente ao concluir a revisão desta operação, com o relatório final anexado.</p>}
+  {alerts.length>0?<h3><AlertTriangle size={20}/>{alerts.length} alerta(s) identificado(s)</h3>:<p>Nenhum alerta identificado nesta operação.</p>}
+  {editable&&alerts.length>0&&<p>Selecione os alertas para agrupar em uma tarefa ou separar em tarefas individuais. Cada tarefa terá seu responsável, descrição e relatório anexo. As tarefas serão criadas e encaminhadas somente ao concluir a revisão desta operação, com o relatório final anexado.</p>}
   {available.length>0&&<div className="alert-selection-list">
    {editable&&<label className="alert-selection"><input type="checkbox" disabled={busy} checked={available.every(a=>selected.includes(alertKey(a)))} onChange={e=>setSelected(e.target.checked?available.map(alertKey):[])}/>Selecionar todos os alertas disponíveis</label>}
    {available.map(a=><label key={alertKey(a)} className="alert-selection">{editable&&<input type="checkbox" aria-label={`Selecionar alerta: ${a.stage} · ${a.label}`} disabled={busy} checked={selected.includes(alertKey(a))} onChange={e=>setSelected(v=>e.target.checked?[...v,alertKey(a)]:v.filter(k=>k!==alertKey(a)))}/>} {summary(a)}</label>)}
   </div>}
   {editable&&available.length>0&&<div className="alert-group-actions"><button className="alert-group-primary" type="button" disabled={busy||picked.length<2} onClick={()=>create(false)}><Layers size={18}/>Agrupar selecionados em uma tarefa</button><button type="button" disabled={busy||!picked.length} onClick={()=>create(true)}><Plus size={18}/>Criar uma tarefa por alerta</button></div>}
   {editable&&pending.length>0&&<p className="alert-task-summary" role="status">{available.length} alerta(s) sem tarefa · {value.length} tarefa(s) preparada(s)</p>}
+  {editable&&<div className="alert-group-actions"><button type="button" disabled={busy} onClick={()=>onChange([...value,{alertKeys:[],assignedTo:'',description:'',reportMode:'complete',taskType:'standard'}])}><Plus size={18}/>Criar tarefa da operação</button><small>O anexo incluirá somente o relatório desta operação. A tarefa será enviada ao concluir a revisão.</small></div>}
   {value.map((task,index)=><section className="alert-task-card" key={index} aria-label={`Tarefa dos alertas ${index+1}`}>
    <header><h4>Tarefa {index+1}</h4><button type="button" aria-label={`Remover tarefa ${index+1}`} disabled={busy||!editable} onClick={()=>onChange(value.filter((_,i)=>i!==index))}><Trash2 size={16}/></button></header>
    {task.alertKeys.map(key=>{const a=pending.find(a=>alertKey(a)===key);return a?<div className="alert-task-item" key={key}>{summary(a)}</div>:<p key={key} role="alert">Este alerta foi alterado no relatório. Remova esta tarefa e reorganize os alertas.</p>;})}

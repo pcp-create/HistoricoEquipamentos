@@ -26,13 +26,13 @@ export function pendingChecklistAlerts(document:any,alerts:ChecklistAlert[]){
  return alerts.filter(a=>!covered.has(alertKey(a)));
 }
 export function validateAlertTaskGroups(alerts:ChecklistAlert[],input:any,requireAll=true){
- if(!alerts.length)return [];
- const groups=Array.isArray(input)?input:[{...input,alertKeys:alerts.map(alertKey)}];
- if(!groups.length||groups.length>alerts.length)throw Error('Distribua todos os alertas entre as tarefas.');
+ const groups=Array.isArray(input)?input:(input||alerts.length)?[{...input,alertKeys:alerts.map(alertKey)}]:[];
+ if(groups.length>50)throw Error('Crie no máximo 50 tarefas por revisão.');
+ if(!groups.length&&alerts.length)throw Error('Distribua todos os alertas entre as tarefas.');
  const seen=new Set<string>();
  const result=groups.map(group=>{
   const task=validateAlertTask(group);
-  if(!Array.isArray(group.alertKeys)||!group.alertKeys.length)throw Error('Selecione ao menos um alerta para cada tarefa.');
+  if(!Array.isArray(group.alertKeys))throw Error('Seleção de alertas inválida.');
   const selected=group.alertKeys.map((key:any)=>{
    const alert=alerts.find(a=>alertKey(a)===key);
    if(!alert||seen.has(key))throw Error('Cada alerta deve pertencer a uma única tarefa. Confira a seleção.');

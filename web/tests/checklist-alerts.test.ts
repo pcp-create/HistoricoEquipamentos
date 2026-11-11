@@ -163,6 +163,30 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  await assert.rejects(listTasks(new URLSearchParams({orderId:'100'}),{id:admin,email:admin,user_metadata:{}}),/empresa/);
 
  assert.equal((await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,4);
+
+ // A scoped task needs only its own operation reviewed, even with other pending operations.
+ await query("UPDATE web_service_operations SET status='awaiting_review' WHERE id=$1",[op2]);
+ const scopedInput={...orderTask,operationId,requestId:'30000000-0000-4000-8000-000000000002'};
+ const scoped=await createOrderTask(scopedInput,admin);
+ assert.deepEqual(await createOrderTask(scopedInput,admin),scoped);
+ const scopedPdf=(await query('SELECT content FROM web_task_attachments WHERE task_id=$1',[scoped.taskId])).rows[0];
+ assert.ok((await PDFDocument.load(scopedPdf.content)).getPageCount()<(await PDFDocument.load(attached.content)).getPageCount(),'only the selected operation is attached');
+ await assert.rejects(createOrderTask({...scopedInput,operationId:op2,requestId:'30000000-0000-4000-8000-000000000003'},admin),/Conclua a revisão/);
+ await assert.rejects(createOrderTask({...scopedInput,operationId:'10000000-0000-4000-8000-000000000099'},admin),/relatório técnico/);
+ const op3='10000000-0000-4000-8000-000000000003';
+ const cleanRun={...run,stages:{s:{status:'submitted',answers:{status:'OK'}}}};
+ await query("INSERT INTO web_service_operations(id,schedule_id,position,status,document,updated_by) VALUES($1,1,3,'awaiting_review',$2,'test')",[op3,JSON.stringify({description:'Sem alertas',responsible:admin,checklistRun:cleanRun})]);
+ const manual={alertKeys:[],assignedTo:admin,description:'Avaliar condição para orçamento',reportMode:'budget'};
+ const manualResult=await mutateSchedule({action:'review',scheduleId:'1',operationId:op3,version:1,alertTasks:[manual,{...manual,description:'Aprovar condição',taskType:'approval'}]},admin);
+ assert.equal(manualResult.operation.status,'reviewed');
+ const manualRecords=manualResult.operation.document.checklistAlertTasks;
+ assert.equal(manualRecords.length,2);
+ assert.ok(manualRecords.every((r:any)=>r.alerts.length===0));
+ for(const record of manualRecords){
+  const row=(await query('SELECT filename,content FROM web_task_attachments WHERE task_id=$1',[record.taskId])).rows[0];
+  assert.match(row.filename,/Operacao-03-Orcamento/);
+  assert.ok((await PDFDocument.load(row.content)).getPageCount()>0);
+ }
  }finally{g.historyPool=old;await db.close();}
 });
 

@@ -13,7 +13,6 @@ import {operationNumber} from './operation-number';
 export async function createChecklistAlertTask(c:PoolClient,operation:any,schedule:any,document:any,settings:any,email:string,input:any){
  validateRunAlertComments(document.checklistRun);
  const allAlerts=checklistAlerts(document.checklistRun);
- if(!allAlerts.length)return document;
  const records=document.checklistAlertTasks||[];
  const ids=records.map((t:any)=>t.taskId);
  const live=ids.length?(await c.query('SELECT id::text FROM web_tasks WHERE id=ANY($1::bigint[])',[ids])).rows.map(r=>String(r.id)):[];
@@ -43,11 +42,11 @@ async function createAlertGroup(c:PoolClient,operation:any,schedule:any,document
  const number=String(order.numero_sequencia||schedule.order_id),position=operationNumber(operation.position);
  const bytes=await renderTaskChecklistPdf({title:document.checklistRun.template.name,order:number,position:operation.position,client:order.cliente_nome||'',equipment:'',report,photos,mode:taskInput.reportMode});
  const filename=taskInput.reportMode==="summary"?summaryReportFilename(order,[{...operation,document}],number):`Relatorio-OS-${number.replace(/[^\w-]/g,'')}-Operacao-${position}-${reportFilenameMode[taskInput.reportMode]}.pdf`;
- const result=existingTaskId?{task:{id:existingTaskId}}:await createTask({taskType:taskInput.taskType,title:`Alertas da OS ${number} · Operação ${position}`.slice(0,160),description:taskInput.description,assignedTo:taskInput.assignedTo,priority:'high',dueDate:'',orderCompany:String(schedule.company_id),orderId:String(schedule.order_id)}, {id:email,email,user_metadata:{display_name:actor?.display_name||email}},c);
+ const result=existingTaskId?{task:{id:existingTaskId}}:await createTask({taskType:taskInput.taskType,title:`${alerts.length?"Alertas":"Tarefa"} da OS ${number} · Operação ${position}`.slice(0,160),description:taskInput.description,assignedTo:taskInput.assignedTo,priority:'high',dueDate:'',orderCompany:String(schedule.company_id),orderId:String(schedule.order_id)}, {id:email,email,user_metadata:{display_name:actor?.display_name||email}},c);
  const taskId=String(result.task.id);
  await c.query("UPDATE web_tasks SET origin='Revisão de relatório' WHERE id=$1",[taskId]);
  if(existingTaskId)await c.query("DELETE FROM web_task_attachments WHERE task_id=$1 AND (filename LIKE $2 OR filename LIKE $3)",[taskId,`Relatorio-OS-%-Operacao-${position}-%-Previo.pdf`,'OS %-Previo.pdf']);
- await c.query("INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,'Alertas identificados no checklist',$2,true,$3,$4)",[taskId,alerts.map(a=>`${a.stage} · ${a.label}: ${a.value}\nComentário: ${a.comment||"Não informado"}`).join('\n'),email,actor?.display_name||email]);
+ if(alerts.length)await c.query("INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,'Alertas identificados no checklist',$2,true,$3,$4)",[taskId,alerts.map(a=>`${a.stage} · ${a.label}: ${a.value}\nComentário: ${a.comment||"Não informado"}`).join('\n'),email,actor?.display_name||email]);
  await c.query('INSERT INTO web_task_attachments(task_id,filename,content_type,content,created_by,created_name) VALUES($1,$2,$3,$4,$5,$6)',[taskId,filename,'application/pdf',Buffer.from(bytes),email,actor?.display_name||email]);
- return {...document,checklistAlertTasks:[...(document.checklistAlertTasks||[]).filter((t:any)=>t.signature!==checklistAlertSignature(alerts)),{taskId,signature:checklistAlertSignature(alerts),alerts,assignedTo:taskInput.assignedTo,description:taskInput.description,reportMode:taskInput.reportMode,taskType:taskInput.taskType,at:new Date().toISOString(),by:email}]};
+ return {...document,checklistAlertTasks:[...(document.checklistAlertTasks||[]).filter((t:any)=>!existingTaskId||String(t.taskId)!==existingTaskId),{taskId,signature:checklistAlertSignature(alerts),alerts,assignedTo:taskInput.assignedTo,description:taskInput.description,reportMode:taskInput.reportMode,taskType:taskInput.taskType,at:new Date().toISOString(),by:email}]};
 }
