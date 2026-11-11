@@ -3,6 +3,7 @@ import { orderLookups } from "@/lib/service-orders/lookups";
 import {
   prepareOrder,
   advanceOrder,
+  retryOrder,
   submissions,
 } from "@/lib/service-orders/store";
 import {
@@ -74,6 +75,8 @@ export async function POST(r: Request) {
       return json(await advanceEdit(u.email, b.id));
     if (b.action === "prepare")
       return json(await prepareOrder(u.email, b.id, b.draft));
+    if (b.action === "retry")
+      return json(await retryOrder(u.email, b.id, b.updatedAt, b.confirmed));
     if (b.action === "advance") return json(await advanceOrder(u.email, b.id));
     throw new OrderInputError("Ação inválida.");
   } catch (e) {

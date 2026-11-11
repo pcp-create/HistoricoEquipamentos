@@ -25,6 +25,10 @@ test('fixed status choices reject tampering and detect only configured selected 
  assert.equal(checklistAlerts({...run,stages:{s:{answers:{status:'OK'}}}}).length,0);
  assert.equal(checklistAlerts({...run,template:{...template,stages:[{...template.stages[0],fields:[{...field,alertOptions:[]}]}]}}).length,0);
  assert.deepEqual(checklistReport(run)[0].groups[0].fields[0].alertOptions,['NOK']);
+ const taskInput={assignedTo:'a',description:'Analisar condição',reportMode:'complete'};
+ assert.equal(validateAlertTask(taskInput).taskType,'standard');
+ assert.equal(validateAlertTask({...taskInput,taskType:'approval'}).taskType,'approval');
+ assert.throws(()=>validateAlertTask({...taskInput,taskType:'invalid'}),/tipo de tarefa/);
  assert.throws(()=>validateAlertTask({}),/responsável/);
  assert.throws(()=>validateAlertTask({assignedTo:'a',description:''}),/Descreva/);
  assert.throws(()=>validateAlertTask({assignedTo:'a',description:'Tratar',reportMode:'unsafe'}),/relatório/);
@@ -78,7 +82,7 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  const tasks=(await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows;
  assert.equal(tasks.length,1);assert.equal(tasks[0].assigned_to,alertTask.assignedTo);assert.equal(String(tasks[0].order_id),'100');
  const attachment=(await query('SELECT * FROM web_task_attachments')).rows[0];
- assert.equal(attachment.filename,'OS 12345 - Cliente I Compressor.pdf');assert.equal(attachment.content_type,'application/pdf');
+ assert.equal(attachment.filename,'OS 12345 - Cliente - Compressor.pdf');assert.equal(attachment.content_type,'application/pdf');
  assert.ok(attachment.content.length<=3_000_000,'the complete generated PDF fits the database attachment constraint');
  assert.deepEqual(Buffer.from((await query('SELECT content FROM web_service_checklist_photos WHERE id=1')).rows[0].content),originalPhoto,'original checklist photo remains untouched');
  assert.ok((await PDFDocument.load(attachment.content)).getPageCount()>0);
@@ -97,7 +101,7 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  await query("INSERT INTO web_user_access(email,display_name,phone,role,updated_by) VALUES('second@test.com','Segundo','5547999999998','user','test')");
  await query('INSERT INTO web_service_checklist_photos VALUES(2,$1,$2)',[op2,await sharp({create:{width:8,height:8,channels:3,background:'white'}}).png().toBuffer()]);
  const keys=checklistAlerts(groupedRun).map(alertKey);
- const groups=[{...alertTask,alertKeys:keys.slice(0,2)},{...alertTask,assignedTo:'second@test.com',description:'Tratar terceiro alerta',reportMode:'complete',alertKeys:keys.slice(2)}];
+ const groups=[{...alertTask,alertKeys:keys.slice(0,2)},{...alertTask,assignedTo:'second@test.com',taskType:'approval',description:'Tratar terceiro alerta',reportMode:'complete',alertKeys:keys.slice(2)}];
  const request={action:'review',scheduleId:'1',operationId:op2,version:1};
  await assert.rejects(mutateSchedule({...request,alertTasks:[groups[0],{...groups[1],assignedTo:'missing@test.com'}]},admin),/ativo/);
  assert.equal((await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,1);
@@ -108,6 +112,14 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  assert.ok((await query('SELECT filename FROM web_task_attachments')).rows.every((r:any)=>!r.filename.includes('Previo')));
  const records=groupedResult.operation.document.checklistAlertTasks;
  assert.equal(records.length,2);
+ assert.equal(records[0].taskType,'standard');
+ assert.equal(records[1].taskType,'approval');
+ const approval=(await query('SELECT * FROM web_tasks WHERE id=$1',[records[1].taskId])).rows[0];
+ assert.equal(approval.task_type,'approval');
+ assert.equal(approval.approval_state,'pending');
+ assert.equal(approval.approval_approver,'second@test.com');
+ assert.equal(approval.approval_description,'Tratar terceiro alerta');
+ assert.equal((await query('SELECT * FROM web_task_attachments WHERE task_id=$1',[records[1].taskId])).rows.length,1);
  assert.deepEqual(records.map((t:any)=>t.assignedTo),[admin,'second@test.com']);
  assert.equal((await query('SELECT * FROM web_task_attachments')).rows.length,3);
  const notes=(await query("SELECT description FROM web_task_notes WHERE task_id=$1",[records[0].taskId])).rows.map((r:any)=>r.description).join(' ');
@@ -130,7 +142,7 @@ test('review atomically requires an assigned alert task, attaches a PDF and reje
  const created=await createOrderTask(orderTask,admin);
  assert.equal((await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length,4);
  const attached=(await query('SELECT filename,content FROM web_task_attachments WHERE task_id=$1',[created.taskId])).rows[0];
- assert.equal(attached.filename,'OS 12345 - Cliente I Compressor.pdf');
+ assert.equal(attached.filename,'OS 12345 - Cliente - Compressor.pdf');
  assert.ok((await PDFDocument.load(attached.content)).getPageCount()>0);
  assert.deepEqual(await createOrderTask(orderTask,admin),created);
  assert.match((await query('SELECT source_key FROM web_tasks WHERE id=$1',[created.taskId])).rows[0].source_key,/^manual:order-report-task:/);

@@ -14,7 +14,8 @@ export function validateAlertTask(input:any){
  if(!input||typeof input.assignedTo!=='string'||!input.assignedTo.trim())throw Error('Escolha um responsável para a tarefa dos alertas antes de concluir a revisão.');
  if(typeof input.description!=='string'||!input.description.trim()||input.description.length>8000)throw Error('Descreva a tarefa dos alertas (até 8.000 caracteres).');
  if(!['complete','summary','budget'].includes(input.reportMode))throw Error('Selecione o tipo de relatório para anexar à tarefa.');
- return {assignedTo:input.assignedTo.trim().toLowerCase(),description:input.description.trim(),reportMode:input.reportMode as 'complete'|'summary'|'budget'};
+ if(input.taskType!==undefined&&!['standard','approval'].includes(input.taskType))throw Error('Selecione um tipo de tarefa válido.');
+ return {taskType:(input.taskType||'standard') as 'standard'|'approval',assignedTo:input.assignedTo.trim().toLowerCase(),description:input.description.trim(),reportMode:input.reportMode as 'complete'|'summary'|'budget'};
 }
 
 export const alertKey=(a:ChecklistAlert)=>JSON.stringify([a.stageId,a.fieldId,a.value]);

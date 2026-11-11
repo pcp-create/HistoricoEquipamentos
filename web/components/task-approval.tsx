@@ -63,6 +63,24 @@ export default function TaskApproval({
         </div>
       )}
       <p className="task-approval-description">{t.approval_description}</p>
+      {!!data.attachments?.length && (
+        <section aria-label="Anexos da aprovação">
+          <h4>Documentos para análise</h4>
+          <ul>
+            {data.attachments.map((attachment: any) => (
+              <li key={attachment.id}>
+                <a
+                  href={"/api/tasks/attachments/" + encodeURIComponent(attachment.id)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {attachment.filename}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {error && <p role="alert">{error}</p>}
       {t.approval_state === "pending" ? (
         <>

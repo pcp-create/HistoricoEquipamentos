@@ -277,3 +277,33 @@ test("new OS selects company, filters equipment, fills seller and submits header
   expect(saved.items[1].internalNotes).toBe("Orientação interna");
   expect(step).toBe(5);
 });
+
+test("recent uncertain submission retries saved data only after ERP confirmation", async ({page,context}) => {
+  await context.addCookies([{name:"m8-access",value:"test",domain:"localhost",path:"/"}]);
+  await page.route("**/api/activity",r=>r.fulfill({json:{admin:false}}));
+  await page.route("**/api/tasks*",r=>r.fulfill({json:{tasks:[],users:[]}}));
+  const entry={id:"d62cc66c-dd52-4562-973a-4948a96c0471",company:2,state:"uncertain",nextItem:0,itemCount:2,createdAt:"2026-11-11T13:07:50Z",updatedAt:"2026-11-11T13:08:15Z",message:"O M8 não confirmou a resposta."};
+  const writes:any[]=[];
+  await page.route("**/api/service-orders**",r=>{
+    if(r.request().method()==="POST"){
+      const body=r.request().postDataJSON();writes.push(body);
+      return r.fulfill({json:{...entry,state:body.action==="retry"?"ready":"uncertain"}});
+    }
+    return r.fulfill({json:new URL(r.request().url()).searchParams.has("lookup")?{types:[],registries:[],users:[]}:{rows:[entry]}});
+  });
+  await page.goto("/OrdemServico/nova");
+  await page.getByText("Meus envios recentes",{exact:true}).click();
+  const retry=page.locator(".os-recent").getByRole("button",{name:"Tentar novamente",exact:true});
+  page.once("dialog",dialog=>dialog.dismiss());
+  await retry.click();
+  expect(writes).toHaveLength(0);
+  page.once("dialog",async dialog=>{
+    expect(dialog.message()).toContain("esta OS não foi criada");
+    await dialog.accept();
+  });
+  await retry.click();
+  await expect.poll(()=>writes.length).toBe(2);
+  expect(writes[0]).toEqual({action:"retry",id:entry.id,updatedAt:entry.updatedAt,confirmed:true});
+  expect(writes[1]).toEqual({action:"advance",id:entry.id});
+  await expect(page.locator(".os-result")).toContainText("Conferência no M8 necessária");
+});

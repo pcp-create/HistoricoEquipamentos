@@ -12,6 +12,7 @@ import {
 import {
   prepareOrder,
   advanceOrder,
+  retryOrder,
   submissions,
 } from "../lib/service-orders/store";
 import { orderLookups } from "../lib/service-orders/lookups";
@@ -370,6 +371,23 @@ test("creation uses customer equipment rule, persists progress, isolates users a
     );
     await advanceOrder("user", uncertain, timeout);
     assert.equal(count, 1);
+    const pending = (await submissions("user", uncertain))[0];
+    await assert.rejects(()=>retryOrder("other",uncertain,pending.updatedAt,true),/não encontrado/);
+    await assert.rejects(()=>retryOrder("user",uncertain,pending.updatedAt,false),/Confirme/);
+    await assert.rejects(()=>retryOrder("user",uncertain,"2000-01-01T00:00:00Z",true),/andamento/);
+    assert.equal((await retryOrder("user",uncertain,pending.updatedAt,true)).state,"ready");
+    await assert.rejects(()=>retryOrder("user",uncertain,pending.updatedAt,true),/andamento/);
+    const beforeRetry = writes.length;
+    await advanceOrder("user",uncertain,session);
+    assert.deepEqual(writes.slice(beforeRetry),["/v1/assistenciatecnica/ordemservico"]);
+    const equipmentFailure = await advanceOrder("user",uncertain,timeout);
+    assert.equal(equipmentFailure.m8Id,777);
+    assert.equal(equipmentFailure.nextItem,0);
+    assert.equal((await retryOrder("user",uncertain,equipmentFailure.updatedAt,true)).state,"partial");
+    const beforeEquipmentRetry = writes.length;
+    await advanceOrder("user",uncertain,session);
+    assert.deepEqual(writes.slice(beforeEquipmentRetry),["/v1/assistenciatecnica/ordemservico/777/equipamento"]);
+    await assert.rejects(()=>retryOrder("user",key,r.updatedAt,true),/andamento/);
     const crash = randomUUID();
     await prepareOrder("user", crash, draft);
     await db.query(
@@ -377,7 +395,12 @@ test("creation uses customer equipment rule, persists progress, isolates users a
       [crash],
     );
     await advanceOrder("user", crash, timeout);
-    assert.equal(count, 1);
+    assert.equal(count, 2);
+    await assert.rejects(()=>retryOrder("user",crash,new Date().toISOString(),true),/andamento/);
+    const rejected = randomUUID();
+    await prepareOrder("user",rejected,draft);
+    const rejectedResult = await advanceOrder("user",rejected,reject);
+    assert.equal((await retryOrder("user",rejected,rejectedResult.updatedAt,true)).state,"ready");
     await saveRegistry(
       "service-types",
       {

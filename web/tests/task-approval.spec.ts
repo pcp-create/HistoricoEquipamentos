@@ -51,7 +51,7 @@ for (const decision of ["approved", "rejected"])
           ? {
               task: t,
               notes: [],
-              attachments: [],
+              attachments: [{ id: "77", filename: "Relatório técnico.pdf" }],
               notifications: [],
               canDecideApproval: t.approval_state === "pending",
               canCloseApproval: false,
@@ -64,6 +64,8 @@ for (const decision of ["approved", "rejected"])
     await expect(dialog.getByText(t.approval_description)).toBeVisible();
     await expect(dialog).toContainText("Cliente oficina");
     await expect(dialog).toContainText("Compressor oficina");
+    await expect(dialog.getByRole("link", { name: "Relatório técnico.pdf" })).toHaveAttribute("href", "/api/tasks/attachments/77");
+    await expect(dialog.getByRole("button", { name: "Concluir tarefa", exact: true })).toHaveCount(0);
     const approved = decision === "approved";
     await dialog
       .getByRole("button", {

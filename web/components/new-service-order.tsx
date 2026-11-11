@@ -220,14 +220,14 @@ export default function NewServiceOrder({
       (r: any) => r.id === form.serviceType,
     ),
     type = meta?.types.find((r: any) => r.id === form.type);
-  async function advance(id: string) {
+  async function advance(id: string, files = attachmentFiles) {
     let r;
     do {
       r = await api({ action: editing ? "edit-advance" : "advance", id });
       setCurrent(r);
     } while (r.state === "ready");
     if (r.state === "complete") {
-      try{await sendOrderAttachments(String(r.company||form.company),String(editing?.id||r.m8Id),attachmentFiles,file=>setAttachmentFiles(files=>files.filter(f=>f!==file)));}
+      try{await sendOrderAttachments(String(r.company||form.company),String(editing?.id||r.m8Id),files,file=>setAttachmentFiles(files=>files.filter(f=>f!==file)));}
       catch(e){throw Error('A OS foi salva no ERP, mas há anexos pendentes. Não crie a OS novamente. '+(e as Error).message);}
       if (editing) {
         sessionStorage.removeItem(
@@ -303,6 +303,31 @@ export default function NewServiceOrder({
         }
       } catch {}
     } finally {
+      setBusy(false);
+      sending.current = false;
+    }
+  }
+  async function retry(submission: any) {
+    if (sending.current || attachmentBusy) return;
+    const message = submission.m8Id
+      ? `Confira a OS ${submission.m8Id} no M8. Confirma que a etapa pendente não foi gravada? Somente essa etapa e as seguintes serão reenviadas, usando os dados salvos. Uma etapa já gravada poderá ser duplicada.`
+      : "Confirma que conferiu no M8 e esta OS não foi criada? O sistema tentará criar novamente usando todos os dados salvos. Se a OS já existir, poderá ser duplicada.";
+    if (!window.confirm(message)) return;
+    sending.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const files = requestId.current === submission.id ? attachmentFiles : [];
+      const prepared = await api({ action: "retry", id: submission.id, updatedAt: submission.updatedAt, confirmed: true });
+      setCurrent(prepared);
+      if (requestId.current !== submission.id) setAttachmentFiles([]);
+      requestId.current = submission.id;
+      sessionStorage.setItem("new-service-order-submission", submission.id);
+      await advance(submission.id, files);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Não foi possível reprocessar o envio.");
+    } finally {
+      try { setRecent((await api()).rows); } catch {}
       setBusy(false);
       sending.current = false;
     }
@@ -475,6 +500,11 @@ export default function NewServiceOrder({
               {current.nextItem}/{current.itemCount} etapas confirmadas
             </p>
             {current.message && <p>{current.message}</p>}
+            {!editing && ["uncertain", "rejected"].includes(current.state) && (
+              <button type="button" disabled={busy || attachmentBusy} onClick={() => void retry(current)}>
+                <RefreshCw size={15} /> Tentar novamente
+              </button>
+            )}
             {current.state === "complete" && (
               <p>
                 A ordem foi gravada no ERP. A lista de Ordens de Serviço será
@@ -967,6 +997,11 @@ export default function NewServiceOrder({
                 {r.m8Id ? ` · ID M8 ${r.m8Id}` : ""} · {r.nextItem}/
                 {r.itemCount} itens
               </span>
+              {["uncertain", "rejected"].includes(r.state) && (
+                <button type="button" disabled={busy || attachmentBusy} onClick={() => void retry(r)}>
+                  <RefreshCw size={15} /> Tentar novamente
+                </button>
+              )}
               {["ready", "partial"].includes(r.state) && (
                 <button
                   type="button"

@@ -30,7 +30,7 @@ function publicSubmission(r: any) {
     itemCount: r.items.length,
     message: r.message,
     createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    updatedAt: new Date(r.updated_at).toISOString(),
   };
 }
 export async function submissions(email: string, id?: string) {
@@ -213,6 +213,38 @@ function canonical(v: any): string {
         )
       : value,
   );
+}
+// Explicit retry only after the user checked the ambiguous step in the ERP.
+// Keep the same submission, header, items, ERP ID and confirmed progress.
+export async function retryOrder(email: string, id: unknown, updatedAt: unknown, confirmed: unknown) {
+  const key = validUUID(id);
+  if (confirmed !== true)
+    throw new OrderInputError("Confirme a conferência no M8 antes de tentar novamente.");
+  if (typeof updatedAt !== "string" || !Number.isFinite(Date.parse(updatedAt)))
+    throw new OrderInputError("Atualize o andamento antes de tentar novamente.");
+  const c = await database().connect();
+  try {
+    await c.query("BEGIN READ WRITE");
+    const row = (await c.query(
+      "SELECT * FROM service_order_submissions WHERE id=$1 AND created_by=$2 FOR UPDATE",
+      [key, email],
+    )).rows[0];
+    if (!row) throw new OrderInputError("Envio não encontrado.");
+    if (!["uncertain", "rejected"].includes(row.state) ||
+        new Date(row.updated_at).getTime() !== Date.parse(updatedAt))
+      throw new OrderInputError("O andamento deste envio mudou. Atualize antes de tentar novamente.");
+    const result = await c.query(
+      "UPDATE service_order_submissions SET state=$2,message=NULL,updated_at=now() WHERE id=$1 RETURNING *",
+      [key, row.m8_id ? "partial" : "ready"],
+    );
+    await c.query("COMMIT");
+    return publicSubmission(result.rows[0]);
+  } catch (e) {
+    await c.query("ROLLBACK");
+    throw e;
+  } finally {
+    c.release();
+  }
 }
 // One ERP write per request. The persisted sending state survives a server timeout/crash.
 export async function advanceOrder(

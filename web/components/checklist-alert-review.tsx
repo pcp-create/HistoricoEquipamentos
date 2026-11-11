@@ -3,7 +3,7 @@ import AutoResizeTextarea from "./auto-resize-textarea";
 import {useState} from 'react';
 import {AlertTriangle,Plus,Trash2,Layers} from 'lucide-react';
 import {alertKey,pendingChecklistAlerts,type ChecklistAlert} from '@/lib/service-scheduling/checklist-alerts';
-export type AlertTaskDraft={alertKeys:string[];assignedTo:string;description:string;reportMode:string};
+export type AlertTaskDraft={alertKeys:string[];assignedTo:string;description:string;reportMode:string;taskType?:'standard'|'approval'};
 export default function ChecklistAlertReview({alerts,document,editable,busy,users,value,onChange}:{alerts:ChecklistAlert[];document:any;editable:boolean;busy:boolean;users:any[];value:AlertTaskDraft[];onChange:(v:AlertTaskDraft[])=>void}){
  const [selected,setSelected]=useState<string[]>([]);
  const pending=pendingChecklistAlerts(document,alerts);
@@ -13,7 +13,7 @@ export default function ChecklistAlertReview({alerts,document,editable,busy,user
  function create(separate:boolean){
   if(busy||!picked.length||(!separate&&picked.length<2))return;
   const groups=separate?picked.map(a=>[a]):[picked];
-  onChange([...value,...groups.map(group=>({alertKeys:group.map(alertKey),assignedTo:'',description:'',reportMode:'complete'}))]);setSelected([]);
+  onChange([...value,...groups.map(group=>({alertKeys:group.map(alertKey),assignedTo:'',description:'',reportMode:'complete',taskType:'standard' as const}))]);setSelected([]);
  }
  function edit(index:number,patch:Partial<AlertTaskDraft>){onChange(value.map((v,i)=>i===index?{...v,...patch}:v));}
  const summary=(a:ChecklistAlert)=><div><strong>{a.label}: {a.value}</strong><small>{a.stage}</small><p className="alert-comment"><b>Comentário:</b> {a.comment||'Não informado'}</p></div>;
@@ -31,12 +31,14 @@ export default function ChecklistAlertReview({alerts,document,editable,busy,user
    <header><h4>Tarefa {index+1}</h4><button type="button" aria-label={`Remover tarefa ${index+1}`} disabled={busy||!editable} onClick={()=>onChange(value.filter((_,i)=>i!==index))}><Trash2 size={16}/></button></header>
    {task.alertKeys.map(key=>{const a=pending.find(a=>alertKey(a)===key);return a?<div className="alert-task-item" key={key}>{summary(a)}</div>:<p key={key} role="alert">Este alerta foi alterado no relatório. Remova esta tarefa e reorganize os alertas.</p>;})}
    <div className="checklist-review-alert-form">
-    <label>Responsável pela tarefa<select disabled={busy||!editable} value={task.assignedTo} onChange={e=>edit(index,{assignedTo:e.target.value})}><option value="">Selecione o responsável</option>{users.filter(u=>u.enabled).map(u=><option key={u.email} value={u.email}>{u.display_name||u.email}</option>)}</select></label>
+    <label>Tipo de tarefa<select disabled={busy||!editable} value={task.taskType||'standard'} onChange={e=>edit(index,{taskType:e.target.value as 'standard'|'approval'})}><option value="standard">Tarefa de ação</option><option value="approval">Tarefa de aprovação</option></select></label>
+    {task.taskType==='approval'&&<p>Para ciência e aprovação da condição, sem ação imediata. O destinatário receberá as opções Aprovar ou Reprovar, com justificativa e relatório anexo.</p>}
+    <label>{task.taskType==='approval'?'Responsável pela aprovação':'Responsável pela tarefa'}<select disabled={busy||!editable} value={task.assignedTo} onChange={e=>edit(index,{assignedTo:e.target.value})}><option value="">Selecione o responsável</option>{users.filter(u=>u.enabled).map(u=><option key={u.email} value={u.email}>{u.display_name||u.email}</option>)}</select></label>
     <label>Relatório anexo<select disabled={busy||!editable} value={task.reportMode} onChange={e=>edit(index,{reportMode:e.target.value})}><option value="complete">Completo</option><option value="summary">Resumido</option><option value="budget">Orçamento</option></select></label>
-    <label className="checklist-review-alert-description">Descrição da tarefa<AutoResizeTextarea disabled={busy||!editable} maxLength={8000} rows={4} value={task.description} onChange={e=>edit(index,{description:e.target.value})} placeholder="Descreva o que deve ser feito para tratar os alertas desta tarefa. Inclua as orientações necessárias para o responsável."/></label>
+    <label className="checklist-review-alert-description">Descrição da tarefa<AutoResizeTextarea disabled={busy||!editable} maxLength={8000} rows={4} value={task.description} onChange={e=>edit(index,{description:e.target.value})} placeholder={task.taskType==='approval'?"Descreva a condição que deve ser analisada e aprovada, incluindo as informações para ciência do responsável.":"Descreva o que deve ser feito para tratar os alertas desta tarefa. Inclua as orientações necessárias para o responsável."}/></label>
    </div>
    {editable&&<p className="alert-task-summary">{task.assignedTo&&task.description.trim()?'Atribuição preparada. A tarefa será criada com o relatório final ao concluir a revisão.':'Preencha o responsável e a descrição para liberar a conclusão da revisão.'}</p>}
   </section>)}
-  {(document.checklistAlertTasks||[]).map((task:any)=><section className="alert-task-card" key={task.taskId}><h4>Tarefa <a href={`/tarefas?task=${encodeURIComponent(task.taskId)}`} target="_blank" rel="noreferrer">#{task.taskId}</a> · Criada</h4><p>Responsável: {users.find(u=>u.email===task.assignedTo)?.display_name||task.assignedTo||'Consulte a tarefa'}</p>{(task.alerts||[]).map((a:ChecklistAlert)=><div className="alert-task-item" key={alertKey(a)}>{summary(a)}</div>)}<p>Relatório anexado à tarefa.</p></section>)}
+  {(document.checklistAlertTasks||[]).map((task:any)=><section className="alert-task-card" key={task.taskId}><h4>Tarefa <a href={`/tarefas?task=${encodeURIComponent(task.taskId)}`} target="_blank" rel="noreferrer">#{task.taskId}</a> · Criada{task.taskType==='approval'?' · Aprovação':''}</h4><p>Responsável: {users.find(u=>u.email===task.assignedTo)?.display_name||task.assignedTo||'Consulte a tarefa'}</p>{(task.alerts||[]).map((a:ChecklistAlert)=><div className="alert-task-item" key={alertKey(a)}>{summary(a)}</div>)}<p>Relatório anexado à tarefa.</p></section>)}
  </section>;
 }
