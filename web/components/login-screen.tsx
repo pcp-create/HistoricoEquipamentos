@@ -182,6 +182,7 @@ export default function Login({
             <ShieldCheck size={16} />
             Acesso individual e protegido
           </div>
+          <p className="login-contact"><a href="/privacidade">Política de Privacidade</a></p>
           <p className="login-contact">
             Precisa de acesso ou esqueceu sua senha?
             <br />

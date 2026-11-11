@@ -1,0 +1,14 @@
+.page { max-width: 1000px; margin: 0 auto; padding: 24px; color: #27435d; }
+.header { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; padding-bottom: 20px; }
+.header span { flex: 1; min-width: 200px; font-weight: 600; }
+.page a { color: #176a98; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.document { padding: clamp(22px, 5vw, 56px); background: #fff; border: 1px solid #d7e4ed; border-radius: 18px; line-height: 1.8; }
+.document h1 { color: #183554; font-size: clamp(28px, 5vw, 40px); line-height: 1.2; margin: 12px 0 20px; }
+.document h2 { font-size: 21px; line-height: 1.4; color: #183554; margin: 32px 0 12px; }
+.document p { margin: 12px 0; }
+.document ul { padding-left: 24px; margin: 16px 0; }
+.document li { margin: 10px 0; }
+.eyebrow { font-size: 12px; letter-spacing: .12em; color: #18777d; font-weight: 700; }
+.footer { font-size: 13px; text-align: center; padding: 24px 0; }
+@media(max-width: 520px) { .page { padding: 16px 12px; } .header { gap: 12px; } .header span { min-width: 160px; font-size: 13px; } .document { border-radius: 12px; } }
+@media print { .page { max-width: none; padding: 0; } .document { border: 0; padding: 0; } .header a, .footer { display: none; } }
