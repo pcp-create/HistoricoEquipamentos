@@ -1,3 +1,4 @@
+import {addReportFooter} from '../reports/pdf-footer';
 import { PUBLIC_SYSTEM_URL } from "../public-url";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -306,19 +307,7 @@ export async function reportPdf(
       text(l, 48, top, 9, false, muted);
       top += 13;
     }
-  pdf.getPages().forEach((p, i) => {
-    page = p;
-    rect(34, 797, 527, 1, border);
-    text(
-      "RJ Compressores · Planejamento de manutenção",
-      34,
-      809,
-      8,
-      false,
-      muted,
-    );
-    text(`${i + 1} / ${pdf.getPageCount()}`, 510, 809, 8, false, muted);
-  });
+  await addReportFooter(pdf,'Preventivas · Gestão Integrada',34);
   pdf.setTitle("Gestão Integrada — Preventivas");
   return pdf.save();
 }

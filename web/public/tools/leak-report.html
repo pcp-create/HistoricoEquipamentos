@@ -1276,7 +1276,7 @@
 }
 </style>
     <link rel="stylesheet" href="/tools/leak-report-professional.css">
-  </head>
+  <script src="/tools/report-footer.js"></script></head>
   <body>
     <header class="topbar">
       <div class="brand">
@@ -2043,7 +2043,7 @@
           page.innerHTML = `
           <div class="leak-page-title"><div class="leak-technical-header"><img src="/logo-rj.png" alt="RJ Compressores"><div><h2>Relatório Técnico de Caça Vazamentos</h2><p>Pontos ${start} a ${end} de ${leakData.length} · Lista de fugas identificadas</p></div>${document.getElementById('serviceOrderInput').value.trim()?`<div class="leak-header-order">OS Nº<strong>${escapeHtml(document.getElementById('serviceOrderInput').value.trim())}</strong></div>`:''}</div></div>
           <div class="leak-list"></div>
-          <div class="footer-note">Assistência Técnica · RJ Compressores · Relatório Caça Vazamento</div>
+          <div class="footer-note">${window.gwReportFooter("Caça-vazamentos · Gestão Integrada")}</div>
         `;
           const list = page.querySelector(".leak-list");
           leakData
@@ -2052,6 +2052,10 @@
           leakPages.appendChild(page);
         }
 
+        const summaryPage=document.querySelector('.summary-page');
+        let summaryFooter=summaryPage.querySelector('.gw-summary-footer');
+        if(!summaryFooter){summaryFooter=document.createElement('div');summaryFooter.className='gw-summary-footer';summaryPage.appendChild(summaryFooter);}
+        summaryFooter.innerHTML=window.gwReportFooter('Caça-vazamentos · Gestão Integrada');
         renderRankingChart(leakData);
 
         const totalCo2 = totalEnergy===null?null:(totalEnergy * 0.527) / 1000;

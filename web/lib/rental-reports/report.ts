@@ -1,3 +1,4 @@
+import {reportFooterHtml} from '../reports/html-footer';
 import { rentalContract } from "../equipment-management/contract";
 import { brazilToday } from "../equipment-management/planning";
 import { displayDate } from "../preventive-reports/report";
@@ -134,7 +135,7 @@ export function rentalMessage(report: RentalReport) {
       })
       .join("") ||
     '<tr><td colspan="4">Nenhum contrato nesta situação.</td></tr>'
-  }</table><p>Relação completa no PDF anexo. Este e-mail exibe até 30 itens.</p><p>${coverage}</p><p style="font-size:12px;color:#64748b">Início: abertura da OS. Fim: Data de Entrega da OS. Classificação conforme vínculo atual da máquina.</p><p>Atenciosamente,<br>Gestão Integrada · Gestão de equipamentos</p></body></html>`;
+  }</table><p>Relação completa no PDF anexo. Este e-mail exibe até 30 itens.</p><p>${coverage}</p><p style="font-size:12px;color:#64748b">Início: abertura da OS. Fim: Data de Entrega da OS. Classificação conforme vínculo atual da máquina.</p><p>Atenciosamente,<br>Gestão Integrada · Gestão de equipamentos</p>${reportFooterHtml("Locações e empréstimos · Gestão Integrada")}</body></html>`;
   return {
     subject:
       report.kind === "overdue"

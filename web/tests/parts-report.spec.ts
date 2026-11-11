@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import * as XLSX from 'xlsx';
-import {readFileSync} from 'node:fs';
+import {PDFDocument,PDFName} from 'pdf-lib';
+import {readFileSync,writeFileSync} from 'node:fs';
 test.setTimeout(90000);
 test('parts report includes actions, purchase arrivals and five Excel sheets',async({page,context,request})=>{
  expect((await request.get('/api/service-scheduling/parts-report')).status()).toBe(401);
@@ -10,11 +11,23 @@ test('parts report includes actions, purchase arrivals and five Excel sheets',as
  await page.goto('/programacao/pecas');
  await expect(page.getByRole('heading',{name:'Relatório de peças da programação'})).toBeVisible();
  await expect(page.getByText('Fornecedor teste')).toBeVisible();
- await expect(page.getByText('06/11/2026',{exact:true})).toBeVisible();
+ await expect(page.getByRole('cell',{name:/^06\/11\/2026/})).toBeVisible();
  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Exportar Excel'}).click();
  const file=await download;const workbook=XLSX.read(readFileSync((await file.path())!),{type:'buffer'});
  expect(workbook.SheetNames).toEqual(['Orientações','Consolidado','Peças por OS','Compras abertas','Cobertura OSs']);
  expect(XLSX.utils.sheet_to_json(workbook.Sheets['Compras abertas'])[0]).toMatchObject({Fornecedor:'Fornecedor teste','Chegada prevista':'06/11/2026'});
  await page.emulateMedia({media:'print'});await expect(page.getByRole('button',{name:'Exportar Excel'})).toBeHidden();
  await expect(page.getByRole('heading',{name:'Relatório de peças da programação'})).toBeVisible();
+ await expect(page.locator('.report-print-brand a')).toHaveAttribute('href','https://wa.me/5549999070882');
+ const bytes=await page.pdf({preferCSSPageSize:true});writeFileSync('/tmp/parts-brand-preview.pdf',bytes);
+ const pdf=await PDFDocument.load(bytes);
+ for(const sheet of [pdf.getPages().at(-1)!]){
+  const annots=sheet.node.Annots()!;
+  const links=Array.from({length:annots?.size()||0},(_,i)=>{
+   const annot:any=pdf.context.lookup(annots.get(i));
+   const action:any=pdf.context.lookup(annot.get(PDFName.of('A')));
+   return action?.get(PDFName.of('URI'))?.decodeText();
+  });
+  expect(links).toContain('https://wa.me/5549999070882');
+ }
 });

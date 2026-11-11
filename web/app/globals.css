@@ -4416,3 +4416,7 @@ body .badge i,body .sales-profile-status i { --status-signal-color:currentColor;
 /* Numeric values are typed explicitly; browser steppers are hidden. */
 input[type="number"] { appearance:textfield; -moz-appearance:textfield; }
 input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+
+/* Brand signature only on printable reports, not on the working screens. */
+.report-print-brand { display: none; }
+@media print { .report-print-brand { display: block; margin-top: 16px; break-inside: avoid; } }

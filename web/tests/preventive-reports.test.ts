@@ -11,7 +11,7 @@ import {
 } from "../lib/equipment-management/planning";
 import { reportTokenMatches } from "../lib/preventive-reports/access";
 import { reportPdf } from "../lib/preventive-reports/pdf";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFName } from "pdf-lib";
 const plan: Plan = {
   name: "Preventiva 2.000 h",
   hours: 2000,
@@ -129,5 +129,12 @@ test("alerts retain plan items and link to the exact equipment and plan without 
   const pdf = await PDFDocument.load(
     await reportPdf(report, "https://example.com"),
   );
-  assert.equal(pdf.getPages()[0].node.Annots()?.size(), 1);
+  const annotations=pdf.getPages()[0].node.Annots()!;
+  const links=Array.from({length:annotations.size()},(_,i)=>{
+    const annotation:any=pdf.context.lookup(annotations.get(i));
+    const action:any=pdf.context.lookup(annotation.get(PDFName.of('A')));
+    return action.get(PDFName.of('URI')).decodeText();
+  });
+  assert.ok(links.includes('https://wa.me/5549999070882'));
+  assert.ok(links.some(url=>url.startsWith('https://example.com/equipamentos?equipment=100&plan=')),'equipment link survives branding');
 });

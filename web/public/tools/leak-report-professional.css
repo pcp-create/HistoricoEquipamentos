@@ -93,3 +93,8 @@ body,.report{font-family:"RJ DM Sans",Arial,sans-serif;color:#27445f}button,inpu
 }
 
 #report.calculation-blocked{display:none!important}
+/* Reserve room for the shared signature without creating an extra cover page. */
+@media print {
+ .report .summary-page .chart-row { padding: 2px 0; }
+ .report .summary-page .gw-report-footer { margin-top: 4px!important; }
+}

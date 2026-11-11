@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 import { PDFDocument } from 'pdf-lib';
 
@@ -73,6 +73,7 @@ test('LeakReporter import, escaping, adjustments, images, mobile and print', asy
   await page.locator('#xmlInput').setInputFiles({name:'oito-pontos.xml',mimeType:'text/xml',buffer:Buffer.from(eightPoints)});
   await page.evaluate(()=>document.fonts.ready);
   const pdf=await page.pdf({preferCSSPageSize:true});
+  await writeFile('/tmp/leak-brand-preview.pdf',pdf);
   assert.equal((await PDFDocument.load(pdf)).getPageCount(),5,'one overview page and four pages with two leak cards each');
   const clipped=await page.locator('.leak-card').evaluateAll(cards=>cards.some(card=>{
    const bounds=card.getBoundingClientRect(),notes=card.querySelector('.comments')!.getBoundingClientRect();

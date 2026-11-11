@@ -1,3 +1,4 @@
+import {addReportFooter} from '../reports/pdf-footer';
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -154,13 +155,6 @@ export async function rentalPdf(report: RentalReport) {
     text(l, 34, y, 9);
     y += 13;
   }
-  pdf
-    .getPages()
-    .forEach((p, i) =>
-      p.drawText(
-        `RJ Compressores | Uso interno | ${i + 1} / ${pdf.getPageCount()}`,
-        { x: 34, y: 25, size: 8, font, color: muted },
-      ),
-    );
+  await addReportFooter(pdf,'Locações e empréstimos · Gestão Integrada',34);
   return pdf.save();
 }

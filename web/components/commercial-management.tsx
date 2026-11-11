@@ -1,4 +1,5 @@
 "use client";
+import ReportBrandFooter from "./report-brand-footer";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -842,7 +843,7 @@ export default function CommercialManagement({
             )}
           </>
         )}
-      </main>
+      <ReportBrandFooter title="Gestão comercial · Gestão Integrada"/></main>
     </>
   );
 }

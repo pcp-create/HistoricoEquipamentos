@@ -1,3 +1,4 @@
+import {addReportFooter} from '../reports/pdf-footer';
 import {reportPhoto} from "./report-photo";
 import {summaryReportFilename} from "./report-filename";
 import {reportEquipment} from "./technical-report";
@@ -221,12 +222,7 @@ export async function renderChecklistPdf(data:{preliminary?:boolean;title:string
   y-=9;
  }
  }
- const pages=pdf.getPages();pages.forEach((p,i)=>{
-  p.drawLine({start:{x:left,y:35},end:{x:left+width,y:35},thickness:.7,color:ink});
-  p.drawText('RJ Compressores',{x:left,y:22,size:8,font:bold,color:ink});
-  p.drawText(data.preliminary?'PRÉVIO — NÃO REVISADO':'Relatório técnico · Gestão Integrada',{x:218,y:22,size:7,font,color:ink});
-  p.drawText(`Página ${i+1} de ${pages.length}`,{x:495,y:22,size:7,font,color:ink});
- });
+ await addReportFooter(pdf,data.preliminary?'PRÉVIO — NÃO REVISADO':'Relatório técnico · Gestão Integrada',left);
  return pdf.save();
 }
 

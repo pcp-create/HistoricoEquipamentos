@@ -1,4 +1,5 @@
 "use client";
+import ReportBrandFooter from "./report-brand-footer";
 import EquipmentCreateDialog from "./equipment-create-dialog";
 import {apiFetch} from "@/lib/client-api-cache";
 import { matchesSearch } from "@/lib/filters";
@@ -483,7 +484,7 @@ export default function CustomerFleet() {
         {!loading && !data && !error && (
           <p>Nenhum cliente com máquinas vinculadas disponível.</p>
         )}
-      </main>
+      <ReportBrandFooter title="Equipamentos do cliente · Gestão Integrada"/></main>
     </div>
   );
 }

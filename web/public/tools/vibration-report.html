@@ -716,7 +716,7 @@
 @media(max-width:600px){#vibrationSaved .v-saved-heading{align-items:flex-start;flex-direction:column;gap:12px}#vibrationSaved .v-saved-search{flex-wrap:wrap}#vibrationSaved .v-saved-search label{flex-basis:100%}#vibrationSaved #searchStoredReports{width:100%}}
 .v-page>p.v-condition-line{display:flex;align-items:center;gap:6px;font-size:11px;line-height:1.4}.v-condition-line .v-condition{font-size:inherit;line-height:inherit}
 </style>
-  </head>
+  <script src="/tools/report-footer.js"></script></head>
   <body>
     <header>
       <div>
@@ -1113,7 +1113,7 @@
         }
         if($('general').value.trim())add(reportHeader('Considerações finais',clients)+`<p class="v-final">${escapeHtml($('general').value)}</p>`);
         $('report').className='report vibration-pages';
-        $('report').innerHTML=pages.map(body=>`<section class="v-page">${body}<div class="v-footer">RJ Compressores · ${escapeHtml(clients)} · OS ${escapeHtml($('serviceOrder').value||'Não informada')}<br>Classificações informadas pelo responsável técnico. Valores ausentes não representam medição zero.</div></section>`).join('');
+        $('report').innerHTML=pages.map((body,index)=>`<section class="v-page">${body}<div class="v-footer">RJ Compressores · ${escapeHtml(clients)} · OS ${escapeHtml($('serviceOrder').value||'Não informada')}<br>Classificações informadas pelo responsável técnico. Valores ausentes não representam medição zero.${window.gwReportFooter("Vibração · Gestão Integrada",`Página ${index+1} de ${pages.length}`)}</div></section>`).join('');
       }
 
       let activeEquipment = 0;

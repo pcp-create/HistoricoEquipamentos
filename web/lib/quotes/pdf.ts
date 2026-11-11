@@ -1,3 +1,4 @@
+import {addReportFooter} from '../reports/pdf-footer';
 import {PDFDocument,StandardFonts,rgb,type PDFPage} from 'pdf-lib';
 import {readFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -77,6 +78,6 @@ export async function quotePdf(quote:Quote & {number:string;created_at?:string},
  page.drawLine({start:{x:tx,y:H-y},end:{x:W-margin,y:H-y},thickness:.6,color:line});text('VALOR TOTAL',tx,y+7,9,true,navy);right(money(totals.total),W-margin-8,y+6,11,true,navy);y+=30;
  const confirmation=`Confirmo o(s) pedido(s) referente(s) ao orçamento nº ${number}${date?' - '+date:''}, autorizando a emissão da(s) nota(s) fiscal(is) no total de ${money(totals.total)}.`;
  const conf=wrap(confirmation,width-210,7);ensure(conf.length*10+25);rect(margin,y,width,Math.max(35,conf.length*10+12),rgb(.96,.97,.98));conf.forEach((v,i)=>text(v,margin+8,y+7+i*10,7,false,gray));page.drawLine({start:{x:W-215,y:H-y-20},end:{x:W-35,y:H-y-20},thickness:.6,color:navy});text('Assinatura do responsável     Data: ____/____/________',W-214,y+24,6,false,gray);
- pdf.getPages().forEach((p,i)=>{page=p;rect(margin,H-43,width,25);text('RJ COMPRESSORES   /   SERRANA COMPRESSORES   /   CRICIÚMA COMPRESSORES',margin+10,H-35,7,true,rgb(1,1,1));text(`${i+1} / ${pdf.getPageCount()}`,W-65,H-35,8,false,rgb(1,1,1));});
+ await addReportFooter(pdf,'Proposta comercial · Gestão Integrada',margin);
  return pdf.save();
 }
