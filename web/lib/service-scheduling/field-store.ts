@@ -1,3 +1,4 @@
+import {equipmentWarranty} from '../equipment/warranty';
 import {pendingTechnicianClosures,technicianTimeChangesLocked} from './execution-locks';
 import {occurrencesForEquipment,operationOccurrenceEquipment} from "../equipment-occurrences/store";
 import {handoffOperation} from './workflow';
@@ -160,7 +161,7 @@ export async function fieldData(email: string, operationId?: string | null) {
   if (!p) throw new Forbidden();
   const order = (
     await c.query(
-      "SELECT equipamento,observacao FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2",
+      "SELECT equipamento,observacao,produto_equipamento_id FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2",
       [p.company_id, p.order_id],
     )
   ).rows[0];
@@ -189,7 +190,10 @@ export async function fieldData(email: string, operationId?: string | null) {
   }
   const materialData = await materials(c, { ...p, id: p.schedule_id });
   const occurrenceEquipment = await operationOccurrenceEquipment(c,p.id,email);
+  const warrantyEquipment=p.document.equipmentUnassigned?'':String(p.document.equipmentId||order?.produto_equipamento_id||'');
+  const equipmentWarrantyAlert=warrantyEquipment?await equipmentWarranty(warrantyEquipment,String(p.company_id),String(p.order_id)):null;
   return {
+    equipmentWarrantyAlert,
     occurrenceEquipment,
     equipmentOccurrences: await occurrencesForEquipment(c, p.document.equipmentUnassigned ? [] : p.document.equipmentId ? [String(p.document.equipmentId)] : Array.from(new Set([...equipment_links.map((e:any)=>String(e.equipment_id)),...occurrenceEquipment.map((e:any)=>String(e.id))]))),
     teamAvailable:await teamSessionsAvailable(c),

@@ -11,7 +11,16 @@ test('programming warns for the selected equipment and excludes its own OS',asyn
   return r.fulfill({json:{warranty:{company:'1',orderId:'90',number:'15000',startedAt:'2026-11-10',expiresAt:'2027-02-10',period:'3 meses',periodSource:'snapshot',lastOrder:{company:'1',orderId:'90',number:'15000',startedAt:'2026-11-10'}}}});
  });
  await page.goto('/programacao?id=1');
+ const trigger=page.getByRole('button',{name:'Ver alerta de garantia do equipamento'});
+ const popup=page.getByRole('dialog',{name:'Detalhes da garantia do equipamento'});
+ await expect(trigger).toBeVisible();await expect(popup).toHaveCount(0);
+ await trigger.click();await expect(popup).toBeVisible();
  const alert=page.getByRole('note',{name:'Alerta de garantia do equipamento'});
  await expect(alert).toContainText('OS 15000');await expect(alert).toContainText('10/02/2027');
  await expect(alert.getByRole('link').first()).toHaveAttribute('href','/historico?createdCompany=1&createdOrder=90');
+ await page.getByRole('button',{name:'Fechar alerta de garantia'}).click();await expect(popup).toHaveCount(0);
+ await expect(trigger).toBeFocused();await trigger.click();await expect(popup).toBeVisible();
+ await page.setViewportSize({width:390,height:844});
+ const bounds=await popup.boundingBox();expect(bounds!.x).toBeGreaterThanOrEqual(0);expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(390);
+ await page.keyboard.press('Escape');await expect(popup).toHaveCount(0);
 });

@@ -1,11 +1,14 @@
 "use client";
-import {useEffect,useState} from 'react';
-import {AlertTriangle} from 'lucide-react';
-import {companyName} from '@/lib/company-names';
+import {useEffect,useRef,useState} from 'react';
+import {createPortal} from 'react-dom';
+import {AlertTriangle,X} from 'lucide-react';
+import EquipmentWarrantyDetails from './equipment-warranty-details';
 import './equipment-warranty-alert.css';
-export default function EquipmentWarrantyAlert({equipmentId,company,orderId}:{equipmentId:string;company?:string;orderId?:string}){
+export default function EquipmentWarrantyAlert({equipmentId,company,orderId,compact=false}:{equipmentId:string;company?:string;orderId?:string;compact?:boolean}){
+ const [open,setOpen]=useState(false);
  const [state,setState]=useState<{equipment:string;warranty:any;error:string;loading:boolean}>({equipment:'',warranty:null,error:'',loading:false});
  useEffect(()=>{
+  setOpen(false);
   if(!equipmentId){setState({equipment:'',warranty:null,error:'',loading:false});return;}
   const controller=new AbortController();setState({equipment:equipmentId,warranty:null,error:'',loading:true});
   const params=new URLSearchParams({equipment:equipmentId});
@@ -19,15 +22,19 @@ export default function EquipmentWarrantyAlert({equipmentId,company,orderId}:{eq
  if(state.loading)return <small className="equipment-warranty-loading" role="status">Consultando garantia do equipamento…</small>;
  if(state.error)return <small className="equipment-warranty-error" role="status">{state.error}</small>;
  const warranty=state.warranty;if(!warranty)return null;
- const date=(day:string)=>day?.split('-').reverse().join('/');
- const orderLink=(o:any)=><a href={`/historico?createdCompany=${o.company}&createdOrder=${o.orderId}`} target="_blank" rel="noreferrer">OS {o.number} · {companyName(o.company)}</a>;
- return <aside className="equipment-warranty-alert" role="note" aria-label="Alerta de garantia do equipamento">
-  <AlertTriangle size={18} aria-hidden="true"/>
-  <div><strong>Equipamento com atendimento dentro do período de garantia</strong>
-   <p>{orderLink(warranty)} · Abertura/emissão: {date(warranty.startedAt)}. Garantia até <b>{date(warranty.expiresAt)}</b>{warranty.period?` (${warranty.period})`:''}.</p>
-   <p>Última OS do equipamento: {orderLink(warranty.lastOrder)} · {date(warranty.lastOrder.startedAt)}.</p>
-   {warranty.periodSource==='registry'&&<p>Prazo calculado pelo cadastro do tipo de atendimento. Confira a condição aplicada na OS anterior.</p>}
-   <p>Avalie se o atendimento solicitado se enquadra na garantia. Este aviso não altera o tipo da OS.</p>
-  </div>
- </aside>;
+ const details=<EquipmentWarrantyDetails warranty={warranty}/>;
+ if(!compact)return details;
+ return <>
+  <button type="button" className="equipment-warranty-trigger" aria-label="Ver alerta de garantia do equipamento" title="Equipamento dentro do período de garantia" aria-haspopup="dialog" aria-expanded={open} onClick={()=>setOpen(true)}><AlertTriangle size={21} aria-hidden="true"/></button>
+  {open&&<WarrantyPopup onClose={()=>setOpen(false)}>{details}</WarrantyPopup>}
+ </>;
+}
+function WarrantyPopup({children,onClose}:{children:React.ReactNode;onClose:()=>void}){
+ const dialog=useRef<HTMLDialogElement>(null);
+ useEffect(()=>{const element=dialog.current!;element.showModal();return()=>element.close();},[]);
+ const close=()=>{dialog.current?.close();onClose();};
+ return createPortal(<dialog ref={dialog} className="equipment-warranty-popup" aria-label="Detalhes da garantia do equipamento" onCancel={e=>{e.preventDefault();close();}}>
+  <button type="button" className="equipment-warranty-close" aria-label="Fechar alerta de garantia" onClick={close}><X size={20} aria-hidden="true"/></button>
+  {children}
+ </dialog>,document.body);
 }

@@ -89,6 +89,11 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
    INSERT INTO integracao_m8_os_sync VALUES(1,100,false,now());
    INSERT INTO web_user_access(email,display_name,role,updated_by) VALUES('tech','Técnico','user','test'),('helper','Apoio','user','test'),('outsider','Outro','user','test');
    UPDATE web_service_schedule_settings SET document=document||'{"pauseReasons":[{"id":"rest","name":"Descanso","minutes":15}],"vehicles":[{"id":"v1","name":"Veículo 1"}]}'::jsonb;`);
+    await db.exec(`ALTER TABLE m8_ordens_servico ADD COLUMN produto_equipamento_id bigint,ADD COLUMN emissao timestamptz,ADD COLUMN data_abertura timestamptz,ADD COLUMN data_garantia timestamptz,ADD COLUMN tipo_atendimento_nome text,ADD COLUMN tipo_atendimento_id int,ADD COLUMN ativo boolean,ADD COLUMN status text;
+    ALTER TABLE m8_order_equipment_links ADD COLUMN method text;
+    CREATE TABLE service_order_registries(kind text,id int,warranty_description text);
+    CREATE TABLE service_order_submissions(company_id int,m8_id bigint,request jsonb,header jsonb,created_at timestamptz);
+    CREATE TABLE m8_equipamentos(company_id int,ordem_servico_id bigint,equipamento_produto_id bigint);`);
     await db.exec(readFileSync(new URL('../sql/093_service_execution_workflow.sql',import.meta.url),'utf8'));
     await db.exec("ALTER TABLE web_tasks ADD COLUMN followers text[] DEFAULT '{}';INSERT INTO web_user_access(email,display_name,updated_by) VALUES('test','Planejador','test');");
     const schedule = (
@@ -153,6 +158,12 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     await assert.rejects(fieldReportPdf("helper",{scheduleId:String(schedule.id)}), e=>(e as Error).constructor.name==="Forbidden");
     const listed = (await fieldData("tech")).rows?.find((row:any) => row.id === id);
     const opened: any = await fieldData("tech",id);
+    assert.equal(opened.equipmentWarrantyAlert,null);
+    await db.exec("UPDATE m8_ordens_servico SET produto_equipamento_id=7 WHERE id_m8=100; INSERT INTO m8_ordens_servico(company_id,id_m8,numero_sequencia,produto_equipamento_id,emissao,data_garantia,status) VALUES(1,99,99,7,now()-interval '1 day',now()+interval '30 days','Processado');");
+    const withWarranty:any=await fieldData('tech',id);
+    assert.equal(withWarranty.equipmentWarrantyAlert.orderId,'99');
+    assert.equal(withWarranty.equipmentWarrantyAlert.lastOrder.orderId,'99');
+    await db.exec('UPDATE m8_ordens_servico SET produto_equipamento_id=NULL WHERE id_m8=100;');
     assert.ok(listed.estimated_end);
     assert.equal(opened.estimated_end,listed.estimated_end);
     assert.equal((await fieldData("outsider")).rows?.length, 0);

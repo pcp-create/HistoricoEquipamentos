@@ -57,6 +57,7 @@ test("mobile technician confirms pieces before starting work with location", asy
             checked, infoRead,
             occurrenceEquipment:[{id:'100',name:'Compressor GA110',serial:'A001'}],
             equipmentOccurrences:bos,
+            equipmentWarrantyAlert:{company:'1',orderId:'90',number:'14700',startedAt:'2026-09-01',expiresAt:'2026-12-01',period:'3 meses',periodSource:'snapshot',lastOrder:{company:'1',orderId:'90',number:'14700',startedAt:'2026-09-01'}},
             operation: {
               ...row,
               document: {
@@ -99,7 +100,16 @@ test("mobile technician confirms pieces before starting work with location", asy
   ).toBeDisabled();
   await expect(page.getByRole("button", { name: "Peças", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Informações", exact: true }).click();
-  await expect(page.getByRole('heading',{name:'B.O do equipamento (1)'})).toBeVisible();
+  const warrantySection=page.locator('.field-equipment-information').filter({has:page.locator('summary',{hasText:'Alertas do Equipamento (1)'})});
+  const occurrenceSection=page.locator('.field-equipment-information').filter({has:page.locator('summary',{hasText:'B.Os do Equipamento (1)'})});
+  await expect(warrantySection).not.toHaveAttribute('open','');
+  await expect(occurrenceSection).not.toHaveAttribute('open','');
+  await expect(page.getByText('Inspecionar antes de iniciar',{exact:true})).toBeVisible();
+  await warrantySection.locator('summary').click();
+  await expect(warrantySection).toContainText('OS 14700');
+  await expect(warrantySection).toContainText('01/12/2026');
+  await warrantySection.locator('summary').click();
+  await occurrenceSection.locator('summary').first().click();
   await expect(page.locator('.bo-item summary')).toContainText('28/09/2026');
   await page.locator('.bo-item summary').click();
   await expect(page.locator('.bo-complete')).toContainText('Conferir a conexão de retorno antes da partida.');
@@ -138,7 +148,7 @@ test("mobile technician confirms pieces before starting work with location", asy
   await page.getByLabel('Descrição da ocorrência').fill('Verificar o acoplamento antes da próxima partida.');
   await page.getByRole('button',{name:'Salvar B.O',exact:true}).click();
   expect(savedBo.operationId).toBe('op1');expect(savedBo.equipmentId).toBe('100');
-  await expect(page.getByRole('heading',{name:'B.O do equipamento (2)'})).toBeVisible();
+  await page.getByText('B.Os do Equipamento (2)',{exact:true}).click();
   await expect(page.getByText('Ruído na partida',{exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({ path: "/tmp/field-bo-menu.png", fullPage: true });

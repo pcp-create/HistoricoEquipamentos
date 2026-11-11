@@ -1,4 +1,5 @@
 "use client";
+import EquipmentWarrantyDetails from "./equipment-warranty-details";
 import FieldOccurrenceForm from "./field-occurrence-form";
 import EquipmentOccurrenceList from "./equipment-occurrence-list";
 import TeamMemberPicker from "./team-member-picker";
@@ -756,7 +757,14 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
               {view === "bo" && <FieldOccurrenceForm operationId={operation.id} equipment={data.occurrenceEquipment || []} onCancel={()=>setView("")} onSaved={async()=>{await load();setView("info");setMessage("B.O registrado no histórico do equipamento.");}}/>}
               {view === "info" && (
                 <section className="field-panel">
-                  {!!data.equipmentOccurrences?.length && <section aria-label="Boletins de ocorrência do equipamento"><h3>B.O do equipamento ({data.equipmentOccurrences.length})</h3><p>Consulte as ocorrências antes de iniciar o atendimento.</p><EquipmentOccurrenceList items={data.equipmentOccurrences}/></section>}
+                  <details className="field-equipment-information" key={`alerts-${operation.id}`}>
+                    <summary>Alertas do Equipamento ({data.equipmentWarrantyAlert?1:0})</summary>
+                    {data.equipmentWarrantyAlert?<EquipmentWarrantyDetails warranty={data.equipmentWarrantyAlert} links={false}/>:<p>Nenhum alerta do equipamento.</p>}
+                  </details>
+                  <details className="field-equipment-information" key={`occurrences-${operation.id}`}>
+                    <summary>B.Os do Equipamento ({data.equipmentOccurrences?.length||0})</summary>
+                    {data.equipmentOccurrences?.length?<EquipmentOccurrenceList items={data.equipmentOccurrences}/>:<p>Nenhum B.O registrado para o equipamento.</p>}
+                  </details>
                   <h3>Observações internas</h3>
                   <p className="field-note">
                     {operation.document.internalNote ||

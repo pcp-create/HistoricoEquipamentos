@@ -812,3 +812,5 @@ dialog.field-report-screen {
 
 .field-close-warning {display:flex;align-items:flex-start;gap:10px;padding:12px;background:#fff6df;color:#805410;border:1px solid #efd18b;border-radius:10px;}
 .field-close-warning svg {flex-shrink:0;}
+
+.field-equipment-information{margin-bottom:12px;border:1px solid #d2dfeb;border-radius:10px;padding:0 12px;background:#fff}.field-equipment-information>summary{padding:14px 0;font-weight:600;cursor:pointer;color:#345771;overflow-wrap:anywhere}.field-equipment-information[open]{padding-bottom:12px}.field-equipment-information .equipment-warranty-alert{margin-top:0}.field-equipment-information .equipment-warranty-alert p{font-size:12px}
