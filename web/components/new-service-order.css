@@ -353,3 +353,5 @@
 .os-note-dialog > p { color:#748b9e; margin:12px 0 20px; }
 .os-note-dialog textarea { display:block; width:100%; margin-top:8px; resize:vertical; }
 .os-note-dialog footer { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+
+.os-warranty-notice{grid-column:1/-1;min-width:0}.os-warranty-notice:empty{display:none}

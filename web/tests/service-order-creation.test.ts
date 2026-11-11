@@ -263,6 +263,7 @@ test("creation uses customer equipment rule, persists progress, isolates users a
         [key],
       )
     ).rows[0].header;
+    assert.deepEqual((await db.query<any>('SELECT request FROM service_order_submissions WHERE id=$1',[key])).rows[0].request.warrantySnapshot,{id:3,description:'90 dias'});
     assert.equal(stored.funcionarioId, 20);
     assert.equal(stored.responsavelTecnicoId, 99);
     assert.equal(stored.tipoGarantiaId, 3);

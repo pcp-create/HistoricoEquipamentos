@@ -10,6 +10,7 @@ export async function handoffOperation(
   actor: string,
   phase: "execution" | "review" | "reviewed" | "internal" | "billing",
   recipient?: string,
+  notifyExecution = true,
 ) {
   const old = (
     await c.query(
@@ -109,7 +110,7 @@ export async function handoffOperation(
   );
   // Operations keep their own Kanban tasks. WhatsApp is deduplicated by OS and technician.
   // Do not notify the planner when the task changes hands for review/release.
-  if(phase==='execution'&&operation.sent_at){
+  if(notifyExecution&&phase==='execution'&&operation.sent_at){
     await queueServiceMessage(c,`schedule-dispatch:${schedule.id}:${assigned}`,
       `📋 *OS incluída na sua programação*\n*OS ${order?.number||schedule.order_id} · ${companyName(schedule.company_id)}*\nCliente: ${order?.cliente_nome||'Não informado'}\nEquipamento: ${order?.equipamento||'Não informado'}\nConfira as operações, datas e orientações no Portal Técnico: ${PUBLIC_SYSTEM_URL}/tecnico`,
       {recipient:assigned});

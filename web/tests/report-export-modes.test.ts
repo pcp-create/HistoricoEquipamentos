@@ -14,11 +14,11 @@ test('complete and summary exports never include internal notes or excluded answ
   if(mode==='summary')assert.deepEqual(report[0].groups[0].fields.map(f=>f.id),['zero','no']);
  }
 });
-test('budget includes the full public report plus internal notes',()=>{
+test('budget includes only filled fields while preserving internal notes',()=>{
  const report=filterReport(checklistReport(run,'budget'),'budget');
- assert.deepEqual(report[0].groups[0].fields.map(f=>f.id),['empty','zero','no','note']);
- assert.match(report[0].groups[0].fields[3].comment,/Observação interna: Reparar válvula/);
- assert.deepEqual(filterReport(checklistReport({...run,stages:{}},'summary'),'summary'),[]);
+ assert.deepEqual(report[0].groups[0].fields.map(f=>f.id),['zero','no','note']);
+ assert.match(report[0].groups[0].fields[2].comment,/Observação interna: Reparar válvula/);
+ for(const mode of ['summary','budget'] as const)assert.deepEqual(filterReport(checklistReport({...run,stages:{}},mode),mode),[]);
 });
 test('verification options preserve configured labels, selection and legacy defaults',()=>{
  const report=checklistReport({template:{stages:[{id:'s',name:'Inspeções',fields:[{id:'flag',label:'Filtro',type:'flag',options:['Sim','Não','N/A']},{id:'old',label:'Legado',type:'flag'}]}]},stages:{s:{answers:{flag:'Não',old:'OK'}}}});

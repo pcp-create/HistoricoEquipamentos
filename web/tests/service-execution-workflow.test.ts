@@ -190,8 +190,22 @@ test("execution handoffs preserve one task; releases, customer sends and approva
     assert.deepEqual(reassigned.document.checklistRun,beforeReassignment.document.checklistRun);
     assert.equal((await query<any>('SELECT assigned_to FROM web_tasks WHERE id=$1',[taskId])).rows[0].assigned_to,'budget@test.com');
     await mutateSchedule({...change,version:reassigned.version,document:{...reassigned.document,responsible:'tech@test.com'},confirmResponsibleChange:true},'planner@test.com');
-    // The notice for the temporarily assigned person must not be delivered after removal.
-    await query("DELETE FROM web_service_notifications WHERE recipient='budget@test.com'");
+    let teamNotices=(await query<any>("SELECT * FROM web_service_notifications WHERE source_key LIKE 'operation-team:%'")).rows;
+    assert.equal(teamNotices.length,4,'each replacement notifies the old and new technician');
+    assert.ok(teamNotices.some(n=>n.recipient==='tech@test.com'&&n.text.includes('retirado')));
+    assert.ok(teamNotices.some(n=>n.recipient==='budget@test.com'&&n.text.includes('incluído como responsável')));
+    let teamOperation=await op();
+    const saveTeam=async(support:string[])=>{
+      teamOperation=(await mutateSchedule({action:'operation',scheduleId:String(schedule.id),operationId:id,version:teamOperation.version,document:{...teamOperation.document,support}},'planner@test.com')).operation;
+    };
+    await saveTeam(['budget@test.com']);
+    await saveTeam(['budget@test.com']);
+    await saveTeam([]);
+    teamNotices=(await query<any>("SELECT * FROM web_service_notifications WHERE source_key LIKE 'operation-team:%'")).rows;
+    assert.equal(teamNotices.length,6,'unchanged team does not notify; support entry and removal each notify');
+    assert.ok(teamNotices.some(n=>n.recipient==='budget@test.com'&&n.text.includes('incluído como apoio')));
+    assert.ok(teamNotices.some(n=>n.recipient==='budget@test.com'&&n.text.includes('atuava como apoio')));
+    assert.ok(teamNotices.every(n=>n.text.includes('OS 15128')&&n.text.includes('OP01')&&n.text.includes('Cliente')));
     // Six operations for the same technician produce a single OS WhatsApp notice.
     await db.exec('BEGIN');
     for(let position=2;position<=6;position++){
@@ -207,10 +221,12 @@ test("execution handoffs preserve one task; releases, customer sends and approva
     await handoffOperation(db,different,schedule,'planner@test.com','execution');
     assert.equal((await query("SELECT * FROM web_service_notifications WHERE source_key LIKE 'schedule-dispatch:%'")).rows.length,2);
     await db.exec('ROLLBACK');
-    const osNotices=await claimServiceMessages();
+    const claimed=await claimServiceMessages();
+    assert.equal(claimed.filter(n=>n.text.includes('Operação retirada')).length,3,'removal notices reach technicians no longer assigned');
+    const osNotices=claimed.filter(n=>!n.text.includes('OP01'));
     assert.equal(osNotices.length,1);assert.equal(osNotices[0].number,'5547999999998');
     assert.match(osNotices[0].text,/OS 15128/);assert.doesNotMatch(osNotices[0].text,/TAR-|Operação 1/);
-    await acknowledgeServiceMessage(osNotices[0].id.slice(8),osNotices[0].token);
+    for(const notice of claimed)await acknowledgeServiceMessage(notice.id.slice(8),notice.token);
     await handoffOperation(db,await op(),schedule,'planner@test.com','execution');
     assert.equal((await claimServiceMessages()).length,0,'resending other operations must not repeat the OS notice');
     await query(

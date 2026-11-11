@@ -22,7 +22,7 @@ export function reportFieldValue(field: { value: any; type: string; photos: any[
 }
 
 export function filterReport<T extends ReturnType<typeof checklistReport>[number]>(report:T[],mode:ReportMode):T[]{
- if(mode==='complete'||mode==='budget')return report;
+ if(mode==='complete')return report;
  return report.map(stage=>({...stage,groups:stage.groups.map(group=>({...group,fields:group.fields.filter(field=>{
   const value=field.value;
   const filled=Array.isArray(value)?value.some(v=>String(v).trim()):typeof value==='string'?!!value.trim()&&value!=='Não informado':value!==null&&value!==undefined;

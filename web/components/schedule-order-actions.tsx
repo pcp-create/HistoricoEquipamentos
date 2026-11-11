@@ -1,4 +1,5 @@
 "use client";
+import ProcessOrderButton from "./process-order-button";
 import {Save, X, Mail, PencilLine} from "lucide-react";
 import {orderObservation,appendOrderObservation} from '@/lib/service-scheduling/order-observation';
 import AutoResizeTextarea from "./auto-resize-textarea";
@@ -6,7 +7,7 @@ import {canEmailOperation} from '@/lib/service-scheduling/customer-email-operati
 import CustomerReportEmail from "./customer-report-email";
 import OrderSearchSelect from "./order-search-select";
 import OrderAttachments,{sendOrderAttachments} from "./order-attachments";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { clearApiCache } from "@/lib/client-api-cache";
 async function api(url: string, body?: any) {
   const r = await fetch(
@@ -43,6 +44,8 @@ export default function ScheduleOrderActions({
     [message, setMessage] = useState(""),
     [customer, setCustomer] = useState(false);
   const editRequest = useRef<string | null>(null);
+  const editorId = useId();
+  const [editOpen, setEditOpen] = useState(false);
   const company = String(data.schedule.company_id),
     order = String(data.schedule.order_id);
   const standardObservation=orderObservation(data.detail?.order||{},data.operations||[],String(data.schedule.order_id));
@@ -65,6 +68,7 @@ export default function ScheduleOrderActions({
     }
   }
   async function openEdit() {
+    if (edit) { setEditOpen(value => !value); return; }
     await run(async () => {
       const [e, f] = await Promise.all([
         api(
@@ -76,6 +80,7 @@ export default function ScheduleOrderActions({
       setAttachmentFiles([]);
       setAttachSummary(true);setSummaryAttached(false);setHeaderSaved(false);
       setEdit(e);
+      setEditOpen(true);
       setFlows(f.rows);
       editRequest.current = null;
     });
@@ -124,7 +129,7 @@ export default function ScheduleOrderActions({
     <section className="schedule-order-actions">
       <div className="scheduling-actions schedule-order-toolbar">
         {reviewAction}
-        <button disabled={busy} onClick={() => void openEdit()}>
+        <button type="button" disabled={busy} aria-expanded={!!edit && editOpen} aria-controls={editorId} onClick={() => void openEdit()}>
           <PencilLine size={18} aria-hidden="true"/>Editar observações e Status Fluxo
         </button>
         <button
@@ -134,6 +139,7 @@ export default function ScheduleOrderActions({
           <Mail size={18} aria-hidden="true"/>Enviar por e-mail
         </button>
         {reportAction}
+        <ProcessOrderButton data={data} disabled={busy} onBusy={setBusy} onChanged={onChanged}/>
       </div>
       {!data.operations?.some(canEmailOperation) && (
         <small>
@@ -144,6 +150,8 @@ export default function ScheduleOrderActions({
       {message && <p role="status">{message}</p>}
       {edit && (
         <form
+          id={editorId}
+          hidden={!editOpen}
           onSubmit={(e) => {
             e.preventDefault();
             void saveHeader();

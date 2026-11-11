@@ -9,6 +9,7 @@ import {recallOperation} from "./recall-operation";
 import {changesDispatchedResponsible,validateResponsibleChange} from "./responsible-change";
 import {isDeepStrictEqual} from 'node:util';
 import {handoffOperation} from './workflow';
+import {notifyOperationTeamChange} from './team-notifications';
 import {attachPlannedDates} from "./planned-date-store";
 import {isCancelledOrder,displayedScheduleStatus,displayedOperationStatus,displayedOperationCounts} from "./display-status";
 import {historyScheduleStatuses} from "./history-status";
@@ -700,8 +701,10 @@ export async function mutateSchedule(b: any, email: string) {
       before: operation,
       after: result,
     });
-    if(b.action==='operation'&&changesDispatchedResponsible(operation,document)){
-      await handoffOperation(c,result,schedule,email,'execution');
+    if(b.action==='operation'){
+      if(changesDispatchedResponsible(operation,document))
+        await handoffOperation(c,result,schedule,email,'execution',undefined,false);
+      await notifyOperationTeamChange(c,operation,result,schedule);
     }
     if(['dispatch','finish_full','review'].includes(b.action)){
       await handoffOperation(c,result,schedule,email,b.action==='dispatch'?'execution':b.action==='finish_full'?'review':'reviewed');

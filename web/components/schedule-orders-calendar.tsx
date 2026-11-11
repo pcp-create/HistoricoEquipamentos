@@ -127,11 +127,12 @@ function DailySchedule({orders,day,users,vehicles}:any) {
     </table></div>}
   </div>;
 }
-export default function ScheduleOrdersCalendar({ schedules, users=[], vehicles=[], filterMonth="", onMonthChange }: {schedules: any[]; users?:any[]; vehicles?:any[]; filterMonth?:string; onMonthChange?:(month:string)=>void}) {
+export default function ScheduleOrdersCalendar({ schedules, users=[], vehicles=[], filterMonth="", onMonthChange,initialNavigation,onNavigationChange }: {schedules: any[]; users?:any[]; vehicles?:any[]; filterMonth?:string; onMonthChange?:(month:string)=>void;initialNavigation?:{selected:string;view:'month'|'week'|'day'}|null;onNavigationChange?:(value:{selected:string;view:'month'|'week'|'day'})=>void}) {
   const today = new Intl.DateTimeFormat("en-CA", {timeZone:"America/Sao_Paulo", year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
-  const [selected,setSelected]=useState(filterMonth && filterMonth !== today.slice(0,7) ? filterMonth+"-01" : today);
+  const [selected,setSelected]=useState(initialNavigation?.selected || (filterMonth && filterMonth !== today.slice(0,7) ? filterMonth+"-01" : today));
   useEffect(()=>{if(filterMonth)setSelected(day=>day.startsWith(filterMonth+"-") ? day : filterMonth+"-01");},[filterMonth]);
-  const [view,setView]=useState<"month"|"week"|"day">("month");
+  const [view,setView]=useState<"month"|"week"|"day">(initialNavigation?.view || "month");
+  useEffect(()=>{onNavigationChange?.({selected,view});},[selected,view,onNavigationChange]);
   const [opened, setOpened] = useState<string | null>(null);
   const month=selected.slice(0,7);
   const [year, number] = month.split("-").map(Number);

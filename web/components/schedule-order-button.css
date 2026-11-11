@@ -1,0 +1,2 @@
+.schedule-order-entry{display:inline-flex;flex-direction:column;gap:6px;max-width:100%;min-width:0;align-items:flex-start}
+.schedule-order-entry .schedule-order-error{display:block;max-width:100%;white-space:normal;overflow-wrap:break-word;word-break:normal;text-align:left;line-height:1.5;font-size:13px;color:#9e342b;background:#fff3f3;border:1px solid #f0c3c3;border-radius:8px;padding:10px 12px;letter-spacing:normal}

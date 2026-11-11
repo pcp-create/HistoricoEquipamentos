@@ -1,4 +1,5 @@
 "use client";
+import "./schedule-order-button.css";
 import { scheduleUrl } from "@/lib/service-scheduling/schedule-url";
 import { useState, useEffect } from "react";
 import { CalendarPlus, CalendarMinus } from "lucide-react";
@@ -54,7 +55,7 @@ export default function ScheduleOrderButton({
         {scheduled ? <CalendarMinus size={16} /> : <CalendarPlus size={16} />}
         {!ready ? "Consultando programação…" : scheduled ? "Remover programação" : "Programar OS"}
       </button>
-      {error && <small role="alert">{error}</small>}
+      {error && <small className="schedule-order-error" role="alert">{error}</small>}
     </span>
   );
 }

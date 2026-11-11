@@ -539,6 +539,7 @@ export async function advanceEdit(
       )
     ).rows[0];
     if (!r) throw new OrderInputError("Edição não encontrada.");
+    if(r.request?.purpose === "process-schedule")throw new OrderInputError("Utilize o botão Processar OS na programação para este envio.");
     if (!["ready", "partial"].includes(r.state)) return { ...r, skip: true };
     await c.query(
       "UPDATE service_order_edits SET state='sending',updated_at=now() WHERE id=$1",

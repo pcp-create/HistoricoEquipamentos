@@ -975,6 +975,7 @@
 
 .schedule-order-actions{margin:18px 0;padding:18px;border:1px solid #d6e4f1;border-radius:12px;background:#fff}
 .schedule-order-actions form{display:grid;gap:14px;margin-top:16px;max-width:900px}
+.schedule-order-actions form[hidden]{display:none}
 .schedule-order-actions label{display:grid;gap:6px;font-weight:600}
 .schedule-order-actions textarea,.schedule-order-actions select,.schedule-order-actions input{width:100%;box-sizing:border-box;min-height:42px;padding:10px 12px;border:1px solid #c8dcee;border-radius:8px;font:inherit;color:inherit}
 .schedule-order-actions p{margin:8px 0;line-height:1.5}
@@ -1209,3 +1210,6 @@
 .review-report-row.review-report-meter-invalid>dt,.review-report-row.review-report-meter-invalid>dd {background:#fff1f1;color:#a32222;}
 .review-edit-field input.review-meter-invalid {border:2px solid #c83131;background:#fffafa;color:#a32222;}
 .review-meter-regression-note {color:#a32222;font-weight:500;margin:8px 0;}
+
+.schedule-order-entry{max-width:100%;min-width:0;align-items:flex-start}
+.schedule-order-entry .schedule-order-error,.scheduling-page .scheduling-error{display:block;max-width:100%;white-space:normal;overflow-wrap:break-word;word-break:normal;text-align:left;line-height:1.5;font-size:13px;color:#9e342b;background:#fff3f3;border:1px solid #f0c3c3;border-radius:8px;padding:10px 12px;letter-spacing:normal}

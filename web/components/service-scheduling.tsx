@@ -1,4 +1,6 @@
 "use client";
+import {readSchedulePreferences,type ScheduleViewPreferences} from "@/lib/service-scheduling/view-preferences";
+import EquipmentWarrantyAlert from "./equipment-warranty-alert";
 import OperationClosureProgress from "./operation-closure-progress";
 import {equipmentSelectionLocked} from "@/lib/service-scheduling/equipment-selection";
 import {changesDispatchedResponsible,responsibleChangeWarning} from "@/lib/service-scheduling/responsible-change";
@@ -199,6 +201,27 @@ export default function ServiceScheduling() {
   const [executors, setExecutors] = useState<string[]|undefined>(undefined);
   const [programmingStatuses,setProgrammingStatuses]=useState<string[]|undefined>(undefined);
   const [flowOwner,setFlowOwner] = useState("");
+  const [calendarNavigation,setCalendarNavigation]=useState<ScheduleViewPreferences['calendar']>(null);
+  const preferenceScope=useRef<string|null>(null);
+  const preferences=JSON.stringify({query,overviewView,listSort,dateView,deliveryMonth,deliveryYear,completedExpanded,stageFilter,executors,programmingStatuses,flowOwner,calendar:calendarNavigation});
+  useEffect(()=>{
+    if(!data?.email)return;
+    const key='schedule-view-preferences-v1:'+data.email.toLowerCase();
+    if(preferenceScope.current!==key){
+      preferenceScope.current=key;
+      let raw:string|null=null;try{raw=localStorage.getItem(key);}catch{}
+      const saved=readSchedulePreferences(raw);
+      setQuery(saved.query);setOverviewView(saved.overviewView);setDateView(saved.dateView);
+      setDeliveryMonth(saved.deliveryMonth);setDeliveryYear(saved.deliveryYear);
+      setCompletedExpanded(saved.completedExpanded);setStageFilter(saved.stageFilter);
+      setExecutors(saved.executors);setProgrammingStatuses(saved.programmingStatuses);setFlowOwner(saved.flowOwner);
+      setListSort(saved.listSort&&scheduleColumns.some(([key])=>key===saved.listSort!.key)?saved.listSort as {key:ScheduleSortKey;descending:boolean}:null);
+      setCalendarNavigation(saved.calendar);
+      return;
+    }
+    try{localStorage.setItem(key,preferences);}catch{}
+  },[data?.email,preferences]);
+
   const flowOwners = [...new Set<string>((data?.schedules||[]).map((s:any)=>flowResponsible(s)))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   const deliveryMonths = [...new Set<string>((data?.schedules || [])
     .flatMap((s:any) => dateView === "delivery" ? [s.expected_delivery_date?.slice(0,7)] : (s.calendar_operations || []).flatMap((o:any) => operationDates(o).map(date=>date.slice(0,7))))
@@ -471,7 +494,7 @@ export default function ServiceScheduling() {
               <button aria-pressed={overviewView === "map"} onClick={() => setOverviewView("map")}> <MapPin size={16} aria-hidden="true"/>Mapa</button>
             </nav>
             {overviewView === "map" && <ScheduleOrdersMap schedules={filteredSchedules}/>}
-            {overviewView === "calendar" && <ScheduleOrdersCalendar filterMonth={deliveryMonth} onMonthChange={dateView === "operation" && deliveryMonth ? month=>{setDeliveryMonth(month);setDeliveryYear(month.slice(0,4));} : undefined} schedules={calendarSchedules} users={data.users || []} vehicles={data.settings?.document?.vehicles || []}/>}
+            {overviewView === "calendar" && <ScheduleOrdersCalendar initialNavigation={calendarNavigation} onNavigationChange={setCalendarNavigation} filterMonth={deliveryMonth} onMonthChange={dateView === "operation" && deliveryMonth ? month=>{setDeliveryMonth(month);setDeliveryYear(month.slice(0,4));} : undefined} schedules={calendarSchedules} users={data.users || []} vehicles={data.settings?.document?.vehicles || []}/>}
             {overviewView === "list" && stageFilter && <p className="schedule-stage-filter-label">Etapa: <strong>{scheduleStatusNames[stageFilter]}</strong> <button type="button" onClick={()=>setStageFilter("")}>Limpar etapa</button></p>}
             <div hidden={overviewView !== "list"} className="scheduling-table scheduling-orders-list">
               <table>
@@ -1022,7 +1045,7 @@ function OperationRow({
             {d.description.length}/40
           </small>
         </td>
-        <td><OperationEquipmentSelect scheduleId={data.schedule.id} displayLabel={operationEquipmentLabel(d,data.detail?.order)} value={d.equipmentId||''} unassigned={d.equipmentUnassigned===true} label={d.equipment?.name||''} orderLabel={data.detail?.order?.equipamento||data.detail?.equipment_links?.map((e:any)=>e.name).filter(Boolean).join(' · ')||''} disabled={locked||equipmentSelectionLocked(o)} onChange={(id,equipment,unassigned)=>change('equipmentId',id,false,equipment,unassigned)}/></td>
+        <td><OperationEquipmentSelect scheduleId={data.schedule.id} displayLabel={operationEquipmentLabel(d,data.detail?.order)} value={d.equipmentId||''} unassigned={d.equipmentUnassigned===true} label={d.equipment?.name||''} orderLabel={data.detail?.order?.equipamento||data.detail?.equipment_links?.map((e:any)=>e.name).filter(Boolean).join(' · ')||''} disabled={locked||equipmentSelectionLocked(o)} onChange={(id,equipment,unassigned)=>change('equipmentId',id,false,equipment,unassigned)}/><EquipmentWarrantyAlert equipmentId={d.equipmentUnassigned?'':d.equipmentId||String(data.detail?.order?.produto_equipamento_id||'')} company={String(data.schedule.company_id)} orderId={String(data.schedule.order_id)}/></td>
         <td>
           <div className="operation-checklist-select" title={checklist ? [checklist.prefix, checklist.name].filter(Boolean).join(" - ") : "Sem checklist"}>
           <select

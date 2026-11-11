@@ -34,6 +34,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
       },
     }),
   );
+  await page.route('**/api/equipment/warranty?**',r=>r.fulfill({json:{warranty:{company:'1',orderId:'90',number:'15000',startedAt:'2026-11-10',expiresAt:'2027-02-10',period:'3 meses',periodSource:'snapshot',lastOrder:{company:'1',orderId:'90',number:'15000',startedAt:'2026-11-10'}}}}));
   let sellerDefault:string|null="20";
   let saved: any,
     step = 0,
@@ -204,6 +205,8 @@ test("new OS selects company, filters equipment, fills seller and submits header
   await expect(registrationDialog.getByLabel('Marca',{exact:true})).toBeVisible();
   await registrationDialog.getByRole('button',{name:'Fechar cadastro de equipamento',exact:true}).click();
   await choose("Equipamento", "100");
+  await expect(page.getByRole('note',{name:'Alerta de garantia do equipamento'})).toContainText('OS 15000');
+  await expect(page.getByRole('note',{name:'Alerta de garantia do equipamento'})).toContainText('10/02/2027');
   expect(equipmentQueries[0]).toContain("customer=10");
   expect(equipmentQueries[0]).toContain("type=1");
   await choose("Tipo Atendimento", "1");

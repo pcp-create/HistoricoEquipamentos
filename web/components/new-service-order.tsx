@@ -1,4 +1,5 @@
 "use client";
+import EquipmentWarrantyAlert from "./equipment-warranty-alert";
 import EquipmentCreateDialog from "./equipment-create-dialog";
 import OrderAttachments,{sendOrderAttachments} from "./order-attachments";
 import { useEffect, useRef, useState } from "react";
@@ -652,6 +653,7 @@ export default function NewServiceOrder({
                           : "Selecione um tipo de OS atualizado"}
                     </small>
                   </label>
+                  <div className="os-warranty-notice"><EquipmentWarrantyAlert equipmentId={form.equipment} company={editing?.company} orderId={editing?.id}/></div>
                   {select(
                     "serviceType",
                     "Tipo Atendimento",

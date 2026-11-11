@@ -50,7 +50,7 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
   if (existing) {
     if (
       existing.created_by !== email ||
-      canonical(existing.request) !== canonical(draft)
+      canonical(storedDraft(existing.request)) !== canonical(draft)
     )
       throw new OrderInputError(
         "Este envio já possui outros dados. Consulte o andamento antes de reenviar.",
@@ -184,7 +184,7 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
         key,
         email,
         Number(draft.company),
-        JSON.stringify(draft),
+        JSON.stringify({...draft,warrantySnapshot:{id:service.warranty_id,description:service.warranty_description}}),
         JSON.stringify(header),
         JSON.stringify(items),
       ],
@@ -194,7 +194,7 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
         key,
       ])
     ).rows[0];
-    if (r.created_by !== email || canonical(r.request) !== canonical(draft))
+    if (r.created_by !== email || canonical(storedDraft(r.request)) !== canonical(draft))
       throw new OrderInputError("Identificador de envio já utilizado.");
     await c.query("COMMIT");
     return publicSubmission(r);
@@ -204,6 +204,10 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
   } finally {
     c.release();
   }
+}
+function storedDraft(request: any) {
+  const {warrantySnapshot, ...draft} = request;
+  return draft;
 }
 function canonical(v: any): string {
   return JSON.stringify(v, (_, value) =>
