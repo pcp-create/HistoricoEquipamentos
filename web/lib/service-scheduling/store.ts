@@ -341,9 +341,9 @@ export async function mutateSchedule(b: any, email: string) {
         )
       ).rows[0];
       if (schedule) {
-        for (let position = 1; position <= 1; position++)
-          await c.query(
-            "INSERT INTO web_service_operations(id,schedule_id,position,document,updated_by) VALUES($1,$2,$3,$4,$5)",
+        for (let position = 1; position <= 1; position++) {
+          const created = await c.query(
+            "INSERT INTO web_service_operations(id,schedule_id,position,document,updated_by) VALUES($1,$2,$3,$4,$5) RETURNING *",
             [
               randomUUID(),
               schedule.id,
@@ -352,6 +352,9 @@ export async function mutateSchedule(b: any, email: string) {
               email,
             ],
           );
+          const operation=created.rows[0];
+          await audit(c,email,'service_operation_created',{operation:operation.id,scheduleId:String(schedule.id),company:schedule.company_id,order:schedule.order_id,after:operation});
+        }
         await audit(c, email, "service_schedule_included", { schedule });
       } else
         schedule = (
@@ -383,7 +386,7 @@ export async function mutateSchedule(b: any, email: string) {
         )
       ).rows[0];
       await audit(c, email, "service_operation_created", {
-        operation: result.id,
+        operation: result.id, scheduleId: String(schedule.id), company: schedule.company_id, order: schedule.order_id, after: result,
       });
       await c.query("COMMIT");
       return { operation: result };

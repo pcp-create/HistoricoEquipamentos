@@ -53,3 +53,17 @@ test("edits warranty from an existing service type row",async({page,context})=>{
  await expect(page.getByRole("cell",{name:"90 dias",exact:true})).toBeVisible();
  expect(saved).toMatchObject({id:"13",name:"CORRETIVA",active:true,warranty_id:"3",warranty_description:"90 dias"});
 });
+test('equipment requirement is editable and remains selected after refreshing the registry',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/activity',r=>r.fulfill({json:{admin:false}}));
+ let required=true;
+ await page.route('**/api/registries/order-types',r=>{
+  if(r.request().method()==='PATCH'){expect(r.request().postDataJSON()).toEqual({id:'1',equipment_required:false});required=false;return r.fulfill({json:{equipment_required:false}});}
+  return r.fulfill({json:{count:1,rows:[{id:'1',name:'Corretiva',active:true,equipment_required:required}]}});
+ });
+ await page.goto('/configuracoes/cadastros');await page.getByRole('button',{name:/Tipo Ordens de Serviço/}).click();
+ await expect(page.getByRole('columnheader',{name:'Exige equipamento?',exact:true})).toBeVisible();
+ const choice=page.getByLabel('Exige equipamento? · Corretiva');
+ await expect(choice).toHaveValue('yes');await choice.selectOption('no');await expect(choice).toHaveValue('no');
+ await page.getByRole('button',{name:'Atualizar do M8'}).click();await expect(choice).toHaveValue('no');
+});

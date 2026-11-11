@@ -1,5 +1,5 @@
 import { extraFields } from "./extra-fields";
-export const equipmentOptionalForOrderType = (type: unknown) => String(type) === "6";
+export const equipmentOptionalForOrderType = (type: unknown,required?:boolean) => typeof required==='boolean'?!required:String(type) === "6";
 export class OrderInputError extends Error {}
 export function positiveId(v: unknown, label: string) {
   const n = Number(v);
@@ -38,7 +38,7 @@ export type OrderDraft = {
   items: OrderItem[];
   extra?: Record<string, string>;
 };
-export function parseOrder(value: unknown, editing = false): OrderDraft {
+export function parseOrder(value: unknown, editing = false, equipmentRequired?:boolean): OrderDraft {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new OrderInputError("Dados inválidos.");
   const b = value as Record<string, unknown>,
@@ -57,8 +57,8 @@ export function parseOrder(value: unknown, editing = false): OrderDraft {
   }))
     if (
       !b[k] &&
-      (k === "origin" || (k === "equipment" && equipmentOptionalForOrderType(b.type)) ||
-        (editing && ["equipment", "serviceType", "situation", "flowStatus"].includes(k)))
+      (k === "origin" || (k === "equipment" && equipmentOptionalForOrderType(b.type,equipmentRequired)) ||
+        (editing && ["serviceType", "situation", "flowStatus"].includes(k)))
     )
       out[k] = "";
     else out[k] = String(positiveId(b[k], label));

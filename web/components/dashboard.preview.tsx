@@ -1,4 +1,5 @@
 "use client";
+import OrderActivity from "./order-activity";
 import MaterialSupply from "./material-supply";
 import OrderDeliveryHistory from "./order-delivery-history";
 import {formatOrderDetailDate} from "@/lib/order-detail-dates";
@@ -1135,6 +1136,7 @@ export function OrderDetails({
           <div className="drawer-body">
             <OrderPendingTaskLinks company={selection.company_id} orderId={selection.id} compact/>
             <OrderDeliveryHistory key={`delivery-history:${selection.company_id}:${selection.id}`} company={String(selection.company_id)} order={selection.id}/>
+            <OrderActivity key={`activity:${selection.company_id}:${selection.id}`} company={String(selection.company_id)} order={selection.id}/>
             <div className="detail-summary">
               <Badge status={String(detail.order.status || "")} />
               <span>

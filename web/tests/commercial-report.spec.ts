@@ -136,6 +136,25 @@ test("combined sales filters, pending edit link and PBIX contract columns", asyn
   await expect(page.getByRole("link",{name:"Voltar ao Acompanhamento",exact:true})).toHaveAttribute("href","/comercial/acompanhamento?period=2026-10&company=all");
   await expect(page.locator(".cr-table tbody tr")).toHaveCount(1);
   await expect(page.locator(".cr-table tbody tr")).toContainText("101");
+  let savedComment:any;const comments:any[]=[];
+  await page.route('**/api/service-orders/comments**',route=>{
+    if(route.request().method()==='POST'){
+      savedComment=route.request().postDataJSON();comments.unshift({id:'501',comment:savedComment.comment,author:'Autor do comentário',at:'2026-11-11T15:00:00Z'});
+      return route.fulfill({status:201,json:{id:'501'}});
+    }
+    return route.fulfill({json:{rows:comments,hasMore:false}});
+  });
+  await page.getByRole('button',{name:'Comentários da OS 101',exact:true}).click();
+  const commentDialog=page.getByRole('dialog',{name:'Comentários da OS 101',exact:true});
+  await expect(commentDialog.getByText('Nenhum comentário registrado para esta OS.')).toBeVisible();
+  await commentDialog.getByLabel('Novo comentário').fill('Cliente aguardando aprovação.');
+  await commentDialog.getByRole('button',{name:'Salvar comentário',exact:true}).click();
+  await expect(commentDialog.getByRole('region',{name:'Todos os comentários da OS'})).toContainText('Cliente aguardando aprovação.');
+  await expect(commentDialog).toContainText('Autor do comentário');await expect(commentDialog).toContainText('11/11/2026, 12:00:00');
+  expect(savedComment).toMatchObject({company:'1',order:'101',comment:'Cliente aguardando aprovação.'});
+  expect(savedComment.requestId).toMatch(/^[a-f0-9-]{36}$/);
+  await expect(commentDialog.getByLabel('Novo comentário')).toHaveValue('');
+  await commentDialog.getByRole('button',{name:'Fechar comentários'}).click();
   await page.goto("/report-test?period=2026-10");
   await expect(page.getByRole("link",{name:"Voltar à Projeção de Vendas",exact:true})).toHaveAttribute("href","/comercial/projecao?period=2026-10&company=all");
   await page.locator(".cr-filter-panel > summary").click();

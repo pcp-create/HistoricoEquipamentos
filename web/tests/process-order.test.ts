@@ -23,7 +23,7 @@ test('processing preserves ERP data, resumes confirmed steps and reconciles ambi
   writes.push({path,body,method});
   if(method==='PATCH'){source.statusLancamentoId=body.statusFluxoId;return {};}
   if(failPut)throw new M8RequestError('Recusado pelo M8',false);
-  assert.equal(body.status,'Processado');assert.equal(body.observacao,'Não alterar');assert.equal(body.contato,'Contato original');assert.equal(body.produtos[0].id,77);assert.equal(body.produtos[0].percentualDesconto,10);
+  assert.equal(body.status,'Processado');assert.equal(body.observacao,'Não alterar');assert.equal(body.contato,'Contato original');assert.equal(body.produtos,undefined);assert.equal(body.servicos,undefined);
   source={...source,...body};
   if(loseReply)throw new M8RequestError('Resposta perdida',true);
   return {id:100};

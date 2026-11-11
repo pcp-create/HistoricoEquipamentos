@@ -1,4 +1,5 @@
 "use client";
+import OrderTypeEquipmentSelect from "./order-type-equipment-select";
 import {FlowAreaSelect} from "./schedule-flow-responsibilities";
 import { matchesSearch } from "@/lib/filters";
 
@@ -241,7 +242,7 @@ export default function Registries() {
                       <th>Ativo</th>
                       {opened === "flow-statuses" && <th>Responsável Status Fluxo</th>}
                       {opened === "order-types" && (
-                        <th>Buscar equipamento por cliente</th>
+                        <><th>Buscar equipamento por cliente</th><th>Exige equipamento?</th></>
                       )}
                       {opened === "service-types" && (
                         <>
@@ -273,13 +274,13 @@ export default function Registries() {
                         </td>
                         {opened === "flow-statuses" && <td><FlowAreaSelect id={r.id} name={r.name} area={r.flowArea||"Outro"}/></td>}
                         {opened === "order-types" && (
-                          <td>
+                          <><td>
                             {r.customer_equipment_only == null
                               ? "Atualize do M8"
                               : r.customer_equipment_only
                                 ? "Sim"
                                 : "Não"}
-                          </td>
+                          </td><td><OrderTypeEquipmentSelect id={r.id} name={r.name} required={r.equipment_required??(String(r.id)!=='6')} disabled={busy} onSaved={value=>setRows(previous=>previous.map(row=>row.id===r.id?{...row,equipment_required:value}:row))}/></td></>
                         )}
                         {opened === "service-types" && (
                           <>

@@ -300,6 +300,7 @@ export async function mutateTaskList(
         )
       ).rows[0],
     );
+  for(const operation of operations)await audit(c,email,'service_operation_created',{operation:operation.id,scheduleId:b.scheduleId,after:operation});
   await audit(c, email, "service_task_list_applied", {
     scheduleId: b.scheduleId,
     listId: list.id,

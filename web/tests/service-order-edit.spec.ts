@@ -182,7 +182,7 @@ test("More actions edits non-processed OS, preserves seller and returns to its d
     .fill("Texto revisado");
   await page.getByRole("button", { name: "Produtos (1)", exact: true }).click();
   await expect(page.getByLabel("Quantidade", { exact: true })).toHaveValue("2");
-  await page.getByLabel("Quantidade", { exact: true }).fill("3");
+  await expect(page.getByLabel("Quantidade", { exact: true })).toHaveAttribute("readonly", "");
   await page
     .getByRole("button", { name: "Salvar alterações", exact: true })
     .click();
@@ -195,6 +195,6 @@ test("More actions edits non-processed OS, preserves seller and returns to its d
     version: "version",
     draft: { seller: "20", notes: "Texto revisado" },
   });
-  expect(saved.draft.items[0]).toMatchObject({ id: "101", quantity: "3" });
+  expect(saved.draft.items[0]).toMatchObject({ id: "101", quantity: "2" });
   expect(advances).toBe(1);
 });

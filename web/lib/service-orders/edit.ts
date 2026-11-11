@@ -276,7 +276,10 @@ export async function prepareEdit(
     throw new OrderInputError(
       "A OS foi alterada no M8. Reabra a edição para carregar os dados atuais.",
     );
-  const draft = parseOrder(input, true);
+  const draft = parseOrder(input, true, false);
+  const equipmentRule=(await database().query('SELECT * FROM m8_order_type_catalog WHERE id=$1',[draft.type])).rows[0];
+  if(!equipmentRule)throw new OrderInputError('Atualize e selecione o tipo de OS.');
+  if(!draft.equipment&&!equipmentOptionalForOrderType(draft.type,equipmentRule.equipment_required))throw new OrderInputError('Selecione o equipamento: este tipo de OS exige equipamento.');
   if (draft.company !== company)
     throw new OrderInputError("Não é permitido alterar a empresa da OS.");
   if (processedOrder(draft.extra?.status))
@@ -319,6 +322,8 @@ export async function prepareEdit(
   // Collections not managed by this screen must not be reinserted from read-only response DTOs.
   for (const k of [
     "apontamentos",
+    "produtos",
+    "servicos",
     "parcelas",
     "checklistRespostas",
     "manutencao",
@@ -408,7 +413,7 @@ export async function prepareEdit(
         numeroSerie: e.serial ?? null,
         equipamentoModelo: e.model ?? null,
       };
-    } else if (!equipmentOptionalForOrderType(draft.type)) throw new OrderInputError("Selecione o equipamento.");
+    } else if (!equipmentOptionalForOrderType(draft.type,equipmentRule.equipment_required)) throw new OrderInputError("Selecione o equipamento.");
     else header.equipamentoProduto = null;
   }
   for (const [key, field] of [
@@ -441,30 +446,14 @@ export async function prepareEdit(
       (r: any) => !r.estaExcluido,
     );
     const selected = draft.items.filter((i) => i.kind === kind);
-    header[collection] = selected.map((i) => {
-      const old = i.id ? originals.find((r: any) => text(r.id) === i.id) : null;
-      if (i.id && (!old || text(old[code]) !== i.code))
-        throw new OrderInputError("Item não pertence à OS.");
-      const out = old
-        ? writable(
-            old,
-            kind === "material"
-              ? "ATOrdemServicoProdutoRequestDto"
-              : "ATOrdemServicoServicoRequestDto",
-          )
-        : {};
-      if (
-        !old ||
-        Number(old.quantidade) !== Number(i.quantity) ||
-        Number(old.valorUnitario) !== Number(i.price)
-      )
-        Object.assign(out, itemPayload(i));
-      if (kind === "service") {
-        if (i.notes !== undefined) out.observacao = i.notes;
-        if (i.internalNotes !== undefined) out.observacaoInterna = i.internalNotes;
-      }
-      return out;
-    });
+    const selectedIds=new Set<string>();
+    for(const item of selected.filter(i=>i.id)){
+      const old=originals.find((r:any)=>text(r.id)===item.id);
+      if(!old||text(old[code])!==item.code||selectedIds.has(item.id!))throw new OrderInputError('Item não pertence à OS ou está duplicado.');
+      selectedIds.add(item.id!);
+      const original=initial.items.find(i=>i.kind===kind&&i.id===item.id)!;
+      if(Number(item.quantity)!==Number(original.quantity)||Number(item.price)!==Number(original.price)||(kind==='service'&&((item.notes??'')!==(original.notes??'')||(item.internalNotes??'')!==(original.internalNotes??''))))throw new OrderInputError('Itens existentes são somente para consulta. Para modificá-los, remova o item e inclua-o novamente.');
+    }
     for (const old of originals)
       if (!selected.some((i) => i.id === text(old.id)))
         removals.push({
@@ -487,9 +476,10 @@ export async function prepareEdit(
     )
       throw new OrderInputError("Item não consta no catálogo.");
   }
-  const steps = [{ path: base, method: "PUT", payload: header,
+  const additions=draft.items.filter(item=>!item.id).map(item=>({path:base+'/'+(item.kind==='material'?'produto':'servico'),method:'POST',payload:itemPayload(item,Number(header.responsavelTecnicoId)||undefined)}));
+  const steps = [{ path: base, method: "PUT", payload: header, orderChange: {before:initial,after:draft},
     ...(draft.expected !== initial.expected ? { deliveryChange: { before: initial.expected, after: draft.expected, reason } } : {}),
-  }, ...removals];
+  }, ...removals,...additions];
   if (draft.flowStatus !== initial.flowStatus && draft.flowStatus)
     steps.push({
       path: base + "/statusfluxo",
@@ -564,7 +554,8 @@ export async function advanceEdit(
     if (next === 0 && fingerprint(source) !== row.source_hash)
       throw new OrderInputError("A OS mudou no M8. Reabra a edição.");
     const step = row.steps[next];
-    // A PUT can already remove omitted children. Do not delete an item twice.
+    if(next===0&&step.method==='PUT'&&('produtos' in step.payload||'servicos' in step.payload))throw new OrderInputError('Esta edição foi preparada com a regra anterior de itens. Reabra a edição da OS para preservar os produtos e serviços existentes.');
+    // Do not delete a child again if it was already removed in the ERP.
     const removedId = step.path.split("/").at(-1);
     const collection = step.path.includes("/produto/")
       ? "produtos"
@@ -577,6 +568,7 @@ export async function advanceEdit(
     if (!alreadyRemoved) {
       writeStarted = true;
       const result = await m8(step.path, step.payload, step.method);
+      if(step.method==='POST'&&(!Number.isInteger(result?.id)||result.id<=0))throw new M8RequestError('O M8 não confirmou o ID do item incluído. Confira no ERP antes de reenviar.',true);
       if (step.method === "PUT" && text(result?.id) !== text(row.m8_id))
         throw new M8RequestError(
           "O M8 não confirmou o ID da OS editada. Confira no ERP antes de reenviar.",

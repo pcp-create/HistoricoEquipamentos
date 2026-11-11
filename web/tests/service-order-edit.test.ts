@@ -88,6 +88,7 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
         "utf8",
       ),
     );
+    await db.exec('CREATE TABLE m8_order_type_catalog(id bigint,equipment_required boolean);INSERT INTO m8_order_type_catalog VALUES(1,true);');
     const query = db.query.bind(db);
     g.historyPool = { query, connect: async () => ({ query, release() {} }) };
     assert.equal(processedOrder("Processada"), true);
@@ -100,6 +101,12 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
 
     assert.equal(draft.technician, "m8:99");
     assert.equal(draft.items[0].id, "101");
+    await assert.rejects(prepareEdit('user',randomUUID(),'2','800',fingerprint(source),{...draft,equipment:''},session),/exige equipamento/);
+    await db.exec('UPDATE m8_order_type_catalog SET equipment_required=false WHERE id=1');
+    const optionalEdit=randomUUID();await prepareEdit('user',optionalEdit,'2','800',fingerprint(source),{...draft,equipment:''},session);
+    assert.equal((await db.query<any>('SELECT steps FROM service_order_edits WHERE id=$1',[optionalEdit])).rows[0].steps[0].payload.equipamentoProduto,null);
+    await db.query('DELETE FROM service_order_edits WHERE id=$1',[optionalEdit]);
+    await db.exec('UPDATE m8_order_type_catalog SET equipment_required=true WHERE id=1');
     const sellerDraft={...draft,seller:'21'},manualSellerEdit=randomUUID();
     await prepareEdit('manual-seller-user',manualSellerEdit,'2','800',fingerprint(source),sellerDraft,session);
     await db.query('DELETE FROM service_order_edits WHERE id=$1',[manualSellerEdit]);
@@ -119,7 +126,7 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
     await db.query("DELETE FROM service_order_edits WHERE id=$1", [dateEditId]);
 
     const id = randomUUID(),
-      changed = { ...draft, notes: "Revisada", items: draft.items.map(i => i.kind === "service" ? {...i, notes: "Nota revisada", internalNotes: ""} : i) };
+      changed = { ...draft, notes: "Revisada" };
     assert.equal(draft.items[1].notes, "Nota existente");
     assert.equal(draft.items[1].internalNotes, "Interna existente");
     await prepareEdit(
@@ -147,13 +154,9 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
     assert.equal(writes.length, 1);
     assert.equal(writes[0].method, "PUT");
     assert.equal(writes[0].path, "/v1/assistenciatecnica/ordemservico/800");
-    assert.equal(writes[0].body.produtos[0].id, 101);
-    assert.equal(writes[0].body.produtos[0].percentualDesconto, 10);
-    assert.equal(writes[0].body.produtos[0].valorTotal, 18);
-    assert.equal(writes[0].body.produtos[0].observacao, "Não perder");
-    assert.equal(writes[0].body.observacao, "Revisada");
-    assert.equal(writes[0].body.servicos[0].observacao, "Nota revisada");
-    assert.equal(writes[0].body.servicos[0].observacaoInterna, "");
+    assert.equal(writes[0].body.produtos,undefined);
+    assert.equal(writes[0].body.servicos,undefined);
+    assert.equal(writes[0].body.observacao,"Revisada");
     assert.equal(writes[0].body.responsavelTecnicoId, 99);
     assert.equal(writes[0].body.emissao, source.emissao);
     assert.equal(writes[0].body.equipamentoProduto.horimetro, "1000");
@@ -234,6 +237,31 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
     );
     assert.equal(writes.at(-1).method, "PATCH");
     assert.deepEqual(writes.at(-1).body, { statusFluxoId: 2 });
+    for(const patch of [{quantity:'9'},{price:'999'},{notes:'Modificada'}]){
+      const index='notes' in patch?1:0;
+      await assert.rejects(prepareEdit('user',randomUUID(),'2','800',fingerprint(source),{...draft,items:draft.items.map((item,i)=>i===index?{...item,...patch}:item)},session),/somente para consulta/);
+    }
+    await db.exec('CREATE TABLE m8_product_catalog(product_id bigint);CREATE TABLE m8_service_catalog(service_id bigint);INSERT INTO m8_product_catalog VALUES(51);INSERT INTO m8_service_catalog VALUES(61);');
+    const inclusion=randomUUID(),beforeInclusion=writes.length;
+    await prepareEdit('user',inclusion,'2','800',fingerprint(source),{...draft,items:[...draft.items,{kind:'material',code:'51',name:'Novo produto',quantity:'2',price:'5'},{kind:'service',code:'61',name:'Novo serviço',quantity:'1',price:'20',notes:'Nova observação'}]},session);
+    assert.equal((await advanceEdit('user',inclusion,session)).state,'ready');
+    assert.equal((await advanceEdit('user',inclusion,session)).state,'ready');
+    assert.equal((await advanceEdit('user',inclusion,session)).state,'complete');
+    const added=writes.slice(beforeInclusion);
+    assert.deepEqual(added.map(w=>[w.method,w.path]),[['PUT','/v1/assistenciatecnica/ordemservico/800'],['POST','/v1/assistenciatecnica/ordemservico/800/produto'],['POST','/v1/assistenciatecnica/ordemservico/800/servico']]);
+    assert.equal(added[0].body.produtos,undefined);assert.equal(added[0].body.servicos,undefined);
+    assert.equal(added[1].body.produtoId,51);assert.equal(added[2].body.servicoId,61);assert.equal(added[2].body.observacao,'Nova observação');
+    const missingItemId=randomUUID();
+    await prepareEdit('user',missingItemId,'2','800',fingerprint(source),{...draft,items:[...draft.items,{kind:'material',code:'51',name:'Novo',quantity:'1',price:'5'}]},session);
+    await advanceEdit('user',missingItemId,session);
+    const missingReply=async(company:number)=>{const client=await session(company);return async(path:string,body?:any,method?:string)=>{const result=await client(path,body,method);return method==='POST'?{}:result;};};
+    assert.equal((await advanceEdit('user',missingItemId,missingReply)).state,'uncertain');
+    const afterUncertainItem=writes.length;await advanceEdit('user',missingItemId,missingReply);assert.equal(writes.length,afterUncertainItem);
+    await db.query('DELETE FROM service_order_edits WHERE id=$1',[missingItemId]);
+    const legacy=randomUUID();await prepareEdit('user',legacy,'2','800',fingerprint(source),draft,session);
+    await db.query("UPDATE service_order_edits SET steps=jsonb_set(steps,'{0,payload,produtos}','[]'::jsonb) WHERE id=$1",[legacy]);
+    const beforeLegacy=writes.length;
+    assert.equal((await advanceEdit('user',legacy,session)).state,'rejected');assert.equal(writes.length,beforeLegacy);
     const uncertain = randomUUID();
     await prepareEdit(
       "user",

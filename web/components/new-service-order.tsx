@@ -246,7 +246,7 @@ export default function NewServiceOrder({
     if (sending.current||attachmentBusy) return;
     setError("");
     try {
-      parseOrder(form, Boolean(editing));
+      parseOrder(form, Boolean(editing),!equipmentOptionalForOrderType(form.type,type?.equipment_required));
       if (editing && editData && form.expected !== editData.draft.expected && !form.deliveryChangeReason?.trim())
         throw new Error("Informe a justificativa da alteração da entrega prevista.");
     } catch (e) {
@@ -617,7 +617,7 @@ export default function NewServiceOrder({
                   </label>
                   <label>
                     <span className="os-field-title">
-                      Equipamento {!editing && !equipmentOptionalForOrderType(form.type) && <b>*</b>}
+                      Equipamento {!equipmentOptionalForOrderType(form.type,type?.equipment_required) && <b>*</b>}
                     </span>
                     <div className="os-equipment-create-row">
                     <OrderSearchSelect
@@ -633,14 +633,15 @@ export default function NewServiceOrder({
                           type: form.type,
                         })
                       }
-                      placeholder={equipmentOptionalForOrderType(form.type) ? "Equipamento opcional" : "Selecione o equipamento"}
+                      placeholder={equipmentOptionalForOrderType(form.type,type?.equipment_required) ? "Equipamento opcional" : "Selecione o equipamento"}
                       onChange={(r) => {
                         set("equipment", r.id);setEquipmentPending(!!r.data?.integrationPending);
                         setNames((n) => ({ ...n, equipment: r.name }));
                       }}
                     />
+                    {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&form.equipment&&<button type="button" disabled={disabled} onClick={()=>{set('equipment','');setNames(names=>({...names,equipment:''}));setEquipmentPending(false);}}>Sem equipamento</button>}
                     <button type="button" aria-label="Cadastrar equipamento" title="Cadastrar equipamento" disabled={!form.customer||!form.type} onClick={()=>setAddingEquipment(true)}><Plus size={18}/></button></div>
-                    {equipmentOptionalForOrderType(form.type)&&<small>Equipamento opcional para visita de inspeção / cortesia.</small>}
+                    {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&<small>Equipamento opcional conforme a configuração do tipo de OS.</small>}
                     {equipmentPending&&<small className="ws-integration-pending">Vínculo com cliente pendente de integração</small>}
                     <small>
                       {type?.customer_equipment_only === true
@@ -849,6 +850,7 @@ export default function NewServiceOrder({
                       {kind === "material" ? "Produtos" : "Serviços"} da OS
                     </h2>
                   </div>
+                  {editing&&<p>Itens existentes são somente para consulta. Somente inclusões e exclusões serão enviadas ao M8.</p>}
                   <div className="os-items">
                     <table>
                       <thead>
@@ -873,7 +875,7 @@ export default function NewServiceOrder({
                                 {(["quantity", "price"] as const).map(
                                   (field) => (
                                     <td key={field}>
-                                      {field === "price" ? <CurrencyInput label="Valor unitário" value={item.price} onChange={price=>setForm(f=>({...f,items:f.items.map((v,i)=>i===index?{...v,price}:v)}))}/> : <input
+                                      {editing&&item.id?<input aria-label={field==='quantity'?'Quantidade':'Valor unitário'} readOnly value={field==='price'?Number(item.price).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):item.quantity} title="Item existente: remova e inclua novamente para alterar."/>:field === "price" ? <CurrencyInput label="Valor unitário" value={item.price} onChange={price=>setForm(f=>({...f,items:f.items.map((v,i)=>i===index?{...v,price}:v)}))}/> : <input
                                         aria-label={
                                           field === "quantity"
                                             ? "Quantidade"
@@ -1017,6 +1019,7 @@ export default function NewServiceOrder({
           title={noteEditor.field === "notes" ? "Observação" : "Observação interna"}
           service={form.items[noteEditor.index].name}
           value={noteEditor.text}
+          readOnly={Boolean(editing&&form.items[noteEditor.index].id)}
           onClose={() => setNoteEditor(null)}
           onSave={text => {
             setForm(f => ({...f, items:f.items.map((item,index) => index === noteEditor.index ? {...item,[noteEditor.field]:text} : item)}));
@@ -1039,14 +1042,14 @@ export default function NewServiceOrder({
   );
 }
 
-function ServiceNoteDialog({title,service,value,onClose,onSave}:{title:string;service:string;value:string;onClose:()=>void;onSave:(text:string)=>void}) {
+function ServiceNoteDialog({title,service,value,onClose,onSave,readOnly=false}:{title:string;service:string;value:string;onClose:()=>void;onSave:(text:string)=>void;readOnly?:boolean}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [text,setText] = useState(value);
   useEffect(() => { dialog.current?.showModal(); }, []);
   return <dialog ref={dialog} className="os-note-dialog" aria-labelledby="os-note-title" onCancel={onClose}>
     <header><h2 id="os-note-title">{title}</h2><button type="button" onClick={onClose}>Fechar</button></header>
     <p>{service}</p>
-    <label><span>{title}</span><textarea autoFocus rows={10} maxLength={20000} value={text} onChange={event=>setText(event.target.value)} /></label>
-    <footer><button type="button" onClick={onClose}>Cancelar</button><button type="button" className="primary" onClick={()=>onSave(text)}>Salvar observação</button></footer>
+    <label><span>{title}</span><textarea readOnly={readOnly} autoFocus rows={10} maxLength={20000} value={text} onChange={event=>setText(event.target.value)} /></label>
+    <footer><button type="button" onClick={onClose}>Cancelar</button>{!readOnly&&<button type="button" className="primary" onClick={()=>onSave(text)}>Salvar observação</button>}</footer>
   </dialog>;
 }

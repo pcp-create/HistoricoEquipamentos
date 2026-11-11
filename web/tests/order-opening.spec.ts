@@ -124,7 +124,7 @@ test("opening date and time remain fixed and read-only while editing", async ({
     if (p.get("lookup") === "metadata")
       return r.fulfill({
         json: {
-          types: [{ id: "1", name: "Corretiva" }],
+          types: [{ id: "1", name: "Corretiva",equipment_required:false }],
           registries: [{ kind: "payment-terms", id: "1", name: "À vista" }],
           users: [],
         },
@@ -165,4 +165,10 @@ test("opening date and time remain fixed and read-only while editing", async ({
   await expect(page.getByLabel('Hora Abertura')).toHaveAttribute('readonly','');
   await page.clock.setFixedTime(new Date('2026-11-11T19:00:00Z'));
   await expect(page.getByLabel('Hora Abertura')).toHaveValue('13:00:00');
+  await page.getByRole('button',{name:'Sem equipamento',exact:true}).click();
+  await expect(page.getByRole('combobox',{name:'Equipamento',exact:true})).toHaveValue('');
+  await page.getByRole('button',{name:'Produtos (1)',exact:true}).click();
+  await expect(page.getByLabel('Quantidade',{exact:true})).toHaveAttribute('readonly','');
+  await expect(page.getByLabel('Valor unitário',{exact:true})).toHaveAttribute('readonly','');
+  await expect(page.getByLabel('Quantidade',{exact:true})).toHaveValue('2');
 });

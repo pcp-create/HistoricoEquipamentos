@@ -1,4 +1,4 @@
-export type OrderType = { id: string; name: string; active: boolean; customer_equipment_only?: boolean };
+export type OrderType = { id: string; name: string; active: boolean; customer_equipment_only?: boolean; equipment_required?:boolean };
 export function orderTypeRows(body: unknown, nameField: "nome" | "descricao" = "nome"): OrderType[] {
  const b = body as {data?: unknown; errors?: unknown};
  if(!b || !Array.isArray(b.data) || (b.errors != null && (!Array.isArray(b.errors) || b.errors.length))) throw new Error("Resposta M8 inválida");

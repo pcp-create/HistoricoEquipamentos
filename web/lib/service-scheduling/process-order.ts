@@ -60,7 +60,7 @@ export async function processScheduleOrder(scheduleId:string,id:string,email:str
     if(next===1){
      if(Number(source.statusLancamentoId)!==19)throw new OrderInputError('O fluxo da OS mudou no M8. Confira o fluxo antes de processar.');
      step.payload={...writable(source,'ATOrdemServicoRequestDto'),status:'Processado'};
-     for(const key of ['apontamentos','parcelas','checklistRespostas','manutencao'])delete step.payload[key];
+     for(const key of ['apontamentos','produtos','servicos','parcelas','checklistRespostas','manutencao'])delete step.payload[key];
      row.steps[next]=step;
      await c.query('UPDATE service_order_edits SET steps=$2 WHERE id=$1',[row.id,JSON.stringify(row.steps)]);
     }

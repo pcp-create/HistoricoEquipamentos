@@ -10,7 +10,7 @@ export async function orderLookups(p: URLSearchParams) {
   if (kind === "metadata") {
     const [types, registries, users] = await Promise.all([
       db.query(
-        "SELECT id::text,name,customer_equipment_only FROM m8_order_type_catalog WHERE active ORDER BY m8_order_type_catalog.id",
+        "SELECT id::text,name,customer_equipment_only,equipment_required FROM m8_order_type_catalog WHERE active ORDER BY m8_order_type_catalog.id",
       ),
       db.query(
         "SELECT kind,id::text,name,warranty_id,warranty_description FROM service_order_registries WHERE active ORDER BY service_order_registries.id,kind",

@@ -1,9 +1,10 @@
 "use client";
+import OrderCommentsDialog from "./order-comments-dialog";
 import {tableFilterValues} from "@/lib/table-filter-values";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Download, Pencil, RefreshCw, SlidersHorizontal, ChevronRight, Link2, X } from "lucide-react";
+import { ArrowLeft, Download, Pencil, RefreshCw, SlidersHorizontal, ChevronRight, Link2, X, MessageSquare } from "lucide-react";
 import CommercialUpdateStatus from "./commercial-update-status";
 import SiteHeader from "./site-header";
 import OrderSearchSelect from "./order-search-select";
@@ -146,6 +147,7 @@ export default function CommercialReport({
   const [quickUpdates, setQuickUpdates] = useState<Record<string, { busy?: boolean; value?: string; error?: string }>>({});
   const quickKey = (row: Detail, field: string) => `${row.fields?.sourceCompany || row.company}:${row.id}:${field}`;
   const [quickEdit, setQuickEdit] = useState<{ row: Detail; field: "expected" | "flowStatus" } | null>(null);
+  const [commentRow,setCommentRow]=useState<Detail|null>(null);
   const [billingRow, setBillingRow] = useState<Detail | null>(null);
   const current = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "America/Sao_Paulo",
@@ -798,6 +800,7 @@ export default function CommercialReport({
                       ))}
                       {kind === "sales" && (
                         <td className="cr-edit">
+                          <button type="button" className="button cr-order-comment" title="Adicionar ou consultar comentários" aria-label={`Comentários da OS ${r.id}`} onClick={()=>setCommentRow(r)}><MessageSquare size={14} aria-hidden="true"/>Comentários</button>
                           {r.kind === "salesPending" ? (
                             <Link
                               className="button"
@@ -833,6 +836,7 @@ export default function CommercialReport({
           </>
         )}
       </main>
+      {commentRow&&<OrderCommentsDialog company={String(commentRow.fields?.sourceCompany||commentRow.company)} order={String(commentRow.id)} number={String(commentRow.fields?.number||commentRow.id)} onClose={()=>setCommentRow(null)}/>}
       <OrderBillingDialog
         row={billingRow}
         onClose={() => setBillingRow(null)}

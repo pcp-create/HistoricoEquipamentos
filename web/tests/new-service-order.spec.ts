@@ -41,7 +41,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
     step = 0,
     equipmentQueries: string[] = [];
   const metadata = {
-    types: [{ id: "1", name: "Corretiva", customer_equipment_only: true }],
+    types: [{ id: "1", name: "Corretiva", customer_equipment_only: true,equipment_required:true },{id:"2",name:"Sem equipamento",customer_equipment_only:false,equipment_required:false},{id:"6",name:"Inspeção obrigatória",customer_equipment_only:false,equipment_required:true}],
     registries: [
       {
         kind: "service-types",
@@ -185,6 +185,11 @@ test("new OS selects company, filters equipment, fills seller and submits header
     page.getByRole("combobox", { name: "Tipo Ordem de Serviço", exact: true }),
   ).toHaveAttribute("aria-expanded", "false");
 
+  await choose('Tipo Ordem de Serviço','2');
+  await expect(page.getByText('Equipamento opcional conforme a configuração do tipo de OS.')).toBeVisible();
+  await choose('Tipo Ordem de Serviço','6');
+  await expect(page.getByText('Equipamento opcional conforme a configuração do tipo de OS.')).toHaveCount(0);
+  await choose('Tipo Ordem de Serviço','1');
   await page.getByRole("combobox", { name: "Cliente", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Cliente", exact: true })

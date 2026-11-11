@@ -44,7 +44,7 @@ export async function submissions(email: string, id?: string) {
 export async function prepareOrder(email: string, id: unknown, input: unknown, openedAt?: unknown) {
   const capturedAt = new Date();
   const key = validUUID(id),
-    draft = parseOrder(input),
+    draft = parseOrder(input,false,false),
     db = database();
   const existing = (
     await db.query("SELECT * FROM service_order_submissions WHERE id=$1", [key])
@@ -84,7 +84,7 @@ export async function prepareOrder(email: string, id: unknown, input: unknown, o
     equipment = equip.rows[0];
   if (!type || type.customer_equipment_only == null)
     throw new OrderInputError("Atualize e selecione um tipo de OS ativo.");
-  if (!customer.rows.length || (draft.equipment ? !equipment : !equipmentOptionalForOrderType(draft.type)))
+  if (!customer.rows.length || (draft.equipment ? !equipment : !equipmentOptionalForOrderType(draft.type,type.equipment_required)))
     throw new OrderInputError("Selecione cliente e equipamento válidos.");
   if (draft.technician && !technician)
     throw new OrderInputError(
