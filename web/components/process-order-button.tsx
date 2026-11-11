@@ -1,5 +1,6 @@
 "use client";
 import {useId,useRef,useState} from 'react';
+import {createPortal} from 'react-dom';
 import {BadgeCheck,LoaderCircle} from 'lucide-react';
 import {processOrderBlockReason} from '@/lib/service-scheduling/process-order-policy';
 import {clearApiCache} from '@/lib/client-api-cache';
@@ -7,6 +8,8 @@ import './process-order-button.css';
 export default function ProcessOrderButton({data,onChanged,disabled,onBusy}:{data:any;onChanged:()=>void;disabled?:boolean;onBusy?:(busy:boolean)=>void}){
  const tooltipId=useId(),requestId=useRef<string|null>(null),sending=useRef(false);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState(''),[done,setDone]=useState(false),[uncertain,setUncertain]=useState(false);
+ const [tooltip,setTooltip]=useState<{left:number;top:number;above:boolean}|null>(null);
+ const showTooltip=(element:HTMLElement)=>{const bounds=element.getBoundingClientRect();setTooltip({left:Math.max(8,Math.min(bounds.left,window.innerWidth-296)),top:bounds.top>=120?bounds.top-8:bounds.bottom+8,above:bounds.top>=120});};
  const reason=busy?'Aguarde a confirmação do processamento no M8.':done?'Esta OS já está processada.':uncertain?'O M8 não confirmou o resultado. Confira a OS no ERP antes de um novo envio.':disabled?'Aguarde a conclusão da ação em andamento.':!data.canEditSettings?'Você não tem permissão para processar esta OS.':processOrderBlockReason(data.operations||[],data.detail?.order?.status||data.schedule.order_status);
  async function process(){
   if(reason||sending.current)return;
@@ -36,9 +39,9 @@ export default function ProcessOrderButton({data,onChanged,disabled,onBusy}:{dat
   }catch(e){setError((e as Error).message);}finally{sending.current=false;setBusy(false);onBusy?.(false);}
  }
  return <div className="process-order-control">
-  <span className="process-order-trigger" tabIndex={reason?0:undefined} aria-describedby={reason?tooltipId:undefined}>
+  <span className="process-order-trigger" onMouseEnter={e=>showTooltip(e.currentTarget)} onMouseLeave={()=>setTooltip(null)} onFocus={e=>showTooltip(e.currentTarget)} onBlur={()=>setTooltip(null)} tabIndex={reason?0:undefined} aria-describedby={reason?tooltipId:undefined}>
    <button type="button" className="process-order-button" disabled={!!reason} onClick={()=>void process()}>{busy?<LoaderCircle className="spin" size={18}/>:<BadgeCheck size={18} aria-hidden="true"/>}Processar OS</button>
-   {reason&&<span id={tooltipId} role="tooltip" className="process-order-tooltip">{reason}</span>}
+   {reason&&tooltip&&createPortal(<span id={tooltipId} role="tooltip" className="process-order-tooltip" style={{left:tooltip.left,top:tooltip.top,transform:tooltip.above?"translateY(-100%)":undefined}}>{reason}</span>,document.body)}
   </span>
   {error&&<p role="alert" className="process-order-error">{error}</p>}
   {message&&<p role="status" className="process-order-success">{message}</p>}

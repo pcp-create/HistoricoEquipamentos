@@ -7,8 +7,8 @@ import {processScheduleOrder} from '../lib/service-scheduling/process-order';
 import {processOrderBlockReason} from '../lib/service-scheduling/process-order-policy';
 import {M8RequestError} from '../lib/service-orders/m8';
 import {advanceEdit} from '../lib/service-orders/edit';
-test('processing requires a nonempty set of reviewed operations',()=>{
- assert.match(processOrderBlockReason([]),/não possui operações/);
+test('processing permits no operations and otherwise requires reviewed operations',()=>{
+ assert.equal(processOrderBlockReason([]),'');
  assert.match(processOrderBlockReason([{status:'executing'},{status:'reviewed'}]),/1 operação/);
  assert.equal(processOrderBlockReason([{status:'reviewed'},{status:'completed'}]),'');
  assert.match(processOrderBlockReason([{status:'reviewed'}],'Processado'),/já está processada/);
@@ -55,5 +55,10 @@ test('processing preserves ERP data, resumes confirmed steps and reconciles ambi
   await processScheduleOrder('1',ambiguous,'planner',session);
   loseReply=true;result=await processScheduleOrder('1',ambiguous,'planner',session);assert.equal(result.state,'uncertain');
   const before=writes.length;result=await processScheduleOrder('1',ambiguous,'planner',session);assert.equal(result.state,'complete');assert.equal(writes.length,before);
+  await db.exec('DELETE FROM web_service_operations');
+  source.status='Pendente';source.statusLancamentoId=2;loseReply=false;
+  const emptyId=randomUUID();
+  assert.equal((await processScheduleOrder('1',emptyId,'planner',session)).state,'ready');
+  assert.equal((await processScheduleOrder('1',emptyId,'planner',session)).state,'complete');
  }finally{g.historyPool=old;await db.close();}
 });
