@@ -30,6 +30,7 @@ import {
   UserRound,
   X,
   Circle,
+  LoaderCircle,
   CircleCheck,
   List,
   CalendarDays,
@@ -121,7 +122,7 @@ function waiting(t: any) {
     ? `${Math.floor(minutes / 1440)} dias e ${Math.floor((minutes % 1440) / 60)} h`
     : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 }
-async function api(url: string, body?: unknown) {
+async function api(url: string, body?: unknown, signal?: AbortSignal) {
   const r = await apiFetch(
     url,
     body
@@ -129,6 +130,7 @@ async function api(url: string, body?: unknown) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
+          signal,
         }
       : undefined,
   );
@@ -713,6 +715,8 @@ export default function TasksDashboard() {
   const lastCardDrag = useRef(0);
   const [dragging, setDragging] = useState<string | null>(null);
   const optimisticTask = useRef<any>(null);
+  const completionRequests = useRef(new Set<string>());
+  const [completing, setCompleting] = useState<Set<string>>(new Set());
   const snapshotRevision = useRef(0);
   function applySnapshot(b: any) {
     const pending = optimisticTask.current;
@@ -735,7 +739,7 @@ export default function TasksDashboard() {
   const [syncing, setSyncing] = useState(false);
   const syncingRef = useRef(false);
   async function sync(force = true) {
-    if (optimisticTask.current || syncingRef.current) return;
+    if (optimisticTask.current || completionRequests.current.size || syncingRef.current) return;
     syncingRef.current = true;
     setSyncing(true);
     setError("");
@@ -924,6 +928,7 @@ export default function TasksDashboard() {
     if (
       !task ||
       busy ||
+      completionRequests.current.has(id) ||
       task.status === "completed" ||
       boardColumn(task) === column
     )
@@ -996,59 +1001,36 @@ export default function TasksDashboard() {
     }
   }
   async function saveCompletion(task: any, reopen: boolean) {
-    if (
-      busy ||
-      optimisticTask.current ||
-      !manuallyCompletableTask(task)
-    )
-      return;
-    const preview = {
-      ...task,
-      status: reopen ? "not_started" : "completed",
-      kanban_column: null,
-      completed_at: reopen ? null : new Date().toISOString(),
-    };
+    const id = String(task.id);
+    if (busy || optimisticTask.current || completionRequests.current.has(id) || !manuallyCompletableTask(task)) return;
+    completionRequests.current.add(id);
+    setCompleting(new Set(completionRequests.current));
     snapshotRevision.current++;
-    optimisticTask.current = preview;
-    setData((previous: any) => ({
-      ...previous,
-      tasks: previous.tasks.map((t: any) =>
-        String(t.id) === String(task.id) ? preview : t,
-      ),
-    }));
-    setBusy(true);
     setError("");
     setDragging(null);
     try {
       const result = await api("/api/tasks", {
         action: reopen ? "reopen" : "move",
-        id: String(task.id),
+        id,
         version: task.version,
         ...(reopen ? {} : { column: "completed" }),
-      });
+      }, AbortSignal.timeout(30000));
       snapshotRevision.current++;
-      optimisticTask.current = null;
       setData((previous: any) => ({
         ...previous,
         tasks: previous.tasks.map((t: any) =>
-          String(t.id) === String(task.id) ? { ...t, ...result.task } : t,
+          String(t.id) === id ? { ...t, ...result.task } : t,
         ),
       }));
     } catch (e) {
       snapshotRevision.current++;
-      optimisticTask.current = null;
-      setData((previous: any) => ({
-        ...previous,
-        tasks: previous.tasks.map((t: any) =>
-          String(t.id) === String(task.id) ? task : t,
-        ),
-      }));
-      setError((e as Error).message);
-      await load().catch(() => {});
+      setError(e instanceof Error && ["TimeoutError", "AbortError"].includes(e.name)
+        ? "Não foi possível confirmar a conclusão desta tarefa. Atualize o andamento antes de tentar novamente."
+        : (e as Error).message);
+      void load().catch(() => {});
     } finally {
-      snapshotRevision.current++;
-      optimisticTask.current = null;
-      setBusy(false);
+      completionRequests.current.delete(id);
+      setCompleting(new Set(completionRequests.current));
     }
   }
   async function toggleCardCompletion(task: any) {
@@ -1062,6 +1044,7 @@ export default function TasksDashboard() {
     if (
       !task ||
       busy ||
+      completionRequests.current.has(id) ||
       (column === "completed" && task.status === "completed")
     )
       return;
@@ -1640,7 +1623,8 @@ export default function TasksDashboard() {
                                         ? "is-completed"
                                         : "")
                                     }
-                                    disabled={busy}
+                                    disabled={busy || completing.has(String(t.id))}
+                                    aria-busy={completing.has(String(t.id))}
                                     aria-label={
                                       t.status === "completed"
                                         ? "Reabrir tarefa"
@@ -1656,7 +1640,9 @@ export default function TasksDashboard() {
                                       void toggleCardCompletion(t);
                                     }}
                                   >
-                                    {t.status === "completed" ? (
+                                    {completing.has(String(t.id)) ? (
+                                      <LoaderCircle size={19} className="spin" />
+                                    ) : t.status === "completed" ? (
                                       <CircleCheck size={19} />
                                     ) : (
                                       <Circle size={19} />
