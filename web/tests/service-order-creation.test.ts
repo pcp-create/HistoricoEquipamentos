@@ -252,8 +252,9 @@ test("creation uses customer equipment rule, persists progress, isolates users a
       ),
     );
     const key = randomUUID();
-    await prepareOrder("user", key, draft);
-    await prepareOrder("user", key, draft);
+    await prepareOrder("user", key, draft,"2026-11-11T15:42:13.000Z");
+    const repeated=await prepareOrder("user", key, draft,"2026-11-11T16:00:00.000Z");
+    assert.equal(repeated.openedAt,"2026-11-11T12:42:13-03:00");
     assert.equal((await submissions("user")).length, 1);
     await assert.rejects(() => prepareOrder("other", key, draft));
     assert.equal((await submissions("other", key)).length, 0);
@@ -264,6 +265,7 @@ test("creation uses customer equipment rule, persists progress, isolates users a
       )
     ).rows[0].header;
     assert.deepEqual((await db.query<any>('SELECT request FROM service_order_submissions WHERE id=$1',[key])).rows[0].request.warrantySnapshot,{id:3,description:'90 dias'});
+    assert.equal(stored.emissao,"2026-11-11T12:42:13-03:00");
     assert.equal(stored.funcionarioId, 20);
     assert.equal(stored.responsavelTecnicoId, 99);
     assert.equal(stored.tipoGarantiaId, 3);

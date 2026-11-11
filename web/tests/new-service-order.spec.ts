@@ -36,6 +36,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
   );
   await page.route('**/api/equipment/warranty?**',r=>r.fulfill({json:{warranty:{company:'1',orderId:'90',number:'15000',startedAt:'2026-11-10',expiresAt:'2027-02-10',period:'3 meses',periodSource:'snapshot',lastOrder:{company:'1',orderId:'90',number:'15000',startedAt:'2026-11-10'}}}}));
   let sellerDefault:string|null="20";
+  let savedOpening: string;
   let saved: any,
     step = 0,
     equipmentQueries: string[] = [];
@@ -76,6 +77,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
       const b = r.request().postDataJSON();
       if (b.action === "prepare") {
         saved = b.draft;
+        savedOpening=b.openedAt;
         return r.fulfill({
           json: {
             id: b.id,
@@ -261,6 +263,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
   await page.getByRole("button", {name:/^Observação interna:/}).click();
   await page.getByRole("dialog").getByLabel("Observação interna", {exact:true}).fill("Orientação interna");
   await page.getByRole("button", {name:"Salvar observação",exact:true}).click();
+  await page.clock.setFixedTime(new Date("2026-11-11T15:42:13Z"));
   await page.getByRole("button", { name: "Criar OS no M8" }).click();
   await expect(page).toHaveURL(/\/historico\?/, {timeout:30000});
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -268,6 +271,7 @@ test("new OS selects company, filters equipment, fills seller and submits header
   await expect(
     page.getByRole("heading", {name:"Cliente recém criado", exact:true}),
   ).toBeVisible();
+  expect(savedOpening!).toBe("2026-11-11T15:42:13.000Z");
   expect(saved.company).toBe("2");
   expect(saved.seller).toBe("21");
   expect(saved.origin).toBe("");

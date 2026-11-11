@@ -183,6 +183,8 @@ export async function loadEdit(company: string, id: string) {
       situation: source.situacaoNome,
       flowStatus: source.statusLancamentoNome,
     },
+    openingDate: String(source.dataAbertura||source.emissao||'').slice(0,10),
+    openingTime: String(source.horaAbertura||source.emissao||'').split('T').pop()?.match(/^\d{2}:\d{2}(?::\d{2})?/)?.[0]||'',
     opening: [source.dataAbertura, source.horaAbertura]
       .filter(Boolean)
       .join(" "),

@@ -74,7 +74,7 @@ export async function POST(r: Request) {
     if (b.action === "edit-advance")
       return json(await advanceEdit(u.email, b.id));
     if (b.action === "prepare")
-      return json(await prepareOrder(u.email, b.id, b.draft));
+      return json(await prepareOrder(u.email, b.id, b.draft, b.openedAt));
     if (b.action === "retry")
       return json(await retryOrder(u.email, b.id, b.updatedAt, b.confirmed));
     if (b.action === "advance") return json(await advanceOrder(u.email, b.id));

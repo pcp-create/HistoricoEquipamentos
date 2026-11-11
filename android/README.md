@@ -318,3 +318,9 @@ Enviar o relatório salva e envia as informações sem encerrar a atividade. O t
 Instalar como atualização, sem desinstalar nem limpar os dados do aplicativo.
 
 Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/portal-tecnico-rj-v2.2.21
+
+## Versão 2.2.22 — informações e alertas do equipamento
+
+A tela Informações exibe Alertas do Equipamento e B.Os do Equipamento recolhidos, com contadores, e mantém as observações internas visíveis. O alerta de garantia informa a OS anterior e o prazo de cobertura, acompanhando os dados baixados da operação para consulta offline.
+
+Instalar como atualização, sem desinstalar nem limpar os dados do aplicativo.

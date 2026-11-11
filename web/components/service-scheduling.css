@@ -1178,7 +1178,7 @@
 .customer-report-email .email-equipment-update button { margin-left: 6px; padding: 3px 6px; border: 0; background: transparent; color: #285d89; text-decoration: underline; white-space: normal; font-size: 12px; }
 .customer-report-email .email-equipment-update small { display: block; }
 
-.schedule-order-actions .schedule-order-toolbar { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding-bottom: 2px; }
+.schedule-order-actions .schedule-order-toolbar { align-items: flex-start; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding-bottom: 2px; }
 .schedule-order-toolbar > button { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; white-space: nowrap; }
 .schedule-order-toolbar > button > svg { flex-shrink: 0; }
 

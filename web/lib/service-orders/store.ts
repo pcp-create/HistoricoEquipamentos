@@ -30,6 +30,7 @@ function publicSubmission(r: any) {
     itemCount: r.items.length,
     message: r.message,
     createdAt: r.created_at,
+    openedAt: r.header?.emissao,
     updatedAt: new Date(r.updated_at).toISOString(),
   };
 }
@@ -40,7 +41,8 @@ export async function submissions(email: string, id?: string) {
   );
   return result.rows.map(publicSubmission);
 }
-export async function prepareOrder(email: string, id: unknown, input: unknown) {
+export async function prepareOrder(email: string, id: unknown, input: unknown, openedAt?: unknown) {
+  const capturedAt = new Date();
   const key = validUUID(id),
     draft = parseOrder(input),
     db = database();
@@ -57,6 +59,8 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
       );
     return publicSubmission(existing);
   }
+  if(openedAt!==undefined&&(typeof openedAt!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(openedAt)||!Number.isFinite(Date.parse(openedAt))))throw new OrderInputError('Data e hora de abertura inválidas.');
+  const opening = brazilNow(openedAt ? new Date(openedAt as string) : capturedAt);
   const [types, regs, users, equip, customer] = await Promise.all([
     db.query("SELECT * FROM m8_order_type_catalog WHERE id=$1 AND active", [
       draft.type,
@@ -140,7 +144,7 @@ export async function prepareOrder(email: string, id: unknown, input: unknown) {
     funcionarioId: Number(draft.seller),
     ...(technician ? { responsavelTecnicoId: technician } : {}),
     condicaoPagamentoId: Number(draft.payment),
-    emissao: brazilNow(),
+    emissao: opening,
     dataEntregaPrevista: draft.expected + "T00:00:00-03:00",
     dataEntrega: draft.delivery + "T00:00:00-03:00",
     tipoAtendimentoId: Number(draft.serviceType),

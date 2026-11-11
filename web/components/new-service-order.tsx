@@ -81,7 +81,8 @@ export default function NewServiceOrder({
     [sellerError, setSellerError] = useState(""),
     [recent, setRecent] = useState<any[]>([]),
     [current, setCurrent] = useState<any>(null),
-    [clock, setClock] = useState("");
+    [openedAt, setOpenedAt] = useState("");
+  const openingRequestTime=useRef("");
   const sending = useRef(false),
     requestId = useRef<string | null>(null),
     active = Boolean(
@@ -155,16 +156,10 @@ export default function NewServiceOrder({
       setError(e instanceof Error ? e.message : "Não foi possível carregar.");
     }
   }
-  useEffect(() => {
-    void load();
-    const update = () =>
-      setClock(
-        new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
-      );
-    update();
-    const timer = setInterval(update, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  useEffect(() => { void load(); }, []);
+  const openingDate=editing?editData?.openingDate||'':openedAt?new Date(openedAt).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'';
+  const openingTime=editing?editData?.openingTime||'':openedAt?new Date(openedAt).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour12:false}):'';
+  useEffect(()=>{if(!editing&&current?.openedAt)setOpenedAt(current.openedAt);},[current?.openedAt]);
   useEffect(() => {
     const c = new AbortController();
     setSellers([]);
@@ -259,6 +254,7 @@ export default function NewServiceOrder({
       setError(e instanceof Error ? e.message : "Confira os campos.");
       return;
     }
+    if(!editing&&!openingRequestTime.current){openingRequestTime.current=new Date().toISOString();setOpenedAt(openingRequestTime.current);}
     sending.current = true;
     setBusy(true);
     try {
@@ -280,7 +276,7 @@ export default function NewServiceOrder({
               version: editData.version,
               draft: form,
             }
-          : { action: "prepare", id, draft: form },
+          : { action: "prepare", id, draft: form, openedAt: openingRequestTime.current },
       );
       setCurrent(prepared);
       await advance(id);
@@ -356,6 +352,7 @@ export default function NewServiceOrder({
     }
   }
   function reset() {
+    if(!editing){setOpenedAt("");openingRequestTime.current="";}
     requestId.current = null;
     sessionStorage.removeItem(
       editing
@@ -682,14 +679,14 @@ export default function NewServiceOrder({
                     <span className="os-field-title">
                       Data Abertura <b>*</b>
                     </span>
-                    <input readOnly value={clock.split(",")[0] || ""} />
+                    <input readOnly value={openingDate} placeholder={editing?"Não informada":"Definida ao criar a OS"} />
                   </label>
                   <label>
                     <span className="os-field-title">
                       Hora Abertura <b>*</b>
                     </span>
-                    <input readOnly value={clock.split(",")[1]?.trim() || ""} />
-                    <small>Horário de Brasília, atualizado no envio.</small>
+                    <input readOnly value={openingTime} placeholder={editing?"Não informada":"Definida ao criar a OS"} />
+                    <small>Horário de Brasília. A data e a hora de abertura são fixas após a criação.</small>
                   </label>
                   <label>
                     <span className="os-field-title">
