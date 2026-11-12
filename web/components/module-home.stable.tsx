@@ -25,10 +25,11 @@ const modules = [
       ["Gráfico de Evolução", "/comercial/evolucao"],
       ["Contratos", "/comercial/contratos"],
       ["Vendas", "/comercial/vendas"],
-      ["Orçamentos", "/orcamentos"],
+      ["Histórico Orçamentos M8", "/orcamentos"],
+      ["CRM", "/crm"],
       ["Catálogo do fabricante", "/fabricante"],
     ],
-    next: "Próximas etapas: clientes, oportunidades e acompanhamento comercial.",
+    next: "Oportunidades e propostas locais vinculadas às ordens de serviço.",
   },
   {
     id: "assistencia-tecnica",

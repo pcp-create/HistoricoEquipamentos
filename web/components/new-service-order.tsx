@@ -60,8 +60,11 @@ async function api(body?: unknown, query = "") {
   return d;
 }
 export default function NewServiceOrder({
-  editing, returnTo,
-}: { returnTo?: string; editing?: { company: string; id: string } } = {}) {
+  editing, returnTo, proposal,
+}: { returnTo?: string; editing?: { company: string; id: string }; proposal?: {
+ title:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
+ tools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
+} } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
   const [equipmentPending,setEquipmentPending]=useState(false);
   const [attachmentFiles,setAttachmentFiles]=useState<File[]>([]);
@@ -95,6 +98,11 @@ export default function NewServiceOrder({
   };
   async function load() {
     try {
+      if (proposal) {
+        const m=await api(undefined,"?lookup=metadata");
+        setMeta({...m,types:m.types.filter((t:any)=>proposal.orderTypes.includes(String(t.id)))});
+        setForm(proposal.draft);setNames(proposal.names);return;
+      }
       if (editing) {
         const [m, d] = await Promise.all([
           api(undefined, "?lookup=metadata"),
@@ -157,6 +165,7 @@ export default function NewServiceOrder({
     }
   }
   useEffect(() => { void load(); }, []);
+  useEffect(()=>{if(proposal&&meta)proposal.onDirty?.(JSON.stringify(form)!==JSON.stringify(proposal.draft)||JSON.stringify(names)!==JSON.stringify(proposal.names));},[form,names,meta]);
   const openingDate=editing?editData?.openingDate||'':openedAt?new Date(openedAt).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'';
   const openingTime=editing?editData?.openingTime||'':openedAt?new Date(openedAt).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour12:false}):'';
   useEffect(()=>{if(!editing&&current?.openedAt)setOpenedAt(current.openedAt);},[current?.openedAt]);
@@ -195,7 +204,7 @@ export default function NewServiceOrder({
               ? d.rows[0]
               : null;
         setForm((f) =>
-          editing && f.customer === editData?.draft.customer
+          (proposal && !!f.seller) || (editing && f.customer === editData?.draft.customer)
             ? f
             : { ...f, seller: chosen?.id || "" },
         );
@@ -245,6 +254,12 @@ export default function NewServiceOrder({
     e.preventDefault();
     if (sending.current||attachmentBusy) return;
     setError("");
+    if(proposal){
+      if(proposal.locked)return;
+      sending.current=true;setBusy(true);
+      try{await proposal.onSave(form,names);}catch(e){setError((e as Error).message);}finally{sending.current=false;setBusy(false);}
+      return;
+    }
     try {
       parseOrder(form, Boolean(editing),!equipmentOptionalForOrderType(form.type,type?.equipment_required));
       if (editing && editData && form.expected !== editData.draft.expected && !form.deliveryChangeReason?.trim())
@@ -425,20 +440,20 @@ export default function NewServiceOrder({
   );
   return (
     <>
-      <SiteHeader active="history" />
+      <SiteHeader active={proposal?"crm":"history"} />
       <main className="new-os">
         <Link href={returnTo || "/historico"} className="os-back">
-          <ArrowLeft size={16} /> {returnTo ? "Voltar às vendas" : "Ordens de Serviço"}
+          <ArrowLeft size={16} /> {proposal ? "Voltar ao CRM" : returnTo ? "Voltar às vendas" : "Ordens de Serviço"}
         </Link>
         <header>
           <div>
             <h1>
-              {editing
+              {proposal ? proposal.title : editing
                 ? "Editar OS " + (editData?.number || "")
                 : "Nova Ordem de Serviço"}
             </h1>
             <p>
-              {editing
+              {proposal ? "Proposta comercial local. O envio ao M8 ocorrerá somente ao concretizar e gerar a OS." : editing
                 ? "Revise os dados e salve as alterações na ordem existente."
                 : "Cadastre a ordem no M8 com seus produtos e serviços."}
             </p>
@@ -463,6 +478,7 @@ export default function NewServiceOrder({
             )}
           </div>
         </header>
+        {proposal?.tools}
         {!meta && (
           <p>
             Carregando cadastros…{" "}
@@ -483,7 +499,7 @@ export default function NewServiceOrder({
             {error}
           </p>
         )}
-        <OrderAttachments company={String(editing?.company||current?.company||form.company)} order={editing?.id||(current?.state==='complete'?String(current.m8Id):undefined)} files={attachmentFiles} onFilesChange={setAttachmentFiles} disabled={busy||active} onBusy={setAttachmentBusy}/>
+        {!proposal&&<OrderAttachments company={String(editing?.company||current?.company||form.company)} order={editing?.id||(current?.state==='complete'?String(current.m8Id):undefined)} files={attachmentFiles} onFilesChange={setAttachmentFiles} disabled={busy||active} onBusy={setAttachmentBusy}/>}
         {current?.state==='complete'&&<Link href={`/historico?createdCompany=${current.company}&createdOrder=${editing?.id||current.m8Id}`}>Ver OS salva</Link>}
         {current && (
           <section className="os-result" aria-live="polite">
@@ -560,7 +576,7 @@ export default function NewServiceOrder({
                 </span>
                 <OrderSearchSelect
                   label="Empresa"
-                  disabled={Boolean(editing)}
+                  disabled={Boolean(editing||proposal)}
                   value={form.company}
                   placeholder="Selecione a empresa para cadastrar"
                   options={["1", "2", "27404"].map((id) => ({
@@ -571,7 +587,7 @@ export default function NewServiceOrder({
                 />
               </label>
               <span>
-                {editing
+                {proposal ? "Empresa definida na oportunidade." : editing
                   ? "Empresa da OS existente."
                   : "A OS será criada na empresa selecionada."}
               </span>
@@ -595,7 +611,7 @@ export default function NewServiceOrder({
                 </button>
               ))}
             </nav>
-            <fieldset disabled={!form.company} className="os-form-fields">
+            <fieldset disabled={!form.company || Boolean(proposal?.locked)} className="os-form-fields">
               <div hidden={tab !== "header"}>
                 <div className="os-grid">
                   {select("type", "Tipo Ordem de Serviço", meta?.types || [])}
@@ -607,6 +623,7 @@ export default function NewServiceOrder({
                       label="Cliente"
                       value={form.customer}
                       selectedLabel={names.customer}
+                      disabled={Boolean(proposal)}
                       endpoint="/api/service-orders?lookup=customers"
                       placeholder="Selecione o cliente"
                       onChange={(r) => {
@@ -640,7 +657,7 @@ export default function NewServiceOrder({
                       }}
                     />
                     {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&form.equipment&&<button type="button" disabled={disabled} onClick={()=>{set('equipment','');setNames(names=>({...names,equipment:''}));setEquipmentPending(false);}}>Sem equipamento</button>}
-                    <button type="button" className="os-add-equipment" aria-label="Cadastrar equipamento" title="Cadastrar equipamento" disabled={!form.customer||!form.type} onClick={()=>setAddingEquipment(true)}><Plus size={18}/></button></div>
+                    {!proposal&&<button type="button" className="os-add-equipment" aria-label="Cadastrar equipamento" title="Cadastrar equipamento" disabled={!form.customer||!form.type} onClick={()=>setAddingEquipment(true)}><Plus size={18}/></button>}</div>
                     {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&<small>Equipamento opcional conforme a configuração do tipo de OS.</small>}
                     {equipmentPending&&<small className="ws-integration-pending">Vínculo com cliente pendente de integração</small>}
                     <small>
@@ -968,13 +985,13 @@ export default function NewServiceOrder({
           </fieldset>
           <footer className="os-submit">
             <p>
-              Os campos marcados com * são obrigatórios. Produtos e serviços
-              podem ser incluídos conforme a necessidade.
+              {proposal?"A proposta pode ser salva incompleta. Os campos obrigatórios serão validados antes da criação da OS.":"Os campos marcados com * são obrigatórios. Produtos e serviços podem ser incluídos conforme a necessidade."}
             </p>
             <button
               className="primary"
               disabled={
                 disabled ||
+                Boolean(proposal?.locked) ||
                 !meta ||
                 sellerBusy ||
                 !form.company ||
@@ -982,7 +999,7 @@ export default function NewServiceOrder({
               }
             >
               <Save size={18} />
-              {busy
+              {proposal ? busy?"Salvando proposta…":"Salvar proposta" : busy
                 ? editing
                   ? "Salvando no M8…"
                   : "Criando no M8…"
@@ -992,7 +1009,7 @@ export default function NewServiceOrder({
             </button>
           </footer>
         </form>
-        <details className="os-recent" hidden={Boolean(editing)}>
+        <details className="os-recent" hidden={Boolean(editing||proposal)}>
           <summary>Meus envios recentes</summary>
           <button type="button" disabled={busy} onClick={() => void load()}>
             <RefreshCw size={15} /> Atualizar andamento

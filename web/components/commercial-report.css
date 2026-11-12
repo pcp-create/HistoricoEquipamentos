@@ -716,3 +716,6 @@
 .cr-workshop-stage:hover { text-decoration:underline; }
 
 .cr-workshop-component{display:block;margin-top:5px;color:#8b5b12;background:#fff4db;border-radius:5px;padding:4px 6px;font-size:11px;line-height:1.4}
+
+.cr-edit-actions { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.cr-edit-actions > .button { flex: 0 0 32px; }

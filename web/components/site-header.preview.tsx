@@ -42,7 +42,8 @@ const screens: Record<string, { label: string; modules: string[] }> = {
     label: "Catálogo do fabricante",
     modules: ["suprimentos", "crm", "assistencia-tecnica"],
   },
-  quotes: { label: "Orçamentos", modules: ["crm"] },
+  crm: { label: "CRM", modules: ["crm"] },
+  quotes: { label: "Histórico Orçamentos M8", modules: ["crm"] },
   settings: {
     label: "Configuração do catálogo",
     modules: ["suprimentos", "crm", "assistencia-tecnica"],
@@ -81,6 +82,7 @@ export default function SiteHeader({
     | "history"
     | "analysis"
     | "manufacturer"
+    | "crm"
     | "quotes"
     | "settings"
     | "equipmentPreventives"

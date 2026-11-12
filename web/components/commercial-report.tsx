@@ -800,7 +800,8 @@ export default function CommercialReport({
                       ))}
                       {kind === "sales" && (
                         <td className="cr-edit">
-                          <button type="button" className="button cr-order-comment" title="Adicionar ou consultar comentários" aria-label={`Comentários da OS ${r.id}`} onClick={()=>setCommentRow(r)}><MessageSquare size={14} aria-hidden="true"/>Comentários</button>
+                          <span className="cr-edit-actions">
+                          <button type="button" className="button cr-order-comment" title="Adicionar ou consultar comentários" aria-label={`Comentários da OS ${r.id}`} onClick={()=>setCommentRow(r)}><MessageSquare size={14} aria-hidden="true"/></button>
                           {r.kind === "salesPending" ? (
                             <Link
                               className="button"
@@ -813,6 +814,7 @@ export default function CommercialReport({
                           ) : (
                             <span className="cr-readonly">Somente leitura</span>
                           )}
+                          </span>
                         </td>
                       )}
                     </tr>

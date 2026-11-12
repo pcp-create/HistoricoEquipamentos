@@ -1,0 +1,29 @@
+.crm-main { max-width: 1600px; }
+.crm-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.crm-heading { display:flex; justify-content:space-between; gap:16px; align-items:center; flex-wrap:wrap; }
+.crm-filter { display:flex; gap:12px; flex-wrap:wrap; align-items:end; margin:18px 0; }
+.crm-filter label { display:grid; gap:6px; flex:1 1 220px; }
+.crm-main input,.crm-main select,.crm-main textarea,.crm-dialog input,.crm-dialog select,.crm-dialog textarea { font:inherit; width:100%; min-height:42px; padding:10px 12px; border:1px solid var(--line); border-radius:7px; background:#fff; color:inherit; box-sizing:border-box; }
+.crm-status { display:inline-block; border-radius:5px; padding:4px 8px; background:#eef3f9; white-space:nowrap; }
+.crm-status-won,.crm-status-complete { color:#166534; background:#dcfce7; }
+.crm-status-lost,.crm-status-cancelled,.crm-status-rejected { color:#991b1b; background:#fee2e2; }
+.crm-status-converting,.crm-status-uncertain,.crm-status-partial { color:#854d0e; background:#fef9c3; }
+.crm-dialog { width:min(820px,calc(100vw - 24px)); max-height:90dvh; overflow:auto; border:1px solid var(--line); border-radius:12px; padding:24px; color:var(--ink,#264862); }
+.crm-dialog::backdrop { background:#132c4c66; }
+.crm-dialog header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.crm-dialog h2 { margin:0; }
+.crm-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:20px 0; }
+.crm-form-grid label { display:grid; gap:6px; min-width:0; }
+.crm-wide { grid-column:1/-1; }
+.crm-dialog .order-search-select { margin:0; }
+.crm-form-grid fieldset { border:1px solid var(--line); border-radius:8px; }
+.crm-error { color:#a32727; padding:12px; border:1px solid #efc5c5; background:#fff6f6; border-radius:7px; }
+.crm-info { padding:14px; background:#eff6fc; border:1px solid var(--line); border-radius:8px; margin:14px 0; }
+.crm-proposal-tools { border:1px solid var(--line); border-radius:9px; padding:18px; background:#fff; margin:18px 0; }
+.crm-proposal-tools label { display:grid; gap:6px; }
+.crm-links { display:grid; gap:10px; margin:12px 0; }
+.crm-links article { padding:12px; border:1px solid var(--line); border-radius:7px; }
+.crm-history li { margin:10px 0; }
+.crm-check { display:flex!important; align-items:center; gap:8px; margin:8px 0; }
+.crm-check input { width:18px; min-height:18px; }
+@media(max-width:640px){.crm-form-grid{grid-template-columns:1fr}.crm-main .stats{grid-template-columns:repeat(2,minmax(0,1fr))}.crm-dialog{padding:16px}.crm-filter{gap:8px}}
