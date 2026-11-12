@@ -38,6 +38,13 @@ export class CycleRepository {
           ON CONFLICT(company_id,ordem_servico_id) DO UPDATE SET
           summary_status=EXCLUDED.summary_status,inventory_seen_at=EXCLUDED.inventory_seen_at,
           pending=true,finalized=false,next_attempt_at=now()`,[this.company,JSON.stringify(changed.rows),seenAt]);
+        // Headers can already exist after a web-side refresh without a detail queue row.
+        // Repair that gap even when the header itself did not change.
+        await this.db.query(`INSERT INTO integracao_m8_os_sync(company_id,ordem_servico_id,summary_status,inventory_seen_at)
+          SELECT o.company_id,o.id_m8,o.status,$3 FROM m8_ordens_servico o
+          JOIN jsonb_to_recordset($2::jsonb) AS r(id_m8 bigint) ON r.id_m8=o.id_m8
+          WHERE o.company_id=$1 AND NOT (o.payload ? '_m8Deletion')
+          ON CONFLICT(company_id,ordem_servico_id) DO NOTHING`,[this.company,JSON.stringify(batch),seenAt]);
         await this.db.query(`INSERT INTO public.m8_os_documentos_fiscais(company_id,ordem_servico_id,documento_fiscal_id)
           SELECT (r->>'company_id')::integer,(r->>'id_m8')::bigint,d::bigint
           FROM jsonb_array_elements($1::jsonb) r CROSS JOIN LATERAL jsonb_array_elements_text(r->'fiscalDocumentIds') d

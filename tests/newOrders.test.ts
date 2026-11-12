@@ -16,6 +16,10 @@ test('fast headers preserve identical snapshots and update only changed orders',
   assert.equal((await db.query<{cliente_nome:string}>('SELECT cliente_nome FROM m8_ordens_servico')).rows[0]!.cliente_nome,'Detalhe recente');
   assert.equal((await db.query<{pending:boolean}>('SELECT pending FROM integracao_m8_os_sync')).rows[0]!.pending,false);
   assert.equal((await db.query<{n:number}>('SELECT count(*)::int n FROM m8_os_documentos_fiscais')).rows[0]!.n,1);
+  // A web refresh may have inserted the same header without creating its queue row.
+  await db.exec('DELETE FROM integracao_m8_os_sync');
+  assert.equal(await insertNewOrders(db,1,headers,'America/Sao_Paulo'),0);
+  assert.equal((await db.query<{pending:boolean}>('SELECT pending FROM integracao_m8_os_sync')).rows[0]!.pending,true);
   const changed=summaryHeaders({data:[{id:100,status:'Pendente',clienteNome:'Atualizado',dataAtualizacao:'2026-10-27T12:00:00',dataEntregaPrevista:'2026-11-19T03:00:00'}]});
   assert.equal(await insertNewOrders(db,1,changed,'America/Sao_Paulo'),1);
   assert.equal((await db.query<{pending:boolean}>('SELECT pending FROM integracao_m8_os_sync')).rows[0]!.pending,true);

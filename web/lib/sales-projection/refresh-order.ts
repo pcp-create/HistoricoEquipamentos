@@ -55,6 +55,15 @@ export async function refreshProjectionOrder(
       `INSERT INTO m8_ordens_servico(company_id,id_m8,payload,${names.join(",")}) VALUES($1,$2,$3::jsonb,${values.map((_, i) => names[i].startsWith("data_") ? `CASE WHEN $${i+4}::text IS NULL THEN NULL WHEN $${i+4}::text ~ '(Z|[+-][0-9]{2}:[0-9]{2})$' THEN $${i+4}::timestamptz ELSE $${i+4}::timestamp AT TIME ZONE 'America/Sao_Paulo' END` : "$" + (i + 4)).join(",")}) ON CONFLICT(company_id,id_m8) DO UPDATE SET payload=m8_ordens_servico.payload || EXCLUDED.payload,${names.map((n) => n === "data_atualizacao" ? "data_atualizacao=GREATEST(m8_ordens_servico.data_atualizacao,EXCLUDED.data_atualizacao)" : `${n}=EXCLUDED.${n}`).join(",")} WHERE m8_ordens_servico.data_atualizacao IS NULL OR EXCLUDED.data_atualizacao IS NULL OR (m8_ordens_servico.data_atualizacao<=EXCLUDED.data_atualizacao OR (EXCLUDED.payload->>'dataAtualizacao' !~ '[.][0-9]' AND date_trunc('second',m8_ordens_servico.data_atualizacao)<=EXCLUDED.data_atualizacao))`,
       [company, id, JSON.stringify(p), ...values],
     );
+    await client.query(
+      `INSERT INTO integracao_m8_os_sync(company_id,ordem_servico_id,summary_status,inventory_seen_at)
+       SELECT company_id,id_m8,status,now() FROM m8_ordens_servico
+       WHERE company_id=$1 AND id_m8=$2 AND NOT (payload ? '_m8Deletion')
+       ON CONFLICT(company_id,ordem_servico_id) DO UPDATE SET
+         summary_status=EXCLUDED.summary_status,inventory_seen_at=EXCLUDED.inventory_seen_at,
+         pending=true,finalized=false,next_attempt_at=now()`,
+      [company,id],
+    );
     await client.query("COMMIT");
   } catch (e) {
     await client.query("ROLLBACK");
