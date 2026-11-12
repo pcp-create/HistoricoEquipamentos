@@ -11,3 +11,10 @@ export function isNotApproved(value: unknown): boolean {
 }
 export const approvedMaterialSql = (alias: string) =>
   `lower(trim(COALESCE(${alias}.aprovado::text,''))) NOT IN ('false','nao','não')`;
+
+/** Explicit ERP approval only. Unknown must never be presented as approved. */
+export function itemApproval(value: unknown): "approved" | "rejected" | "unknown" {
+  if (isNotApproved(value)) return "rejected";
+  return value === true || ["true", "sim"].includes(String(value ?? "").trim().toLowerCase())
+    ? "approved" : "unknown";
+}

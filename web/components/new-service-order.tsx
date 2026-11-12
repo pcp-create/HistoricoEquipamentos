@@ -850,12 +850,16 @@ export default function NewServiceOrder({
                       {kind === "material" ? "Produtos" : "Serviços"} da OS
                     </h2>
                   </div>
-                  {editing&&<p>Itens existentes são somente para consulta. Somente inclusões e exclusões serão enviadas ao M8.</p>}
+                  {editing&&<>
+                    <p>Itens existentes são somente para consulta. Somente inclusões e exclusões serão enviadas ao M8.</p>
+                    <p>A aprovação é consultada no M8. A API ainda não permite alterar essa aprovação e não informa o campo para serviços. Faça a alteração no ERP e reabra a edição para consultar o resultado.</p>
+                  </>}
                   <div className="os-items">
                     <table>
                       <thead>
                         <tr>
                           <th>Código / descrição</th>
+                          {editing && <th>Aprovação</th>}
                           <th>Quantidade</th>
                           <th>Valor unitário</th>
                           <th>Total</th>
@@ -872,6 +876,11 @@ export default function NewServiceOrder({
                                   {item.code} · {item.name}
 
                                 </td>
+                                {editing && <td>
+                                  <span className={`os-item-approval os-item-approval-${item.approval || "unknown"}`}>
+                                    {!item.id ? "Novo item" : item.approval === "approved" ? "Aprovado" : item.approval === "rejected" ? "Reprovado" : "Não informado"}
+                                  </span>
+                                </td>}
                                 {(["quantity", "price"] as const).map(
                                   (field) => (
                                     <td key={field}>

@@ -16,6 +16,7 @@ export type OrderItem = {
   price: string;
   notes?: string;
   internalNotes?: string;
+  approval?: "approved" | "rejected" | "unknown";
 };
 export type OrderDraft = {
   deliveryChangeReason?: string;

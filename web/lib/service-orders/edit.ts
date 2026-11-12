@@ -1,4 +1,5 @@
 import "server-only";
+import { itemApproval } from "../material-approval";
 import {orderSellers} from "./sellers";
 import { refreshProjectionOrder } from "../sales-projection/refresh-order";
 import { createHash } from "node:crypto";
@@ -104,6 +105,7 @@ export function toEditDraft(
         name: text(r[name]),
         quantity: text(r.quantidade),
         price: text(r.valorUnitario),
+        approval: itemApproval(r.aprovado),
         ...(kind === "service" ? { notes: text(r.observacao), internalNotes: text(r.observacaoInterna) } : {}),
       }));
   return {

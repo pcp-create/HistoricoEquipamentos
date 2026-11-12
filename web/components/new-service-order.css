@@ -355,3 +355,8 @@
 .os-note-dialog footer { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
 
 .os-warranty-notice{grid-column:1/-1;min-width:0}.os-warranty-notice:empty{display:none}
+
+.os-item-approval { display: inline-block; white-space: nowrap; padding: .25rem .55rem; border-radius: .35rem; font-weight: 600; }
+.os-item-approval-approved { color: #166534; background: #dcfce7; }
+.os-item-approval-rejected { color: #991b1b; background: #fee2e2; }
+.os-item-approval-unknown { color: #475569; background: #f1f5f9; }
