@@ -152,10 +152,13 @@ export async function overview() {
     (SELECT count(*)::int FROM public.m8_ordens_servico WHERE company_id IN (1,2,27404)) AS orders,
     (SELECT count(*)::int FROM public.m8_os_produtos WHERE company_id IN (1,2,27404) AND esta_excluido IS NOT TRUE) AS materials,
     (SELECT count(DISTINCT cliente_id)::int FROM public.m8_ordens_servico WHERE company_id IN (1,2,27404)) AS clients,
-    count(*) FILTER (WHERE last_detail_at IS NOT NULL)::int AS imported,
+    (SELECT count(*)::int FROM public.m8_ordens_servico WHERE company_id IN (1,2,27404) AND status IS DISTINCT FROM 'Excluida') AS importable,
+    count(*) FILTER (WHERE last_detail_at IS NOT NULL AND o.status IS DISTINCT FROM 'Excluida')::int AS imported,
     max(last_detail_at) AS updated,
     (SELECT array_agg(DISTINCT status ORDER BY status) FILTER (WHERE status IS NOT NULL) FROM public.m8_ordens_servico WHERE company_id IN (1,2,27404)) AS statuses
-    FROM public.integracao_m8_os_sync WHERE company_id IN (1,2,27404)`);
+    FROM public.integracao_m8_os_sync s
+    JOIN public.m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.ordem_servico_id
+    WHERE s.company_id IN (1,2,27404)`);
   return response.rows[0];
 }
 

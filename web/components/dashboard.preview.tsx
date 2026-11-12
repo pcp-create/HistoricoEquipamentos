@@ -83,6 +83,7 @@ type Overview = {
   materials: number;
   clients: number;
   imported: number;
+  importable: number;
   updated: string | null;
   statuses: string[];
   email: string;
@@ -522,7 +523,7 @@ export default function Dashboard() {
             icon={<ShieldCheck size={21} />}
             note={
               overview
-                ? `de ${number(overview.orders)} ordens de serviço`
+                ? `de ${number(overview.importable)} OSs não excluídas`
                 : "Acompanhando a importação"
             }
           />
@@ -928,7 +929,7 @@ export default function Dashboard() {
         <div className="data-note">
           <Database size={15} />
           <span>
-            {overview && overview.imported < overview.orders
+            {overview && overview.imported < overview.importable
               ? "A base está sendo preenchida. Algumas OS ainda aguardam a importação dos materiais."
               : "Os dados refletem a última coleta do integrador."}{" "}
             Preços e saldos são atuais, somados por empresa entre
