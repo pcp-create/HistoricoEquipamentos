@@ -48,7 +48,7 @@
   overflow: auto;
   border: 1px solid #e8edf3;
   border-radius: 12px;
-  max-height: 75dvh;
+  max-height: 90dvh;
   background: white;
 }
 .cr-table {
@@ -146,7 +146,7 @@
     gap: 12px;
   }
   .cr-table-scroll {
-    max-height: 65dvh;
+    max-height: 80dvh;
   }
 }
 .cr-billing-notice {
