@@ -29,6 +29,6 @@ export async function orderActivity(company:string,order:string,page=0){
  UNION ALL SELECT 'edit:'||e.id,e.created_at,e.created_by,'order_edit_requested',NULL,jsonb_build_object('request',e.request,'changes',e.steps->0->'orderChange') FROM service_order_edits e WHERE e.company_id=$1::int AND e.m8_id=$2::bigint
  UNION ALL SELECT 'edit-result:'||e.id,e.updated_at,e.created_by,'order_edit_result',NULL,jsonb_build_object('state',e.state,'message',e.message,'nextStep',e.next_step) FROM service_order_edits e WHERE e.company_id=$1::int AND e.m8_id=$2::bigint
  ) SELECT a.*,COALESCE(NULLIF(a.details->>'authorName',''),NULLIF(u.display_name,''),NULLIF(a.details->>'created_name',''),a.actor,'Sistema') author,(SELECT position FROM operations o WHERE o.id=a.operation_id LIMIT 1) position
- FROM activity a LEFT JOIN web_user_access u ON u.email=a.actor WHERE a.action !~ '(^|_)(start_work|start_travel|stop|pause|resume|work_log|travel_log|time|clock)(_|$)' AND a.action<>'returned_operation_records_archived' ORDER BY a.at DESC,a.id DESC LIMIT 51 OFFSET $3`,[company,order,page*50]);
+ FROM activity a LEFT JOIN web_user_access u ON u.email=a.actor WHERE a.action !~ '(^|_)(start_work|start_travel|stop|pause|resume|work_log|travel_log|time|clock)(_|$)' AND a.action !~ '(^|_)checklist_save$' AND a.action<>'returned_operation_records_archived' ORDER BY a.at DESC,a.id DESC LIMIT 51 OFFSET $3`,[company,order,page*50]);
  return {rows:result.rows.slice(0,50),hasMore:result.rows.length>50};
 }

@@ -29,8 +29,13 @@ test('OS activity scopes company and deleted operations, resolves authors, exclu
   ('planner_time_log_deleted','planner','planner','{"operationId":"10000000-0000-4000-8000-000000000001"}');
   INSERT INTO web_field_events VALUES(1,'10000000-0000-4000-8000-000000000001','report_send','tech','{}',now()),(2,'10000000-0000-4000-8000-000000000001','start_work','tech','{}',now());
   INSERT INTO web_service_operation_events VALUES(1,'10000000-0000-4000-8000-000000000001','work_log','tech','Atividade',2,now());`);
+  await db.exec(`INSERT INTO web_access_events(event,actor,email,details)
+    SELECT 'service_operation_checklist_save','tech','tech','{"operation":"10000000-0000-4000-8000-000000000001"}'::jsonb FROM generate_series(1,60);
+    INSERT INTO web_field_events VALUES(3,'10000000-0000-4000-8000-000000000001','checklist_save','tech','{}',now());
+    INSERT INTO web_service_operation_events VALUES(2,'10000000-0000-4000-8000-000000000001','checklist_save','tech','Etapa salva',NULL,now());`);
   let result=await orderActivity('1','100');
   assert.equal(result.rows.length,6);
+  assert.ok(result.rows.every(r=>!r.action.endsWith('checklist_save')));
   assert.equal(result.rows.find(r=>r.action==='service_order_comment_added')?.author,'Autor original');assert.equal(result.hasMore,false);
   assert.ok(result.rows.every(r=>!r.action.includes('time')&&!r.action.includes('work')));
   assert.equal(result.rows.find(r=>r.action==='field_report_send')?.author,'Técnico');
