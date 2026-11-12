@@ -177,7 +177,7 @@ export default function EquipmentCreateDialog({
           endpoint={source === "visits" ? "/api/visits/machines" : undefined}
           customer={customer}
           source={source}
-          customerOnly
+          customerOnly={source !== "service-order"}
           onCreated={onCreated}
           onBusy={setBusy}
           onCancel={onClose}

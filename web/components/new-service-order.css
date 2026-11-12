@@ -360,3 +360,11 @@
 .os-item-approval-approved { color: #166534; background: #dcfce7; }
 .os-item-approval-rejected { color: #991b1b; background: #fee2e2; }
 .os-item-approval-unknown { color: #475569; background: #f1f5f9; }
+
+.new-os .os-equipment-create-row { align-items: stretch; margin-top: 7px; }
+.new-os .os-equipment-create-row > .order-search-select { margin-top: 0; }
+.new-os .os-equipment-create-row .order-search-direct { margin: 0; height: 100%; }
+.new-os .os-equipment-create-row > button { margin: 0; min-height: 44px; flex-shrink: 0; }
+.new-os .os-equipment-create-row > .os-add-equipment { width: 44px; padding: 0; color: #fff; background: #176f77; border-color: #176f77; }
+.new-os .os-equipment-create-row > .os-add-equipment:hover:not(:disabled) { background: #125a61; border-color: #125a61; }
+.new-os .os-equipment-create-row > .os-add-equipment:focus-visible { outline: 2px solid #176f77; outline-offset: 3px; }
