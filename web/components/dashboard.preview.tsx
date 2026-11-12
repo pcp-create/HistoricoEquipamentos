@@ -523,7 +523,7 @@ export default function Dashboard() {
             icon={<ShieldCheck size={21} />}
             note={
               overview
-                ? `de ${number(overview.importable)} OSs não excluídas`
+                ? `Total: ${number(overview.orders)} · Excluídas: ${number(overview.orders - overview.importable)} · A importar: ${number(overview.importable - overview.imported)}`
                 : "Acompanhando a importação"
             }
           />
