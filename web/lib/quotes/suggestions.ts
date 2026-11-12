@@ -147,7 +147,8 @@ export async function quoteHistory(
       if (!old.minimumPrice) old.minimumPrice = value.minimumPrice;
     } else items.set(value.key, value);
   };
-  if (/^\d{1,20}$/.test(clientId) && (serial || equipmentId)) {
+  const customerOnly=p.get("historyScope")==="customer"&&!serial&&!equipmentId;
+  if (/^\d{1,20}$/.test(clientId) && (serial || equipmentId || customerOnly)) {
     const serialPattern = serial
       ? `(^|[^A-Z0-9])${serial.split("").join("[[:space:]./-]*")}([^A-Z0-9]|$)`
       : "a^";
@@ -156,7 +157,7 @@ export async function quoteHistory(
       FROM m8_ordens_servico o
     JOIN integracao_m8_os_sync sync ON sync.company_id=o.company_id AND sync.ordem_servico_id=o.id_m8
     WHERE o.company_id IN(1,2,27404) AND o.cliente_id=$1 AND o.status='Processado' AND sync.finalized IS TRUE AND sync.pending IS FALSE
-    AND (($2<>'' AND (
+    AND (${customerOnly ? "($2='' AND $3='') OR " : ""}($2<>'' AND (
       regexp_replace(upper(COALESCE(o.numero_serie,'')),'[^A-Z0-9]','','g')=$2
       OR regexp_replace(upper(COALESCE(o.serie,'')),'[^A-Z0-9]','','g')=$2
       OR upper(COALESCE(o.observacao,'')) ~ $4
@@ -267,9 +268,9 @@ export async function quoteHistory(
         [clientId, serial, equipmentId, serialPattern],
       )
     ).rows;
-    services.forEach((r) => add(serviceItem(r, c, "Histórico do equipamento")));
+    services.forEach((r) => add(serviceItem(r, c, customerOnly?"Histórico do cliente":"Histórico do equipamento")));
     warnings.push(
-      "Histórico das empresas 1, 2 e 27404, restrito ao cliente e ao equipamento ou à série, em OS processadas com coleta concluída. Quantidades anteriores são referência, não consumo previsto. Se a OS contém várias máquinas, seus itens podem pertencer a outro equipamento da mesma OS.",
+      "Histórico das empresas 1, 2 e 27404, restrito ao cliente e, quando informado, ao equipamento ou à série, em OS processadas com coleta concluída. Quantidades anteriores são referência, não consumo previsto. Se a OS contém várias máquinas, seus itens podem pertencer a outro equipamento da mesma OS.",
     );
   } else
     warnings.push(

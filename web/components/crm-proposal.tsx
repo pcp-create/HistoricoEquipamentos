@@ -23,12 +23,14 @@ export default function CrmProposal({id}:{id:string}){
  }
  if(!data||!catalog)return <main className="main"><Link href="/crm">Voltar ao CRM</Link>{error?<p role="alert">{error}</p>:<p>Carregando proposta…</p>}</main>;
  const type=catalog.proposalTypes.find((t:any)=>String(t.id)===String(data.type_id)),changed=dirty||title!==data.title||status!==data.status;
- const locked=['converting','won'].includes(data.status),pending=data.links.some((l:any)=>!['complete','validation_failed'].includes(l.state));
+ const pending=data.links.some((l:any)=>!['complete','validation_failed'].includes(l.state)),locked=data.status==='converting'||pending;
  const tools=<section className="crm-proposal-tools" aria-label="Situação da proposta">
  <p><Link href={'/crm?opportunity='+data.opportunity_id}>OP-{data.opportunity_number} · {data.customer_name}</Link> · {type?.code} · {type?.name}</p>
- <div className="crm-form-grid"><label>Título da proposta<input maxLength={200} value={title} disabled={busy||locked} onChange={e=>setTitle(e.target.value)}/></label><label>Status da proposta<select value={status} disabled={busy||locked} onChange={e=>setStatus(e.target.value)}>{(locked?[data.status]:['pending','lost','cancelled']).map(s=><option key={s} value={s}>{crmStatus(s)}</option>)}</select></label></div>
+ <div className="crm-form-grid"><label>Título da proposta<input maxLength={200} value={title} disabled={busy||locked} onChange={e=>setTitle(e.target.value)}/></label><label>Status da proposta<select value={status} disabled={busy||locked||data.status==='won'} onChange={e=>setStatus(e.target.value)}>{(locked||data.status==='won'?[data.status]:['pending','lost','cancelled']).map(s=><option key={s} value={s}>{crmStatus(s)}</option>)}</select></label></div>
  <p>Tipo de oportunidade: <strong>{catalog.opportunityTypes.find((t:any)=>String(t.id)===String(data.opportunity_type_id))?.name}</strong></p>
  <p>{type?.notes}</p><p>Total da proposta: <strong>{crmMoney(data.total_cents)}</strong></p>
+ {locked&&<p className="crm-info">Existe um envio de OS pendente. Consulte ou conclua o andamento abaixo antes de editar esta proposta.</p>}
+ {data.status==='won'&&<p className="crm-info">Você pode editar esta proposta. As alterações ficam no CRM e não modificam as OSs já geradas.</p>}
  {!type?.order_types?.length&&<p className="crm-info">Este tipo de proposta ainda não tem um ID de tipo de OS configurado. <Link href="/configuracoes/cadastros/crm">Definir nos cadastros</Link>.</p>}
  {error&&<p role="alert" className="crm-error">{error}</p>}
  <label>Tipo de OS a gerar<select aria-label="Tipo de OS a gerar" disabled={busy||pending} value={orderType} onChange={e=>setOrderType(e.target.value)}><option value="">Selecione o tipo de OS</option>{catalog.orderTypes.filter((t:any)=>t.active&&type?.order_types?.includes(String(t.id))).map((t:any)=><option key={t.id} value={t.id}>{t.id} · {t.name}</option>)}</select></label>

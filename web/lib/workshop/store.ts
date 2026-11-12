@@ -1,3 +1,4 @@
+import {linkableEquipmentSql,linkableEquipment} from './link-equipment';
 import {componentTypes,mutateComponentType} from './components';
 import {searchPatterns} from "@/lib/filters";
 import 'server-only';
@@ -13,12 +14,12 @@ const text=(v:unknown,max=4000)=>{if(typeof v!=='string'||v.trim().length>max)th
 const positive=(v:unknown)=>{if(!/^\d{1,18}$/.test(String(v))||BigInt(String(v))<1n)throw new WorkshopInputError('Identificador inválido.');return String(v);};
 const uuid=(v:unknown)=>{if(typeof v!=='string'||!/^[0-9a-f-]{36}$/i.test(v))throw new WorkshopInputError('Registro inválido.');return v;};
 const date=(v:unknown)=>{if(v==null||v==='')return null;if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v)||!Number.isFinite(Date.parse(v))||new Date(v).toISOString().slice(0,10)!==v)throw new WorkshopInputError('Data inválida.');return v;};
-export async function workshopSearch(q:string,quotes=false,components=false){
+export async function workshopSearch(q:string,quotes=false,components=false,linking=false){
  const term=text(q,120);if(term.length<2)return [];
  if(quotes)return (await database().query(`SELECT company_id,id::text,number,client,status FROM m8_quotes WHERE concat_ws(' ',id,number,client) ILIKE ALL($1::text[]) AND status NOT IN ('Concretizado','Cancelado','Perdido') ORDER BY id,company_id LIMIT 40`,[searchPatterns(term)])).rows;
  return (await database().query(`SELECT e.equipment_id::text id,e.name,e.model,e.serial,
  (SELECT max(person_name||CASE WHEN integration_pending THEN ' · Vínculo pendente de integração' ELSE '' END) FROM web_effective_person_equipment p WHERE p.equipment_id=e.equipment_id AND p.present) client
- FROM m8_equipment_catalog e WHERE e.present AND concat_ws(' ',e.equipment_id,e.name,e.model,e.serial) ILIKE ALL($1::text[])
+ FROM m8_equipment_catalog e WHERE e.present ${linking?`AND ${linkableEquipmentSql}`:''} AND concat_ws(' ',e.equipment_id,e.name,e.model,e.serial) ILIKE ALL($1::text[])
  AND ($2::boolean OR NOT EXISTS(SELECT 1 FROM web_workshop_visits v WHERE v.equipment_id=e.equipment_id AND v.exited_at IS NULL AND v.reconciled_out_at IS NULL AND COALESCE(v.source->>'entryKind','equipment')='equipment'))
  ORDER BY e.equipment_id LIMIT 40`,[searchPatterns(term),components])).rows;
 }
@@ -76,7 +77,15 @@ export async function workshopMutate(b:any,email:string):Promise<{saved:true;vis
    if(!visit)throw new WorkshopInputError('Entrada não encontrada.');
    if(visit.exited_at||visit.reconciled_out_at||b.version!==visit.version)throw new WorkshopConflict('Este registro mudou. Atualize a tela antes de salvar.');
    let action='';let eventDocument:Record<string,unknown>={notes:text(b.notes||'')};
-   if(b.action==='notes'){
+   if(b.action==='link-equipment'){
+    if(visit.equipment_id)throw new WorkshopConflict('Esta entrada já possui equipamento vinculado. Atualize a ficha.');
+    const equipmentId=positive(b.equipmentId),equipment=await linkableEquipment(c,equipmentId);
+    if(!equipment)throw new WorkshopInputError('Selecione um equipamento ativo no cadastro. Equipamentos inativados não podem ser vinculados.');
+    if(visit.source?.entryKind!=='component'&&(await c.query("SELECT id FROM web_workshop_visits WHERE equipment_id=$1 AND id<>$2 AND exited_at IS NULL AND reconciled_out_at IS NULL AND COALESCE(source->>'entryKind','equipment')='equipment'",[equipmentId,id])).rows.length)throw new WorkshopConflict('Este equipamento já possui outra entrada aberta na oficina.');
+    const link={equipmentId,name:equipment.name,serial:equipment.serial,actor:email,at:new Date().toISOString()};
+    await c.query("UPDATE web_workshop_visits SET equipment_id=$2,source=source||jsonb_build_object('equipmentLink',$3::jsonb) WHERE id=$1",[id,equipmentId,JSON.stringify(link)]);
+    action='Equipamento vinculado ao cadastro';eventDocument={previousEquipmentId:null,...link};
+   }else if(b.action==='notes'){
     const notes=text(b.notes);
     await c.query('UPDATE web_workshop_visits SET notes=$2 WHERE id=$1',[id,notes]);
     action='Observação alterada';eventDocument={previousNotes:visit.notes||'',notes};

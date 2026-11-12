@@ -27,3 +27,15 @@
 .crm-check { display:flex!important; align-items:center; gap:8px; margin:8px 0; }
 .crm-check input { width:18px; min-height:18px; }
 @media(max-width:640px){.crm-form-grid{grid-template-columns:1fr}.crm-main .stats{grid-template-columns:repeat(2,minmax(0,1fr))}.crm-dialog{padding:16px}.crm-filter{gap:8px}}
+
+.crm-proposal-items { margin:20px 0; }
+.crm-proposal-items > label { display:grid; gap:6px; margin:14px 0; }
+.crm-quote-item { margin:12px 0; }
+.crm-quote-item .quote-choice { margin:0; }
+.new-os .crm-proposal-items input.quote-choice-check { width:16px; height:16px; min-height:0; margin:3px 0 0; padding:0; }
+.new-os .crm-proposal-items input[type=checkbox] { width:auto; }
+.new-os .crm-proposal-items .quote-choice-controls { flex-wrap:wrap; }
+
+.crm-proposal-number { color:#1768ab; font-weight:600; text-decoration:underline; text-underline-offset:3px; }
+.crm-proposal-number:hover { color:#104a7b; }
+.crm-proposal-number:focus-visible { outline:2px solid #1768ab; outline-offset:3px; border-radius:2px; }

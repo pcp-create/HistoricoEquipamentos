@@ -10,7 +10,7 @@ import {
   saveQuote,
   QuoteConflict,
 } from "@/lib/quotes/store";
-import { quoteLookup, quoteSuggestions } from "@/lib/quotes/suggestions";
+import { quoteLookup, quoteSuggestions, quoteHistory } from "@/lib/quotes/suggestions";
 import { QuoteValidation } from "@/lib/quotes/types";
 export const runtime = "nodejs";
 const json = (body: unknown, status = 200) =>
@@ -40,6 +40,10 @@ export async function GET(request: Request) {
     const user = await requireUser(),
       p = new URL(request.url).searchParams;
     if (p.has("lookup")) return json(await quoteLookup(p));
+    if (p.get("action") === "history") {
+      const history=await quoteHistory(p);
+      return json({...history,items:await quoteProducts([...history.items.values()])});
+    }
     if (p.get("action") === "suggestions")
       return json(await quoteSuggestions(p));
     if (p.has("id")) {

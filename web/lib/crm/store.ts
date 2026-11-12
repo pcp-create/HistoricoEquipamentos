@@ -61,8 +61,8 @@ export async function saveProposal(raw:any,actor:string){
  return write(async c=>{
  const p=(await c.query('SELECT p.*,o.customer_id,o.customer_name,o.company_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p',[id])).rows[0];
  if(!p||p.version!==expected)throw new CrmError('A proposta foi alterada. Reabra antes de salvar.');
- if(['converting','won'].includes(p.status))throw new CrmError('A proposta já está vinculada a uma criação de OS. Seus dados não podem ser alterados.');
- if(!['pending','lost','cancelled'].includes(raw.status??p.status))throw new CrmError('Situação inválida.');
+ if(p.status==='converting'||(await c.query("SELECT 1 FROM crm_order_links WHERE proposal_id=$1 AND state NOT IN('complete','validation_failed') LIMIT 1",[id])).rows.length)throw new CrmError('Existe um envio de OS pendente. Conclua a conferência antes de editar a proposta.');
+ if(!(p.status==='won'?['won']:['pending','lost','cancelled']).includes(raw.status??p.status))throw new CrmError('Situação inválida.');
  draft.company=String(p.company_id);draft.customer=String(p.customer_id);
  if(draft.type&&!(await c.query('SELECT 1 FROM crm_proposal_order_types WHERE proposal_type_id=$1 AND m8_order_type_id=$2',[p.type_id,positive(draft.type)])).rows.length)throw new CrmError('O tipo de OS não está vinculado a este tipo de proposta nos cadastros.');
  const names={customer:p.customer_name,equipment:text(raw.names?.equipment??'',500)};

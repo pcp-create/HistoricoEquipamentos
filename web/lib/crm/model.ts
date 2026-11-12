@@ -1,3 +1,4 @@
+import {parseQuote,blankQuote} from '../quotes/types';
 import type {OrderDraft} from '../service-orders/model';
 export class CrmError extends Error {}
 export const uuid=(v:unknown)=>{if(typeof v!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v))throw new CrmError('Identificador inválido.');return v;};
@@ -15,7 +16,8 @@ export function proposalDraft(raw:any):OrderDraft {
   if(!r||!['material','service'].includes(r.kind))throw new CrmError('Item inválido.');
   const quantity=text(r.quantity,20,true),price=text(r.price,20,true);
   if(!/^\d{1,7}(\.\d{1,3})?$/.test(quantity)||Number(quantity)<=0||!/^\d{1,8}(\.\d{1,2})?$/.test(price)||Number(quantity)*Number(price)>100000000)throw new CrmError('Confira quantidades e valores dos itens.');
-  return {kind:r.kind,code:String(positive(r.code)),name:text(r.name,500,true),quantity,price,notes:text(r.notes??'',20000),internalNotes:text(r.internalNotes??'',20000)};
+  const quote=r.quote?parseQuote({...blankQuote(),items:[{...r.quote,kind:r.kind,code:r.code,name:r.name,quantity,price,selected:true}]}).items[0]:undefined;
+  return {...(quote?{quote}:{}),kind:r.kind,code:String(positive(r.code)),name:text(r.name,500,true),quantity,price,notes:text(r.notes??'',20000),internalNotes:text(r.internalNotes??'',20000)};
  });
  if(raw.extra){if(typeof raw.extra!=='object'||Array.isArray(raw.extra)||Object.keys(raw.extra).length>100)throw new CrmError('Campos adicionais inválidos.');out.extra=Object.fromEntries(Object.entries(raw.extra).map(([k,v])=>[text(k,100,true),text(v,10000)]));}
  return out;

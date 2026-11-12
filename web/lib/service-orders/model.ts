@@ -17,6 +17,7 @@ export type OrderItem = {
   notes?: string;
   internalNotes?: string;
   approval?: "approved" | "rejected" | "unknown";
+  quote?: import("../quotes/types").QuoteItem;
 };
 export type OrderDraft = {
   deliveryChangeReason?: string;

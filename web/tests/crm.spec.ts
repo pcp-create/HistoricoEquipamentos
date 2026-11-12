@@ -8,6 +8,9 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  const op:any={id:opportunityId,number:1,type_id:1,customer_id:10,customer_name:'Cliente Teste',company_id:1,title:'Manutenção do cliente',status:'open',notes:'',version:1,proposals:[],history:[]};
  let proposal:any={id:proposalId,number:1,opportunity_id:opportunityId,opportunity_number:1,type_id:1,opportunity_type_id:1,company_id:1,customer_name:'Cliente Teste',title:'Preventiva 2026',status:'pending',version:1,document:draft,names:{customer:'Cliente Teste',equipment:''},total_cents:0,links:[]};
  const writes:any[]=[];let directErpWrites=0;
+ const quoteItem=(kind:string,code:string,name:string)=>({kind,key:kind+':'+code,code,name,unit:kind==='material'?'UN':'H',quantity:'1',price:'',selected:false,source:'Histórico do equipamento',referencePrice:'12',minimumPrice:'9',lastPrice:'10',referenceAt:'2026-01-01'});
+ const historyQueries:URLSearchParams[]=[];
+ await page.route('**/api/quotes*',r=>{const q=new URL(r.request().url()).searchParams;historyQueries.push(q);return r.fulfill({json:{items:[quoteItem('material','50','Filtro histórico'),quoteItem('service','60','Revisão histórica')],histories:{},warnings:[]}});});
  await page.route('**/api/service-orders*',r=>{
   if(r.request().method()==='POST'){directErpWrites++;return r.fulfill({status:500,json:{error:'Não deve enviar diretamente ao M8'}});}
   const p=new URL(r.request().url()).searchParams;
@@ -47,12 +50,31 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  await page.getByRole('button',{name:'Salvar proposta',exact:true}).click();
  await expect.poll(()=>writes.filter(w=>w.action==='save-proposal').length).toBe(1);
  expect(writes.some(w=>w.action==='convert')).toBe(false);expect(directErpWrites).toBe(0);
+ await page.getByRole('button',{name:'Continuar para Produtos',exact:true}).click();
+ const product=page.locator('.crm-quote-item').filter({has:page.getByRole('checkbox',{name:'Incluir Filtro histórico',exact:true})});
+ await product.getByRole('checkbox').check();
+ await product.getByRole('button',{name:/Usar venda M8/}).click();
+ await product.getByRole('spinbutton',{name:'Quantidade',exact:true}).fill('2');
+ await page.getByRole('button',{name:'Continuar para Serviços',exact:true}).click();
+ const service=page.locator('.crm-quote-item').filter({has:page.getByRole('checkbox',{name:'Incluir Revisão histórica',exact:true})});
+ await service.getByRole('checkbox').check();
+ await service.getByRole('button',{name:/Usar venda M8/}).click();
+ await service.getByLabel('Observação interna: Revisão histórica',{exact:true}).fill('Verificar orçamento');
+ await page.getByRole('button',{name:'Salvar proposta',exact:true}).click();
+ await expect.poll(()=>writes.filter(w=>w.action==='save-proposal').length).toBe(2);
+ expect(writes.filter(w=>w.action==='save-proposal')[1].draft.items).toEqual(expect.arrayContaining([expect.objectContaining({kind:'material',code:'50',quantity:'2',price:'12.00'}),expect.objectContaining({kind:'service',code:'60',internalNotes:'Verificar orçamento'})]));
+ expect(historyQueries.some(q=>q.get('clientId')==='10'&&q.get('historyScope')==='customer')).toBe(true);
  await expect(page.getByRole('button',{name:'Concretizar e gerar OS'})).toBeEnabled();
  page.on('dialog',d=>d.accept());
  await page.getByRole('button',{name:'Concretizar e gerar OS'}).click();
  await expect(page.getByRole('link',{name:'OS-900',exact:true})).toBeVisible();
  expect(writes.filter(w=>w.action==='convert')).toHaveLength(1);expect(writes.filter(w=>w.action==='advance')).toHaveLength(1);expect(directErpWrites).toBe(0);
- await expect(page.getByRole('button',{name:'Salvar proposta',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Salvar proposta',exact:true})).toBeEnabled();
+ await page.getByLabel('Observações',{exact:false}).first().fill('Ajuste local após concretização');
+ await page.getByRole('button',{name:'Salvar proposta',exact:true}).click();
+ await expect.poll(()=>writes.filter(w=>w.action==='save-proposal').length).toBe(3);
+ await expect(page.getByRole('link',{name:'OS-900',exact:true})).toBeVisible();
+ expect(writes.filter(w=>w.action==='convert')).toHaveLength(1);
 });
 
 

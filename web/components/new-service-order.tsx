@@ -1,4 +1,5 @@
 "use client";
+import CrmProposalItems from "./crm-proposal-items";
 import EquipmentWarrantyAlert from "./equipment-warranty-alert";
 import EquipmentCreateDialog from "./equipment-create-dialog";
 import OrderAttachments,{sendOrderAttachments} from "./order-attachments";
@@ -777,6 +778,7 @@ export default function NewServiceOrder({
                   </label>
                 </div>
               </div>
+              {proposal&&tab==="header"&&<button type="button" className="primary" onClick={()=>setTab("material")}>Continuar para Produtos</button>}
               <details className="os-extra" hidden={tab !== "header"}>
                 <summary>Outras informações (opcionais)</summary>
                 <p>
@@ -860,7 +862,9 @@ export default function NewServiceOrder({
                   ))}
                 </div>
               </details>
-              {["material", "service"].map((kind) => (
+              {proposal&&<CrmProposalItems active={tab!=="header"} kind={tab==="service"?"service":"material"} customer={form.customer} equipment={form.equipment} company={form.company} items={form.items} disabled={disabled||!!proposal.locked} onChange={items=>setForm(f=>({...f,items}))}/>}
+              {proposal&&tab==="material"&&<button type="button" className="primary" onClick={()=>setTab("service")}>Continuar para Serviços</button>}
+              {!proposal&&["material", "service"].map((kind) => (
                 <div key={kind} hidden={tab !== kind}>
                   <div className="os-item-heading">
                     <h2>

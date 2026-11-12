@@ -13,10 +13,19 @@ Propostas podem ser salvas incompletas, com controle de versão para evitar sobr
 
 Na concretização, o CRM reserva um envio local e utiliza `prepareOrder`/`advanceOrder`, sem implementar outro cliente de gravação no ERP. Cada envio tem um UUID persistido, ator, snapshot da proposta e identificação da OS. A proposta fica bloqueada durante o envio, e só fica concretizada quando todas as etapas são confirmadas. Falha de validação antes de preparar o envio libera a proposta para correção. Resposta incerta não é reenviada automaticamente: a interface pede conferência no M8 e usa o mecanismo existente `retryOrder` com versão do andamento. Apenas quem iniciou o envio pode continuá-lo. Envio parcial preserva o ID e as etapas já confirmadas.
 
-Uma proposta concretizada pode gerar outras OSs pelo botão explícito “Gerar outra OS”, escolhendo o tipo. O snapshot comercial permanece imutável; cada nova OS tem seu próprio envio. Esta etapa não implementa geração recorrente de OSs por contrato, nem presume aprovação comercial parcial por item.
+Uma proposta concretizada pode gerar outras OSs pelo botão explícito “Gerar outra OS”, escolhendo o tipo. A proposta pode ser editada localmente após a concretização; os snapshots dos envios e as OSs já geradas permanecem inalterados. Cada nova OS tem seu próprio envio. Esta etapa não implementa geração recorrente de OSs por contrato, nem presume aprovação comercial parcial por item.
 
 Cards: total de oportunidades; total de propostas; OSs com ID confirmado (inclusive envio de itens ainda pendente); taxa = oportunidades distintas com pelo menos uma OS criada / total de oportunidades × 100. Várias OSs da mesma oportunidade contam uma vez no numerador. Sem oportunidades, a taxa é zero.
 
 `crm_events` registra autor e data/hora dos cadastros, alterações e concretizações. A tela apresenta horários de Brasília. Tabelas locais têm RLS habilitado e acesso direto de anon/authenticated revogado; a API exige sessão autorizada e mesma origem para escrita.
 
 Validação: testes com PostgreSQL em memória para migração/cadastros/vínculos/versões/conversão/falha incerta e testes de navegador com APIs simuladas para criação de proposta, salvamento local, concretização, configuração dos IDs e layout no celular. Os testes não criam OSs reais no M8.
+
+
+## Edição e seleção de itens
+
+A edição é acessada pelo hiperlink sublinhado no número da proposta, na lista e nos detalhes da oportunidade. Propostas concretizadas também podem ser editadas localmente, mantendo o status e os vínculos. Apenas envios de OS ainda pendentes bloqueiam a edição.
+
+Depois do cabeçalho, as abas Produtos e Serviços reutilizam `QuoteItemRow`, `QuoteCatalogPicker`, `mergeQuoteItems` e `quoteHistory` do Novo Orçamento. É possível selecionar itens históricos, comparar preços de cadastro e últimas vendas, alterar quantidade/valor e preencher observações de serviços. Metadados do item do orçamento são persistidos no JSON local da proposta e removidos pelo `parseOrder` ao preparar a OS; não são campos enviados ao ERP.
+
+A consulta autenticada `/api/quotes?action=history` usa o motor já existente. Quando há equipamento, limita-se ao equipamento e cliente. Sem equipamento, `historyScope=customer` permite consultar o histórico do cliente; o comportamento anterior do Novo Orçamento sem equipamento permanece inalterado. Só entram materiais não excluídos/não reprovados de OSs processadas com sincronismo concluído.

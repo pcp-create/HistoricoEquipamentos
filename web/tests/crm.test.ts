@@ -44,8 +44,12 @@ test('CRM persists local opportunities and proposals and safely links conversion
  const stale=await continueConversion({id:request,action:'advance'},'planner',{...deps,advance:async()=>({...last,state:'ready',m8Id:null})});
  assert.equal(stale.state,'complete');assert.equal(Number(stale.m8Id),900);
  const converted=await getProposal(p.id);assert.equal(converted.status,'won');assert.equal(Number(converted.links[0].order_id),900);
+ const editedWon=await saveProposal({id:p.id,version:converted.version,status:'won',draft:{...saved.document,items:[{...saved.document.items[0],price:'12.00'}]}},'planner');
+ assert.equal(editedWon.status,'won');assert.equal(editedWon.document.items[0].price,'12.00');
+ assert.equal((await db.query<any>('SELECT document FROM crm_order_links WHERE id=$1',[request])).rows[0].document.items[0].price,'10.50');
+ await assert.rejects(saveProposal({id:p.id,version:editedWon.version,status:'pending',draft:editedWon.document},'planner'));
  let overview=await crmOverview();assert.equal(overview.opportunities,1);assert.equal(overview.proposals,2);assert.equal(overview.orders,1);assert.equal(overview.conversion,100);
- await beginConversion({id:randomUUID(),proposalId:p.id,version:converted.version,additional:true},'planner',{...deps,prepare:async()=>({...last,state:'complete',m8Id:901})});
+ await beginConversion({id:randomUUID(),proposalId:p.id,version:editedWon.version,additional:true},'planner',{...deps,prepare:async()=>({...last,state:'complete',m8Id:901})});
  overview=await crmOverview();assert.equal(overview.orders,2);assert.equal(overview.converted,1);assert.equal(overview.conversion,100);
  const s=await saveProposal({id:second.id,version:second.version,draft:{...emptyDraft(),company:'1',customer:'10',type:'2'}},'planner');
  await assert.rejects(beginConversion({id:randomUUID(),proposalId:s.id,version:s.version},'planner',{...deps,prepare:async()=>{throw new OrderInputError('Falta vendedor');}}),/Falta vendedor/);

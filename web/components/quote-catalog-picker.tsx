@@ -129,7 +129,7 @@ export default function QuoteCatalogPicker({
             <article key={item.key}>
               <div>
                 <strong>{item.name}</strong>
-                {historyContext && <small>{item.source?.startsWith("Histórico") ? "Histórico do equipamento/cliente" : "Demais produtos cadastrados"}</small>}
+                {historyContext && <small>{item.source?.startsWith("Histórico") ? "Histórico do equipamento/cliente" : kind === "material" ? "Demais produtos cadastrados" : "Demais serviços cadastrados"}</small>}
                 <small>
                   Cód. {item.code} · {item.unit || "Unidade não informada"}
                 </small>
