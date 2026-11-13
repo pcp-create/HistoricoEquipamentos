@@ -317,6 +317,9 @@ export default function CrmProposal({ id }: { id: string }) {
       returnTo="/crm"
       proposal={{
         title: "Proposta comercial PROP-" + data.number,
+        name: title,
+        createdAt: data.created_at,
+        typeName: type ? `${type.code} · ${type.name}` : "",
         draft: data.document,
         names: data.names,
         orderTypes: type?.order_types || [],

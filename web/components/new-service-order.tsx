@@ -1,5 +1,6 @@
 "use client";
 import CrmProductCosts from "./crm-product-costs";
+import { proposalFinancials } from "@/lib/crm/financials";
 import {applyAverageCosts} from "@/lib/crm/product-cost-model";
 import CrmProposalSummary from "./crm-proposal-summary";
 import CrmProposalItems from "./crm-proposal-items";
@@ -9,7 +10,7 @@ import OrderAttachments,{sendOrderAttachments} from "./order-attachments";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Trash2, RefreshCw, Plus } from "lucide-react";
+import { ArrowLeft, Save, Trash2, RefreshCw, Plus, ClipboardList, Package, Wrench, ChartNoAxesCombined } from "lucide-react";
 import SiteHeader from "./site-header";
 import OrderSearchSelect from "./order-search-select";
 import OrderDeliveryHistory from "./order-delivery-history";
@@ -66,7 +67,7 @@ async function api(body?: unknown, query = "") {
 export default function NewServiceOrder({
   editing, returnTo, proposal,
 }: { returnTo?: string; editing?: { company: string; id: string }; proposal?: {
- title:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
+ title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
  typeControl?:React.ReactNode;orderType?:string;tools?:React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
 } } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
@@ -77,12 +78,12 @@ export default function NewServiceOrder({
   const [catalogKind, setCatalogKind] = useState<QuoteItem["kind"] | null>(null);
   const [editData, setEditData] = useState<any>(null);
   const router = useRouter();
-  const [form, setForm] = useState<OrderDraft>(blank),
+  const [form, setForm] = useState<OrderDraft>(() => proposal?.draft ?? blank()),
     [meta, setMeta] = useState<any>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [tab, setTab] = useState("header"),
-    [names, setNames] = useState({ customer: "", equipment: "" }),
+    [names, setNames] = useState(proposal?.names ?? { customer: "", equipment: "" }),
     [sellers, setSellers] = useState<any[]>([]),
     [sellerBusy, setSellerBusy] = useState(false),
     [sellerError, setSellerError] = useState(""),
@@ -101,6 +102,7 @@ export default function NewServiceOrder({
     setForm((f) => ({ ...f, [key]: value }));
   };
   async function load() {
+    setError("");
     try {
       if (proposal) {
         const m=await api(undefined,"?lookup=metadata");
@@ -171,8 +173,9 @@ export default function NewServiceOrder({
   useEffect(() => { void load(); }, []);
   useEffect(()=>{if(proposal&&meta&&proposal.orderType!==undefined)setForm(current=>current.type===proposal.orderType?current:{...current,type:proposal.orderType!});},[proposal?.orderType,meta]);
   useEffect(()=>{if(proposal&&meta)proposal.onDirty?.(JSON.stringify(form)!==JSON.stringify(proposal.draft)||JSON.stringify(names)!==JSON.stringify(proposal.names));},[form,names,meta]);
-  const openingDate=editing?editData?.openingDate||'':openedAt?new Date(openedAt).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'';
-  const openingTime=editing?editData?.openingTime||'':openedAt?new Date(openedAt).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour12:false}):'';
+  const openingTimestamp=proposal?proposal.createdAt:openedAt;
+  const openingDate=editing?editData?.openingDate||'':openingTimestamp?new Date(openingTimestamp).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'';
+  const openingTime=editing?editData?.openingTime||'':openingTimestamp?new Date(openingTimestamp).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour12:false}):'';
   useEffect(()=>{if(!editing&&current?.openedAt)setOpenedAt(current.openedAt);},[current?.openedAt]);
   useEffect(() => {
     const c = new AbortController();
@@ -481,12 +484,21 @@ export default function NewServiceOrder({
                 : "Nova Ordem de Serviço"}
             </h1>
             <p>
-              {proposal ? "Proposta comercial local. O envio ao M8 ocorrerá somente ao concretizar e gerar a OS." : editing
+              {proposal ? proposal.name : editing
                 ? "Revise os dados e salve as alterações na ordem existente."
                 : "Cadastre a ordem no M8 com seus produtos e serviços."}
             </p>
+            {proposal && (
+              <dl className="crm-proposal-overview" aria-label="Informações da proposta">
+                <div><dt>Cliente</dt><dd>{names.customer || proposal.names.customer || "Não informado"}</dd></div>
+                <div><dt>Equipamento</dt><dd>{names.equipment || "Não informado"}</dd></div>
+                <div><dt>Tipo da proposta</dt><dd>{proposal.typeName || "Não informado"}</dd></div>
+                <div><dt>Valor da proposta</dt><dd>{(proposalFinancials(form.items).sale / 100).toLocaleString("pt-BR", {style:"currency",currency:"BRL"})}</dd></div>
+                <div><dt>Validade da proposta</dt><dd>{form.commercial?.validity ?? "15 dias úteis"}</dd></div>
+              </dl>
+            )}
           </div>
-          <div>
+          {!proposal && <div>
             <Link href="/configuracoes/cadastros">Cadastros auxiliares</Link>
             {editing && (
               <button
@@ -504,15 +516,15 @@ export default function NewServiceOrder({
                 Recarregar OS
               </button>
             )}
-          </div>
+          </div>}
         </header>
 
-        {!meta && (
-          <p>
-            Carregando cadastros…{" "}
-            <button type="button" onClick={() => void load()}>
+        {!meta && (!proposal || error) && (
+          <p role="status">
+            {error ? "Não foi possível carregar os cadastros. " : "Carregando cadastros…"}
+            {error && <button type="button" onClick={() => void load()}>
               Tentar novamente
-            </button>
+            </button>}
           </p>
         )}
         {editing && editData?.missing?.length > 0 && (
@@ -591,7 +603,7 @@ export default function NewServiceOrder({
           if(current.company!==company)return current;const items=applyAverageCosts(current.items,costs);
           return JSON.stringify(items)===JSON.stringify(current.items)?current:{...current,items};
         })}/>}
-        {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}</button>)}</nav>}
+        {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{key==='header'?<ClipboardList size={18} aria-hidden="true"/>:key==='material'?<Package size={18} aria-hidden="true"/>:key==='service'?<Wrench size={18} aria-hidden="true"/>:<ChartNoAxesCombined size={18} aria-hidden="true"/>}<span>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}</span></button>)}</nav>}
         {proposal&&<div hidden={tab!=='header'&&tab!=='summary'}>{tab==='summary'?proposal.summaryTools:proposal.tools}</div>}
         <form onSubmit={submit} noValidate>
           <fieldset
@@ -709,17 +721,17 @@ export default function NewServiceOrder({
                     "Condição de Pagamento",
                     registry("payment-terms"),
                   )}
-                  <label hidden={!!proposal}>
+                  <label>
                     <span className="os-field-title">
                       Data Abertura <b>*</b>
                     </span>
-                    <input readOnly value={openingDate} placeholder={editing?"Não informada":"Definida ao criar a OS"} />
+                    <input readOnly aria-readonly="true" value={openingDate} placeholder={proposal||editing?"Não informada":"Definida ao criar a OS"} />
                   </label>
-                  <label hidden={!!proposal}>
+                  <label>
                     <span className="os-field-title">
                       Hora Abertura <b>*</b>
                     </span>
-                    <input readOnly value={openingTime} placeholder={editing?"Não informada":"Definida ao criar a OS"} />
+                    <input readOnly aria-readonly="true" value={openingTime} placeholder={proposal||editing?"Não informada":"Definida ao criar a OS"} />
                     <small>Horário de Brasília. A data e a hora de abertura são fixas após a criação.</small>
                   </label>
                   <label>

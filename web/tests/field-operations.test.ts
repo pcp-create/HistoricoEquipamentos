@@ -191,7 +191,12 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     // An explicitly removed link leaves a row with null targets in production.
     await db.exec("INSERT INTO web_order_links(company_id,order_id,linked_company_id,linked_order_id,updated_by) VALUES(1,100,NULL,NULL,'test')");
     assert.equal((await fieldData("tech", id)).materials?.complete, true);
-    await act("materials", parts(1, null));
+    await db.exec("INSERT INTO m8_os_produtos VALUES(1,100,56,11909,'Peça adicionada depois',1,'UN',false,'Sim')");
+    await assert.rejects(act("materials", parts(1,null)), /lista de peças mudou/);
+    const replayVersion=(await fieldData("tech",id)).operation.version;
+    await act("materials", {...parts(1,null),offline:{owner:"tech",capturedAt:new Date().toISOString(),baseVersion:replayVersion}});
+    assert.equal((await db.query<{n:number}>("SELECT count(*)::int n FROM web_service_item_usage WHERE item_id=56")).rows[0].n,0);
+    await db.exec("DELETE FROM m8_os_produtos WHERE id_m8=56");
     const run={template:{id:'test',name:'Teste',stages:[{id:'s1',name:'Primeira',fields:[{id:'f1',label:'Texto',type:'text'},{id:'photo',label:'Foto',type:'photo'}]},{id:'s2',name:'Segunda',fields:[{id:'f2',label:'Texto',type:'text',required:true}]}]},stages:{s1:{status:'released',answers:{}},s2:{status:'released',answers:{}}}};
     await db.query("UPDATE web_service_operations SET document=document||$2::jsonb WHERE id=$1",[id,JSON.stringify({checklistId:'test',checklistRun:run})]);
     const inactive:any=await fieldData('tech',id);

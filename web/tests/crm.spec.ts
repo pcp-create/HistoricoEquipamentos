@@ -77,8 +77,14 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  await page.getByRole('button',{name:'Continuar para Resumo geral',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Resumo geral',exact:true})).toBeVisible();
  await expect(page.locator('.crm-summary-table')).toHaveCount(2);
+ await expect(page.locator('.crm-summary-table').first().getByRole('link',{name:'50',exact:true})).toHaveAttribute('href','/analise-materiais?code=50');
  await page.getByRole('spinbutton',{name:'Desconto (%): Filtro histórico',exact:true}).fill('10');
  await expect(page.locator('.crm-summary-table').first()).toContainText('R$ 21,60');
+ await page.getByRole('spinbutton',{name:'Quantidade: Filtro histórico',exact:true}).fill('3');
+ await page.getByRole('spinbutton',{name:'Venda unitária: Filtro histórico',exact:true}).fill('20.00');
+ await expect(page.locator('.crm-summary-table').first()).toContainText('R$ 54,00');
+ await page.getByRole('spinbutton',{name:'Quantidade: Filtro histórico',exact:true}).fill('2');
+ await page.getByRole('spinbutton',{name:'Venda unitária: Filtro histórico',exact:true}).fill('12.00');
 
  await page.screenshot({path:'/tmp/crm-summary-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});
@@ -100,6 +106,11 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  await expect.poll(()=>writes.filter(w=>w.action==='save-proposal').length).toBe(3);
  await expect(page.getByRole('link',{name:'OS-900',exact:true})).toBeVisible();
  expect(writes.filter(w=>w.action==='convert')).toHaveLength(1);
+ await page.getByRole('button',{name:'Resumo geral',exact:true}).click();
+ await page.getByRole('button',{name:'Remover item: Filtro histórico',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Produtos (0)',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Remover item: Revisão histórica',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Serviços (0)',exact:true})).toBeVisible();
 });
 
 

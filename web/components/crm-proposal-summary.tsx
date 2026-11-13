@@ -1,4 +1,5 @@
 "use client";
+import { Trash2 } from "lucide-react";
 import {
   discountedUnitCents,
   itemFinancials,
@@ -86,6 +87,7 @@ export default function CrmProposalSummary({
                   <th>Custo total</th>
                   <th>Lucro bruto</th>
                   <th>Margem</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -97,7 +99,11 @@ export default function CrmProposalSummary({
                       <tr key={`${item.code}:${index}`}>
                         <td>
                           <strong>
-                            {item.code} · {item.name}
+                            {kind === "material" && /^[1-9]\d{0,17}$/.test(item.code) ? (
+                              <a className="crm-summary-product-link" href={"/analise-materiais?" + new URLSearchParams({code:item.code})} target="_blank" rel="noopener noreferrer" title="Ver fotos, estoque e informações do produto em outra aba">
+                                {item.code}
+                              </a>
+                            ) : item.code} · {item.name}
                           </strong>
                           {item.notes?.trim() && (
                             <small className="crm-prewrap">
@@ -112,12 +118,22 @@ export default function CrmProposalSummary({
                         </td>
                         <td>{item.quote?.unit || "—"}</td>
                         <td>
-                          {Number(item.quantity).toLocaleString("pt-BR", {
-                            maximumFractionDigits: 3,
-                          })}
+                          <input className="crm-summary-quantity-input"
+                            aria-label={`Quantidade: ${item.name}`} type="number"
+                            min="0.001" max="9999999.999" step="0.001"
+                            disabled={disabled} value={item.quantity}
+                            onChange={(e) => onChange(draft.items.map((row) =>
+                              row === item ? { ...row, quantity: e.target.value } : row,
+                            ))} />
                         </td>
                         <td>
-                          {cash(Math.round(Number(item.price) * 100))}
+                          <input className="crm-summary-price-input"
+                            aria-label={`Venda unitária: ${item.name}`} type="number"
+                            min="0" max="99999999.99" step="0.01"
+                            disabled={disabled} value={item.price}
+                            onChange={(e) => onChange(draft.items.map((row) =>
+                              row === item ? { ...row, price: e.target.value } : row,
+                            ))} />
                           {Number(item.discountPercent) > 0 && (
                             <small>
                               Líquido: {cash(discountedUnitCents(item))}
@@ -158,7 +174,22 @@ export default function CrmProposalSummary({
                         </td>
                         <td>{cash(f.sale)}</td>
                         <td>
-                          {item.unitCost
+                          {kind === "service" ? (
+                            <input
+                              className="crm-service-cost-input"
+                              aria-label={`Custo unitário: ${item.name}`}
+                              type="number"
+                              min="0"
+                              max="99999999.99"
+                              step="0.01"
+                              placeholder="Não informado"
+                              disabled={disabled}
+                              value={item.unitCost ?? ""}
+                              onChange={(e) => onChange(draft.items.map((row) =>
+                                row === item ? { ...row, unitCost: e.target.value } : row,
+                              ))}
+                            />
+                          ) : item.unitCost
                             ? Number(item.unitCost).toLocaleString("pt-BR", {
                                 style: "currency",
                                 currency: "BRL",
@@ -174,6 +205,13 @@ export default function CrmProposalSummary({
                           {cash(f.profit)}
                         </td>
                         <td>{percent(f.margin)}</td>
+                        <td>
+                          <button type="button" className="crm-summary-remove" disabled={disabled}
+                            aria-label={`Remover item: ${item.name}`} title="Remover da proposta"
+                            onClick={() => onChange(draft.items.filter((row) => row !== item))}>
+                            <Trash2 size={16} aria-hidden="true" />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}

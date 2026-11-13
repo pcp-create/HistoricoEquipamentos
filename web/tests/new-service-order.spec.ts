@@ -225,6 +225,10 @@ test("new OS selects company, filters equipment, fills seller and submits header
   await registrationDialog.getByRole('button',{name:'Fechar cadastro de equipamento',exact:true}).click();
   await choose("Equipamento", "100");
   const warrantyTrigger=page.getByRole('button',{name:'Ver alerta de garantia do equipamento'});
+  await expect(warrantyTrigger).toBeVisible();
+  const iconBounds=await warrantyTrigger.boundingBox();
+  const warrantyEquipmentBounds=await page.getByRole('combobox',{name:'Equipamento',exact:true}).boundingBox();
+  expect(warrantyEquipmentBounds!.x).toBeGreaterThanOrEqual(iconBounds!.x+iconBounds!.width);
   await expect(page.getByRole('note',{name:'Alerta de garantia do equipamento'})).toHaveCount(0);
   await warrantyTrigger.hover();
   await expect(page.getByRole('note',{name:'Alerta de garantia do equipamento'})).toContainText('OS 15000');

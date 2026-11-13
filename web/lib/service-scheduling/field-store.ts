@@ -1,4 +1,5 @@
 import {equipmentWarranty} from '../equipment/warranty';
+import {materialCheckReplay} from './material-check-replay';
 import {pendingTechnicianClosures,technicianTimeChangesLocked} from './execution-locks';
 import {occurrencesForEquipment,operationOccurrenceEquipment} from "../equipment-occurrences/store";
 import {handoffOperation} from './workflow';
@@ -356,16 +357,15 @@ export async function fieldAction(b: any, email: string) {
         throw new FieldError(
           "Aguarde a importação completa dos materiais da OS antes da conferência.",
         );
-      if (
-        !Array.isArray(b.items) ||
-        b.items.length !== current.items.length ||
-        new Set(b.items.map(key)).size !== b.items.length
-      )
-        throw new FieldError("A lista de peças mudou. Reabra a conferência.");
+      let replay;
+      try { replay=materialCheckReplay(current.items,b.items,!!b.offline); }
+      catch(error) { throw new FieldError((error as Error).message); }
+      details.listReconciliation={addedAfterCapture:replay.added,removedWithoutMovement:replay.removed};
       details.changes = [];
       for (const item of current.items) {
-        const patch = b.items.find((v: any) => key(v) === key(item));
-        if (!patch) throw new FieldError("Confira todos os materiais da OS.");
+        const patch = replay.patches.get(key(item));
+        // New lines were not on the device: leave all their quantities untouched.
+        if (!patch) continue;
         const balance = materialBalance(item, p.id);
         const grossMode = b.quantityMode === "gross";
         const raw = patch.withdrawn;
@@ -375,6 +375,7 @@ export async function fieldAction(b: any, email: string) {
         if(returnsOnly&&gross!==balance.ownGross)throw new FieldError('Após o envio do relatório, somente devoluções de peças são permitidas.');
         if ([gross,returned].some(v => typeof v !== "number" || !Number.isFinite(v) || v < 0 || v > 1e9 || Math.abs(v - materialQuantity(v)) > 1e-9))
           throw new FieldError("Informe quantidades válidas com até três casas decimais.");
+        if (b.offline && balance.ownGross === gross && balance.ownReturned === returned) continue;
         if ((item.usage?.version ?? null) !== patch.version)
           throw new FieldError("Outro técnico atualizou as peças. Reabra a conferência para ver os valores atuais.");
         if (gross < balance.ownGross || returned < balance.returnMinimum)

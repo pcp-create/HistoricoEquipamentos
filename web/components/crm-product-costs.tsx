@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { OrderItem } from "@/lib/service-orders/model";
 import type { AverageCost } from "@/lib/crm/product-cost-model";
-import { RefreshCw } from "lucide-react";
 export default function CrmProductCosts({
   company,
   items,
@@ -14,9 +13,7 @@ export default function CrmProductCosts({
 }) {
   const callback = useRef(onCosts);
   callback.current = onCosts;
-  const [refresh, setRefresh] = useState(0),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+  const [error, setError] = useState("");
   const codes = [
       ...new Set(items.filter((i) => i.kind === "material").map((i) => i.code)),
     ]
@@ -29,7 +26,6 @@ export default function CrmProductCosts({
   useEffect(() => {
     if (!company || !codes) return;
     const controller = new AbortController();
-    setBusy(true);
     setError("");
     fetch(
       "/api/crm?" + new URLSearchParams({ productCosts: "1", company, codes }),
@@ -45,29 +41,12 @@ export default function CrmProductCosts({
       })
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setBusy(false);
       });
     return () => controller.abort();
-  }, [company, codes, units, refresh]);
-  if (!codes) return null;
+  }, [company, codes, units]);
+  if (!codes || !error) return null;
   return (
     <div className="crm-cost-refresh">
-      <small>
-        {busy
-          ? "Consultando custos médios dos produtos…"
-          : "Produtos: custo médio da empresa da proposta."}
-      </small>
-      <button
-        type="button"
-        className="button"
-        disabled={busy}
-        onClick={() => setRefresh((n) => n + 1)}
-      >
-        <RefreshCw size={14} />
-        Atualizar custos médios
-      </button>
       {error && (
         <p role="alert" className="crm-error">
           {error} Os valores exibidos podem estar desatualizados.

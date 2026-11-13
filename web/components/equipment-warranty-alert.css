@@ -20,3 +20,12 @@
 .scheduling-page .operation-equipment-with-alert>.equipment-warranty-error-icon{position:absolute;left:5px;top:50%;transform:translateY(-50%);z-index:1;width:28px;min-width:28px;height:28px;min-height:0;padding:3px;box-sizing:border-box;}
 .scheduling-page .operation-equipment-with-alert:has(>.equipment-warranty-trigger)>.operation-equipment-control>button,
 .scheduling-page .operation-equipment-with-alert:has(>.equipment-warranty-error-icon)>.operation-equipment-control>button{padding-left:40px;}
+/* The icon owns a separate column, outside the input's editable text area. */
+.new-os .os-equipment-select:has(.equipment-warranty-trigger),
+.new-os .os-equipment-select:has(.equipment-warranty-error-icon){display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;border:1px solid #cbddec;border-radius:9px;background:#fff;}
+.new-os .os-equipment-select:has(.equipment-warranty-trigger)>.order-search-select,
+.new-os .os-equipment-select:has(.equipment-warranty-error-icon)>.order-search-select{grid-column:2;grid-row:1;}
+.new-os .os-equipment-select:has(.equipment-warranty-trigger)>.os-equipment-warranty,
+.new-os .os-equipment-select:has(.equipment-warranty-error-icon)>.os-equipment-warranty{position:static;transform:none;grid-column:1;grid-row:1;justify-content:center;}
+.new-os .os-equipment-create-row .os-equipment-select:has(.equipment-warranty-trigger) .order-search-select .order-search-direct,
+.new-os .os-equipment-create-row .os-equipment-select:has(.equipment-warranty-error-icon) .order-search-select .order-search-direct{border:0;padding-left:8px;box-shadow:none;}

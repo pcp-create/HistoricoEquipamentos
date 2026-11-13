@@ -14,6 +14,9 @@ import {
   Search,
   Pencil,
   Target,
+  UserPlus,
+  Building2,
+  ContactRound,
 } from "lucide-react";
 import SiteHeader from "./site-header";
 import ContactJobEditor from "./contact-job-editor";
@@ -109,7 +112,7 @@ export default function Crm() {
     ["Oportunidades", overview?.opportunities, Target, "Registradas no CRM"],
     ["Propostas", overview?.proposals, FileText, "Propostas comerciais locais"],
     [
-      "Ordens de serviço",
+      "Pedidos de Venda (OSs)",
       overview?.orders,
       ClipboardList,
       "OSs vinculadas às propostas",
@@ -198,7 +201,13 @@ export default function Crm() {
                   window.history.replaceState(null, "", url);
                 }}
               >
-                {label}
+                {key === "leads" ? <UserPlus size={17} aria-hidden="true" />
+                  : key === "customers" ? <Building2 size={17} aria-hidden="true" />
+                  : key === "contacts" ? <ContactRound size={17} aria-hidden="true" />
+                  : key === "opportunities" ? <Target size={17} aria-hidden="true" />
+                  : key === "proposals" ? <FileText size={17} aria-hidden="true" />
+                  : <ClipboardList size={17} aria-hidden="true" />}
+                <span>{label}</span>
               </button>
             ))}
           </nav>
@@ -284,7 +293,7 @@ export default function Crm() {
             <p role="status">Carregando CRM…</p>
           ) : (
             <>
-              <div className="table-scroll crm-records">
+              <div className={`table-scroll crm-records${kind === "proposals" ? " crm-proposals-list" : ""}`}>
                 <table>
                   <thead>
                     <tr>
@@ -304,6 +313,7 @@ export default function Crm() {
                           ? [
                               "Proposta",
                               "Cliente / conta",
+                              "Equipamento",
                               "Oportunidade",
                               "Tipo de proposta",
                               "Status",
@@ -422,6 +432,7 @@ export default function Crm() {
                               <strong>{row.title}</strong>
                             </td>
                             <td>{row.customer_name}</td>
+                            <td>{row.equipment_name || "Não informado"}</td>
                             <td>
                               <button
                                 className="crm-record-link"
