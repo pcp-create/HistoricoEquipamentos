@@ -125,6 +125,47 @@ function recoverableFailure(item){
     || (isTimer(item)&&item.error==='Finalize o apontamento em andamento antes de iniciar outro.')
     || (['photo','action'].includes(item.type)&&item.error==='Inicie ou retome a atividade desta operação para preencher o relatório técnico.');
 }
+// Server receipts are authoritative even when a local predecessor was discarded.
+async function reconcileReceipts(owner){
+ const queue=(await read(owner+':queue'))||[];
+ if(!queue.length||!queue.some(item=>item.discardedDependency))return;
+ const archive=(await read(owner+':discardedQueue'))||[];
+ const candidates=[...archive,...queue];
+ const ids=[...new Set(candidates.map(item=>item.id))];
+ const receipts=[];
+ for(let offset=0;offset<ids.length;offset+=200){
+  const response=await request('/api/field?receipts='+encodeURIComponent(ids.slice(offset,offset+200).join(',')));
+  if(!response.ok)return;
+  const body=await response.json();
+  if(body.email!==owner||!Array.isArray(body.receipts))return;
+  receipts.push(...body.receipts);
+ }
+ await exclusive(async()=>{
+  if((await read('owner'))!==owner)return;
+  const current=(await read(owner+':queue'))||[],discarded=(await read(owner+':discardedQueue'))||[];
+  const all=[...discarded,...current].sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
+  const confirmed=new Map(receipts.filter(r=>all.some(q=>q.id===r.id&&q.operationId===r.operationId&&q.type===r.type)&&(r.type!=='photo'||/^\d+$/.test(String(r.photoId)))).map(r=>[r.id,r]));
+  const dependencies=queueDependencies(all),archived=new Set(discarded.map(q=>q.id));
+  function roots(id,seen=new Set(),found=new Set()){
+   if(seen.has(id))return found;seen.add(id);
+   if(archived.has(id))found.add(id);
+   for(const previous of dependencies.get(id)||[])roots(previous,seen,found);
+   return found;
+  }
+  const mapping=(await read(owner+':mapping'))||{},heads=(await read(owner+':heads'))||{};
+  const remaining=[];
+  for(const item of current){
+   const receipt=confirmed.get(item.id);
+   if(receipt){if(item.type==='photo')mapping['local-'+item.id]=receipt.photoId;else if(item.type==='action')heads[item.operationId]=item.id;continue;}
+   const ancestors=[...roots(item.id)];
+   if(item.discardedDependency&&ancestors.length&&ancestors.every(id=>confirmed.has(id))){
+    delete item.discardedDependency;delete item.error;delete item.failedPermanent;item.retryable=true;
+   }
+   remaining.push(item);
+  }
+  await write([[owner+':queue',remaining],[owner+':mapping',mapping],[owner+':heads',heads],...(remaining.length<current.length?[[owner+':lastSync',new Date().toISOString()],[owner+':unrefreshed',true]]:[])]);
+ });
+}
 async function retryPending(id){
   const owner=await read('owner');if(!owner)throw Error('Entre no portal primeiro.');
   // An automatic flush can start after the panel enabled the button. Wait for it
@@ -505,6 +546,7 @@ async function flush() {
       if (home.email !== owner || (await read("owner")) !== owner)
         throw Error("Entre com a conta que criou os registros pendentes.");
       await write([[owner + ":server-home", home]]);
+      await reconcileReceipts(owner).catch(()=>{});
       // An idle heartbeat must not download every operation and hold the sender.
       const idle = await exclusive(async () => {
         if((await read("owner"))!==owner)return true;

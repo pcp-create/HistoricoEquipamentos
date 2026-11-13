@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.23
+# Portal Técnico RJ — APK 2.2.24
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -332,3 +332,10 @@ Instalar como atualização, sem desinstalar nem limpar os dados do aplicativo.
 - Solicitações já aplicadas não bloqueiam novos ajustes, revisão e liberação da OS. Os totais e o histórico deixam claro quando o ajuste foi aplicado.
 - A aprovação continua no sistema de gestão. A interface do técnico informa a aplicação na sincronização, sem prometer alteração do servidor enquanto estiver offline.
 - Publicar também a migração 114 e as alterações do servidor. Instalar sobre a versão existente, preservando os dados locais e a fila. Esta atualização não reconcilia automaticamente registros antigos com vínculo inválido; exportar a cópia das pendências para a conferência desses casos.
+
+### Versão 2.2.24 — reconciliação de pendências confirmadas
+
+- O sincronismo consulta recibos por conta, operação e ID antes de manter bloqueios por registro anterior excluído.
+- Registros já confirmados no servidor saem da fila sem reenviar horas ou fotos.
+- Dependentes só são liberados quando todos os antecedentes arquivados têm confirmação; conflitos sem recibo continuam preservados.
+- Instalar por cima da versão existente, sem desinstalar ou limpar os dados.

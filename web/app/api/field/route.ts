@@ -1,4 +1,5 @@
 import {recordActivity} from "@/lib/admin-store";
+import {fieldReceipts} from "@/lib/service-scheduling/field-receipts";
 import { requireUser, sameOrigin, Forbidden, Unauthorized } from "@/lib/auth";
 import {
   fieldData,
@@ -37,6 +38,8 @@ function failure(e: unknown) {
 export async function GET(req: Request) {
   try {
     const user = await requireUser();
+    const receiptIds=new URL(req.url).searchParams.get("receipts");
+    if(receiptIds!==null)return json(await fieldReceipts(user.email,receiptIds.split(",")));
     await recordActivity(user,"heartbeat");
     return json(
       await fieldData(
