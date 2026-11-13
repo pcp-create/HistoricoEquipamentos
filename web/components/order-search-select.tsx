@@ -20,6 +20,8 @@ const fold = (s: string) =>
     .toLowerCase();
 export default function OrderSearchSelect({
   label,
+  required = false,
+  searchPlaceholder = "Pesquisar por ID ou descrição",
   menuHeader,
   value,
   selectedLabel,
@@ -30,6 +32,8 @@ export default function OrderSearchSelect({
   onChange,
 }: {
   label: string;
+  required?: boolean;
+  searchPlaceholder?: string;
   menuHeader?: ReactNode;
   value: string;
   selectedLabel?: string;
@@ -147,6 +151,7 @@ export default function OrderSearchSelect({
       <input
         ref={trigger}
         type="text"
+        required={required}
         role="combobox"
         aria-label={label}
         aria-autocomplete="list"
@@ -157,7 +162,7 @@ export default function OrderSearchSelect({
         autoComplete="off"
         className="order-search-trigger order-search-direct"
         value={open ? q : selectedLabel || (selected ? (selected.displayId ? `${selected.displayId} - ${selected.name}` : selected.name) : '')}
-        placeholder={open ? 'Pesquisar por ID ou descrição' : placeholder}
+        placeholder={open ? searchPlaceholder : placeholder}
         onFocus={()=>{if(!open){setQ('');setPage(1);setRemote([]);setActive(-1);setOpen(true)}}}
         onClick={()=>{if(!open){setQ('');setPage(1);setRemote([]);setActive(-1);setOpen(true)}}}
         onChange={e=>{setQ(e.target.value);setPage(1);setRemote([]);setActive(-1);setOpen(true)}}

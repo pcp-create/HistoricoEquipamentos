@@ -62,6 +62,8 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     await db.exec("CREATE TABLE web_equipment_events(equipment_id bigint,kind text,document jsonb,created_by text,display_name text)");
     await db.exec(readFileSync(new URL("../sql/077_visit_machine_records.sql",import.meta.url),"utf8"));
     await db.exec(readFileSync(new URL("../sql/078_visit_machine_observations.sql",import.meta.url),"utf8"));
+    await db.exec("ALTER TABLE web_customer_contacts ADD COLUMN email text DEFAULT '';ALTER TABLE web_customer_contacts ADD COLUMN job_title text DEFAULT '';");
+    await db.exec(readFileSync(new URL('../sql/110_customer_contacts_m8.sql',import.meta.url),'utf8'));
     const query = async (sql: string, args?: any[]) => {
       if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
       return db.query(sql.replace("BEGIN READ WRITE", "BEGIN"), args);
@@ -285,8 +287,13 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     assert.equal((await db.query("SELECT * FROM web_access_events WHERE event='sales_visit_admin'")).rows.length,4);
 
     assert.equal((await visitsData("a@test.com")).customers.find(c=>c.lead)?.in_portfolio,false);
-    const contact=await createCustomerContact("m8:1",{name:"Contato reutilizável",phone:"49999999999"},"a@test.com");
-    assert.ok((await listCustomerContacts("m8:1","tech@test.com")).some(c=>c.id===contact.id));
+    await db.exec(readFileSync(new URL('../sql/111_contact_job_types.sql',import.meta.url),'utf8'));
+    await db.exec(readFileSync(new URL('../sql/112_contact_job_types_seed.sql',import.meta.url),'utf8').split('INSERT INTO')[0]+'COMMIT;');
+    await db.exec("INSERT INTO web_contact_job_types(name,m8_id,updated_by) VALUES('Compras',7,'test')");
+    await db.exec(readFileSync(new URL('../sql/113_customer_contact_job_override.sql',import.meta.url),'utf8'));
+    const contactSession:any=async()=>async(_path:string,body?:any)=>body?{id:45}:[];
+    const contact=await createCustomerContact("m8:1",{name:"Contato reutilizável",phone:"49999999999",email:"contato@example.com",job_type_id:"1"},"a@test.com",contactSession);
+    assert.ok((await listCustomerContacts("m8:1","tech@test.com",contactSession)).some(c=>c.id===contact.id));
     const linked={...body,id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",purpose_id:"2",contact_id:contact.id,contact:"Nome ignorado"};
     await saveVisit(linked,"a@test.com");
     assert.equal((await db.query<any>("SELECT contact FROM web_sales_visits WHERE id=$1",[linked.id])).rows[0].contact,"Contato reutilizável");

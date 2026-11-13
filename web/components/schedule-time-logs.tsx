@@ -86,7 +86,7 @@ export default function ScheduleTimeLogs({
       <p>
         Tempos somados por pessoa · Atividade sem pausas · Total = deslocamento
         + atividade + paradas. Horários de Brasília. Solicitações aguardando
-        aprovação não entram nos totais.
+        aprovação já entram nos totais quando aplicadas.
       </p>
       <TimeRequestList
         requests={data.requests}
@@ -121,7 +121,6 @@ export default function ScheduleTimeLogs({
                     <th>Fim</th>
                     <th>Tempo</th>
                     <th>Total</th>
-                    {!technician && <th>Localização original</th>}
                     <th>Ações</th>
                   </tr>
                 </thead>
@@ -142,7 +141,7 @@ export default function ScheduleTimeLogs({
                           (q.session_id === r.id ||
                             (r.legacyEventId &&
                               q.legacy_event_id === r.legacyEventId)) &&
-                          q.status === "pending",
+                          q.status === "pending" && !q.applied_at,
                       )}
                     />
                   ))}
@@ -156,6 +155,8 @@ export default function ScheduleTimeLogs({
   );
 }
 function LogRows({ row: r, technician, onEdit, pending, canAdjust,canReplicate,onReplicate,canDelete,onDelete }: any) {
+  const adjustLabel=pending?'Aguardando aprovação':technician?'Solicitar ajuste':'Ajustar horas';
+  const actionClass='time-log-action'+(technician?'':' time-log-icon-action');
   return (
     <>
       <tr>
@@ -203,40 +204,12 @@ function LogRows({ row: r, technician, onEdit, pending, canAdjust,canReplicate,o
             </small>
           )}
         </td>
-        {!technician && <td data-label="Localização original">
-          <Coordinates label="Início" value={r.startLocation} />
-          <Coordinates label="Fim" value={r.endLocation} />
-          {r.originalPauses?.length > 0 && (
-            <details>
-              <summary>Localização das pausas originais</summary>
-              {r.originalPauses.map((p: any, i: number) => (
-                <div key={i}>
-                  {p.reason}
-                  <Coordinates label="Início" value={p.startLocation} />
-                  <Coordinates label="Fim" value={p.endLocation} />
-                </div>
-              ))}
-            </details>
-          )}
-          {r.correction?.requestLocation && (
-            <Coordinates
-              label="Local da solicitação manual"
-              value={r.correction.requestLocation}
-            />
-          )}
-        </td>}
         <td data-label="Ações"><div className="time-log-row-actions">
           {canAdjust && r.state === "finished" && (
-            <button className="time-log-action" disabled={pending} onClick={onEdit}><FilePenLine size={16}/>
-              {pending
-                ? "Aguardando aprovação"
-                : technician
-                  ? "Solicitar ajuste"
-                  : "Ajustar horas"}
-            </button>
+            <button type="button" className={actionClass} disabled={pending} onClick={onEdit} aria-label={adjustLabel} title={adjustLabel}><FilePenLine size={16} aria-hidden="true"/>{technician&&adjustLabel}</button>
           )}
-          {canReplicate && r.state==="finished" && <button className="time-log-action" disabled={pending || !!r.legacyEventId || r.manual} title={r.legacyEventId || r.manual ? "Disponível para apontamentos com início e fim registrados" : "Replicar para a equipe de apoio"} onClick={onReplicate}><Copy size={16}/>Replicar apontamento</button>}
-          {canDelete&&r.state==='finished'&&<button className="time-log-action time-log-delete" disabled={pending} onClick={onDelete}><Trash2 size={16}/>Excluir apontamento</button>}
+          {canReplicate && r.state==="finished" && <button type="button" className={actionClass} aria-label="Replicar apontamento" disabled={pending || !!r.legacyEventId || r.manual} title={r.legacyEventId || r.manual ? "Disponível para apontamentos com início e fim registrados" : "Replicar para a equipe de apoio"} onClick={onReplicate}><Copy size={16} aria-hidden="true"/>{technician&&"Replicar apontamento"}</button>}
+          {canDelete&&r.state==='finished'&&<button type="button" className={actionClass+" time-log-delete"} aria-label="Excluir apontamento" title="Excluir apontamento" disabled={pending} onClick={onDelete}><Trash2 size={16} aria-hidden="true"/>{technician&&"Excluir apontamento"}</button>}
           </div>
         </td>
       </tr>
@@ -252,31 +225,9 @@ function LogRows({ row: r, technician, onEdit, pending, canAdjust,canReplicate,o
           <td>
             <small>Incluída no total acima</small>
           </td>
-          {!technician && <td data-label="Localização original">
-            <Coordinates label="Início" value={p.startLocation} />
-            <Coordinates label="Fim" value={p.endLocation} />
-          </td>}
           <td />
         </tr>
       ))}
     </>
-  );
-}
-
-function Coordinates({ label, value }: any) {
-  return (
-    <small>
-      {label}:{" "}
-      {value?.document?.replicatedBy && <span>Local registrado por {value.document.locationRecordedBy || value.document.replicatedBy} · </span>}
-      {value?.latitude != null && value?.longitude != null ? (
-        <>
-          <span>Lat. {Number(value.latitude).toFixed(6)}</span>
-          <br />
-          <span>Long. {Number(value.longitude).toFixed(6)}</span>
-        </>
-      ) : (
-        "Não registrada"
-      )}
-    </small>
   );
 }

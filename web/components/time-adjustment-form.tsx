@@ -135,7 +135,7 @@ export default function TimeAdjustmentForm({
       <p>
         {planner
           ? "O ajuste será registrado no histórico."
-          : "Aguardará aprovação de um gestor antes de alterar os totais."}{" "}
+          : "O ajuste será aplicado ao ser sincronizado e enviado aos gestores para aprovação. Em caso de reprovação, o tratamento será manual."}{" "}
         Horários de Brasília.
       </p>
       <fieldset disabled={busy}>

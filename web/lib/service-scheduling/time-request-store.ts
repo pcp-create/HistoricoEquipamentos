@@ -1,9 +1,10 @@
-import {technicianTimeChangesLocked} from "./execution-locks";
-import {teamSessionsAvailable} from "./team-sessions";
-import {offlineTime} from "./offline-action";
+import { notifyTimeRequestRejection } from "./time-request-rejection";
+import { technicianTimeChangesLocked } from "./execution-locks";
+import { teamSessionsAvailable } from "./team-sessions";
+import { offlineTime } from "./offline-action";
 import { operationNumber } from "./operation-number";
 import "server-only";
-import {timeRequestsAvailable} from "./time-request-availability";
+import { timeRequestsAvailable } from "./time-request-availability";
 import { randomUUID } from "node:crypto";
 import { database } from "../db";
 import { Forbidden } from "../auth";
@@ -25,7 +26,7 @@ const reason = (v: any) => {
 };
 export async function personalTimeLogs(email: string) {
   const db = database();
-  const timeAdjustmentsAvailable=await timeRequestsAvailable(db);
+  const timeAdjustmentsAvailable = await timeRequestsAvailable(db);
   const [sessions, events, requests, operations, manualEvents] =
     await Promise.all([
       db.query(
@@ -36,10 +37,12 @@ export async function personalTimeLogs(email: string) {
         "SELECT * FROM web_field_events WHERE actor=$1 AND action IN ('start_work','start_travel','pause','resume','stop') ORDER BY created_at,id",
         [email],
       ),
-      timeAdjustmentsAvailable ? db.query(
-        "SELECT r.*,u.display_name reviewer_name FROM web_field_time_requests r LEFT JOIN web_user_access u ON u.email=r.reviewed_by WHERE r.actor=$1 ORDER BY r.created_at DESC",
-        [email],
-      ) : Promise.resolve({rows:[]}),
+      timeAdjustmentsAvailable
+        ? db.query(
+            "SELECT r.*,u.display_name reviewer_name FROM web_field_time_requests r LEFT JOIN web_user_access u ON u.email=r.reviewed_by WHERE r.actor=$1 ORDER BY r.created_at DESC",
+            [email],
+          )
+        : Promise.resolve({ rows: [] }),
       db.query(
         `SELECT p.*,o.numero_sequencia order_number,o.cliente_nome customer FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id WHERE EXISTS(SELECT 1 FROM web_field_sessions f WHERE f.operation_id=p.id AND f.actor=$1) OR EXISTS(SELECT 1 FROM web_service_operation_events e WHERE e.operation_id=p.id AND e.actor=$1 AND e.action IN ('work_log','travel_log')) OR (s.active AND p.sent_at IS NOT NULL AND (p.document->>'responsible'=$1 OR p.document->'support' ? $1)) ORDER BY s.created_at DESC,p.position`,
         [email],
@@ -51,19 +54,35 @@ export async function personalTimeLogs(email: string) {
     ]);
   return {
     email,
-    users:(await db.query("SELECT email,display_name FROM web_user_access WHERE enabled")).rows,
+    users: (
+      await db.query(
+        "SELECT email,display_name FROM web_user_access WHERE enabled",
+      )
+    ).rows,
     timeAdjustmentsAvailable,
-    fieldSessions: await teamSessionsAvailable(db) ? await (async()=>{
-      const links=(await db.query("SELECT target_session_id,controller,mode FROM web_field_session_links WHERE actor=$1",[email])).rows;
-      return sessions.rows.map(session=>({...session,replicatedBy:links.find(link=>link.target_session_id===session.id)?.controller}));
-    })() : sessions.rows,
+    fieldSessions: (await teamSessionsAvailable(db))
+      ? await (async () => {
+          const links = (
+            await db.query(
+              "SELECT target_session_id,controller,mode FROM web_field_session_links WHERE actor=$1",
+              [email],
+            )
+          ).rows;
+          return sessions.rows.map((session) => ({
+            ...session,
+            replicatedBy: links.find(
+              (link) => link.target_session_id === session.id,
+            )?.controller,
+          }));
+        })()
+      : sessions.rows,
     fieldEvents: events.rows,
     requests: requests.rows,
     operations: operations.rows,
     events: manualEvents.rows,
   };
 }
-async function apply(c: any, r: any, reviewer: string) {
+async function apply(c: any, r: any, reviewer: string, immediate = false) {
   const p = r.proposed;
   const overlap = await c.query(
     "SELECT id FROM web_field_sessions WHERE actor=$1 AND ($2::uuid IS NULL OR id<>$2) AND COALESCE((correction->>'started_at')::timestamptz,started_at)<$4::timestamptz AND COALESCE((correction->>'finished_at')::timestamptz,finished_at,'infinity'::timestamptz)>$3::timestamptz",
@@ -71,7 +90,7 @@ async function apply(c: any, r: any, reviewer: string) {
   );
   if (overlap.rows.length)
     throw new TimeRequestError(
-      "O horário coincide com outro apontamento da pessoa. Rejeite a solicitação e solicite a correção.",
+      "O horário coincide com outro apontamento da pessoa. Confira os horários antes de salvar.",
     );
   let sessionId = r.session_id;
   if (r.legacy_event_id) {
@@ -170,7 +189,9 @@ async function apply(c: any, r: any, reviewer: string) {
           r.kind === "work" ? "work_log" : "travel_log",
           p.active_seconds / 3600,
           r.actor,
-          "Apontamento manual aprovado por " + reviewer,
+          (immediate
+            ? "Apontamento manual registrado por "
+            : "Apontamento manual aprovado por ") + reviewer,
           p.finished_at,
         ],
       );
@@ -188,7 +209,9 @@ async function apply(c: any, r: any, reviewer: string) {
     );
   }
   await c.query(
-    "UPDATE web_field_time_requests SET status='approved',reviewed_by=$2,reviewed_at=now() WHERE id=$1",
+    immediate
+      ? "UPDATE web_field_time_requests SET applied_at=now(),applied_by=$2 WHERE id=$1"
+      : "UPDATE web_field_time_requests SET status='approved',reviewed_by=$2,reviewed_at=now(),applied_at=now(),applied_by=$2 WHERE id=$1",
     [r.id, reviewer],
   );
   await c.query(
@@ -198,8 +221,11 @@ async function apply(c: any, r: any, reviewer: string) {
   return sessionId;
 }
 export async function changeTimeRequest(b: any, email: string) {
-  if(b?.offline&&b.offline.owner!==email)throw new Forbidden();
-  if(!await timeRequestsAvailable(database()))throw new TimeRequestError("As solicitações de ajuste ainda não estão habilitadas. Os apontamentos continuam disponíveis para consulta.");
+  if (b?.offline && b.offline.owner !== email) throw new Forbidden();
+  if (!(await timeRequestsAvailable(database())))
+    throw new TimeRequestError(
+      "As solicitações de ajuste ainda não estão habilitadas. Os apontamentos continuam disponíveis para consulta.",
+    );
   const c = await database().connect();
   try {
     await c.query("BEGIN READ WRITE");
@@ -233,11 +259,25 @@ export async function changeTimeRequest(b: any, email: string) {
         throw new Forbidden();
       if (r.status !== "pending")
         throw new TimeRequestError("Esta solicitação já foi analisada.");
-      if (b.action === "approve") await apply(c, r, email);
-      else
+      if (b.action === "approve") {
+        if (r.applied_at)
+          await c.query(
+            "UPDATE web_field_time_requests SET status='approved',reviewed_by=$2,reviewed_at=now() WHERE id=$1",
+            [r.id, email],
+          );
+        else await apply(c, r, email);
+      } else
         await c.query(
           "UPDATE web_field_time_requests SET status='rejected',reviewed_by=$2,reviewed_at=now(),review_reason=$3 WHERE id=$1",
           [r.id, email, reason(b.reason)],
+        );
+      if (b.action === "reject")
+        await notifyTimeRequestRejection(
+          c,
+          r,
+          email,
+          user.display_name || email,
+          reason(b.reason),
         );
       const tasks = (
         await c.query(
@@ -257,7 +297,13 @@ export async function changeTimeRequest(b: any, email: string) {
             b.action === "approve"
               ? "Solicitação aprovada"
               : "Solicitação rejeitada",
-            b.action === "approve" ? "Horários atualizados." : b.reason,
+            b.action === "approve"
+              ? r.applied_at
+                ? "Ajuste já aplicado; aprovação registrada sem alterar novamente os horários."
+                : "Horários atualizados."
+              : (r.applied_at
+                  ? "Ajuste mantido nos totais para tratamento manual. Motivo: "
+                  : "") + b.reason,
             email,
             user.display_name || email,
           ],
@@ -287,7 +333,22 @@ export async function changeTimeRequest(b: any, email: string) {
       ])
     ).rows[0];
     if (!operation) throw new TimeRequestError("Operação não encontrada.");
-    if(!direct&&technicianTimeChangesLocked(operation,email))throw new TimeRequestError("Relatório enviado ou operação finalizada. Correções de apontamentos pelo técnico não estão mais disponíveis.");
+    if (!direct && technicianTimeChangesLocked(operation, email)) {
+      const captured = b.offline
+        ? Date.parse(offlineTime(b.offline.capturedAt))
+        : NaN;
+      const closure = Date.parse(
+        operation.document.technicianClosures?.[email]?.at || "",
+      );
+      if (
+        !Number.isFinite(captured) ||
+        !Number.isFinite(closure) ||
+        captured > closure
+      )
+        throw new TimeRequestError(
+          "Operação encerrada. Novos ajustes pelo técnico não estão disponíveis; solicite ao planejamento.",
+        );
+    }
     const legacy = b.legacyEventId
       ? (
           await c.query(
@@ -345,8 +406,20 @@ export async function changeTimeRequest(b: any, email: string) {
     )
       throw new Forbidden();
     const actor = s?.actor || legacy?.actor || (direct ? b.actor : email);
-    if(typeof actor!=='string'||!actor.trim())throw new TimeRequestError('Selecione a pessoa do apontamento.');
-    if(direct&&!s&&!legacy&&!(await c.query('SELECT 1 FROM web_user_access WHERE email=$1 AND enabled',[actor])).rows.length)throw new TimeRequestError('Selecione uma pessoa com acesso ativo.');
+    if (typeof actor !== "string" || !actor.trim())
+      throw new TimeRequestError("Selecione a pessoa do apontamento.");
+    if (
+      direct &&
+      !s &&
+      !legacy &&
+      !(
+        await c.query(
+          "SELECT 1 FROM web_user_access WHERE email=$1 AND enabled",
+          [actor],
+        )
+      ).rows.length
+    )
+      throw new TimeRequestError("Selecione uma pessoa com acesso ativo.");
     const kind =
       s?.kind ||
       (legacy ? (legacy.action === "work_log" ? "work" : "travel") : b.kind);
@@ -361,7 +434,12 @@ export async function changeTimeRequest(b: any, email: string) {
     // Planner corrections don't fabricate GPS: their audit location is explicitly unavailable.
     const location = direct
       ? { source: "planner", unavailable: true }
-      : locationOf(b.location, b.offline ? Date.parse(offlineTime(b.offline.capturedAt)) : Date.now());
+      : locationOf(
+          b.location,
+          b.offline
+            ? Date.parse(offlineTime(b.offline.capturedAt))
+            : Date.now(),
+        );
     const employee = (
       await c.query(
         "SELECT managers,display_name FROM web_user_access WHERE email=$1",
@@ -382,7 +460,7 @@ export async function changeTimeRequest(b: any, email: string) {
       legacy &&
       (
         await c.query(
-          "SELECT id FROM web_field_time_requests WHERE legacy_event_id=$1 AND status='pending'",
+          "SELECT id FROM web_field_time_requests WHERE legacy_event_id=$1 AND status='pending' AND applied_at IS NULL",
           [legacy.id],
         )
       ).rows.length
@@ -393,7 +471,7 @@ export async function changeTimeRequest(b: any, email: string) {
     if (s) {
       const pending = (
         await c.query(
-          "SELECT id FROM web_field_time_requests WHERE session_id=$1 AND status='pending'",
+          "SELECT id FROM web_field_time_requests WHERE session_id=$1 AND status='pending' AND applied_at IS NULL",
           [s.id],
         )
       ).rows;
@@ -448,8 +526,8 @@ export async function changeTimeRequest(b: any, email: string) {
         "UPDATE web_field_time_requests SET legacy_event_id=$2,original=$3 WHERE id=$1",
         [id, legacy.id, JSON.stringify(legacy)],
       );
-    if (direct) await apply(c, r, email);
-    else {
+    await apply(c, r, email, !direct);
+    if (!direct) {
       const os = (
         await c.query(
           "SELECT s.company_id,s.order_id,o.numero_sequencia,o.equipamento,o.cliente_nome FROM web_service_schedules s LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id WHERE s.id=$1",
@@ -461,7 +539,7 @@ export async function changeTimeRequest(b: any, email: string) {
       for (const manager of managers) {
         const task = (
           await c.query(
-            `INSERT INTO web_tasks(source_key,cycle,origin,title,equipment_name,customer,source_status,priority,assigned_to,first_assigned_at,created_by,updated_by,order_company,order_id,order_number,followers) VALUES($1,$2,'Aprovação de apontamento',$3,$4,$5,'Aguardando aprovação','normal',$6,now(),$7,$7,$8,$9,$10,ARRAY[lower($7)]) RETURNING id`,
+            `INSERT INTO web_tasks(source_key,cycle,origin,title,equipment_name,customer,source_status,priority,assigned_to,first_assigned_at,created_by,updated_by,order_company,order_id,order_number,followers) VALUES($1,$2,'Aprovação de apontamento',$3,$4,$5,'Aplicado · Aguardando aprovação','normal',$6,now(),$7,$7,$8,$9,$10,ARRAY[lower($7)]) RETURNING id`,
             [
               "time-request:" + id + ":" + manager,
               id,
@@ -480,12 +558,12 @@ export async function changeTimeRequest(b: any, email: string) {
           "INSERT INTO web_task_notifications(task_id,task_version,recipient) VALUES($1,1,$2)",
           [task.id, manager],
         );
-        const description = `Funcionário: ${employee.display_name || actor}\nOS ${os.numero_sequencia || os.order_id} · Operação ${operationNumber(operation.position)} · ${operation.document.description}\nTipo: ${s || legacy ? "Ajuste" : "Inclusão manual"} de ${kind === "work" ? "atividade" : "deslocamento"}\nMotivo: ${justification}\nHorário solicitado: ${fmt(proposed.started_at)} até ${fmt(proposed.finished_at)}\nAtividade/deslocamento: ${(proposed.active_seconds / 3600).toFixed(2)} h · Paradas: ${(proposed.pause_seconds / 3600).toFixed(2)} h\nPausas: ${proposed.pauses.map((p: any) => p.reason + " (" + fmt(p.start) + " – " + fmt(p.end) + ")").join("; ") || "Nenhuma"}\n${s ? "Original: " + fmt(s.correction?.started_at || s.started_at) + " até " + fmt(s.correction?.finished_at || s.finished_at) : legacy ? "Horas originais: " + legacy.hours + " h" : "Localização capturada na solicitação, não no horário manual."}`;
+        const description = `Ajuste já aplicado aos totais. A aprovação registra a concordância; a reprovação exige tratamento manual, sem desfazer os horários automaticamente.\nFuncionário: ${employee.display_name || actor}\nOS ${os.numero_sequencia || os.order_id} · Operação ${operationNumber(operation.position)} · ${operation.document.description}\nTipo: ${s || legacy ? "Ajuste" : "Inclusão manual"} de ${kind === "work" ? "atividade" : "deslocamento"}\nMotivo: ${justification}\nHorário solicitado: ${fmt(proposed.started_at)} até ${fmt(proposed.finished_at)}\nAtividade/deslocamento: ${(proposed.active_seconds / 3600).toFixed(2)} h · Paradas: ${(proposed.pause_seconds / 3600).toFixed(2)} h\nPausas: ${proposed.pauses.map((p: any) => p.reason + " (" + fmt(p.start) + " – " + fmt(p.end) + ")").join("; ") || "Nenhuma"}\n${s ? "Original: " + fmt(s.correction?.started_at || s.started_at) + " até " + fmt(s.correction?.finished_at || s.finished_at) : legacy ? "Horas originais: " + legacy.hours + " h" : "Localização capturada na solicitação, não no horário manual."}`;
         await c.query(
           "INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,$2,$3,false,$4,$5)",
           [
             task.id,
-            "Solicitação aguardando aprovação",
+            "Ajuste aplicado · aguardando aprovação",
             description,
             email,
             user.display_name || email,

@@ -17,9 +17,13 @@ export default function TimeRequestList({ requests, operations }: any) {
               {
                 (
                   {
-                    pending: "Aguardando aprovação",
+                    pending: r.applied_at
+                      ? "Aplicado · aguardando aprovação"
+                      : "Aguardando aprovação",
                     approved: "Aprovado",
-                    rejected: "Rejeitado",
+                    rejected: r.applied_at
+                      ? "Reprovado · tratamento manual"
+                      : "Rejeitado",
                     superseded: "Substituído",
                   } as any
                 )[r.status]
@@ -53,6 +57,14 @@ export default function TimeRequestList({ requests, operations }: any) {
               <p>
                 Horas registradas originalmente:{" "}
                 {Number(r.original.hours).toLocaleString("pt-BR")} h
+              </p>
+            )}
+            {r.applied_at && (
+              <p>
+                Aplicado aos totais em {fmt(r.applied_at)}.
+                {r.status === "rejected"
+                  ? " O horário foi mantido para tratamento manual com o planejamento."
+                  : ""}
               </p>
             )}
             {r.reviewed_at && (

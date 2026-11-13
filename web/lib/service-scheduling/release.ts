@@ -41,7 +41,7 @@ export async function releaseSchedule(
   if (
     (
       await c.query(
-        "SELECT 1 FROM web_field_time_requests WHERE operation_id=ANY($1::uuid[]) AND status='pending' LIMIT 1",
+        "SELECT 1 FROM web_field_time_requests WHERE operation_id=ANY($1::uuid[]) AND status='pending' AND (to_jsonb(web_field_time_requests)->>'applied_at') IS NULL LIMIT 1",
         [operations.map((o: any) => o.id)],
       )
     ).rows.length

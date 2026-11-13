@@ -4,6 +4,7 @@ import { test, expect } from "@playwright/test";
 test.setTimeout(90000);
 
 test.beforeEach(async({page})=>{
+ await page.route('**/api/contact-job-types',r=>r.fulfill({json:{rows:[{id:'1',name:'Compras',m8_id:7,active:true}]}}));
  await page.route('**/api/customer-contacts?*',r=>r.fulfill({json:{contacts:[{id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',name:'João',phone:'49999999999'}]}}));
  await page.route('**/api/customer-contacts',r=>r.fulfill({json:{contact:{id:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',...r.request().postDataJSON()}}}));
 });
@@ -73,10 +74,11 @@ test("sales portal displays portfolio, schedules visits and registers historical
   await page.getByRole('button',{name:'+ Novo contato',exact:true}).click();
   await expect(page.getByRole('dialog',{name:'Novo contato',exact:true})).toBeVisible();
   expect(await page.getByRole('dialog',{name:'Novo contato',exact:true}).evaluate(el=>el.matches(':modal'))).toBe(true);
-  await page.getByLabel('Nome do contato').fill('João');await page.getByLabel('Telefone do contato').fill('49999999999');
+  await page.getByLabel('Nome do contato').fill('João');await page.getByLabel('Telefone do contato',{exact:true}).fill('49999999999');
+  await page.getByLabel('E-mail do contato').fill('contato@example.com');await page.getByLabel('Cargo do contato').selectOption('1');
   await page.getByRole('button',{name:'Salvar contato',exact:true}).click();
   await expect(page.getByRole('dialog',{name:'Novo contato',exact:true})).toHaveCount(0);
-  await expect(page.getByLabel('Contato que receberá a visita')).toHaveValue('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
+  await expect(page.getByLabel('Contato que receberá a visita')).toHaveValue('João');
   await page.getByLabel('Agendar lembrete da tarefa para o vendedor').check();
   await pickDateTime(page,'Data e hora do alerta (Brasília)','2027-11-20T09:00');
   await page.getByRole("combobox",{name:"Finalidade da Visita",exact:true}).fill("Prospec");
@@ -110,7 +112,7 @@ test("sales portal displays portfolio, schedules visits and registers historical
   await page.getByRole("combobox", { name: "Cliente", exact:true }).fill("Cliente de teste");
   await page.getByRole("option", { name: /Cliente de teste/ }).click();
   await pickDateTime(page,"Data e hora da realização","2026-01-15T14:00");
-  await page.getByLabel("Contato que receberá a visita").selectOption("dddddddd-dddd-4ddd-8ddd-dddddddddddd");
+  await page.getByRole('combobox',{name:'Contato que receberá a visita'}).click();await page.getByRole('option',{name:/João/}).click();
   await page
     .getByLabel("Registro da visita e próximos passos")
     .fill("Cliente visitado, retornar com proposta.");
@@ -142,7 +144,7 @@ test("sales portal displays portfolio, schedules visits and registers historical
   await page.getByRole('button',{name:'Agendar próxima visita',exact:true}).click();
   await expect(page.getByLabel('Data e hora agendada')).toHaveValue('');
   await expect(page.getByLabel('Finalidade da Visita',{exact:true})).toHaveValue('');
-  await expect(page.getByLabel('Contato que receberá a visita')).toHaveValue('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+  await expect(page.getByLabel('Contato que receberá a visita')).toHaveValue('João');
   page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Fechar formulário',exact:true}).click();
   const tileReferrers: string[] = [];
   await page.route("https://tile.openstreetmap.org/**", async route => {
@@ -297,7 +299,8 @@ test('new lead searches a city and submits its selected map position',async({pag
  await expect(page.getByLabel('Endereço',{exact:true})).toHaveValue('Rua XV de Novembro, 100, Centro');
  await pickDateTime(page,"Data e hora agendada",'2026-11-20T10:00');
  await page.getByLabel('Nome do contato').fill('João');
- await page.getByLabel('Telefone do contato').fill('49999999999');
+ await page.getByLabel('Telefone do contato',{exact:true}).fill('49999999999');
+  await page.getByLabel('E-mail do contato').fill('contato@example.com');await page.getByLabel('Cargo do contato').selectOption('1');
  await page.getByRole("combobox",{name:"Finalidade da Visita",exact:true}).fill("Prospec");
  await page.getByRole("listbox").getByRole("option").first().click();
  await page.getByRole('button',{name:'Salvar agendamento',exact:true}).click();
@@ -324,7 +327,7 @@ test('user without territory schedules an external customer with a purpose',asyn
  await pickDateTime(page,"Data e hora agendada",'2026-11-20T10:00');
  await page.getByRole("combobox",{name:"Finalidade da Visita",exact:true}).fill("Prospec");
  await page.getByRole("listbox").getByRole("option").first().click();
- await page.getByLabel('Contato que receberá a visita').selectOption('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+ await page.getByRole('combobox',{name:'Contato que receberá a visita'}).click();await page.getByRole('option',{name:/João/}).click();
  await page.getByRole('button',{name:'Salvar agendamento',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('Visita agendada');
  expect(saved).toMatchObject({customer_key:'m8:99',purpose_id:'1'});

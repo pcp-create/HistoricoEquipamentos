@@ -135,6 +135,9 @@ export default function Registries() {
             <Link className="registry-card" style={{textDecoration:"none"}} href="/configuracoes/cadastros/crm">
               <Database size={26}/><span><strong>Tipos de Oportunidades / Tipos de Proposta</strong><small>CRM · Cadastro local e IDs de tipos de OS M8</small></span><ChevronRight/>
             </Link>
+            <Link className="registry-card" style={{textDecoration:"none"}} href="/configuracoes/cadastros/tipos-cargo">
+              <Database size={26}/><span><strong>Tipos de Cargo</strong><small>Contatos de clientes · Descrições e IDs no M8</small></span><ChevronRight/>
+            </Link>
             {registries.map((registry) => (
               <button
                 key={registry.id}

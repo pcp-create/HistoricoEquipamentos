@@ -3,6 +3,7 @@ import {test,expect} from '@playwright/test';
 test.setTimeout(90000);
 
 test.beforeEach(async({page})=>{
+ await page.route('**/api/contact-job-types',r=>r.fulfill({json:{rows:[{id:'1',name:'Compras',m8_id:7,active:true}]}}));
  await page.route('**/api/customer-contacts?*',r=>r.fulfill({json:{contacts:[{id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',name:'João',phone:'49999999999'}]}}));
  await page.route('**/api/customer-contacts',r=>r.fulfill({json:{contact:{id:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',...r.request().postDataJSON()}}}));
 });
@@ -119,7 +120,7 @@ test('management schedules a visit without leaving the page',async({page,context
  await pickDateTime(page,"Data e hora agendada",'2026-11-20T10:00');
  await dialog.getByRole("combobox",{name:"Finalidade da Visita",exact:true}).fill("Prospec");
  await dialog.getByRole("listbox").getByRole("option").first().click();
- await dialog.getByLabel('Contato que receberá a visita').selectOption('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+ await dialog.getByRole('combobox',{name:'Contato que receberá a visita'}).click();await dialog.getByRole('option',{name:/João/}).click();
  await dialog.getByRole('button',{name:'Salvar agendamento'}).click();
  await expect(dialog).toHaveCount(0);
  await expect(page.locator('.sales-success')).toContainText('Visita agendada');
@@ -260,7 +261,7 @@ test('management customer cards expose machines, scheduling and historical regis
  await pickDateTime(page,'Data e hora da realização','2026-01-10T10:00');
  await dialog.getByRole('combobox',{name:'Finalidade da Visita',exact:true}).fill('Prospec');
  await dialog.getByRole('listbox').getByRole('option').first().click();
- await dialog.getByLabel('Contato que receberá a visita').selectOption('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+ await dialog.getByRole('combobox',{name:'Contato que receberá a visita'}).click();await dialog.getByRole('option',{name:/João/}).click();
  await dialog.getByLabel('Registro da visita e próximos passos').fill('Visita registrada pela gestão');
  await dialog.getByRole('button',{name:'Salvar visita realizada',exact:true}).click();
  await expect(dialog).toHaveCount(0);
@@ -324,7 +325,7 @@ test('scheduling aligns seller and contacts and exposes new contact for customer
  await contact.getByLabel('Telefone do contato').fill('49999999999');
  await contact.getByRole('button',{name:'Salvar contato',exact:true}).click();
  await expect(contact).toHaveCount(0);
- await expect(dialog.getByLabel('Contato que receberá a visita')).toHaveValue('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
+ await expect(dialog.getByLabel('Contato que receberá a visita')).toHaveValue('Novo contato');
  await dialog.getByLabel('Novo cliente fora da base (Lead)').check();
  await dialog.getByRole('button',{name:'+ Novo contato',exact:true}).click();
  await expect(dialog.getByLabel('Nome do contato')).toBeFocused();

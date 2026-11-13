@@ -1,7 +1,8 @@
 /** Stable origin categories; titles can change without moving tasks between groups. */
-export function taskOriginGroup(task: { origin?: string; source_key?: string }): string {
+export function taskOriginGroup(task: { origin?: string; source_key?: string; action_name?:string }): string {
   const origin = (task.origin || "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
   const key = task.source_key || "";
+  if(key.startsWith("manual:order-report-task:")&&task.action_name?.trim())return task.action_name.trim();
   if (key.startsWith("preventive") || origin.includes("preventiva")) return "Preventivas";
   if (key.startsWith("report-review:") || key.startsWith("manual:report:") || key.startsWith("manual:order-report-task:") || /revis.*relat|relat.*revis/.test(origin)) return "Revisão de relatórios";
   if (key.startsWith("inspection:") || origin.includes("inspec")) return "Inspeções";

@@ -8,7 +8,7 @@ import {
   changeTimeRequest,
   personalTimeLogs,
 } from "../lib/service-scheduling/time-request-store";
-test("requests require managers, stay pending, approve once, retain originals and reject self/outsider/overlapping changes", async () => {
+test("adjustments apply immediately, retain manager review, reject without rollback and notify requester and planner", async () => {
   const db = new PGlite();
   (globalThis as any).historyPool = {
     query: db.query.bind(db),
@@ -42,14 +42,28 @@ test("requests require managers, stay pending, approve once, retain originals an
         ),
       );
     }
-    await db.exec("ALTER TABLE web_tasks ADD COLUMN followers text[] NOT NULL DEFAULT '{}'");
+    await db.exec(
+      readFileSync(
+        new URL("../sql/093_service_execution_workflow.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    await db.exec(
+      readFileSync(
+        new URL("../sql/114_time_adjustments_immediate.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    await db.exec(
+      "ALTER TABLE web_tasks ADD COLUMN followers text[] NOT NULL DEFAULT '{}'",
+    );
     await db.exec(`CREATE TABLE m8_ordens_servico(company_id integer,id_m8 bigint,numero_sequencia bigint,equipamento text,cliente_nome text);
  INSERT INTO m8_ordens_servico VALUES(1,100,100,'Compressor','Cliente');
  INSERT INTO web_user_access(email,display_name,role,updated_by) VALUES('tech','Técnico','user','test'),('manager','Gestor','admin','test'),('manager2','Gestor 2','admin','test'),('outsider','Outro','admin','test');
  UPDATE web_user_access SET managers='["manager","manager2"]' WHERE email='tech';`);
     const schedule = (
       await db.query<any>(
-        "INSERT INTO web_service_schedules(company_id,order_id,created_by) VALUES(1,100,'test') RETURNING id",
+        "INSERT INTO web_service_schedules(company_id,order_id,created_by) VALUES(1,100,'manager2') RETURNING id",
       )
     ).rows[0].id;
     const op = randomUUID(),
@@ -98,15 +112,38 @@ test("requests require managers, stay pending, approve once, retain originals an
       changeTimeRequest(input(), "outsider"),
       (e: any) => e.constructor.name === "Forbidden",
     );
-    for(const status of ['awaiting_review','reviewed','completed']){
-      await db.query('UPDATE web_service_operations SET status=$2 WHERE id=$1',[op,status]);
-      await assert.rejects(changeTimeRequest(input(),'tech'),/Correções de apontamentos/);
+    for (const status of ["awaiting_review", "reviewed", "completed"]) {
+      await db.query(
+        "UPDATE web_service_operations SET status=$2 WHERE id=$1",
+        [op, status],
+      );
+      await assert.rejects(
+        changeTimeRequest(input(), "tech"),
+        /Operação encerrada/,
+      );
     }
     await db.exec("ALTER TABLE web_service_operations DISABLE TRIGGER USER");
-    await db.query("UPDATE web_service_operations SET status='executing',document=document||$2::jsonb WHERE id=$1",[op,JSON.stringify({technicianClosures:{tech:{at:new Date().toISOString()}},checklistRun:{submission:{at:new Date().toISOString(),by:'tech'}}})]);
+    await db.query(
+      "UPDATE web_service_operations SET status='executing',document=document||$2::jsonb WHERE id=$1",
+      [
+        op,
+        JSON.stringify({
+          technicianClosures: { tech: { at: new Date().toISOString() } },
+          checklistRun: {
+            submission: { at: new Date().toISOString(), by: "tech" },
+          },
+        }),
+      ],
+    );
     await db.exec("ALTER TABLE web_service_operations ENABLE TRIGGER USER");
-    await assert.rejects(changeTimeRequest(input(),'tech'),/Correções de apontamentos/);
-    await db.query("UPDATE web_service_operations SET document=document-'checklistRun'-'technicianClosures' WHERE id=$1",[op]);
+    await assert.rejects(
+      changeTimeRequest(input(), "tech"),
+      /Operação encerrada/,
+    );
+    await db.query(
+      "UPDATE web_service_operations SET document=document-'checklistRun'-'technicianClosures' WHERE id=$1",
+      [op],
+    );
     const b = input(),
       result = await changeTimeRequest(b, "tech");
     assert.equal((await changeTimeRequest(b, "tech")).id, result.id);
@@ -119,13 +156,38 @@ test("requests require managers, stay pending, approve once, retain originals an
       ).rows[0].active_seconds,
       "3600",
     );
+    const applied = (
+      await db.query<any>(
+        "SELECT r.status,r.applied_at,s.correction FROM web_field_time_requests r JOIN web_field_sessions s ON s.id=r.session_id WHERE r.id=$1",
+        [result.id],
+      )
+    ).rows[0];
+    assert.equal(applied.status, "pending");
+    assert.ok(applied.applied_at);
+    assert.equal(applied.correction.active_seconds, 7200);
     assert.equal((await db.query("SELECT * FROM web_tasks")).rows.length, 2);
-    assert.ok((await db.query<any>("SELECT followers FROM web_tasks")).rows.every(t => t.followers.join() === "tech"));
-    const notifications = (await db.query<any>(
-      "SELECT n.recipient,n.state,n.task_version,t.assigned_to FROM web_task_notifications n JOIN web_tasks t ON t.id=n.task_id ORDER BY n.recipient",
-    )).rows;
-    assert.deepEqual(notifications.map(n => n.recipient), ["manager", "manager2"]);
-    assert.ok(notifications.every(n => n.state === "pending" && n.task_version === 1 && n.recipient === n.assigned_to));
+    assert.ok(
+      (await db.query<any>("SELECT followers FROM web_tasks")).rows.every(
+        (t) => t.followers.join() === "tech",
+      ),
+    );
+    const notifications = (
+      await db.query<any>(
+        "SELECT n.recipient,n.state,n.task_version,t.assigned_to FROM web_task_notifications n JOIN web_tasks t ON t.id=n.task_id ORDER BY n.recipient",
+      )
+    ).rows;
+    assert.deepEqual(
+      notifications.map((n) => n.recipient),
+      ["manager", "manager2"],
+    );
+    assert.ok(
+      notifications.every(
+        (n) =>
+          n.state === "pending" &&
+          n.task_version === 1 &&
+          n.recipient === n.assigned_to,
+      ),
+    );
     // Repeating the same request above must not enqueue duplicate messages.
     await syncTasks(async () => []);
     assert.equal(
@@ -148,7 +210,7 @@ test("requests require managers, stay pending, approve once, retain originals an
       /Aprovar Solicitação/,
     );
 
-    await assert.rejects(changeTimeRequest(input(), "tech"), /aguardando/);
+    await assert.rejects(changeTimeRequest(input(), "tech"), /atualize/);
     await assert.rejects(
       changeTimeRequest({ action: "approve", id: result.id }, "tech"),
       (e: any) => e.constructor.name === "Forbidden",
@@ -197,7 +259,7 @@ test("requests require managers, stay pending, approve once, retain originals an
     const m = await changeTimeRequest(manual, "tech");
     assert.equal(
       (await db.query("SELECT * FROM web_field_sessions")).rows.length,
-      1,
+      2,
     );
     await changeTimeRequest({ action: "approve", id: m.id }, "manager2");
     assert.equal(
@@ -240,6 +302,30 @@ test("requests require managers, stay pending, approve once, retain originals an
       ).rows[0].status,
       "rejected",
     );
+    const rejectedSession = (
+      await db.query<any>(
+        "SELECT correction,correction_version FROM web_field_sessions WHERE id=$1",
+        [session],
+      )
+    ).rows[0];
+    assert.equal(rejectedSession.correction.active_seconds, 7200);
+    assert.equal(rejectedSession.correction_version, 3);
+    const notices = (
+      await db.query<any>(
+        "SELECT recipient,text FROM web_service_notifications ORDER BY recipient",
+      )
+    ).rows;
+    assert.deepEqual(
+      notices.map((n) => n.recipient),
+      ["manager2", "tech"],
+    );
+    assert.ok(
+      notices.every(
+        (n) =>
+          n.text.includes("Horário não confere") &&
+          n.text.includes("manualmente"),
+      ),
+    );
     const legacy = (
       await db.query<any>(
         "INSERT INTO web_service_operation_events(operation_id,actor,action,hours,created_at) VALUES($1,'tech','work_log',3,'2026-01-03T15:00Z') RETURNING id",
@@ -277,19 +363,123 @@ test("requests require managers, stay pending, approve once, retain originals an
     const logs = await personalTimeLogs("tech");
     assert.equal(logs.requests.length, 5);
     assert.equal(logs.fieldSessions.length, 3);
+    const pendingManual = await changeTimeRequest(
+      {
+        ...manual,
+        requestId: randomUUID(),
+        proposed: {
+          started_at: "2026-01-04T08:00:00Z",
+          finished_at: "2026-01-04T09:00:00Z",
+          pauses: [],
+        },
+      },
+      "tech",
+    );
+    const manualSession = (
+      await db.query<any>(
+        "SELECT session_id FROM web_field_time_requests WHERE id=$1",
+        [pendingManual.id],
+      )
+    ).rows[0].session_id;
+    const newer = await changeTimeRequest(
+      {
+        ...input(),
+        sessionId: manualSession,
+        version: 0,
+        proposed: {
+          started_at: "2026-01-04T08:00:00Z",
+          finished_at: "2026-01-04T10:00:00Z",
+          pauses: [],
+        },
+      },
+      "tech",
+    );
+    await changeTimeRequest(
+      { action: "approve", id: pendingManual.id },
+      "manager",
+    );
+    assert.equal(
+      (
+        await db.query<any>(
+          "SELECT correction FROM web_field_sessions WHERE id=$1",
+          [manualSession],
+        )
+      ).rows[0].correction.active_seconds,
+      7200,
+    );
+    await changeTimeRequest(
+      { action: "reject", id: newer.id, reason: "Conferir manualmente" },
+      "manager",
+    );
+    assert.equal(
+      (
+        await db.query<any>(
+          "SELECT correction FROM web_field_sessions WHERE id=$1",
+          [manualSession],
+        )
+      ).rows[0].correction.active_seconds,
+      7200,
+    );
+    const capture = new Date(Date.now() - 5 * 60000).toISOString(),
+      closure = new Date(Date.now() - 60000).toISOString();
+    await db.query(
+      "UPDATE web_service_operations SET status='awaiting_review',document=document||$2::jsonb WHERE id=$1",
+      [op, JSON.stringify({ technicianClosures: { tech: { at: closure } } })],
+    );
+    const oldQueued = {
+      ...manual,
+      requestId: randomUUID(),
+      offline: { owner: "tech", capturedAt: capture },
+      location: { latitude: -27, longitude: -49, accuracy: 10, at: capture },
+      proposed: {
+        started_at: "2026-01-05T08:00:00Z",
+        finished_at: "2026-01-05T09:00:00Z",
+        pauses: [],
+      },
+    };
+    const recovered = await changeTimeRequest(oldQueued, "tech");
+    assert.ok(
+      (
+        await db.query<any>(
+          "SELECT applied_at FROM web_field_time_requests WHERE id=$1",
+          [recovered.id],
+        )
+      ).rows[0].applied_at,
+    );
+    await assert.rejects(
+      () =>
+        changeTimeRequest(
+          {
+            ...oldQueued,
+            requestId: randomUUID(),
+            offline: { owner: "tech", capturedAt: new Date().toISOString() },
+          },
+          "tech",
+        ),
+      /Operação encerrada/,
+    );
+    await db.query(
+      "UPDATE web_service_operations SET status='executing',document=document-'technicianClosures' WHERE id=$1",
+      [op],
+    );
     await db.exec(
       "UPDATE web_user_access SET managers='[]' WHERE email='tech'",
     );
     await assert.rejects(
-      changeTimeRequest({ ...input(), version: 2 }, "tech"),
+      changeTimeRequest({ ...input(), version: 3 }, "tech"),
       /gestor ativo/,
     );
-    await db.exec("ALTER TABLE web_field_time_requests RENAME TO web_field_time_requests_unavailable");
-    const beforeMigration=await personalTimeLogs("tech");
-    assert.equal(beforeMigration.timeAdjustmentsAvailable,false);
-    assert.equal(beforeMigration.fieldSessions.length,3);
-    assert.deepEqual(beforeMigration.requests,[]);
-    await assert.rejects(changeTimeRequest({...input(),version:2},"tech"),/ainda não estão habilitadas/);
+    await db.exec(
+      "ALTER TABLE web_field_time_requests RENAME TO web_field_time_requests_unavailable",
+    );
+    const beforeMigration = await personalTimeLogs("tech");
+    assert.equal(beforeMigration.timeAdjustmentsAvailable, false);
+    assert.equal(beforeMigration.fieldSessions.length, 5);
+    assert.deepEqual(beforeMigration.requests, []);
+    await assert.rejects(
+      changeTimeRequest({ ...input(), version: 2 }, "tech"),
+      /ainda não estão habilitadas/,
+    );
   } finally {
     delete (globalThis as any).historyPool;
     await db.close();

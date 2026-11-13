@@ -1151,10 +1151,7 @@ function OperationRow({
           </select>
         </td>
         <td>
-          <div className="operation-cell-value"><span className={"operation-status " + (o.display_status || o.status)}>
-            {o.document.checklistReturn?"Devolvida para ajuste do checklist":statusNames[o.display_status || o.status]}
-          </span></div>
-          <OperationClosureProgress operation={o} users={data.users}/>
+          <div className="operation-cell-value"><OperationClosureProgress operation={o} users={data.users} className={"operation-status " + (o.display_status || o.status)} label={o.document.checklistReturn?"Devolvida para ajuste do checklist":statusNames[o.display_status || o.status]}/></div>
         </td>
         <td><span className="operation-cell-value">{o.sent_at ? "Sim" : "Não"}</span>{o.document.checklistReturn&&<small>Motivo: {o.document.checklistReturn.reason}</small>}</td>
         <td>

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+test.beforeEach(async({page})=>{await page.route("**/api/task-stages",r=>r.fulfill({json:{stages:[]}}));});
 const op = {
   id: "11111111-1111-4111-8111-111111111111",
   position: 1,
@@ -41,7 +42,7 @@ const logs = () => ({
   events: [],
   requests: [] as any[],
 });
-test("technician requests edits and manual entries while official hours stay unchanged", async ({
+test("technician adjustments enter totals immediately while manager approval stays pending", async ({
   page,
   context,
 }) => {
@@ -74,8 +75,10 @@ test("technician requests edits and manual entries while official hours stay unc
         session_id: b.sessionId,
         operation_id: op.id,
         status: "pending",
+        applied_at:new Date().toISOString(),
         created_at: new Date().toISOString(),
       });
+      if(b.sessionId){const row=data.fieldSessions.find(s=>s.id===b.sessionId) as any;if(row){row.correction={...b.proposed,active_seconds:(Date.parse(b.proposed.finished_at)-Date.parse(b.proposed.started_at))/1000,pause_seconds:0};row.correction_version++;}}
       return r.fulfill({ json: { ok: true } });
     }
     return r.fulfill({ json: data });
@@ -84,14 +87,14 @@ test("technician requests edits and manual entries while official hours stay unc
   await expect(page.getByRole("button", { name: "Meus apontamentos" })).toHaveCount(0);
   await page.getByRole("button", { name: "Programação" }).click();
   await page.getByText("OS 123", { exact: true }).click();
-  await page.getByRole("button", { name: /Operação 01/ }).click();
+  await page.getByRole("button", { name: /OP01 · Revisão/ }).click();
   await page.getByRole("button", { name: "Apontamentos", exact: true }).click();
   await expect(page.getByText("Lat. -27.500000")).toHaveCount(0);
   await expect(page.getByRole("columnheader", { name: "Início", exact: true })).toBeVisible();
   await page
     .getByRole("button", { name: "Solicitar ajuste", exact: true })
     .click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.locator(".time-adjustment-dialog");
   await dialog.getByLabel("Fim", { exact: true }).fill("2026-01-01T07:00");
   await dialog
     .getByLabel("Motivo da solicitação / ajuste")
@@ -101,11 +104,10 @@ test("technician requests edits and manual entries while official hours stay unc
   expect(bodies[0].action).toBe("request");
   expect(bodies[0].proposed.finished_at).toBe("2026-01-01T10:00:00.000Z");
   expect(bodies[0].location.latitude).toBe(-27);
+  await expect(page.getByRole("button", {name:"Solicitar ajuste",exact:true})).toBeEnabled();
+  await expect(page.getByText(/Aplicado · aguardando aprovação/)).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Aguardando aprovação" }),
-  ).toBeDisabled();
-  await expect(
-    page.locator(".time-log-cards").getByText("01:00:00"),
+    page.locator(".time-log-cards").getByText("02:00:00"),
   ).toHaveCount(2);
   await page
     .getByRole("button", { name: "Incluir apontamento manual" })
@@ -244,6 +246,7 @@ test("manager task shows reason and approves through the dedicated action", asyn
   );
   await page.route("**/api/tasks**", (r) => {
     const url = new URL(r.request().url());
+    if (url.pathname === "/api/tasks/checklists")return r.fulfill({json:{lists:[]}});
     if (url.pathname === "/api/tasks/reminders")
       return r.fulfill({ json: { reminders: [] } });
     if (url.pathname === "/api/tasks/stages")

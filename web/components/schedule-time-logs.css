@@ -365,3 +365,6 @@
 .schedule-time-logs .time-log-action {display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 10px;white-space:nowrap;min-height:36px}
 
 .schedule-time-logs .time-log-delete{color:#a32e40;border-color:#e4bec5}
+
+.schedule-time-logs .time-log-icon-action {width:36px;height:36px;min-width:36px;padding:8px;flex-shrink:0;}
+.schedule-time-logs .time-log-icon-action:focus-visible {outline:2px solid #6e9ec8;outline-offset:2px;}

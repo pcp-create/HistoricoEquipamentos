@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.20
+# Portal Técnico RJ — APK 2.2.23
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -324,3 +324,11 @@ Download: https://github.com/pcp-create/HistoricoEquipamentos/releases/tag/porta
 A tela Informações exibe Alertas do Equipamento e B.Os do Equipamento recolhidos, com contadores, e mantém as observações internas visíveis. O alerta de garantia informa a OS anterior e o prazo de cobertura, acompanhando os dados baixados da operação para consulta offline.
 
 Instalar como atualização, sem desinstalar nem limpar os dados do aplicativo.
+
+## Versão 2.2.23 — ajustes de apontamentos com aprovação posterior
+
+- Ajustes recebidos pelo servidor entram nos totais imediatamente; a tarefa dos gestores permanece para validação posterior.
+- Aprovar confirma a decisão sem reaplicar os horários. Reprovar mantém os horários e gera avisos de WhatsApp ao solicitante e ao planejador para tratamento manual.
+- Solicitações já aplicadas não bloqueiam novos ajustes, revisão e liberação da OS. Os totais e o histórico deixam claro quando o ajuste foi aplicado.
+- A aprovação continua no sistema de gestão. A interface do técnico informa a aplicação na sincronização, sem prometer alteração do servidor enquanto estiver offline.
+- Publicar também a migração 114 e as alterações do servidor. Instalar sobre a versão existente, preservando os dados locais e a fila. Esta atualização não reconcilia automaticamente registros antigos com vínculo inválido; exportar a cópia das pendências para a conferência desses casos.

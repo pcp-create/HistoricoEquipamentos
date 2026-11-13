@@ -66,3 +66,33 @@
 }
 
 .linked-task-menu .equipment-activity-menu-action{border-top:1px solid #edf0f4;color:#925044;font-size:12px;gap:7px;white-space:normal}
+
+.customer-contact-picker .order-search-options button {padding:12px;min-height:66px;border-radius:7px;}
+.customer-contact-picker .order-search-options button+button {border-top:1px solid #edf2f7;}
+.customer-contact-picker .order-choice-line strong {font-size:14px;font-weight:600;}
+.customer-contact-picker .order-search-select small {font-size:12px;line-height:1.6;margin-top:5px;}
+.customer-contact-summary {display:flex;flex-wrap:wrap;gap:12px 32px;margin-top:10px;color:#647e96;}
+.customer-contact-summary small {display:grid;gap:3px;font-size:12px;}
+.customer-contact-summary strong {font-weight:500;color:#315878;}
+
+.visit-contacts .visit-contacts-heading {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px 20px;}
+.visit-contacts .visit-contacts-heading>strong {flex:1 1 220px;line-height:1.5;}
+.visit-contact-actions {display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-left:auto;}
+.visit-contacts .visit-contact-actions button {display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;margin:0;padding:8px 12px;border:1px solid #d4e1ec;border-radius:8px;background:#fff;color:#496d8b;font:500 13px/1.4 var(--field-font,"DM Sans",Arial,sans-serif);white-space:nowrap;cursor:pointer;}
+.visit-contacts .visit-contact-actions button svg {flex-shrink:0;}
+.visit-contacts .visit-contact-actions .visit-contact-new-button {background:#edf5fc;border-color:#c3d9ec;color:#245e91;font-weight:600;}
+.visit-contacts .visit-contact-actions button:hover:not(:disabled) {background:#f3f7fb;border-color:#aac6dd;}
+.visit-contacts .visit-contact-actions .visit-contact-new-button:hover {background:#e1eef9;}
+.visit-contacts .visit-contact-actions button:focus-visible {outline:2px solid #6e9ec8;outline-offset:2px;}
+.visit-contacts .visit-contact-actions button:disabled {opacity:.55;cursor:default;}
+@media(max-width:640px){
+ .visit-contacts .visit-contacts-heading>strong {flex-basis:100%;}
+ .visit-contact-actions {width:100%;margin-left:0;display:flex;}
+ .visit-contacts .visit-contact-actions button {flex:1;min-width:0;padding:9px 8px;font-size:12px;}
+}
+
+.contact-cargo-label {display:inline-flex;align-items:center;gap:6px;}
+.visit-contacts .contact-cargo-edit {display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;min-height:0;padding:4px;margin:0;border:1px solid transparent;border-radius:5px;background:transparent;color:#6284a1;cursor:pointer;}
+.visit-contacts .contact-cargo-edit:hover {background:#edf5fc;border-color:#d4e1ec;color:#245e91;}
+.visit-contacts .contact-cargo-edit:focus-visible {outline:2px solid #6e9ec8;outline-offset:2px;}
+.customer-contact-summary small {min-width:0;overflow-wrap:anywhere;}

@@ -1,0 +1,42 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {randomUUID} from 'node:crypto';
+import {PGlite} from '@electric-sql/pglite';
+import {orderTaskActions,addOrderTaskAction} from '../lib/tasks/order-actions';
+import {createOrderTask} from '../lib/service-scheduling/order-task';
+import {taskOriginGroup} from '../lib/tasks/origin-group';
+test('order task actions persist, group by Kanban origin and keep assignee, scoped PDF and idempotency',async()=>{
+ const db=new PGlite(),g=globalThis as any,old=g.historyPool;
+ const query=(s:string,a?:any[])=>db.query(s.replace('BEGIN READ WRITE','BEGIN'),a);
+ g.historyPool={query,connect:async()=>({query,release(){}})};
+ try{
+ await db.exec(`CREATE ROLE anon;CREATE ROLE authenticated;
+ CREATE TABLE web_user_access(email text,enabled boolean,display_name text);INSERT INTO web_user_access VALUES('planner',true,'Planejador'),('disabled',false,'Inativo');
+ CREATE TABLE web_tasks(id bigint GENERATED ALWAYS AS IDENTITY,source_key text,title text,origin text,status text,assigned_to text,completed_at timestamptz,source_resolved boolean,updated_by text,version int DEFAULT 1);
+ CREATE TABLE web_task_notes(task_id bigint,automatic boolean,title text,description text,created_at timestamptz);
+ CREATE TABLE web_task_attachments(task_id bigint,filename text,content_type text,content bytea,created_by text,created_name text);
+ CREATE TABLE web_service_schedules(id bigint,company_id int,order_id bigint);INSERT INTO web_service_schedules VALUES(1,1,100);
+ CREATE TABLE web_service_operations(id uuid,position int,schedule_id bigint,status text,document jsonb);
+ CREATE TABLE m8_ordens_servico(company_id int,id_m8 bigint,numero_sequencia bigint);INSERT INTO m8_ordens_servico VALUES(1,100,15284);`);
+ await db.exec(readFileSync('sql/109_order_task_actions.sql','utf8'));
+ const choices=await orderTaskActions();assert.deepEqual(choices.map(a=>a.name),['Efetuar Fechamento','Gerar Orçamento']);
+ const custom=await addOrderTaskAction('  Conferir peças  ','planner');
+ assert.equal((await addOrderTaskAction('conferir peças','planner')).action.id,custom.action.id);
+ await assert.rejects(addOrderTaskAction('','planner'));await assert.rejects(addOrderTaskAction('Outra','disabled'));
+ const operation=randomUUID(),other=randomUUID();
+ for(const [id,position] of [[operation,1],[other,2]])await db.query("INSERT INTO web_service_operations VALUES($1,$2,1,'reviewed','{\"checklistRun\":{}}')",[id,position]);
+ let pdfs=0,created=0,selection:any;
+ const deps:any={pdf:async(s:any)=>{pdfs++;selection=s;return {filename:'operacao.pdf',bytes:new Uint8Array([37,80,68,70])};},create:async(b:any)=>{created++;return {task:(await db.query("INSERT INTO web_tasks(title,assigned_to,status) VALUES($1,$2,'not_started') RETURNING id",[b.title,b.assignedTo])).rows[0]};}};
+ const input={scheduleId:'1',requestId:randomUUID(),operationId:operation,assignedTo:'responsible',description:'Preparar orçamento',reportMode:'budget',actionId:choices[1].id};
+ const result=await createOrderTask(input,'planner',deps);
+ const task=(await db.query<any>('SELECT * FROM web_tasks WHERE id=$1',[result.taskId])).rows[0];
+ assert.equal(task.assigned_to,'responsible');assert.equal(task.action_name,'Gerar Orçamento');assert.equal(task.origin,'Gerar Orçamento');assert.equal(taskOriginGroup(task),'Gerar Orçamento');assert.match(task.title,/Gerar Orçamento.*15284.*01/);
+ assert.deepEqual(selection.operationIds,[operation]);assert.equal((await db.query('SELECT * FROM web_task_attachments')).rows.length,1);
+ assert.equal((await createOrderTask(input,'planner',deps)).taskId,result.taskId);assert.equal(pdfs,1);assert.equal(created,1);
+ await assert.rejects(createOrderTask({...input,actionId:custom.action.id},'planner',deps),/outra ação/);
+ await db.query('UPDATE web_order_task_actions SET active=false WHERE id=$1',[custom.action.id]);
+ await assert.rejects(createOrderTask({...input,requestId:randomUUID(),actionId:custom.action.id},'planner',deps),/não está disponível/);
+ assert.equal(created,1);
+ }finally{g.historyPool=old;await db.close();}
+});

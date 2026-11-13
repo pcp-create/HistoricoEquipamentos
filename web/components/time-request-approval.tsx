@@ -21,7 +21,11 @@ export default function TimeRequestApproval({ task, onChanged }: any) {
       const b = await res.json();
       if (!res.ok) throw Error(b.error);
       clearApiCache();
-      await onChanged(action === "approve" ? "Solicitação aprovada. Tarefa concluída." : "Solicitação rejeitada. Tarefa concluída.");
+      await onChanged(
+        action === "approve"
+          ? "Solicitação aprovada. Tarefa concluída."
+          : "Solicitação reprovada. Solicitante e planejamento serão avisados para tratamento manual.",
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -30,13 +34,16 @@ export default function TimeRequestApproval({ task, onChanged }: any) {
   }
   if (task.status === "completed")
     return (
-      <p role="status">Resultado da análise: {task.source_status}. Tarefa concluída.</p>
+      <p role="status">
+        Resultado da análise: {task.source_status}. Tarefa concluída.
+      </p>
     );
   return (
     <div>
       <p>
         Confira o motivo e os horários solicitados nas notas abaixo. Somente um
-        dos gestores cadastrados pode aprovar.
+        dos gestores cadastrados pode aprovar. Ajustes já aplicados permanecem
+        nos totais em caso de reprovação e devem ser tratados manualmente.
       </p>
       <button disabled={busy} onClick={() => void act("approve")}>
         Aprovar Solicitação

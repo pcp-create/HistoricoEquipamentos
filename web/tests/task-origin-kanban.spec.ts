@@ -5,7 +5,9 @@ test("origin kanban groups preventive tasks together and separates report review
  const tasks=[
   {...base,id:"1",title:"Preventiva cliente",source_key:"preventive:1",origin:"Preventiva de Equipamento de Cliente"},
   {...base,id:"2",title:"Preventiva frota",source_key:"preventive-group:2",origin:"Preventiva de Equipamento Próprio"},
-  {...base,id:"3",title:"Alertas do relatório",source_key:"manual:order-report-task:10",origin:"Revisão de relatório"}
+  {...base,id:"3",title:"Alertas do relatório",source_key:"manual:order-report-task:10",origin:"Revisão de relatório"},
+  {...base,id:"4",title:"Fechar OS",source_key:"manual:order-report-task:11",origin:"Efetuar Fechamento",action_name:"Efetuar Fechamento"},
+  {...base,id:"5",title:"Orçar OS",source_key:"manual:order-report-task:12",origin:"Gerar Orçamento",action_name:"Gerar Orçamento"}
  ];
  await page.route("**/api/activity",r=>r.fulfill({json:{admin:false}}));
  await page.route("**/api/task-stages",r=>r.fulfill({json:{stages:[]}}));
@@ -14,6 +16,8 @@ test("origin kanban groups preventive tasks together and separates report review
  await page.getByLabel("Agrupar Kanban por").selectOption("origin");
  await expect(page.getByRole("region",{name:"Preventivas",exact:true}).locator(".task-kanban-card")).toHaveCount(2);
  await expect(page.getByRole("region",{name:"Revisão de relatórios",exact:true}).locator(".task-kanban-card")).toHaveCount(1);
+ await expect(page.getByRole("region",{name:"Efetuar Fechamento",exact:true}).locator(".task-kanban-card")).toHaveCount(1);
+ await expect(page.getByRole("region",{name:"Gerar Orçamento",exact:true}).locator(".task-kanban-card")).toHaveCount(1);
  await expect(page.locator(".task-kanban-add")).toHaveCount(0);
  for(const card of await page.locator(".task-kanban-card").all()) await expect(card).toHaveAttribute("draggable","false");
 });

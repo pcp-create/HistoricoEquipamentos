@@ -1199,7 +1199,9 @@
 
 .operation-review-meter-warning { padding: 12px 14px; border: 1px solid #eed59d; border-radius: 8px; background: #fff8e6; color: #805600; }
 
-.operation-closure-progress {display:flex;flex-direction:column;gap:5px;min-width:200px;margin-top:8px;padding:10px;border:1px solid #e8c778;border-radius:8px;background:#fff8e6;color:#805410;white-space:normal;}
+.operation-closure-tooltip {display:flex;flex-direction:column;gap:7px;width:320px;max-width:calc(100vw - 16px);overflow-wrap:anywhere;}
+.operation-status[tabindex="0"] {cursor:help;}
+.operation-status[tabindex="0"]:focus-visible {outline:2px solid #6e9ec8;outline-offset:3px;}
 
 
 .review-alert-equipment {display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:10px;}
@@ -1213,3 +1215,12 @@
 
 .schedule-order-entry{max-width:100%;min-width:0;align-items:flex-start}
 .schedule-order-entry .schedule-order-error,.scheduling-page .scheduling-error{display:block;max-width:100%;white-space:normal;overflow-wrap:break-word;word-break:normal;text-align:left;line-height:1.5;font-size:13px;color:#9e342b;background:#fff3f3;border:1px solid #f0c3c3;border-radius:8px;padding:10px 12px;letter-spacing:normal}
+
+/* Modal de cadastro de ação sobre a janela da tarefa. */
+.order-task-action-dialog {width:480px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 32px);box-sizing:border-box;padding:24px;border:1px solid #c9dcee;border-radius:12px;background:#fff;color:#315878;overflow:auto;}
+.order-task-action-dialog::backdrop {background:#18344f66;}
+.order-task-action-dialog>header {display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;}
+.order-task-action-dialog h2 {font-size:20px;margin:0;}
+.order-task-action-dialog form>label {display:grid;gap:8px;}
+.order-task-action-dialog input {width:100%;min-width:0;box-sizing:border-box;}
+.order-task-action-dialog footer {display:flex;justify-content:flex-end;gap:10px;margin-top:24px;}

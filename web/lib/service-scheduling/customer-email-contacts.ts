@@ -22,7 +22,7 @@ export async function customerEmailContacts(scheduleId:string,actor:string,input
    const name=typeof input.name==='string'?input.name.trim():'',phone=typeof input.phone==='string'?input.phone.trim():'',job=typeof input.job_title==='string'?input.job_title.trim():'';
    let email;try{const emails=emailRecipients(input.email);if(emails.length!==1)throw Error('Informe somente um e-mail por contato.');email=emails[0];}catch(e){throw new CustomerEmailError((e as Error).message);}
    if(!name||name.length>160||job.length>160||phone.length>40||(phone&&!/^[+()\d\s.-]+$/.test(phone)))throw new CustomerEmailError('Confira o nome, cargo e telefone do contato.');
-   saved=(await c.query(`INSERT INTO web_customer_contacts(id,customer_key,name,phone,email,job_title,created_by) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(customer_key,name,phone) DO UPDATE SET email=EXCLUDED.email,job_title=EXCLUDED.job_title RETURNING id,name,phone,email,job_title`,[randomUUID(),key,name,phone,email,job,actor])).rows[0];
+   saved=(await c.query(`INSERT INTO web_customer_contacts(id,customer_key,name,phone,email,job_title,created_by) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(customer_key,name,phone) WHERE m8_id IS NULL DO UPDATE SET email=EXCLUDED.email,job_title=EXCLUDED.job_title RETURNING id,name,phone,email,job_title`,[randomUUID(),key,name,phone,email,job,actor])).rows[0];
   }
   const contacts=key?(await c.query('SELECT id,name,phone,email,job_title FROM web_customer_contacts WHERE customer_key=$1 ORDER BY lower(name),id',[key])).rows:[];
   const operations=(await c.query('SELECT id,position,status,document FROM web_service_operations WHERE schedule_id=$1 ORDER BY position',[scheduleId])).rows;

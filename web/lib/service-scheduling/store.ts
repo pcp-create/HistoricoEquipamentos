@@ -533,7 +533,7 @@ export async function mutateSchedule(b: any, email: string) {
         if(!admin)throw new Forbidden();
         if((await c.query("SELECT 1 FROM web_service_item_usage WHERE schedule_id=$1 AND ((allocations IS NULL AND operation_id=$2 AND COALESCE(withdrawn,0)>0) OR EXISTS(SELECT 1 FROM jsonb_array_elements(COALESCE(allocations,'[]')) a WHERE a->>'operationId'=$2::text AND (a->>'quantity')::numeric>0))",[schedule.id,operation.id])).rows.length)
           throw new ScheduleInputError('Devolva as peças retiradas nesta operação antes de excluí-la. Reenvie ao técnico para registrar a devolução.');
-        if((await c.query("SELECT 1 FROM web_field_time_requests WHERE operation_id=$1 AND status='pending'",[operation.id])).rows.length)
+        if((await c.query("SELECT 1 FROM web_field_time_requests WHERE operation_id=$1 AND status='pending' AND (to_jsonb(web_field_time_requests)->>'applied_at') IS NULL",[operation.id])).rows.length)
           throw new ScheduleInputError('Analise as solicitações de apontamento pendentes antes de excluir a operação.');
         const records:any={};
         for(const table of ['web_field_time_requests','web_field_events','web_field_sessions','web_field_material_checks'])
@@ -671,7 +671,7 @@ export async function mutateSchedule(b: any, email: string) {
       if (status !== "awaiting_review")
         throw new ScheduleInputError("A operação ainda não aguarda revisão.");
       if (await timeRequestsAvailable(c)) {
-        if ((await c.query("SELECT 1 FROM web_field_time_requests WHERE operation_id=$1 AND status='pending'", [operation.id])).rows.length)
+        if ((await c.query("SELECT 1 FROM web_field_time_requests WHERE operation_id=$1 AND status='pending' AND (to_jsonb(web_field_time_requests)->>'applied_at') IS NULL", [operation.id])).rows.length)
           throw new ScheduleInputError("Analise as solicitações de apontamento pendentes antes de concluir a revisão.");
       }
       try { document=await reviewChecklist(c,operation,schedule,config.document,email);

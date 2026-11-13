@@ -20,6 +20,7 @@ test('email contacts persist by customer across orders and prefill the ERP email
   INSERT INTO web_service_operations(schedule_id,position,document) VALUES(1,1,'{"checklistRun":{},"serviceType":"Corretiva","equipment":{"model":"GA22","serial":"ABC"}}');
   CREATE TABLE web_customer_contacts(id uuid,customer_key text,name text,phone text,created_by text,UNIQUE(customer_key,name,phone));`);
   await db.exec(readFileSync('sql/102_customer_contact_email.sql','utf8'));
+  await db.exec(readFileSync('sql/110_customer_contacts_m8.sql','utf8'));
   const initial=await customerEmailContacts('1','planner');assert.equal(initial.customerEmail.bodyHtml,'<p><strong>Olá {cliente}</strong></p>');assert.equal(initial.defaultEmail,'erp@example.com');assert.match(initial.reportFilename,/OS 123 - Cliente A - GA22 - SÉRIE ABC.pdf/);
   const input={name:'Ana',email:'ana@example.com',job_title:'Compras',phone:'47999999999'};
   await customerEmailContacts('1','planner',input);

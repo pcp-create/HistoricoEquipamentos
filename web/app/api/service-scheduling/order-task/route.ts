@@ -1,16 +1,19 @@
 import {requireUser,sameOrigin,Unauthorized,Forbidden} from '@/lib/auth';
+import {orderTaskActions,addOrderTaskAction} from '@/lib/tasks/order-actions';
 import {createOrderTask} from '@/lib/service-scheduling/order-task';
 import {TaskInputError} from '@/lib/tasks/store';
 import {OrderReportInputError,OrderReportConflict} from '@/lib/service-scheduling/order-report-store';
 export const runtime='nodejs';
 export const maxDuration=60;
 const json=(value:any,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
+export async function GET(){try{await requireUser();return json({actions:await orderTaskActions()});}catch(e){return json({error:e instanceof Unauthorized?'Sessão expirada.':'Não foi possível carregar as ações.'},e instanceof Unauthorized?401:503);}}
 export async function POST(req:Request){
  if(!sameOrigin(req))return json({error:'Origem inválida.'},403);
  try{
   const user=await requireUser();
   const text=await req.text();if(text.length>20000)return json({error:'Solicitação muito extensa.'},413);
   let body;try{body=JSON.parse(text);}catch{return json({error:'Solicitação inválida.'},400);}
+  if(body?.action==='add-action')return json(await addOrderTaskAction(body.name,user.email));
   return json(await createOrderTask(body,user.email));
  }catch(e){
   if(e instanceof Unauthorized)return json({error:'Sessão expirada.'},401);

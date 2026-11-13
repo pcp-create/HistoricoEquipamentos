@@ -1,9 +1,11 @@
+import { updateContactJob } from "@/lib/visits/contact-job";
 import { requireUser, sameOrigin, Forbidden, Unauthorized } from "@/lib/auth";
 import { AdminInputError } from "@/lib/admin-store";
 import {
   listCustomerContacts,
   createCustomerContact,
 } from "@/lib/visits/contacts";
+import { M8RequestError } from "@/lib/service-orders/m8";
 const json = (x: unknown, status = 200) =>
   Response.json(x, {
     status,
@@ -13,7 +15,7 @@ const fail = (e: unknown) =>
   json(
     {
       error:
-        e instanceof AdminInputError
+        e instanceof AdminInputError || e instanceof M8RequestError
           ? e.message
           : "Não foi possível acessar os contatos.",
     },
@@ -21,7 +23,7 @@ const fail = (e: unknown) =>
       ? 401
       : e instanceof Forbidden
         ? 403
-        : e instanceof AdminInputError
+        : e instanceof AdminInputError || e instanceof M8RequestError
           ? 400
           : 503,
   );
@@ -43,11 +45,39 @@ export async function POST(r: Request) {
   try {
     const u = await requireUser(),
       raw = await r.text();
-    if (raw.length > 2000) throw new AdminInputError("Dados excedem o limite.");
-    const b = JSON.parse(raw);
+    if (raw.length > 12000)
+      throw new AdminInputError("Dados excedem o limite.");
+    let b;
+    try {
+      b = JSON.parse(raw);
+    } catch {
+      throw new AdminInputError("Dados do contato inválidos.");
+    }
+    if (!b || typeof b !== "object" || Array.isArray(b))
+      throw new AdminInputError("Dados do contato inválidos.");
     return json({
       contact: await createCustomerContact(b.customer, b, u.email),
     });
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function PATCH(r: Request) {
+  if (!sameOrigin(r)) return json({ error: "Origem inválida." }, 403);
+  try {
+    const u = await requireUser(),
+      raw = await r.text();
+    if (raw.length > 3000) throw new AdminInputError("Dados excedem o limite.");
+    let b;
+    try {
+      b = JSON.parse(raw);
+    } catch {
+      throw new AdminInputError("Dados inválidos.");
+    }
+    if (!b || typeof b !== "object" || Array.isArray(b))
+      throw new AdminInputError("Dados inválidos.");
+    return json({ contact: await updateContactJob(b, u.email) });
   } catch (e) {
     return fail(e);
   }

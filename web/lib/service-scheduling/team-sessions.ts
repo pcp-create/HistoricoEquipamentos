@@ -79,7 +79,7 @@ export async function replicateTimeLog(body:any,email:string,planner=false) {
   const operation=(await c.query("SELECT * FROM web_service_operations WHERE id=$1 FOR UPDATE",[source.operation_id])).rows[0];
   if(!planner&&technicianTimeChangesLocked(operation,email))throw new TeamSessionError("Relatório enviado ou operação finalizada. Não é permitido replicar apontamentos.");
   if(!planner&&operation.document.responsible!==email && !operation.document.support?.includes(email))throw new Forbidden();
-  if((await c.query("SELECT 1 FROM web_field_time_requests WHERE session_id=$1 AND status='pending'",[source.id])).rows.length)throw new TeamSessionError("Aguarde a aprovação do ajuste antes de replicar.");
+  if((await c.query("SELECT 1 FROM web_field_time_requests WHERE session_id=$1 AND status='pending' AND (to_jsonb(web_field_time_requests)->>'applied_at') IS NULL",[source.id])).rows.length)throw new TeamSessionError("Aguarde a aprovação do ajuste antes de replicar.");
   const members=await selectedMembers(c,operation,source.actor,body.members,planner);
   const events=(await c.query("SELECT * FROM web_field_events WHERE document->>'sessionId'=$1 ORDER BY created_at,id",[source.id])).rows;
   let copied=0;

@@ -27,7 +27,7 @@ export async function deleteTimeLog(body:any,actor:string){
    if((await c.query('SELECT 1 FROM web_field_sessions WHERE legacy_event_id=$1 OR (operation_id=$2 AND actor=$3 AND finished_at=$4)',[events[0].id,events[0].operation_id,events[0].actor,events[0].created_at])).rows.length)throw new TimeRequestError('Use o apontamento correspondente na lista atualizada.');
   }
   const eventIds=events.map(e=>String(e.id));
-  if((await c.query("SELECT 1 FROM web_field_time_requests WHERE status='pending' AND (session_id=$1 OR legacy_event_id=ANY($2::bigint[]))",[session?.id||null,eventIds])).rows.length)throw new TimeRequestError('Há solicitação aguardando aprovação para este apontamento. Resolva-a antes de excluir.');
+  if((await c.query("SELECT 1 FROM web_field_time_requests WHERE status='pending' AND (to_jsonb(web_field_time_requests)->>'applied_at') IS NULL AND (session_id=$1 OR legacy_event_id=ANY($2::bigint[]))",[session?.id||null,eventIds])).rows.length)throw new TimeRequestError('Há solicitação aguardando aprovação para este apontamento. Resolva-a antes de excluir.');
   if(session&&(await c.query('SELECT 1 FROM web_field_sessions WHERE id<>$1 AND legacy_event_id=ANY($2::bigint[])',[session.id,eventIds])).rows.length)throw new TimeRequestError('Há outro registro vinculado a este apontamento. Atualize a lista.');
   const details={requestId:body.requestId,operationId:body.operationId,sessionId:body.sessionId||null,legacyEventId:body.legacyEventId||null,reason:body.reason.trim(),session,events};
   await c.query("INSERT INTO web_access_events(event,email,actor,details) VALUES('planner_time_log_deleted',$1,$1,$2)",[actor,JSON.stringify(details)]);
