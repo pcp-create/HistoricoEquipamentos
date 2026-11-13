@@ -121,7 +121,7 @@ export async function listCustomerContacts(
   }
   return (
     await db.query(
-      "SELECT c.id,c.name,c.phone,c.email,COALESCE(j.name,c.job_title) job_title,COALESCE(j.m8_id,c.cargo_id) cargo_id,c.m8_id,c.integration_state,c.job_version,c.job_type_override_id::text job_type_id FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE c.customer_key=$1 AND c.integration_state NOT IN ('sending','uncertain','failed') ORDER BY lower(c.name),c.id",
+      `SELECT c.id,COALESCE(c.field_overrides->>'name',c.name) name,COALESCE(c.field_overrides->>'phone',c.phone) phone,COALESCE(c.field_overrides->>'email',c.email) email,COALESCE(c.field_overrides->>'additional_phone',c.additional_phone) additional_phone,COALESCE(c.field_overrides->>'document',c.document) document,COALESCE(c.field_overrides->>'notes',c.notes) notes,c.contact_type,COALESCE(j.name,c.job_title) job_title,COALESCE(j.m8_id,c.cargo_id) cargo_id,c.m8_id,c.integration_state,c.job_version,c.job_type_override_id::text job_type_id FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE c.customer_key=$1 AND c.integration_state NOT IN ('sending','uncertain','failed') ORDER BY lower(COALESCE(c.field_overrides->>'name',c.name)),c.id`,
       [key],
     )
   ).rows;

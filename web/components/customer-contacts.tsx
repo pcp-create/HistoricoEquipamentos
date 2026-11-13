@@ -208,26 +208,27 @@ export default function CustomerContacts({
                 <small>
                   <strong className="contact-cargo-label">
                     Cargo
+
+                  </strong>
+                  {contactCargo(selectedContact) || "Não informado"}
+                </small>
+                <small>
+                  <strong>Telefone</strong>
+                  {contactPhone(selectedContact?.phone||phone)}
+                </small>
+                <small><strong>E-mail</strong>{selectedContact?.email?.trim() || "Não informado"}</small>
                     {selectedContact && (
                       <button
                         type="button"
                         className="contact-cargo-edit"
-                        aria-label="Editar cargo do contato"
-                        title="Editar cargo do contato"
+                        aria-label="Editar contato"
+                        title="Editar contato"
                         disabled={busy || adding}
                         onClick={() => setEditingCargo(true)}
                       >
                         <Pencil size={14} aria-hidden="true" />
                       </button>
                     )}
-                  </strong>
-                  {contactCargo(selectedContact) || "Não informado"}
-                </small>
-                <small>
-                  <strong>Telefone</strong>
-                  {contactPhone(phone)}
-                </small>
-                <small><strong>E-mail</strong>{selectedContact?.email?.trim() || "Não informado"}</small>
               </div>
             )}
           </>

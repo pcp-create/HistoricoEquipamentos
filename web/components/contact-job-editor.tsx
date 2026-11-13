@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { formatContactPhone } from "@/lib/contact-phone";
 import { X } from "lucide-react";
 export default function ContactJobEditor({
   customer,
@@ -15,6 +16,14 @@ export default function ContactJobEditor({
 }) {
   const dialog = useRef<HTMLDialogElement>(null),
     sending = useRef(false);
+  const [draft, setDraft] = useState({
+    name: contact.name || "",
+    phone: contact.phone || "",
+    email: contact.email || "",
+    additional_phone: contact.additional_phone || "",
+    document: contact.document || "",
+    notes: contact.notes || "",
+  });
   const [rows, setRows] = useState<any[]>([]),
     [selected, setSelected] = useState(""),
     [loading, setLoading] = useState(true),
@@ -54,7 +63,7 @@ export default function ContactJobEditor({
   async function save(e: React.FormEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (sending.current || !selected) return;
+    if (sending.current || !draft.name.trim()) return;
     sending.current = true;
     setBusy(true);
     setError("");
@@ -64,6 +73,7 @@ export default function ContactJobEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customer,
+          ...draft,
           contactId: contact.id,
           jobTypeId: selected,
           version: contact.job_version,
@@ -83,17 +93,17 @@ export default function ContactJobEditor({
     <dialog
       ref={dialog}
       className="linked-task-dialog customer-contact-dialog"
-      aria-label="Editar cargo do contato"
+      aria-label="Editar contato"
       onCancel={(e) => {
         if (busy) e.preventDefault();
         else onClose();
       }}
     >
       <header>
-        <h2>Editar cargo</h2>
+        <h2>Editar contato</h2>
         <button
           type="button"
-          aria-label="Fechar edição do cargo"
+          aria-label="Fechar edição do contato"
           disabled={busy}
           onClick={onClose}
         >
@@ -102,14 +112,46 @@ export default function ContactJobEditor({
       </header>
       <p>{contact.name}</p>
       <p>
-        A alteração será salva no portal. Para atualizar no M8, altere também o
-        cadastro no ERP.
+        As alterações serão salvas no sistema. Uma tarefa será encaminhada ao
+        responsável pelo vínculo manual de equipamentos para ajustar o cadastro
+        no M8.
       </p>
       <form onSubmit={save}>
         <label>
+          Nome do contato
+          <input
+            required
+            maxLength={160}
+            disabled={busy}
+            value={draft.name}
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          />
+        </label>
+        <label>
+          Telefone do contato
+          <input
+            type="tel"
+            maxLength={40}
+            disabled={busy}
+            value={draft.phone}
+            onChange={(e) =>
+              setDraft({ ...draft, phone: formatContactPhone(e.target.value) })
+            }
+          />
+        </label>
+        <label>
+          E-mail do contato
+          <input
+            type="email"
+            maxLength={254}
+            disabled={busy}
+            value={draft.email}
+            onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+          />
+        </label>
+        <label>
           Cargo do contato
           <select
-            required
             disabled={busy || loading}
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
@@ -137,13 +179,49 @@ export default function ContactJobEditor({
             e reabra esta janela.
           </p>
         )}
+        <label>
+          Telefone adicional
+          <input
+            type="tel"
+            maxLength={40}
+            disabled={busy}
+            value={draft.additional_phone}
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                additional_phone: formatContactPhone(e.target.value),
+              })
+            }
+          />
+        </label>
+        <label>
+          CPF/CNPJ do contato
+          <input
+            maxLength={20}
+            disabled={busy}
+            value={draft.document}
+            onChange={(e) => setDraft({ ...draft, document: e.target.value })}
+          />
+        </label>
+        <label>
+          Observação
+          <textarea
+            maxLength={2000}
+            disabled={busy}
+            value={draft.notes}
+            onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+          />
+        </label>
         {error && <p role="alert">{error}</p>}
         <footer>
           <button type="button" disabled={busy} onClick={onClose}>
             Cancelar
           </button>
-          <button type="submit" disabled={busy || loading || !selected}>
-            {busy ? "Salvando…" : "Salvar cargo"}
+          <button
+            type="submit"
+            disabled={busy || loading || !draft.name.trim()}
+          >
+            {busy ? "Salvando…" : "Salvar contato"}
           </button>
         </footer>
       </form>

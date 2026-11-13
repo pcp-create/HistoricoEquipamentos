@@ -242,7 +242,7 @@ export async function saveVisit(b: any, email: string,registerEquipment=register
       if (!/^\d+$/.test(String(purpose || "")) || !(await c.query("SELECT 1 FROM web_sales_visit_purposes WHERE id=$1 AND active FOR SHARE",[purpose])).rows.length)
         throw new AdminInputError("Selecione uma finalidade da visita ativa.");
       let selectedContact:any=null;
-      if(b.contact_id){if(!uuid.test(b.contact_id))throw new AdminInputError('Contato inválido.');selectedContact=(await c.query('SELECT id,name,phone FROM web_customer_contacts WHERE id=$1 AND customer_key=$2',[b.contact_id,key])).rows[0];if(!selectedContact)throw new AdminInputError('Selecione um contato deste cliente.');}
+      if(b.contact_id){if(!uuid.test(b.contact_id))throw new AdminInputError('Contato inválido.');selectedContact=(await c.query("SELECT id,COALESCE(to_jsonb(web_customer_contacts)->'field_overrides'->>'name',name) name,COALESCE(to_jsonb(web_customer_contacts)->'field_overrides'->>'phone',phone) phone FROM web_customer_contacts WHERE id=$1 AND customer_key=$2",[b.contact_id,key])).rows[0];if(!selectedContact)throw new AdminInputError('Selecione um contato deste cliente.');}
       else if(b.contact||b.phone)selectedContact=await storeContact(c,key,{name:b.contact,phone:b.phone},email);
       const at = instant(b.scheduled_at),
         contact = selectedContact?.name || text(b, "contact", 160, true),

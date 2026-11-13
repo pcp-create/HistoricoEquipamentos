@@ -12,10 +12,14 @@ Aplicar `web/sql/110_customer_contacts_m8.sql` e `web/sql/111_contact_job_types.
 
 Referência: https://api.integra.m8sistemas.com.br/swagger/v1/swagger.json — conferido em 12/11/2026.
 
-## Edição do cargo do contato
+## Edição dos dados do contato
 
-O ícone de lápis ao lado de Cargo abre uma janela para selecionar um tipo de cargo ativo. A alteração usa `PATCH /api/customer-contacts`, verifica o vínculo com o cliente, a permissão de acesso e a versão do registro. Nome, telefone e demais dados não são alterados. O ator e a data ficam registrados em `job_updated_by` e `job_updated_at`.
+O lápis abre uma janela para editar nome, cargo, telefone, e-mail, telefone adicional, CPF/CNPJ e observação. O tipo de novos contatos permanece Geral. A alteração usa `PATCH /api/customer-contacts`, verifica acesso ao cliente e versão do registro. Valores vazios permitem remover campos opcionais; dados anteriores incompletos não impedem editar outro campo.
 
-O Swagger consultado em 13/11/2026 oferece somente GET/POST para contatos, sem rota de atualização. Por isso, a janela informa que o cargo é alterado somente no portal. A escolha é armazenada separadamente (`job_type_override_id`) para não ser apagada pela próxima consulta ao ERP. Não é enviado um POST para simular edição.
+As alterações são locais, preservadas por `field_overrides` e `job_type_override_id` nas consultas posteriores ao ERP. O ator e a data ficam em `job_updated_by` e `job_updated_at`. Novas visitas e seleção de contatos para e-mail usam os dados locais atualizados; visitas antigas preservam seus registros históricos.
 
-A migração `113_customer_contact_job_override.sql` foi aplicada em 13/11/2026 e deve acompanhar a publicação.
+Cada edição com mudanças cria, na mesma transação, uma tarefa com origem **Ajuste de contato · Visitas**, cliente, identificação M8 do contato, solicitante e valores anteriores/novos. O responsável é o mesmo de **Visitas → Tarefas automáticas → Responsável pelo vínculo manual de equipamentos**; a tarefa usa a fila padrão de notificações. Se a configuração ou criação da tarefa falhar, a edição é desfeita. Salvar sem mudanças não gera tarefa.
+
+Não há envio de atualização ao M8: o responsável ajusta o cadastro manualmente. O contato continua usando os valores locais nas próximas sincronizações.
+
+A migração `web/sql/115_customer_contact_edits.sql` foi aplicada em 13/11/2026, adicionando somente a coluna de alterações locais, sem modificar contatos ou gerar tarefas reais. A migração acompanha esta versão do código. A migração 113 foi aplicada em 13/11/2026.

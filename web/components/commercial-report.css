@@ -719,3 +719,20 @@
 
 .cr-edit-actions { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .cr-edit-actions > .button { flex: 0 0 32px; }
+
+.cr-order-comment {position:relative;overflow:visible}
+.cr-comment-count {position:absolute;right:-6px;top:-7px;min-width:17px;height:17px;padding:0 4px;border-radius:10px;background:#e8f1fc;color:#245c92;border:1px solid #c8dcf4;font-size:10px;line-height:15px;text-align:center;font-weight:600}
+.cr-comment-sync {position:fixed;bottom:20px;right:20px;z-index:100;max-width:420px;padding:14px 18px;background:#fff;border:1px solid #c8dcf4;border-radius:12px;box-shadow:0 4px 20px #17395720;color:#245c92}
+.cr-comment-sync button {display:block;margin-top:8px}
+.cr-order-programming .history-programming-action.scheduled,
+.cr-order-programming .history-programming-action.awaiting_execution,
+.cr-order-programming .history-programming-action.executing {color:#2563b0}
+.cr-order-programming .history-programming-action.none,
+.cr-order-programming .history-programming-action.pending,
+.cr-order-programming .history-programming-action.planning,
+.cr-order-programming .history-programming-action.awaiting_review {color:#a57113}
+.cr-order-programming .history-programming-action.reviewed,
+.cr-order-programming .history-programming-action.completed,
+.cr-order-programming .history-programming-action.release_pending {color:#17834b}
+
+.cr-edit-actions > .button.cr-edit-disabled:disabled { background: #f3f4f6; border-color: #e5e7eb; color: #b8bec7; opacity: 1; cursor: default; box-shadow: none; }

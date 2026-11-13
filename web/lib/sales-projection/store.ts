@@ -1,3 +1,4 @@
+import {attachOrderCommentCounts} from "../service-orders/comments";
 import {flowOwnerRows} from "../service-scheduling/flow-responsibility";
 import {flowAreaFromRows} from "../service-scheduling/flow-responsibility-model";
 import {attachWorkshopAnnotations} from './workshop-annotations';
@@ -63,6 +64,7 @@ export async function salesProjection(period: string, closingDay?: string) {
   for (const detail of sales) {
     detail.programming = schedules.get(`${detail.fields?.sourceCompany || detail.company}:${detail.id}`);
   }
+  await attachOrderCommentCounts(sales);
   await attachWorkshopAnnotations(sales);
   await attachLinkedOrders(sales);
   const dates = sync.rows.map((r) => new Date(r.collected_at).getTime());

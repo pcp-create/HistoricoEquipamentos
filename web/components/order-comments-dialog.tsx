@@ -4,7 +4,7 @@ import {createPortal} from 'react-dom';
 import {X,MessageSquare} from 'lucide-react';
 import AutoResizeTextarea from './auto-resize-textarea';
 import './order-comments-dialog.css';
-export default function OrderCommentsDialog({company,order,number,onClose}:{company:string;order:string;number:string;onClose:()=>void}){
+export default function OrderCommentsDialog({company,order,number,onClose,onSave,onCount}:{company:string;order:string;number:string;onClose:()=>void;onSave?:(comment:string,requestId:string)=>void;onCount?:(total:number)=>void}){
  const dialog=useRef<HTMLDialogElement>(null),saving=useRef(false),loading=useRef(false),request=useRef<{id:string;text:string}|null>(null),abort=useRef<AbortController|null>(null);
  const [text,setText]=useState(''),[rows,setRows]=useState<any[]>([]),[more,setMore]=useState(false),[busy,setBusy]=useState(false),[reading,setReading]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  useEffect(()=>{const element=dialog.current!;element.showModal();void load();return()=>{abort.current?.abort();element.close();};},[]);
@@ -13,6 +13,7 @@ export default function OrderCommentsDialog({company,order,number,onClose}:{comp
   if(loading.current)return;loading.current=true;setReading(true);setError('');const controller=new AbortController();abort.current=controller;
   try{
    const response=await fetch('/api/service-orders/comments?'+new URLSearchParams({company,order,...(before?{before}:{})}),{cache:'no-store',signal:controller.signal});const data=await response.json();if(!response.ok)throw Error(data.error);
+   if(Number.isInteger(data.total))onCount?.(data.total);
    setRows(old=>before?[...old,...data.rows]:data.rows);setMore(data.hasMore);
   }catch(e){if(!controller.signal.aborted)setError((e as Error).message);}finally{loading.current=false;if(!controller.signal.aborted)setReading(false);}
  }
@@ -20,6 +21,7 @@ export default function OrderCommentsDialog({company,order,number,onClose}:{comp
   e.preventDefault();if(saving.current||!text.trim())return;saving.current=true;setBusy(true);setError('');setMessage('');
   if(request.current?.text!==text)request.current={id:crypto.randomUUID(),text};
   try{
+   if(onSave){onSave(text,request.current.id);onClose();return;}
    const response=await fetch('/api/service-orders/comments',{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(45000),body:JSON.stringify({company,order,comment:text,requestId:request.current.id})});const data=await response.json();if(!response.ok)throw Error(data.error);
    setText('');request.current=null;setMessage('Comentário registrado no histórico da OS.');await load();
   }catch(e){setError((e as Error).message||'Não foi possível confirmar o registro. Atualize os comentários antes de reenviar.');}finally{saving.current=false;setBusy(false);}

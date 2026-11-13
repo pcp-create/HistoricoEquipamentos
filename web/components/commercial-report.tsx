@@ -1,4 +1,5 @@
 "use client";
+import {useOrderCommentOutbox} from "./use-order-comment-outbox";
 import OrderCommentsDialog from "./order-comments-dialog";
 import {tableFilterValues} from "@/lib/table-filter-values";
 import { useEffect, useMemo, useState } from "react";
@@ -147,6 +148,7 @@ export default function CommercialReport({
   const [quickUpdates, setQuickUpdates] = useState<Record<string, { busy?: boolean; value?: string; error?: string }>>({});
   const quickKey = (row: Detail, field: string) => `${row.fields?.sourceCompany || row.company}:${row.id}:${field}`;
   const [quickEdit, setQuickEdit] = useState<{ row: Detail; field: "expected" | "flowStatus" } | null>(null);
+  const commentOutbox=useOrderCommentOutbox();
   const [commentRow,setCommentRow]=useState<Detail|null>(null);
   const [billingRow, setBillingRow] = useState<Detail | null>(null);
   const current = new Intl.DateTimeFormat("sv-SE", {
@@ -801,7 +803,7 @@ export default function CommercialReport({
                       {kind === "sales" && (
                         <td className="cr-edit">
                           <span className="cr-edit-actions">
-                          <button type="button" className="button cr-order-comment" title="Adicionar ou consultar comentários" aria-label={`Comentários da OS ${r.id}`} onClick={()=>setCommentRow(r)}><MessageSquare size={14} aria-hidden="true"/></button>
+                          <button type="button" className="button cr-order-comment" title={`Adicionar ou consultar comentários (${commentOutbox.counts[`${r.fields?.sourceCompany||r.company}:${r.id}`]??r.commentCount??0})`} aria-label={`Comentários da OS ${r.id}`} onClick={()=>setCommentRow(r)}><MessageSquare size={14} aria-hidden="true"/><span className="cr-comment-count" aria-hidden="true">{commentOutbox.counts[`${r.fields?.sourceCompany||r.company}:${r.id}`]??r.commentCount??0}</span></button>
                           {r.kind === "salesPending" ? (
                             <Link
                               className="button"
@@ -812,7 +814,7 @@ export default function CommercialReport({
                               <Pencil size={14} aria-hidden="true" />
                             </Link>
                           ) : (
-                            <span className="cr-readonly">Somente leitura</span>
+                            <button type="button" className="button cr-edit-disabled" disabled aria-label={`Editar OS ${r.id}`} title="Edição indisponível"><Pencil size={14} aria-hidden="true" /></button>
                           )}
                           </span>
                         </td>
@@ -838,7 +840,8 @@ export default function CommercialReport({
           </>
         )}
       </main>
-      {commentRow&&<OrderCommentsDialog company={String(commentRow.fields?.sourceCompany||commentRow.company)} order={String(commentRow.id)} number={String(commentRow.fields?.number||commentRow.id)} onClose={()=>setCommentRow(null)}/>}
+      {commentOutbox.pending>0&&<aside className="cr-comment-sync" role="status">{commentOutbox.error||`Enviando ${commentOutbox.pending} comentário(s) em segundo plano…`}{commentOutbox.error&&<button type="button" onClick={commentOutbox.retry}>Tentar enviar novamente</button>}</aside>}
+      {commentRow&&<OrderCommentsDialog onCount={total=>commentOutbox.setCount(`${commentRow.fields?.sourceCompany||commentRow.company}:${commentRow.id}`,total)} onSave={(comment,requestId)=>commentOutbox.enqueue({company:String(commentRow.fields?.sourceCompany||commentRow.company),order:String(commentRow.id),number:String(commentRow.fields?.number||commentRow.id),comment,requestId})} company={String(commentRow.fields?.sourceCompany||commentRow.company)} order={String(commentRow.id)} number={String(commentRow.fields?.number||commentRow.id)} onClose={()=>setCommentRow(null)}/>}
       <OrderBillingDialog
         row={billingRow}
         onClose={() => setBillingRow(null)}

@@ -22,6 +22,7 @@ export type Detail = {
   overdue?: boolean;
   sourceKind?: string;
   billing?: BillingCheck;
+  commentCount?: number;
   programming?: { id?: string; status: string; label: string };
   workshopComponents?:{visit:string;name:string;workshop:string}[];
   workshop?: { visit: string; name: string; stage: string; label: string; color: string; partsPending?: boolean };

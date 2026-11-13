@@ -68,7 +68,7 @@ export async function PATCH(r: Request) {
   try {
     const u = await requireUser(),
       raw = await r.text();
-    if (raw.length > 3000) throw new AdminInputError("Dados excedem o limite.");
+    if (raw.length > 12000) throw new AdminInputError("Dados excedem o limite.");
     let b;
     try {
       b = JSON.parse(raw);

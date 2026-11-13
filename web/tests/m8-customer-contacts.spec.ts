@@ -64,14 +64,16 @@ test("visits require ERP contact fields, keep errors in popup and select confirm
         customer: "m8:1",
         contactId: "contact-1",
         jobTypeId: "1",
+        name: "João Atualizado",phone:"(49) 99988-7766",email:"joao@example.com",notes:"Atualizar cadastro",
         version: 1,
       });
       return r.fulfill({
         json: {
           contact: {
             id: "contact-1",
-            name: "João",
-            phone: "0",
+            name: "João Atualizado",
+            phone: "(49) 99988-7766",
+            email:"joao@example.com",
             job_title: "Compras",
             cargo_id: 7,
             job_type_id: "1",
@@ -112,16 +114,20 @@ test("visits require ERP contact fields, keep errors in popup and select confirm
   await option.click();
   await expect(picker).toHaveValue("João");
   await page
-    .getByRole("button", { name: "Editar cargo do contato", exact: true })
+    .getByRole("button", { name: "Editar contato", exact: true })
     .click();
   const jobEditor = page.getByRole("dialog", {
-    name: "Editar cargo do contato",
+    name: "Editar contato",
     exact: true,
   });
-  await expect(jobEditor).toContainText("A alteração será salva no portal.");
+  await expect(jobEditor).toContainText("As alterações serão salvas no sistema.");
   await jobEditor.getByLabel("Cargo do contato").selectOption("1");
+  await jobEditor.getByLabel("Nome do contato").fill("João Atualizado");
+  await jobEditor.getByLabel("Telefone do contato",{exact:true}).fill("49999887766");
+  await jobEditor.getByLabel("E-mail do contato").fill("joao@example.com");
+  await jobEditor.getByLabel("Observação").fill("Atualizar cadastro");
   await jobEditor
-    .getByRole("button", { name: "Salvar cargo", exact: true })
+    .getByRole("button", { name: "Salvar contato", exact: true })
     .click();
   await expect(jobEditor).toHaveCount(0);
   await expect(page.locator(".customer-contact-summary")).toContainText(

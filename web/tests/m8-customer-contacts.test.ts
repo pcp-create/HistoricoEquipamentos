@@ -50,7 +50,7 @@ test("M8 listing preserves local IDs, confirmed writes, uncertain writes and lea
     old = g.historyPool;
   try {
     await db.exec(`CREATE TABLE web_user_access(email text,enabled boolean,role text);INSERT INTO web_user_access VALUES('a@test.com',true,'user'),('blocked@test.com',false,'user');
-   CREATE TABLE m8_customer_directory(person_id bigint,company_id int);INSERT INTO m8_customer_directory VALUES(10,1);
+   CREATE TABLE m8_customer_directory(person_id bigint,company_id int,name text DEFAULT 'Cliente');INSERT INTO m8_customer_directory(person_id,company_id) VALUES(10,1);
    CREATE TABLE web_sales_leads(id uuid,owner text);INSERT INTO web_sales_leads VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','a@test.com');
    CREATE ROLE anon;CREATE ROLE authenticated;CREATE TABLE web_customer_contacts(created_at timestamptz DEFAULT now(),id uuid PRIMARY KEY,customer_key text,name text,phone text,email text DEFAULT '',job_title text DEFAULT '',created_by text,UNIQUE(customer_key,name,phone));`);
     await db.exec(
@@ -67,6 +67,9 @@ test("M8 listing preserves local IDs, confirmed writes, uncertain writes and lea
     );
     await db.exec(readFileSync(new URL('../sql/112_contact_job_types_seed.sql',import.meta.url),'utf8').split('INSERT INTO')[0]+'COMMIT;');
     await db.exec(readFileSync(new URL('../sql/113_customer_contact_job_override.sql',import.meta.url),'utf8'));
+    await db.exec(readFileSync(new URL('../sql/115_customer_contact_edits.sql',import.meta.url),'utf8'));
+    await db.exec(`ALTER TABLE web_user_access ADD COLUMN phone text DEFAULT '49999999999';INSERT INTO web_user_access(email,enabled,role) VALUES('responsible@test.com',true,'user');CREATE TABLE web_visit_automation_settings(id boolean,equipment_assignee text);INSERT INTO web_visit_automation_settings VALUES(true,'responsible@test.com');CREATE TABLE web_tasks(id bigint GENERATED ALWAYS AS IDENTITY,origin text,customer text,description text,assigned_to text);`);
+    const writeTask:any=async(body:any,_actor:any,transaction:any)=>({task:(await transaction.query('INSERT INTO web_tasks(description,assigned_to) VALUES($1,$2) RETURNING id',[body.description,body.assignedTo])).rows[0]});
     const query = async (sql: string, args?: any[]) => {
       if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
       return db.query(sql, args);
@@ -236,12 +239,17 @@ test("M8 listing preserves local IDs, confirmed writes, uncertain writes and lea
     );
     const alternate=await saveJobType({name:'Fiscal',m8_id:15,active:true},'a@test.com');
     const beforeWrites=writes;
-    const updated=await updateContactJob({customer:'m8:10',contactId:saved.id,jobTypeId:alternate.id,version:1},'a@test.com');
+    const updated=await updateContactJob({customer:'m8:10',contactId:saved.id,jobTypeId:alternate.id,version:1,name:'Ana Atualizada',phone:'49999887766',email:'nova@example.com',additional_phone:'4933221100',document:'12345678901',notes:'Dados atualizados'},'a@test.com',writeTask);
     assert.equal(updated.job_title,'Fiscal');assert.equal(updated.job_version,2);
+    const task:any=(await query('SELECT * FROM web_tasks')).rows[0];assert.equal(task.assigned_to,'responsible@test.com');assert.match(task.description,/Ana Atualizada/);assert.match(task.description,/nova@example.com/);assert.match(task.description,/Solicitante: a@test.com/);assert.equal(task.origin,'Ajuste de contato · Visitas');
+    await updateContactJob({customer:'m8:10',contactId:saved.id,jobTypeId:alternate.id,version:2,name:'Ana Atualizada'},'a@test.com',writeTask);assert.equal((await query('SELECT * FROM web_tasks')).rows.length,1);
+    await assert.rejects(()=>updateContactJob({customer:'m8:10',contactId:saved.id,version:2,name:'Não deve salvar'},'a@test.com',async()=>{throw Error('Falha da tarefa')}),/Falha da tarefa/);
+    assert.equal(((await query('SELECT job_version FROM web_customer_contacts WHERE id=$1',[saved.id])).rows[0] as any).job_version,2);
+
     await assert.rejects(()=>updateContactJob({customer:'m8:10',contactId:saved.id,jobTypeId:alternate.id,version:1},'a@test.com'),/alterado/);
     await assert.rejects(()=>updateContactJob({customer:'m8:10',contactId:saved.id,jobTypeId:alternate.id,version:2},'blocked@test.com'));
     const refreshed=(await listCustomerContacts('m8:10','a@test.com',session)).find(c=>c.id===saved.id)!;
-    assert.equal(refreshed.job_title,'Fiscal');assert.equal(refreshed.cargo_id,15);assert.equal(refreshed.job_version,2);assert.equal(writes,beforeWrites);
+    assert.equal(refreshed.name,'Ana Atualizada');assert.equal(refreshed.phone,'49999887766');assert.equal(refreshed.email,'nova@example.com');assert.equal(refreshed.notes,'Dados atualizados');assert.equal(refreshed.job_title,'Fiscal');assert.equal(refreshed.cargo_id,15);assert.equal(refreshed.job_version,2);assert.equal(writes,beforeWrites);
     const lead = await createCustomerContact(
       "lead:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       { name: "Lead", phone: input.phone },

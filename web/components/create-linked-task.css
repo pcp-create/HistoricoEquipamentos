@@ -96,3 +96,6 @@
 .visit-contacts .contact-cargo-edit:hover {background:#edf5fc;border-color:#d4e1ec;color:#245e91;}
 .visit-contacts .contact-cargo-edit:focus-visible {outline:2px solid #6e9ec8;outline-offset:2px;}
 .customer-contact-summary small {min-width:0;overflow-wrap:anywhere;}
+
+.customer-contact-summary {position:relative;padding-right:38px;}
+.customer-contact-summary > .contact-cargo-edit {position:absolute;right:0;top:50%;transform:translateY(-50%);}

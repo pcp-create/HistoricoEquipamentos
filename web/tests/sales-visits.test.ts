@@ -1,3 +1,4 @@
+import {updateContactJob} from "../lib/visits/contact-job";
 import {M8RequestError} from '../lib/service-orders/m8';
 import {registerMachine,listMachines,saveMachineSettings,machineSettings} from '../lib/visits/machine-registration';
 import {createCustomerContact,listCustomerContacts} from "../lib/visits/contacts";
@@ -291,6 +292,7 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     await db.exec(readFileSync(new URL('../sql/112_contact_job_types_seed.sql',import.meta.url),'utf8').split('INSERT INTO')[0]+'COMMIT;');
     await db.exec("INSERT INTO web_contact_job_types(name,m8_id,updated_by) VALUES('Compras',7,'test')");
     await db.exec(readFileSync(new URL('../sql/113_customer_contact_job_override.sql',import.meta.url),'utf8'));
+    await db.exec(readFileSync(new URL('../sql/115_customer_contact_edits.sql',import.meta.url),'utf8'));
     const contactSession:any=async()=>async(_path:string,body?:any)=>body?{id:45}:[];
     const contact=await createCustomerContact("m8:1",{name:"Contato reutilizável",phone:"49999999999",email:"contato@example.com",job_type_id:"1"},"a@test.com",contactSession);
     assert.ok((await listCustomerContacts("m8:1","tech@test.com",contactSession)).some(c=>c.id===contact.id));
@@ -338,6 +340,13 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     await assert.rejects(()=>saveMachineSettings('a@test.com','b@test.com'),/WhatsApp/);
     await saveMachineSettings('a@test.com','tech@test.com');
     assert.equal((await machineSettings('a@test.com')).equipmentAssignee,'tech@test.com');
+    const contactEdit=await updateContactJob({customer:'m8:1',contactId:contact.id,version:1,name:'Contato ajustado',email:'novo@example.com'},'a@test.com');
+    assert.equal(contactEdit.job_version,2);
+    const contactTask=(await db.query<any>("SELECT * FROM web_tasks WHERE origin='Ajuste de contato · Visitas'")).rows[0];
+    assert.equal(contactTask.assigned_to,'tech@test.com');assert.equal(contactTask.customer,'Cliente A');
+    assert.equal((await db.query<any>('SELECT recipient FROM web_task_notifications WHERE task_id=$1',[contactTask.id])).rows[0].recipient,'tech@test.com');
+    assert.match((await db.query<any>('SELECT description FROM web_task_notes WHERE task_id=$1',[contactTask.id])).rows[0].description,/novo@example.com/);
+
     assert.equal((await registerEquipment(registration,{email:'a@test.com'} as any)).taskId,machine.taskId);
     assert.equal((await listMachines('m8:5','tech@test.com')).length,0);
     assert.equal(Number((await db.query<any>('SELECT meter FROM web_visit_machine_registrations WHERE id=$1',[registration.requestId])).rows[0].meter),1234.5);

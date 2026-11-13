@@ -25,7 +25,7 @@ export default function VisitAutomationSettings() {
       <h2>Tarefas automáticas</h2>
       <p>
         Responsável por receber as solicitações de vínculo de máquinas ao cliente
-        registradas nas visitas.
+        registradas nas visitas e os ajustes manuais dos contatos de clientes.
       </p>
       <label>
         Responsável pelo vínculo manual de equipamentos

@@ -7,5 +7,5 @@ function failure(e:unknown){return json({error:e instanceof Unauthorized?'Sessã
 export async function GET(request:Request){try{await requireUser();const p=new URL(request.url).searchParams;return json(await orderComments(p.get('company')||'',p.get('order')||'',p.get('before')));}catch(e){return failure(e);}}
 export async function POST(request:Request){
  if(!sameOrigin(request))return json({error:'Origem inválida.'},403);
- try{const user=await requireUser();const raw=await request.text();if(raw.length>20000)throw new OrderInputError('Comentário muito extenso.');let body;try{body=JSON.parse(raw);}catch{throw new OrderInputError('Dados inválidos.');}return json(await addOrderComment(body,user.email),201);}catch(e){return failure(e);}
+ try{const user=await requireUser();const raw=await request.text();if(raw.length>20000)throw new OrderInputError('Comentário muito extenso.');let body;try{body=JSON.parse(raw);}catch{throw new OrderInputError('Dados inválidos.');}if(body.ownerId&&body.ownerId!==user.id)throw new Forbidden();return json(await addOrderComment(body,user.email),201);}catch(e){return failure(e);}
 }
