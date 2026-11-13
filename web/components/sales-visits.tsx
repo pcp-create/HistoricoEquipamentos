@@ -252,13 +252,13 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
   const matches = (c: VisitCustomer) =>
     matchesSearch(fold(`${c.name} ${c.tradeName || ""} ${c.document} ${c.city} ${c.uf}`), fold(query));
   const filtered = useMemo(() => customers.filter(
-    (c) => matchesSearch(fold(`${c.name} ${c.tradeName || ""} ${c.document} ${c.city} ${c.uf}`), fold(query)) && (filter === "all" || (filter === "leads" ? c.lead : c.health === filter)),
+    (c) => matchesSearch(fold(`${c.name} ${c.tradeName || ""} ${c.document} ${c.city} ${c.uf}`), fold(query)) && (filter === "all" || (filter === "leads" ? c.lead : !c.lead && c.health === filter)),
   ), [customers, query, filter]);
   const listCustomers = filtered.filter(c=>listMode === "disqualified" ? !!c.disqualification : !c.disqualification && (listMode === "leads" ? c.lead : !c.lead));
   const customerMap = new Map(customers.map((c) => [c.key, c]));
   const visitRows = visits.filter((v) => {
     const c = customerMap.get(v.customer_key);
-    return c && matches(c) && (filter === "all" || (filter === "leads" ? c.lead : c.health === filter));
+    return c && matches(c) && (filter === "all" || (filter === "leads" ? c.lead : !c.lead && c.health === filter));
   });
   const calendarVisits=visitRows.filter(v=>calendarStatus==='all'||v.status===calendarStatus);
   const completed = visits.filter((v) => v.status === "completed"),
@@ -827,12 +827,12 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
                       <VisitCustomerSwipe key={c.key} customer={c} online={online} onSaved={reload}>
                       <article
                         key={c.key}
-                        className={"sales-customer " + c.health}
+                        className={"sales-customer " + (c.lead && planned.some(v => v.customer_key === c.key) ? "scheduled" : c.health)}
                       >
                         <div className="sales-between">
                           <strong>{c.name}</strong>
-                          <span className={"sales-badge " + c.health}>
-                            {healthLabels[c.health]}
+                          <span className={"sales-badge " + (c.lead && planned.some(v => v.customer_key === c.key) ? "scheduled" : c.health)}>
+                            {c.lead && planned.some(v => v.customer_key === c.key) ? "Agendada" : healthLabels[c.health]}
                           </span>
                         </div>
                         <p>

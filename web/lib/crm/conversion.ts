@@ -1,3 +1,4 @@
+import {proposalOrderDraft} from './financials';
 import 'server-only';
 import {database} from '../db';
 import {prepareOrder,advanceOrder,retryOrder} from '../service-orders/store';
@@ -41,7 +42,7 @@ export async function beginConversion(raw:any,actor:string,deps=defaults){
  await c.query(`INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,'conversion_requested',$4::jsonb)`,[p.opportunity_id,proposal,actor,JSON.stringify({link:id,type:draft.type})]);
  return created;
  });
- try{return await recordResult(link,await deps.prepare(actor,link.submission_id,link.document));}
+ try{return await recordResult(link,await deps.prepare(actor,link.submission_id,proposalOrderDraft(link.document)));}
  catch(e){
  if(e instanceof OrderInputError){
  await transaction(async c=>{
@@ -60,6 +61,6 @@ export async function continueConversion(raw:any,actor:string,deps=defaults){
  if(raw.confirmed!==true)throw new CrmError('Confira o resultado no M8 antes de reenviar.');
  return recordResult(link,await deps.retry(actor,link.submission_id,raw.updatedAt,true));
  }
- if(link.state==='preparing')return recordResult(link,await deps.prepare(actor,link.submission_id,link.document));
+ if(link.state==='preparing')return recordResult(link,await deps.prepare(actor,link.submission_id,proposalOrderDraft(link.document)));
  return recordResult(link,await deps.advance(actor,link.submission_id));
 }

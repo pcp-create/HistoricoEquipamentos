@@ -1,4 +1,7 @@
 "use client";
+import CrmProductCosts from "./crm-product-costs";
+import {applyAverageCosts} from "@/lib/crm/product-cost-model";
+import CrmProposalSummary from "./crm-proposal-summary";
 import CrmProposalItems from "./crm-proposal-items";
 import EquipmentWarrantyAlert from "./equipment-warranty-alert";
 import EquipmentCreateDialog from "./equipment-create-dialog";
@@ -64,7 +67,7 @@ export default function NewServiceOrder({
   editing, returnTo, proposal,
 }: { returnTo?: string; editing?: { company: string; id: string }; proposal?: {
  title:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
- tools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
+ typeControl?:React.ReactNode;orderType?:string;tools?:React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
 } } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
   const [equipmentPending,setEquipmentPending]=useState(false);
@@ -101,7 +104,7 @@ export default function NewServiceOrder({
     try {
       if (proposal) {
         const m=await api(undefined,"?lookup=metadata");
-        setMeta({...m,types:m.types.filter((t:any)=>proposal.orderTypes.includes(String(t.id)))});
+        setMeta(m);
         setForm(proposal.draft);setNames(proposal.names);return;
       }
       if (editing) {
@@ -166,6 +169,7 @@ export default function NewServiceOrder({
     }
   }
   useEffect(() => { void load(); }, []);
+  useEffect(()=>{if(proposal&&meta&&proposal.orderType!==undefined)setForm(current=>current.type===proposal.orderType?current:{...current,type:proposal.orderType!});},[proposal?.orderType,meta]);
   useEffect(()=>{if(proposal&&meta)proposal.onDirty?.(JSON.stringify(form)!==JSON.stringify(proposal.draft)||JSON.stringify(names)!==JSON.stringify(proposal.names));},[form,names,meta]);
   const openingDate=editing?editData?.openingDate||'':openedAt?new Date(openedAt).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'';
   const openingTime=editing?editData?.openingTime||'':openedAt?new Date(openedAt).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour12:false}):'';
@@ -258,7 +262,7 @@ export default function NewServiceOrder({
     if(proposal){
       if(proposal.locked)return;
       sending.current=true;setBusy(true);
-      try{await proposal.onSave(form,names);}catch(e){setError((e as Error).message);}finally{sending.current=false;setBusy(false);}
+      try{await proposal.onSave({...form,commercial:{...form.commercial,sellerName:sellers.find((r:any)=>String(r.id)===form.seller)?.name||form.commercial?.sellerName||'',paymentName:registry('payment-terms').find((r:any)=>String(r.id)===form.payment)?.name||'',freightName:registry('freight').find((r:any)=>String(r.id)===form.freight)?.name||''}},names);}catch(e){setError((e as Error).message);}finally{sending.current=false;setBusy(false);}
       return;
     }
     try {
@@ -439,10 +443,33 @@ export default function NewServiceOrder({
       {extra && <small>{extra}</small>}
     </label>
   );
+  const companyField=(<div className="os-company">
+              <label>
+                <span className="os-field-title">
+                  Empresa <b>*</b>
+                </span>
+                <OrderSearchSelect
+                  label="Empresa"
+                  disabled={Boolean(editing||proposal)}
+                  value={form.company}
+                  placeholder="Selecione a empresa para cadastrar"
+                  options={["1", "2", "27404"].map((id) => ({
+                    id,
+                    name: companyName(id),
+                  }))}
+                  onChange={(r) => choose("company", r.id)}
+                />
+              </label>
+              <span>
+                {proposal ? "Empresa definida na oportunidade." : editing
+                  ? "Empresa da OS existente."
+                  : "A OS será criada na empresa selecionada."}
+              </span>
+            </div>);
   return (
     <>
       <SiteHeader active={proposal?"crm":"history"} />
-      <main className="new-os">
+      <main className={proposal?"new-os crm-proposal-page":"new-os"}>
         <Link href={returnTo || "/historico"} className="os-back">
           <ArrowLeft size={16} /> {proposal ? "Voltar ao CRM" : returnTo ? "Voltar às vendas" : "Ordens de Serviço"}
         </Link>
@@ -479,7 +506,7 @@ export default function NewServiceOrder({
             )}
           </div>
         </header>
-        {proposal?.tools}
+
         {!meta && (
           <p>
             Carregando cadastros…{" "}
@@ -560,6 +587,12 @@ export default function NewServiceOrder({
             )}
           </section>
         )}
+        {proposal&&<CrmProductCosts company={form.company} items={form.items} onCosts={(company,costs)=>setForm(current=>{
+          if(current.company!==company)return current;const items=applyAverageCosts(current.items,costs);
+          return JSON.stringify(items)===JSON.stringify(current.items)?current:{...current,items};
+        })}/>}
+        {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}</button>)}</nav>}
+        {proposal&&<div hidden={tab!=='header'&&tab!=='summary'}>{tab==='summary'?proposal.summaryTools:proposal.tools}</div>}
         <form onSubmit={submit} noValidate>
           <fieldset
             disabled={
@@ -570,30 +603,8 @@ export default function NewServiceOrder({
             }
             className="os-form-fields"
           >
-            <div className="os-company">
-              <label>
-                <span className="os-field-title">
-                  Empresa <b>*</b>
-                </span>
-                <OrderSearchSelect
-                  label="Empresa"
-                  disabled={Boolean(editing||proposal)}
-                  value={form.company}
-                  placeholder="Selecione a empresa para cadastrar"
-                  options={["1", "2", "27404"].map((id) => ({
-                    id,
-                    name: companyName(id),
-                  }))}
-                  onChange={(r) => choose("company", r.id)}
-                />
-              </label>
-              <span>
-                {proposal ? "Empresa definida na oportunidade." : editing
-                  ? "Empresa da OS existente."
-                  : "A OS será criada na empresa selecionada."}
-              </span>
-            </div>
-            <nav className="os-tabs" aria-label="Dados da nova OS">
+            {!proposal&&companyField}
+            {!proposal&&<nav className="os-tabs" aria-label="Dados da nova OS">
               {[
                 ["header", "Cabeçalho"],
                 ["material", "Produtos"],
@@ -607,15 +618,17 @@ export default function NewServiceOrder({
                   onClick={() => setTab(key)}
                 >
                   {label}
-                  {key !== "header" &&
+                  {["material","service"].includes(key) &&
                     ` (${form.items.filter((i) => i.kind === key).length})`}
                 </button>
               ))}
-            </nav>
+            </nav>}
             <fieldset disabled={!form.company || Boolean(proposal?.locked)} className="os-form-fields">
-              <div hidden={tab !== "header"}>
+              <div className={proposal?"crm-proposal-header":undefined} hidden={tab !== "header"}>
+
                 <div className="os-grid">
-                  {select("type", "Tipo Ordem de Serviço", meta?.types || [])}
+                  {proposal&&companyField}
+                  {proposal?proposal.typeControl:select("type", "Tipo Ordem de Serviço", meta?.types || [])}
                   <label>
                     <span className="os-field-title">
                       Cliente <b>*</b>
@@ -638,6 +651,7 @@ export default function NewServiceOrder({
                       Equipamento {!equipmentOptionalForOrderType(form.type,type?.equipment_required) && <b>*</b>}
                     </span>
                     <div className="os-equipment-create-row">
+                    <div className="os-equipment-select">
                     <OrderSearchSelect
                       label="Equipamento"
                       value={form.equipment}
@@ -657,6 +671,8 @@ export default function NewServiceOrder({
                         setNames((n) => ({ ...n, equipment: r.name }));
                       }}
                     />
+                    <div className="os-equipment-warranty"><EquipmentWarrantyAlert equipmentId={form.equipment} company={editing?.company} orderId={editing?.id} compact hover/></div>
+                    </div>
                     {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&form.equipment&&<button type="button" disabled={disabled} onClick={()=>{set('equipment','');setNames(names=>({...names,equipment:''}));setEquipmentPending(false);}}>Sem equipamento</button>}
                     {!proposal&&<button type="button" className="os-add-equipment" aria-label="Cadastrar equipamento" title="Cadastrar equipamento" disabled={!form.customer||!form.type} onClick={()=>setAddingEquipment(true)}><Plus size={18}/></button>}</div>
                     {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&<small>Equipamento opcional conforme a configuração do tipo de OS.</small>}
@@ -669,7 +685,6 @@ export default function NewServiceOrder({
                           : "Selecione um tipo de OS atualizado"}
                     </small>
                   </label>
-                  <div className="os-warranty-notice"><EquipmentWarrantyAlert equipmentId={form.equipment} company={editing?.company} orderId={editing?.id}/></div>
                   {select(
                     "serviceType",
                     "Tipo Atendimento",
@@ -694,13 +709,13 @@ export default function NewServiceOrder({
                     "Condição de Pagamento",
                     registry("payment-terms"),
                   )}
-                  <label>
+                  <label hidden={!!proposal}>
                     <span className="os-field-title">
                       Data Abertura <b>*</b>
                     </span>
                     <input readOnly value={openingDate} placeholder={editing?"Não informada":"Definida ao criar a OS"} />
                   </label>
-                  <label>
+                  <label hidden={!!proposal}>
                     <span className="os-field-title">
                       Hora Abertura <b>*</b>
                     </span>
@@ -778,6 +793,7 @@ export default function NewServiceOrder({
                   </label>
                 </div>
               </div>
+              {proposal&&tab==='header'&&<section className="crm-form-grid" aria-label="Condições comerciais da proposta">{[['contact','Contato'],['phone','Telefone do contato'],['validity','Validade da proposta'],['sellerEmail','E-mail do vendedor'],['sellerPhone','Telefone do vendedor'],['carrier','Transportadora']].map(([key,label])=><label key={key}>{label}<input maxLength={500} value={form.commercial?.[key]??(key==='validity'?'15 dias úteis':'')} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,[key]:e.target.value}}))}/></label>)}</section>}
               {proposal&&tab==="header"&&<button type="button" className="primary" onClick={()=>setTab("material")}>Continuar para Produtos</button>}
               <details className="os-extra" hidden={tab !== "header"}>
                 <summary>Outras informações (opcionais)</summary>
@@ -862,7 +878,9 @@ export default function NewServiceOrder({
                   ))}
                 </div>
               </details>
-              {proposal&&<CrmProposalItems active={tab!=="header"} kind={tab==="service"?"service":"material"} customer={form.customer} equipment={form.equipment} company={form.company} items={form.items} disabled={disabled||!!proposal.locked} onChange={items=>setForm(f=>({...f,items}))}/>}
+              {proposal&&<CrmProposalItems active={tab==="material"||tab==="service"} kind={tab==="service"?"service":"material"} customer={form.customer} equipment={form.equipment} company={form.company} items={form.items} disabled={disabled||!!proposal.locked} onChange={items=>setForm(f=>({...f,items}))}/>}
+              {proposal&&tab==="summary"&&<CrmProposalSummary draft={form} names={names} disabled={disabled||!!proposal.locked} onChange={items=>setForm(current=>({...current,items}))}/>}
+              {proposal&&tab==="service"&&<button type="button" className="primary" onClick={()=>setTab("summary")}>Continuar para Resumo geral</button>}
               {proposal&&tab==="material"&&<button type="button" className="primary" onClick={()=>setTab("service")}>Continuar para Serviços</button>}
               {!proposal&&["material", "service"].map((kind) => (
                 <div key={kind} hidden={tab !== kind}>

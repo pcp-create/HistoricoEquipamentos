@@ -18,6 +18,11 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  });
  await page.route('**/api/crm*',async r=>{
   const p=new URL(r.request().url()).searchParams;
+  if(r.request().method()==='GET'&&p.has('productCosts'))return r.fulfill({json:{rows:[{code:'50',unit:'UN',unitCost:'5',costAt:'2026-11-13T12:00:00.000Z'}]}});
+  if(r.request().method()==='GET'&&['leads','customers','contacts','proposals','orders'].includes(p.get('kind')||'')){
+   const kind=p.get('kind');const row=kind==='proposals'?{...proposal,type_name:'Preventiva Avulsa',order_count:0,updated_at:new Date().toISOString()}:kind==='orders'?{id:'order-1',order_id:800,proposal_id:proposalId,proposal_number:1,opportunity_id:opportunityId,opportunity_number:1,company_id:1,customer_name:'Cliente Teste',status:'complete',updated_at:new Date().toISOString()}:kind==='contacts'?{id:'contact-1',name:'Contato CRM',customer_name:'Cliente Teste',phone:'49999999999',email:'contato@example.com',job_title:'Compras'}:{id:'1',name:kind==='leads'?'Lead CRM':'Cliente CRM',owner_name:'Vendedor',document:'123',city:'Lages',uf:'SC',email:'cliente@example.com'};
+   return r.fulfill({json:{rows:[row],total:1,page:1}});
+  }
   if(r.request().method()==='GET')return r.fulfill({json:p.has('catalogs')?catalog:p.has('overview')?{opportunities:1,proposals:1,orders:0,converted:0,conversion:0}:p.has('opportunity')?op:p.has('proposal')?proposal:{rows:[{...op,type_name:'Manutenção',proposal_count:1,order_count:0,updated_at:new Date().toISOString()}],total:1,page:1}});
   const b=r.request().postDataJSON();writes.push(b);
   if(b.action==='save-opportunity')return r.fulfill({json:op});
@@ -29,12 +34,18 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  });
  await page.goto('/crm');
  await expect(page.getByRole('heading',{name:'CRM',exact:true})).toBeVisible();
- await expect(page.getByRole('navigation',{name:'Listas do CRM'}).getByRole('button')).toHaveCount(3);
+ await expect(page.getByRole('navigation',{name:'Listas do CRM'}).getByRole('button')).toHaveCount(6);
+ await expect(page.getByRole('button',{name:'OP-1 · Manutenção do cliente'})).toBeVisible();
  await page.screenshot({path:'/tmp/crm-dashboard-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
  await page.screenshot({path:'/tmp/crm-dashboard-mobile.png',fullPage:true});
  await page.setViewportSize({width:1440,height:1080});
+ for(const [tab,text] of [['Leads','Lead CRM'],['Clientes','Cliente CRM'],['Contatos','Contato CRM'],['Propostas','PROP-1'],['Pedidos (OSs)','OS-800']]){
+  await page.getByRole('navigation',{name:'Listas do CRM'}).getByRole('button',{name:tab,exact:true}).click();
+  await expect(page.locator('.crm-records tbody')).toContainText(text);
+ }
+ await page.getByRole('navigation',{name:'Listas do CRM'}).getByRole('button',{name:'Oportunidades',exact:true}).click();
  await page.getByRole('button',{name:'OP-1 · Manutenção do cliente'}).click();
  const dialog=page.getByRole('dialog');
  await dialog.getByLabel('Tipo de proposta *').selectOption('1');
@@ -43,8 +54,8 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  await expect(page).toHaveURL('/crm/propostas/'+proposalId);
  await expect(page.getByRole('heading',{name:'Proposta comercial PROP-1'})).toBeVisible();
  await expect(page.getByRole('combobox',{name:'Vendedor',exact:true})).toHaveValue(/Vendedor manual/);
- await page.getByRole('combobox',{name:'Tipo Ordem de Serviço',exact:true}).click();
- await page.locator('button[role=option]').filter({hasText:'Preventiva'}).click();
+ await expect(page.getByRole('combobox',{name:'Tipo Ordem de Serviço',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('combobox',{name:'Tipo de proposta',exact:true})).toHaveValue('1');
  await page.getByLabel('Observações',{exact:false}).first().fill('Proposta local');
  await expect(page.getByRole('button',{name:'Concretizar e gerar OS'})).toBeDisabled();
  await page.getByRole('button',{name:'Salvar proposta',exact:true}).click();
@@ -55,14 +66,28 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  await product.getByRole('checkbox').check();
  await product.getByRole('button',{name:/Usar venda M8/}).click();
  await product.getByRole('spinbutton',{name:'Quantidade',exact:true}).fill('2');
+ await expect(product.getByLabel('Custo unitário: Filtro histórico',{exact:true})).toHaveCount(0);
+ await expect(product.locator('.crm-item-financials')).toContainText('R$ 5,00');
  await page.getByRole('button',{name:'Continuar para Serviços',exact:true}).click();
  const service=page.locator('.crm-quote-item').filter({has:page.getByRole('checkbox',{name:'Incluir Revisão histórica',exact:true})});
  await service.getByRole('checkbox').check();
  await service.getByRole('button',{name:/Usar venda M8/}).click();
  await service.getByLabel('Observação interna: Revisão histórica',{exact:true}).fill('Verificar orçamento');
+ await service.getByLabel('Custo unitário: Revisão histórica',{exact:true}).fill('10.00');
+ await page.getByRole('button',{name:'Continuar para Resumo geral',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Resumo geral',exact:true})).toBeVisible();
+ await expect(page.locator('.crm-summary-table')).toHaveCount(2);
+ await page.getByRole('spinbutton',{name:'Desconto (%): Filtro histórico',exact:true}).fill('10');
+ await expect(page.locator('.crm-summary-table').first()).toContainText('R$ 21,60');
+
+ await page.screenshot({path:'/tmp/crm-summary-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ await page.screenshot({path:'/tmp/crm-summary-mobile.png',fullPage:true});
+ await page.setViewportSize({width:1440,height:1080});
  await page.getByRole('button',{name:'Salvar proposta',exact:true}).click();
  await expect.poll(()=>writes.filter(w=>w.action==='save-proposal').length).toBe(2);
- expect(writes.filter(w=>w.action==='save-proposal')[1].draft.items).toEqual(expect.arrayContaining([expect.objectContaining({kind:'material',code:'50',quantity:'2',price:'12.00'}),expect.objectContaining({kind:'service',code:'60',internalNotes:'Verificar orçamento'})]));
+ expect(writes.filter(w=>w.action==='save-proposal')[1].draft.items).toEqual(expect.arrayContaining([expect.objectContaining({kind:'material',code:'50',quantity:'2',price:'12.00',unitCost:'5',discountPercent:'10'}),expect.objectContaining({kind:'service',code:'60',internalNotes:'Verificar orçamento'})]));
  expect(historyQueries.some(q=>q.get('clientId')==='10'&&q.get('historyScope')==='customer')).toBe(true);
  await expect(page.getByRole('button',{name:'Concretizar e gerar OS'})).toBeEnabled();
  page.on('dialog',d=>d.accept());

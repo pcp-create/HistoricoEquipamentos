@@ -1,17 +1,12 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { formatContactPhone } from "@/lib/contact-phone";
+import { contactJobLabel as contactCargo } from "@/lib/contact-job-label";
 import { createPortal } from "react-dom";
 import { RefreshCw, Plus, Pencil } from "lucide-react";
 import "./create-linked-task.css";
 import OrderSearchSelect from "./order-search-select";
 import ContactJobEditor from "./contact-job-editor";
-function contactCargo(c: any) {
-  const label = (c?.job_title || "").trim();
-  return c?.cargo_id
-    ? label.replace(new RegExp(`^${c.cargo_id}(?:\\s*[-·:]\\s*|\\s+)`), "")
-    : label;
-}
 function contactPhone(phone: string) {
   return !phone || /^0+$/.test(phone.replace(/\D/g, ""))
     ? "Não informado"

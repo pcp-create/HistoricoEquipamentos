@@ -42,7 +42,6 @@ import {
   Send,
   Eye,
   Undo2,
-  FileOutput,
   FileText,
   ArrowUpDown,
   ArrowUp,
@@ -1045,7 +1044,7 @@ function OperationRow({
             {d.description.length}/40
           </small>
         </td>
-        <td><div className="operation-equipment-with-alert"><EquipmentWarrantyAlert compact equipmentId={d.equipmentUnassigned?'':d.equipmentId||String(data.detail?.order?.produto_equipamento_id||'')} company={String(data.schedule.company_id)} orderId={String(data.schedule.order_id)}/><div className="operation-equipment-control"><OperationEquipmentSelect scheduleId={data.schedule.id} displayLabel={operationEquipmentLabel(d,data.detail?.order)} value={d.equipmentId||''} unassigned={d.equipmentUnassigned===true} label={d.equipment?.name||''} orderLabel={data.detail?.order?.equipamento||data.detail?.equipment_links?.map((e:any)=>e.name).filter(Boolean).join(' · ')||''} disabled={locked||equipmentSelectionLocked(o)} onChange={(id,equipment,unassigned)=>change('equipmentId',id,false,equipment,unassigned)}/></div></div></td>
+        <td><div className="operation-equipment-with-alert"><EquipmentWarrantyAlert compact hover equipmentId={d.equipmentUnassigned?'':d.equipmentId||String(data.detail?.order?.produto_equipamento_id||'')} company={String(data.schedule.company_id)} orderId={String(data.schedule.order_id)}/><div className="operation-equipment-control"><OperationEquipmentSelect scheduleId={data.schedule.id} displayLabel={operationEquipmentLabel(d,data.detail?.order)} value={d.equipmentId||''} unassigned={d.equipmentUnassigned===true} label={d.equipment?.name||''} orderLabel={data.detail?.order?.equipamento||data.detail?.equipment_links?.map((e:any)=>e.name).filter(Boolean).join(' · ')||''} disabled={locked||equipmentSelectionLocked(o)} onChange={(id,equipment,unassigned)=>change('equipmentId',id,false,equipment,unassigned)}/></div></div></td>
         <td>
           <div className="operation-checklist-select" title={checklist ? [checklist.prefix, checklist.name].filter(Boolean).join(" - ") : "Sem checklist"}>
           <select
@@ -1212,19 +1211,23 @@ function OperationRow({
             onClick={() => void persist()}
            title={"Salvar operação " + operationNumber(o.position)}><SaveActionIcon /></button>
           {data.canEditSettings && <button className="operation-icon-action" type="button"
-            title={o.sent_at?"Retornar OS ao planejamento":"Enviar ao técnico"}
-            aria-label={o.sent_at?"Retornar OS ao planejamento":"Enviar ao técnico"}
-            disabled={busy||dirty||(o.sent_at?(locked||!!reportSubmission(o.document.checklistRun)||!!o.document.checklistRun?.partialSubmission):(o.status!=="scheduled"||!d.responsible))}
+            title={reportSubmission(o.document.checklistRun)?"Devolver relatório ao técnico":o.sent_at?"Retornar OS ao planejamento":"Enviar ao técnico"}
+            aria-label={reportSubmission(o.document.checklistRun)?"Devolver relatório ao técnico":o.sent_at?"Retornar OS ao planejamento":"Enviar ao técnico"}
+            disabled={busy||dirty||(reportSubmission(o.document.checklistRun)?o.status==="completed":o.sent_at?(locked||!!o.document.checklistRun?.partialSubmission):(o.status!=="scheduled"||!d.responsible))}
             onClick={()=>{
+              if(reportSubmission(o.document.checklistRun)){
+                if(o.status==='reviewed'&&!window.confirm('Devolver o relatório revisado ao técnico para ajuste? A operação voltará para execução e precisará de uma nova revisão.'))return;
+                void mutate({action:'report_reopen',operationId:o.id,version:o.version});return;
+              }
               if(!o.sent_at){void mutate({action:"dispatch",operationId:o.id,version:o.version});return;}
               const reason=window.prompt('Retornar esta operação da OS ao planejamento? Ela sairá do portal do técnico até ser reenviada. Dados ainda não sincronizados podem ser perdidos parcialmente. Informe o motivo do retorno:');
               if(reason===null)return;
               void mutate({action:'recall',operationId:o.id,version:o.version,confirmReturn:true,reason});
-            }}>{o.sent_at?<Undo2 size={18} aria-hidden="true"/>:<Send size={18} aria-hidden="true"/>}</button>}
+            }}>{o.sent_at||reportSubmission(o.document.checklistRun)?<Undo2 size={18} aria-hidden="true"/>:<Send size={18} aria-hidden="true"/>}</button>}
           <button className="operation-icon-action" type="button" title="Acompanhar execução" aria-label="Acompanhar execução" onClick={() => setExpanded(true)}>
             <Eye size={18} aria-hidden="true"/>
           </button>
-          {o.document.checklistId && data.canEditSettings&&reportSubmission(o.document.checklistRun)&&!['reviewed','completed'].includes(o.status)&&<button className="operation-icon-action" type="button" title="Devolver relatório ao técnico" aria-label="Devolver relatório ao técnico" disabled={busy||dirty} onClick={()=>void mutate({action:'report_reopen',operationId:o.id,version:o.version})}><FileOutput size={18} aria-hidden="true"/></button>}
+
           <button
             className="operation-icon-action operation-icon-action--danger"
             title={"Remover operação " + operationNumber(o.position)}

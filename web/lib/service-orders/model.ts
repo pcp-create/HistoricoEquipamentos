@@ -8,6 +8,12 @@ export function positiveId(v: unknown, label: string) {
   return n;
 }
 export type OrderItem = {
+  /** Local CRM estimate, removed by parseOrder before ERP submission. */
+  unitCost?: string;
+  discountPercent?: string;
+  unitCostSource?: 'average';
+  unitCostAt?: string;
+  unitCostReason?: string;
   kind: "material" | "service";
   id?: string;
   code: string;
@@ -20,6 +26,8 @@ export type OrderItem = {
   quote?: import("../quotes/types").QuoteItem;
 };
 export type OrderDraft = {
+  /** Commercial document fields, local to CRM. */
+  commercial?: Record<string,string>;
   deliveryChangeReason?: string;
   company: string;
   type: string;

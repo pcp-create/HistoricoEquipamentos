@@ -253,13 +253,16 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     const {reopenReport}=await import('../lib/service-scheduling/checklist-store');
     const latest:any=await fieldData('tech',id);
     await assert.rejects(reopenReport(db,latest.operation,'tech',false),/planejador/);
-    await db.query("UPDATE web_service_operations SET status='awaiting_review' WHERE id=$1",[id]);
+    await db.query("UPDATE web_service_operations SET status='reviewed',document=$2 WHERE id=$1",[id,JSON.stringify({...latest.operation.document,checklistRun:{...latest.operation.document.checklistRun,reviewApplied:{by:'planner',at:new Date().toISOString(),meterUpdated:false}}})]);
     const calendarData=await fieldData('tech');
-    assert.ok(calendarData.calendarRows?.some((row:any)=>row.id===id&&row.status==='awaiting_review'));
+    assert.ok(calendarData.calendarRows?.some((row:any)=>row.id===id&&row.status==='reviewed'));
     assert.ok(!calendarData.rows?.some((row:any)=>row.id===id));
     const toReturn:any=await fieldData('tech',id);
     await db.query("INSERT INTO web_user_access(email,display_name,role,updated_by) VALUES('planner','Planejador','admin','test')");
     const {mutateSchedule}=await import('../lib/service-scheduling/store');
+    const {handoffOperation}=await import('../lib/service-scheduling/workflow');
+    await handoffOperation(db,toReturn.operation,schedule,'planner','reviewed');
+
     await assert.rejects(mutateSchedule({action:'report_reopen',scheduleId:String(schedule.id),operationId:id,version:toReturn.operation.version-1},'planner'),/outro usuário/);
     await mutateSchedule({action:'report_reopen',scheduleId:String(schedule.id),operationId:id,version:toReturn.operation.version},'planner');
     const returned:any=await fieldData('tech',id);
@@ -268,6 +271,11 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     assert.equal(returned.reportSubmission,null);
     assert.ok(Object.values(returned.operation.document.checklistRun.stages).every((stage:any)=>stage.status==='released'));
     assert.equal(returned.operation.document.checklistRun.submissionHistory.length,1);
+    assert.equal(returned.operation.document.checklistRun.submissionHistory[0].reviewApplied.by,'planner');
+    assert.equal(returned.operation.document.checklistRun.reviewApplied,undefined);
+    const reopenedTask=(await db.query<any>("SELECT t.status,t.source_resolved FROM web_tasks t JOIN web_service_operation_workflows w ON w.task_id=t.id WHERE w.operation_id=$1",[id])).rows[0];
+    assert.equal(reopenedTask.status,'in_progress');assert.equal(reopenedTask.source_resolved,false);
+
     await assert.rejects(mutateSchedule({action:'operation',scheduleId:String(schedule.id),operationId:id,version:returned.operation.version,document:{...returned.operation.document,equipmentId:'8'}},'planner'),/equipamento não pode ser alterado/);
 
     await db.exec(`CREATE TABLE web_service_checklist_photos(id bigserial PRIMARY KEY,operation_id uuid,stage_id text,field_id text,filename text,mime text,content bytea,created_by text);`);
@@ -281,8 +289,15 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     const edited:any=await fieldData('tech',id);
     assert.equal(edited.operation.document.checklistRun.stages.s1.answers.f1,'Editado após devolução');
     assert.deepEqual(edited.operation.document.checklistRun.stages.s1.answers.photo,[String(photo.id)]);
+    const {prepareChecklistSubmission}=await import('../lib/service-scheduling/checklist-store');
+    const {reviewChecklist}=await import('../lib/service-scheduling/checklist-review');
+    const newSubmission=prepareChecklistSubmission(edited.operation.document.checklistRun,'tech',edited.operation.document);
+    const rereviewed=await reviewChecklist(db,{...edited.operation,document:{...edited.operation.document,technicianClosures:Object.fromEntries([edited.operation.document.responsible,...(edited.operation.document.support||[])].map(email=>[email,{at:new Date().toISOString()}])),checklistRun:newSubmission}},schedule,{},'planner');
+    assert.equal(rereviewed.checklistRun.reviewApplied.by,'planner');
+    assert.equal(rereviewed.checklistRun.stages.s1.answers.f1,'Editado após devolução');
 
-    await assert.rejects(reopenReport(db,{...latest.operation,status:'reviewed'},'planner',true),/revisados/);
+
+    await assert.rejects(reopenReport(db,{...latest.operation,status:'completed'},'planner',true),/concluídas/);
     await db.query("DELETE FROM web_field_material_checks WHERE operation_id=$1 AND actor='helper'",[id]);
     let detail: any = await fieldData("helper", id);
     assert.equal(detail.operation.document.checklistRun, undefined);

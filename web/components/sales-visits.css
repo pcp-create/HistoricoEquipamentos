@@ -1171,3 +1171,5 @@
 .sales-app .visit-period-grid.week .sales-visit-summary .sales-badge { grid-column: 1; grid-row: 4; justify-self: start; }
 .sales-app .visit-period-grid.week .sales-visit-expand { grid-column: 2; grid-row: 4; justify-self: end; }
 .sales-app .visit-period-grid.week .sales-visit-details { min-width: 0; overflow-wrap: anywhere; }
+.sales-badge.scheduled { color:#28669b; background:#eaf3fd; }
+.sales-customer.scheduled { border-left-color:#679dce; }

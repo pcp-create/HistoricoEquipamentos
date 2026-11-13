@@ -95,7 +95,7 @@ export async function handoffOperation(
     );
   } else {
     await c.query(
-      "UPDATE web_tasks SET assigned_to=$2,source_status=$3,status='in_progress',completed_at=NULL,kanban_column=NULL,stage_id=CASE WHEN $3 IN('internal','billing') THEN stage_id ELSE NULL END,version=version+1,updated_at=now(),updated_by=$4 WHERE id=$1",
+      "UPDATE web_tasks SET assigned_to=$2,source_status=$3,status='in_progress',source_resolved=false,completed_at=NULL,kanban_column=NULL,stage_id=CASE WHEN $3 IN('internal','billing') THEN stage_id ELSE NULL END,version=version+1,updated_at=now(),updated_by=$4 WHERE id=$1",
       [taskId, assigned, phase, actor],
     );
     await c.query(

@@ -4,7 +4,7 @@ test("review window isolates operation data and enables PDF after successful rev
   await context.addCookies([{ name: "m8-access", value: "test", domain: "localhost", path: "/" }]);
   await page.route("**/api/activity", r => r.fulfill({ json: { admin: true } }));
   const template = { id: "check", name: "Relatório técnico", stages: [{ id: "s", name: "01. Verificação", groups: [{ id: "g", name: "Inspeção", fields: [{ id: "f", label: "Resultado", type: "text", required: true },{id:"flag",label:"Verificação",type:"flag",options:["OK","NOK","NA"],alertOptions:[],required:true},{id:"photos",label:"Fotos do relatório",type:"photo",maxPhotos:5}] }] }] };
-  const operation = { id: "op1", position: 1, version: 1, status: "awaiting_review", document: { ...blankOperation(), responsible: "tech", description: "Revisar compressor", checklistId: "check", checklistRun: { template, submission: { at: "2026-09-30T12:00:00Z", by: "tech" }, stages: { s: { status: "submitted", answers: { f: "Tudo conferido",flag:"OK",photos:["11","12"] } } } } } };
+  const operation = { id: "op1", position: 1, version: 1, sent_at:"2026-09-30T10:00:00Z", status: "awaiting_review", document: { ...blankOperation(), responsible: "tech", description: "Revisar compressor", checklistId: "check", checklistRun: { template, submission: { at: "2026-09-30T12:00:00Z", by: "tech" }, stages: { s: { status: "submitted", answers: { f: "Tudo conferido",flag:"OK",photos:["11","12"] } } } } } };
   const data: any = { canEditSettings: true, email: "planner", settings: { version: 1, document: { checklists: [template], serviceTypes: [], calendars: [], vehicles: [] } }, users: [{ email: "tech", display_name: "Técnico", enabled: true }], schedule: { id: "1", company_id: 1, order_id: "100" },
     detail: { order: { numero_sequencia: 123, cliente_nome: "Cliente", equipamento: "Compressor" }, materials: [{ id_m8: "55", item_company: 1, item_order: "100", produto_id: 10, produto_nome: "Filtro", quantidade: 1, unidade_nome: "UN",movement:{delivered:4,returnedInApp:2,received:1} }], services: [] },
     operations: [operation], usage: [{ item_id: "55", item_company: 1, item_order: "100", withdrawn: 1, allocations: [{ operationId: "op1", position: 1, quantity: 1 }] }], costs: [], events: [{ id: 1, operation_id: "another", action: "work_log", hours: 99 }], fieldSessions: [], fieldEvents: [], requests: [], profit: null };
@@ -17,6 +17,12 @@ test("review window isolates operation data and enables PDF after successful rev
         if(++saveAttempts===1)return r.fulfill({status:400,json:{error:'Não foi possível salvar os ajustes. Tente novamente.'}});
         expect(body.stages[0].answers).toEqual({f:'Corrigido pelo planejador',flag:'NOK',photos:['12','13']});
         operation.document.checklistRun.stages.s.answers=body.stages[0].answers;operation.version++;
+        return r.fulfill({json:{operation}});
+      }
+      if(body.action==='report_reopen'){
+        operation.status='executing';operation.version++;
+        delete (operation.document.checklistRun as any).submission;
+        operation.document.checklistRun.stages.s.status='released';
         return r.fulfill({json:{operation}});
       }
       expect(body.action).toBe("review");
@@ -108,6 +114,12 @@ test("review window isolates operation data and enables PDF after successful rev
   await page.setViewportSize({ width: 390, height: 844 });
   await dialog.getByRole("tab", { name: "Relatório", exact: true }).click();
   expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await expect(dialog.getByRole('button',{name:'Devolver relatório ao técnico',exact:true})).toBeEnabled();
   await dialog.getByRole("button", { name: "Fechar revisão", exact: true }).click();
   await expect(dialog).toHaveCount(0);
+  page.once('dialog',d=>d.accept());
+  await page.getByRole('button',{name:'Devolver relatório ao técnico',exact:true}).click();
+  await expect.poll(()=>operation.status).toBe('executing');
+  expect(operation.document.checklistRun.stages.s.answers.f).toBe('Corrigido pelo planejador');
+
 });

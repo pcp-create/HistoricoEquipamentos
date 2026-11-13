@@ -55,7 +55,10 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
     fieldSessions: (data.fieldSessions || []).filter((v: any) => v.operation_id === o.id),
     fieldEvents: (data.fieldEvents || []).filter((v: any) => v.operation_id === o.id),
     requests: (data.requests || []).filter((v: any) => v.operation_id === o.id) };
-  const act = (action: string) => mutate({ action, operationId: o.id, version: o.version, ...(action==="review"?{alertTasks}:{}) });
+  const act = (action: string) => {
+    if(action==='report_reopen'&&o.status==='reviewed'&&!window.confirm('Devolver o relatório revisado ao técnico para ajuste? A operação voltará para execução e precisará de uma nova revisão.'))return;
+    return mutate({ action, operationId: o.id, version: o.version, ...(action==="review"?{alertTasks}:{}) });
+  };
   const canChooseEquipment=data.canEditSettings&&o.status==='awaiting_review';
   const equipmentPicker=(inReport=false)=><OperationEquipmentSelect scheduleId={String(data.schedule.id)} value={o.document.equipmentId||''} label={o.document.equipment?.name||''} displayLabel={inReport?reportEquipment(o,data.detail?.order||{}):undefined} unassigned={o.document.equipmentUnassigned===true} orderLabel="Selecionar equipamento" allowOrderFallback={false} unassignedLabel="Sem equipamento informado" disabled={busy||dirty||reportDirty} onChange={(equipmentId)=>void mutate({action:'review_equipment',operationId:o.id,version:o.version,equipmentId})}/>;
   const content=<>
@@ -125,7 +128,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
           <span id={`${tabsId}-agreement`}>Ao concluir, declaro: li, revisei e estou de acordo com as informações do relatório, das peças e dos apontamentos.</span>
         </div>
       </>}
-      {data.canEditSettings && !reviewed && o.status!=="awaiting_review" && reportSubmission(o.document.checklistRun) && <button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}><FileOutput size={15} aria-hidden="true"/>Devolver relatório ao técnico</button>}
+      {data.canEditSettings && o.status!=="completed" && o.status!=="awaiting_review" && reportSubmission(o.document.checklistRun) && <button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}><FileOutput size={15} aria-hidden="true"/>Devolver relatório ao técnico</button>}
       {reviewed && o.document.checklistRun && !busy ? <><select aria-label="Tipo de relatório" value={reportMode} onChange={e=>setReportMode(e.target.value)}><option value="complete">Relatório Completo</option><option value="summary">Relatório Resumido</option><option value="budget">Relatório de Orçamento</option></select><a href={`/api/service-scheduling/checklist-pdf?operationId=${o.id}&mode=${reportMode}`} target="_blank" rel="noreferrer"><FileDown size={16}/> Gerar PDF</a></> : o.status!=="awaiting_review" && o.document.checklistId && <small>O PDF será liberado após a conclusão da revisão.</small>}
 
     </footer>

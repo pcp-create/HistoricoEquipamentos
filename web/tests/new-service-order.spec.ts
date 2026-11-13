@@ -224,8 +224,18 @@ test("new OS selects company, filters equipment, fills seller and submits header
   await expect(registrationDialog.getByLabel('Código de Identificação Interno *',{exact:true})).toHaveCount(0);
   await registrationDialog.getByRole('button',{name:'Fechar cadastro de equipamento',exact:true}).click();
   await choose("Equipamento", "100");
+  const warrantyTrigger=page.getByRole('button',{name:'Ver alerta de garantia do equipamento'});
+  await expect(page.getByRole('note',{name:'Alerta de garantia do equipamento'})).toHaveCount(0);
+  await warrantyTrigger.hover();
   await expect(page.getByRole('note',{name:'Alerta de garantia do equipamento'})).toContainText('OS 15000');
   await expect(page.getByRole('note',{name:'Alerta de garantia do equipamento'})).toContainText('10/02/2027');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('note',{name:'Alerta de garantia do equipamento'})).toHaveCount(0);
+  await warrantyTrigger.click();
+  await expect(page.getByRole('dialog',{name:'Detalhes da garantia do equipamento'})).toBeVisible();
+  await page.getByRole('button',{name:'Fechar alerta de garantia'}).click();
+  await expect(page.getByRole('dialog',{name:'Detalhes da garantia do equipamento'})).toHaveCount(0);
+
   expect(equipmentQueries[0]).toContain("customer=10");
   expect(equipmentQueries[0]).toContain("type=1");
   await choose("Tipo Atendimento", "1");

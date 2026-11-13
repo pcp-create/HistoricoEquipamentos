@@ -1,3 +1,4 @@
+import {hydrateProductCosts} from './product-costs';
 import 'server-only';
 import {database} from '../db';
 import {CrmError,uuid,text,positive,version,proposalDraft,emptyDraft,totalCents,conversionRate} from './model';
@@ -19,15 +20,15 @@ export async function crmOverview(){
 export async function listCrm(kind:string,q='',page=1,status=''){
  if(!['opportunities','proposals','orders'].includes(kind)||!Number.isSafeInteger(page)||page<1||page>100000)throw new CrmError('Consulta inválida.');
  const search='%'+text(q,150).replace(/[\\%_]/g,'\\$&')+'%';
- const source=kind==='opportunities'?`SELECT o.*,t.name type_name,(SELECT count(*)::int FROM crm_proposals WHERE opportunity_id=o.id) proposal_count,(SELECT count(*)::int FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id WHERE p.opportunity_id=o.id AND l.order_id IS NOT NULL) order_count FROM crm_opportunities o JOIN crm_opportunity_types t ON t.id=o.type_id`
- :kind==='proposals'?`SELECT p.id,p.number,p.title,p.status,p.opportunity_id,p.type_id,p.total_cents,p.version,p.created_at,p.updated_at,o.number opportunity_number,o.customer_name,o.company_id,t.name type_name,(SELECT count(*)::int FROM crm_order_links WHERE proposal_id=p.id AND order_id IS NOT NULL) order_count FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id JOIN crm_proposal_types t ON t.id=p.type_id`
+ const source=kind==='opportunities'?`SELECT o.*,customer.payload->>'municipioNome' customer_city,customer.payload->>'ufSigla' customer_state,COALESCE(u.display_name,o.created_by) owner_name,t.name type_name,(SELECT count(*)::int FROM crm_proposals WHERE opportunity_id=o.id) proposal_count,(SELECT count(*)::int FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id WHERE p.opportunity_id=o.id AND l.order_id IS NOT NULL) order_count FROM crm_opportunities o JOIN crm_opportunity_types t ON t.id=o.type_id LEFT JOIN web_user_access u ON u.email=o.created_by LEFT JOIN LATERAL (SELECT d.payload FROM m8_customer_directory d WHERE d.person_id=o.customer_id AND d.company_id=o.company_id LIMIT 1) customer ON true`
+ :kind==='proposals'?`SELECT p.id,p.number,p.title,p.status,p.opportunity_id,p.type_id,p.total_cents,p.version,p.created_at,p.updated_at,o.number opportunity_number,o.customer_name,o.company_id,o.created_by owner_email,t.name type_name,(SELECT count(*)::int FROM crm_order_links WHERE proposal_id=p.id AND order_id IS NOT NULL) order_count FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id JOIN crm_proposal_types t ON t.id=p.type_id`
  :`SELECT l.id,l.proposal_id,l.company_id,l.order_id,l.state,l.message,l.actor,l.created_at,l.updated_at,l.state status,p.number proposal_number,p.opportunity_id,o.number opportunity_number,o.customer_name,p.title FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id JOIN crm_opportunities o ON o.id=p.opportunity_id`;
  const from=`WITH records AS (${source}) SELECT * FROM records WHERE concat_ws(' ',${kind==='orders'?'order_id,proposal_number':'number'},title,customer_name) ILIKE $1 ESCAPE '\\' AND ($2='' OR status=$2)`;
  const db=database();const [rows,count]=await Promise.all([db.query(from+' ORDER BY created_at DESC,id DESC LIMIT 30 OFFSET $3',[search,status,(page-1)*30]),db.query(`SELECT count(*)::int total FROM (${from}) r`,[search,status])]);
  return {rows:rows.rows,total:count.rows[0].total,page};
 }
 export async function getOpportunity(id:string){uuid(id);const row=(await database().query('SELECT * FROM crm_opportunities WHERE id=$1',[id])).rows[0];if(!row)throw new CrmError('Oportunidade não encontrada.');return {...row,proposals:(await database().query('SELECT id,number,title,status,total_cents,version FROM crm_proposals WHERE opportunity_id=$1 ORDER BY number',[id])).rows,history:(await database().query('SELECT e.id,e.action,e.actor,e.created_at,COALESCE(u.display_name,e.actor) author FROM crm_events e LEFT JOIN web_user_access u ON u.email=e.actor WHERE opportunity_id=$1 ORDER BY e.id DESC LIMIT 100',[id])).rows};}
-export async function getProposal(id:string){uuid(id);const row=(await database().query('SELECT p.*,o.number opportunity_number,o.type_id opportunity_type_id,o.customer_name,o.company_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1',[id])).rows[0];if(!row)throw new CrmError('Proposta não encontrada.');return {...row,links:(await database().query('SELECT l.id,l.company_id,l.order_id,l.state,l.message,l.actor,l.created_at,s.updated_at submission_updated_at FROM crm_order_links l LEFT JOIN service_order_submissions s ON s.id=l.submission_id WHERE l.proposal_id=$1 ORDER BY l.created_at DESC',[id])).rows};}
+export async function getProposal(id:string){uuid(id);const row=(await database().query('SELECT p.*,o.number opportunity_number,o.type_id opportunity_type_id,o.customer_name,o.company_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1',[id])).rows[0];if(!row)throw new CrmError('Proposta não encontrada.');return {...row,document:await hydrateProductCosts(row.document),links:(await database().query('SELECT l.id,l.company_id,l.order_id,l.state,l.message,l.actor,l.created_at,s.updated_at submission_updated_at FROM crm_order_links l LEFT JOIN service_order_submissions s ON s.id=l.submission_id WHERE l.proposal_id=$1 ORDER BY l.created_at DESC',[id])).rows};}
 export async function saveOpportunity(raw:any,actor:string){
  const id=uuid(raw.id),title=text(raw.title,200,true),type=positive(raw.typeId),customer=positive(raw.customerId),company=positive(raw.company);
  if(![1,2,27404].includes(company)||!['open','lost','cancelled'].includes(raw.status??'open'))throw new CrmError('Empresa ou situação inválida.');
@@ -39,8 +40,15 @@ export async function saveOpportunity(raw:any,actor:string){
  if(old&&!raw.version){if(old.created_by===actor)return old;throw new CrmError('Identificador já utilizado.');}
  if(old&&old.version!==version(raw.version))throw new CrmError('A oportunidade foi alterada. Reabra antes de salvar.');
  if(old&&(Number(old.type_id)!==type||Number(old.customer_id)!==customer||old.company_id!==company)&&(await c.query('SELECT id FROM crm_proposals WHERE opportunity_id=$1 LIMIT 1',[id])).rows.length)throw new CrmError('Tipo, cliente e empresa não podem ser trocados após incluir propostas.');
- const args=[id,type,title,customer,client.name,company,raw.status??'open',text(raw.notes??'',10000),actor];
- const row=(await c.query(old?`UPDATE crm_opportunities SET type_id=$2,title=$3,customer_id=$4,customer_name=$5,company_id=$6,status=$7,notes=$8,updated_by=$9,updated_at=now(),version=version+1 WHERE id=$1 RETURNING *`:`INSERT INTO crm_opportunities(id,type_id,title,customer_id,customer_name,company_id,status,notes,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9) RETURNING *`,args)).rows[0];
+ const details=raw.commercial??old?.commercial??{};
+ const stages=['prospecting','qualification','proposal','negotiation','financial','closed'];
+ if(!details||typeof details!=='object'||Array.isArray(details))throw new CrmError('Informações comerciais inválidas.');
+ const stage=details.stage??'prospecting',probability=Number(details.probability??0),amount=String(details.amount??'');
+ const closeDate=text(details.closeDate??'',10),contact=text(details.contact??'',160);
+ if(!stages.includes(stage)||!Number.isFinite(probability)||probability<0||probability>100||(amount&&!/^\d{1,10}(\.\d{1,2})?$/.test(amount))||(closeDate&&(!/^\d{4}-\d{2}-\d{2}$/.test(closeDate)||!Number.isFinite(Date.parse(closeDate))||new Date(closeDate).toISOString().slice(0,10)!==closeDate)))throw new CrmError('Confira fase, probabilidade, valor e data de fechamento.');
+ const commercial={stage,probability,amount,closeDate,contact};
+ const args=[id,type,title,customer,client.name,company,raw.status??'open',text(raw.notes??'',10000),actor,JSON.stringify(commercial)];
+ const row=(await c.query(old?`UPDATE crm_opportunities SET type_id=$2,title=$3,customer_id=$4,customer_name=$5,company_id=$6,status=$7,notes=$8,updated_by=$9,updated_at=now(),version=version+1,commercial=$10::jsonb WHERE id=$1 RETURNING *`:`INSERT INTO crm_opportunities(id,type_id,title,customer_id,customer_name,company_id,status,notes,created_by,updated_by,commercial) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10::jsonb) RETURNING *`,args)).rows[0];
  await event(c,actor,old?'opportunity_updated':'opportunity_created',id,null,{before:old,after:row});return row;
  });
 }
@@ -57,17 +65,20 @@ export async function createProposal(raw:any,actor:string){
  });
 }
 export async function saveProposal(raw:any,actor:string){
- const id=uuid(raw.id),draft=proposalDraft(raw.draft),expected=version(raw.version);
+ const id=uuid(raw.id),expected=version(raw.version);let draft=proposalDraft(raw.draft);
  return write(async c=>{
  const p=(await c.query('SELECT p.*,o.customer_id,o.customer_name,o.company_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p',[id])).rows[0];
  if(!p||p.version!==expected)throw new CrmError('A proposta foi alterada. Reabra antes de salvar.');
  if(p.status==='converting'||(await c.query("SELECT 1 FROM crm_order_links WHERE proposal_id=$1 AND state NOT IN('complete','validation_failed') LIMIT 1",[id])).rows.length)throw new CrmError('Existe um envio de OS pendente. Conclua a conferência antes de editar a proposta.');
  if(!(p.status==='won'?['won']:['pending','lost','cancelled']).includes(raw.status??p.status))throw new CrmError('Situação inválida.');
+ const proposalTypeId=raw.typeId==null?Number(p.type_id):positive(raw.typeId);
+ if(proposalTypeId!==Number(p.type_id)&&!(await c.query('SELECT 1 FROM crm_proposal_types t JOIN crm_opportunities o ON o.type_id=t.opportunity_type_id WHERE t.id=$1 AND o.id=$2 AND t.active',[proposalTypeId,p.opportunity_id])).rows.length)throw new CrmError('Selecione um tipo de proposta ativo e compatível com a oportunidade.');
  draft.company=String(p.company_id);draft.customer=String(p.customer_id);
- if(draft.type&&!(await c.query('SELECT 1 FROM crm_proposal_order_types WHERE proposal_type_id=$1 AND m8_order_type_id=$2',[p.type_id,positive(draft.type)])).rows.length)throw new CrmError('O tipo de OS não está vinculado a este tipo de proposta nos cadastros.');
+ draft=await hydrateProductCosts(draft,c);
+ if(draft.type&&!(await c.query('SELECT 1 FROM crm_proposal_order_types WHERE proposal_type_id=$1 AND m8_order_type_id=$2',[proposalTypeId,positive(draft.type)])).rows.length)throw new CrmError('O tipo de OS não está vinculado a este tipo de proposta nos cadastros.');
  const names={customer:p.customer_name,equipment:text(raw.names?.equipment??'',500)};
- const result=(await c.query('UPDATE crm_proposals SET title=$2,status=$3,document=$4::jsonb,names=$5::jsonb,total_cents=$6,updated_by=$7,updated_at=now(),version=version+1 WHERE id=$1 RETURNING *',[id,text(raw.title??p.title,200,true),raw.status??p.status,JSON.stringify(draft),JSON.stringify(names),totalCents(draft),actor])).rows[0];
- await event(c,actor,'proposal_updated',p.opportunity_id,id,{before:p.document,after:draft,status:result.status});return result;
+ const result=(await c.query('UPDATE crm_proposals SET title=$2,status=$3,document=$4::jsonb,names=$5::jsonb,total_cents=$6,updated_by=$7,type_id=$8,updated_at=now(),version=version+1 WHERE id=$1 RETURNING *',[id,text(raw.title??p.title,200,true),raw.status??p.status,JSON.stringify(draft),JSON.stringify(names),totalCents(draft),actor,proposalTypeId])).rows[0];
+ await event(c,actor,'proposal_updated',p.opportunity_id,id,{before:p.document,after:draft,status:result.status,beforeTypeId:p.type_id,afterTypeId:proposalTypeId});return result;
  });
 }
 export async function saveCatalog(raw:any,actor:string){

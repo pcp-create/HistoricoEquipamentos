@@ -11,27 +11,31 @@ test('CRM persists local opportunities and proposals and safely links conversion
  const db=new PGlite(),g=globalThis as any,old=g.historyPool;
  try {
  await db.exec(readFileSync(new URL('../sql/108_crm.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../sql/116_crm_opportunity_pipeline.sql',import.meta.url),'utf8'));
  await db.exec(`CREATE TABLE m8_order_type_catalog(id bigint PRIMARY KEY,name text,active boolean);
  INSERT INTO m8_order_type_catalog VALUES(4,'Preventiva',true),(2,'Corretiva',true),(43,'Orçamento',true),(42,'Oficina',true);
- CREATE TABLE m8_customer_directory(person_id bigint,company_id int,name text);INSERT INTO m8_customer_directory VALUES(10,1,'Cliente Teste');
+ CREATE TABLE m8_customer_directory(person_id bigint,company_id int,name text,payload jsonb);INSERT INTO m8_customer_directory VALUES(10,1,'Cliente Teste','{"municipioNome":"Timbó","ufSigla":"SC"}');
  CREATE TABLE web_user_access(email text,display_name text);INSERT INTO web_user_access VALUES('planner','Planejador');
- CREATE TABLE service_order_submissions(id uuid PRIMARY KEY,state text,m8_id bigint,message text,updated_at timestamptz DEFAULT now());`);
+ CREATE TABLE service_order_submissions(id uuid PRIMARY KEY,state text,m8_id bigint,message text,updated_at timestamptz DEFAULT now());
+ CREATE TABLE m8_product_catalog(company_id int,product_id bigint,unit text);INSERT INTO m8_product_catalog VALUES(1,50,'UN');
+ CREATE TABLE m8_product_stock(company_id int,product_id bigint,average_cost numeric,stock numeric,collected_at timestamptz DEFAULT now());INSERT INTO m8_product_stock(company_id,product_id,average_cost,stock) VALUES(1,50,5,1);`);
  const query=(q:string,args?:any[])=>db.query(q.replace('BEGIN READ WRITE','BEGIN'),args);
  g.historyPool={query,connect:async()=>({query,release(){}})};
  const catalog=await catalogs();assert.equal(catalog.opportunityTypes.length,7);assert.equal(catalog.proposalTypes.length,13);
  const man=catalog.opportunityTypes.find(t=>t.code==='MAN'),mpa=catalog.proposalTypes.find(t=>t.code==='MPA'),mca=catalog.proposalTypes.find(t=>t.code==='MCA');
  assert.deepEqual(mpa.order_types,['4']);assert.deepEqual(mca.order_types,['2','42','43']);assert.deepEqual(catalog.proposalTypes.find(t=>t.code==='ST').order_types,[]);
- const opportunity=await saveOpportunity({id:randomUUID(),typeId:man.id,customerId:10,company:1,title:'Manutenção Cliente'},'planner');
+ const opportunity=await saveOpportunity({id:randomUUID(),typeId:man.id,customerId:10,company:1,title:'Manutenção Cliente',commercial:{stage:'negotiation',probability:60,amount:'1234.50',closeDate:'2026-11-30',contact:'João'}},'planner');
+ assert.equal((await listCrm('opportunities')).rows[0].customer_city,'Timbó');assert.equal((await listCrm('opportunities')).rows[0].customer_state,'SC');assert.equal(opportunity.commercial.stage,'negotiation');assert.equal((await listCrm('opportunities')).rows[0].owner_name,'Planejador');
  const p=await createProposal({id:randomUUID(),opportunityId:opportunity.id,typeId:mpa.id,title:'Preventiva'},'planner');
  const second=await createProposal({id:randomUUID(),opportunityId:opportunity.id,typeId:mca.id,title:'Corretiva alternativa'},'planner');
  assert.equal((await getOpportunity(opportunity.id)).proposals.length,2);
  await assert.rejects(createProposal({id:randomUUID(),opportunityId:opportunity.id,typeId:catalog.proposalTypes.find(t=>t.code==='CLO').id,title:'Inválida'},'planner'));
- let saved=await saveProposal({id:p.id,version:p.version,draft:{...emptyDraft(),company:'2',customer:'999',type:'4',seller:'21',items:[{kind:'material',code:'50',name:'Filtro',price:'10.50',quantity:'2'}]},names:{equipment:''}},'planner');
- assert.equal(saved.document.customer,'10');assert.equal(saved.document.company,'1');assert.equal(Number(saved.total_cents),2100);
+ let saved=await saveProposal({id:p.id,version:p.version,draft:{...emptyDraft(),company:'2',customer:'999',type:'4',seller:'21',items:[{kind:'material',code:'50',name:'Filtro',price:'10.50',quantity:'2',unitCost:'999.00',discountPercent:'10'}]},names:{equipment:''}},'planner');
+ assert.equal(saved.document.customer,'10');assert.equal(saved.document.company,'1');assert.equal(Number(saved.total_cents),1890);assert.equal(saved.document.items[0].unitCost,'5');
  await assert.rejects(saveProposal({id:p.id,version:p.version,draft:emptyDraft()},'planner'));
  await assert.rejects(saveOpportunity({id:opportunity.id,version:opportunity.version,typeId:man.id,customerId:10,company:2,title:'Trocar empresa'},'planner'));
  let writes=0,state='ready',last:any;
- const deps={prepare:async(actor:string,id:any,draft:any)=>{assert.equal(actor,'planner');assert.equal(draft.customer,'10');last={id,company:1,state,m8Id:state==='ready'?null:900};return last;},advance:async()=>{if(state==='ready'){writes++;state='uncertain';}return {...last,state,message:'Confira no ERP'};},retry:async()=>{state='ready';return {...last,state};}};
+ const deps={prepare:async(actor:string,id:any,draft:any)=>{assert.equal(actor,'planner');assert.equal(draft.customer,'10');if(draft.items.length)assert.equal(draft.items[0].discountPercent,undefined);last={id,company:1,state,m8Id:state==='ready'?null:900};return last;},advance:async()=>{if(state==='ready'){writes++;state='uncertain';}return {...last,state,message:'Confira no ERP'};},retry:async()=>{state='ready';return {...last,state};}};
  await assert.rejects(beginConversion({id:randomUUID(),proposalId:p.id,version:saved.version,orderType:'99'},'planner',deps),/Defina/);
  const request=randomUUID();
  assert.equal((await beginConversion({id:request,proposalId:p.id,version:saved.version},'planner',deps)).state,'ready');assert.equal(writes,0);
@@ -60,6 +64,12 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await db.exec(readFileSync(new URL('../sql/108_crm.sql',import.meta.url),'utf8'));
  assert.deepEqual((await catalogs()).proposalTypes.find(t=>t.code==='MPA').order_types,['4','99']);
  assert.equal(conversionRate(0,0),0);assert.equal(conversionRate(3,1),33.3);
+ const changing=await createProposal({id:randomUUID(),opportunityId:opportunity.id,typeId:mpa.id,title:'Troca do tipo de proposta'},'planner');
+ await assert.rejects(()=>saveProposal({id:changing.id,version:changing.version,typeId:mca.id,draft:{...emptyDraft(),type:'4',items:[]}},'planner'),/tipo de OS/);
+ const changedType=await saveProposal({id:changing.id,version:changing.version,typeId:mca.id,draft:{...emptyDraft(),type:'2',items:[]}},'planner');
+ assert.equal(Number(changedType.type_id),Number(mca.id));
+ await assert.rejects(()=>saveProposal({id:changing.id,version:changedType.version,typeId:catalog.proposalTypes.find(t=>t.code==='CLO').id,draft:emptyDraft()},'planner'),/compatível/);
+
  assert.throws(()=>proposalDraft({...emptyDraft(),items:[{kind:'material',code:'1',name:'x',quantity:'-1',price:'5'}]}));
  }finally{g.historyPool=old;await db.close();}
 });

@@ -2,3 +2,21 @@
 .equipment-warranty-alert>svg{flex-shrink:0;margin-top:2px}.equipment-warranty-alert strong{display:block;font-size:12px}.equipment-warranty-alert p{margin:6px 0 0;color:inherit}.equipment-warranty-alert a{color:#76510c;white-space:normal;text-decoration:underline}.equipment-warranty-loading,.equipment-warranty-error{display:block;margin-top:8px;font-size:11px;line-height:1.4;white-space:normal}.equipment-warranty-error{color:#9a5b24}
 
 .operation-equipment-with-alert{display:flex;align-items:flex-start;gap:8px}.operation-equipment-control{flex:1;min-width:0}.scheduling-page .equipment-warranty-trigger{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;min-width:32px;height:40px;padding:0;background:transparent;border:0;box-shadow:none;color:#c18a12;cursor:pointer}.scheduling-page .equipment-warranty-trigger:hover{background:#fff8e8;color:#94680b}.equipment-warranty-trigger:focus-visible{outline:2px solid #c18a12;outline-offset:2px;border-radius:6px}.equipment-warranty-popup{position:fixed;width:min(520px,calc(100vw - 32px));max-height:calc(100dvh - 32px);box-sizing:border-box;padding:42px 18px 18px;border:1px solid #efd29a;border-radius:12px;background:#fff;box-shadow:0 12px 50px #173b5340;overflow:auto;color:#785819}.equipment-warranty-popup::backdrop{background:#16334d66}.equipment-warranty-popup .equipment-warranty-alert{margin-top:0}.equipment-warranty-close{position:absolute;top:8px;right:8px;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:0;border-radius:6px;background:transparent;color:#785819;cursor:pointer}.equipment-warranty-close:hover{background:#fff1d2}
+.equipment-warranty-preview{position:fixed;z-index:1000;width:min(460px,calc(100vw - 16px));max-height:calc(100dvh - 16px);box-sizing:border-box;overflow:auto;border:1px solid #efd29a;border-radius:10px;background:#fff8e8;color:#785819;padding:30px 8px 8px;box-shadow:0 8px 28px #173b532b;font-size:12px;}
+.equipment-warranty-preview .equipment-warranty-alert{border:0;padding:8px;margin:0;}
+.equipment-warranty-error-icon{display:inline-flex;color:#9a5b24;}
+.new-os .os-equipment-select{position:relative;min-width:0;flex:1;}
+.new-os .os-equipment-select>.order-search-select{margin-top:0;}
+.new-os .os-equipment-warranty{position:absolute;left:6px;top:50%;transform:translateY(-50%);z-index:2;display:flex;align-items:center;}
+.new-os .os-equipment-warranty .equipment-warranty-trigger{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;min-height:0;padding:3px;margin:0;border:0;background:transparent;color:#bf8918;border-radius:5px;}
+.new-os .os-equipment-warranty .equipment-warranty-trigger:hover{background:#fff4d8;}
+.new-os .os-equipment-create-row .os-equipment-select:has(.equipment-warranty-trigger) .order-search-trigger,
+.new-os .os-equipment-create-row .os-equipment-select:has(.equipment-warranty-error-icon) .order-search-trigger{padding-left:39px;}
+/* Reserve space in both editable search inputs and selection buttons. */
+.new-os .os-equipment-create-row .os-equipment-select:has(.equipment-warranty-trigger) .order-search-select .order-search-direct,
+.new-os .os-equipment-create-row .os-equipment-select:has(.equipment-warranty-error-icon) .order-search-select .order-search-direct{padding-left:42px;}
+.scheduling-page .operation-equipment-with-alert{position:relative;display:block;}
+.scheduling-page .operation-equipment-with-alert>.equipment-warranty-trigger,
+.scheduling-page .operation-equipment-with-alert>.equipment-warranty-error-icon{position:absolute;left:5px;top:50%;transform:translateY(-50%);z-index:1;width:28px;min-width:28px;height:28px;min-height:0;padding:3px;box-sizing:border-box;}
+.scheduling-page .operation-equipment-with-alert:has(>.equipment-warranty-trigger)>.operation-equipment-control>button,
+.scheduling-page .operation-equipment-with-alert:has(>.equipment-warranty-error-icon)>.operation-equipment-control>button{padding-left:40px;}
