@@ -803,7 +803,7 @@ export default function CommercialReport({
                       {kind === "sales" && (
                         <td className="cr-edit">
                           <span className="cr-edit-actions">
-                          <button type="button" className="button cr-order-comment" title={`Adicionar ou consultar comentários (${commentOutbox.counts[`${r.fields?.sourceCompany||r.company}:${r.id}`]??r.commentCount??0})`} aria-label={`Comentários da OS ${r.id}`} onClick={()=>setCommentRow(r)}><MessageSquare size={14} aria-hidden="true"/><span className="cr-comment-count" aria-hidden="true">{commentOutbox.counts[`${r.fields?.sourceCompany||r.company}:${r.id}`]??r.commentCount??0}</span></button>
+                          <button type="button" className="button cr-order-comment" title={`Adicionar ou consultar comentários (${commentOutbox.counts[`${r.fields?.sourceCompany||r.company}:${r.id}`]??r.commentCount??0})`} aria-label={`Comentários da OS ${r.id}`} onClick={()=>setCommentRow(r)}><MessageSquare size={14} aria-hidden="true"/>{(commentOutbox.counts[`${r.fields?.sourceCompany||r.company}:${r.id}`]??r.commentCount??0)>0&&<span className="cr-comment-count" aria-hidden="true">{commentOutbox.counts[`${r.fields?.sourceCompany||r.company}:${r.id}`]??r.commentCount??0}</span>}</button>
                           {r.kind === "salesPending" ? (
                             <Link
                               className="button"
