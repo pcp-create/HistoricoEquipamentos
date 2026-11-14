@@ -1,0 +1,20 @@
+import {test,expect} from '@playwright/test';import {blankOperation} from '../lib/service-scheduling/model';
+test('review requires explicit confirmation before replacing a newer lower meter',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/activity',r=>r.fulfill({json:{admin:true}}));
+ const template={id:'t',name:'Relatório',stages:[{id:'s',name:'Medições',fields:[{id:'m',label:'Horímetro Total',type:'meter',required:true}]}]};
+ const operation:any={id:'op1',position:1,version:1,status:'awaiting_review',sent_at:'2026-11-13T13:00:00Z',document:{...blankOperation(),equipmentId:'7',responsible:'tech',checklistId:'t',checklistRun:{template,equipmentId:'7',meterDate:'2026-11-13',submission:{at:'2026-11-13T13:00:00Z',by:'tech'},stages:{s:{status:'submitted',answers:{m:100}}}}}};
+ const data:any={canEditSettings:true,email:'planner',settings:{document:{checklists:[template],serviceTypes:[],calendars:[],vehicles:[]}},users:[],schedule:{id:'1',company_id:1,order_id:'100'},detail:{order:{numero_sequencia:123,cliente_nome:'Cliente',equipamento:'Compressor'},materials:[],services:[]},operations:[operation],usage:[],costs:[],events:[],fieldSessions:[],fieldEvents:[],requests:[],profit:null};
+ const writes:any[]=[];
+ await page.route('**/api/service-scheduling**',r=>{if(r.request().method()==='POST'){const body=r.request().postDataJSON();writes.push(body);operation.status='reviewed';operation.version++;return r.fulfill({json:{operation}});}return r.fulfill({json:data});});
+ await page.route('**/api/service-scheduling/equipment?reading=7',r=>r.fulfill({json:{meter:200,meterDate:'2026-11-12'}}));
+ await page.goto('/programacao?id=1');await page.getByRole('button',{name:'Acompanhar execução',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Revisão da operação 01'});
+ await expect(dialog.getByRole('button',{name:'Confirmar horímetro real da máquina',exact:true})).toBeVisible();
+ await expect(dialog.getByRole('button',{name:'Concluir revisão',exact:true})).toBeDisabled();
+ page.once('dialog',d=>d.accept());await dialog.getByRole('button',{name:'Confirmar horímetro real da máquina',exact:true}).click();
+ await expect(dialog.getByRole('button',{name:'Horímetro confirmado',exact:true})).toBeDisabled();
+ await dialog.getByRole('button',{name:'Concluir revisão',exact:true}).click();
+ await expect.poll(()=>writes.length).toBe(1);
+ expect(writes[0].confirmLowerMeter).toEqual({equipmentId:'7',meter:100,meterDate:'2026-11-13',previousMeter:200,previousMeterDate:'2026-11-12'});
+});

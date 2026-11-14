@@ -77,6 +77,8 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  await page.getByRole('button',{name:'Continuar para Resumo geral',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Resumo geral',exact:true})).toBeVisible();
  await expect(page.locator('.crm-summary-table')).toHaveCount(2);
+ await expect(page.getByRole('spinbutton',{name:'Quantidade: Filtro histórico',exact:true})).toHaveCSS('font-size','12px');
+ await expect(page.getByRole('spinbutton',{name:'Venda unitária: Filtro histórico',exact:true})).toHaveCSS('font-size','12px');
  await expect(page.locator('.crm-summary-table').first().getByRole('link',{name:'50',exact:true})).toHaveAttribute('href','/analise-materiais?code=50');
  await page.getByRole('spinbutton',{name:'Desconto (%): Filtro histórico',exact:true}).fill('10');
  await expect(page.locator('.crm-summary-table').first()).toContainText('R$ 21,60');
