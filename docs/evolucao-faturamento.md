@@ -29,3 +29,10 @@ A tabela aparece antes do gráfico, com linhas compactas e sem limite de altura/
 Ao clicar em um valor mensal ou no total anual da tabela, uma janela exibe faturamento total, devoluções, líquido e valor na evolução, separados por empresa. A composição do período só é somada quando todos os meses com valores possuem a composição integrada. Dados históricos sem essa composição aparecem como indisponíveis, nunca como devoluções zeradas. A janela pode ser fechada por botão, Escape ou clique fora dela. Consulta real de outubro/2026 reconciliada com a projeção do Comercial nas três empresas.
 
 O gráfico anual permite selecionar um ano pela barra ou pelo rótulo (também com Enter/Espaço). A seleção fica azul no gráfico e no cabeçalho da tabela e atualiza exclusivamente os valores e título da participação das empresas. O cabeçalho da tabela também permite selecionar o ano. O padrão é o último ano com valores disponíveis; anos vazios gerados pelo calendário não avançam a seleção inicial. Filtros que removem o ano selecionado fazem a participação acompanhar o último ano disponível no recorte.
+
+
+## RJ Equipamentos
+
+A planilha “Evolução de Faturamento do Grupo - 2025 (RJ EQUIPAMENTOS).xls”, aba “FATURAMENTO RJ EQUIP. CONGELADO”, acrescenta uma empresa histórica independente ao filtro, participação e detalhamento. Totais: 2023 (novembro–dezembro) R$ 353.935,55; 2024 R$ 4.233.420,41; 2025 (janeiro–junho) R$ 3.054.843,91. A aba de comparação não é importada. Meses vazios permanecem ausentes. Não há integração M8 atribuída a esta empresa.
+
+Nos meses sem integração, o consolidado original das três empresas recebe somente o adicional da RJ Equipamentos. Nos meses com integração, somam-se as empresas individuais disponíveis, incluindo esse adicional uma única vez. O histórico original não é sobrescrito. O JSON registra os hashes das duas planilhas; o importador aceita o arquivo original no primeiro argumento e a planilha da RJ Equipamentos no segundo (ambos possuem os nomes padrão na raiz).

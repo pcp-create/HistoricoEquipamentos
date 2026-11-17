@@ -181,6 +181,10 @@ test("company and period filters, charts, export and mobile layout", async ({
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Exportar tabela" }).click();
   expect((await download).suggestedFilename()).toContain("RJ Indústria");
+  await page.getByLabel("Empresa", { exact: true }).selectOption("rj-equipamentos");
+  await page.getByLabel("Ano final").selectOption("2024");
+  await page.getByLabel("Ano inicial").selectOption("2024");
+  await expect(page.getByRole("button", {name:"Detalhar total de 2024",exact:true})).toHaveText("R$ 4.233.420,41");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({
     path: "/tmp/billing-evolution-mobile.png",

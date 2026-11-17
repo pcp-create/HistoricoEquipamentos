@@ -1,6 +1,16 @@
 {
-  "source": "Evolução de Faturamento do Grupo.xls",
-  "sha256": "2f42766c7cd82614c3dbb60ec86b16f4a04c289d972b99d85c2b6caa5dc2ba01",
+  "source": "Evolução de Faturamento do Grupo.xls; Evolução de Faturamento do Grupo - 2025 (RJ EQUIPAMENTOS).xls",
+  "sources": [
+    {
+      "file": "Evolução de Faturamento do Grupo.xls",
+      "sha256": "2f42766c7cd82614c3dbb60ec86b16f4a04c289d972b99d85c2b6caa5dc2ba01"
+    },
+    {
+      "file": "Evolução de Faturamento do Grupo - 2025 (RJ EQUIPAMENTOS).xls",
+      "sha256": "0e1d242360f87f489113b0a4550fb66e6e184760f75c58a251d9097ae046031b"
+    }
+  ],
+  "sha256": "df3081bfadeee0d1c75cf4eb4d81d79537b57cb03db33fb99e845d30299e426b",
   "records": [
     {
       "scope": "1",
@@ -793,6 +803,72 @@
       "average": 1240493.23,
       "annualOnly": false,
       "sheet": "EVOLUÇÃO DO GRUPO 2026"
+    },
+    {
+      "scope": "rj-equipamentos",
+      "year": 2023,
+      "months": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        231041.7,
+        122893.85
+      ],
+      "total": 353935.55,
+      "average": 176967.78,
+      "annualOnly": false,
+      "sheet": "FATURAMENTO RJ EQUIP. CONGELADO"
+    },
+    {
+      "scope": "rj-equipamentos",
+      "year": 2024,
+      "months": [
+        10225,
+        70165.5,
+        37500,
+        53800,
+        94657.5,
+        248231.1,
+        150343.3,
+        531358.44,
+        840791.58,
+        879566.94,
+        632092.97,
+        684688.08
+      ],
+      "total": 4233420.41,
+      "average": 352785.03,
+      "annualOnly": false,
+      "sheet": "FATURAMENTO RJ EQUIP. CONGELADO"
+    },
+    {
+      "scope": "rj-equipamentos",
+      "year": 2025,
+      "months": [
+        824215.19,
+        643226.38,
+        352833.88,
+        609830.76,
+        441160.67,
+        183577.03,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "total": 3054843.91,
+      "average": 509140.65,
+      "annualOnly": false,
+      "sheet": "FATURAMENTO RJ EQUIP. CONGELADO"
     }
   ]
 }

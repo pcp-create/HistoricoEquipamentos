@@ -3,6 +3,7 @@ export const evolutionCompanies = [
   { id: "1", name: "RJ Indústria", short: "RJ Indústria" },
   { id: "2", name: "RJ Serrana", short: "Serrana" },
   { id: "27404", name: "Criciúma Compressores", short: "Criciúma" },
+  { id: "rj-equipamentos", name: "RJ Equipamentos", short: "RJ Equipamentos" },
 ];
 export const monthNames = [
   "Jan",
@@ -154,14 +155,14 @@ export function buildEvolution(
               (cell, i) =>
                 cell.amount == null &&
                 `${year}-${String(month + 1).padStart(2, "0")}` >=
-                  ["2012-01", "2019-04", "2024-07"][i],
+                  ["2012-01", "2019-04", "2024-07", "9999-12"][i],
             ),
           };
         }
         if (historical)
           return {
-            amount: historical.months[month],
-            source: historical.months[month] != null ? "spreadsheet" : null,
+            amount: sum([historical.months[month], cells[3].amount]),
+            source: historical.months[month] != null || cells[3].amount != null ? "spreadsheet" : null,
             count: 0,
           };
         return {
@@ -181,7 +182,7 @@ export function buildEvolution(
       const total = annualOnly
         ? sum(companyYears.map((row) => row.total))
         : historical && noSystem
-          ? historical.total
+          ? sum([historical.total, companyYears[3].total])
           : sum(months.map((cell) => cell.amount));
       return {
         year,

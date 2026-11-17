@@ -9,7 +9,7 @@ import {
 const data = (live: Parameters<typeof buildEvolution>[1] = []) =>
   buildEvolution(history, live, "2026-11-09", null);
 test("workbook totals reconcile; annual history has no invented months", () => {
-  assert.equal(history.records.length, 36);
+  assert.equal(history.records.length, 39);
   for (const r of history.records)
     if (r.annualOnly) assert.ok(r.months.every((n) => n === null));
     else
@@ -145,4 +145,25 @@ test("breakdown reconciles gross minus returns, including returns-only months an
   assert.equal(historical.returns, null);
   assert.equal(historical.historical, true);
   assert.equal(billingBreakdown(result, "1", 2010, 1, 12)[0].gross, null);
+});
+
+test("RJ Equipamentos reconciles spreadsheet and adds once to the group", () => {
+  const result=data();
+  const equipment=result.series.find(s=>s.company==='rj-equipamentos')!;
+  for(const [year,total] of [[2023,353935.55],[2024,4233420.41],[2025,3054843.91]]) {
+    const extra=equipment.years.find(r=>r.year===year)!;
+    assert.equal(extra.total,total);
+    const baseline=history.records.find(r=>r.scope==='all'&&r.year===year)!;
+    const combined=result.series[0].years.find(r=>r.year===year)!;
+    assert.equal(combined.total,Math.round((baseline.total!+total)*100)/100);
+    for(let i=0;i<12;i++) assert.equal(combined.months[i].amount,
+      baseline.months[i]==null&&extra.months[i].amount==null?null:Math.round(((baseline.months[i]??0)+(extra.months[i].amount??0))*100)/100);
+  }
+  assert.equal(equipment.years.find(r=>r.year===2023)!.months[9].amount,null);
+  assert.equal(equipment.years.find(r=>r.year===2025)!.months[6].amount,null);
+  assert.equal(equipment.years.find(r=>r.year===2026)!.total,null);
+  const mixed=data([{company:'1',period:'2024-01',amount:100,count:1}]);
+  const month=mixed.series[0].years.find(r=>r.year===2024)!.months[0];
+  assert.equal(month.source,'mixed');
+  assert.equal(month.amount,Math.round(mixed.series.slice(1).reduce((n,s)=>n+(s.years.find(r=>r.year===2024)!.months[0].amount??0),0)*100)/100);
 });

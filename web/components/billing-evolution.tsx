@@ -1061,7 +1061,7 @@ export default function BillingEvolution() {
                 Onde existe faturamento integrado, o sistema tem prioridade, sem
                 somar o valor da planilha ao mesmo mês. As lacunas usam o
                 histórico estático de <strong>{data.sourceFile}</strong>. O
-                consolidado histórico da planilha é preservado nos meses sem
+                consolidado histórico recebe também os valores da RJ Equipamentos nos meses sem
                 dados integrados; meses com integração somam as empresas e seus
                 históricos disponíveis. Um asterisco indica que falta histórico
                 de alguma empresa.
@@ -1069,7 +1069,9 @@ export default function BillingEvolution() {
               <p>
                 RJ: 2010 e 2011 possuem somente total e média anuais, sem
                 distribuição mensal. Serrana iniciou em abril/2019 e Criciúma em
-                julho/2024. Períodos sem detalhamento não são estimados.
+                julho/2024. RJ Equipamentos: histórico de novembro/2023 a junho/2025,
+                somado ao grupo e disponível separadamente. Períodos sem
+                detalhamento não são estimados.
               </p>
               <p>
                 Última coleta da integração:{" "}
