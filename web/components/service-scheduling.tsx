@@ -739,6 +739,23 @@ export default function ServiceScheduling() {
                     </tbody>
                   </table>
                 </div>
+                {!!data.removedOperations?.length && <details className="scheduling-table" style={{marginTop:16}}>
+                  <summary>Operações excluídas ({data.removedOperations.length})</summary>
+                  <table><thead><tr><th>Operação</th><th>Descrição</th><th>Motivo da exclusão</th><th>Excluída por</th><th>Data da exclusão</th><th>Detalhes</th></tr></thead>
+                  <tbody>{data.removedOperations.map((entry:any)=><tr key={entry.id}>
+                    <td>{operationNumber(entry.operation.position)}</td>
+                    <td>{entry.operation.document.description || 'Sem descrição'}</td>
+                    <td style={{whiteSpace:'pre-wrap'}}>{entry.reason || 'Não informado (registro antigo)'}</td>
+                    <td>{entry.display_name || entry.actor}</td>
+                    <td>{new Date(entry.created_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</td>
+                    <td><details><summary>Ver programação excluída</summary>
+                      <p>Tipo de serviço: {entry.operation.document.serviceType || 'Não informado'}</p>
+                      <p>Responsável: {data.users.find((u:any)=>u.email===entry.operation.document.responsible)?.display_name || entry.operation.document.responsible || 'Não informado'}</p>
+                      <p>Programação: {entry.operation.document.date || 'Não informada'} {entry.operation.document.time || ''}</p>
+                      <p>Observação: {entry.operation.document.internalNote || 'Sem observação'}</p>
+                    </details></td>
+                  </tr>)}</tbody></table>
+                </details>}
                 <div className="schedule-operation-actions"><button
                   disabled={busy}
                   onClick={() => void mutate({ action: "add_operation" })}
@@ -1237,9 +1254,11 @@ function OperationRow({
               busy || !["pending", "planning", "scheduled"].includes(o.status)
             }
             onClick={() => {
-              if (window.confirm("Remover esta operação?"))
-                void mutate({
+              const reason=window.prompt("Informe o motivo da exclusão desta operação. Ela ficará registrada no histórico de operações excluídas:");
+              if(reason===null)return;
+              void mutate({
                   action: "remove_operation",
+                  reason,
                   operationId: o.id,
                   version: o.version,
                 });

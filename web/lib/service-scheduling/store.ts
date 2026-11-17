@@ -208,6 +208,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
     schedule,
     detail: combinedDetail,
     linked_detail_incomplete: linkedDetails.some(l=>!l.detail?.detail_at),
+    removedOperations: (await db.query("SELECT e.id,e.created_at,e.actor,u.display_name,e.details->>'reason' AS reason,e.details->'operation' AS operation FROM web_access_events e LEFT JOIN web_user_access u ON u.email=e.actor WHERE e.event='service_operation_removed' AND e.details->'operation'->>'schedule_id'=$1 ORDER BY e.created_at DESC,e.id DESC",[String(scheduleId)])).rows,
     operations: operations.rows.map(operation => ({...operation, status: effectiveOperationStatus(operation.status, operation.document),display_status:displayedOperationStatus(schedule,effectiveOperationStatus(operation.status,operation.document))})),
     timeAdjustmentsAvailable,
     requests: timeRequests.rows,
@@ -525,10 +526,16 @@ export async function mutateSchedule(b: any, email: string) {
       await c.query("COMMIT");return {operation:result};
     }
     if (b.action === "remove_operation") {
+      const reason=typeof b.reason==='string'?b.reason.trim():'';
+      if(reason.length<3||reason.length>2000)throw new ScheduleInputError('Informe o motivo da exclusão, de 3 a 2000 caracteres.');
       if (!["pending", "planning", "scheduled"].includes(operation.status))
         throw new ScheduleInputError(
           "Não é possível remover uma operação em execução ou revisão.",
         );
+      if((await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished'",[operation.id])).rows.length)
+        throw new ScheduleInputError('Encerre os apontamentos em aberto antes de excluir a operação.');
+      if(!operation.document.checklistReturn && (await c.query("SELECT 1 FROM web_field_events WHERE operation_id=$1 UNION ALL SELECT 1 FROM web_field_sessions WHERE operation_id=$1 UNION ALL SELECT 1 FROM web_field_material_checks WHERE operation_id=$1 UNION ALL SELECT 1 FROM web_field_time_requests WHERE operation_id=$1 UNION ALL SELECT 1 FROM web_service_item_usage WHERE operation_id=$1 LIMIT 1",[operation.id])).rows.length)
+        throw new ScheduleInputError('Retorne a operação ao planejamento antes de excluir: existem registros técnicos vinculados.');
       if(operation.document.checklistReturn){
         if(!admin)throw new Forbidden();
         if((await c.query("SELECT 1 FROM web_service_item_usage WHERE schedule_id=$1 AND ((allocations IS NULL AND operation_id=$2 AND COALESCE(withdrawn,0)>0) OR EXISTS(SELECT 1 FROM jsonb_array_elements(COALESCE(allocations,'[]')) a WHERE a->>'operationId'=$2::text AND (a->>'quantity')::numeric>0))",[schedule.id,operation.id])).rows.length)
@@ -543,7 +550,9 @@ export async function mutateSchedule(b: any, email: string) {
           await c.query(`DELETE FROM ${table} WHERE operation_id=$1`,[operation.id]);
         await c.query('UPDATE web_service_item_usage SET operation_id=NULL WHERE operation_id=$1',[operation.id]);
       }
+      const tasks=(await c.query("SELECT * FROM web_tasks WHERE id IN(SELECT task_id FROM web_service_operation_workflows WHERE operation_id=$1) OR source_key=$2 FOR UPDATE",[operation.id,'manual:schedule-operation:'+operation.id])).rows;
       await audit(c, email, "service_operation_removed", {
+        reason, tasks,
         operation,
         events: (
           await c.query(
@@ -556,11 +565,16 @@ export async function mutateSchedule(b: any, email: string) {
         "DELETE FROM web_service_operation_events WHERE operation_id=$1",
         [operation.id],
       );
-      await c.query("UPDATE web_tasks SET status='completed',completed_at=now(),version=version+1,updated_by=$2,updated_at=now() WHERE id IN(SELECT task_id FROM web_service_operation_workflows WHERE operation_id=$1)",[operation.id,email]);
       await c.query('DELETE FROM web_service_operation_workflows WHERE operation_id=$1',[operation.id]);
       await c.query("DELETE FROM web_service_operations WHERE id=$1", [
         operation.id,
       ]);
+      // Close tasks only after detaching the deleted operation. The review guard
+      // must continue blocking premature completion of existing operations.
+      for(const task of tasks){
+        await c.query("UPDATE web_tasks SET status='completed',source_resolved=true,kanban_column=NULL,completed_at=COALESCE(completed_at,now()),version=version+1,updated_by=$2,updated_at=now() WHERE id=$1",[task.id,email]);
+        await c.query("INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,'Operação excluída',$2,true,$3,COALESCE((SELECT display_name FROM web_user_access WHERE email=$3),$3))",[task.id,'Tarefa encerrada pela exclusão da operação '+operation.position+'. Motivo: '+reason,email]);
+      }
       await c.query("COMMIT");
       return { removed: operation.id };
     }

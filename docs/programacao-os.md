@@ -249,3 +249,10 @@ quando o usuário altera o nome do anexo ou seleciona outras operações. Se o u
 editar o assunto manualmente, sua edição é preservada. O modelo antigo de assunto
 nas configurações deixa de ser aplicado; o texto padrão formatado da mensagem continua
 configurável.
+
+
+### Histórico de operações excluídas
+
+Excluir uma operação exige motivo (3 a 2000 caracteres). A aba Operações mostra uma seção “Operações excluídas” com número, descrição, motivo, autor, data em Brasília e programação original. Registros antigos disponíveis na auditoria aparecem sem motivo informado. A operação sai da programação ativa, mas sua cópia e os eventos ficam na auditoria da OS. Apontamentos em aberto impedem a exclusão; as proteções para peças retiradas e solicitações pendentes continuam aplicadas.
+
+As tarefas vinculadas são encerradas após a remoção da operação e recebem uma nota com o motivo da exclusão. A proteção que permite concluir tarefas de operações ativas somente após revisão permanece intacta. Não há migração de banco.

@@ -98,6 +98,7 @@ test("scheduling includes once, versions operations, protects execution and reco
       "039_material_withdrawals",
       "093_service_execution_workflow",
       "098_multiple_order_links",
+      "106_operation_task_completion",
     ])
       await db.exec(
         readFileSync(
@@ -134,11 +135,20 @@ test("scheduling includes once, versions operations, protects execution and reco
     ).rows;
     assert.equal(ops.length, 1);
     const added = (await mutateSchedule({action:"add_operation",scheduleId:sid},user)).operation;
-    await mutateSchedule({action:"remove_operation",scheduleId:sid,operationId:added.id,version:added.version},user);
+    await assert.rejects(mutateSchedule({action:"remove_operation",scheduleId:sid,operationId:added.id,version:added.version},user),/motivo/);
+    await mutateSchedule({action:"remove_operation",scheduleId:sid,operationId:added.id,version:added.version,reason:'Operação duplicada'},user);
     const discarded=(await mutateSchedule({action:'add_operation',scheduleId:sid},admin)).operation;
     await db.query("UPDATE web_service_operations SET document=document||'{\"checklistReturn\":{\"reason\":\"Checklist incorreto\"}}'::jsonb WHERE id=$1",[discarded.id]);
     await db.query('INSERT INTO web_field_material_checks(operation_id,actor) VALUES($1,$2)',[discarded.id,user]);
-    await mutateSchedule({action:'remove_operation',scheduleId:sid,operationId:discarded.id,version:discarded.version},admin);
+    const task=(await db.query<any>("INSERT INTO web_tasks(source_key,cycle,equipment_id,origin,title,equipment_name,source_status,priority) VALUES($1,'test',0,'manual','Operação retornada','Equipamento','Pendente','normal') RETURNING *",['manual:schedule-operation:'+discarded.id])).rows[0];
+    await db.query("INSERT INTO web_service_operation_workflows(operation_id,task_id,planner,phase) VALUES($1,$2,$3,'execution')",[discarded.id,task.id,admin]);
+    await assert.rejects(db.query("UPDATE web_tasks SET status='completed' WHERE id=$1",[task.id]),/automaticamente após a revisão/);
+    await mutateSchedule({action:'remove_operation',scheduleId:sid,operationId:discarded.id,version:discarded.version,reason:'Atendimento cancelado'},admin);
+    assert.equal((await db.query<any>('SELECT status FROM web_tasks WHERE id=$1',[task.id])).rows[0].status,'completed');
+    assert.equal((await db.query<any>('SELECT source_resolved FROM web_tasks WHERE id=$1',[task.id])).rows[0].source_resolved,true);
+    assert.match((await db.query<any>('SELECT description FROM web_task_notes WHERE task_id=$1',[task.id])).rows[0].description,/Atendimento cancelado/);
+    const archived=(await db.query<any>("SELECT actor,details FROM web_access_events WHERE event='service_operation_removed' AND details->'operation'->>'id'=$1",[discarded.id])).rows[0];
+    assert.equal(archived.actor,admin);assert.equal(archived.details.reason,'Atendimento cancelado');assert.equal(archived.details.operation.id,discarded.id);assert.equal(archived.details.tasks[0].id,task.id);
     assert.equal((await db.query('SELECT 1 FROM web_field_material_checks WHERE operation_id=$1',[discarded.id])).rows.length,0);
 
     assert.equal((await db.query("SELECT * FROM web_service_operations")).rows.length,1);
