@@ -1,4 +1,5 @@
-import {updateContactJob} from "../lib/visits/contact-job";
+import { syncContact } from "../lib/visits/contact-sync";
+import { updateContactJob } from "../lib/visits/contact-job";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PGlite } from "@electric-sql/pglite";
@@ -8,6 +9,7 @@ import { contactPayload, fetchM8Contacts } from "../lib/visits/m8-contacts";
 import {
   createCustomerContact,
   listCustomerContacts,
+  refreshCustomerContacts,
 } from "../lib/visits/contacts";
 import { M8RequestError } from "../lib/service-orders/m8";
 const input = {
@@ -23,8 +25,8 @@ const input = {
 };
 test("contact contract requires ERP fields and paginates M8 responses", async () => {
   assert.equal(contactPayload(input).cargoId, 7);
-  assert.equal(contactPayload({...input,email:""}).email,"");
-  assert.equal(contactPayload({...input,email:undefined}).email,"");
+  assert.equal(contactPayload({ ...input, email: "" }).email, "");
+  assert.equal(contactPayload({ ...input, email: undefined }).email, "");
   assert.equal(contactPayload(input).observacao, "Compras");
   for (const patch of [
     { email: "invalido" },
@@ -67,12 +69,52 @@ test("M8 listing preserves local IDs, confirmed writes, uncertain writes and lea
         "utf8",
       ),
     );
-    await db.exec(readFileSync(new URL('../sql/112_contact_job_types_seed.sql',import.meta.url),'utf8').split('INSERT INTO')[0]+'COMMIT;');
-    await db.exec(readFileSync(new URL('../sql/113_customer_contact_job_override.sql',import.meta.url),'utf8'));
-    await db.exec(readFileSync(new URL('../sql/115_customer_contact_edits.sql',import.meta.url),'utf8'));
-    await db.exec(`ALTER TABLE web_user_access ADD COLUMN phone text DEFAULT '49999999999';INSERT INTO web_user_access(email,enabled,role) VALUES('responsible@test.com',true,'user');CREATE TABLE web_visit_automation_settings(id boolean,equipment_assignee text);INSERT INTO web_visit_automation_settings VALUES(true,'responsible@test.com');CREATE TABLE web_tasks(id bigint GENERATED ALWAYS AS IDENTITY,origin text,customer text,description text,assigned_to text);`);
-    const writeTask:any=async(body:any,_actor:any,transaction:any)=>({task:(await transaction.query('INSERT INTO web_tasks(description,assigned_to) VALUES($1,$2) RETURNING id',[body.description,body.assignedTo])).rows[0]});
+    await db.exec(
+      readFileSync(
+        new URL("../sql/112_contact_job_types_seed.sql", import.meta.url),
+        "utf8",
+      ).split("INSERT INTO")[0] + "COMMIT;",
+    );
+    await db.exec(
+      readFileSync(
+        new URL(
+          "../sql/113_customer_contact_job_override.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    await db.exec(
+      readFileSync(
+        new URL("../sql/115_customer_contact_edits.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    await db.exec(
+      readFileSync(
+        new URL("../sql/117_contact_sync_queue.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    await db.exec(
+      `ALTER TABLE web_user_access ADD COLUMN phone text DEFAULT '49999999999';INSERT INTO web_user_access(email,enabled,role) VALUES('responsible@test.com',true,'user');CREATE TABLE web_visit_automation_settings(id boolean,equipment_assignee text);INSERT INTO web_visit_automation_settings VALUES(true,'responsible@test.com');CREATE TABLE web_tasks(id bigint GENERATED ALWAYS AS IDENTITY,origin text,customer text,description text,assigned_to text);`,
+    );
+    const writeTask: any = async (
+      body: any,
+      _actor: any,
+      transaction: any,
+    ) => ({
+      task: (
+        await transaction.query(
+          "INSERT INTO web_tasks(description,assigned_to) VALUES($1,$2) RETURNING id",
+          [body.description, body.assignedTo],
+        )
+      ).rows[0],
+    });
     const query = async (sql: string, args?: any[]) => {
+      if (sql.includes("pg_try_advisory_lock"))
+        return { rows: [{ locked: true }] };
+      if (sql.includes("pg_advisory_unlock")) return { rows: [] };
       if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
       return db.query(sql, args);
     };
@@ -141,117 +183,101 @@ test("M8 listing preserves local IDs, confirmed writes, uncertain writes and lea
     );
     let writes = 0,
       remote: any[] = [],
-      fail = false;
-    const session: any = async (company: number) => {
-      assert.equal(company, 1);
-      return async (path: string, body?: any) => {
-        assert.match(path, /\/cliente\/10\/contato/);
-        if (!body) return remote;
-        writes++;
-        assert.equal(body.cargoId, 7);
-        assert.equal(body.tipo, "Geral");
-        if (fail) throw new M8RequestError("Sem confirmação", true);
-        remote = [
-          {
-            id: 42,
-            nome: body.nome,
-            telefone: body.telefone,
-            email: body.email,
-            cargoId: 7,
-          },
-        ];
-        return { id: 42 };
-      };
+      uncertain = false;
+    const session: any = async () => async (_path: string, body?: any) => {
+      if (!body) return remote;
+      writes++;
+      if (uncertain) throw new M8RequestError("Sem confirmação", true);
+      remote.push({ ...body, id: 42 });
+      return { id: 42 };
     };
     const saved = await createCustomerContact(
       "m8:10",
-      { ...input, cargo_id: 999 },
+      { ...input, email: "" },
       "a@test.com",
       session,
     );
-    assert.equal(saved.m8_id, 42);
+    assert.equal(writes, 0);
+    assert.equal(saved.sync_requested, true);
+    assert.equal((await listCustomerContacts("m8:10", "a@test.com")).length, 1);
+    await syncContact(saved.id, "a@test.com", session);
+    assert.equal(writes, 0);
+    assert.match(
+      (await listCustomerContacts("m8:10", "a@test.com"))[0].sync_error,
+      /exige e-mail/,
+    );
+    const updated = await updateContactJob(
+      {
+        customer: "m8:10",
+        contactId: saved.id,
+        version: 1,
+        email: input.email,
+      },
+      "a@test.com",
+    );
+    assert.equal(updated.job_version, 2);
+    await syncContact(saved.id, "a@test.com", session);
+    let listed = await listCustomerContacts("m8:10", "a@test.com");
     assert.equal(writes, 1);
-    assert.equal(
-      (await createCustomerContact("m8:10", input, "a@test.com", session)).id,
-      saved.id,
+    assert.equal(listed[0].m8_id, 42);
+    assert.equal(listed[0].sync_requested, false);
+    await updateContactJob(
+      {
+        customer: "m8:10",
+        contactId: saved.id,
+        version: 2,
+        name: "Ana editada",
+      },
+      "a@test.com",
     );
+    await syncContact(saved.id, "a@test.com", session);
     assert.equal(writes, 1);
-    remote[0].nome = "Ana atualizada";
-    const listed = await listCustomerContacts("m8:10", "a@test.com", session);
-    assert.equal(listed.length, 1);
-    assert.equal(listed[0].id, saved.id);
-    assert.equal(listed[0].name, "Ana atualizada");
-    await assert.rejects(() =>
-      listCustomerContacts("m8:10", "blocked@test.com", session),
-    );
-    fail = true;
-    await assert.rejects(
-      () =>
-        createCustomerContact(
-          "m8:10",
-          { ...input, name: "Outro" },
-          "a@test.com",
-          session,
-        ),
-      /confirmação/,
-    );
-    assert.equal(writes, 2);
-    await assert.rejects(
-      () =>
-        createCustomerContact(
-          "m8:10",
-          { ...input, name: "Outro" },
-          "a@test.com",
-          session,
-        ),
-      /confirmação/,
-    );
-    assert.equal(writes, 2);
-    remote.push({
-      id: 43,
-      nome: "Outro",
-      telefone: input.phone,
-      email: input.email,
-      cargoId: 7,
-    });
+    await refreshCustomerContacts("m8:10", "a@test.com", session);
+    listed = await listCustomerContacts("m8:10", "a@test.com");
+    assert.equal(listed[0].name, "Ana editada");
+    assert.equal(listed[0].sync_requested, true);
+    assert.match(listed[0].sync_error, /não oferece edição/);
+    remote[0].nome = "Ana editada";
+    await syncContact(saved.id, "a@test.com", session);
     assert.equal(
-      (await listCustomerContacts("m8:10", "a@test.com", session)).length,
-      2,
+      (await listCustomerContacts("m8:10", "a@test.com"))[0].sync_requested,
+      false,
     );
-    await createCustomerContact(
+    uncertain = true;
+    const other = await createCustomerContact(
       "m8:10",
       { ...input, name: "Outro" },
       "a@test.com",
       session,
     );
+    await syncContact(other.id, "a@test.com", session);
     assert.equal(writes, 2);
-    remote.push({ ...remote[0], id: 44, email: "outro@example.com" });
-    const duplicates = await listCustomerContacts(
-      "m8:10",
-      "a@test.com",
-      session,
-    );
-    assert.equal(duplicates.length, 3);
-    assert.equal(new Set(duplicates.map((c) => c.id)).size, 3);
-    const duplicateId = duplicates.find((c) => String(c.m8_id) === "44")!.id;
-    const repeated = await listCustomerContacts("m8:10", "a@test.com", session);
+    await syncContact(other.id, "a@test.com", session);
+    assert.equal(writes, 2);
+    assert.equal((await listCustomerContacts("m8:10", "a@test.com")).length, 2);
+    remote.push({
+      ...contactPayload({ ...input, name: "Outro", contact_type: "Geral" }),
+      id: 43,
+    });
+    await syncContact(other.id, "a@test.com", session);
+    assert.equal(writes, 2);
     assert.equal(
-      repeated.find((c) => String(c.m8_id) === "44")!.id,
-      duplicateId,
+      (await listCustomerContacts("m8:10", "a@test.com")).find(
+        (x) => x.id === other.id,
+      )?.sync_requested,
+      false,
     );
-    const alternate=await saveJobType({name:'Fiscal',m8_id:15,active:true},'a@test.com');
-    const beforeWrites=writes;
-    const updated=await updateContactJob({customer:'m8:10',contactId:saved.id,jobTypeId:alternate.id,version:1,name:'Ana Atualizada',phone:'49999887766',email:'nova@example.com',additional_phone:'4933221100',document:'12345678901',notes:'Dados atualizados'},'a@test.com',writeTask);
-    assert.equal(updated.job_title,'Fiscal');assert.equal(updated.job_version,2);
-    const task:any=(await query('SELECT * FROM web_tasks')).rows[0];assert.equal(task.assigned_to,'responsible@test.com');assert.match(task.description,/Ana Atualizada/);assert.match(task.description,/nova@example.com/);assert.match(task.description,/Solicitante: a@test.com/);assert.equal(task.origin,'Ajuste de contato · Visitas');
-    await updateContactJob({customer:'m8:10',contactId:saved.id,jobTypeId:alternate.id,version:2,name:'Ana Atualizada'},'a@test.com',writeTask);assert.equal((await query('SELECT * FROM web_tasks')).rows.length,1);
-    await assert.rejects(()=>updateContactJob({customer:'m8:10',contactId:saved.id,version:2,name:'Não deve salvar'},'a@test.com',async()=>{throw Error('Falha da tarefa')}),/Falha da tarefa/);
-    assert.equal(((await query('SELECT job_version FROM web_customer_contacts WHERE id=$1',[saved.id])).rows[0] as any).job_version,2);
-
-    await assert.rejects(()=>updateContactJob({customer:'m8:10',contactId:saved.id,jobTypeId:alternate.id,version:1},'a@test.com'),/alterado/);
-    await assert.rejects(()=>updateContactJob({customer:'m8:10',contactId:saved.id,jobTypeId:alternate.id,version:2},'blocked@test.com'));
-    const refreshed=(await listCustomerContacts('m8:10','a@test.com',session)).find(c=>c.id===saved.id)!;
-    assert.equal(refreshed.name,'Ana Atualizada');assert.equal(refreshed.phone,'49999887766');assert.equal(refreshed.email,'nova@example.com');assert.equal(refreshed.notes,'Dados atualizados');assert.equal(refreshed.job_title,'Fiscal');assert.equal(refreshed.cargo_id,15);assert.equal(refreshed.job_version,2);assert.equal(writes,beforeWrites);
+    await assert.rejects(() =>
+      listCustomerContacts("m8:10", "blocked@test.com"),
+    );
+    await assert.rejects(
+      () =>
+        updateContactJob(
+          { customer: "m8:10", contactId: saved.id, version: 1, name: "stale" },
+          "a@test.com",
+        ),
+      /alterado/,
+    );
     const lead = await createCustomerContact(
       "lead:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       { name: "Lead", phone: input.phone },

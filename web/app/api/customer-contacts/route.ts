@@ -1,3 +1,6 @@
+import { after } from "next/server";
+import { syncContact } from "@/lib/visits/contact-sync";
+import { refreshCustomerContacts } from "@/lib/visits/contacts";
 import { updateContactJob } from "@/lib/visits/contact-job";
 import { requireUser, sameOrigin, Forbidden, Unauthorized } from "@/lib/auth";
 import { AdminInputError } from "@/lib/admin-store";
@@ -30,12 +33,24 @@ const fail = (e: unknown) =>
 export async function GET(r: Request) {
   try {
     const u = await requireUser();
-    return json({
-      contacts: await listCustomerContacts(
-        new URL(r.url).searchParams.get("customer") || "",
-        u.email,
-      ),
-    });
+    const key = new URL(r.url).searchParams.get("customer") || "";
+    const contacts = await listCustomerContacts(key, u.email);
+    if (!new URL(r.url).searchParams.has("local"))
+      after(async () => {
+        try {
+          await refreshCustomerContacts(key, u.email);
+          for (const contact of contacts
+            .filter(
+              (c: any) =>
+                c.sync_requested &&
+                (!c.sync_attempted_at ||
+                  Date.now() - Date.parse(c.sync_attempted_at) > 300000),
+            )
+            .slice(0, 3))
+            await syncContact(contact.id, u.email);
+        } catch {}
+      });
+    return json({ contacts });
   } catch (e) {
     return fail(e);
   }
@@ -55,9 +70,9 @@ export async function POST(r: Request) {
     }
     if (!b || typeof b !== "object" || Array.isArray(b))
       throw new AdminInputError("Dados do contato inválidos.");
-    return json({
-      contact: await createCustomerContact(b.customer, b, u.email),
-    });
+    const contact = await createCustomerContact(b.customer, b, u.email);
+    after(() => syncContact(contact.id, u.email));
+    return json({ contact });
   } catch (e) {
     return fail(e);
   }
@@ -68,7 +83,8 @@ export async function PATCH(r: Request) {
   try {
     const u = await requireUser(),
       raw = await r.text();
-    if (raw.length > 12000) throw new AdminInputError("Dados excedem o limite.");
+    if (raw.length > 12000)
+      throw new AdminInputError("Dados excedem o limite.");
     let b;
     try {
       b = JSON.parse(raw);
@@ -77,8 +93,12 @@ export async function PATCH(r: Request) {
     }
     if (!b || typeof b !== "object" || Array.isArray(b))
       throw new AdminInputError("Dados inválidos.");
-    return json({ contact: await updateContactJob(b, u.email) });
+    const contact = await updateContactJob(b, u.email);
+    after(() => syncContact(contact.id, u.email));
+    return json({ contact });
   } catch (e) {
     return fail(e);
   }
 }
+
+export const maxDuration = 120;

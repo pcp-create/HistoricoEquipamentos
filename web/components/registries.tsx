@@ -132,6 +132,7 @@ export default function Registries() {
         </p>
         {!opened ? (
           <div className="registry-grid">
+            <Link className="registry-card" href="/configuracoes/cadastros/sincronismos"><Database size={26}/><span><strong>Pendências de sincronização M8</strong><small>Corrigir e conferir contatos pendentes</small></span><ChevronRight/></Link>
             <Link className="registry-card" style={{textDecoration:"none"}} href="/configuracoes/cadastros/crm">
               <Database size={26}/><span><strong>Tipos de Oportunidades / Tipos de Proposta</strong><small>CRM · Cadastro local e IDs de tipos de OS M8</small></span><ChevronRight/>
             </Link>

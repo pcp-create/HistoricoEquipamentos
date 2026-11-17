@@ -505,7 +505,7 @@ export default function Crm() {
                         ) : kind === "contacts" ? (
                           <>
                             <td>
-                              <strong>{row.name}</strong>
+                              <strong>{row.name}</strong><br/><small>{row.m8_id&&!row.sync_requested?"Migrado":"Pendente"}</small>
                             </td>
                             <td>{row.customer_name}</td>
                             <td>{contactJobLabel(row) || "—"}</td>

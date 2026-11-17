@@ -112,9 +112,7 @@ export default function ContactJobEditor({
       </header>
       <p>{contact.name}</p>
       <p>
-        As alterações serão salvas no sistema. Uma tarefa será encaminhada ao
-        responsável pelo vínculo manual de equipamentos para ajustar o cadastro
-        no M8.
+        As alterações ficam disponíveis imediatamente no sistema. A sincronização com o M8 será conferida em segundo plano; pendências podem ser corrigidas na lista de sincronismos.
       </p>
       <form onSubmit={save}>
         <label>

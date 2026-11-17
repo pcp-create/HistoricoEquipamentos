@@ -2,14 +2,8 @@ import "server-only";
 import { database } from "../db";
 import { AdminInputError } from "../admin-store";
 import { contactAccess } from "./contacts";
-import { createTask } from "../tasks/store";
-import { linkTaskAssignee } from "../equipment/customer-links";
 import { selectedJobType } from "./job-types";
-export async function updateContactJob(
-  b: any,
-  actor: string,
-  taskWriter = createTask,
-) {
+export async function updateContactJob(b: any, actor: string) {
   if (
     typeof b.contactId !== "string" ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -27,7 +21,7 @@ export async function updateContactJob(
     await contactAccess(c, b.customer, actor);
     const previous = (
       await c.query(
-        `SELECT c.*,COALESCE(j.name,c.job_title) effective_job_title,COALESCE(j.m8_id,c.cargo_id) effective_cargo_id FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE c.id=$1 AND c.customer_key=$2 AND c.integration_state NOT IN ('sending','uncertain','failed') FOR UPDATE OF c`,
+        `SELECT c.*,COALESCE(j.name,c.job_title) effective_job_title,COALESCE(j.m8_id,c.cargo_id) effective_cargo_id FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE c.id=$1 AND c.customer_key=$2 FOR UPDATE OF c`,
         [b.contactId, b.customer],
       )
     ).rows[0];
@@ -101,15 +95,9 @@ export async function updateContactJob(
       await c.query("COMMIT");
       return effective;
     }
-    let assignee: string;
-    try {
-      assignee = await linkTaskAssignee(c);
-    } catch (e) {
-      throw new AdminInputError((e as Error).message);
-    }
     const row = (
       await c.query(
-        `UPDATE web_customer_contacts SET field_overrides=$3,job_type_override_id=COALESCE($4,job_type_override_id),job_version=job_version+1,job_updated_by=$5,job_updated_at=now() WHERE id=$1 AND customer_key=$2 RETURNING job_version`,
+        `UPDATE web_customer_contacts SET field_overrides=$3,job_type_override_id=COALESCE($4,job_type_override_id),job_version=job_version+1,job_updated_by=$5,job_updated_at=now(),sync_requested=(customer_key LIKE 'm8:%'),sync_error='' WHERE id=$1 AND customer_key=$2 RETURNING job_version`,
         [
           b.contactId,
           b.customer,
@@ -119,38 +107,10 @@ export async function updateContactJob(
         ],
       )
     ).rows[0];
-    const customer =
-      (
-        await c.query(
-          b.customer.startsWith("m8:")
-            ? "SELECT name FROM m8_customer_directory WHERE person_id=$1 LIMIT 1"
-            : "SELECT name FROM web_sales_leads WHERE id=$1",
-          [b.customer.slice(b.customer.startsWith("m8:") ? 3 : 5)],
-        )
-      ).rows[0]?.name || b.customer;
-    const result = await taskWriter(
-      {
-        title: ("Ajustar contato no M8 — " + effective.name).slice(0, 160),
-        description: `Atualização salva somente no sistema. Ajuste manualmente o cadastro correspondente no M8.
-Cliente: ${customer} (${b.customer})
-Contato: ${effective.name}
-ID do contato M8: ${previous.m8_id || "Não integrado"}
-Solicitante: ${actor}
-Alterações:
-${changes.join("\n")}`,
-        priority: "normal",
-        assignedTo: assignee,
-        dueDate: "",
-      },
-      { id: actor, email: actor },
-      c,
-    );
-    await c.query(
-      "UPDATE web_tasks SET origin='Ajuste de contato · Visitas',customer=$2 WHERE id=$1",
-      [result.task.id, customer],
-    );
     await c.query("COMMIT");
     return {
+      sync_requested: b.customer.startsWith("m8:"),
+      integration_state: previous.integration_state,
       id: previous.id,
       name: effective.name,
       phone: effective.phone,

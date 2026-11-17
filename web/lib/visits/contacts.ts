@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { database } from "../db";
 import { Forbidden } from "../auth";
 import { AdminInputError } from "../admin-store";
-import { m8Session, M8RequestError } from "../service-orders/m8";
+import { m8Session } from "../service-orders/m8";
 import { selectedJobType } from "./job-types";
 import { contactPayload, fetchM8Contacts } from "./m8-contacts";
 export async function contactAccess(db: any, key: string, email: string) {
@@ -37,7 +37,7 @@ export async function contactAccess(db: any, key: string, email: string) {
   }
   throw new Forbidden();
 }
-async function contactCompany(db: any, key: string) {
+export async function contactCompany(db: any, key: string) {
   return Number(
     (
       await db.query(
@@ -47,7 +47,7 @@ async function contactCompany(db: any, key: string) {
     ).rows[0]?.company_id,
   );
 }
-export async function listCustomerContacts(
+export async function refreshCustomerContacts(
   key: string,
   email: string,
   session = m8Session,
@@ -94,7 +94,7 @@ export async function listCustomerContacts(
             )
           ).id;
         await c.query(
-          `UPDATE web_customer_contacts SET m8_id=$2,company_id=$3,email=$4,job_title=COALESCE(NULLIF($5,''),(SELECT name FROM web_contact_job_types WHERE m8_id=$7),''),contact_type=$6,cargo_id=$7,additional_phone=$8,document=$9,notes=$10,name=$11,phone=$12,integration_state='synced' WHERE id=$1`,
+          `UPDATE web_customer_contacts SET m8_id=$2,company_id=$3,email=$4,job_title=COALESCE(NULLIF($5,''),(SELECT name FROM web_contact_job_types WHERE m8_id=$7),''),contact_type=$6,cargo_id=$7,additional_phone=$8,document=$9,notes=$10,name=$11,phone=$12,integration_state=CASE WHEN sync_requested THEN integration_state ELSE 'synced' END WHERE id=$1 AND NOT sync_requested`,
           [
             id,
             row.id,
@@ -121,7 +121,7 @@ export async function listCustomerContacts(
   }
   return (
     await db.query(
-      `SELECT c.id,COALESCE(c.field_overrides->>'name',c.name) name,COALESCE(c.field_overrides->>'phone',c.phone) phone,COALESCE(c.field_overrides->>'email',c.email) email,COALESCE(c.field_overrides->>'additional_phone',c.additional_phone) additional_phone,COALESCE(c.field_overrides->>'document',c.document) document,COALESCE(c.field_overrides->>'notes',c.notes) notes,c.contact_type,COALESCE(j.name,c.job_title) job_title,COALESCE(j.m8_id,c.cargo_id) cargo_id,c.m8_id,c.integration_state,c.job_version,c.job_type_override_id::text job_type_id FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE c.customer_key=$1 AND c.integration_state NOT IN ('sending','uncertain','failed') ORDER BY lower(COALESCE(c.field_overrides->>'name',c.name)),c.id`,
+      `SELECT c.id,COALESCE(c.field_overrides->>'name',c.name) name,COALESCE(c.field_overrides->>'phone',c.phone) phone,COALESCE(c.field_overrides->>'email',c.email) email,COALESCE(c.field_overrides->>'additional_phone',c.additional_phone) additional_phone,COALESCE(c.field_overrides->>'document',c.document) document,COALESCE(c.field_overrides->>'notes',c.notes) notes,c.contact_type,COALESCE(j.name,c.job_title) job_title,COALESCE(j.m8_id,c.cargo_id) cargo_id,c.m8_id,c.integration_state,c.sync_requested,c.sync_error,c.job_version,c.job_type_override_id::text job_type_id FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE c.customer_key=$1 ORDER BY lower(COALESCE(c.field_overrides->>'name',c.name)),c.id`,
       [key],
     )
   ).rows;
@@ -180,97 +180,57 @@ export async function createCustomerContact(
     cargo_id: job.m8_id,
     contact_type: "Geral",
   });
-  const company = await contactCompany(db, key),
-    request = await session(company);
+  const company = await contactCompany(db, key);
   const c = await db.connect();
-  let row: any;
   try {
     await c.query("BEGIN READ WRITE");
     await c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
       key + payload.nome + payload.telefone,
     ]);
-    row = (
+    const existing = (
       await c.query(
         "SELECT * FROM web_customer_contacts WHERE customer_key=$1 AND name=$2 AND phone=$3 FOR UPDATE",
         [key, payload.nome, payload.telefone],
       )
     ).rows[0];
-    if (row?.m8_id) {
+    if (existing) {
       await c.query("COMMIT");
-      return row;
+      return existing;
     }
-    if (row && ["sending", "uncertain"].includes(row.integration_state))
-      throw new AdminInputError(
-        "Cadastro sem confirmação do M8. Atualize os contatos e confira o ERP antes de tentar novamente.",
-      );
-    row = await storeContact(c, key, b, email);
-    await c.query(
-      `UPDATE web_customer_contacts SET company_id=$2,email=$3,contact_type=$4,cargo_id=$5,additional_phone=$6,document=$7,notes=$8,job_title=$9,integration_state='sending' WHERE id=$1`,
-      [
-        row.id,
-        company,
-        payload.email,
-        payload.tipo,
-        payload.cargoId,
-        payload.telefoneAdicional || "",
-        payload.cpfCnpj || "",
-        payload.observacao || "",
-        job.name,
-      ],
-    );
+    const row = await storeContact(c, key, b, email);
+    const result = (
+      await c.query(
+        `UPDATE web_customer_contacts SET company_id=$2,email=$3,contact_type=$4,cargo_id=$5,additional_phone=$6,document=$7,notes=$8,job_title=$9,sync_requested=true WHERE id=$1 RETURNING *`,
+        [
+          row.id,
+          company,
+          payload.email,
+          payload.tipo,
+          payload.cargoId,
+          payload.telefoneAdicional || "",
+          payload.cpfCnpj || "",
+          payload.observacao || "",
+          job.name,
+        ],
+      )
+    ).rows[0];
     await c.query("COMMIT");
+    return result;
   } catch (e) {
     await c.query("ROLLBACK");
     throw e;
   } finally {
     c.release();
   }
-  let id: number;
-  try {
-    const result = await request(
-      `/v1/configuracoes/cliente/${key.slice(3)}/contato`,
-      payload,
-    );
-    if (!Number.isSafeInteger(result?.id) || result.id < 1)
-      throw new M8RequestError(
-        "O M8 não confirmou o identificador do contato. Atualize a lista e confira o ERP.",
-        true,
-      );
-    id = result.id;
-  } catch (e) {
-    const c = await db.connect();
-    try {
-      await c.query("BEGIN READ WRITE");
-      await c.query(
-        "UPDATE web_customer_contacts SET integration_state=$2 WHERE id=$1",
-        [
-          row.id,
-          e instanceof M8RequestError && !e.uncertain ? "failed" : "uncertain",
-        ],
-      );
-      await c.query("COMMIT");
-    } catch {
-      await c.query("ROLLBACK");
-    } finally {
-      c.release();
-    }
-    throw e;
-  }
-  const saved = await db.connect();
-  try {
-    await saved.query("BEGIN READ WRITE");
-    const result = (
-      await saved.query(
-        "UPDATE web_customer_contacts SET m8_id=$2,integration_state='synced' WHERE id=$1 RETURNING id,name,phone,email,job_title,cargo_id,m8_id,job_version",
-        [row.id, id],
-      )
-    ).rows[0];
-    await saved.query("COMMIT");
-    return result;
-  } catch (e) {
-    await saved.query("ROLLBACK");
-    throw e;
-  } finally {
-    saved.release();
-  }
+}
+
+export async function listCustomerContacts(key: string, email: string) {
+  const db = database();
+  await contactAccess(db, key, email);
+  return (
+    await db.query(
+      `SELECT c.*,COALESCE(c.field_overrides->>'name',c.name) name,COALESCE(c.field_overrides->>'phone',c.phone) phone,COALESCE(c.field_overrides->>'email',c.email) email,COALESCE(c.field_overrides->>'additional_phone',c.additional_phone) additional_phone,COALESCE(c.field_overrides->>'document',c.document) document,COALESCE(c.field_overrides->>'notes',c.notes) notes,COALESCE(j.name,c.job_title) job_title,COALESCE(j.m8_id,c.cargo_id) cargo_id,c.job_type_override_id::text job_type_id FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE customer_key=$1 ORDER BY lower(COALESCE(c.field_overrides->>'name',c.name)),c.id`,
+      [key],
+    )
+  ).rows;
 }

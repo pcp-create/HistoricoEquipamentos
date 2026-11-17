@@ -61,7 +61,6 @@ export default function ScheduleChecklistRun({operation,data,mutate,busy,dirty,r
   if(timer.current)clearTimeout(timer.current);
   timer.current=setTimeout(()=>{timer.current=null;if(latest.current.busy||saving.current){autoSave();return;}void saveReport(true);},350);
  }
- useEffect(()=>{const element=section.current;if(!element)return;const toggle=()=>autoSave();element.addEventListener('toggle',toggle,true);return()=>element.removeEventListener('toggle',toggle,true);});
  useEffect(()=>{const flush=()=>autoSave();window.addEventListener('rj-report-persist',flush);return()=>{window.removeEventListener('rj-report-persist',flush);if(timer.current)clearTimeout(timer.current);};},[operation.id]);
 
  const run=operation.document.checklistRun,template=run?.template||data.settings.document.checklists.find((c:any)=>c.id===operation.document.checklistId);

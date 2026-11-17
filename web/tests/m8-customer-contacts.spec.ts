@@ -120,7 +120,7 @@ test("visits require ERP contact fields, keep errors in popup and select confirm
     name: "Editar contato",
     exact: true,
   });
-  await expect(jobEditor).toContainText("As alterações serão salvas no sistema.");
+  await expect(jobEditor).toContainText("As alterações ficam disponíveis imediatamente no sistema.");
   await jobEditor.getByLabel("Cargo do contato").selectOption("1");
   await jobEditor.getByLabel("Nome do contato").fill("João Atualizado");
   await jobEditor.getByLabel("Telefone do contato",{exact:true}).fill("49999887766");

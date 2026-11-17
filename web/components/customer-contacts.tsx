@@ -68,7 +68,8 @@ export default function CustomerContacts({
       .catch((e) => {
         if (e.name !== "AbortError") setError(e.message);
       });
-    return () => c.abort();
+    const reload=setInterval(()=>{fetch("/api/customer-contacts?local=1&customer="+encodeURIComponent(customer),{signal:c.signal}).then(r=>r.json()).then(b=>{if(b.contacts)setRows(b.contacts);}).catch(()=>{});},10000);
+    return () => {clearInterval(reload);c.abort();};
   }, [customer, readonly, refresh]);
   useEffect(() => {
     if (adding && customer) dialog.current?.showModal();
@@ -152,12 +153,13 @@ export default function CustomerContacts({
           )}
         </div>
       </div>
+      <a href="/configuracoes/cadastros/sincronismos">Pendências de sincronização com o M8</a>
       {error && !adding && <p role="alert">{error}</p>}
       {readonly ? (
         <ul>
           {rows.map((c) => (
             <li key={c.id}>
-              {c.name}
+              {c.name} · {c.m8_id&&!c.sync_requested?"Migrado":"Pendente"}
               {contactCargo(c) ? ` · ${contactCargo(c)}` : ""} ·{" "}
               <a href={"tel:" + c.phone}>{c.phone}</a>
             </li>
@@ -191,7 +193,7 @@ export default function CustomerContacts({
                     id: c.id,
                     displayId: "",
                     name: c.name,
-                    detail: `Cargo: ${contactCargo(c) || "Não informado"} • Telefone: ${contactPhone(c.phone)} • E-mail: ${c.email?.trim() || "Não informado"}`,
+                    detail: `${c.m8_id&&!c.sync_requested?"Migrado":"Pendente"} • Cargo: ${contactCargo(c) || "Não informado"} • Telefone: ${contactPhone(c.phone)} • E-mail: ${c.email?.trim() || "Não informado"}`,
                     data: c,
                   })),
                 ]}
@@ -200,6 +202,7 @@ export default function CustomerContacts({
             </div>
             {(selectedContact || name) && (
               <div className="customer-contact-summary">
+                {selectedContact&&<small><strong>Sincronização M8</strong>{selectedContact.m8_id&&!selectedContact.sync_requested?"Migrado":"Pendente"}</small>}
                 <small>
                   <strong className="contact-cargo-label">
                     Cargo
@@ -318,7 +321,7 @@ export default function CustomerContacts({
               <h2>Novo contato</h2>
               <p>
                 {customer.startsWith("m8:")
-                  ? "O contato será cadastrado no ERP M8 e ficará disponível para as visitas."
+                  ? "O contato será salvo no sistema e ficará disponível para as visitas. A sincronização com o M8 ocorrerá em segundo plano."
                   : "Salve o contato para continuar o agendamento da visita."}
               </p>
               {error && <p role="alert">{error}</p>}
