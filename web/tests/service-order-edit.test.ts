@@ -80,7 +80,7 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
   };
   try {
     await db.exec(
-      "CREATE ROLE anon;CREATE ROLE authenticated;CREATE TABLE web_user_access(email text,m8_employee_id int,enabled boolean);CREATE TABLE service_order_registries(kind text,id int,active boolean,warranty_id int);INSERT INTO service_order_registries VALUES('flow-statuses',2,true,null);",
+      "CREATE TABLE service_order_submissions(company_id int,m8_id int,header jsonb,created_at timestamptz DEFAULT now());CREATE ROLE anon;CREATE ROLE authenticated;CREATE TABLE web_user_access(email text,m8_employee_id int,enabled boolean);CREATE TABLE service_order_registries(kind text,id int,active boolean,warranty_id int);INSERT INTO service_order_registries VALUES('flow-statuses',2,true,null);",
     );
     await db.exec(
       readFileSync(
@@ -262,6 +262,14 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
     await db.query("UPDATE service_order_edits SET steps=jsonb_set(steps,'{0,payload,produtos}','[]'::jsonb) WHERE id=$1",[legacy]);
     const beforeLegacy=writes.length;
     assert.equal((await advanceEdit('user',legacy,session)).state,'rejected');assert.equal(writes.length,beforeLegacy);
+    // A legacy order created near midnight was shifted by M8 when it parsed -03:00.
+    current={...structuredClone(source),emissao:'2026-11-17T02:29:26'};
+    await db.query("INSERT INTO service_order_submissions(company_id,m8_id,header) VALUES(2,800,$1)",[JSON.stringify({emissao:'2026-11-16T23:29:26-03:00'})]);
+    const repair=randomUUID();
+    await prepareEdit('user',repair,'2','800',fingerprint(current),draft,session);
+    assert.equal((await advanceEdit('user',repair,session)).state,'complete');
+    assert.equal(writes.at(-1).body.emissao,'2026-11-16T23:29:26');
+    await db.exec('DELETE FROM service_order_submissions');current=structuredClone(source);
     const uncertain = randomUUID();
     await prepareEdit(
       "user",

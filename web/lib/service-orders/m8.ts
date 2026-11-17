@@ -1,4 +1,5 @@
 import "server-only";
+import {localOrderHeader} from './opening-time';
 export class M8RequestError extends Error {
   constructor(
     message: string,
@@ -69,7 +70,7 @@ export async function m8Session(
           Authorization: `Bearer ${a.data.token}`,
           "Content-Type": "application/json",
         },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        ...(body === undefined ? {} : { body: JSON.stringify(/^\/v1\/assistenciatecnica\/ordemservico(?:\/\d+)?$/.test(path)&&['POST','PUT'].includes(method)?localOrderHeader(body):body) }),
       });
     } catch {
       throw new M8RequestError(

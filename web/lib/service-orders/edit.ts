@@ -1,4 +1,5 @@
 import "server-only";
+import {restoredOpening} from './opening-time';
 import { itemApproval } from "../material-approval";
 import {orderSellers} from "./sellers";
 import { refreshProjectionOrder } from "../sales-projection/refresh-order";
@@ -18,6 +19,10 @@ import { processedOrder } from "./edit-status";
 import contract from "./edit-contract.json";
 const text = (v: any) => (v == null ? "" : String(v));
 const day = (v: any) => text(v).slice(0, 10);
+async function openingForEdit(source:any,company:string,id:string){
+  const original=(await database().query("SELECT header->>'emissao' opening FROM service_order_submissions WHERE company_id=$1 AND m8_id=$2 ORDER BY created_at LIMIT 1",[company,id])).rows[0]?.opening;
+  return restoredOpening(source,original);
+}
 function canonical(v: any): string {
   return JSON.stringify(v, (_, x) =>
     x && typeof x === "object" && !Array.isArray(x)
@@ -160,6 +165,7 @@ export async function loadEdit(company: string, id: string) {
     )
   ).rows;
   const equipment = await resolveEditEquipment(source, company, id);
+  const opening=await openingForEdit(source,company,id);
   const catalog = equipment.id ? (await database().query("SELECT name,model,serial FROM m8_equipment_catalog WHERE equipment_id=$1", [equipment.id])).rows[0] : null;
   return {
     version: fingerprint(source),
@@ -185,8 +191,8 @@ export async function loadEdit(company: string, id: string) {
       situation: source.situacaoNome,
       flowStatus: source.statusLancamentoNome,
     },
-    openingDate: String(source.dataAbertura||source.emissao||'').slice(0,10),
-    openingTime: String(source.horaAbertura||source.emissao||'').split('T').pop()?.match(/^\d{2}:\d{2}(?::\d{2})?/)?.[0]||'',
+    openingDate: opening.slice(0,10),
+    openingTime: opening.split('T')[1]?.slice(0,8)||String(source.horaAbertura||'').split('T').pop()?.match(/^\d{2}:\d{2}(?::\d{2})?/)?.[0]||'',
     opening: [source.dataAbertura, source.horaAbertura]
       .filter(Boolean)
       .join(" "),
@@ -321,6 +327,7 @@ export async function prepareEdit(
       throw new OrderInputError("Selecione opções válidas nos cadastros.");
   }
   const header = writable(source, "ATOrdemServicoRequestDto");
+  header.emissao=await openingForEdit(source,company,orderId);
   // Collections not managed by this screen must not be reinserted from read-only response DTOs.
   for (const k of [
     "apontamentos",
@@ -569,7 +576,8 @@ export async function advanceEdit(
       );
     if (!alreadyRemoved) {
       writeStarted = true;
-      const result = await m8(step.path, step.payload, step.method);
+      const payload=step.method==='PUT'&&next===0?{...step.payload,emissao:await openingForEdit(source,text(row.company_id),text(row.m8_id))}:step.payload;
+      const result = await m8(step.path, payload, step.method);
       if(step.method==='POST'&&(!Number.isInteger(result?.id)||result.id<=0))throw new M8RequestError('O M8 não confirmou o ID do item incluído. Confira no ERP antes de reenviar.',true);
       if (step.method === "PUT" && text(result?.id) !== text(row.m8_id))
         throw new M8RequestError(
