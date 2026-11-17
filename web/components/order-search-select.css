@@ -10,3 +10,5 @@
 .order-search-menu-header { position: sticky; top: -6px; z-index: 1; padding: 10px 6px; margin-bottom: 6px; border-bottom: 1px solid #dce6f0; background: #fff; }
 .order-search-menu-header .sales-customer-scope { display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 0; font-size: 12px; cursor: pointer; }
 .order-search-menu-header input[type=checkbox] { width: 16px; height: 16px; flex: 0 0 16px; margin: 0; }
+
+.order-choice-row{display:flex;align-items:center}.order-choice-row>button{flex:1;min-width:0}.order-choice-actions{display:flex;gap:4px;flex-wrap:wrap}.order-search-options .order-choice-actions button{width:auto;min-height:44px;padding:8px;gap:4px}.order-choice-actions [role=alert]{max-width:220px;color:#b42318}

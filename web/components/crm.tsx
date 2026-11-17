@@ -19,6 +19,7 @@ import {
   ContactRound,
 } from "lucide-react";
 import SiteHeader from "./site-header";
+import ContactDeleteButton from "./contact-delete-button";
 import ContactJobEditor from "./contact-job-editor";
 import OrderSearchSelect from "./order-search-select";
 import { companyName } from "@/lib/company-names";
@@ -520,6 +521,7 @@ export default function Crm() {
                               >
                                 <Pencil size={15} />
                               </button>
+                              <ContactDeleteButton customer={row.customer_key} contact={row} onDeleted={()=>setRefresh(n=>n+1)}/>
                             </td>
                           </>
                         ) : (
@@ -597,6 +599,7 @@ export default function Crm() {
           customer={contact.customer_key}
           contact={contact}
           onClose={() => setContact(null)}
+          onDeleted={()=>{setContact(null); setRefresh(n=>n+1);}}
           onSaved={() => {
             setContact(null);
             setRefresh((n) => n + 1);

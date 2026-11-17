@@ -1,3 +1,4 @@
+import { deleteCustomerContact } from "@/lib/visits/contact-delete";
 import { after } from "next/server";
 import { syncContact } from "@/lib/visits/contact-sync";
 import { refreshCustomerContacts } from "@/lib/visits/contacts";
@@ -102,3 +103,21 @@ export async function PATCH(r: Request) {
 }
 
 export const maxDuration = 120;
+
+export async function DELETE(r: Request) {
+  if (!sameOrigin(r)) return json({ error: "Origem inválida." }, 403);
+  try {
+    const u = await requireUser(),
+      raw = await r.text();
+    if (raw.length > 2000) throw new AdminInputError("Dados excedem o limite.");
+    let body;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      throw new AdminInputError("Dados inválidos.");
+    }
+    return json(await deleteCustomerContact(body, u.email));
+  } catch (e) {
+    return fail(e);
+  }
+}

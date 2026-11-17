@@ -96,6 +96,7 @@ test("M8 listing preserves local IDs, confirmed writes, uncertain writes and lea
         "utf8",
       ),
     );
+    await db.exec(readFileSync(new URL("../sql/118_contact_deletion.sql",import.meta.url),"utf8"));
     await db.exec(
       `ALTER TABLE web_user_access ADD COLUMN phone text DEFAULT '49999999999';INSERT INTO web_user_access(email,enabled,role) VALUES('responsible@test.com',true,'user');CREATE TABLE web_visit_automation_settings(id boolean,equipment_assignee text);INSERT INTO web_visit_automation_settings VALUES(true,'responsible@test.com');CREATE TABLE web_tasks(id bigint GENERATED ALWAYS AS IDENTITY,origin text,customer text,description text,assigned_to text);`,
     );
@@ -295,7 +296,28 @@ test("M8 listing preserves local IDs, confirmed writes, uncertain writes and lea
       ).length,
       1,
     );
+
     assert.ok(lead.id);
+    const {deleteCustomerContact}=await import("../lib/visits/contact-delete");
+    const current=(await listCustomerContacts("m8:10","a@test.com")).find(x=>x.id===saved.id)!;
+    await assert.rejects(()=>deleteCustomerContact({customer:"m8:10",contactId:saved.id,version:current.job_version},"blocked@test.com"));
+    await assert.rejects(()=>deleteCustomerContact({customer:"m8:10",contactId:saved.id,version:current.job_version+1},"a@test.com"),/alterado/);
+    await deleteCustomerContact({customer:"m8:10",contactId:saved.id,version:current.job_version},"a@test.com");
+    assert.equal((await listCustomerContacts("m8:10","a@test.com")).some(x=>x.id===saved.id),false);
+    await refreshCustomerContacts("m8:10","a@test.com",session);
+    assert.equal((await listCustomerContacts("m8:10","a@test.com")).some(x=>x.id===saved.id),false);
+    const pending=await createCustomerContact("m8:10",{...input,name:"Pendente excluído"},"a@test.com",session);
+    await deleteCustomerContact({customer:"m8:10",contactId:pending.id,version:pending.job_version},"a@test.com");
+    const before=writes;
+    await syncContact(pending.id,"a@test.com",session);
+    await syncContact(saved.id,"a@test.com",session);
+    assert.equal(writes,before);
+    const restored=await createCustomerContact("m8:10",input,"a@test.com",session);
+    assert.equal(restored.id,saved.id);
+    assert.equal(restored.deleted_at,null);
+    await deleteCustomerContact({customer:"m8:10",contactId:restored.id,version:restored.job_version},"a@test.com");
+    assert.ok((await db.query<{deleted_at:string|null}>("SELECT deleted_at FROM web_customer_contacts WHERE id=$1",[saved.id])).rows[0].deleted_at);
+
   } finally {
     g.historyPool = old;
     await db.close();

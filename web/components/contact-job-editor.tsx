@@ -2,17 +2,20 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatContactPhone } from "@/lib/contact-phone";
+import ContactDeleteButton from "./contact-delete-button";
 import { X } from "lucide-react";
 export default function ContactJobEditor({
   customer,
   contact,
   onClose,
   onSaved,
+  onDeleted,
 }: {
   customer: string;
   contact: any;
   onClose: () => void;
   onSaved: (row: any) => void;
+  onDeleted?: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null),
     sending = useRef(false);
@@ -212,6 +215,7 @@ export default function ContactJobEditor({
         </label>
         {error && <p role="alert">{error}</p>}
         <footer>
+          {onDeleted && <ContactDeleteButton customer={customer} contact={contact} disabled={busy} onDeleted={onDeleted}/>}
           <button type="button" disabled={busy} onClick={onClose}>
             Cancelar
           </button>

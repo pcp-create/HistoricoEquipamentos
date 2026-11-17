@@ -94,7 +94,7 @@ export async function refreshCustomerContacts(
             )
           ).id;
         await c.query(
-          `UPDATE web_customer_contacts SET m8_id=$2,company_id=$3,email=$4,job_title=COALESCE(NULLIF($5,''),(SELECT name FROM web_contact_job_types WHERE m8_id=$7),''),contact_type=$6,cargo_id=$7,additional_phone=$8,document=$9,notes=$10,name=$11,phone=$12,integration_state=CASE WHEN sync_requested THEN integration_state ELSE 'synced' END WHERE id=$1 AND NOT sync_requested`,
+          `UPDATE web_customer_contacts SET m8_id=$2,company_id=$3,email=$4,job_title=COALESCE(NULLIF($5,''),(SELECT name FROM web_contact_job_types WHERE m8_id=$7),''),contact_type=$6,cargo_id=$7,additional_phone=$8,document=$9,notes=$10,name=$11,phone=$12,integration_state=CASE WHEN sync_requested THEN integration_state ELSE 'synced' END WHERE id=$1 AND NOT sync_requested AND deleted_at IS NULL`,
           [
             id,
             row.id,
@@ -121,7 +121,7 @@ export async function refreshCustomerContacts(
   }
   return (
     await db.query(
-      `SELECT c.id,COALESCE(c.field_overrides->>'name',c.name) name,COALESCE(c.field_overrides->>'phone',c.phone) phone,COALESCE(c.field_overrides->>'email',c.email) email,COALESCE(c.field_overrides->>'additional_phone',c.additional_phone) additional_phone,COALESCE(c.field_overrides->>'document',c.document) document,COALESCE(c.field_overrides->>'notes',c.notes) notes,c.contact_type,COALESCE(j.name,c.job_title) job_title,COALESCE(j.m8_id,c.cargo_id) cargo_id,c.m8_id,c.integration_state,c.sync_requested,c.sync_error,c.job_version,c.job_type_override_id::text job_type_id FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE c.customer_key=$1 ORDER BY lower(COALESCE(c.field_overrides->>'name',c.name)),c.id`,
+      `SELECT c.id,COALESCE(c.field_overrides->>'name',c.name) name,COALESCE(c.field_overrides->>'phone',c.phone) phone,COALESCE(c.field_overrides->>'email',c.email) email,COALESCE(c.field_overrides->>'additional_phone',c.additional_phone) additional_phone,COALESCE(c.field_overrides->>'document',c.document) document,COALESCE(c.field_overrides->>'notes',c.notes) notes,c.contact_type,COALESCE(j.name,c.job_title) job_title,COALESCE(j.m8_id,c.cargo_id) cargo_id,c.m8_id,c.integration_state,c.sync_requested,c.sync_error,c.job_version,c.job_type_override_id::text job_type_id FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE c.customer_key=$1 AND c.deleted_at IS NULL ORDER BY lower(COALESCE(c.field_overrides->>'name',c.name)),c.id`,
       [key],
     )
   ).rows;
@@ -163,8 +163,9 @@ export async function createCustomerContact(
       await c.query("BEGIN READ WRITE");
       await contactAccess(c, key, email);
       const row = await storeContact(c, key, b, email);
+      await c.query("UPDATE web_customer_contacts SET deleted_at=NULL,deleted_by=NULL,job_version=job_version+1 WHERE id=$1 AND deleted_at IS NOT NULL",[row.id]);
       await c.query("COMMIT");
-      return row;
+      return (await c.query("SELECT * FROM web_customer_contacts WHERE id=$1",[row.id])).rows[0];
     } catch (e) {
       await c.query("ROLLBACK");
       throw e;
@@ -193,14 +194,14 @@ export async function createCustomerContact(
         [key, payload.nome, payload.telefone],
       )
     ).rows[0];
-    if (existing) {
+    if (existing && !existing.deleted_at) {
       await c.query("COMMIT");
       return existing;
     }
-    const row = await storeContact(c, key, b, email);
+    const row = existing || await storeContact(c, key, b, email);
     const result = (
       await c.query(
-        `UPDATE web_customer_contacts SET company_id=$2,email=$3,contact_type=$4,cargo_id=$5,additional_phone=$6,document=$7,notes=$8,job_title=$9,sync_requested=true WHERE id=$1 RETURNING *`,
+        `UPDATE web_customer_contacts SET job_version=job_version+CASE WHEN deleted_at IS NOT NULL THEN 1 ELSE 0 END,deleted_at=NULL,deleted_by=NULL,field_overrides='{}'::jsonb,job_type_override_id=NULL,company_id=$2,email=$3,contact_type=$4,cargo_id=$5,additional_phone=$6,document=$7,notes=$8,job_title=$9,sync_requested=true WHERE id=$1 RETURNING *`,
         [
           row.id,
           company,
@@ -229,7 +230,7 @@ export async function listCustomerContacts(key: string, email: string) {
   await contactAccess(db, key, email);
   return (
     await db.query(
-      `SELECT c.*,COALESCE(c.field_overrides->>'name',c.name) name,COALESCE(c.field_overrides->>'phone',c.phone) phone,COALESCE(c.field_overrides->>'email',c.email) email,COALESCE(c.field_overrides->>'additional_phone',c.additional_phone) additional_phone,COALESCE(c.field_overrides->>'document',c.document) document,COALESCE(c.field_overrides->>'notes',c.notes) notes,COALESCE(j.name,c.job_title) job_title,COALESCE(j.m8_id,c.cargo_id) cargo_id,c.job_type_override_id::text job_type_id FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE customer_key=$1 ORDER BY lower(COALESCE(c.field_overrides->>'name',c.name)),c.id`,
+      `SELECT c.*,COALESCE(c.field_overrides->>'name',c.name) name,COALESCE(c.field_overrides->>'phone',c.phone) phone,COALESCE(c.field_overrides->>'email',c.email) email,COALESCE(c.field_overrides->>'additional_phone',c.additional_phone) additional_phone,COALESCE(c.field_overrides->>'document',c.document) document,COALESCE(c.field_overrides->>'notes',c.notes) notes,COALESCE(j.name,c.job_title) job_title,COALESCE(j.m8_id,c.cargo_id) cargo_id,c.job_type_override_id::text job_type_id FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE customer_key=$1 AND c.deleted_at IS NULL ORDER BY lower(COALESCE(c.field_overrides->>'name',c.name)),c.id`,
       [key],
     )
   ).rows;

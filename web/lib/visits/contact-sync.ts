@@ -29,7 +29,7 @@ export async function syncContact(
     locked =
       (
         await c.query(
-          "UPDATE web_customer_contacts SET sync_claim=$2,sync_claimed_at=now() WHERE id=$1 AND (sync_claim IS NULL OR sync_claimed_at<now()-interval '2 minutes') RETURNING id",
+          "UPDATE web_customer_contacts SET sync_claim=$2,sync_claimed_at=now() WHERE id=$1 AND deleted_at IS NULL AND (sync_claim IS NULL OR sync_claimed_at<now()-interval '2 minutes') RETURNING id",
           [id, claim],
         )
       ).rows.length > 0;
@@ -68,12 +68,12 @@ export async function syncContact(
     await c.query("BEGIN READ WRITE");
     const latest = (
       await c.query(
-        "SELECT job_version,sync_claim FROM web_customer_contacts WHERE id=$1 FOR UPDATE",
+        "SELECT job_version,sync_claim,deleted_at FROM web_customer_contacts WHERE id=$1 FOR UPDATE",
         [id],
       )
     ).rows[0];
     if (
-      latest?.job_version !== row.job_version ||
+      latest?.deleted_at || latest?.job_version !== row.job_version ||
       latest?.sync_claim !== claim
     ) {
       await c.query("COMMIT");
@@ -140,7 +140,7 @@ export async function syncContact(
     }
     await c.query("BEGIN READ WRITE");
     await c.query(
-      "UPDATE web_customer_contacts SET m8_id=$2,integration_state='synced',sync_requested=(job_version<>$3),sync_error='' WHERE id=$1",
+      "UPDATE web_customer_contacts SET m8_id=$2,integration_state='synced',sync_requested=(deleted_at IS NULL AND job_version<>$3),sync_error='' WHERE id=$1",
       [id, result.id, row.job_version],
     );
     await c.query("COMMIT");

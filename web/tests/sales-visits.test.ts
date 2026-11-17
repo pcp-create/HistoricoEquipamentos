@@ -305,6 +305,7 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     await db.exec(readFileSync(new URL('../sql/113_customer_contact_job_override.sql',import.meta.url),'utf8'));
     await db.exec(readFileSync(new URL('../sql/115_customer_contact_edits.sql',import.meta.url),'utf8'));
     await db.exec(readFileSync(new URL('../sql/117_contact_sync_queue.sql',import.meta.url),'utf8'));
+    await db.exec(readFileSync(new URL("../sql/118_contact_deletion.sql",import.meta.url),"utf8"));
     const contactSession:any=async()=>async(_path:string,body?:any)=>body?{id:45}:[];
     const contact=await createCustomerContact("m8:1",{name:"Contato reutilizável",phone:"49999999999",email:"contato@example.com",job_type_id:"1"},"a@test.com",contactSession);
     assert.ok((await listCustomerContacts("m8:1","tech@test.com")).some(c=>c.id===contact.id));

@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { RefreshCw, Plus, Pencil } from "lucide-react";
 import "./create-linked-task.css";
 import OrderSearchSelect from "./order-search-select";
+import ContactDeleteButton from "./contact-delete-button";
 import ContactJobEditor from "./contact-job-editor";
 function contactPhone(phone: string) {
   return !phone || /^0+$/.test(phone.replace(/\D/g, ""))
@@ -42,7 +43,7 @@ export default function CustomerContacts({
   const leadName = useRef<HTMLInputElement>(null);
   const [jobTypes, setJobTypes] = useState<any[]>([]);
   const [jobTypesError, setJobTypesError] = useState("");
-  const [editingCargo, setEditingCargo] = useState(false);
+  const [editingContact, setEditingContact] = useState<any>(null);
   const [refresh, setRefresh] = useState(0);
   const [rows, setRows] = useState<any[]>([]),
     [adding, setAdding] = useState(false),
@@ -51,7 +52,7 @@ export default function CustomerContacts({
     [error, setError] = useState("");
   useEffect(() => {
     setRows([]);
-    setEditingCargo(false);
+    setEditingContact(null);
     setDraft(blankContact());
     setAdding(!customer && !readonly);
     setError("");
@@ -117,6 +118,11 @@ export default function CustomerContacts({
       setBusy(false);
     }
   }
+  function deleted(id:string){
+    setRows(old=>old.filter(c=>c.id!==id));
+    if(value===id)onSelect?.({id:"",name:"",phone:""});
+    setEditingContact(null);
+  }
   const selectedContact = rows.find((c) => c.id === value);
   return (
     <section className="visit-contacts">
@@ -128,7 +134,7 @@ export default function CustomerContacts({
           {customer && (
             <button
               type="button"
-              disabled={busy || adding || editingCargo}
+              disabled={busy || adding || !!editingContact}
               onClick={() => setRefresh((v) => v + 1)}
             >
               <RefreshCw size={15} aria-hidden="true" />
@@ -138,7 +144,7 @@ export default function CustomerContacts({
           {(!adding || (!customer && !readonly)) && (
             <button
               type="button"
-              disabled={editingCargo}
+              disabled={!!editingContact}
               className="visit-contact-new-button"
               aria-label="+ Novo contato"
               onClick={() => {
@@ -197,6 +203,10 @@ export default function CustomerContacts({
                     data: c,
                   })),
                 ]}
+                renderOptionActions={row=>row.id==="legacy"?null:<>
+                  <button type="button" aria-label={"Editar contato "+row.name} onClick={e=>{e.preventDefault();setEditingContact(row.data);}}><Pencil size={15}/>Editar</button>
+                  <ContactDeleteButton customer={customer} contact={row.data} onDeleted={()=>deleted(row.id)}/>
+                </>}
                 onChange={(row) => onSelect?.(row.data)}
               />
             </div>
@@ -214,6 +224,7 @@ export default function CustomerContacts({
                   <strong>Telefone</strong>
                   {contactPhone(selectedContact?.phone||phone)}
                 </small>
+                {selectedContact && <ContactDeleteButton customer={customer} contact={selectedContact} onDeleted={()=>deleted(selectedContact.id)} disabled={busy||adding}/>}
                 <small><strong>E-mail</strong>{selectedContact?.email?.trim() || "Não informado"}</small>
                     {selectedContact && (
                       <button
@@ -222,7 +233,7 @@ export default function CustomerContacts({
                         aria-label="Editar contato"
                         title="Editar contato"
                         disabled={busy || adding}
-                        onClick={() => setEditingCargo(true)}
+                        onClick={() => setEditingContact(selectedContact)}
                       >
                         <Pencil size={14} aria-hidden="true" />
                       </button>
@@ -467,17 +478,18 @@ export default function CustomerContacts({
           </dialog>,
           document.body,
         )}
-      {editingCargo && selectedContact && (
+      {editingContact && (
         <ContactJobEditor
           customer={customer}
-          contact={selectedContact}
-          onClose={() => setEditingCargo(false)}
+          contact={editingContact}
+          onDeleted={()=>deleted(editingContact.id)}
+          onClose={() => setEditingContact(null)}
           onSaved={(row) => {
             setRows((old) =>
               old.map((c) => (c.id === row.id ? { ...c, ...row } : c)),
             );
-            onSelect?.(row);
-            setEditingCargo(false);
+            if(value===row.id)onSelect?.(row);
+            setEditingContact(null);
           }}
         />
       )}

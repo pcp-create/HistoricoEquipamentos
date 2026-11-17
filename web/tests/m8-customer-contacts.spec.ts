@@ -39,27 +39,14 @@ test("visits require ERP contact fields, keep errors in popup and select confirm
   await page.route("**/api/visits/machines*", (r) =>
     r.fulfill({ json: { machines: [], equipment: [] } }),
   );
-  await page.route("**/api/customer-contacts?*", (r) =>
-    r.fulfill({
-      json: {
-        contacts: [
-          {
-            id: "contact-1",
-            name: "João",
-            job_title: "15 FISCAL",
-            cargo_id: 15,
-            job_version: 1,
-            phone: "0",
-          },
-        ],
-      },
-    }),
-  );
+  let contacts:any[]=[{id:"contact-1",name:"João",job_title:"15 FISCAL",cargo_id:15,job_version:1,phone:"0"}];
+  await page.route("**/api/customer-contacts?*", r=>r.fulfill({json:{contacts}}));
   const writes: any[] = [];
   let fail = true;
   await page.route("**/api/customer-contacts", (r) => {
     const body = r.request().postDataJSON();
     if (r.request().method() === "PATCH") {
+      contacts=contacts.map(c=>c.id===body.contactId?{...c,...body,job_title:"Compras",job_version:2}:c);
       expect(body).toMatchObject({
         customer: "m8:1",
         contactId: "contact-1",
@@ -83,6 +70,8 @@ test("visits require ERP contact fields, keep errors in popup and select confirm
       });
     }
 
+    if(r.request().method()==="DELETE"){contacts=contacts.filter(c=>c.id!==body.contactId);return r.fulfill({json:{deleted:true}});}
+    if(!fail)contacts.push({id:"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",job_version:1,...body});
     writes.push(body);
     return r.fulfill(
       fail
@@ -111,6 +100,11 @@ test("visits require ERP contact fields, keep errors in popup and select confirm
   await expect(option).toContainText("Cargo: FISCAL");
   await expect(option).toContainText("Telefone: Não informado");
   await expect(option).not.toContainText("15 FISCAL");
+  await page.getByRole("button",{name:"Editar contato João",exact:true}).click();
+  await expect(page.getByRole("dialog",{name:"Editar contato",exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"Cancelar",exact:true}).click();
+  await expect(picker).toHaveValue("");
+  await picker.fill("Fiscal");
   await option.click();
   await expect(picker).toHaveValue("João");
   await page
@@ -177,6 +171,18 @@ test("visits require ERP contact fields, keep errors in popup and select confirm
   await expect(page.getByLabel("Contato que receberá a visita")).toHaveValue(
     "Ana",
   );
+  await picker.fill("João");
+  page.once("dialog",d=>d.accept());
+  await page.locator(".order-choice-actions").getByRole("button",{name:/Excluir contato João/}).click();
+  await expect(page.getByRole("option",{name:/João/})).toHaveCount(0);
+  await picker.press("Escape");
+  await expect(picker).toHaveValue("Ana");
+  await picker.click();
+  await picker.fill("Ana");
+  page.once("dialog",d=>d.accept());
+  await page.locator(".order-choice-actions").getByRole("button",{name:"Excluir contato Ana",exact:true}).click();
+  await picker.press("Escape");
+  await expect(picker).toHaveValue("");
   await page.setViewportSize({ width: 390, height: 844 });
   await page
     .getByRole("button", { name: "+ Novo contato", exact: true })
@@ -187,6 +193,6 @@ test("visits require ERP contact fields, keep errors in popup and select confirm
   );
   await popup.getByRole("button", { name: "Cancelar", exact: true }).click();
   await expect(page.getByLabel("Contato que receberá a visita")).toHaveValue(
-    "Ana",
+    "",
   );
 });

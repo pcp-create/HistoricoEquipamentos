@@ -21,7 +21,7 @@ export async function updateContactJob(b: any, actor: string) {
     await contactAccess(c, b.customer, actor);
     const previous = (
       await c.query(
-        `SELECT c.*,COALESCE(j.name,c.job_title) effective_job_title,COALESCE(j.m8_id,c.cargo_id) effective_cargo_id FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE c.id=$1 AND c.customer_key=$2 FOR UPDATE OF c`,
+        `SELECT c.*,COALESCE(j.name,c.job_title) effective_job_title,COALESCE(j.m8_id,c.cargo_id) effective_cargo_id FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE c.id=$1 AND c.customer_key=$2 AND c.deleted_at IS NULL FOR UPDATE OF c`,
         [b.contactId, b.customer],
       )
     ).rows[0];

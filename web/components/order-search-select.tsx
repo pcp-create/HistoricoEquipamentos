@@ -23,6 +23,7 @@ export default function OrderSearchSelect({
   required = false,
   searchPlaceholder = "Pesquisar por ID ou descrição",
   menuHeader,
+  renderOptionActions,
   value,
   selectedLabel,
   options = [],
@@ -35,6 +36,7 @@ export default function OrderSearchSelect({
   required?: boolean;
   searchPlaceholder?: string;
   menuHeader?: ReactNode;
+  renderOptionActions?: (row: OrderChoice) => ReactNode;
   value: string;
   selectedLabel?: string;
   options?: OrderChoice[];
@@ -190,6 +192,7 @@ export default function OrderSearchSelect({
             aria-busy={busy}
           >
             {rows.map((row,index) => (
+              <div key={row.id} className="order-choice-row">
               <button
                 type="button"
                 role="option"
@@ -214,7 +217,7 @@ export default function OrderSearchSelect({
                     e.preventDefault();
                     const all = Array.from(
                       list.current!.querySelectorAll<HTMLButtonElement>(
-                        "button:not(:disabled)",
+                        "button[role=option]:not(:disabled)",
                       ),
                     );
                     const index = all.indexOf(e.currentTarget);
@@ -236,6 +239,8 @@ export default function OrderSearchSelect({
                 </span>
                 {row.id === value && <Check size={16} />}
               </button>
+              {renderOptionActions && <div className="order-choice-actions">{renderOptionActions(row)}</div>}
+              </div>
             ))}
           </div>
           {busy && <p role="status">Carregando…</p>}

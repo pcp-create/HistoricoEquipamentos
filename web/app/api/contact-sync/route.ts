@@ -23,7 +23,7 @@ export async function GET() {
       throw new Forbidden();
     const rows = (
       await db.query(
-        `SELECT c.*,COALESCE(c.field_overrides->>'name',c.name) name,COALESCE(c.field_overrides->>'phone',c.phone) phone,COALESCE(c.field_overrides->>'email',c.email) email,COALESCE(c.field_overrides->>'additional_phone',c.additional_phone) additional_phone,COALESCE(c.field_overrides->>'document',c.document) document,COALESCE(c.field_overrides->>'notes',c.notes) notes,COALESCE(j.name,c.job_title) job_title,COALESCE(j.m8_id,c.cargo_id) cargo_id,c.job_type_override_id::text job_type_id,(SELECT name FROM m8_customer_directory WHERE person_id::text=substring(c.customer_key from 4) LIMIT 1) customer_name FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE c.customer_key LIKE 'm8:%' AND (sync_requested OR integration_state IN ('sending','uncertain','failed')) ORDER BY c.created_at,c.id`,
+        `SELECT c.*,COALESCE(c.field_overrides->>'name',c.name) name,COALESCE(c.field_overrides->>'phone',c.phone) phone,COALESCE(c.field_overrides->>'email',c.email) email,COALESCE(c.field_overrides->>'additional_phone',c.additional_phone) additional_phone,COALESCE(c.field_overrides->>'document',c.document) document,COALESCE(c.field_overrides->>'notes',c.notes) notes,COALESCE(j.name,c.job_title) job_title,COALESCE(j.m8_id,c.cargo_id) cargo_id,c.job_type_override_id::text job_type_id,(SELECT name FROM m8_customer_directory WHERE person_id::text=substring(c.customer_key from 4) LIMIT 1) customer_name FROM web_customer_contacts c LEFT JOIN web_contact_job_types j ON j.id=c.job_type_override_id WHERE c.deleted_at IS NULL AND c.customer_key LIKE 'm8:%' AND (sync_requested OR integration_state IN ('sending','uncertain','failed')) ORDER BY c.created_at,c.id`,
       )
     ).rows;
     return json({ rows });
@@ -44,7 +44,7 @@ export async function POST(r: Request) {
     const db = database(),
       row = (
         await db.query(
-          "SELECT customer_key FROM web_customer_contacts WHERE id=$1",
+          "SELECT customer_key FROM web_customer_contacts WHERE id=$1 AND deleted_at IS NULL",
           [b.id],
         )
       ).rows[0];

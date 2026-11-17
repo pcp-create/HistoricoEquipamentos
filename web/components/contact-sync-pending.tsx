@@ -123,6 +123,7 @@ export default function ContactSyncPending() {
             customer={editing.customer_key}
             contact={editing}
             onClose={() => setEditing(null)}
+            onDeleted={()=>{setEditing(null); void load();}}
             onSaved={() => {
               setEditing(null);
               void load();
