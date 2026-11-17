@@ -148,15 +148,19 @@ export async function visitsData(email: string, db: any = database(), management
       [email, keys, management],
     )
   ).rows;
+  const employeeIds = [...new Set([
+    ...customers.filter(c => !c.disqualification && (c.lead || c.in_portfolio !== false)).flatMap(c => c.seller_ids || []),
+    ...visits.filter((v:any) => v.status === 'scheduled' || v.status === 'completed').map((v:any) => v.seller),
+  ])];
   const sellers = (await db.query(`
     SELECT u.email AS id,u.enabled,COALESCE(NULLIF(u.display_name,''),u.email) AS name,
       p.latitude,p.longitude,p.located_at,u.last_seen_at,
       (u.last_seen_at>now()-interval '15 minutes' AND
        (u.last_logout_at IS NULL OR u.last_seen_at>u.last_logout_at)) IS TRUE AS online
     FROM web_user_access u LEFT JOIN web_field_locations p ON p.actor=u.email
-    WHERE ((u.enabled AND lower(trim(u.job_title)) IN ('vendedor','vendedora')) OR ($3::boolean AND (EXISTS(SELECT 1 FROM web_sales_visits v WHERE v.seller=u.email) OR EXISTS(SELECT 1 FROM web_task_territories t WHERE t.seller_user=u.email) OR EXISTS(SELECT 1 FROM web_sales_leads l WHERE l.owner=u.email))))
+    WHERE CASE WHEN $3::boolean THEN u.email=ANY($4::text[]) ELSE u.enabled AND lower(trim(u.job_title)) IN ('vendedor','vendedora') END
       AND ($2::boolean OR u.email=$1)
-    ORDER BY u.display_name,u.email`, [email,management || user.role === "admin",management])).rows;
+    ORDER BY u.display_name,u.email`, [email,management || user.role === "admin",management,employeeIds])).rows;
   const purposes = (await db.query("SELECT id::text,name,description,active,version FROM web_sales_visit_purposes WHERE active ORDER BY id")).rows;
   const assignees = management ? (await db.query("SELECT email AS id,COALESCE(NULLIF(display_name,''),email) AS name FROM web_user_access WHERE enabled ORDER BY display_name,email")).rows : undefined;
   return { assignees, canEditVisits:true, purposes, name: user.display_name || email, customers, visits, sellers, canManage: canManageVisits(user.role) };

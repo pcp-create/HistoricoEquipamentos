@@ -274,7 +274,7 @@ export default function SalesVisitsManagement() {
         <header className="sales-management-header">
           <div>
             <h1>Gestão de Visitas</h1>
-            <p>Acompanhe a carteira e as visitas de todos os vendedores.</p>
+            <p>Acompanhe a carteira e as visitas de todos os funcionários.</p>
           </div>
           <div className="sales-actions">
             <button className="sales-primary sales-management-create" onClick={()=>openVisit("schedule")}><Plus size={18}/>Agendar visita</button>
@@ -305,18 +305,18 @@ export default function SalesVisitsManagement() {
                 {query && <span>Cliente: {query}</span>}
                 {status && <span>{status==="overdue"?"Agendamentos atrasados":labels[status as keyof typeof labels]}</span>}
                 {(from || until) && <span>{from ? from.split("-").reverse().join("/") : "Sem início"} até {until ? until.split("-").reverse().join("/") : "Sem fim"}</span>}
-                {![seller,query,status,from,until].some(Boolean) && <small>Todos os vendedores · Todos os períodos</small>}
+                {![seller,query,status,from,until].some(Boolean) && <small>Todos os funcionários · Todos os períodos</small>}
                 {periodInvalid && <small role="alert">Período inválido. Expanda os filtros para corrigir as datas.</small>}
               </div>}
               <div id="sales-management-filter-content" className="sales-management-filter-content" hidden={!filtersExpanded}>
               <div className="sales-filter-main">
               <label>
-                Vendedor
+                Funcionário
                 <select
                   value={seller}
                   onChange={(e) => setSeller(e.target.value)}
                 >
-                  <option value="">Todos os vendedores</option>
+                  <option value="">Todos os funcionários</option>
                   {sellers.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
@@ -404,7 +404,7 @@ export default function SalesVisitsManagement() {
                 ["customers", `Clientes (${customerTabs.customers.length})`, Users],
                 ["leads", `Leads (${customerTabs.leads.length})`, UserPlus],
                 ["disqualified", `Desqualificados (${customerTabs.disqualified.length})`, UserX],
-                ["sellers", "Vendedores", Users],
+                ["sellers", "Funcionários", Users],
                 ["visits", "Visitas", List],
                 ["calendar", "Calendário", CalendarDays],
                 ["map", "Mapa", MapPin],
@@ -456,7 +456,7 @@ export default function SalesVisitsManagement() {
                 </div>
                 </div>
                 <button onClick={() => setSeller("")}>
-                  Ver todos os vendedores
+                  Ver todos os funcionários
                 </button>
               </section>
             )}
@@ -552,9 +552,9 @@ export default function SalesVisitsManagement() {
             )}
             {tab === "sellers" && (
               <section className="sales-panel">
-                <h2>Comparativo por vendedor</h2>
+                <h2>Comparativo por funcionário</h2>
                 <p className="sales-muted">
-                  Clique em um vendedor para analisar sua carteira. Visitas
+                  Clique em um funcionário para analisar sua carteira e suas visitas. Os resultados
                   respeitam período, cliente e status selecionados.
                 </p>
                 <div className="sales-management-table">
@@ -562,7 +562,7 @@ export default function SalesVisitsManagement() {
                     <thead>
                       <tr>
                         {[
-                          "Vendedor",
+                          "Funcionário",
                           "Carteira",
                           "Situação da carteira",
                           "Realizadas",
@@ -633,7 +633,7 @@ export default function SalesVisitsManagement() {
                     </tbody>
                   </table>
                 </div>
-                {!sellers.length && <p>Nenhum vendedor cadastrado.</p>}
+                {!sellers.length && <p>Nenhum funcionário com carteira ou visitas.</p>}
               </section>
             )}
             {tab === "visits" && (
@@ -747,9 +747,9 @@ export default function SalesVisitsManagement() {
             {tab === "map" && (
               <>
                 <p className="sales-muted">
-                  Mapa da carteira atual e dos clientes com histórico. Vendedor
+                  Mapa da carteira atual e dos clientes com histórico. Funcionário
                   e pesquisa filtram os clientes. Com período ou status selecionado,
-                  aparecem somente clientes com visitas que atendem aos filtros. Localização dos vendedores atualiza ao
+                  aparecem somente clientes com visitas que atendem aos filtros. Localização dos funcionários atualiza ao
                   atualizar os dados.
                 </p>
                 <SalesVisitsMap

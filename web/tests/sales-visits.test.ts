@@ -233,6 +233,17 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     assert.ok(management.visits.some((v:any)=>v.seller==='b@test.com'));
     assert.ok(management.customers.some(c=>c.key==='m8:2'));
     assert.equal(management.sellers.find((v:any)=>v.id==='b@test.com').enabled,false);
+    await db.exec("INSERT INTO web_user_access(email,display_name,job_title,updated_by) VALUES('portfolio@test.com','Responsável carteira','Administrativo','test'),('empty@test.com','Sem carteira','Vendedor','test'); INSERT INTO web_customer_registry(company_id,person_id,seller_user) VALUES(1,5,'portfolio@test.com')");
+    for(const state of ['scheduled','completed']){
+      await db.query("INSERT INTO web_sales_visits(id,seller,customer_key,scheduled_at,status,completed_at,contact,phone,description,outcome) VALUES('88888888-8888-4888-8888-888888888888','tech@test.com','m8:1',now()-interval '1 day',$1,CASE WHEN $1='completed' THEN now() ELSE NULL END,'Contato','49999999999','Visita técnica','Realizada')",[state]);
+      const employees=(await visitsData('admin@test.com',undefined,true)).sellers;
+      assert.ok(employees.some((u:any)=>u.id==='tech@test.com'));
+      assert.ok(employees.some((u:any)=>u.id==='portfolio@test.com'));
+      assert.ok(!employees.some((u:any)=>u.id==='empty@test.com'));
+      await db.exec("DELETE FROM web_sales_visits WHERE id='88888888-8888-4888-8888-888888888888'");
+    }
+    await db.exec("DELETE FROM web_customer_registry WHERE person_id=5; DELETE FROM web_user_access WHERE email IN ('portfolio@test.com','empty@test.com')");
+
 
     await assert.rejects(() =>
       saveVisit(

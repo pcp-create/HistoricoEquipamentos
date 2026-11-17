@@ -12,6 +12,7 @@ const customers=[{key:'1',name:'Cliente A',city:'Lages',uf:'SC',document:'111',l
 const base={contact:'Contato',phone:'49999999999',description:'Descrição da visita',outcome:'',version:1,completed_at:null};
 const visits=[{...base,id:'1',customer_key:'1',seller:'a@test',scheduled_at:'2026-10-01T12:00:00Z',completed_at:'2026-10-02T12:00:00Z',status:'completed',outcome:'Proposta entregue'}, {...base,id:'2',customer_key:'2',seller:'b@test',scheduled_at:'2026-10-03T12:00:00Z',status:'scheduled'}, {...base,id:'3',customer_key:'1',seller:'a@test',scheduled_at:'2026-10-04T12:00:00Z',status:'cancelled'}];
 test('management compares sellers and filters visits, calendar and mobile views',async({page,context,request})=>{
+ await page.clock.setFixedTime(new Date('2026-10-17T12:00:00Z'));
  expect((await request.get('/api/visits/management')).status()).toBe(401);
  await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
  await page.route('**/api/visits/management',r=>r.fulfill({json:{name:'Gestor',canManage:true,sellers,customers,visits}}));
@@ -20,7 +21,7 @@ test('management compares sellers and filters visits, calendar and mobile views'
  await page.screenshot({path:'/tmp/visitas-gestao.png',fullPage:true});
  await expect(page.getByRole('button',{name:/Filtros de pesquisa.*Expandir/})).toHaveAttribute('aria-expanded','false');
  await page.getByRole('button',{name:/Filtros de pesquisa.*Expandir/}).click();
- await page.getByRole('button',{name:'Vendedores',exact:true}).click();
+ await page.getByRole('button',{name:'Funcionários',exact:true}).click();
  await expect(page.locator('tbody tr')).toHaveCount(2);
  await expect(page.locator('tbody')).toContainText('Inativo');
  const sellerA = page.locator('tbody tr').filter({has:page.getByRole('button',{name:'Vendedor A',exact:true})});
@@ -34,16 +35,16 @@ test('management compares sellers and filters visits, calendar and mobile views'
  await page.getByPlaceholder('Nome, documento ou cidade').fill('');
  await expect(sellerB.locator('td').nth(1)).toContainText('1 Leads');
  await page.getByRole('button',{name:'Vendedor B',exact:true}).click();
- await expect(page.getByRole('combobox',{name:'Vendedor',exact:true})).toHaveValue('b@test');
+ await expect(page.getByRole('combobox',{name:'Funcionário',exact:true})).toHaveValue('b@test');
  await page.getByRole('button',{name:'Visitas',exact:true}).click();
  await expect(page.locator('.sales-visit')).toHaveCount(1);
  await expect(page.locator('.sales-visit')).toContainText('Lead B');
  await page.getByRole('button',{name:/Filtros de pesquisa.*Ocultar/}).click();
- await expect(page.getByRole('combobox',{name:'Vendedor',exact:true})).toBeHidden();
+ await expect(page.getByRole('combobox',{name:'Funcionário',exact:true})).toBeHidden();
  await expect(page.locator('.sales-filter-summary')).toContainText('Vendedor B');
  await expect(page.locator('.sales-visit')).toHaveCount(1);
  await page.getByRole('button',{name:/Filtros de pesquisa.*Expandir/}).click();
- await expect(page.getByRole('combobox',{name:'Vendedor',exact:true})).toHaveValue('b@test');
+ await expect(page.getByRole('combobox',{name:'Funcionário',exact:true})).toHaveValue('b@test');
 
  await page.getByRole('button',{name:'Limpar filtros',exact:true}).click();
  await expect(page.locator('.sales-visit')).toHaveCount(3);
@@ -58,7 +59,7 @@ test('management compares sellers and filters visits, calendar and mobile views'
  await expect(page.locator('.sales-visit')).toHaveCount(3);
  await page.setViewportSize({width:390,height:844});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
- await page.getByRole('button',{name:'Vendedores',exact:true}).click();
+ await page.getByRole('button',{name:'Funcionários',exact:true}).click();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });
 test('management denial does not render consolidated information',async({page,context})=>{
@@ -291,13 +292,13 @@ test('overview cards open matching lists and preserve seller and period filters'
   await expect(page.locator('.sales-visits-list summary')).toContainText(status);
  }
  await page.getByRole('button',{name:/Filtros de pesquisa.*Expandir/}).click();
- await page.getByRole('combobox',{name:'Vendedor',exact:true}).selectOption('a@test');
+ await page.getByRole('combobox',{name:'Funcionário',exact:true}).selectOption('a@test');
  await page.getByLabel('De',{exact:true}).fill('2026-10-01');
  await page.getByLabel('Até',{exact:true}).fill('2026-10-02');
  await page.getByRole('button',{name:'Visão geral',exact:true}).click();
  await cards.getByRole('button',{name:/Visitas realizadas/}).click();
  await expect(page.locator('.sales-visits-list .sales-visit')).toHaveCount(1);
- await expect(page.getByRole('combobox',{name:'Vendedor',exact:true})).toHaveValue('a@test');
+ await expect(page.getByRole('combobox',{name:'Funcionário',exact:true})).toHaveValue('a@test');
  await expect(page.getByLabel('De',{exact:true})).toHaveValue('2026-10-01');
  await page.getByRole('button',{name:'Visão geral',exact:true}).click();
  await page.setViewportSize({width:390,height:844});
