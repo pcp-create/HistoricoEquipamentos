@@ -23,8 +23,8 @@ export function contactPayload(b: any) {
     cargoId = Number(b.cargo_id);
   if (!nome || !/^[+()\d\s.-]{8,40}$/.test(telefone))
     throw new AdminInputError("Informe nome e telefone válidos.");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    throw new AdminInputError("Informe o e-mail do contato.");
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    throw new AdminInputError("Informe um e-mail válido ou deixe o campo em branco.");
   if (
     !contactTypes.includes(tipo) ||
     !Number.isInteger(cargoId) ||

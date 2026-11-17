@@ -44,7 +44,14 @@ function projectField(home, detail, body) {
     detail.pause_history_seconds=Number(detail.pause_history_seconds||0)+Number(active.pause_seconds||0);
     closed={...active,state:'finished',finished_at:at,closedByFinish:true};active=null;
   }
-  if (action === "info_read") detail.infoRead = true;
+  if (action === "info_read") {
+    if(body.vehicleId!==undefined){
+      if(!detail.settings?.document?.vehicles?.some(v=>v.id===body.vehicleId))throw Error('Selecione o veículo que será utilizado no atendimento.');
+      if(active?.kind==='travel'&&active.operation_id===op.id&&active.vehicle_id!==body.vehicleId)throw Error('Encerre o deslocamento antes de alterar o veículo utilizado.');
+      detail.actualVehicleId=body.vehicleId;
+    }
+    detail.infoRead = true;
+  }
   if (action === "materials") {
     detail.checked = true;
     for (const item of detail.materials?.items || []) {
@@ -125,6 +132,7 @@ function projectField(home, detail, body) {
       pause_seconds: 0,
       pause_history_seconds: Number(detail.pause_history_seconds||0),
       odometer_start: body.odometer,
+      vehicle_id: detail.actualVehicleId || op.document.vehicleId || null,
     };
   }
   if (["pause", "resume", "stop", "pause_ack"].includes(action)) {

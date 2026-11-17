@@ -1,4 +1,4 @@
-# Portal Técnico RJ — APK 2.2.24
+# Portal Técnico RJ — APK 2.2.25
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
@@ -339,3 +339,10 @@ Instalar como atualização, sem desinstalar nem limpar os dados do aplicativo.
 - Registros já confirmados no servidor saem da fila sem reenviar horas ou fotos.
 - Dependentes só são liberados quando todos os antecedentes arquivados têm confirmação; conflitos sem recibo continuam preservados.
 - Instalar por cima da versão existente, sem desinstalar ou limpar os dados.
+
+### Versão 2.2.25 — veículo utilizado e odômetro
+
+- O técnico confirma nas Informações o veículo utilizado, sem alterar o veículo programado pelo planejador.
+- O veículo utilizado fica registrado por técnico e operação; o deslocamento guarda esse vínculo até o encerramento.
+- A confirmação e os apontamentos mantêm o veículo correto também offline. Não trocar o veículo durante um deslocamento aberto.
+- Novos envios ao técnico exigem veículo programado válido.

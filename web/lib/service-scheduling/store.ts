@@ -572,6 +572,7 @@ export async function mutateSchedule(b: any, email: string) {
       document.responsible === email || document.support?.includes(email);
     if (b.action === "dispatch") {
       if(!admin) throw new Forbidden();
+      if(!document.vehicleId||!config.document.vehicles?.some((v:any)=>v.id===document.vehicleId))throw new ScheduleInputError("Atribua um veículo válido antes de enviar a operação ao técnico.");
       if(status!=="scheduled" || !document.responsible || !document.date || !document.time) throw new ScheduleInputError("Salve a data, a hora e o responsável antes de enviar a operação.");
       const enabled=(await c.query("SELECT email FROM web_user_access WHERE enabled AND email=$1",[document.responsible])).rows.length;
       if(!enabled)throw new ScheduleInputError("O responsável precisa estar ativo.");

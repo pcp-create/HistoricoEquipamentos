@@ -88,7 +88,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
    INSERT INTO m8_os_produtos VALUES(1,100,55,11908,'Peça',2,'UN',false,'Sim');
    INSERT INTO integracao_m8_os_sync VALUES(1,100,false,now());
    INSERT INTO web_user_access(email,display_name,role,updated_by) VALUES('tech','Técnico','user','test'),('helper','Apoio','user','test'),('outsider','Outro','user','test');
-   UPDATE web_service_schedule_settings SET document=document||'{"pauseReasons":[{"id":"rest","name":"Descanso","minutes":15}],"vehicles":[{"id":"v1","name":"Veículo 1"}]}'::jsonb;`);
+   UPDATE web_service_schedule_settings SET document=document||'{"pauseReasons":[{"id":"rest","name":"Descanso","minutes":15}],"vehicles":[{"id":"v1","name":"Veículo 1"},{"id":"v2","name":"Veículo 2"}]}'::jsonb;`);
     await db.exec(`ALTER TABLE m8_ordens_servico ADD COLUMN produto_equipamento_id bigint,ADD COLUMN emissao timestamptz,ADD COLUMN data_abertura timestamptz,ADD COLUMN data_garantia timestamptz,ADD COLUMN tipo_atendimento_nome text,ADD COLUMN tipo_atendimento_id int,ADD COLUMN ativo boolean,ADD COLUMN status text;
     ALTER TABLE m8_order_equipment_links ADD COLUMN method text;
     CREATE TABLE service_order_registries(kind text,id int,warranty_description text);
@@ -404,12 +404,19 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
       )
     ).rows[0];
     assert.ok(Number(event.hours) >= 1 && Number(event.hours) < 1.02);
+    await act('info_read',{vehicleId:'v2'});
+    assert.equal((await fieldData('tech',id)).actualVehicleId,'v2');
+    assert.equal((await fieldData('tech',id)).operation.document.vehicleId,'v1');
+    assert.equal((await fieldData('helper',id)).actualVehicleId,'v1');
+    await assert.rejects(act('info_read',{vehicleId:'invalid'}),/Selecione o veículo/);
     await act("start_travel", { odometer: 1000 });
     session = (
       await db.query<any>(
         "SELECT * FROM web_field_sessions WHERE state<>'finished'",
       )
     ).rows[0];
+    assert.equal(session.vehicle_id,'v2');
+    await assert.rejects(act('info_read',{vehicleId:'v1'}),/Encerre o deslocamento/);
     await assert.rejects(
       act("stop", { sessionId: session.id, odometer: 999 }),
       /menor/,

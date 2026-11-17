@@ -23,9 +23,11 @@ const input = {
 };
 test("contact contract requires ERP fields and paginates M8 responses", async () => {
   assert.equal(contactPayload(input).cargoId, 7);
+  assert.equal(contactPayload({...input,email:""}).email,"");
+  assert.equal(contactPayload({...input,email:undefined}).email,"");
   assert.equal(contactPayload(input).observacao, "Compras");
   for (const patch of [
-    { email: "" },
+    { email: "invalido" },
     { cargo_id: "0" },
     { cargo_id: "1.2" },
     { contact_type: "Outro" },

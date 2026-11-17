@@ -1189,11 +1189,12 @@ function OperationRow({
         <td>
           <select
             aria-label={"Veículo " + operationNumber(o.position)}
+            aria-required="true"
             disabled={locked}
             value={d.vehicleId || ""}
             onChange={(e) => change("vehicleId", e.target.value)}
           >
-            <option value="">Não selecionado</option>
+            <option value="">Selecione para enviar ao técnico</option>
             {(data.settings.document.vehicles || []).map((v: any) => (
               <option key={v.id} value={v.id}>
                 {v.name}

@@ -108,6 +108,7 @@ test("scheduling includes once, versions operations, protects execution and reco
     await db.exec(
       "CREATE TABLE m8_order_equipment_links(company_id integer,order_id bigint,equipment_id bigint,stale boolean);CREATE TABLE m8_equipment_catalog(equipment_id bigint,name text,serial text,present boolean);CREATE TABLE web_service_checklist_photos(id bigint,operation_id uuid);CREATE TABLE m8_ordens_servico(company_id integer,id_m8 bigint);INSERT INTO m8_ordens_servico VALUES(1,100);CREATE TABLE m8_os_produtos(company_id integer,ordem_servico_id bigint,id_m8 bigint,esta_excluido boolean);INSERT INTO m8_os_produtos VALUES(1,100,55,false);INSERT INTO web_user_access(email,display_name,job_title,role,updated_by) VALUES('tech@test.com','Técnico','Técnico','user','test'),('other@test.com','Outro','Técnico','user','test');",
     );
+    await db.exec(`UPDATE web_service_schedule_settings SET document=document||'{"vehicles":[{"id":"v1","name":"Veículo 1"}]}'::jsonb`);
     const admin = "guih.waltrick@gmail.com",
       user = "tech@test.com";
     await db.exec("ALTER TABLE m8_ordens_servico ADD COLUMN numero_sequencia bigint,ADD COLUMN cliente_nome text,ADD COLUMN equipamento text;ALTER TABLE web_tasks ADD COLUMN IF NOT EXISTS followers text[] DEFAULT '{}',ADD COLUMN IF NOT EXISTS stage_id bigint;ALTER TABLE m8_ordens_servico ADD COLUMN status text DEFAULT 'Pendente'; INSERT INTO m8_ordens_servico(company_id,id_m8,status) VALUES(1,101,'Cancelado');");
@@ -147,6 +148,7 @@ test("scheduling includes once, versions operations, protects execution and reco
       ...ops[0].document,
       equipmentUnassigned: true,
       description: "Revisão",
+      vehicleId: "v1",
       serviceType: "Interno",
       jobTitle: "Técnico",
       responsible: user,
@@ -170,6 +172,9 @@ test("scheduling includes once, versions operations, protects execution and reco
       await send("operation", { document: { ...doc, time: "11:00" } })
     ).operation;
     assert.equal(ops[0].status, "scheduled");
+    await db.query("UPDATE web_service_operations SET document=document-'vehicleId' WHERE id=$1",[ops[0].id]);
+    await assert.rejects(send('dispatch'),/veículo/);
+    ops[0]=(await send('operation',{document:{...ops[0].document,vehicleId:'v1'}})).operation;
     // A sole machine on the OS must not override an explicitly unassigned operation.
     await db.exec("INSERT INTO m8_equipment_catalog VALUES(77,'Máquina da OS','ABC',true);INSERT INTO m8_order_equipment_links VALUES(1,100,77,false)");
     ops[0]=(await send("dispatch")).operation;

@@ -460,6 +460,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
       if(!background)setBusy(false);
     }
   }
+  const [selectedVehicle,setSelectedVehicle]=useState<string|null>(null);
   const operation = data?.operation,
     session = active?.operation_id === row.id ? active : null,
     locked = !!data?.technicianClosed || !!operation?.document.technicianClosures?.[data?.email] || ["awaiting_review", "reviewed", "completed"].includes(
@@ -487,8 +488,10 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     limit &&
     now - Date.parse(session.pause_alert_at || session.segment_at) >=
       limit * 60000;
+  const plannedVehicle = data?.settings.document.vehicles.find((v:any)=>v.id===operation?.document.vehicleId);
+  const chosenVehicle=selectedVehicle??data?.actualVehicleId??operation?.document.vehicleId??'';
   const vehicle = data?.settings.document.vehicles.find(
-    (v: any) => v.id === operation?.document.vehicleId,
+    (v: any) => v.id === (session?.kind==='travel'?session.vehicle_id:data.actualVehicleId||operation?.document.vehicleId),
   );
   async function show(which: string) {
     if (which === "send" && !canFinish) return;
@@ -770,8 +773,16 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                     {operation.document.internalNote ||
                       "Nenhuma observação interna."}
                   </p>
-                  <div className="field-vehicle-info"><Car size={18}/><div><small>Veículo programado</small><strong>{vehicle?.name || "Não atribuído"}</strong></div></div>
-                  {data.infoRead ? <p className="field-checked"><CheckCircle2 size={16}/> Leitura confirmada</p> : <button disabled={busy||locked} onClick={async()=>{if(await act({action:'info_read'}))setView('');}}>Li e compreendi as informações</button>}
+                  <div className="field-vehicle-info"><Car size={18}/><div><small>Veículo programado</small><strong>{plannedVehicle?.name || "Não atribuído"}</strong></div></div>
+                  <label>Veículo que será utilizado no atendimento
+                    <select aria-label="Veículo que será utilizado no atendimento" value={chosenVehicle} disabled={busy||locked||session?.kind==='travel'} onChange={e=>setSelectedVehicle(e.target.value)}>
+                      <option value="">Selecione o veículo</option>
+                      {(data.settings.document.vehicles||[]).map((v:any)=><option key={v.id} value={v.id}>{v.name}</option>)}
+                    </select>
+                  </label>
+                  <small>Este veículo será usado nos apontamentos de odômetro. O veículo programado permanece inalterado.</small>
+                  {data.infoRead&&<p className="field-checked"><CheckCircle2 size={16}/> Leitura confirmada</p>}
+                  <button disabled={busy||locked||!chosenVehicle||(data.infoRead&&chosenVehicle===data.actualVehicleId)} onClick={async()=>{if(await act({action:'info_read',vehicleId:chosenVehicle}))setView('');}}>{data.infoRead?'Confirmar veículo utilizado':'Li e compreendi as informações'}</button>
                 </section>
               )}
               {view === "parts" && <Parts data={data} readOnly={locked} returnsOnly={!!data.reportSubmission} busy={busy} save={async (body: any) => {
@@ -800,7 +811,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                   </h3>
                   <p>
                     {vehicle?.name ||
-                      "Veículo não atribuído. Solicite ao planejamento."}
+                      "Confirme nas Informações o veículo que será utilizado."}
                   </p>
                   {endingTravel && <p>Odômetro inicial: <strong>{initialOdometer.toLocaleString("pt-BR", {maximumFractionDigits: 3})} km</strong></p>}
                   <label>
@@ -820,7 +831,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                   </p>}
                   {invalidOdometer && <p className="field-error" role="alert">{endingTravel ? "O odômetro final não pode ser menor que o inicial." : "Informe um odômetro válido."}</p>}
                   <button
-                    disabled={!ready || !reading || !vehicle || invalidOdometer}
+                    disabled={!ready || !reading || (!endingTravel&&!vehicle) || invalidOdometer}
                     onClick={async () => {
                       if (
                         await act({
@@ -829,6 +840,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                               ? "stop"
                               : "start_travel",
                           sessionId: session?.id,
+                          vehicleId: vehicle?.id,
                           odometer: Number(reading),
                         })
                       )

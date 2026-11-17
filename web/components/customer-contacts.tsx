@@ -354,9 +354,8 @@ export default function CustomerContacts({
               {customer.startsWith("m8:") && (
                 <>
                   <label>
-                    E-mail do contato
+                    E-mail do contato (opcional)
                     <input
-                      required
                       type="email"
                       maxLength={254}
                       disabled={busy}

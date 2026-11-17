@@ -33,11 +33,12 @@ test("web portal is online-only and displays connectivity without preparing offl
     version: 1,
     status: "awaiting_execution",
   };
-  const detail = {
+  const detail: any = {
     email: "tech",
     operation: {
       ...row,
       document: {
+        vehicleId: "v1",
         responsible: "tech",
         support: [],
         checklistId: "c",
@@ -62,12 +63,13 @@ test("web portal is online-only and displays connectivity without preparing offl
     checked: true,
     progress: {},
     materials: { complete: true, items: [] },
-    settings: { document: { checklists: [], pauseReasons: [], vehicles: [] } },
+    settings: { document: { checklists: [], pauseReasons: [], vehicles: [{id:"v1",name:"Veículo programado"},{id:"v2",name:"Veículo utilizado"}] } },
     history: [],
     finishPending: ["Atividade pendente"],
     detail: { order: {}, equipment_links: [] },
   };
   let logoutRequested = false;
+  const fieldWrites:any[]=[];
   const server = createServer(async (req, res) => {
     if (req.url === "/api/session" && req.method === "POST") {
       const chunks = [];
@@ -133,6 +135,13 @@ test("web portal is online-only and displays connectivity without preparing offl
       return;
     }
     if (url.pathname === "/api/field") {
+      if(req.method==='POST'){
+        const chunks=[];for await(const chunk of req)chunks.push(chunk);
+        const body=JSON.parse(Buffer.concat(chunks).toString());fieldWrites.push(body);
+        if(body.action==='info_read'){detail.infoRead=true;detail.actualVehicleId=body.vehicleId;}
+        res.end(JSON.stringify({saved:true}));return;
+      }
+
       res.end(
         JSON.stringify(
           url.search
@@ -171,10 +180,21 @@ test("web portal is online-only and displays connectivity without preparing offl
       geolocation: { latitude: -27, longitude: -49 },
     });
     const page = await context.newPage();
+    page.setDefaultTimeout(15000);
     await page.goto(origin + "/tecnico");
     await expect(page.getByText("Conectado", {exact:true})).toBeVisible();
     assert.equal(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length), 0);
     await expect(page.getByText(/Prepare este dispositivo/)).toHaveCount(0);
+
+    await page.getByRole('button',{name:'Programação',exact:false}).click();
+    await page.locator('.field-order>summary').first().click();
+    await page.locator('.field-operation-title').first().click();
+    await page.getByRole('button',{name:'Informações',exact:true}).click();
+    await expect(page.locator('.field-vehicle-info')).toContainText('Veículo programado');
+    await page.getByLabel('Veículo que será utilizado no atendimento',{exact:true}).selectOption('v2');
+    await page.getByRole('button',{name:'Confirmar veículo utilizado',exact:true}).click();
+    await expect.poll(()=>fieldWrites.length).toBe(1);assert.equal(fieldWrites[0].vehicleId,'v2');assert.equal(detail.operation.document.vehicleId,'v1');
+    await page.goto(origin+'/tecnico');
     await context.setOffline(true);
     await expect(page.getByText("Sem internet", { exact: true })).toBeVisible();
     await expect(page.getByText(/O portal web funciona somente online/)).toBeVisible();

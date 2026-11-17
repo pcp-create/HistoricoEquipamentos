@@ -29,6 +29,9 @@ const assigned =
   "(p.document->>'responsible'=$1 OR p.document->'support' ? $1)";
 const key = (i: any) =>
   `${i.item_company}:${i.item_order}:${i.id_m8 ?? i.item_id}`;
+async function confirmedVehicle(c:any,operationId:string,actor:string,planned?:string){
+  return (await c.query("SELECT document->>'vehicleId' vehicle_id FROM web_field_events WHERE operation_id=$1 AND actor=$2 AND action='info_read' ORDER BY created_at DESC,id DESC LIMIT 1",[operationId,actor])).rows[0]?.vehicle_id||planned||null;
+}
 async function user(c: any, email: string) {
   const profile=(await c.query("SELECT display_name,job_title FROM web_user_access WHERE email=$1 AND enabled",[email])).rows[0];
   if(!profile)throw new Forbidden();
@@ -212,6 +215,7 @@ export async function fieldData(email: string, operationId?: string | null) {
     email,
     checked,
     infoRead: await hasReadInformation(c,p.id,email),
+    actualVehicleId:await confirmedVehicle(c,p.id,email),
     progress: (await c.query(`SELECT
       EXISTS(SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND actor=$2 AND kind='travel' AND state='finished') AS travel,
       EXISTS(SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND actor=$2 AND kind='work' AND state='finished') AS work,
@@ -345,7 +349,10 @@ export async function fieldAction(b: any, email: string) {
     let details: any = {};
     let operationUpdated = false;
     if (b.action === "info_read") {
-      details={internalNote:p.document.internalNote||""};
+      const vehicleId=b.vehicleId===undefined?p.document.vehicleId:b.vehicleId;
+      if(b.vehicleId!==undefined&&(!vehicleId||!settings.vehicles?.some((v:any)=>v.id===vehicleId)))throw new FieldError('Selecione o veículo que será utilizado no atendimento.');
+      if(active?.operation_id===p.id&&active.kind==='travel'&&vehicleId!==active.vehicle_id)throw new FieldError('Encerre o deslocamento antes de alterar o veículo utilizado.');
+      details={internalNote:p.document.internalNote||"",vehicleId:vehicleId||null,plannedVehicleId:p.document.vehicleId||null};
       operationUpdated=true;
     } else if (b.action === "materials") {
       const returnsOnly=!!reportSubmission(p.document.checklistRun);
@@ -430,10 +437,13 @@ export async function fieldAction(b: any, email: string) {
         throw new FieldError(
           "Finalize o apontamento em andamento antes de iniciar outro.",
         );
-      if (b.action === "start_travel" && !p.document.vehicleId)
+      const actualVehicleId=await confirmedVehicle(c,p.id,email,p.document.vehicleId);
+      if (b.action === "start_travel" && !actualVehicleId)
         throw new FieldError(
-          "Peça ao planejamento para atribuir o veículo à operação.",
+          "Confirme nas Informações o veículo que será utilizado no atendimento.",
         );
+      if(b.action==='start_travel'&&!settings.vehicles?.some((v:any)=>v.id===actualVehicleId))throw new FieldError('O veículo utilizado não está mais cadastrado. Confirme outro nas Informações.');
+      if(b.action==='start_travel'&&b.vehicleId!==undefined&&b.vehicleId!==actualVehicleId)throw new FieldError('O veículo utilizado mudou. Confirme novamente nas Informações.');
       if(b.teamMembers && (b.action!=="start_work" || b.offline))throw new FieldError("Inicie a atividade em equipe com conexão à internet.");
       const start = b.action === "start_travel" ? odometer(b.odometer) : null;
       const sessionId = b.offline ? b.requestId : randomUUID();
@@ -444,7 +454,7 @@ export async function fieldAction(b: any, email: string) {
           p.id,
           email,
           b.action === "start_work" ? "work" : "travel",
-          p.document.vehicleId || null,
+          actualVehicleId,
           start,
           occurredAt,
         ],
@@ -453,7 +463,7 @@ export async function fieldAction(b: any, email: string) {
       details = {
         sessionId,
         odometer: start,
-        vehicleId: p.document.vehicleId || null,
+        vehicleId: actualVehicleId,
       };
     } else if (["pause", "resume", "stop", "pause_ack"].includes(b.action)) {
       if (!active || active.operation_id !== p.id || active.id !== b.sessionId)
