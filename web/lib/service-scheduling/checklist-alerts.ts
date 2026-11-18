@@ -1,5 +1,5 @@
 import { effectiveAlertOptions, stagesOf } from './checklists';
-export type ChecklistAlert = {stageId:string;fieldId:string;stage:string;label:string;value:string;comment?:string};
+export type ChecklistAlert = {operationId?:string;operationPosition?:number;stageId:string;fieldId:string;stage:string;label:string;value:string;comment?:string};
 export function checklistAlerts(run:any):ChecklistAlert[] {
  if(!run?.template)return [];
  return stagesOf(run.template).flatMap(stage=>stage.fields.flatMap(field=>{
@@ -18,7 +18,7 @@ export function validateAlertTask(input:any){
  return {taskType:(input.taskType||'standard') as 'standard'|'approval',assignedTo:input.assignedTo.trim().toLowerCase(),description:input.description.trim(),reportMode:input.reportMode as 'complete'|'summary'|'budget'};
 }
 
-export const alertKey=(a:ChecklistAlert)=>JSON.stringify([a.stageId,a.fieldId,a.value]);
+export const alertKey=(a:ChecklistAlert)=>JSON.stringify(a.operationId?[a.operationId,a.stageId,a.fieldId,a.value]:[a.stageId,a.fieldId,a.value]);
 export function pendingChecklistAlerts(document:any,alerts:ChecklistAlert[]){
  const covered=new Set((document.checklistAlertTasks||[]).flatMap((task:any)=>(task.alerts||[]).map(alertKey)));
  // Older task records have the aggregate signature as their primary identity.

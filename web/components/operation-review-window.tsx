@@ -10,9 +10,9 @@ import {unlinkedMeterWarning} from "@/lib/service-scheduling/meter-equipment";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, FileDown, CheckCheck, FileOutput } from "lucide-react";
+import {orderReviewBlockReason} from "@/lib/service-scheduling/order-review";
+
 import OrderTaskWindow from "./order-task-window";
-import ChecklistAlertReview, {type AlertTaskDraft} from "./checklist-alert-review";
-import {checklistAlerts,pendingChecklistAlerts,validateAlertTaskGroups} from "@/lib/service-scheduling/checklist-alerts";
 import ChecklistReviewReport from "./checklist-review-report";
 import ScheduleTimeLogs from "./schedule-time-logs";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
@@ -28,9 +28,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
   const [tab, setTab] = useState("report");
   const [reportDirty,setReportDirty]=useState(false);
   const updateReportDirty=(value:boolean)=>setReportDirty(value);
-  const close=()=>{if(!(reportDirty||alertTaskDirty)||window.confirm("Descartar as correções não salvas e fechar a revisão?")){onReportDirty?.(false);onClose();}};
-  const [alertTasks,setAlertTasks]=useState<AlertTaskDraft[]>([]);
-  useEffect(()=>{if(o.status!=='awaiting_review')setAlertTasks([]);},[o.status]);
+  const close=()=>{if(!(reportDirty)||window.confirm("Descartar as correções não salvas e fechar a revisão?")){onReportDirty?.(false);onClose();}};
   const [reviewRun,setReviewRun]=useState<any>(null);
   useEffect(()=>setReviewRun(null),[o.id,o.version]);
   const meterReference=useEquipmentMeterReading(stagesOf(o.document.checklistRun?.template||{items:[],stages:[]}).some(stage=>stage.fields.some(field=>field.type==='meter'))?operationMeterEquipment(o.document):undefined);
@@ -45,12 +43,8 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
   const meterConfirmed=!!confirmation&&JSON.stringify(confirmation)===JSON.stringify(confirmedMeter);
   useEffect(()=>setConfirmedMeter(null),[o.id,o.version,reviewRun]);
   const meterWarning=unlinkedMeterWarning(o.document);
-  const alerts=checklistAlerts(o.document.checklistRun);
-  const pendingAlerts=pendingChecklistAlerts(o.document,alerts);
-  const alertTaskDirty=o.status==='awaiting_review'&&alertTasks.length>0;
-  useEffect(()=>{onReportDirty?.(reportDirty||alertTaskDirty);},[reportDirty,alertTaskDirty]);
-  let missingAlertTask=false;
-  try{validateAlertTaskGroups(pendingAlerts,alertTasks);}catch{missingAlertTask=true;}
+  useEffect(()=>{onReportDirty?.(reportDirty);},[reportDirty]);
+  const exportBlocked=orderReviewBlockReason(data.operations||[],data.orderReview);
   const reviewed = ["reviewed", "completed"].includes(o.status);
   useEffect(() => {
     if(embedded)return;
@@ -67,7 +61,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
     requests: (data.requests || []).filter((v: any) => v.operation_id === o.id) };
   const act = (action: string) => {
     if(action==='report_reopen'&&o.status==='reviewed'&&!window.confirm('Devolver o relatório revisado ao técnico para ajuste? A operação voltará para execução e precisará de uma nova revisão.'))return;
-    return mutate({ action, operationId: o.id, version: o.version, ...(action==="review"?{alertTasks,...(meterConfirmed?{confirmLowerMeter:confirmedMeter}:{})}:{}) });
+    return mutate({ action, operationId: o.id, version: o.version, ...(action==="review"?{...(meterConfirmed?{confirmLowerMeter:confirmedMeter}:{})}:{}) });
   };
   const canChooseEquipment=data.canEditSettings&&o.status==='awaiting_review';
   const equipmentPicker=(inReport=false)=><OperationEquipmentSelect scheduleId={String(data.schedule.id)} value={o.document.equipmentId||''} label={o.document.equipment?.name||''} displayLabel={inReport?reportEquipment(o,data.detail?.order||{}):undefined} unassigned={o.document.equipmentUnassigned===true} orderLabel="Selecionar equipamento" allowOrderFallback={false} unassignedLabel="Sem equipamento informado" disabled={busy||dirty||reportDirty} onChange={(equipmentId)=>void mutate({action:'review_equipment',operationId:o.id,version:o.version,equipmentId})}/>;
@@ -78,17 +72,17 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
     </header>
     {navigation}
     <nav className="operation-review-tabs" role="tablist" aria-label="Seções da revisão" onKeyDown={e => {
-      const keys = ["report", "alerts", "parts", "logs", "history"];
+      const keys = ["report", "parts", "logs", "history"];
       const index = keys.indexOf(tab);
       const next = e.key === "ArrowRight" ? (index + 1) % keys.length : e.key === "ArrowLeft" ? (index + keys.length - 1) % keys.length : e.key === "Home" ? 0 : e.key === "End" ? keys.length - 1 : -1;
       if (next < 0) return;
       e.preventDefault(); setTab(keys[next]);
       document.getElementById(`${tabsId}-${keys[next]}`)?.focus();
     }}>
-      {[["report", "Relatório"], ["alerts", `Alertas (${alerts.length+(meterWarning?1:0)+meterAlerts.length})`], ["parts", "Peças"], ["logs", "Apontamentos"], ["history", "Histórico"]].map(([key, label]) => <button key={key} type="button" className={key==="alerts"&&(alerts.length>0||!!meterWarning||meterAlerts.length>0)?"review-tab-alerts":undefined} role="tab" id={`${tabsId}-${key}`} aria-selected={tab === key} aria-controls={`${tabsId}-panel`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}>{label}</button>)}
+      {[["report", "Relatório"], ["parts", "Peças"], ["logs", "Apontamentos"], ["history", "Histórico"]].map(([key, label]) => <button key={key} type="button" role="tab" id={`${tabsId}-${key}`} aria-selected={tab === key} aria-controls={`${tabsId}-panel`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}>{label}</button>)}
     </nav>
     <div className="operation-review-content" role="tabpanel" id={`${tabsId}-panel`} aria-labelledby={`${tabsId}-${tab}`} tabIndex={0}>
-      {tab==='alerts'&&meterWarning&&<div className="operation-review-meter-warning" role="alert">
+      {tab==='report'&&meterWarning&&<div className="operation-review-meter-warning" role="alert">
         <p>{meterWarning}</p>
         {canChooseEquipment&&<div className="review-alert-equipment">
           {equipmentPicker()}
@@ -96,13 +90,9 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
           {reportDirty&&<small>Salve os ajustes do relatório antes de definir o equipamento.</small>}
         </div>}
       </div>}
-      {tab==='alerts'&&meterAlerts.map(alert=><div key={alert.stageId+':'+alert.fieldId} className="review-meter-regression-alert" role="alert"><strong>Horímetro abaixo da última coleta</strong><p>{alert.message}</p><button type="button" onClick={()=>{setTab('report');requestAnimationFrame(()=>document.getElementById(`review-meter-${o.id}-${alert.stageId}-${alert.fieldId}`)?.scrollIntoView({block:'center',behavior:'smooth'}));}}>Verificar campo no relatório</button></div>)}
+      {tab==='report'&&meterAlerts.map(alert=><div key={alert.stageId+':'+alert.fieldId} className="review-meter-regression-alert" role="alert"><strong>Horímetro abaixo da última coleta</strong><p>{alert.message}</p><button type="button" onClick={()=>{setTab('report');requestAnimationFrame(()=>document.getElementById(`review-meter-${o.id}-${alert.stageId}-${alert.fieldId}`)?.scrollIntoView({block:'center',behavior:'smooth'}));}}>Verificar campo no relatório</button></div>)}
       {dirty && <p role="alert">Há alterações não salvas na programação. Feche esta janela e salve a operação antes de revisar.</p>}
-      {error && <ActionNotice type="error">{error}</ActionNotice>}
-      {tab==='alerts'&&<ChecklistAlertReview alerts={alerts} document={o.document} editable={data.canEditSettings&&o.status==='awaiting_review'} busy={busy||reportDirty||dirty} users={data.users||[]} value={o.status==='awaiting_review'?alertTasks:[]} onChange={setAlertTasks}/>}
-      {tab==='alerts'&&reviewed&&data.canEditSettings&&<div className="alert-group-actions"><button type="button" disabled={busy||dirty||reportDirty||!o.document.checklistRun} onClick={()=>setTaskOpen(true)}>Criar tarefa da operação</button><small>O relatório anexo será somente desta operação.</small></div>}
-      {taskOpen&&<OrderTaskWindow data={data} operation={o} onClose={()=>setTaskOpen(false)}/>}
-      {tab==='alerts'&&reportDirty&&<p role="status">Salve os ajustes do relatório para atualizar os alertas e seus comentários.</p>}
+      {error && !embedded && <ActionNotice type="error">{error}</ActionNotice>}
       <div hidden={tab!=="report"}>{o.document.checklistId || o.document.checklistRun ? <ChecklistReviewReport operation={o} data={data} busy={busy} disabled={dirty} mutate={mutate} onDirtyChange={updateReportDirty} saveTarget={saveTarget} equipmentControl={canChooseEquipment?equipmentPicker(true):null} meterReference={meterReference} onRunChange={setReviewRun}/> : <p>Esta operação não possui checklist.</p>}</div>
       {tab === "logs" && <ScheduleTimeLogs data={scoped} onChanged={() => window.dispatchEvent(new Event("service-schedule-updated"))}/>}
       {tab === "parts" && <>
@@ -133,21 +123,21 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
             <div ref={setSaveTarget} className="review-save-actions"/>
             {!reportDirty&&<span className="review-saved">Ajustes salvos</span>}
           </section>
-          {missingAlertTask&&<button type="button" disabled={busy||dirty||reportDirty} onClick={()=>setTab('alerts')}>Organizar tarefas dos alertas</button>}
           <section className="review-completion-step" aria-label="Etapa 2: concluir revisão">
-            <button type="button" className="review-complete-button" aria-describedby={`${tabsId}-agreement`} disabled={busy || dirty || reportDirty || missingAlertTask || (!!confirmation&&!meterConfirmed) || scoped.requests.some((r: any) => r.status === "pending")} onClick={() => void act("review")}><CheckCheck size={16} aria-hidden="true"/>Concluir revisão</button>
+            <button type="button" className="review-complete-button" aria-describedby={`${tabsId}-agreement`} disabled={busy || dirty || reportDirty || (!!confirmation&&!meterConfirmed) || scoped.requests.some((r: any) => r.status === "pending")} onClick={() => void act("review")}><CheckCheck size={16} aria-hidden="true"/>Concluir revisão</button>
           </section>
           {reportSubmission(o.document.checklistRun)&&<button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}><FileOutput size={15} aria-hidden="true"/>Devolver relatório ao técnico</button>}
         </div>
         <div className="review-completion-notes">
           {reportDirty&&<span className="review-pending-note" role="status">Há ajustes pendentes. Salve antes de concluir a revisão.</span>}
-          {missingAlertTask&&<span>Defina responsável e descrição para todos os alertas.</span>}
           {scoped.requests.some((r:any)=>r.status==='pending')&&<span>Há solicitações de apontamento aguardando aprovação.</span>}
           <span id={`${tabsId}-agreement`}>Ao concluir, declaro: li, revisei e estou de acordo com as informações do relatório, das peças e dos apontamentos.</span>
         </div>
       </>}
       {data.canEditSettings && o.status!=="completed" && o.status!=="awaiting_review" && reportSubmission(o.document.checklistRun) && <button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}><FileOutput size={15} aria-hidden="true"/>Devolver relatório ao técnico</button>}
-      {reviewed && o.document.checklistRun && !busy ? <><select aria-label="Tipo de relatório" value={reportMode} onChange={e=>setReportMode(e.target.value)}><option value="complete">Relatório Completo</option><option value="summary">Relatório Resumido</option><option value="budget">Relatório de Orçamento</option></select><a href={`/api/service-scheduling/checklist-pdf?operationId=${o.id}&mode=${reportMode}`} target="_blank" rel="noreferrer"><FileDown size={16}/> Gerar PDF</a></> : o.status!=="awaiting_review" && o.document.checklistId && <small>O PDF será liberado após a conclusão da revisão.</small>}
+      {taskOpen&&<OrderTaskWindow data={data} operation={o} onClose={()=>setTaskOpen(false)}/>}
+      {reviewed&&!exportBlocked&&data.canEditSettings&&o.document.checklistRun&&<button type="button" disabled={busy} onClick={()=>setTaskOpen(true)}>Criar tarefa da operação</button>}
+      {reviewed && !exportBlocked && o.document.checklistRun && !busy ? <><select aria-label="Tipo de relatório" value={reportMode} onChange={e=>setReportMode(e.target.value)}><option value="complete">Relatório Completo</option><option value="summary">Relatório Resumido</option><option value="budget">Relatório de Orçamento</option></select><a href={`/api/service-scheduling/checklist-pdf?operationId=${o.id}&mode=${reportMode}`} target="_blank" rel="noreferrer"><FileDown size={16}/> Gerar PDF</a></> : o.status!=="awaiting_review" && o.document.checklistId && <small>O PDF será liberado após a conclusão da revisão da OS.</small>}
 
     </footer>
   </>;

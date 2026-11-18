@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { blankOperation } from "../lib/service-scheduling/model";
-test("review window isolates operation data and enables PDF after successful review", async ({ page, context }) => {
+test("individual review isolates operation data and keeps PDF locked until order review", async ({ page, context }) => {
   await context.addCookies([{ name: "m8-access", value: "test", domain: "localhost", path: "/" }]);
   await page.route("**/api/activity", r => r.fulfill({ json: { admin: true } }));
   const template = { id: "check", name: "Relatório técnico", stages: [{ id: "s", name: "01. Verificação", groups: [{ id: "g", name: "Inspeção", fields: [{ id: "f", label: "Resultado", type: "text", required: true },{id:"flag",label:"Verificação",type:"flag",options:["OK","NOK","NA"],alertOptions:[],required:true},{id:"photos",label:"Fotos do relatório",type:"photo",maxPhotos:5}] }] }] };
@@ -76,7 +76,7 @@ test("review window isolates operation data and enables PDF after successful rev
   await expect(dialog.getByText('Há ajustes pendentes. Salve antes de concluir a revisão.')).toBeVisible();
   await expect(dialog.getByRole('region',{name:'Etapa 1: salvar ajustes'}).getByRole('button',{name:'Salvar ajustes',exact:true})).toBeVisible();
   await dialog.getByRole('button',{name:'Salvar ajustes',exact:true}).click();
-  await expect(dialog.getByRole('alert')).toContainText('Não foi possível salvar os ajustes.');
+  await expect(dialog.getByRole('alert').filter({hasText:'Não foi possível salvar os ajustes.'}).first()).toBeVisible();
   await expect(dialog.getByRole('button',{name:'Concluir revisão',exact:true})).toBeDisabled();
   await expect(dialog.getByRole('textbox',{name:'Resultado',exact:true})).toHaveValue('Corrigido pelo planejador');
   await page.setViewportSize({width:390,height:844});
@@ -110,7 +110,7 @@ test("review window isolates operation data and enables PDF after successful rev
   await expect(dialog.getByRole("button", { name: "Concluir revisão", exact: true })).toBeEnabled();
   await expect(dialog.getByText(/Ao concluir, declaro: li, revisei/)).toBeVisible();
   await dialog.getByRole("button", { name: "Concluir revisão", exact: true }).click();
-  await expect(dialog.getByRole("link", { name: "Gerar PDF", exact: true })).toHaveAttribute("href", "/api/service-scheduling/checklist-pdf?operationId=op1&mode=complete");
+  await expect(dialog.getByRole("link", { name: "Gerar PDF", exact: true })).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await dialog.getByRole("tab", { name: "Relatório", exact: true }).click();
   expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);

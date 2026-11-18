@@ -1224,3 +1224,12 @@
 .order-task-action-dialog form>label {display:grid;gap:8px;}
 .order-task-action-dialog input {width:100%;min-width:0;box-sizing:border-box;}
 .order-task-action-dialog footer {display:flex;justify-content:flex-end;gap:10px;margin-top:24px;}
+
+.order-review-tabs { padding: 10px 20px; border-bottom: 1px solid #dce6f0; }
+.order-review-tabs button { display: inline-flex; align-items: center; gap: 8px; }
+.order-review-tabs button[aria-pressed="true"] { background: #e9f3ff; border-bottom: 3px solid #2177bb; }
+.order-review-alert-panel { padding: 20px; }
+.order-review-finalize { border-top: 2px solid #dce6f0; padding: 20px; background: #f4f8fc; }
+.order-review-finalize > span { display: block; }
+
+.order-review-finalize { position: static; }

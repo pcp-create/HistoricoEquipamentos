@@ -16,7 +16,8 @@ import {historyScheduleStatuses} from "./history-status";
 import {withPurchaseBalances} from "./purchase-balances";
 import {readTaskLists,mutateTaskList} from "./task-lists";
 import {withRescheduling} from "./rescheduling";
-import {createChecklistAlertTask} from "./checklist-alert-task";
+import {concludeOrderReview} from "./order-alert-review-store";
+import {readOrderReview,liveOrderReview} from "./order-review";
 import {defaultOperation} from "./default-operation";
 import { operationNumber } from "./operation-number";
 import { operationCalendarAllocation } from "./calendar";
@@ -194,6 +195,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
     db.query("SELECT e.id,e.operation_id,e.actor,e.action,e.created_at,e.document,e.latitude,e.longitude FROM web_field_events e JOIN web_service_operations p ON p.id=e.operation_id WHERE p.schedule_id=$1 AND e.action IN ('start_work','start_travel','pause','resume','stop') ORDER BY e.created_at,e.id",[scheduleId]),
     timeAdjustmentsAvailable ? db.query("SELECT r.*,u.display_name reviewer_name,a.display_name actor_name FROM web_field_time_requests r JOIN web_service_operations p ON p.id=r.operation_id LEFT JOIN web_user_access u ON u.email=r.reviewed_by LEFT JOIN web_user_access a ON a.email=r.actor WHERE p.schedule_id=$1 ORDER BY r.created_at DESC",[scheduleId]) : Promise.resolve({rows:[]}),
   ]);
+  const orderReview=await liveOrderReview(db,operations.rows,await readOrderReview(db,scheduleId));
   const links=(await db.query("SELECT linked_company_id,linked_order_id FROM web_order_links WHERE company_id=$1 AND order_id=$2 AND linked_order_id IS NOT NULL ORDER BY linked_company_id,linked_order_id",[schedule.company_id,schedule.order_id])).rows;
   const linkedDetails=await Promise.all(links.map(async (link:any)=>({company:link.linked_company_id,order:link.linked_order_id,detail:await orderDetail(String(link.linked_company_id),String(link.linked_order_id)),profit:(await db.query("SELECT document FROM web_order_profit WHERE company_id=$1 AND order_id=$2",[link.linked_company_id,link.linked_order_id])).rows[0]?.document||null})));
   const combinedDetail=detail?{...detail,
@@ -205,6 +207,7 @@ export async function schedulingData(scheduleId: string | null, email: string) {
   schedule.planned_date = forecast.planned_date;
   return {
     ...base,
+    orderReview,
     schedule,
     detail: combinedDetail,
     linked_detail_incomplete: linkedDetails.some(l=>!l.detail?.detail_at),
@@ -379,6 +382,12 @@ export async function mutateSchedule(b: any, email: string) {
       )
     ).rows[0];
     if (!schedule) throw new ScheduleInputError("Programação não encontrada.");
+    if (b.action === "order_review") {
+      if(!admin)throw new Forbidden();
+      let result;
+      try{result=await concludeOrderReview(c,schedule,config.document,email,b);}catch(e){throw new ScheduleInputError((e as Error).message);}
+      await c.query("COMMIT");return result;
+    }
     if (b.action === "add_operation") {
       const result = (
         await c.query(
@@ -689,8 +698,7 @@ export async function mutateSchedule(b: any, email: string) {
         if ((await c.query("SELECT 1 FROM web_field_time_requests WHERE operation_id=$1 AND status='pending' AND (to_jsonb(web_field_time_requests)->>'applied_at') IS NULL", [operation.id])).rows.length)
           throw new ScheduleInputError("Analise as solicitações de apontamento pendentes antes de concluir a revisão.");
       }
-      try { document=await reviewChecklist(c,operation,schedule,config.document,email,b.confirmLowerMeter);
-        document=await createChecklistAlertTask(c,operation,schedule,document,config.document,email,b.alertTasks??b.alertTask); }
+      try { document=await reviewChecklist(c,operation,schedule,config.document,email,b.confirmLowerMeter); }
       catch(e){throw new ScheduleInputError((e as Error).message);}
       status = "reviewed";
     } else if (b.action === "complete") {

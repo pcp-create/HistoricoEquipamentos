@@ -1,4 +1,5 @@
 import "server-only";
+import {orderReviewExportReason} from "./order-review";
 import type {PoolClient} from "pg";
 import { database } from "../db";
 import { Forbidden } from "../auth";
@@ -68,6 +69,10 @@ export async function loadOrderReport(body: any, email: string, portal = false, 
     ).rows[0];
     if (!schedule)
       throw new OrderReportInputError("Programação não encontrada.");
+    if(!portal){
+      const reason=await orderReviewExportReason(c,String(scheduleId));
+      if(reason)throw new OrderReportConflict(reason);
+    }
     const operations = (
       await c.query(
         portal ? "SELECT * FROM web_service_operations WHERE schedule_id=$1 ORDER BY position,id" : "SELECT * FROM web_service_operations WHERE schedule_id=$1 AND id=ANY($2::uuid[])",

@@ -473,8 +473,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     assert.ok(ownPdf.bytes.length>0);
     const osPdf=await fieldReportPdf('tech',{scheduleId:String(schedule.id)});
     assert.ok(osPdf.bytes.length>0);
-    const pdf = await checklistPdf(id, 'planner');
-    assert.ok(pdf && pdf.bytes.length > 0);
+    await assert.rejects(checklistPdf(id, 'planner'), ChecklistPdfPending); // Order review is still pending.
 
     // Return a draft to planning without erasing time records or material allocations.
     await db.exec(`CREATE TABLE IF NOT EXISTS web_service_checklist_photos(id bigint,operation_id uuid);`);

@@ -1,7 +1,8 @@
+import {orderReviewSignature} from "../lib/service-scheduling/order-review";
 import { test, expect } from "@playwright/test";
 import { blankOperation } from "../lib/service-scheduling/model";
 
-test("review alerts show red flags and require task details before completion", async ({
+test("order alerts group different operations without blocking individual reviews", async ({
   page,
   context,
 }) => {
@@ -99,18 +100,17 @@ test("review alerts show red flags and require task details before completion", 
   };
 
 
-  for(const [id,label,comment] of [['g','Filtro','Filtro obstruído'],['h','Dreno','Dreno travado']]){
-    template.stages[0].fields.push({...template.stages[0].fields[2],id,label} as any);
-    for(const operation of operations){(operation.document.checklistRun.stages.s.answers as any)[id]='NOK';(operation.document.checklistRun.stages.s.details as any)[id]={comment};}
-  }
-  data.users.push({email:'other',display_name:'Outro responsável',enabled:true});
   let saved:any;
   await page.route('**/api/service-scheduling**',r=>{
     if(r.request().method()==='POST'){
-      saved=r.request().postDataJSON();
-      expect(saved.operationId).toBe(operations[2].id);
-      expect(saved.action).toBe('review');operations[2].status='reviewed';
-      operations[2].version++;
+      const body=r.request().postDataJSON();
+      if(body.action==='order_review'){
+        saved=body;
+        (data as any).orderReview={signature:orderReviewSignature(operations),checklistAlertTasks:[{taskId:'501',assignedTo:'tech',alerts:operations.map(o=>({operationId:o.id,operationPosition:o.position,stageId:'s',fieldId:'f',stage:'Medições',label:'Condição',value:'NOK',comment:'Vazamento identificado'}))}]};
+        return r.fulfill({json:{orderReview:(data as any).orderReview}});
+      }
+      expect(body.action).toBe('review');expect(body.operationId).toBe(operations[2].id);
+      expect(body.alertTasks).toBeUndefined();operations[2].status='reviewed';operations[2].version++;
       return r.fulfill({json:{operation:operations[2]}});
     }
     return r.fulfill({json:data});
@@ -120,44 +120,29 @@ test("review alerts show red flags and require task details before completion", 
   const dialog=page.getByRole('dialog');
   await dialog.getByLabel('Ir para operação').selectOption(operations[2].id);
   const review=dialog.getByRole('region',{name:'Revisão da operação 03',exact:true});
-  await review.getByRole('tab',{name:'Alertas (3)',exact:true}).click();
-  await expect(review.locator('.alert-comment').filter({hasText:'Vazamento identificado'})).toBeVisible();
-  await expect(review.locator('.alert-comment').filter({hasText:'Filtro obstruído'})).toBeVisible();
-  const groupButton=review.getByRole('button',{name:'Agrupar selecionados em uma tarefa'});
-  await expect(groupButton).toBeDisabled();
-  await review.getByRole('checkbox',{name:/Selecionar alerta:/}).first().check();
-  await expect(groupButton).toBeDisabled();
-  await expect(review.getByRole('button',{name:'Criar uma tarefa por alerta'})).toBeEnabled();
-  await review.getByLabel('Selecionar todos os alertas disponíveis').check();
-  await expect(groupButton).toBeEnabled();
-  await review.getByRole('button',{name:'Criar uma tarefa por alerta'}).click();
-  await expect(review.locator('.alert-task-card')).toHaveCount(3);
-  // Removing drafts releases their alerts for regrouping.
-  await review.getByRole('button',{name:'Remover tarefa 3',exact:true}).click();
-  await review.getByRole('button',{name:'Remover tarefa 2',exact:true}).click();
-  await review.getByLabel('Selecionar todos os alertas disponíveis').check();
-  await review.getByRole('button',{name:'Agrupar selecionados em uma tarefa'}).click();
-  await expect(review.locator('.alert-task-card')).toHaveCount(2);
-  await expect(review.getByRole('button',{name:'Concluir revisão'})).toBeDisabled();
-  const first=review.getByRole('region',{name:'Tarefa dos alertas 1',exact:true});
-  const second=review.getByRole('region',{name:'Tarefa dos alertas 2',exact:true});
-  await first.getByLabel('Responsável pela tarefa').selectOption('tech');
-  await first.getByLabel('Descrição da tarefa').fill('Corrigir vazamento');
-  await first.getByLabel('Relatório anexo').selectOption('summary');
-  await second.getByLabel('Tipo de tarefa').selectOption('approval');
-  await second.getByLabel('Responsável pela aprovação').selectOption('other');
-  await second.getByLabel('Descrição da tarefa').fill('Revisar filtro e dreno');
-  await review.getByRole('tab',{name:'Relatório',exact:true}).click();
-  await review.getByRole('tab',{name:'Alertas (3)',exact:true}).click();
-  await expect(second.getByLabel('Descrição da tarefa')).toHaveValue('Revisar filtro e dreno');
-  expect(saved).toBeUndefined();
+  await expect(review.getByRole('tab',{name:/Alertas/})).toHaveCount(0);
+  await expect(dialog.getByRole('button',{name:'Concluir revisão da OS',exact:true})).toBeDisabled();
   await review.getByRole('button',{name:'Concluir revisão',exact:true}).click();
   await expect(dialog.getByText('3 operações · 0 aguardando revisão · 3 revisadas')).toBeVisible();
-  expect(saved.alertTasks).toHaveLength(2);
-  expect(saved.alertTasks[0].taskType).toBe('standard');
-  expect(saved.alertTasks[1].taskType).toBe('approval');
-  expect(saved.alertTasks[0].assignedTo).toBe('tech');
-  expect(saved.alertTasks[0].alertKeys).toHaveLength(1);
-  expect(saved.alertTasks[1].assignedTo).toBe('other');
-
+  await expect(dialog.getByRole('link',{name:'Gerar PDF',exact:true})).toHaveCount(0);
+  await dialog.getByRole('button',{name:'Alertas da OS (3)',exact:true}).click();
+  const alerts=dialog.locator('.order-review-alert-panel');
+  await expect(alerts.locator('.alert-comment')).toHaveCount(3);
+  await alerts.getByLabel('Selecionar todos os alertas disponíveis').check();
+  await alerts.getByRole('button',{name:'Agrupar selecionados em uma tarefa'}).click();
+  await expect(alerts.locator('.alert-task-card')).toHaveCount(1);
+  const task=alerts.getByRole('region',{name:'Tarefa dos alertas 1',exact:true});
+  await expect(task).toContainText('Operação 01');await expect(task).toContainText('Operação 03');
+  await expect(dialog.getByRole('button',{name:'Concluir revisão da OS',exact:true})).toBeDisabled();
+  await task.getByLabel('Responsável pela tarefa').selectOption('tech');
+  await task.getByLabel('Descrição da tarefa').fill('Corrigir os vazamentos das três operações');
+  await dialog.getByRole('button',{name:'Operações',exact:true}).click();
+  await dialog.getByRole('button',{name:'Alertas da OS (3)',exact:true}).click();
+  await expect(task.getByLabel('Descrição da tarefa')).toHaveValue('Corrigir os vazamentos das três operações');
+  await dialog.getByRole('button',{name:'Concluir revisão da OS',exact:true}).click();
+  await expect(dialog.getByText('Revisão da OS concluída. Exportação do relatório liberada.')).toBeVisible();
+  expect(saved.alertTasks).toHaveLength(1);expect(saved.alertTasks[0].alertKeys).toHaveLength(3);
+  await expect(alerts.getByRole('link',{name:'#501'})).toBeVisible();
+  await dialog.getByRole('button',{name:'Operações',exact:true}).click();
+  await expect(dialog.getByRole('link',{name:'Gerar PDF',exact:true})).toHaveCount(3);
 });

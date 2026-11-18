@@ -27,7 +27,7 @@ export async function createChecklistAlertTask(c:PoolClient,operation:any,schedu
  for(const group of groups)document=await createAlertGroup(c,operation,schedule,document,settings,email,group.alerts,group);
  return document;
 }
-async function createAlertGroup(c:PoolClient,operation:any,schedule:any,document:any,settings:any,email:string,alerts:any[],taskInput:ReturnType<typeof validateAlertTask>,existingTaskId?:string){
+export async function createAlertGroup(c:PoolClient,operation:any,schedule:any,document:any,settings:any,email:string,alerts:any[],taskInput:ReturnType<typeof validateAlertTask>,existingTaskId?:string){
  const order=(await c.query('SELECT * FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2',[schedule.company_id,schedule.order_id])).rows[0];
  if(!order)throw Error('OS não encontrada para anexar o relatório à tarefa.');
  const users=(await c.query('SELECT email,display_name FROM web_user_access')).rows;
@@ -46,7 +46,7 @@ async function createAlertGroup(c:PoolClient,operation:any,schedule:any,document
  const taskId=String(result.task.id);
  await c.query("UPDATE web_tasks SET origin='Revisão de relatório' WHERE id=$1",[taskId]);
  if(existingTaskId)await c.query("DELETE FROM web_task_attachments WHERE task_id=$1 AND (filename LIKE $2 OR filename LIKE $3)",[taskId,`Relatorio-OS-%-Operacao-${position}-%-Previo.pdf`,'OS %-Previo.pdf']);
- if(alerts.length)await c.query("INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,'Alertas identificados no checklist',$2,true,$3,$4)",[taskId,alerts.map(a=>`${a.stage} · ${a.label}: ${a.value}\nComentário: ${a.comment||"Não informado"}`).join('\n'),email,actor?.display_name||email]);
+ if(alerts.length)await c.query("INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,'Alertas identificados no checklist',$2,true,$3,$4)",[taskId,alerts.map(a=>`Operação ${position} · ${a.stage} · ${a.label}: ${a.value}\nComentário: ${a.comment||"Não informado"}`).join('\n'),email,actor?.display_name||email]);
  await c.query('INSERT INTO web_task_attachments(task_id,filename,content_type,content,created_by,created_name) VALUES($1,$2,$3,$4,$5,$6)',[taskId,filename,'application/pdf',Buffer.from(bytes),email,actor?.display_name||email]);
  return {...document,checklistAlertTasks:[...(document.checklistAlertTasks||[]).filter((t:any)=>!existingTaskId||String(t.taskId)!==existingTaskId),{taskId,signature:checklistAlertSignature(alerts),alerts,assignedTo:taskInput.assignedTo,description:taskInput.description,reportMode:taskInput.reportMode,taskType:taskInput.taskType,at:new Date().toISOString(),by:email}]};
 }

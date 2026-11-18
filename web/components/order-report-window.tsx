@@ -1,4 +1,5 @@
 "use client";
+import {orderReviewBlockReason} from "@/lib/service-scheduling/order-review";
 import ActionNotice from "./action-notice";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -151,6 +152,7 @@ export default function OrderReportWindow({
     [error, setError] = useState("");
   const [includeTimeline, setIncludeTimeline] = useState(true);
   const operations: any[] = data.operations || [];
+  const exportBlocked=orderReviewBlockReason(operations,data.orderReview);
   const eligible = operations.filter(op => canIncludeInOrderReport(op, true));
   const ids = selected.filter((id) => eligible.some((op) => op.id === id));
   const model = useMemo(
@@ -395,9 +397,10 @@ export default function OrderReportWindow({
               ? "Somente campos preenchidos, sem paradas e observações internas."
               : "Campos preenchidos e observações internas, sem paradas."}
         </small>
+        {exportBlocked&&<p role="status">{exportBlocked}</p>}
         <button
           type="button"
-          disabled={busy || !ids.length}
+          disabled={busy || !ids.length || !!exportBlocked}
           onClick={() => void download()}
         >
           <FileDown size={16} />

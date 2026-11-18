@@ -3,13 +3,14 @@ import 'server-only';
 import {operationMeterEquipment,unlinkedMeterMessage} from './meter-equipment';
 import {isChecklistEquipmentLinked} from './checklist-equipment';
 import {randomUUID} from 'node:crypto';
-import {stagesOf} from './checklists';
+import {stagesOf,validateRunAlertComments} from './checklists';
 import {emptyOperating,validDate,brazilToday,parsePlan} from '../equipment-management/planning';
 
 /** Called inside the operation review transaction, after permissions and version checks. */
 export async function reviewChecklist(c:any,operation:any,schedule:any,settings:any,email:string,confirmation?:any){
  if(pendingTechnicianClosures(operation.document).length)throw Error("Aguarde o encerramento da operação por todos os técnicos antes de revisar o relatório.");
  const run=operation.document.checklistRun;
+ validateRunAlertComments(run);
  if(!run||run.reviewApplied)return operation.document;
  const stages=stagesOf(run.template);
  if(stages.some(s=>run.stages[s.id]?.status!=='submitted'))throw Error('Devolva todas as etapas antes de revisar o checklist.');

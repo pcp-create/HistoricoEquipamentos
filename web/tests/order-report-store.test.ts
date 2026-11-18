@@ -1,3 +1,4 @@
+import {orderReviewSignature} from "../lib/service-scheduling/order-review";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PGlite } from "@electric-sql/pglite";
@@ -53,6 +54,9 @@ test("unified export validates selection, scopes data to the OS, and checks curr
       "INSERT INTO web_service_checklist_photos VALUES(1,$1,$2)",
       [one,await sharp({create:{width:10,height:10,channels:3,background:'#ffffff'}}).png().toBuffer()],
     );
+    await db.exec("CREATE TABLE web_access_events(id bigint GENERATED ALWAYS AS IDENTITY,event text,email text,actor text,details jsonb)");
+    const ops=(await db.query('SELECT * FROM web_service_operations WHERE schedule_id=1')).rows;
+    await db.query("INSERT INTO web_access_events(event,details) VALUES('service_order_reviewed',$1)",[JSON.stringify({scheduleId:'1',signature:orderReviewSignature(ops)})]);
     const body = { scheduleId: "1", operationIds: [one], mode: "complete" };
     assert.throws(() => validateOrderReportSelection({...body,includeTimeline:"false"}), /linha do tempo/);
     assert.equal(validateOrderReportSelection({...body,mode:"summary"}).includeTimeline,false);
@@ -102,7 +106,7 @@ test("unified export validates selection, scopes data to the OS, and checks curr
     assert.equal(result.photos.length, 1);
     assert.equal(result.model.chapters.length, 1);
     assert.ok(!JSON.stringify(result.model).includes("Outra empresa"));
-    await db.exec("CREATE ROLE anon;CREATE ROLE authenticated;CREATE TABLE web_access_events(event text,email text,actor text,details jsonb)");
+    await db.exec("CREATE ROLE anon;CREATE ROLE authenticated;");
     await db.exec(readFileSync('sql/096_order_attachments.sql','utf8'));
     for(const k of keys)process.env[k]=k==='M8_API_URL'?'https://erp.test':'fixture';
     let uploads=0;
@@ -123,9 +127,7 @@ test("unified export validates selection, scopes data to the OS, and checks curr
     );
     await assert.rejects(attachSummaryReport({scheduleId:"1"},"admin"),/revisão de todas/);
     assert.equal(uploads,1);
-    const preliminary = await loadOrderReport({...body, preliminary:false}, "admin");
-    assert.equal(preliminary.model.preliminary, true);
-    assert.equal(preliminary.model.chapters.length, 1);
+    await assert.rejects(loadOrderReport({...body, preliminary:false}, "admin"),/operação/);
     assert.equal(result.model.preliminary, false);
     await db.query(
       "UPDATE web_service_operations SET status='reviewed' WHERE id=$1",

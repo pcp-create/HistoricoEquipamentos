@@ -1,4 +1,5 @@
 "use client";
+import {orderReviewBlockReason} from "@/lib/service-scheduling/order-review";
 import ActionNotice from "./action-notice";
 import ProcessOrderButton from "./process-order-button";
 import {Save, X, Mail, PencilLine} from "lucide-react";
@@ -36,6 +37,7 @@ export default function ScheduleOrderActions({
   reviewAction?: React.ReactNode;
   reportAction?: React.ReactNode;
 }) {
+  const reviewBlocked=orderReviewBlockReason(data.operations||[],data.orderReview);
   const [attachSummary,setAttachSummary]=useState(true),[summaryAttached,setSummaryAttached]=useState(false),[headerSaved,setHeaderSaved]=useState(false);
   const [attachmentFiles,setAttachmentFiles]=useState<File[]>([]);
   const [edit, setEdit] = useState<any>(null),
@@ -134,7 +136,7 @@ export default function ScheduleOrderActions({
           <PencilLine size={18} aria-hidden="true"/>Editar observações e Status Fluxo
         </button>
         <button
-          disabled={busy || !data.operations?.some(canEmailOperation)}
+          disabled={busy || !!reviewBlocked || !data.operations?.some(canEmailOperation)}
           onClick={() => setCustomer((v) => !v)}
         >
           <Mail size={18} aria-hidden="true"/>Enviar por e-mail
@@ -142,9 +144,9 @@ export default function ScheduleOrderActions({
         {reportAction}
         <ProcessOrderButton data={data} disabled={busy} onBusy={setBusy} onChanged={onChanged}/>
       </div>
-      {!data.operations?.some(canEmailOperation) && (
+      {(reviewBlocked||!data.operations?.some(canEmailOperation)) && (
         <small>
-          Envio ao cliente disponível quando houver uma operação revisada com relatório.
+          {reviewBlocked||"A OS não possui relatório revisado para enviar ao cliente."}
         </small>
       )}
       {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}

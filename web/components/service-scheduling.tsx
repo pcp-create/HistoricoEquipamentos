@@ -374,7 +374,7 @@ export default function ServiceScheduling() {
           ],
         }));
       }
-      if (transitions[body.action]) {
+      if (transitions[body.action] || body.action === "order_review") {
         const fresh = await request(undefined, id);
         setData(fresh);
       }

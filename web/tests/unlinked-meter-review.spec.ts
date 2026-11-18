@@ -12,10 +12,10 @@ test('review warns about an unlinked meter without querying equipment or requiri
  await page.goto('/programacao?id=1');
  await page.getByRole('button',{name:'Acompanhar execução',exact:true}).click();
  const review=page.getByRole('dialog',{name:'Revisão da operação 01'});
- await expect(review.getByRole('alert')).toHaveCount(0);
- await expect(review.getByRole('tab',{name:'Alertas (1)',exact:true})).toBeVisible();
- await review.getByRole('tab',{name:'Alertas (1)',exact:true}).click();
- await expect(review.getByRole('alert')).toContainText('somente no relatório');
+ await expect(review.locator('.operation-review-meter-warning')).toContainText('somente no relatório');
+ await expect(review.getByRole('tab',{name:/Alertas/})).toHaveCount(0);
+
+ await expect(review.locator('.operation-review-meter-warning')).toContainText('somente no relatório');
  await expect(review.getByRole('button',{name:/Resolver alertas/})).toHaveCount(0);
  expect(readingQueries).toBe(0);
 });
@@ -48,21 +48,21 @@ test('review can assign or remove equipment before completion and preserves the 
  const review=page.getByRole('dialog',{name:'Revisão da operação 01'});
  const equipment=review.locator('.review-report-row').filter({has:page.getByText('Ativo',{exact:true})});
  await expect(review.getByRole('region',{name:'Equipamento da operação na revisão'})).toHaveCount(0);
- await review.getByRole('tab',{name:'Alertas (1)',exact:true}).click();
- await review.getByRole('alert').getByRole('button',{name:'Selecionar equipamento',exact:true}).click();
+
+ await review.locator('.operation-review-meter-warning').getByRole('button',{name:'Selecionar equipamento',exact:true}).click();
  const picker=page.getByRole('dialog',{name:'Selecionar equipamento da operação'});
  await expect(picker.getByRole('button',{name:'Usar equipamento da OS',exact:true})).toHaveCount(0);
  await picker.getByRole('button',{name:/Compressor correto/}).click();
  await review.getByRole('tab',{name:'Relatório',exact:true}).click();
  await expect(equipment.getByRole('button',{name:/Compressor correto/})).toBeVisible();
  await expect(review.getByLabel('Data da leitura — Horímetro',{exact:true})).toBeVisible();
- await expect(review.getByRole('alert')).toHaveCount(0);
+ await expect(review.locator('.operation-review-meter-warning')).toHaveCount(0);
  await equipment.getByRole('button',{name:/Compressor correto/}).click();
  await picker.getByRole('button',{name:'Sem equipamento informado',exact:true}).click();
  await expect(equipment.getByRole('button',{name:'Sem equipamento informado',exact:true})).toBeVisible();
- await expect(review.getByRole('alert')).toHaveCount(0);
- await review.getByRole('tab',{name:'Alertas (1)',exact:true}).click();
- await expect(review.getByRole('alert')).toContainText('somente no relatório');
+ await expect(review.locator('.operation-review-meter-warning')).toContainText('somente no relatório');
+
+ await expect(review.locator('.operation-review-meter-warning')).toContainText('somente no relatório');
  expect(operation.document.checklistRun.stages.s.answers.meter).toBe(12028);
  expect(operation.document.checklistRun.equipmentId).toBe('');
  await review.getByRole('button',{name:'Concluir revisão',exact:true}).click();
@@ -71,7 +71,7 @@ test('review can assign or remove equipment before completion and preserves the 
  await expect(equipment.getByRole('button')).toHaveCount(0);
 });
 
-test('lower total meter is red in the report and listed under Alerts, updating immediately on correction',async({page,context})=>{
+test('lower total meter is red in the report and shown in the report, updating immediately on correction',async({page,context})=>{
  await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
  await page.route('**/api/activity',r=>r.fulfill({json:{admin:true}}));
  const template={id:'check',name:'Relatório',items:[],stages:[{id:'s',name:'Medições',fields:[{id:'meter',label:'Horímetro',type:'meter',required:true}]}]};
@@ -91,16 +91,16 @@ test('lower total meter is red in the report and listed under Alerts, updating i
  await expect(meter).toHaveAttribute('aria-invalid','true');
  const color=await meter.evaluate(element=>getComputedStyle(element).borderTopColor.match(/\d+/g)!.map(Number));
  expect(color[0]).toBeGreaterThan(color[1]*2);expect(color[0]).toBeGreaterThan(color[2]*2);
- await expect(review.getByRole('tab',{name:'Alertas (1)',exact:true})).toBeVisible();
+ await expect(review.locator('.review-meter-regression-alert').filter({hasText:'Horímetro abaixo da última coleta'})).toHaveCount(1);
  const initialReadings=readings;expect(initialReadings).toBeGreaterThan(0);
- await review.getByRole('tab',{name:'Alertas (1)',exact:true}).click();
- await expect(review.getByRole('alert')).toContainText('79.399');
+
+ await expect(review.locator('.review-meter-regression-alert').filter({hasText:'Horímetro abaixo da última coleta'})).toContainText('79.399');
  await review.getByRole('button',{name:'Verificar campo no relatório',exact:true}).click();
  await meter.fill('80000');
  await expect(meter).not.toHaveAttribute('aria-invalid','true');
- await expect(review.getByRole('tab',{name:'Alertas (0)',exact:true})).toBeVisible();
+ await expect(review.locator('.review-meter-regression-alert').filter({hasText:'Horímetro abaixo da última coleta'})).toHaveCount(0);
  await meter.fill('12028');
- await expect(review.getByRole('tab',{name:'Alertas (1)',exact:true})).toBeVisible();
+ await expect(review.locator('.review-meter-regression-alert').filter({hasText:'Horímetro abaixo da última coleta'})).toHaveCount(1);
  await expect(meter).toHaveAttribute('aria-invalid','true');
  expect(readings).toBe(initialReadings);
 });
