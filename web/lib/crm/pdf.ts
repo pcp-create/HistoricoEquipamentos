@@ -225,8 +225,7 @@ export async function proposalPdf(
   ];
   function tableHeader(label: string) {
     ensure(40);
-    text(label, M + 8, y, 6.5, true, blue);
-    y += 11;
+    if(label){text(label, M + 8, y, 6.5, true, blue);y += 11;}
     rect(M, y, width, 17);
     [
       "CÓDIGO",
@@ -242,11 +241,14 @@ export async function proposalPdf(
     text("PRAZO DE ENTREGA", M + 329, y + 5, 5.8, true, white);
     y += 18;
   }
+  tableHeader("");
   for (const kind of ["material", "service"] as const) {
   const items = draft.items.filter(item => item.kind === kind);
   if (!items.length) continue;
   const title = kind === "material" ? "MATERIAIS" : "SERVIÇOS";
-  tableHeader(`${title} / ${items.length} ${items.length === 1 ? "ITEM" : "ITENS"}`);
+  if (y + 30 > H - 55) { newPage(); tableHeader("ITENS DA PROPOSTA (CONTINUAÇÃO)"); }
+  text(`${title} / ${items.length} ${items.length === 1 ? "ITEM" : "ITENS"}`, M+8,y+3,6.5,true,blue);
+  y+=14;
   let index = 0;
   for (const item of items) {
     const taxes = currentTaxes(draft,item);

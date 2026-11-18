@@ -100,17 +100,17 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  await expect(terms.getByRole('columnheader',{name:'Prazo de entrega',exact:true})).toBeVisible();
  await expect(terms.locator('span[title^="Estoque consultado em"]')).toHaveText('2 UN');
  await expect(terms).not.toContainText('Estoque consultado em');
- await expect(terms).toContainText('Automático: Imediato');
+ await expect(terms.getByLabel('Prazo de entrega: Filtro')).toHaveAttribute('placeholder', 'Imediato');
  await page.getByRole('button',{name:'Calcular impostos',exact:true}).click();
  await expect(terms).toContainText('ICMS R$ 3,89');
  await page.getByRole('spinbutton',{name:'Quantidade: Filtro histórico',exact:true}).fill('3');
- await expect(terms).toContainText('Automático: 15 dias úteis');
+ await expect(terms.getByLabel('Prazo de entrega: Filtro')).toHaveAttribute('placeholder', '15 dias úteis');
  await expect(terms).toContainText('Impostos não calculados para estes dados.');
  await terms.getByLabel('Prazo de entrega: Filtro histórico').fill('7 dias úteis');
  await page.getByRole('spinbutton',{name:'Quantidade: Filtro histórico',exact:true}).fill('2');
  await expect(terms.getByLabel('Prazo de entrega: Filtro histórico')).toHaveValue('7 dias úteis');
  await terms.getByLabel('Prazo de entrega: Filtro histórico').fill('');
- await expect(terms).toContainText('Automático: Imediato');
+ await expect(terms.getByLabel('Prazo de entrega: Filtro')).toHaveAttribute('placeholder', 'Imediato');
  await page.screenshot({path:'/tmp/crm-summary-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
@@ -173,4 +173,34 @@ test('sales order action asks for an OS type only when multiple choices exist',a
  await generate.click();await dialog.getByLabel('Tipo de OS a gerar').selectOption('5');
  page.once('dialog',d=>d.accept());await dialog.getByRole('button',{name:'Gerar OS',exact:true}).click();
  await expect.poll(()=>writes.length).toBe(1);expect(writes[0]).toMatchObject({action:'convert',orderType:'5'});
+});
+
+test('PDF prompts for missing fiscal setup and shows calculation failures without an empty PDF',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/**',r=>r.fulfill({json:{}}));
+ const item={kind:'material',code:'50',name:'Filtro',quantity:'1',price:'100',unitCost:'',availableStock:null,unitCostSource:'average',unitCostReason:'missing'};
+ let proposal:any={id:proposalId,number:1,opportunity_id:opportunityId,opportunity_number:1,type_id:1,opportunity_type_id:1,customer_name:'Cliente Teste',title:'Preventiva',status:'pending',version:1,document:{...draft,items:[item]},names:{customer:'Cliente Teste',equipment:''},links:[]};
+ const writes:any[]=[];let pdfRequests=0,failPdf=false;
+ await page.route('**/api/service-orders*',r=>r.fulfill({json:new URL(r.request().url()).searchParams.get('lookup')==='metadata'?{types:[{id:'4',name:'Preventiva',equipment_required:false,customer_equipment_only:false}],registries:[],users:[]}:{rows:[{id:'21',name:'Vendedor manual'}],defaultSellerId:'21'}}));
+ await page.route('**/api/crm*',r=>{
+  const p=new URL(r.request().url()).searchParams;
+  if(r.request().method()==='POST'){
+   const b=r.request().postDataJSON();writes.push(b);proposal={...proposal,document:b.draft,version:proposal.version+1};return r.fulfill({json:proposal});
+  }
+  return r.fulfill({json:p.has('catalogs')?catalog:p.has('productCosts')?{rows:[]}:p.has('taxTypes')?{rows:[{id:'1',name:'Manutenção Preventiva'}]}:proposal});
+ });
+ await page.route('**/api/crm/pdf?*',r=>{pdfRequests++;return failPdf?r.fulfill({status:400,json:{error:'Não foi possível simular os impostos no M8.'}}):r.fulfill({contentType:'application/pdf',body:'%PDF-1.4\n%%EOF'});});
+ await page.goto('/crm/propostas/'+proposalId);await page.getByRole('button',{name:'Resumo geral',exact:true}).click();
+ const generate=page.getByRole('button',{name:'Gerar PDF da proposta',exact:true});await expect(generate).toBeEnabled();await generate.click();
+ const dialog=page.getByRole('dialog',{name:'Configurar impostos da proposta'});
+ await expect(dialog).toBeVisible();expect(pdfRequests).toBe(0);
+ await expect(dialog.getByRole('button',{name:'Salvar tipo fiscal e gerar PDF'})).toBeDisabled();
+ await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();expect(writes).toHaveLength(0);
+ await generate.click();await dialog.getByLabel('Tipo de orçamento fiscal para o PDF').selectOption('1');
+ const downloaded=page.waitForEvent('download');await dialog.getByRole('button',{name:'Salvar tipo fiscal e gerar PDF'}).click();
+ expect((await downloaded).suggestedFilename()).toBe('proposta-1.pdf');expect(writes[0].draft.commercial.taxBudgetType).toBe('1');expect(pdfRequests).toBe(1);
+ await expect(dialog).toHaveCount(0);
+ await page.getByRole('button',{name:'Resumo geral',exact:true}).click();failPdf=true;await generate.click();
+ await expect(page.getByText('Não foi possível simular os impostos no M8.',{exact:true})).toBeVisible();
+ expect(writes).toHaveLength(1);
 });

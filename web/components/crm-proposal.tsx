@@ -1,4 +1,5 @@
 "use client";
+import CrmProposalPdf from "./crm-proposal-pdf";
 import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -128,25 +129,7 @@ export default function CrmProposal({ id }: { id: string }) {
   const actions = (
     <>
       <div className="crm-actions">
-        {!changed ? (
-          <a
-            className="button"
-            href={"/api/crm/pdf?id=" + id}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Gerar PDF da proposta
-          </a>
-        ) : (
-          <button
-            className="button"
-            type="button"
-            disabled
-            title="Salve a proposta para gerar o PDF atualizado."
-          >
-            Gerar PDF da proposta
-          </button>
-        )}
+        <CrmProposalPdf proposal={data} disabled={changed||busy} locked={locked} onSaved={load} onError={setError}/>
         <button
           className="button"
           type="button"

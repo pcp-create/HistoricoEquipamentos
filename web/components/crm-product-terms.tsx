@@ -59,7 +59,9 @@ export function CrmDeliveryTerm({
   item,
   disabled,
   onChange,
+  compact = false,
 }: {
+  compact?: boolean;
   draft: OrderDraft;
   item: OrderItem;
   disabled: boolean;
@@ -68,7 +70,7 @@ export function CrmDeliveryTerm({
   return (
     <div className="crm-product-terms crm-delivery-term">
       <label>
-        Prazo de entrega
+        {!compact && "Prazo de entrega"}
         <input
           aria-label={`Prazo de entrega: ${item.name}`}
           maxLength={100}
@@ -80,12 +82,12 @@ export function CrmDeliveryTerm({
           }
         />
       </label>
-      <small>
+      {!compact && <small>
         {item.deliveryLeadTime
           ? "Prazo definido pelo vendedor"
           : `Automático: ${deliveryTerm(draft, item)}`}
         . Deixe vazio para usar o automático.
-      </small>
+      </small>}
     </div>
   );
 }

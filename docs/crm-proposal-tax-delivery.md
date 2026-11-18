@@ -11,3 +11,5 @@ Estoque disponível é consultado em `m8_product_current` pela empresa e produto
 O prazo automático considera a quantidade total do código na proposta: saldo suficiente resulta em Imediato; saldo insuficiente ou desconhecido utiliza deliveryDays. Sem prazo configurado, mostra Prazo não informado. `item.deliveryLeadTime` permite sobrescrever inclusive Imediato; apagar o campo restaura a regra automática. Prazo e impostos constam no PDF. O PDF reconsulta estoque antes de aplicar a regra e preserva a alteração manual.
 
 Referência: https://api.integra.m8sistemas.com.br/docs/index.html#tag/CRM-Orcamentos/operation/ErpM8CrmImpostoSimularPost
+
+Ao gerar o PDF sem tipo fiscal, o portal solicita a seleção e salva a proposta antes de baixar o documento. O endpoint de PDF recusa produtos sem essa configuração, evitando omissão silenciosa de impostos. Erros do cálculo aparecem no portal e não são baixados como PDF. O documento utiliza um cabeçalho de colunas por página, com separadores de Materiais e Serviços.

@@ -120,7 +120,7 @@ export default function CrmProposalSummary({
                             </small>
                           )}
                         </td>
-                        {kind === "material" && <td><CrmDeliveryTerm draft={draft} item={item} disabled={disabled} onChange={next=>onChange(draft.items.map(row=>row===item?next:row))}/></td>}
+                        {kind === "material" && <td><CrmDeliveryTerm compact draft={draft} item={item} disabled={disabled} onChange={next=>onChange(draft.items.map(row=>row===item?next:row))}/></td>}
                         <td>{item.quote?.unit || "—"}</td>
                         <td>
                           <input className="crm-summary-quantity-input"
