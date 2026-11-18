@@ -1225,9 +1225,17 @@
 .order-task-action-dialog input {width:100%;min-width:0;box-sizing:border-box;}
 .order-task-action-dialog footer {display:flex;justify-content:flex-end;gap:10px;margin-top:24px;}
 
-.order-review-tabs { padding: 10px 20px; border-bottom: 1px solid #dce6f0; }
-.order-review-tabs button { display: inline-flex; align-items: center; gap: 8px; }
-.order-review-tabs button[aria-pressed="true"] { background: #e9f3ff; border-bottom: 3px solid #2177bb; }
+.order-review-heading { align-items: flex-start; }
+.order-review-heading-content { flex: 1; min-width: 0; }
+.order-review-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; margin-top: 12px; }
+.order-review-controls > label { margin: 0; flex-wrap: wrap; }
+.operation-review-window .order-review-tabs { padding: 0; margin: 0; border: 0; flex-wrap: wrap; overflow: visible; gap: 6px; }
+.operation-review-window .order-review-tabs > button { display: inline-flex; align-items: center; gap: 8px; color: #425f7c; background: #fff; border: 1px solid #ccdaea; border-bottom: 3px solid transparent; border-radius: 7px; padding: 10px 14px; font-weight: 600; }
+.operation-review-window .order-review-tabs > button[aria-pressed="true"] { color: #185d97; background: #e9f3ff; border-color: #b7d4f0; border-bottom-color: #2177bb; }
+.operation-review-window .order-review-tabs > .review-tab-alerts { color: #b42336; background: #fff2f3; }
+.operation-review-window .order-review-tabs > .review-tab-alerts[aria-pressed="true"] { color: #a51d30; background: #ffe4e8; border-color: #efbcc5; border-bottom-color: #bc2e40; }
+.operation-review-window .order-review-tabs > button:focus-visible { outline: 2px solid #2878bd; outline-offset: 2px; }
+@media(max-width:600px) { .order-review-controls > label { gap: 6px; } .order-review-controls select { width: 100%; } .operation-review-window .order-review-tabs > button { padding: 9px 10px; } }
 .order-review-alert-panel { padding: 20px; }
 .order-review-finalize { border-top: 2px solid #dce6f0; padding: 20px; background: #f4f8fc; }
 .order-review-finalize > span { display: block; }

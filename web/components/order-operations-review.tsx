@@ -47,18 +47,20 @@ export default function OrderOperationsReview({data,busy,error,mutate,onClose,di
   };
   return createPortal(<dialog ref={dialog} className="scheduling-page operation-review-window order-review-continuous" aria-label="Revisar operações da OS" onScroll={trackScroll} onCancel={e=>{e.preventDefault();close();}}>
     <header className="operation-review-header order-review-heading">
-      <div><h2>Revisar operações da OS</h2><p>{operations.length} operações · {operations.filter(o=>o.status==='awaiting_review').length} aguardando revisão · {operations.filter(o=>['reviewed','completed'].includes(o.status)).length} revisadas</p>
-        {tab==="operations"&&<label>Operação em revisão <select aria-label="Ir para operação" value={selected} onChange={e=>{setSelected(e.target.value);sections.current.get(e.target.value)?.scrollIntoView({block:'start'});}}>
+      <div className="order-review-heading-content"><h2>Revisar operações da OS</h2><p>{operations.length} operações · {operations.filter(o=>o.status==='awaiting_review').length} aguardando revisão · {operations.filter(o=>['reviewed','completed'].includes(o.status)).length} revisadas</p>
+        <div className="order-review-controls"><label>Operação em revisão <select aria-label="Ir para operação" value={selected} onChange={e=>{const id=e.target.value;setSelected(id);setTab('operations');requestAnimationFrame(()=>{const container=dialog.current,section=sections.current.get(id),heading=container?.querySelector('.order-review-heading');if(container&&section&&heading)container.scrollTo({top:container.scrollTop+section.getBoundingClientRect().top-container.getBoundingClientRect().top-heading.getBoundingClientRect().height-12});});}}>
           {operations.map(o=><option key={o.id} value={o.id}>Operação {operationNumber(o.position)} · {statusNames[o.status]}</option>)}
-        </select></label>}
-      </div>
-      <button type="button" aria-label="Fechar revisão" disabled={busy} onClick={close}><X size={20}/></button>
-    </header>
-    {error&&<ActionNotice type="error">{error}</ActionNotice>}
+        </select></label>
     <nav className="operation-review-tabs order-review-tabs" aria-label="Revisão da OS">
       <button type="button" aria-pressed={tab==='operations'} onClick={()=>setTab('operations')}>Operações</button>
       <button type="button" className={pending.length?'review-tab-alerts':undefined} aria-pressed={tab==='alerts'} onClick={()=>setTab('alerts')}><AlertTriangle size={16}/>Alertas da OS ({alerts.length})</button>
     </nav>
+        </div>
+      </div>
+      <button type="button" aria-label="Fechar revisão" disabled={busy} onClick={close}><X size={20}/></button>
+    </header>
+    {error&&<ActionNotice type="error">{error}</ActionNotice>}
+
     <div hidden={tab!=="operations"}>
     {operations.map(o=><div key={o.id} ref={el=>{if(el)sections.current.set(o.id,el);else sections.current.delete(o.id);}} className="order-review-operation">
       <OperationReviewWindow embedded operation={o} data={data} busy={busy} dirty={false} error={error} mutate={mutate} onClose={close}

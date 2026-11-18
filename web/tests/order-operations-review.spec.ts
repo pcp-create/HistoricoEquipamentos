@@ -120,6 +120,11 @@ test("planner reviews operations together and navigates in numeric order", async
   const third=dialog.getByRole('region',{name:'Revisão da operação 03',exact:true});
   await dialog.getByLabel('Ir para operação').selectOption(operations[2].id);
   await expect(third.getByRole('heading',{name:/14877\/03/})).toBeVisible();
+  const navigation=dialog.getByRole('navigation',{name:'Revisão da OS',exact:true});
+  const navigationBox=(await navigation.boundingBox())!,headerBox=(await dialog.locator('.order-review-heading').boundingBox())!;
+  expect(navigationBox.y).toBeGreaterThanOrEqual(headerBox.y);
+  expect(navigationBox.y+navigationBox.height).toBeLessThanOrEqual(headerBox.y+headerBox.height);
+  await expect(navigation.getByRole('button',{name:'Operações',exact:true})).toHaveCSS('color','rgb(24, 93, 151)');
   await expect(dialog.getByRole('button',{name:'Concluir revisão',exact:true})).toBeEnabled();
   // Legacy operations have no alertOptions snapshot: NOK must still look negative.
   const condition=third.getByRole('radiogroup',{name:'Condição',exact:true});
@@ -145,6 +150,12 @@ test("planner reviews operations together and navigates in numeric order", async
   await expect(dialog.getByRole('heading',{name:/14877\/01/})).toBeVisible();
   await dialog.locator('.order-review-operation').nth(1).evaluate(el=>el.scrollIntoView({block:'start'}));
   await expect(dialog.getByLabel('Ir para operação')).toHaveValue(operations[1].id);
+  await page.setViewportSize({width:390,height:844});
+  await dialog.getByLabel('Ir para operação').selectOption(operations[2].id);
+  await expect(navigation.getByRole('button',{name:'Operações',exact:true})).toBeInViewport();
+  await expect(navigation.getByRole('button',{name:'Alertas da OS (0)',exact:true})).toBeInViewport();
+  expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  await page.screenshot({path:'/tmp/order-review-fixed-header.png'});
   await dialog.getByRole('button',{name:'Fechar revisão',exact:true}).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
