@@ -1,6 +1,6 @@
 "use client";
 import CrmServiceCostInput from "./crm-service-cost-input";
-import CrmProductTerms from "./crm-product-terms";
+import CrmProductTerms, { CrmDeliveryTerm } from "./crm-product-terms";
 import { Trash2 } from "lucide-react";
 import {
   discountedUnitCents,
@@ -76,6 +76,7 @@ export default function CrmProposalSummary({
               <thead>
                 <tr>
                   <th>Código / descrição</th>
+                  {kind === "material" && <th>Prazo de entrega</th>}
                   <th>Un.</th>
                   <th>Quantidade</th>
                   <th>Venda unitária</th>
@@ -107,7 +108,7 @@ export default function CrmProposalSummary({
                               </a>
                             ) : item.code} · {item.name}
                           </strong>
-                          {kind === 'material' && <CrmProductTerms draft={draft} item={item} disabled={disabled} onChange={next=>onChange(draft.items.map(row=>row===item?next:row))}/>}
+                          {kind === 'material' && <CrmProductTerms showDelivery={false} draft={draft} item={item} disabled={disabled} onChange={next=>onChange(draft.items.map(row=>row===item?next:row))}/>}
                           {item.notes?.trim() && (
                             <small className="crm-prewrap">
                               Observação: {item.notes}
@@ -119,6 +120,7 @@ export default function CrmProposalSummary({
                             </small>
                           )}
                         </td>
+                        {kind === "material" && <td><CrmDeliveryTerm draft={draft} item={item} disabled={disabled} onChange={next=>onChange(draft.items.map(row=>row===item?next:row))}/></td>}
                         <td>{item.quote?.unit || "—"}</td>
                         <td>
                           <input className="crm-summary-quantity-input"

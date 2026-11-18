@@ -223,10 +223,10 @@ export async function proposalPdf(
     M + 678,
     M + 725,
   ];
-  function tableHeader() {
+  function tableHeader(label: string) {
     ensure(40);
-    text("ITENS DA PROPOSTA", M + 8, y, 6.5, true, blue);
-    y += 13;
+    text(label, M + 8, y, 6.5, true, blue);
+    y += 11;
     rect(M, y, width, 17);
     [
       "CÓDIGO",
@@ -239,21 +239,28 @@ export async function proposalPdf(
       "VL. IPI R$",
       "TOTAL R$",
     ].forEach((v, i) => text(v, xs[i] + 4, y + 5, 5.8, true, white));
-    y += 20;
+    text("PRAZO DE ENTREGA", M + 329, y + 5, 5.8, true, white);
+    y += 18;
   }
-  tableHeader();
+  for (const kind of ["material", "service"] as const) {
+  const items = draft.items.filter(item => item.kind === kind);
+  if (!items.length) continue;
+  const title = kind === "material" ? "MATERIAIS" : "SERVIÇOS";
+  tableHeader(`${title} / ${items.length} ${items.length === 1 ? "ITEM" : "ITENS"}`);
   let index = 0;
-  for (const item of draft.items) {
+  for (const item of items) {
     const taxes = currentTaxes(draft,item);
     const lines = wrap(
-      item.name + (item.kind==='material'?` — Entrega: ${deliveryTerm(draft,item)}`:'') + (taxes?` | PIS: R$ ${money(taxes.pis)}; COFINS: R$ ${money(taxes.cofins)}`:'') + (item.quote?.unit ? " · " + item.quote.unit : "") + (Number(item.discountPercent)>0?` (desconto ${Number(item.discountPercent).toLocaleString('pt-BR')}%)`:''),
-      350,
+      item.name + (taxes?` | PIS: R$ ${money(taxes.pis)}; COFINS: R$ ${money(taxes.cofins)}`:'') + (item.quote?.unit ? " · " + item.quote.unit : "") + (Number(item.discountPercent)>0?` (desconto ${Number(item.discountPercent).toLocaleString('pt-BR')}%)`:''),
+      265,
       7,
     );
+    const deliveryLines = item.kind === "material" ? wrap(deliveryTerm(draft,item),77,7) : [];
+    while(lines.length < deliveryLines.length) lines.push("");
     for (let start = 0; start < lines.length;) {
       if (y + 14 > H - 55) {
         newPage();
-        tableHeader();
+        tableHeader(`${title} (CONTINUAÇÃO)`);
       }
       const fits = Math.max(1, Math.floor((H - 58 - y) / 10)),
         part = lines.slice(start, start + fits),
@@ -275,14 +282,18 @@ export async function proposalPdf(
         text(taxes ? money(taxes.ipi) : "—", xs[7] + 4, y + 2, 6, false, gray);
         right(money(itemFinancials(item).sale), W - M - 5, y + 2, 7, true);
       }
-      part.forEach((row, j) => text(row, xs[1] + 4, y + 2 + j * 10));
+      part.forEach((row, j) => {
+        text(row, xs[1] + 4, y + 2 + j * 10);
+        if(deliveryLines[start+j])text(deliveryLines[start+j],M+329,y+2+j*10,7);
+      });
       y += height;
       start += part.length;
     }
     rule(y);
     index++;
   }
-  y += 10;
+  y += 4;
+  }
   ensure(152);
   const startY = y;
   text("OBSERVAÇÕES E CONDIÇÕES COMERCIAIS", M + 8, y, 6.5, true);

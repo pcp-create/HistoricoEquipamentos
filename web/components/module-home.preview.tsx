@@ -28,6 +28,7 @@ const modules = [
       ["Contratos", "/comercial/contratos"],
       ["Vendas", "/comercial/vendas"],
       ["Histórico Orçamentos M8", "/orcamentos"],
+      ["Rascunhos de propostas", "/orcamentos/novo"],
       ["CRM", "/crm"],
       ["Catálogo do fabricante", "/fabricante"],
     ],

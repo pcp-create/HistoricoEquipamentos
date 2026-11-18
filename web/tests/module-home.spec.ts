@@ -9,8 +9,9 @@ test("portal organizes tools and preserves history links", async ({ page, contex
   await page.getByRole("navigation", { name: "Módulos do sistema" }).getByRole("link", { name: /Comercial/ }).click();
   await expect(page).toHaveURL(/\/modulos\/crm$/);
   await expect(page.getByRole("navigation", { name: "Menus de Comercial" }).getByRole("link", { name: "Projeção de Vendas" })).toHaveAttribute("href", "/comercial/projecao?module=crm");
-  await expect(page.getByRole("navigation", { name: "Menus de Comercial" }).getByRole("link", { name: "Orçamentos" })).toHaveAttribute("href", "/orcamentos?module=crm");
-  await expect(page.getByRole("navigation", { name: "Menus de Comercial" }).getByRole("link", { name: /Histórico|Ordens de Serviço/ })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Menus de Comercial" }).getByRole("link", { name: "Histórico Orçamentos M8" })).toHaveAttribute("href", "/orcamentos?module=crm");
+  await expect(page.getByRole("navigation", { name: "Menus de Comercial" }).getByRole("link", { name: /Ordens de Serviço/ })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Menus de Comercial" }).getByRole("link", { name: "Rascunhos de propostas" })).toHaveAttribute("href", "/orcamentos/novo?module=crm");
   await page.getByRole("link", { name: "Todos os módulos" }).click();
   await expect(page.getByRole("heading", { name: "Módulos", exact: true })).toBeVisible();
   await page.goto("/?view=orders&company=1&orderNumber=14083");

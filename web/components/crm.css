@@ -166,3 +166,4 @@
 .crm-product-terms small { display: block; }
 .crm-product-terms label { display: grid; gap: .25rem; font-size: .78rem; }
 .crm-product-terms input { font-size: .8rem; padding: .4rem .6rem; min-height: 2rem; max-width: 18rem; }
+.crm-summary-table .crm-delivery-term { width: 160px; white-space: normal; }

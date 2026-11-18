@@ -95,8 +95,11 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
 
  await page.getByLabel('Tipo de orçamento fiscal (M8)').selectOption('1');
  await page.getByLabel('Prazo sem estoque (dias úteis)').fill('15');
- const terms=page.locator('.crm-summary-table').first().locator('.crm-product-terms');
+ const terms=page.locator('.crm-summary-table').first();
  await expect(terms).toContainText('Estoque disponível: 2');
+ await expect(terms.getByRole('columnheader',{name:'Prazo de entrega',exact:true})).toBeVisible();
+ await expect(terms.locator('span[title^="Estoque consultado em"]')).toHaveText('2 UN');
+ await expect(terms).not.toContainText('Estoque consultado em');
  await expect(terms).toContainText('Automático: Imediato');
  await page.getByRole('button',{name:'Calcular impostos',exact:true}).click();
  await expect(terms).toContainText('ICMS R$ 3,89');

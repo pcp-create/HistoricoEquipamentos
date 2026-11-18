@@ -7,7 +7,9 @@ export default function CrmProductTerms({
   item,
   disabled,
   onChange,
+  showDelivery = true,
 }: {
+  showDelivery?: boolean;
   draft: OrderDraft;
   item: OrderItem;
   disabled: boolean;
@@ -18,19 +20,53 @@ export default function CrmProductTerms({
     <div className="crm-product-terms">
       <small>
         Estoque disponível:{" "}
-        {item.availableStock == null
-          ? "Não informado"
-          : item.availableStock.toLocaleString("pt-BR")}{" "}
-        {item.quote?.unit || ""}
+        <span
+          title={
+            item.stockAt
+              ? `Estoque consultado em ${new Date(item.stockAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
+              : undefined
+          }
+        >
+          {item.availableStock == null
+            ? "Não informado"
+            : item.availableStock.toLocaleString("pt-BR")}{" "}
+          {item.quote?.unit || ""}
+        </span>
       </small>
-      {item.stockAt && (
-        <small>
-          Estoque consultado em{" "}
-          {new Date(item.stockAt).toLocaleString("pt-BR", {
-            timeZone: "America/Sao_Paulo",
-          })}
-        </small>
+      {showDelivery && (
+        <CrmDeliveryTerm
+          draft={draft}
+          item={item}
+          disabled={disabled}
+          onChange={onChange}
+        />
       )}
+      {taxes ? (
+        <small>
+          Impostos simulados: ICMS {crmMoney(taxes.icms)} · ICMS ST{" "}
+          {crmMoney(taxes.icmsSt)} · IPI {crmMoney(taxes.ipi)} · PIS{" "}
+          {crmMoney(taxes.pis)} · COFINS {crmMoney(taxes.cofins)}
+        </small>
+      ) : (
+        <small>Impostos não calculados para estes dados.</small>
+      )}
+    </div>
+  );
+}
+
+export function CrmDeliveryTerm({
+  draft,
+  item,
+  disabled,
+  onChange,
+}: {
+  draft: OrderDraft;
+  item: OrderItem;
+  disabled: boolean;
+  onChange: (item: OrderItem) => void;
+}) {
+  return (
+    <div className="crm-product-terms crm-delivery-term">
       <label>
         Prazo de entrega
         <input
@@ -50,15 +86,6 @@ export default function CrmProductTerms({
           : `Automático: ${deliveryTerm(draft, item)}`}
         . Deixe vazio para usar o automático.
       </small>
-      {taxes ? (
-        <small>
-          Impostos simulados: ICMS {crmMoney(taxes.icms)} · ICMS ST{" "}
-          {crmMoney(taxes.icmsSt)} · IPI {crmMoney(taxes.ipi)} · PIS{" "}
-          {crmMoney(taxes.pis)} · COFINS {crmMoney(taxes.cofins)}
-        </small>
-      ) : (
-        <small>Impostos não calculados para estes dados.</small>
-      )}
     </div>
   );
 }
