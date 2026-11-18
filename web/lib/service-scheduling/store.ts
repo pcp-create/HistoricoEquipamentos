@@ -1,3 +1,4 @@
+import {ensureCreatedOrderProjection} from "../service-orders/local-projection";
 import {pendingTechnicianClosures,readyForReviewAfterClosures} from './execution-locks';
 import {equipmentSelectionLocked} from "./equipment-selection";
 import {cleanEmailBodyHtml} from './email-body-html';
@@ -327,7 +328,11 @@ export async function mutateSchedule(b: any, email: string) {
       if (!["1", "2", "27404"].includes(company))
         throw new ScheduleInputError("Empresa inválida.");
       id(b.orderId);
-      const orderRow=(await c.query("SELECT id_m8,status FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2 FOR SHARE",[company,b.orderId])).rows[0];
+      let orderRow=(await c.query("SELECT id_m8,status FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2 FOR SHARE",[company,b.orderId])).rows[0];
+      if(!orderRow&&b.action==='include'){
+        await ensureCreatedOrderProjection(company,b.orderId,c);
+        orderRow=(await c.query("SELECT id_m8,status FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2 FOR SHARE",[company,b.orderId])).rows[0];
+      }
       if(!orderRow)throw new ScheduleInputError("OS não encontrada.");
       if(b.action === "include" && isCancelledOrder(orderRow.status))throw new ScheduleInputError("Não é possível programar uma OS cancelada.");
       if (b.action === "remove_schedule") {

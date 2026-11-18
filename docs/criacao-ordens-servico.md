@@ -41,7 +41,11 @@ Rejeição HTTP explícita do cabeçalho permite corrigir os dados e criar outra
 
 Timeout, resposta sem ID, erro de servidor ou interrupção durante uma gravação deixam o envio aguardando conferência no ERP. Não há repetição automática de POST ou PATCH nem desbloqueio por tempo, pois o M8 não documenta chave de idempotência. Essa conferência é necessária para determinar se a gravação ocorreu antes de qualquer novo envio.
 
-A nova OS entra na consulta local pelo integrador de novas ordens já existente. Após confirmar todas as etapas, a criação redireciona para /historico e abre a lateral da OS pela empresa e ID interno. Enquanto a OS concluída não estiver na base local, o detalhamento consulta o endpoint completo do M8 filtrado por ID na empresa correta. O cabeçalho usa o número sequencial retornado, sem confundi-lo com o ID interno.
+Após confirmar todas as etapas no M8, o sistema materializa imediatamente o cabeçalho e os produtos/serviços confirmados na base local, permitindo **Programar OS** sem aguardar o integrador. Os IDs reais retornados nas etapas dos itens são preservados no envio; não são inventados IDs de itens nem número público da OS. Cliente, equipamento, datas, atendimento e fluxo vêm dos dados enviados e dos cadastros locais. O total inicial é a soma provisória dos itens enviados, substituída pelo total oficial na coleta do ERP.
+
+A preparação local acontece depois da confirmação durável da criação: falha nessa preparação nunca desfaz a confirmação nem repete gravações no M8. Uma nova consulta do envio concluído ou tentativa de inclusão na programação retoma a preparação local. Inserções respeitam as chaves empresa/OS/item e não sobrescrevem registros coletados. O cabeçalho local não inventa `data_atualizacao`, e a fila `integracao_m8_os_sync` permanece pendente, sem marcar detalhamento coletado. O integrador complementa a mesma OS e seus itens sem recriar ou alterar operações já programadas.
+
+A criação continua abrindo a lateral da OS no histórico. Antes da primeira coleta, ela usa a projeção local confirmada, sem depender de outra consulta ao M8. Se houver uma edição local posterior, permanece a ponte existente para consultar o detalhamento atualizado do ERP. Enquanto o número público não estiver confirmado, o link da programação usa o ID interno da programação; depois, pode usar o número público retornado pelo integrador.
 
 Validação automatizada usa M8 simulado; não são criadas ordens reais durante testes.
 

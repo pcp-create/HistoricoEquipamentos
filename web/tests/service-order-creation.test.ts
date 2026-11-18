@@ -1,3 +1,6 @@
+import {mutateSchedule} from "../lib/service-scheduling/store";
+import {ensureCreatedOrderProjection} from "../lib/service-orders/local-projection";
+import {scheduleUrl} from "../lib/service-scheduling/schedule-url";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -150,6 +153,9 @@ test("creation uses customer equipment rule, persists progress, isolates users a
     await db.exec(
       `CREATE ROLE anon;CREATE ROLE authenticated;CREATE TABLE web_user_access(email text,display_name text,enabled boolean);CREATE TABLE m8_order_type_catalog(id bigint PRIMARY KEY,name text,active boolean);CREATE TABLE registry_manual_updates(registry_key text PRIMARY KEY,updated_at timestamptz,updated_by text);`,
     );
+    for(const name of ['001_m8_history','002_m8_observed_types','004_m8_approval_mixed','005_m8_collection_cycle'])await db.exec(readFileSync(new URL('../../supabase/migrations/'+name+'.sql',import.meta.url),'utf8'));
+    await db.exec("ALTER TABLE web_user_access ADD COLUMN role text DEFAULT 'user';CREATE TABLE web_access_events(event text,email text,actor text,details jsonb);");
+    for(const name of ['028_service_scheduling','030_service_schedule_visibility'])await db.exec(readFileSync(new URL('../sql/'+name+'.sql',import.meta.url),'utf8'));
     await db.exec(
       readFileSync(
         new URL("../sql/063_service_order_creation.sql", import.meta.url),
@@ -163,7 +169,7 @@ test("creation uses customer equipment rule, persists progress, isolates users a
       ),
     );
     await db.exec(`CREATE TABLE m8_customer_directory(company_id int,person_id bigint,name text,document text,payload jsonb DEFAULT '{}');CREATE TABLE m8_equipment_catalog(equipment_id bigint,name text,model text,serial text,present boolean,payload jsonb);CREATE TABLE m8_person_equipment(company_id int,person_id bigint,equipment_id bigint,present boolean);CREATE TABLE m8_product_catalog(company_id int,product_id bigint);CREATE TABLE m8_service_catalog(company_id int,service_id bigint);
- INSERT INTO web_user_access VALUES('tech@example.com','Técnico',true,99);
+ INSERT INTO web_user_access(email,display_name,enabled,m8_employee_id) VALUES('tech@example.com','Técnico',true,99);
  INSERT INTO m8_order_type_catalog VALUES(1,'Corretiva',true,true),(2,'Todas',true,false);
  INSERT INTO m8_customer_directory(company_id,person_id,name,document) VALUES(1,10,'Cliente','123'),(2,10,'Cliente duplicado','123');
  INSERT INTO m8_equipment_catalog VALUES(100,'Compressor','A','X',true,'{}'),(101,'Outro','B','Y',true,'{}');
@@ -332,12 +338,57 @@ test("creation uses customer equipment rule, persists progress, isolates users a
     assert.equal(r.m8Id, 777);
     r = await advanceOrder("user", key, session);
     assert.equal(r.state, "complete");
+    assert.equal((r as any).localSynced,true);
+    const seededOrder=(await db.query<any>('SELECT * FROM m8_ordens_servico WHERE company_id=2 AND id_m8=777')).rows[0];
+    assert.equal(seededOrder.cliente_id,10);assert.equal(seededOrder.cliente_nome,'Cliente duplicado');
+    assert.equal(seededOrder.produto_equipamento_id,100);assert.equal(seededOrder.equipamento,'Compressor');
+    assert.equal(seededOrder.data_atualizacao,null,'local confirmation must not make a later integrator timestamp stale');
+    assert.equal(seededOrder.numero_sequencia,null,'never invent the public OS number from its ERP ID');
+    assert.equal(Number((await db.query<any>('SELECT * FROM m8_os_produtos WHERE company_id=2 AND ordem_servico_id=777')).rows[0].quantidade),2);
+    assert.equal((await db.query<any>('SELECT count(*)::int n FROM m8_os_servicos WHERE company_id=2 AND ordem_servico_id=777')).rows[0].n,1);
+    const queue=(await db.query<any>('SELECT * FROM integracao_m8_os_sync WHERE company_id=2 AND ordem_servico_id=777')).rows[0];
+    assert.equal(queue.pending,true);assert.equal(queue.last_detail_at,null);
+    await db.exec("INSERT INTO web_user_access(email,display_name,enabled) VALUES('user','Planejador',true)");
+    const scheduled=await mutateSchedule({action:'include',company:2,orderId:'777'},'user');
+    assert.equal(scheduleUrl(scheduled.schedule),'/programacao?id='+scheduled.schedule.id);
+    const operation=(await db.query<any>('SELECT * FROM web_service_operations WHERE schedule_id=$1',[scheduled.schedule.id])).rows[0];
+    assert.equal(operation.document.equipmentId,'100');
+    await db.query("UPDATE web_service_operations SET document=document||'{\"date\":\"2026-11-20\",\"responsible\":\"tech@example.com\"}'::jsonb WHERE id=$1",[operation.id]);
+    // Simulate the later integrator enrichment on the same primary key.
+    await db.exec("UPDATE m8_ordens_servico SET numero_sequencia=15099,cliente_nome='Cliente confirmado',data_atualizacao=now() WHERE company_id=2 AND id_m8=777;UPDATE integracao_m8_os_sync SET last_detail_at=now(),pending=false,finalized=true WHERE company_id=2 AND ordem_servico_id=777;");
+    await ensureCreatedOrderProjection(2,777);
+    assert.equal((await db.query<any>('SELECT cliente_nome FROM m8_ordens_servico WHERE company_id=2 AND id_m8=777')).rows[0].cliente_nome,'Cliente confirmado');
+    assert.equal((await db.query<any>('SELECT document FROM web_service_operations WHERE id=$1',[operation.id])).rows[0].document.responsible,'tech@example.com');
+    assert.equal((await db.query<any>('SELECT count(*)::int n FROM web_service_operations WHERE schedule_id=$1',[scheduled.schedule.id])).rows[0].n,1);
     await advanceOrder("user", key, session);
     assert.equal(writes.length, 5);
     assert.ok(writes[4].endsWith("/777/statusfluxo"));
     assert.ok(writes[1].endsWith("/777/equipamento"));
     assert.ok(writes[2].endsWith("/777/produto"));
     assert.ok(writes[3].endsWith("/777/servico"));
+    // A local failure after ERP confirmation must stay complete and be repairable without ERP writes.
+    const repairId=randomUUID();
+    await db.query("INSERT INTO service_order_submissions(id,created_by,company_id,request,header,items,m8_id,state,next_item) SELECT $1,created_by,company_id,request,header,items,888,'complete',next_item FROM service_order_submissions WHERE id=$2",[repairId,key]);
+    await db.exec('ALTER TABLE m8_os_produtos ADD CONSTRAINT reject_local_seed CHECK(ordem_servico_id<>888) NOT VALID');
+    const failedLocal=await advanceOrder('user',repairId,session);
+    assert.equal(failedLocal.state,'complete');assert.equal((failedLocal as any).localSynced,false);
+    assert.equal((await db.query('SELECT 1 FROM m8_ordens_servico WHERE company_id=2 AND id_m8=888')).rows.length,0);
+    assert.equal((await submissions('user',repairId))[0].state,'complete');
+    await db.exec('ALTER TABLE m8_os_produtos DROP CONSTRAINT reject_local_seed');
+    const repaired=await advanceOrder('user',repairId,session);
+    assert.equal((repaired as any).localSynced,true);assert.equal(writes.length,5);
+    assert.equal((await db.query('SELECT 1 FROM m8_ordens_servico WHERE company_id=2 AND id_m8=888')).rows.length,1);
+    // A poll that saw the OS during creation must not hide items confirmed afterwards.
+    const earlyPollId=randomUUID();
+    await db.query("INSERT INTO service_order_submissions(id,created_by,company_id,request,header,items,m8_id,state,next_item) SELECT $1,created_by,company_id,request,header,items,999,'complete',next_item FROM service_order_submissions WHERE id=$2",[earlyPollId,key]);
+    await db.exec("INSERT INTO m8_ordens_servico(company_id,id_m8,numero_sequencia,cliente_nome,payload) VALUES(2,999,15100,'Nome do ERP','{}');INSERT INTO integracao_m8_os_sync(company_id,ordem_servico_id,inventory_seen_at,last_attempt_at,last_detail_at,pending,finalized) VALUES(2,999,now()-interval '2 minutes',now()-interval '2 minutes',now()-interval '1 minute',false,true)");
+    assert.equal((await advanceOrder('user',earlyPollId,session) as any).localSynced,true);
+    assert.equal((await db.query('SELECT 1 FROM m8_os_produtos WHERE company_id=2 AND ordem_servico_id=999')).rows.length,1);
+    assert.equal((await db.query<any>('SELECT pending FROM integracao_m8_os_sync WHERE company_id=2 AND ordem_servico_id=999')).rows[0].pending,true);
+    assert.equal((await db.query<any>('SELECT numero_sequencia FROM m8_ordens_servico WHERE company_id=2 AND id_m8=999')).rows[0].numero_sequencia,15100);
+    assert.equal(writes.length,5);
+
+
     const equipmentOnly = randomUUID();
     await prepareOrder("user", equipmentOnly, { ...draft, items: [] });
     assert.equal(

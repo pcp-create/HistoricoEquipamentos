@@ -1,3 +1,4 @@
+import {canUseCreatedOrderProjection,ensureCreatedOrderProjection} from "@/lib/service-orders/local-projection";
 import { logDataError } from "@/lib/data-error";
 import { NextResponse } from "next/server";
 import { requireUser, Unauthorized } from "@/lib/auth";
@@ -12,8 +13,9 @@ export async function GET(
   try {
     await requireUser();
     const { company, id } = await context.params;
-    const local = await orderDetail(company, id);
-    const result = await createdOrderDetail(company,id,local?.detail_at) || local;
+    let local = await orderDetail(company, id);
+    if(!local&&await ensureCreatedOrderProjection(company,id))local=await orderDetail(company,id);
+    const result = local&&!local.detail_at&&await canUseCreatedOrderProjection(company,id) ? local : await createdOrderDetail(company,id,local?.detail_at) || local;
     if(result)result.materials=await withWarehouseSupply(result.materials.map((p:any)=>({...p,item_company:Number(company)})));
     return NextResponse.json(
       result || { error: "Ordem de serviço não encontrada." },

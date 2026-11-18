@@ -1,4 +1,6 @@
 import "server-only";
+import {logDataError} from "../data-error";
+import {ensureCreatedOrderProjection} from "./local-projection";
 import {orderSellers} from "./sellers";
 import { database } from "../db";
 import { m8Session, M8RequestError } from "./m8";
@@ -210,7 +212,7 @@ export async function prepareOrder(email: string, id: unknown, input: unknown, o
   }
 }
 function storedDraft(request: any) {
-  const {warrantySnapshot, ...draft} = request;
+  const {warrantySnapshot, creationReceipt, ...draft} = request;
   return draft;
 }
 function canonical(v: any): string {
@@ -270,7 +272,7 @@ export async function advanceOrder(
   ).rows[0];
   if (!row) throw new OrderInputError("Envio não encontrado.");
   if (["sending", "uncertain", "complete", "rejected"].includes(row.state))
-    return publicSubmission(row);
+    return localCreationResult(row);
   const m8 = await session(row.company_id);
   const c = await db.connect();
   try {
@@ -327,8 +329,13 @@ export async function advanceOrder(
         "O M8 não retornou o ID criado. Confira no ERP antes de reenviar.",
         true,
       );
-    if (m8Id) next++;
-    else m8Id = result.id;
+    if (m8Id){
+      if(item.kind!=='flow-status')row.items[next]={...item,confirmedId:result.id};
+      next++;
+    }else{
+      m8Id = result.id;
+      row.request={...row.request,creationReceipt:{...(Number.isInteger(result.numeroSequencia)&&result.numeroSequencia>0?{numeroSequencia:result.numeroSequencia}:{}),...(typeof result.status==='string'?{status:result.status}:{}),...(typeof result.totalGeral==='number'?{totalGeral:result.totalGeral}:{})}};
+    }
     state = next === row.items.length ? "complete" : "ready";
   } catch (e) {
     state =
@@ -346,15 +353,22 @@ export async function advanceOrder(
   try {
     await save.query("BEGIN READ WRITE");
     const r = await save.query(
-      "UPDATE service_order_submissions SET state=$2,m8_id=$3,next_item=$4,message=$5,updated_at=now() WHERE id=$1 RETURNING *",
-      [key, state, m8Id, next, message],
+      "UPDATE service_order_submissions SET state=$2,m8_id=$3,next_item=$4,message=$5,items=$6,request=$7,updated_at=now() WHERE id=$1 RETURNING *",
+      [key, state, m8Id, next, message,JSON.stringify(row.items),JSON.stringify(row.request)],
     );
     await save.query("COMMIT");
-    return publicSubmission(r.rows[0]);
+    return localCreationResult(r.rows[0]);
   } catch (e) {
     await save.query("ROLLBACK");
     throw e;
   } finally {
     save.release();
   }
+}
+
+async function localCreationResult(row:any){
+ const result=publicSubmission(row);
+ if(row.state!=='complete')return result;
+ try{await ensureCreatedOrderProjection(row.company_id,row.m8_id);return {...result,localSynced:true};}
+ catch(e){logDataError('created-order-projection',e);return {...result,localSynced:false,message:'OS criada no M8. A preparação local está pendente; tente abrir a programação novamente, sem criar outra OS.'};}
 }

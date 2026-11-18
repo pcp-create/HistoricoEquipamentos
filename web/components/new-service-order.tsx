@@ -560,8 +560,7 @@ export default function NewServiceOrder({
             )}
             {current.state === "complete" && (
               <p>
-                A ordem foi gravada no ERP. A lista de Ordens de Serviço será
-                atualizada pelo integrador.
+                {current.localSynced===false?"A OS foi criada no ERP. A preparação local será retomada ao abrir a programação.":"A ordem foi gravada no ERP e já pode ser programada. O integrador complementará os dados automaticamente."}
               </p>
             )}
             {["sending", "uncertain"].includes(current.state) && (

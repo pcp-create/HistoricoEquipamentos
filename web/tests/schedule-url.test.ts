@@ -7,7 +7,7 @@ import {scheduleIdForNumber} from "../lib/service-scheduling/store";
 test("schedule links use the OS number across companies, retaining legacy fallback", () => {
   assert.equal(scheduleUrl({id:635, numero_sequencia:15070, company_id:1}), "/programacao?OS=15070");
   assert.equal(scheduleUrl({id:636, numero_sequencia:15071, company_id:2}), "/programacao?OS=15071");
-  assert.equal(scheduleUrl({id:635, numero_sequencia:null, order_id:15070}), "/programacao?OS=15070");
+  assert.equal(scheduleUrl({id:635, numero_sequencia:null, order_id:15070}), "/programacao?id=635");
   assert.equal(scheduleUrl({id:635}), "/programacao?id=635");
 });
 test("OS number resolves the internal schedule without mixing companies or guessing missing orders", async () => {
