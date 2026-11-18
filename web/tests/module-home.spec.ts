@@ -42,3 +42,16 @@ test("history belongs only to technical assistance before hydration", async ({ b
   await expect(nav.getByText("Comercial", { exact: true })).toHaveCount(0);
   await context.close();
 });
+
+test("general calendar module opens from the home card and reaches the calendar", async ({ page, context }) => {
+  await context.addCookies([{ name: "m8-access", value: "test", domain: "localhost", path: "/" }]);
+  await page.route("**/api/activity", route => route.fulfill({ json: { admin: false } }));
+  await page.route("**/api/calendar?*", route => route.fulfill({ json: { events: [] } }));
+  await page.goto("/");
+  await page.getByRole("navigation", { name: "Módulos do sistema" }).getByRole("link", { name: /Calendário geral/ }).click();
+  await expect(page).toHaveURL(/\/modulos\/calendario$/);
+  await expect(page.getByRole("heading", { name: "Calendário geral", exact: true })).toBeVisible();
+  await page.getByRole("navigation", { name: "Menus de Calendário geral" }).getByRole("link", { name: "Todos os meus eventos" }).click();
+  await expect(page).toHaveURL(/\/calendario\?/, { timeout: 30000 });
+  await expect(page.getByRole("heading", { name: "Calendário geral", exact: true })).toBeVisible();
+});
