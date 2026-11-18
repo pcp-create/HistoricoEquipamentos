@@ -1,4 +1,4 @@
-import {pendingTechnicianClosures} from './execution-locks';
+import {pendingTechnicianClosures,readyForReviewAfterClosures} from './execution-locks';
 import {equipmentSelectionLocked} from "./equipment-selection";
 import {cleanEmailBodyHtml} from './email-body-html';
 import {withMaterialMovements} from "./material-movements";
@@ -699,6 +699,10 @@ export async function mutateSchedule(b: any, email: string) {
         throw new ScheduleInputError("Revise a operação antes de concluir.");
       status = "completed";
     } else throw new ScheduleInputError("Ação inválida.");
+    if(b.action==='operation' && readyForReviewAfterClosures({status,document},false)){
+      const active=(await c.query("SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND state<>'finished' LIMIT 1",[operation.id])).rows.length>0;
+      if(!active)status='awaiting_review';
+    }
     const result = (
       await c.query(
         "UPDATE web_service_operations SET document=$2,status=$3,ends_at=$4,version=version+1,updated_at=now(),updated_by=$5 WHERE id=$1 RETURNING *",
@@ -720,7 +724,10 @@ export async function mutateSchedule(b: any, email: string) {
       after: result,
     });
     if(b.action==='operation'){
-      if(changesDispatchedResponsible(operation,document))
+      if(result.status==='awaiting_review' && operation.status==='executing'){
+        await handoffOperation(c,result,schedule,email,'review');
+        await c.query('UPDATE web_service_schedules SET release_kind=NULL WHERE id=$1',[schedule.id]);
+      }else if(changesDispatchedResponsible(operation,document))
         await handoffOperation(c,result,schedule,email,'execution',undefined,false);
       await notifyOperationTeamChange(c,operation,result,schedule);
     }

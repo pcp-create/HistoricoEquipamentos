@@ -256,3 +256,6 @@ configurável.
 Excluir uma operação exige motivo (3 a 2000 caracteres). A aba Operações mostra uma seção “Operações excluídas” com número, descrição, motivo, autor, data em Brasília e programação original. Registros antigos disponíveis na auditoria aparecem sem motivo informado. A operação sai da programação ativa, mas sua cópia e os eventos ficam na auditoria da OS. Apontamentos em aberto impedem a exclusão; as proteções para peças retiradas e solicitações pendentes continuam aplicadas.
 
 As tarefas vinculadas são encerradas após a remoção da operação e recebem uma nota com o motivo da exclusão. A proteção que permite concluir tarefas de operações ativas somente após revisão permanece intacta. Não há migração de banco.
+
+
+Ao salvar a programação de uma operação em execução, o sistema reavalia o encerramento dos integrantes atuais. Se todos já encerraram, o relatório foi enviado (quando exigido) e não há apontamentos ativos, a operação segue para Aguardando Revisão e a tarefa retorna ao planejador. Remover um auxiliar pendente não exige que o responsável encerre novamente. Os registros e horários de encerramento originais são preservados.

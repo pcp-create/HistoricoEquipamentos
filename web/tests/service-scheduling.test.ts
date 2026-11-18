@@ -366,6 +366,19 @@ test("scheduling includes once, versions operations, protects execution and reco
     const preserved = (await db.query<any>("SELECT * FROM web_service_operations")).rows;
     assert.equal(preserved.length,1);
     assert.equal(preserved[0].status,"completed");
+    // The lead already closed; removing the outstanding helper must route review.
+    const closureAt='2026-11-16T14:46:08.304Z';
+    const closureDoc={...doc,checklistId:'',support:['other@test.com'],requireTechnicianClosure:true,technicianClosures:{[user]:{at:closureAt,by:user}}};
+    const extra=(await mutateSchedule({action:'add_operation',scheduleId:sid},admin)).operation;
+    await db.query("UPDATE web_service_operations SET status='executing',sent_at=now(),document=$2 WHERE id=$1",[extra.id,JSON.stringify(closureDoc)]);
+    const closureTask=(await db.query<any>("INSERT INTO web_tasks(source_key,cycle,equipment_id,origin,title,equipment_name,source_status,priority,assigned_to) VALUES($1,'execution',0,'manual','Operação','Equipamento','execution','normal',$2) RETURNING id",['manual:schedule-operation:'+extra.id,user])).rows[0];
+    await db.query("INSERT INTO web_service_operation_workflows(operation_id,task_id,planner,phase) VALUES($1,$2,$3,'execution')",[extra.id,closureTask.id,admin]);
+    const reconciled=(await mutateSchedule({action:'operation',scheduleId:sid,operationId:extra.id,version:extra.version,document:{...closureDoc,support:[]}},admin)).operation;
+    assert.equal(reconciled.status,'awaiting_review');
+    assert.equal(reconciled.document.technicianClosures[user].at,closureAt);
+    const flow=(await db.query<any>('SELECT w.phase,t.assigned_to FROM web_service_operation_workflows w JOIN web_tasks t ON t.id=w.task_id WHERE operation_id=$1',[extra.id])).rows[0];
+    assert.equal(flow.phase,'review');assert.equal(flow.assigned_to,admin);
+
   } finally {
     g.historyPool = old;
     await db.close();
