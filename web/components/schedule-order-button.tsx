@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import "./schedule-order-button.css";
 import { scheduleUrl } from "@/lib/service-scheduling/schedule-url";
 import { useState, useEffect } from "react";
@@ -55,7 +56,7 @@ export default function ScheduleOrderButton({
         {scheduled ? <CalendarMinus size={16} /> : <CalendarPlus size={16} />}
         {!ready ? "Consultando programação…" : scheduled ? "Remover programação" : "Programar OS"}
       </button>
-      {error && <small className="schedule-order-error" role="alert">{error}</small>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
     </span>
   );
 }

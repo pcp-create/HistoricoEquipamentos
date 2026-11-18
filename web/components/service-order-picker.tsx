@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useState, useRef } from "react";
 import { Search, X } from "lucide-react";
 export default function ServiceOrderPicker({
@@ -75,7 +76,7 @@ export default function ServiceOrderPicker({
           placeholder="Código, nome ou identificação"
         />
       </label>
-      {error && <p role="alert">{error}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
       <div className="os-picker-results">
         {busy ? (
           <p>Carregando…</p>

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import { Circle, CircleCheck, Plus, ListChecks, Pencil, Trash2, Check, X } from "lucide-react";
 type Item = { id: string; title: string; completed: boolean; version: number };
@@ -97,15 +98,12 @@ export default function TaskChecklists({ taskId }: { taskId: string }) {
       </div>
       {loading && <p role="status">Carregando listas…</p>}
       {error && (
-        <p role="alert" className="task-error">
-          {error}{" "}
-          <button
+        <ActionNotice type="error" actions={<><button
             type="button"
             onClick={() => void load().catch((e) => setError(e.message))}
           >
             Atualizar listas
-          </button>
-        </p>
+          </button></>} onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       {creating && (
         <form

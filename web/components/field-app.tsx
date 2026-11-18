@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import EquipmentWarrantyDetails from "./equipment-warranty-details";
 import FieldOccurrenceForm from "./field-occurrence-form";
 import EquipmentOccurrenceList from "./equipment-occurrence-list";
@@ -212,9 +213,7 @@ export default function FieldApp() {
       </div>
       {locationMessage && <p className="field-user" role="status">{locationMessage}</p>}
       {error && (
-        <p className="field-error" role="alert">
-          {error}
-        </p>
+        <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       {active?.state === "paused" && !active?.teamController &&
         active.pause_reason?.minutes &&
@@ -499,10 +498,10 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     if(which==='report') {
       if(!canAccessReport){setView('report-info');return;}
       if(reportOpening.current)return;
-      if(!data?.reportSubmission&&!reportActivityRunning)window.alert('Inicie ou retome a atividade para editar o relatório e anexar fotos.');
+      const needsActivity=!data?.reportSubmission&&!reportActivityRunning;
       setReportVisited(true);
       setView('report');
-      setError('');setMessage('');
+      setError(needsActivity?'Inicie ou retome a atividade para editar o relatório e anexar fotos.':'');setMessage('');
       // The operation detail already includes the report. Reuse a recent response.
       if(backgroundSavePending.current)return;
       if(data && Date.now()-lastLoadedAt.current<15000 && Number(row.version||0)<=Number(data.operation.version||0))return;
@@ -574,8 +573,8 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
                     mutate={act}
                     renderActions={(save:()=>Promise<any>,getDrafts:()=>any[],saveState:any)=><div className="field-report-footer">
                       {busy&&<p role="status">Obtendo localização e salvando…</p>}
-                      {error&&<p className="field-error" role="alert">{error}</p>}
-                      {message&&<p className="field-success" role="status">{message}</p>}
+                      {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
+                      {message&&<ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
                       {data.reportSubmission?<><FieldPdfButton operationId={row.id}/><p className="field-success" role="status">Relatório enviado completo em {new Date(data.reportSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {data.reportSubmission.name||data.reportSubmission.by}.<br/>O planejador pode devolver o relatório para edição.</p></>:<>
                         {checklistRun?.partialSubmission&&<p className="field-success">Enviado parcial em {new Date(checklistRun.partialSubmission.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} por {checklistRun.partialSubmission.name||checklistRun.partialSubmission.by}. Você pode continuar editando.</p>}
                         <div className="field-report-actions">
@@ -922,14 +921,10 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
           )}
           {busy && view !== "report" && <p role="status">Obtendo localização e salvando…</p>}
           {error && (
-            <p className="field-error" role="alert">
-              {error}
-            </p>
+            <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
           )}
           {message && view !== "report" && (
-            <p className="field-success" role="status">
-              {message}
-            </p>
+            <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>
           )}
         </div>
         </FieldReportScreen>
@@ -992,7 +987,7 @@ function Parts({ data, busy, save, readOnly=false, returnsOnly=false }: any) {
           </div>
           {!readOnly&&<div className="field-part-editor-actions">{pendingReturn&&<small>Devolução ajustada · ainda não salva</small>}{(maximum>balance.returnMinimum||pendingReturn)&&<button className="field-part-return" type="button" disabled={busy} onClick={()=>{setReturnItem(i);setReturnQty(returned>0?String(returned):"");setReturnError("");}}>{returned>0?'Ajustar devolução':'Devolver peça'}</button>}</div>}
         </div>
-        {error&&<p className="field-error field-part-alert" id={errorId} role="alert">{error}</p>}
+        {error&&<ActionNotice type="error">{error}</ActionNotice>}
         {balance.withdrawals.some(row=>Number(row.gross??row.quantity)>0)&&<details className="field-part-history"><summary>Histórico de retiradas e devoluções</summary>{balance.withdrawals.map((row,index)=><div className="field-part-withdrawal" key={row.operationId||index}><strong>{row.position?`Operação ${operationNumber(row.position)}`:"Planejamento"} · Retirado: {Number(row.gross??row.quantity).toLocaleString("pt-BR")} · Devolvido: {Number(row.returned||0).toLocaleString("pt-BR")}</strong><span>{row.name||row.by}</span>{row.at&&<time dateTime={row.at}>{new Date(row.at).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</time>}</div>)}</details>}
       </div>;
     })}
@@ -1003,7 +998,7 @@ function Parts({ data, busy, save, readOnly=false, returnsOnly=false }: any) {
       <form onSubmit={e=>{e.preventDefault();const quantity=Number(returnQty),p=returnItem?planned(returnItem):null;if(!returnQty.trim()||!returnItem||!p||!Number.isFinite(quantity)||quantity<p.balance.returnMinimum||quantity>returnMaximum(returnItem)||Math.abs(quantity-Math.round(quantity*1000)/1000)>1e-9){setReturnError("Informe uma quantidade entre o já recebido pelo almoxarifado e o saldo que pode ser devolvido, com até três casas decimais.");return;}setReturns(v=>({...v,[key(returnItem)]:String(Math.round(quantity*1000)/1000)}));setConfirmed(false);setReturnItem(null);}}>
         <h3>Ajustar devolução</h3><p>{returnItem?.produto_nome}</p>
         <label>Quantidade a devolver<input autoFocus required type="number" min={returnItem?planned(returnItem).balance.returnMinimum:0} max={returnItem?returnMaximum(returnItem):0} step="0.001" inputMode="decimal" placeholder="Informe a quantidade" value={returnQty} onChange={e=>setReturnQty(e.target.value)}/>{returnItem&&<small className="field-return-reference">Retirado nesta operação: {qty(planned(returnItem).gross)} {returnItem.unidade_nome}</small>}</label>
-        <small>{returnItem&&<>Devolvido já salvo: {qty(planned(returnItem).balance.ownReturned)} {returnItem.unidade_nome}. Mínimo permitido: {qty(planned(returnItem).balance.returnMinimum)} {returnItem.unidade_nome}. </>}O retirado será preservado. Ajuste a devolução que ainda não foi recebida pelo almoxarifado; a quantidade já recebida não pode ser reduzida. A alteração será salva ao confirmar a conferência.</small>{returnError&&<p role="alert" className="field-error">{returnError}</p>}
+        <small>{returnItem&&<>Devolvido já salvo: {qty(planned(returnItem).balance.ownReturned)} {returnItem.unidade_nome}. Mínimo permitido: {qty(planned(returnItem).balance.returnMinimum)} {returnItem.unidade_nome}. </>}O retirado será preservado. Ajuste a devolução que ainda não foi recebida pelo almoxarifado; a quantidade já recebida não pode ser reduzida. A alteração será salva ao confirmar a conferência.</small>{returnError&&<ActionNotice type="error" onClose={()=>setReturnError('')}>{returnError}</ActionNotice>}
         <div className="field-return-actions"><button className="field-return-cancel" type="button" onClick={()=>setReturnItem(null)}>Cancelar</button><button className="field-return-submit" type="submit"><CheckCircle2 size={16} aria-hidden="true"/>Registrar devolução</button></div>
       </form>
     </dialog>
@@ -1044,7 +1039,7 @@ function PauseReminder({ session, refresh }: any) {
       <button disabled={busy} onClick={() => void respond("resume")}>
         Retomar atividade
       </button>
-      {error && <p>{error}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
     </section>
   );
 }

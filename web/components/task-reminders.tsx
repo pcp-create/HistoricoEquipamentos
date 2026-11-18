@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useState } from "react";
 import {
   parseRecurrence,
@@ -96,7 +97,7 @@ export default function TaskReminders({
   return (
     <section className="task-card">
       <h3>Alertas agendados</h3>
-      {error && <p role="alert">{error}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
       {!open && <button
         type="button"
         disabled={busy || task.status === "completed"}

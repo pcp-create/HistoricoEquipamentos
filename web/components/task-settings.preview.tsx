@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import SaveActionIcon from "./save-action-icon";
 import { useEffect, useState } from "react";
 import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
@@ -81,8 +82,8 @@ export default function TaskSettings() {
           responsáveis. Alterações de atribuição valem para novas tarefas; os
           responsáveis das tarefas existentes são preservados.
         </p>
-        {error && <p role="alert">{error}</p>}
-        {message && <p role="status">{message}</p>}
+        {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
+        {message && <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
         <button
           disabled={busy}
           onClick={() => {

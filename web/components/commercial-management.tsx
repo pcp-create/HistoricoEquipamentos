@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import ReportBrandFooter from "./report-brand-footer";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -417,14 +418,10 @@ export default function CommercialManagement({
           </section>
         )}
         {error && (
-          <p role="alert" className="sp-notice">
-            {error}
-          </p>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
         )}
         {notice && (
-          <p role="status" className="sp-notice">
-            {notice}
-          </p>
+          <ActionNotice type="success" onClose={()=>setNotice('')}>{notice}</ActionNotice>
         )}
         {busy && <p role="status">Carregando informações…</p>}
         {live && !live.complete && (

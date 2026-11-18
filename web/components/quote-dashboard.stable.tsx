@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { matchesSearch } from "@/lib/filters";
 
 import Link from "next/link";
@@ -711,14 +712,10 @@ export default function QuoteDashboard() {
           </aside>
           <div className="quote-editor">
             {error && (
-              <div className="error" role="alert">
-                {error}
-              </div>
+              <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
             )}
             {message && (
-              <p role="status" className="quote-message">
-                {message}
-              </p>
+              <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>
             )}
             <fieldset disabled={saving} className="quote-fieldset">
               <section className="manual-card">

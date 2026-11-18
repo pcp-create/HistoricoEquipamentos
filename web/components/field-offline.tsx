@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { createContext, useContext, useEffect, useState } from "react";
 import { CloudOff, RefreshCw, Wifi, X, Download, AlertTriangle, LogOut, LoaderCircle, Trash2 } from "lucide-react";
 import "./field-offline.css";
@@ -290,9 +291,7 @@ export default function FieldOffline({
       )}
       {!nativePortal() && status.connected === false && <p className="field-error" role="alert">O portal web funciona somente online. Reconecte à internet para salvar ou enviar informações.</p>}
       {error && !open && (
-        <p className="field-error" role="alert">
-          {error}
-        </p>
+        <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       {open && (
         <div className="field-sync-backdrop">
@@ -345,9 +344,7 @@ export default function FieldOffline({
               <p role="status">Sincronizando… Mantenha o aplicativo aberto.</p>
             )}
             {error && (
-              <p className="field-error" role="alert">
-                {error}
-              </p>
+              <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
             )}
             {status.queue.some(item=>item.error||item.blockedReason)&&<p className="field-sync-notice">Falhas não bloqueiam o envio de registros independentes nem a chegada de novas OSs. Registros que dependem de uma falha permanecem protegidos.</p>}
             {discarding&&<section role="alertdialog" aria-label="Excluir pendência de envio" className="field-sync-discard-confirm">

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useState, useRef } from "react";
 import { Plus, Trash2, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
@@ -188,7 +189,7 @@ export default function TaskStages() {
     return (
       <section>
         <h3>Etapas da tarefa</h3>
-        {error ? <p role="alert">{error}</p> : <p>Carregando etapas…</p>}
+        {error ? <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice> : <p>Carregando etapas…</p>}
       </section>
     );
   const rows = [...data.stages].sort(
@@ -214,8 +215,8 @@ export default function TaskStages() {
         ao lado da ordem para reorganizar, ou use as setas. Os campos são salvos
         automaticamente após a edição.
       </p>
-      {error && <p role="alert">{error}</p>}
-      <p role="status">{busy ? "Salvando…" : message}</p>
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
+      {busy?<p role="status">Salvando…</p>:<ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
       <div className="task-toolbar">
         {data.canEdit && rows.length > 0 && (
           <button

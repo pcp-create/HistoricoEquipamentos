@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { matchesSearch } from "@/lib/filters";
 
 import { apiFetch } from "@/lib/client-api-cache";
@@ -114,12 +115,9 @@ export default function PreventivePlanHistory({
       </p>
       {!clientIds && <p>Nenhum cliente vinculado disponível para consultar o histórico.</p>}
       {error && (
-        <p role="alert" className="error">
-          {error}{" "}
-          <button type="button" onClick={() => setRetry((n) => n + 1)}>
+        <ActionNotice type="error" actions={<><button type="button" onClick={() => setRetry((n) => n + 1)}>
             Tentar novamente
-          </button>
-        </p>
+          </button></>} onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       {loading && <p role="status">Buscando histórico da máquina…</p>}
       {clientIds && !loading && !error && (

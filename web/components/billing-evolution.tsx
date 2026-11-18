@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
 import {
@@ -596,12 +597,9 @@ export default function BillingEvolution() {
           </label>
         </section>
         {error && (
-          <div className="be-warning" role="alert">
-            {error}{" "}
-            <button onClick={() => setRevision((value) => value + 1)}>
+          <ActionNotice type="error" actions={<><button onClick={() => setRevision((value) => value + 1)}>
               Tentar novamente
-            </button>
-          </div>
+            </button></>} onClose={()=>setError('')}>{error}</ActionNotice>
         )}
         {loading && !data && (
           <div className="be-loading" role="status">

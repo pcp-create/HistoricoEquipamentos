@@ -1,4 +1,5 @@
 'use client';
+import ActionNotice from "./action-notice";
 import OrderSearchSelect from './order-search-select';
 import {normalizedEquipmentSerial} from '@/lib/equipment/serial';
 import {clearApiCache} from '@/lib/client-api-cache';
@@ -57,7 +58,7 @@ export default function WorkshopRegisterEquipment({onCreated,onCancel,onBusy,cus
    {input.internalSerial&&<small>Identificação interna gerada pelo sistema para equipamento sem etiqueta de série. Este número fica reservado e não será reutilizado.</small>}
    <div className="ws-form-grid"><label>Marca<input value={input.brand} maxLength={100} onChange={e=>change('brand',e.target.value)}/></label>{source==='visits'&&<label>Horímetro (h)<input type="number" min="0" step="0.01" value={input.meter} onChange={e=>change('meter',e.target.value)}/></label>}</div>
    {checking&&<p role="status">Conferindo número de série…</p>}
-   {serialError&&<p role="alert">{serialError}</p>}
+   {serialError&&<ActionNotice type="error" onClose={()=>setSerialError('')}>{serialError}</ActionNotice>}
    {!!candidates.length&&<div className="ws-serial-matches"><strong>Possíveis equipamentos já cadastrados</strong>{candidates.map(row=><div key={row.id}><p>{row.id} · {row.name}<small>Série: {row.serial} · {row.client||'Cliente não informado'}{row.exact?' · Série equivalente':''}</small></p><button type="button" disabled={busy||(!own&&!input.customerKey)} onClick={async()=>{setBusy(true);onBusy(true);setError('');try{if(own){onCreated(row);return;}const response=await fetch('/api/workshop/equipment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'link-existing',equipmentId:row.id,customerKey:input.customerKey,source})});const result=await response.json();if(!response.ok)throw Error(result.error);clearApiCache();window.dispatchEvent(new Event('equipment-created'));onCreated({...result.equipment,customerKey:input.customerKey});}catch(e){setError((e as Error).message);}finally{setBusy(false);onBusy(false);}}}>Usar este equipamento</button></div>)}</div>}
    {own&&<div className="ws-register-internal"><h4>Identificação, dimensões e peso</h4><label>Código de Identificação Interno *<input required value={input.internalCode} maxLength={100} onChange={e=>change('internalCode',e.target.value)}/></label><div className="ws-form-grid">{([['height','Altura (m)'],['width','Largura (m)'],['length','Comprimento (m)'],['weight','Peso bruto (kg)']] as const).map(([key,label])=><label key={key}>{label} *<input required type="number" min="0.001" max="1000000000" step="0.001" inputMode="decimal" value={input[key]} onChange={e=>change(key,e.target.value)}/></label>)}</div></div>}
    {own&&!input.internalSerial&&<label className="ws-check"><input type="checkbox" checked={input.noSerial} onChange={e=>change('noSerial',e.target.checked)}/>Confirmo que o equipamento não possui série disponível</label>}
@@ -70,7 +71,7 @@ export default function WorkshopRegisterEquipment({onCreated,onCancel,onBusy,cus
    <label>Informações complementares<textarea rows={3} maxLength={2000} value={input.notes} onChange={e=>change('notes',e.target.value)}/></label>
   </fieldset>
   {preview&&<p className="ws-register-preview"><small>Nome do equipamento</small><strong>{preview}</strong></p>}
-  {error&&<p role="alert" className="ws-error">{error}</p>}
+  {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
   <div className="ws-register-actions"><button className="ws-primary" type="button" disabled={busy||(!locked&&(checking||!!serialError||candidates.some(row=>row.exact)))} onClick={()=>void create()}>{busy?'Confirmando cadastro…':locked?'Consultar confirmação':<><Plus size={15}/>Cadastrar e selecionar</>}</button><small><CheckCircle2 size={13}/>{actionHint||(own?(source==='service-order'?'O equipamento próprio será cadastrado no estoque do M8 e selecionado na OS.':'A entrada será registrada na confirmação abaixo.'):onDraft||input.customerKey.startsWith('lead:')?'O vínculo será concluído quando o cliente tiver cadastro no M8.':'O equipamento será cadastrado e vinculado automaticamente ao cliente no M8.')}</small></div>
  </section>;
 }

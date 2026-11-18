@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { clearApiCache } from "@/lib/client-api-cache";
 import { useState } from "react";
 export default function TimeRequestApproval({ task, onChanged }: any) {
@@ -65,7 +66,7 @@ export default function TimeRequestApproval({ task, onChanged }: any) {
           Rejeitar Solicitação
         </button>
       </details>
-      {error && <p role="alert">{error}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
     </div>
   );
 }

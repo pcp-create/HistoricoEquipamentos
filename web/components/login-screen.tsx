@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { apiFetch } from "@/lib/client-api-cache";
 import { planReturnPath } from "@/lib/plan-return-path";
 import Image from "next/image";
@@ -160,9 +161,7 @@ export default function Login({
             />
           </label>
           {error && (
-            <div className="error" role="alert">
-              {error}
-            </div>
+            <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
           )}
           <button className="primary" disabled={busy}>
             {busy ? (

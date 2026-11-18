@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
@@ -50,9 +51,7 @@ export default function ContactJobTypes() {
           </button>
         </header>
         {error && (
-          <p role="alert" className="crm-error">
-            {error}
-          </p>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
         )}
         {!rows ? (
           <p>Carregando cargos…</p>
@@ -213,9 +212,7 @@ function JobDialog({
             </label>
           </div>
           {error && (
-            <p role="alert" className="crm-error">
-              {error}
-            </p>
+            <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
           )}
           <button type="submit" className="button primary">
             {busy ? "Salvando…" : "Salvar cargo"}

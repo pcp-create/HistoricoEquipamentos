@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {Ban} from 'lucide-react';
 import {useState,type ReactNode} from 'react';
 export default function VisitEquipmentGroup({customer,equipment,online,prefix='',canInactivate=true,inlineActions=false,render,onInactive,equipmentKey}:{customer?:string;equipment:any[];online:boolean;prefix?:string;canInactivate?:boolean;inlineActions?:boolean;render:(item:any,inactive:boolean,actions:ReactNode)=>ReactNode;onInactive?:(id:string)=>void;equipmentKey?:(item:any)=>string}){
@@ -17,5 +18,5 @@ export default function VisitEquipmentGroup({customer,equipment,online,prefix=''
   const actions=!item.inactivation&&canInactivate&&customer?<button type="button" className="visit-equipment-inactivate" aria-label="Inativar equipamento" title="Inativar equipamento" disabled={!online||!!busy} onClick={()=>void inactivate(item)}><Ban size={14} aria-hidden="true"/>{busy===item.id?'Inativando…':'Inativar'}</button>:null;
   return <div key={item.id} className="visit-equipment-entry">{render(item,!!item.inactivation,actions)}{item.inactivation?<p><b>Equipamento inativado</b> · {item.inactivation.source==='m8'?'ERP M8':new Date(item.inactivation.created_at).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'})}<br/><span>{item.inactivation.reason}</span></p>:!inlineActions&&actions}</div>;
  };
- return <>{error&&<p role="alert">{error}</p>}{items.filter(i=>!i.inactivation).map(card)}{!!items.filter(i=>i.inactivation).length&&<details className="visit-inactive-equipment"><summary>Expandir equipamentos inativos ({items.filter(i=>i.inactivation).length})</summary>{items.filter(i=>i.inactivation).map(card)}</details>}</>;
+ return <>{error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}{items.filter(i=>!i.inactivation).map(card)}{!!items.filter(i=>i.inactivation).length&&<details className="visit-inactive-equipment"><summary>Expandir equipamentos inativos ({items.filter(i=>i.inactivation).length})</summary>{items.filter(i=>i.inactivation).map(card)}</details>}</>;
 }

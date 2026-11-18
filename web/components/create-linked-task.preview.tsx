@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import { MoreVertical, ClipboardPlus, Ban, RotateCcw, Link2, Pencil, X } from "lucide-react";
 import { apiFetch } from "@/lib/client-api-cache";
@@ -149,7 +150,7 @@ function LinkedTaskForm({
           ×
         </button>
       </header>
-      {error && <p role="alert">{error}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
       {!data ? (
         <p>Carregando dados do vínculo…</p>
       ) : (

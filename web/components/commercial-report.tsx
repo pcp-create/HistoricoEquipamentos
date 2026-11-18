@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useOrderCommentOutbox} from "./use-order-comment-outbox";
 import OrderCommentsDialog from "./order-comments-dialog";
 import {tableFilterValues} from "@/lib/table-filter-values";
@@ -500,9 +501,7 @@ export default function CommercialReport({
           </section>
         </details>
         {error && (
-          <p role="alert" className="sp-notice">
-            {error}
-          </p>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
         )}
         {busy && <p role="status">Carregando {title.toLowerCase()}…</p>}
         {data && !busy && (
@@ -792,7 +791,7 @@ export default function CommercialReport({
                             </small>
                           ))}
                           {quickUpdates[quickKey(r, c.key)]?.busy && <small role="status">Salvando no ERP…</small>}
-                          {quickUpdates[quickKey(r, c.key)]?.error && <small role="alert" className="cr-quick-error">{quickUpdates[quickKey(r, c.key)].error}</small>}
+                          {quickUpdates[quickKey(r, c.key)]?.error && <ActionNotice type="error">{quickUpdates[quickKey(r, c.key)].error}</ActionNotice>}
                           {c.key === "expected" && isOverdue(r) && (
                             <small className="sp-red">
                               Vencida · projetada para o mês atual

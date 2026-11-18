@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useState } from "react";
 type Entry = {id: string; created_by: string; created_at: string; state: string; next_step: number; change: { before: string; after: string; reason: string }};
 const day = (value: string) => value ? value.slice(0,10).split("-").reverse().join("/") : "Não informada";
@@ -22,7 +23,7 @@ export default function OrderDeliveryHistory({ company, order }: {company: strin
     return () => controller.abort();
   }, [company, order]);
   if (busy) return null;
-  if (error) return <p role="alert">{error}</p>;
+  if (error) return <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>;
   if (!rows?.length) return null;
   return <details className="order-delivery-history">
     <summary>Histórico da entrega prevista</summary>

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEffect,useId,useRef,useState} from 'react';
 import {Plus,X,Search} from 'lucide-react';
 import {emailRecipients} from '@/lib/service-scheduling/email-recipients';
@@ -31,7 +32,7 @@ export default function EmailRecipientsField({value,draft,onChange,onDraftChange
    <button ref={plus} type="button" className="email-recipient-add" aria-label="Selecionar contatos do cliente" title="Selecionar contatos do cliente" aria-expanded={open} aria-controls={id+'-contacts'} disabled={disabled} onClick={()=>setOpen(!open)}><Plus size={20}/></button>
   </div>
   <small id={id+'-help'}>Use ; ou Enter para adicionar um e-mail. O remetente será a conta Gmail autenticada.</small>
-  {error&&<p role="alert">{error}</p>}
+  {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
   {open&&<div id={id+'-contacts'} className="email-recipient-panel" role="region" aria-label="Contatos do cliente">
    <div className="email-recipient-panel-heading"><strong>Contatos e destinatários</strong><button type="button" aria-label="Fechar lista de contatos" onClick={()=>{setOpen(false);plus.current?.focus();}}><X size={16}/></button></div>
    <div className="email-recipient-search"><Search size={16}/><input aria-label="Buscar contato" placeholder="Buscar nome ou e-mail" value={search} onChange={e=>setSearch(e.target.value)}/></div>

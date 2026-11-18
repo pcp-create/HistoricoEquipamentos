@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -187,12 +188,9 @@ export default function SalesProjection({
           companies={data?.rows || []}
         />
         {error && (
-          <div className="sp-notice" role="alert">
-            {error}{" "}
-            <button onClick={() => setRefresh((v) => v + 1)}>
+          <ActionNotice type="error" actions={<><button onClick={() => setRefresh((v) => v + 1)}>
               Tentar novamente
-            </button>
-          </div>
+            </button></>} onClose={()=>setError('')}>{error}</ActionNotice>
         )}
         {loading && (
           <div className="sp-loading" role="status">

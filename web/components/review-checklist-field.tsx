@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import RequiredMarker from "./required-marker";
 import AutoResizeTextarea from "./auto-resize-textarea";
 import ReportPhotoPicker from "./report-photo-picker";
@@ -61,6 +62,6 @@ export default function ReviewChecklistField({field:f,value,details,disabled,ope
   if(removal.extra)onDetail('photos',ids.filter((id:string)=>id!==removal.id));else onValue(ids.filter((id:string)=>id!==removal.id));
   setRemoval(null);
  }}/>}
- {error&&<p role="alert">{error}</p>}
+ {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
  </div>;
 }

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import OrderTypeEquipmentSelect from "./order-type-equipment-select";
 import {FlowAreaSelect} from "./schedule-flow-responsibilities";
 import { matchesSearch } from "@/lib/filters";
@@ -220,18 +221,15 @@ export default function Registries() {
                 </label>
               </div>
               {error && (
-                <p role="alert" className="registry-error">
-                  {error}{" "}
-                  <button
+                <ActionNotice type="error" actions={<><button
                     className="registry-button"
                     disabled={busy}
                     onClick={() => void load()}
                   >
                     Tentar novamente
-                  </button>
-                </p>
+                  </button></>} onClose={()=>setError('')}>{error}</ActionNotice>
               )}
-              {message && <p role="status">{message}</p>}
+              {message && <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
               <p className="registry-meta">
                 {filtered.length} registro(s) · Última atualização manual:{" "}
                 {updated

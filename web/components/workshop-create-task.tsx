@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useState } from "react";
 export default function WorkshopCreateTask({
   visitId,
@@ -62,9 +63,7 @@ export default function WorkshopCreateTask({
   return (
     <form onSubmit={submit}>
       {error && (
-        <p role="alert" className="ws-error">
-          {error}
-        </p>
+        <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       {!context ? (
         !error && <p role="status">Carregando os dados da tarefa…</p>

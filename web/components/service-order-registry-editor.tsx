@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 export default function ServiceOrderRegistryEditor({
   kind,
@@ -163,7 +164,7 @@ export default function ServiceOrderRegistryEditor({
               </>
             )}
           </div>
-          {error && <p role="alert">{error}</p>}
+          {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
           <button className="registry-button primary" disabled={busy}>
             {busy
               ? "Salvando…"

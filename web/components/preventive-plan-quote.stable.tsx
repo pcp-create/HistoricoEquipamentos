@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useRef, useState } from "react";
 import { companyName } from "@/lib/company-names";
@@ -133,9 +134,7 @@ export default function PreventivePlanQuote({
             </p>
           )}
           {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
+            <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
           )}
           <div className="catalog-editor-actions">
             <button

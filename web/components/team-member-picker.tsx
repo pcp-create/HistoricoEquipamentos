@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEffect,useRef,useState} from "react";
 import {Users,Check} from "lucide-react";
 import "./team-member-picker.css";
@@ -14,7 +15,7 @@ export default function TeamMemberPicker({members,title,description,confirmLabel
   <fieldset disabled={busy}><legend>Equipe de Apoio</legend>
    {members.map(member=><label key={member.email}><input type="checkbox" checked={selected.includes(member.email)} onChange={event=>setSelected(current=>event.target.checked?[...current,member.email]:current.filter(email=>email!==member.email))}/><span>{member.display_name || member.email}</span></label>)}
   </fieldset>
-  {error && <p role="alert">{error}</p>}
+  {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
   <div className="team-member-actions"><button type="button" disabled={busy} onClick={onClose}>Cancelar</button><button type="button" disabled={busy || !selected.length} onClick={async()=>{
     setBusy(true);setError("");
     try {if(await onConfirm(selected)!==false)onClose();}catch(error){setError((error as Error).message);}finally{setBusy(false);}

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import type { OrderItem } from "@/lib/service-orders/model";
 import type { AverageCost } from "@/lib/crm/product-cost-model";
@@ -48,9 +49,7 @@ export default function CrmProductCosts({
   return (
     <div className="crm-cost-refresh">
       {error && (
-        <p role="alert" className="crm-error">
-          {error} Os valores exibidos podem estar desatualizados.
-        </p>
+        <ActionNotice type="error" onClose={()=>setError('')}>{error+' Os valores exibidos podem estar desatualizados.'}</ActionNotice>
       )}
     </div>
   );

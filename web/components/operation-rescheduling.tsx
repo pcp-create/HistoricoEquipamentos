@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEffect, useRef, useState} from "react";
 import type {ReschedulingEntry} from "@/lib/service-scheduling/rescheduling";
 const date=(value:string)=>value ? value.split("-").reverse().join("/") : "Sem data";
@@ -29,7 +30,7 @@ export function ReschedulingConfirmation({previous,next,busy,error,onConfirm,onC
     <p><strong>{date(previous.date)} {previous.time} → {date(next.date)} {next.time}</strong></p>
     <label>Justificativa da reprogramação<textarea autoFocus required maxLength={2000} value={reason} disabled={busy} onChange={event=>setReason(event.target.value)}/></label>
     <p>A confirmação salva as alterações da operação e registra a data anterior, a justificativa e o responsável pela mudança.</p>
-    {error && <p role="alert">{error}</p>}
+    {error && <ActionNotice type="error">{error}</ActionNotice>}
     <div className="rescheduling-actions">
       <button type="button" disabled={busy} onClick={onCancel}>Cancelar alteração de data</button>
       <button type="button" disabled={busy || !reason.trim() || !next.date} onClick={()=>onConfirm(reason.trim())}>Confirmar e salvar</button>

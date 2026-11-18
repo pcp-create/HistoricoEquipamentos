@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import OrderActivity from "./order-activity";
 import MaterialSupply from "./material-supply";
 import {formatOrderDetailDate} from "@/lib/order-detail-dates";
@@ -619,17 +620,14 @@ export default function Dashboard() {
             </div>
           )}
           {error && (
-            <div className="error results-error" role="alert">
-              {error}
-              <button
+            <ActionNotice type="error" actions={<><button
                 onClick={() => {
                   clearApiCache();
                   setRefresh((r) => r + 1);
                 }}
               >
                 Tentar novamente
-              </button>
-            </div>
+              </button></>} onClose={()=>setError('')}>{error}</ActionNotice>
           )}
           <div className="table-scroll" aria-busy={loading}>
             <table>
@@ -1117,9 +1115,7 @@ export function OrderDetails({
           </button>
         </div>
         {detailError ? (
-          <div role="alert" className="error">
-            {detailError}
-          </div>
+          <ActionNotice type="error" onClose={()=>setDetailError('')}>{detailError}</ActionNotice>
         ) : !detail ? (
           <div className="empty">
             <LoaderCircle className="spin" />

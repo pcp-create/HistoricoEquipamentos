@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import UserPhotoEditor from "./user-photo-editor";
 import IntegrationItems from "./integration-items";
 import SupportPicker from "./support-picker";
@@ -356,11 +357,9 @@ export default function AdminDashboard() {
           <p>Acessos da equipe e acompanhamento das integrações.</p>
         </header>
         {error && (
-          <p role="alert" className="catalog-settings-error">
-            {error}
-          </p>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
         )}
-        {message && <p role="status">{message}</p>}
+        {message && <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
         {!data && !error && <p>Carregando administração…</p>}
         {data && !denied && (
           <section className="admin-workspace">

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {tableFilterValues} from "@/lib/table-filter-values";
 import SheetFillCell from "./sheet-fill-cell";
 import TerritoryColumnFilter from "./territory-column-filter";
@@ -74,7 +75,7 @@ export default function TaskTerritories(){
    <button disabled={busy||!!dirty} onClick={()=>{clearApiCache();void load().catch(e=>setError(e.message))}}>Atualizar divisão</button>
    <button className="territory-save" disabled={!dirty||busy} onClick={()=>void save()}><Save size={16}/>{busy?'Salvando…':`Salvar alterações (${dirty})`}</button>
   </div>
-  {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
+  {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}{message&&<ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
   <p>{rows.length} de {draft.length} regras · {dirty} alterações pendentes</p>
   <div className="territory-sheet-scroll" onCopy={e=>{if(selectedColumn===null)return;e.preventDefault();e.clipboardData.setData('text/plain',rows.map(row=>display(row,columns[selectedColumn][0])).join('\n'))}} onPaste={e=>{if(selectedColumn===null||busy)return;e.preventDefault();paste(e.clipboardData.getData('text/plain'),0,selectedColumn,true)}}>
    <table><thead><tr>{columns.map(([key,label],index)=><th key={key} aria-sort={sort.key===key?(sort.direction===1?'ascending':'descending'):'none'}>

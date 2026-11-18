@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useState } from "react";
 import { CheckCircle2, XCircle, ShieldCheck } from "lucide-react";
 export default function TaskApproval({
@@ -81,7 +82,7 @@ export default function TaskApproval({
           </ul>
         </section>
       )}
-      {error && <p role="alert">{error}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
       {t.approval_state === "pending" ? (
         <>
           {data.canDecideApproval ? (

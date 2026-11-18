@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { matchesSearch } from "@/lib/filters";
 
 import { useEffect, useRef, useState } from "react";
@@ -465,9 +466,7 @@ function ListEditor({
         )}
       </fieldset>
       {error && (
-        <p role="alert" className="task-list-error">
-          {error}
-        </p>
+        <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       <footer className="task-list-actions">
         <button
@@ -639,11 +638,9 @@ export function ScheduleTaskLists({ data }: { data: any }) {
         </>
       )}
       {error && (
-        <p role="alert" className="task-list-error">
-          {error}
-        </p>
+        <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
       )}
-      {notice && !edit && <p role="status">{notice}</p>}
+      {notice && !edit && <ActionNotice type="success" onClose={()=>setNotice('')}>{notice}</ActionNotice>}
     </section>
   );
 }
@@ -769,9 +766,7 @@ function ApplyList({
         </fieldset>
       )}
       {error && (
-        <p role="alert" className="task-list-error">
-          {error}
-        </p>
+        <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       <footer className="task-list-actions">
         <button type="button" disabled={busy} onClick={onCancel}>
@@ -832,9 +827,7 @@ export function TaskListActions({
         Atribuir Lista de Tarefas
       </button>
       {message && (
-        <p role="status" className="task-list-notice">
-          {message}
-        </p>
+        <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>
       )}
       {mode && (
         <dialog

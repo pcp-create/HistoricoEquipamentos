@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -286,9 +287,7 @@ export default function Crm() {
             </button>
           </form>
           {error && (
-            <p role="alert" className="crm-error">
-              {error}
-            </p>
+            <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
           )}
           {loading ? (
             <p role="status">Carregando CRM…</p>
@@ -904,9 +903,7 @@ function OpportunityDialog({
         </fieldset>
       </form>
       {error && (
-        <p role="alert" className="crm-error">
-          {error}
-        </p>
+        <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       {data.id && (
         <>

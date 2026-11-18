@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {X,Plus} from 'lucide-react';
@@ -33,7 +34,7 @@ export default function OrderTaskWindow({data,onClose,operation}:any){
      </div>
      <label className="checklist-review-alert-description">Comentário da tarefa<AutoResizeTextarea required disabled={busy} value={description} maxLength={8000} rows={4} onChange={e=>setDescription(e.target.value)} placeholder="Descreva a ação e as orientações para o responsável."/></label>
     </div>
-    {error&&<p className="operation-review-error" role="alert">{error}</p>}
+    {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
     <div className="alert-task-create"><button className="alert-task-create-button" disabled={busy||!ready||!assignedTo||!description.trim()||!actionId||addingAction}><Plus size={18}/>{busy?'Criando tarefa…':'Criar tarefa'}</button><small>{operation?"O PDF inclui somente a operação selecionada.":"O PDF inclui o resumo e as operações na ordem da OS."}</small></div>
    </form>}
   </div>
@@ -53,7 +54,7 @@ function NewTaskActionDialog({onClose,onSaved}:{onClose:()=>void;onSaved:(action
  return createPortal(<dialog ref={dialog} className="scheduling-page order-task-action-dialog" aria-label="Nova ação da tarefa" onCancel={e=>{e.preventDefault();close();}}>
   <header><h2>Nova ação da tarefa</h2><button type="button" aria-label="Fechar nova ação" disabled={busy} onClick={close}><X size={20}/></button></header>
   <form onSubmit={save}><label>Nome da ação<input autoFocus required maxLength={80} disabled={busy} value={name} onChange={e=>setName(e.target.value)} placeholder="Nome da ação"/></label>
-   {error&&<p className="operation-review-error" role="alert">{error}</p>}
+   {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
    <footer><button type="button" disabled={busy} onClick={close}>Cancelar</button><button type="submit" disabled={busy||!name.trim()}>{busy?'Salvando…':'Salvar ação'}</button></footer>
   </form>
  </dialog>,document.body);

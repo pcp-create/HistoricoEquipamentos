@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEffect,useState,type FormEvent} from 'react';
 import {LockKeyhole} from 'lucide-react';
 import {passwordValidation} from '@/lib/password-policy';
@@ -15,7 +16,7 @@ export default function ChangePassword(){
  <LockKeyhole size={28}/><h1 style={{margin:0,fontSize:24}}>Defina sua nova senha</h1><p>Para continuar, substitua a senha inicial por uma senha pessoal diferente de 123456, com 6 a 128 caracteres.</p>
  <label>Nova senha<input style={{width:'100%',marginTop:6}} disabled={!ready || busy} required type="password" autoComplete="new-password" minLength={6} maxLength={128} value={password} onChange={e=>setPassword(e.target.value)}/></label>
  <label>Confirmar nova senha<input style={{width:'100%',marginTop:6}} disabled={!ready || busy} required type="password" autoComplete="new-password" minLength={6} maxLength={128} value={confirmation} onChange={e=>setConfirmation(e.target.value)}/></label>
- {error&&<p role="alert" style={{color:'#b33842'}}>{error}</p>}
+ {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
  <button disabled={!ready || busy} type="submit">{busy?'Salvando…':'Salvar nova senha'}</button>
  <button disabled={!ready || busy} type="button" onClick={async()=>{await fetch('/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'logout'})});location.assign(location.pathname==='/tecnico'?'/tecnico/entrar':'/login')}}>Sair</button>
  </form></main>

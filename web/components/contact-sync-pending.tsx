@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import SiteHeader from "./site-header";
@@ -70,8 +71,8 @@ export default function ContactSyncPending() {
         <button onClick={() => void load()} disabled={busy}>
           Atualizar
         </button>
-        {error && <p role="alert">{error}</p>}
-        {message && <p role="status">{message}</p>}
+        {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
+        {message && <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
         <p>{rows.length} contato(s) pendente(s)</p>
         {rows
           .filter((r) =>

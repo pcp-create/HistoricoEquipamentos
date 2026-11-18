@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEquipmentMeterReading} from './use-equipment-meter-reading';
 import {meterReviewAlerts} from '@/lib/service-scheduling/meter-review-alerts';
 import {operationMeterEquipment} from '@/lib/service-scheduling/meter-equipment';
@@ -97,7 +98,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
       </div>}
       {tab==='alerts'&&meterAlerts.map(alert=><div key={alert.stageId+':'+alert.fieldId} className="review-meter-regression-alert" role="alert"><strong>Horímetro abaixo da última coleta</strong><p>{alert.message}</p><button type="button" onClick={()=>{setTab('report');requestAnimationFrame(()=>document.getElementById(`review-meter-${o.id}-${alert.stageId}-${alert.fieldId}`)?.scrollIntoView({block:'center',behavior:'smooth'}));}}>Verificar campo no relatório</button></div>)}
       {dirty && <p role="alert">Há alterações não salvas na programação. Feche esta janela e salve a operação antes de revisar.</p>}
-      {error && <p className="operation-review-error" role="alert">{error}</p>}
+      {error && <ActionNotice type="error">{error}</ActionNotice>}
       {tab==='alerts'&&<ChecklistAlertReview alerts={alerts} document={o.document} editable={data.canEditSettings&&o.status==='awaiting_review'} busy={busy||reportDirty||dirty} users={data.users||[]} value={o.status==='awaiting_review'?alertTasks:[]} onChange={setAlertTasks}/>}
       {tab==='alerts'&&reviewed&&data.canEditSettings&&<div className="alert-group-actions"><button type="button" disabled={busy||dirty||reportDirty||!o.document.checklistRun} onClick={()=>setTaskOpen(true)}>Criar tarefa da operação</button><small>O relatório anexo será somente desta operação.</small></div>}
       {taskOpen&&<OrderTaskWindow data={data} operation={o} onClose={()=>setTaskOpen(false)}/>}

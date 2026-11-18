@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {EditorContent,useEditor} from '@tiptap/react';
@@ -59,7 +60,7 @@ export default function EmailMessageEditor({initialText,initialHtml,label='Mensa
    <h3>Inserir link</h3>
    <label>Texto do link<input autoFocus maxLength={1000} value={link.text} onChange={e=>setLink({...link,text:e.target.value})}/></label>
    <label>Endereço do link<input type="url" placeholder="https://" maxLength={2000} value={link.href} onChange={e=>setLink({...link,href:e.target.value})}/></label>
-   {linkError&&<p role="alert">{linkError}</p>}
+   {linkError&&<ActionNotice type="error" onClose={()=>setLinkError('')}>{linkError}</ActionNotice>}
    <div><button type="button" onClick={()=>setLink(null)}>Cancelar</button><button type="button" onClick={()=>{const href=link.href.trim();if(!validEmailLink(href)){setLinkError('Informe um endereço http, https, mailto ou tel válido.');return;}const chain=editor.chain().focus().setTextSelection({from:link.from,to:link.to});if(link.from!==link.to&&link.text===editor.state.doc.textBetween(link.from,link.to,' '))chain.setLink({href}).run();else chain.insertContent({type:'text',text:link.text.trim()||href,marks:[{type:'link',attrs:{href,target:'_blank',rel:'noopener noreferrer'}}]}).run();setLink(null);}}>Aplicar link</button></div>
   </dialog>,document.body)}
  </div>;

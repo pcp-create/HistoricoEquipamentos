@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useState } from "react";
 import { Plus, Wrench, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
@@ -72,7 +73,7 @@ export default function VisitMachineRegistration({
     : machines.filter(m=>!m.equipment_id||!knownEquipmentIds.includes(String(m.equipment_id)));
   return (
     <>
-      {error && <p role="alert">{error}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
       <VisitEquipmentGroup
         customer={customer}
         equipment={items}

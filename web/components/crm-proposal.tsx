@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import NewServiceOrder from "./new-service-order";
@@ -95,7 +96,7 @@ export default function CrmProposal({ id }: { id: string }) {
     return (
       <main className="main">
         <Link href="/crm">Voltar ao CRM</Link>
-        {error ? <p role="alert">{error}</p> : <p>Carregando proposta…</p>}
+        {error ? <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice> : <p>Carregando proposta…</p>}
       </main>
     );
   const type = catalog.proposalTypes.find(
@@ -304,9 +305,7 @@ export default function CrmProposal({ id }: { id: string }) {
         </p>
       )}
       {error && (
-        <p role="alert" className="crm-error">
-          {error}
-        </p>
+        <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       {actions}
     </section>
@@ -336,9 +335,7 @@ export default function CrmProposal({ id }: { id: string }) {
             aria-label="Ações da proposta"
           >
             {error && (
-              <p role="alert" className="crm-error">
-                {error}
-              </p>
+              <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
             )}
             {actions}
           </section>

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useState } from "react";
 import { itemFinancials } from "@/lib/crm/financials";
 import { crmMoney } from "./crm-api";
@@ -216,9 +217,7 @@ export default function CrmProposalItems({
         <p role="status">Consultando histórico de produtos e serviços…</p>
       )}
       {error && (
-        <p role="alert" className="crm-error">
-          {error}
-        </p>
+        <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       {history.warnings?.length > 0 && (
         <details>

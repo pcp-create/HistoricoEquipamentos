@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {readSchedulePreferences,type ScheduleViewPreferences} from "@/lib/service-scheduling/view-preferences";
 import EquipmentWarrantyAlert from "./equipment-warranty-alert";
 import OperationClosureProgress from "./operation-closure-progress";
@@ -1192,7 +1193,7 @@ function OperationRow({
               onChange={(e) => change("internalNote", e.target.value)}
             />
             <p>Salvar grava a observação e todos os campos alterados desta operação.</p>
-            {noteError && <p role="alert">{noteError}</p>}
+            {noteError && <ActionNotice type="error" onClose={()=>setNoteError('')}>{noteError}</ActionNotice>}
             <div className="operation-note-actions">
             <button type="button" className="operation-note-save" disabled={locked} onClick={async () => {
               setNoteError("");

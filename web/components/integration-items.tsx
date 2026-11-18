@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {companyName} from "@/lib/company-names";
 import {useEffect,useState} from "react";
 import {apiFetch} from "@/lib/client-api-cache";
@@ -24,7 +25,7 @@ export default function IntegrationItems(){
     <button type="submit">Pesquisar</button>
     {(search || query || orderNumber || numberQuery) && <button type="button" onClick={()=>{setSearch("");setQuery("");setOrderNumber("");setNumberQuery("");setPage(1);}}>Limpar pesquisa</button>}
   </form>
-  {error&&<p role="alert">{error}</p>}
+  {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
   {loading&&<p role="status">Carregando registros…</p>}
   {data&&<><div className="admin-table"><table><thead><tr><th>Código</th><th>{kind==='orders'?'Cliente':'Nome'}</th><th>Empresa</th><th>Informações</th><th>Última integração / atualização</th></tr></thead><tbody>{data.rows.map((row:any)=><tr key={`${row.company_id}:${row.id}`}><td>{row.code}</td><td>{row.name||'—'}</td><td>{companyName(row.company_id)}</td><td>{row.detail||'—'}</td><td>{date(row.updated_at)}</td></tr>)}{!data.rows.length&&<tr><td colSpan={5}>Nenhum registro encontrado.</td></tr>}</tbody></table></div>
   <div className="task-toolbar"><button type="button" disabled={page===1} onClick={()=>setPage(p=>p-1)}>Anterior</button><span>Página {page}</span><button type="button" disabled={!data.hasNext} onClick={()=>setPage(p=>p+1)}>Próxima</button></div></>}

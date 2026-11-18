@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import OrderDeliveryHistory from "./order-delivery-history";
 import { X } from "lucide-react";
@@ -65,7 +66,7 @@ export default function OrderQuickEdit({ row, field, onClose, onStart, onResult 
   return <dialog ref={dialog} className="cr-quick-dialog" onCancel={(e) => { e.preventDefault(); if (!busy) onClose(); }}>
     <div className="cr-quick-heading"><h2>{title} · OS {row.id}</h2><button type="button" className="button" aria-label="Fechar edição" disabled={busy} onClick={onClose}><X size={18}/></button></div>
     {!source && !error && <p role="status">Carregando dados atuais do ERP…</p>}
-    {error && <p role="alert">{error}</p>}
+    {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
     {source && <form onSubmit={(e) => { e.preventDefault(); void save(); }}>
       <label>{title}
         {field === "expected" ? <input type="date" required value={value} disabled={busy || submitted} onChange={(e) => setValue(e.target.value)}/> :

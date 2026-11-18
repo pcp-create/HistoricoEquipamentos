@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEffect,useState,type ReactNode} from 'react';
 import './order-attachments.css';
 const maxBytes=3*1024*1024;
@@ -38,6 +39,6 @@ export default function OrderAttachments({company,order,files:controlled,onFiles
   {order&&!!files.length&&<button type="button" disabled={busy||disabled} onClick={()=>void upload()}>{busy?'Enviando anexos…':'Enviar anexos ao ERP'}</button>}
   {order&&<><button type="button" disabled={busy||disabled} onClick={()=>setRevision(v=>v+1)}>Atualizar anexos</button><ul>{rows.map(row=><li key={row.id}><a href={'/api/service-orders/attachments?'+new URLSearchParams({company,order,id:row.id})}>{row.name}</a></li>)}</ul>{!rows.length&&!error&&<small>Nenhum anexo listado no ERP.</small>}</>}
   {children}
-  {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
+  {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}{message&&<ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
  </section>;
 }

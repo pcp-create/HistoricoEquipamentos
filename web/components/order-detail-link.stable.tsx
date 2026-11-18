@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {
   lazy,
   Suspense,
@@ -125,7 +126,7 @@ export default function OrderDetailLink({
           {loading ? (
             <p>Localizando OS…</p>
           ) : error ? (
-            <p role="alert">{error}</p>
+            <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
           ) : (
             <>
               <p>Selecione a OS e a empresa:</p>

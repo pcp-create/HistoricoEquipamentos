@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import DateTimePicker from "./date-time-picker";
 import {useState} from 'react';
 import {Pencil,Trash2,X,Save} from 'lucide-react';
@@ -20,10 +21,10 @@ export default function VisitAdminActions({visit,customer,purposes,onSaved,allow
  if(visit.status==='completed')return null;
  return <>
  <div className={inline?"sales-visit-admin-inline":"sales-visit-actions"}><button disabled={busy} onClick={open}><Pencil size={16}/>Editar</button>{allowDelete&&<button disabled={busy} onClick={()=>void submit(true)}><Trash2 size={16}/>Excluir</button>}</div>
- {error&&!editing&&<p role="alert" className="sales-error">{error}</p>}
+ {error&&!editing&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
  {editing&&<div className="sales-overlay"><form className="sales-dialog" role="dialog" aria-modal="true" aria-label="Editar visita" onSubmit={e=>{e.preventDefault();void submit()}}>
  <div className="sales-between"><h2>Editar visita</h2><button type="button" disabled={busy} aria-label="Fechar edição" onClick={()=>setEditing(false)}><X/></button></div><p>{customer}</p>
- {error&&<p role="alert" className="sales-error">{error}</p>}
+ {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
  <div className="sales-form-grid">
  <label>Data e hora agendada<DateTimePicker label="Data e hora agendada" required value={form.scheduled_at} onChange={value=>setForm({...form,scheduled_at:value})}/></label>
  <label>Finalidade da Visita<select aria-label="Finalidade da Visita" required={!!visit.purpose_id} value={form.purpose_id} onChange={e=>setForm({...form,purpose_id:e.target.value})}><option value="">Não informada</option>{visit.purpose_id&&!purposes.some(p=>p.id===String(visit.purpose_id))&&<option value={String(visit.purpose_id)}>{visit.purpose_name || 'Finalidade anterior'} (inativa)</option>}{purposes.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>

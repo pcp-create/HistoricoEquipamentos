@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEffect,useRef,useState} from "react";
 import {PackageCheck,Search,RefreshCw,ChevronRight,CheckCircle2,ArrowLeft,X,Plus,Columns3,List,PackageOpen} from "lucide-react";
 import SiteHeader from "./site-header";
@@ -39,7 +40,7 @@ export default function Warehouse(){
  const history=[...(detail?.history||[]).map((h:any)=>({...h,kind:h.kind||'delivery'})),...(detail?.additions||[]).map((a:any)=>({...a,kind:'addition'}))].sort((a:any,b:any)=>Date.parse(b.created_at)-Date.parse(a.created_at));
  return <><SiteHeader active="warehouse"/><main className="warehouse-page">
   <header className="warehouse-heading"><div><span>SUPRIMENTOS · ALMOXARIFADO</span><h1>Entrega e recebimento de materiais</h1><p>Confira materiais por OS, registre entregas e valide as devoluções dos funcionários.</p></div><button className="button" disabled={saving} onClick={()=>{setError("");setRefresh(n=>n+1);}}><RefreshCw size={16}/>Atualizar</button></header>
-  {error&&<p className="warehouse-error" role="alert">{error}</p>}{notice&&<p className="warehouse-success" role="status"><CheckCircle2 size={17}/>{notice}</p>}
+  {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}{notice&&<ActionNotice type="success" onClose={()=>setNotice('')}>{notice}</ActionNotice>}
   <div className="warehouse-toolbar">
    <div className="warehouse-queue-tabs" role="group" aria-label="Fila de ordens">{[['delivery','Para entrega'],['delivered','Entregues'],['returns','Devoluções pendentes']].map(([key,label])=><button type="button" key={key} disabled={saving} aria-pressed={scope===key} onClick={()=>{setScope(key);setMode(key==='returns'?'receipt':'delivery');setSelected(null);setPage(1);}}>{key!=='returns'?<PackageCheck size={17} aria-hidden="true"/>:<PackageOpen size={17} aria-hidden="true"/>}{label}</button>)}</div>
    <div className="warehouse-display-control"><span>Visualização</span><div className="warehouse-display-switch" role="group" aria-label="Visualização das ordens">{[['list','Lista'],['kanban','Kanban']].map(([key,label])=><button type="button" key={key} aria-pressed={view===key} disabled={saving} onClick={()=>{setView(key);setPage(1);}}>{key==='list'?<List size={16} aria-hidden="true"/>:<Columns3 size={16} aria-hidden="true"/>}{label}</button>)}</div></div>

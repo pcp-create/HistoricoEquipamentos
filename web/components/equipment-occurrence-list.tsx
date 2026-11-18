@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 export function occurrenceDate(value: string) {
@@ -38,7 +39,7 @@ export default function EquipmentOccurrenceList({
   }
   return (
     <div className="bo-list">
-      {error && <p role="alert">{error}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
       {items.map((b) => (
         <details key={b.id} className="bo-item">
           <summary>

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import { formatContactPhone } from "@/lib/contact-phone";
 import { contactJobLabel as contactCargo } from "@/lib/contact-job-label";
@@ -160,7 +161,7 @@ export default function CustomerContacts({
         </div>
       </div>
       <a href="/configuracoes/cadastros/sincronismos">Pendências de sincronização com o M8</a>
-      {error && !adding && <p role="alert">{error}</p>}
+      {error && !adding && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
       {readonly ? (
         <ul>
           {rows.map((c) => (
@@ -335,7 +336,7 @@ export default function CustomerContacts({
                   ? "O contato será salvo no sistema e ficará disponível para as visitas. A sincronização com o M8 ocorrerá em segundo plano."
                   : "Salve o contato para continuar o agendamento da visita."}
               </p>
-              {error && <p role="alert">{error}</p>}
+              {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
               <label>
                 Nome do contato
                 <input
@@ -397,7 +398,7 @@ export default function CustomerContacts({
                       ))}
                     </select>
                   </label>
-                  {jobTypesError && <p role="alert">{jobTypesError}</p>}
+                  {jobTypesError && <ActionNotice type="error" onClose={()=>setJobTypesError('')}>{jobTypesError}</ActionNotice>}
                   {!jobTypes.length && (
                     <small>
                       Cadastre um cargo ativo em{" "}

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEffect,useState} from "react";
 import {FileText,LoaderCircle,X} from "lucide-react";
 import {nativePortal} from "@/lib/native-portal";
@@ -33,7 +34,7 @@ export default function FieldPdfButton({operationId,scheduleId}:{operationId?:st
   {open&&<section className="field-pdf-options" aria-label="Visualizar relatório PDF">
    <p>{scheduleId?"Relatório geral da OS, com linha do tempo e todas as operações, inclusive de outros técnicos. ":"Relatório desta operação. "}Dados salvos e sincronizados; antes da revisão, o documento será identificado como prévia.</p>
    <div><button disabled={busy} onClick={()=>void view("complete")}>{busy?<LoaderCircle className="spin" size={16}/>:<FileText size={16}/>} Completo</button><button disabled={busy} onClick={()=>void view("summary")}>Resumido</button><button disabled={busy} onClick={()=>setOpen(false)} aria-label="Fechar opções de PDF"><X size={16}/></button></div>
-   {error&&<p role="alert" className="field-error">{error}</p>}
+   {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
   </section>}
  </div>;
 }

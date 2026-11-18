@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useState } from "react";
 export default function FieldOccurrenceForm({
   operationId,
@@ -63,7 +64,7 @@ export default function FieldOccurrenceForm({
         Registre uma particularidade ou ocorrência no histórico do equipamento.
         Ela ficará disponível para os próximos atendimentos.
       </p>
-      {error && <p role="alert">{error}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
       {!equipment.length ? (
         <>
           <p>

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, FileDown } from "lucide-react";
@@ -244,9 +245,7 @@ export default function OrderReportWindow({
       </nav>
       <div className="operation-review-content">
         {error && (
-          <p className="operation-review-error" role="alert">
-            {error}
-          </p>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
         )}
         {!preview ? (
           <>

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 export default function TimeLogDeleteDialog({row,onClose,onDeleted}:{row:any;onClose:()=>void;onDeleted:()=>Promise<void>}){
@@ -8,7 +9,7 @@ export default function TimeLogDeleteDialog({row,onClose,onDeleted}:{row:any;onC
  return createPortal(<dialog ref={dialog} className="time-adjustment-dialog" aria-label="Excluir apontamento" onCancel={e=>{e.preventDefault();if(!busy)onClose();}}>
   <h2>Excluir apontamento?</h2><p>O registro de {row.display_name||row.actor} será removido dos totais de horas e custos. O histórico da exclusão será preservado.</p>
   <label>Motivo da exclusão<textarea aria-label="Motivo da exclusão" autoFocus required maxLength={2000} value={reason} disabled={busy} onChange={e=>setReason(e.target.value)}/></label>
-  {error&&<p role="alert">{error}</p>}
+  {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
   <div className="time-adjustment-actions"><button type="button" disabled={busy} onClick={onClose}>Cancelar</button><button type="button" disabled={busy||!reason.trim()} onClick={async()=>{
    setBusy(true);setError('');try{
     const response=await fetch('/api/service-scheduling/time-logs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',requestId:requestId.current,operationId:row.operation_id,...(row.legacyEventId?{legacyEventId:String(row.legacyEventId),hours:Number(row.hours)}:{sessionId:row.id,version:Number(row.correction_version||0)}),reason})});

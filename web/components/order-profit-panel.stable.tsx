@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useState } from "react";
 import { estimatedMaterialCost, orderLaborHours } from "@/lib/order-profit";
@@ -117,7 +118,7 @@ export default function OrderProfitPanel({
             ? "Ver lucro calculado"
             : "Calcular lucro da OS"}
       </button>
-      {error && <p role="alert">{error}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
       {open && (
         <>
           <h4>Lucro bruto estimado</h4>

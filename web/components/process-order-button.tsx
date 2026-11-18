@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useId,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {BadgeCheck,LoaderCircle} from 'lucide-react';
@@ -43,7 +44,7 @@ export default function ProcessOrderButton({data,onChanged,disabled,onBusy}:{dat
    <button type="button" className="process-order-button" disabled={!!reason} onClick={()=>void process()}>{busy?<LoaderCircle className="spin" size={18}/>:<BadgeCheck size={18} aria-hidden="true"/>}Processar OS</button>
    {reason&&tooltip&&createPortal(<span id={tooltipId} role="tooltip" className="process-order-tooltip" style={{left:tooltip.left,top:tooltip.top,transform:tooltip.above?"translateY(-100%)":undefined}}>{reason}</span>,document.body)}
   </span>
-  {error&&<p role="alert" className="process-order-error">{error}</p>}
-  {message&&<p role="status" className="process-order-success">{message}</p>}
+  {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
+  {message&&<ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
  </div>;
 }

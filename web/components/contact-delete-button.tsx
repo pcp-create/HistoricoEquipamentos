@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 export default function ContactDeleteButton({
@@ -63,7 +64,7 @@ export default function ContactDeleteButton({
         <Trash2 size={15} />
         {busy ? "Excluindo…" : "Excluir"}
       </button>
-      {error && <span role="alert">{error}</span>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
     </>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import VisitEquipmentGroup from "./visit-equipment-group";
 import type {DraftMachine} from "@/lib/visits/draft-machines";
 import {useState,useRef} from 'react';
@@ -43,7 +44,7 @@ export default function VisitRecordFields({customer,customerName,online,equipmen
   }}/> : <p>Selecione um cliente ou preencha os dados do novo Lead para cadastrar máquinas.</p>}
   </div></details>
   <label>Fotos da visita (até 10)<input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={disabled||uploading} onChange={e=>{void add(Array.from(e.target.files||[]));e.target.value='';}}/></label>
-  {uploading&&<p role="status">Preparando fotos…</p>}{error&&<p role="alert">{error}</p>}
+  {uploading&&<p role="status">Preparando fotos…</p>}{error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
   <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>{photos.map((src,i)=><div key={i} className="visit-photo-thumb"><img src={src} alt={`Foto ${i+1} da visita`} width={100} height={80} style={{objectFit:'cover'}}/><button type="button" className="visit-photo-remove" aria-label={`Remover foto ${i+1}`} title={`Remover foto ${i+1}`} disabled={disabled||uploading} onClick={()=>onPhotos(photos.filter((_,n)=>n!==i))}><X size={16} aria-hidden="true"/></button></div>)}</div>
  </section>;
 }

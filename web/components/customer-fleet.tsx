@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import ReportBrandFooter from "./report-brand-footer";
 import EquipmentCreateDialog from "./equipment-create-dialog";
 import {apiFetch} from "@/lib/client-api-cache";
@@ -200,11 +201,9 @@ export default function CustomerFleet() {
           </span>
         </div>
         {error && (
-          <p role="alert" className="fleet-error">
-            {error}
-          </p>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
         )}
-        {message&&<p role="status">{message}</p>}
+        {message&&<ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
         {loading && <p role="status">Carregando o parque de máquinas…</p>}
         {!loading && !client && <p className="fleet-empty">Selecione um ou mais clientes para consultar as máquinas.</p>}
         {data && (

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useState } from "react";
 import ScheduleTimeLogs from "./schedule-time-logs";
 export default function FieldTimeLogs({ operationId,readOnly=false }: { operationId: string;readOnly?:boolean }) {
@@ -27,7 +28,7 @@ export default function FieldTimeLogs({ operationId,readOnly=false }: { operatio
   return (
     <section className="field-time-logs">
       <h2>Apontamentos da operação</h2>
-      {error && <p role="alert">{error}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
       {data ? (
         <ScheduleTimeLogs data={{...data,technicianTimeReadOnly:readOnly}} technician onChanged={load} />
       ) : (

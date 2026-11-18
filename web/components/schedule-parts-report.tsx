@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import ReportBrandFooter from "./report-brand-footer";
 import {useEffect,useState} from 'react';
 import {ArrowLeft,Download,Printer,RefreshCw} from 'lucide-react';
@@ -26,7 +27,7 @@ export default function PartsReport(){
  return <main className="parts-report">
   <nav className="parts-report-actions"><a href="/programacao"><ArrowLeft size={16}/> Programação de OSs</a><button onClick={()=>setRefresh(n=>n+1)} disabled={busy}><RefreshCw size={16}/> Atualizar</button><button onClick={()=>void excel()} disabled={!data||busy||exporting}><Download size={16}/> {exporting?'Exportando…':'Exportar Excel'}</button><button onClick={()=>window.print()} disabled={!data||busy}><Printer size={16}/> Imprimir / PDF</button></nav>
   <header><span>RJ COMPRESSORES · SUPRIMENTOS E OPERAÇÕES</span><h1>Relatório de peças da programação</h1><p>Plano de ação para Compras e Almoxarifado</p>{data&&<small>Emitido em {stamp(data.generatedAt)} · Horário de Brasília</small>}</header>
-  {error&&<p role="alert">{error}</p>}{busy&&<p role="status">Consolidando OSs, estoques e compras…</p>}
+  {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}{busy&&<p role="status">Consolidando OSs, estoques e compras…</p>}
   {data&&<><p className="parts-scope">{data.scope} Os filtros da tela de programação não restringem este relatório.</p>
   <div className="parts-kpis">{[['OSs analisadas',data.coverage.length],['Linhas de peças',data.rows.length],['Peças para separar',data.groups.filter(g=>g.state==='Disponível para separar').length],['Peças com pendências',data.groups.filter(g=>g.state!=='Disponível para separar').length],['OSs com coleta incompleta',data.coverage.filter(c=>!c.complete).length]].map(([label,n])=><div key={label}><span>{label}</span><strong>{n}</strong></div>)}</div>
   <aside><b>Como usar este relatório</b><p>Comece pelo consolidado: a demanda soma todas as OSs abertas, sem repetir o saldo de estoque e de compras. Compras abertas são do produto na empresa, sem reserva exclusiva para uma OS. Valide prioridades e reservas antes de comprar ou separar.</p><p>“Não confirmado” exige conferência. OSs processadas, canceladas e excluídas não entram no relatório. Itens excluídos, não aprovados, espelhados e de programações concluídas aparecem no detalhamento, mas não geram demanda. As quantidades podem ter unidades diferentes e não devem ser somadas entre produtos.</p></aside>

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useState } from "react";
 export default function VisitAutomationSettings() {
   const [users, setUsers] = useState<{ email: string; display_name: string }[]>(
@@ -72,8 +73,8 @@ export default function VisitAutomationSettings() {
       >
         {busy ? "Salvando…" : "Salvar responsável"}
       </button>
-      {error && <p role="alert">{error}</p>}
-      {message && <p role="status">{message}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
+      {message && <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
     </section>
   );
 }

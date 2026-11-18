@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useState } from "react";
 import { isNotApproved } from "@/lib/material-approval";
 import { orderTotals } from "@/lib/order-totals";
@@ -47,12 +48,9 @@ export default function WorkshopFinancialDetails({
     >
       <h3>Produtos e serviços das OSs abertas</h3>
       {error ? (
-        <p role="alert">
-          {error}{" "}
-          <button onClick={() => setRetry((n) => n + 1)}>
+        <ActionNotice type="error" actions={<><button onClick={() => setRetry((n) => n + 1)}>
             Tentar novamente
-          </button>
-        </p>
+          </button></>} onClose={()=>setError('')}>{error}</ActionNotice>
       ) : !data ? (
         <p role="status">Carregando produtos e serviços…</p>
       ) : (

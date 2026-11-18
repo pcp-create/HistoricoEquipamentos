@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEffect,useRef,useState} from "react";
 import {X} from "lucide-react";
 import {apiFetch} from "@/lib/client-api-cache";
@@ -23,7 +24,7 @@ export default function EquipmentDetailsDrawer({id,onClose}:{id:string;onClose:(
  return()=>{controller.abort();el?.close();document.body.style.overflow=previous;};},[id]);
  return <dialog ref={dialog} className="equipment-preview-drawer" aria-labelledby="equipment-preview-title" onCancel={e=>{e.preventDefault();onClose();}}>
  <header><div><small>EQUIPAMENTO · {id}</small><h2 id="equipment-preview-title">{data?.equipment.name||"Detalhes do equipamento"}</h2></div><button type="button" aria-label="Fechar detalhes do equipamento" onClick={onClose}><X size={20}/></button></header>
- {error&&<p role="alert">{error}</p>}{!data&&!error&&<p role="status">Carregando equipamento…</p>}
+ {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}{!data&&!error&&<p role="status">Carregando equipamento…</p>}
  {data&&<>
  <section><h3>Cadastro do equipamento</h3><Fields data={data.equipment}/></section>
  <section><h3>Clientes vinculados</h3>{data.clients.length?data.clients.map((c:any)=><Fields key={c.id} data={{...c,document:c.document||"Não informado"}}/>):<p>Sem cliente vinculado.</p>}</section>

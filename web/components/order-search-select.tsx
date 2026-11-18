@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { matchesSearch } from "@/lib/filters";
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -244,7 +245,7 @@ export default function OrderSearchSelect({
             ))}
           </div>
           {busy && <p role="status">Carregando…</p>}
-          {error && <p role="alert">{error}</p>}
+          {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
           {!busy && !error && !rows.length && (
             <p role="status">Nenhum registro encontrado.</p>
           )}

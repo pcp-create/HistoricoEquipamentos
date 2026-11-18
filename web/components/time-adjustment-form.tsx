@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { operationNumber } from "@/lib/service-scheduling/operation-number";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -258,7 +259,7 @@ export default function TimeAdjustmentForm({
           />
         </label>
       </fieldset>
-      {error && <p role="alert">{error}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
       <div className="time-adjustment-actions">
         <button disabled={busy} onClick={onClose}>
           Cancelar

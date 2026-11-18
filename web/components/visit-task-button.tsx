@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {ArrowRightLeft} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { SalesVisit } from "@/lib/visits/model";
@@ -95,7 +96,7 @@ export default function VisitTaskButton({
               }
             }}
           >
-            {error && <p role="alert">{error}</p>}
+            {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
             <label>
               Título
               <input

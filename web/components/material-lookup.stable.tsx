@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { apiFetch } from "@/lib/client-api-cache";
 import { useSearchParams } from "next/navigation";
 import { companyName } from "@/lib/company-names";
@@ -107,7 +108,7 @@ export default function MaterialLookup() {
   )?.details;
   const productPanel = <>
     {busy && <p role="status">Consultando produto…</p>}
-    {error && <p role="alert">{error}</p>}
+    {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
         {!!rows?.length && (
           <MaterialPhoto
             key={rows[0].product_id}
@@ -366,7 +367,7 @@ export default function MaterialLookup() {
         </div>
 
       </div>
-      {error && !request?.code && <p role="alert">{error}</p>}
+      {error && !request?.code && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
       {matches && (
         <div>
           <p>

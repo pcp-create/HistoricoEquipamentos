@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {operationMeterEquipment,unlinkedMeterMessage} from "@/lib/service-scheduling/meter-equipment";
 import {useChecklistDraft} from './use-checklist-draft';
 import {reportDraftKey,reportDraftSignature} from '@/lib/service-scheduling/report-draft';
@@ -152,8 +153,8 @@ function Stage({draftContext,stageAccordionName,stage,operation,data,mutate,lock
  </div>;
  })}</fieldset></Container>;})}
  </div>}
- {draft.storageError&&<p role="alert">{draft.storageError}</p>}
- {error&&<p role="alert">{error}</p>}
+ {draft.storageError&&<ActionNotice type="error">{draft.storageError}</ActionNotice>}
+ {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
  <div className="checklist-toolbar">{saved.status==='pending'&&data.canEditSettings&&<button type="button" disabled={locked||busy} onClick={()=>void act('checklist_release')}>Liberar etapa para o técnico</button>}{showStageSave&&edited&&!readOnly&&saved.status==='released'&&canWork&&<><button type="button" disabled={disabled} onClick={()=>void act('checklist_save')} aria-label="Salvar rascunho da etapa" title="Salvar rascunho da etapa"><SaveActionIcon /></button></>}{saved.status==='submitted'&&data.canEditSettings&&<button type="button" disabled={locked||busy} onClick={()=>void act('checklist_reopen')}>Reabrir para correção</button>}</div>
  </details>;
 }

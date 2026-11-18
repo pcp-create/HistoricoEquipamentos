@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { apiFetch } from "@/lib/client-api-cache";
 import { companyName } from "@/lib/company-names";
 import { useEffect, useRef, useState } from "react";
@@ -115,9 +116,7 @@ export default function QuoteCatalogPicker({
         para nova inclusão.
       </small>
       {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
+        <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       <div className="quote-catalog-options" aria-busy={loading}>
         {loading ? (

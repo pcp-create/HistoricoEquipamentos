@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { apiFetch } from "@/lib/client-api-cache";
@@ -93,12 +94,9 @@ export default function TaskStageSelect({
         </div>
       </label>
       {error ? (
-        <p role="alert">
-          {error}{" "}
-          <button type="button" disabled={disabled} onClick={() => void load()}>
+        <ActionNotice type="error" actions={<><button type="button" disabled={disabled} onClick={() => void load()}>
             Tentar novamente
-          </button>
-        </p>
+          </button></>} onClose={()=>setError('')}>{error}</ActionNotice>
       ) : !loading && !stages.length ? (
         <small>Nenhuma etapa cadastrada nas configurações de tarefas.</small>
       ) : (

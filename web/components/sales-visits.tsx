@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {visitCalendarDay} from "@/lib/visits/calendar-day";
 import VisitCalendarTotals from "./visit-calendar-totals";
 import VisitFollowUpPrompt from "./visit-follow-up-prompt";
@@ -562,7 +563,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
           </a>
         </div>}
         {home ? <>
-          {error && !sessionExpired && <p role="alert" className="sales-error">{error}</p>}
+          {error && !sessionExpired && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
           {loading && !data && <p role="status">Carregando seu portal…</p>}
           <nav className="field-home" aria-label="Serviços do portal">
             <button disabled={!data} onClick={() => setHome(false)}>
@@ -602,14 +603,10 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
           })}
         </nav>
         {error && !sessionExpired && (
-          <p role="alert" className="sales-error">
-            {error}
-          </p>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
         )}
         {message && (
-          <p role="status" className="sales-success">
-            {message}
-          </p>
+          <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>
         )}
         {loading && !data && (
           <p role="status">Carregando sua carteira de clientes…</p>
@@ -987,7 +984,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
             }}>
               <label>Horímetro atual (h)<input onWheel={e=>e.currentTarget.blur()} autoFocus required type="number" min={meterForm.equipment.meter ?? 0} max="100000000" step="any" value={meterValue} onChange={e => setMeterValue(e.target.value)} /></label>
               <label>Data da coleta<input required type="date" max={today} value={meterDate} onChange={e => setMeterDate(e.target.value)} /></label>
-              {meterError && <p role="alert" className="sales-error">{meterError}</p>}
+              {meterError && <ActionNotice type="error" onClose={()=>setMeterError('')}>{meterError}</ActionNotice>}
               <div className="sales-actions"><button type="button" disabled={meterBusy} onClick={() => setMeterForm(null)}>Cancelar</button><button className="sales-primary" disabled={meterBusy || !online}>{meterBusy ? "Salvando…" : "Salvar horímetro"}</button></div>
             </form>
           </section>
@@ -1083,9 +1080,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
               </button>
             </div>
             {error && !sessionExpired && (
-              <p role="alert" className="sales-error">
-                {error}
-              </p>
+              <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
             )}
             {scheduleOnly && <div className="sales-visit-seller-field">
               <label>Vendedor responsável</label>
@@ -1252,7 +1247,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
               </label>
             )}
             {form.mode !== "schedule" && equipmentLoading && <p role="status">Carregando máquinas do cliente…</p>}
-            {form.mode !== "schedule" && equipmentError && <p role="alert">{equipmentError}</p>}
+            {form.mode !== "schedule" && equipmentError && <ActionNotice type="error" onClose={()=>setEquipmentError('')}>{equipmentError}</ActionNotice>}
             {form.lead&&form.mode==="schedule"&&<section className="visit-record-machines"><h3>Máquinas do novo Lead ({draftMachines.length})</h3><VisitMachineRegistration customer={'lead:'+form.leadId} name={form.leadName||'Novo Lead'} online={online&&!busy} draftMachines={draftMachines} onDraftMachines={updateDraftMachines}/></section>}
             {form.mode !== "schedule" && <VisitRecordFields key={`${form.id}:${form.customer_key||form.leadId}`} draftMachines={form.lead?draftMachines:undefined} onDraftMachines={form.lead?updateDraftMachines:undefined} customer={form.lead?undefined:form.customer_key} customerName={form.lead?form.leadName:formCustomer?.name} online={online} equipment={selectedEquipment} records={machineRecords} photos={visitPhotos} onRecords={setMachineRecords} onPhotos={setVisitPhotos} onBusy={setPreparingPhotos} disabled={busy}/>}
             <p className="sales-muted">A visita gera uma tarefa automática para o vendedor responsável. Quem cria a visita fica em Acompanhamento. Ao concluir a visita, informe se há pendências: a mesma tarefa poderá continuar aberta e ser direcionada a outro responsável.</p>

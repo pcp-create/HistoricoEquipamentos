@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { matchesSearch } from "@/lib/filters";
 
 import RequiredMarker from "./required-marker";
@@ -181,11 +182,9 @@ export default function CatalogConfiguration() {
           </p>
         </section>
         {error && (
-          <p role="alert" className="catalog-settings-error">
-            {error}
-          </p>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
         )}
-        {message && <p role="status">{message}</p>}
+        {message && <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
         <section className="manual-card">
           <h2>Estrutura atual</h2>
           <p>

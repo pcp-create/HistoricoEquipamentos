@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { Link2, Search, Unlink, ChevronLeft, ChevronRight, Check, ArrowUpRight, LoaderCircle } from "lucide-react";
 import "./link-order.css";
 import { useEffect, useState } from "react";
@@ -79,7 +80,7 @@ export default function LinkOrder({
     <section className="order-link-editor">
       {!initiallyOpen && <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}><Link2 size={16}/> Vincular OS</button>}
       {open && <div className="order-link-body">
-        {error && <p role="alert" className="order-link-error">{error}</p>}
+        {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
         {!links.length&&<div className="order-link-current"><p>{ready?'Nenhuma OS vinculada':'Carregando vínculos…'}</p></div>}
         {links.map(link=><div key={link.linked_company_id+':'+link.linked_order_id} className="order-link-current has-link">
           <span className="order-link-current-icon"><Link2 size={20}/></span>

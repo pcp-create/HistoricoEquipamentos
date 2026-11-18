@@ -1,9 +1,16 @@
-# Portal Técnico RJ — APK 2.2.26
+# Portal Técnico RJ — APK 2.2.27
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
 remota para carregar a interface e não depende do cache do Chrome para guardar trabalho.
 O servidor de autenticação e sincronização continua sendo https://rjcompressores.app.
+
+## Versão 2.2.27
+
+- Mensagens de ação na parte inferior, em todas as telas do portal técnico.
+- Erros em vermelho com botão de fechar; confirmações de sucesso somem após três segundos.
+- Avisos simultâneos ficam empilhados e continuam acessíveis dentro das janelas de edição.
+- Preserva os diagnósticos por registro da fila de sincronismo e os avisos permanentes de preenchimento.
 
 ## Versão 2.2.26
 

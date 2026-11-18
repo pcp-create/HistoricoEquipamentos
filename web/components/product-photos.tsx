@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { apiFetch } from "@/lib/client-api-cache";
 import { companyName } from "@/lib/company-names";
 import { useEffect, useRef, useState } from "react";
@@ -106,12 +107,7 @@ export default function ProductPhotos({
             {loading ? (
               <p role="status">Carregando fotos…</p>
             ) : error ? (
-              <div role="alert">
-                <p>{error}</p>
-                <button type="button" onClick={() => setRetry((n) => n + 1)}>
-                  Tentar novamente
-                </button>
-              </div>
+              <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
             ) : (
               data && (
                 <>

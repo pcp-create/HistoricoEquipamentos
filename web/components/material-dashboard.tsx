@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
 import { companyName } from "@/lib/company-names";
 import { PriceValues, StockValues } from "./product-values";
@@ -414,17 +415,14 @@ export default function MaterialDashboard() {
           </div>
         )}
         {error && (
-          <div role="alert" className="error results-error">
-            {error}
-            <button
+          <ActionNotice type="error" actions={<><button
               onClick={() => {
                 clearApiCache();
                 setRefresh((r) => r + 1);
               }}
             >
               Tentar novamente
-            </button>
-          </div>
+            </button></>} onClose={()=>setError('')}>{error}</ActionNotice>
         )}
         <section className="analysis-charts">
           <Ranking

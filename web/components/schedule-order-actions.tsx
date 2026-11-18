@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import ProcessOrderButton from "./process-order-button";
 import {Save, X, Mail, PencilLine} from "lucide-react";
 import {orderObservation,appendOrderObservation} from '@/lib/service-scheduling/order-observation';
@@ -146,8 +147,8 @@ export default function ScheduleOrderActions({
           Envio ao cliente disponível quando houver uma operação revisada com relatório.
         </small>
       )}
-      {error && <p role="alert">{error}</p>}
-      {message && <p role="status">{message}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
+      {message && <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
       {edit && (
         <form
           id={editorId}

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -184,11 +185,9 @@ export default function InspectionControl() {
           </div>
         </header>
         {error && (
-          <p role="alert" className="inspection-error">
-            {error}
-          </p>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
         )}
-        {message && <p role="status">{message}</p>}
+        {message && <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
         {loading && <p role="status">Carregando inspeções…</p>}
         {data.report && (
           <section className="inspection-panel">
@@ -423,9 +422,7 @@ export default function InspectionControl() {
                 {form.version ? "Editar plano" : "Criar plano de inspeção"}
               </h2>
               {error && (
-                <p role="alert" className="inspection-error">
-                  {error}
-                </p>
+                <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
               )}
               {form.version || data.report ? (
                 <p>
@@ -582,7 +579,7 @@ export default function InspectionControl() {
               }}
             >
               <h2>Registrar inspeção realizada</h2>
-              {error && <p role="alert">{error}</p>}
+              {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
               <label>
                 Data da coleta / inspeção
                 <input
@@ -641,7 +638,7 @@ export default function InspectionControl() {
               }}
             >
               <h2>Cadastrar tipo de inspeção</h2>
-              {error && <p role="alert">{error}</p>}
+              {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
               <label>
                 Nome do tipo
                 <input

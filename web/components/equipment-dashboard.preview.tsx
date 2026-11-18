@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import "./equipment-activity.css";
 import {EquipmentOccurrenceHistory} from "./equipment-occurrences";
 import "./rental-equipment.css";
@@ -805,17 +806,12 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
           </div>
         </section>
         {error && (
-          <p role="alert" className="catalog-settings-error">
-            {error}
-          </p>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
         )}
         {saveError && (
-          <div role="alert" className="equipment-save-error">
-            <span>{saveError}</span>
-            <button type="button" aria-label="Fechar mensagem de erro" onClick={() => setSaveError("")}>×</button>
-          </div>
+          <ActionNotice type="error" onClose={()=>setSaveError('')}>{saveError}</ActionNotice>
         )}
-        {message && <p role="status">{message}</p>}
+        {message && <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
         {!selected ? (
           <section className="manual-card rental-fleet-panel">
             {(!section || section === "locacao") && <nav

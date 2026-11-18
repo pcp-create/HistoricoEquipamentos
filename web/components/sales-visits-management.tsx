@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {visitCalendarDay} from "@/lib/visits/calendar-day";
 import VisitCalendarTotals from "./visit-calendar-totals";
 import VisitListRow from "./visit-list-row";
@@ -283,9 +284,7 @@ export default function SalesVisitsManagement() {
           </div>
         </header>
         {error && (
-          <p role="alert" className="sales-error">
-            {error}
-          </p>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
         )}
         {!data && loading && <p role="status">Carregando gestão de visitas…</p>}
         {data && (
@@ -769,7 +768,7 @@ export default function SalesVisitsManagement() {
           Gestão de Visitas · Horários de Brasília · Atualização automática a
           cada minuto
         </footer>
-        {message && <p role="status" className="sales-success">{message}</p>}
+        {message && <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
         {meterForm && <div className="sales-overlay"><section className="sales-dialog" role="dialog" aria-modal="true" aria-label="Registrar horímetro">
           <div className="sales-between"><h2>Registrar horímetro atual</h2><button aria-label="Fechar horímetro" disabled={meterBusy} onClick={()=>setMeterForm(null)}><X/></button></div>
           <p>{meterForm.customer.name}</p><p><strong>{meterForm.equipment.id} · {meterForm.equipment.name}</strong></p>
@@ -783,7 +782,7 @@ export default function SalesVisitsManagement() {
           }}>
             <label>Horímetro atual (h)<input onWheel={e=>e.currentTarget.blur()} autoFocus required type="number" min={meterForm.equipment.meter ?? 0} max="100000000" step="any" value={meterValue} onChange={e=>setMeterValue(e.target.value)}/></label>
             <label>Data da coleta<input required type="date" max={today} value={meterDate} onChange={e => setMeterDate(e.target.value)} /></label>
-            {meterError && <p role="alert" className="sales-error">{meterError}</p>}
+            {meterError && <ActionNotice type="error" onClose={()=>setMeterError('')}>{meterError}</ActionNotice>}
             <div className="sales-actions"><button type="button" disabled={meterBusy} onClick={()=>setMeterForm(null)}>Cancelar</button><button className="sales-primary" disabled={meterBusy}>{meterBusy?"Salvando…":"Salvar horímetro"}</button></div>
           </form>
         </section></div>}

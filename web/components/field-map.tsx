@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {lastSeen} from "@/lib/last-seen";
 import { technicianMarkerLayout } from "@/lib/service-scheduling/technician-marker-layout";
 import { clusterMapPoints, nextClusterExpansionZoom } from "@/lib/service-scheduling/map-clusters";
@@ -178,7 +179,7 @@ export default function FieldMap({visible}:{visible:boolean}) {
  },[visible,data,mode]);
  if(!visible)return null;
  return <section className="field-map" aria-label="Mapa da equipe e programação">
-  {error&&<p role="alert">{error}</p>}
+  {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
   <div className="field-map-canvas">
    <div className="field-map-legend" aria-label="Legenda do mapa">
     {(mode==='technicians' ? [['#16834a','Online'],['#dc2626','Offline']] : [['#2563eb','Em execução'],['#dc2626','Em atraso'],['#64748b','Programadas']]).map(([color,label])=><span key={label}><i style={{background:color}} aria-hidden="true"/>{label}</span>)}

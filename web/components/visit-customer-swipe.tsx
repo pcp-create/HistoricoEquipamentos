@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useRef,useState,type ReactNode} from "react";
 import {createPortal} from "react-dom";
 import {MoreHorizontal,X} from "lucide-react";
@@ -21,12 +22,12 @@ export default function VisitCustomerSwipe({customer,online,onSaved,children}:{c
  {children}
  {<button className="visit-swipe-toggle" aria-label={`Ações de ${customer.name}`} aria-expanded={revealed} onClick={()=>setRevealed(!revealed)}><MoreHorizontal size={18}/></button>}
  </div>
- {error&&!dialog&&<p role="alert" className="sales-error">{error}</p>}
+ {error&&!dialog&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
  {dialog&&createPortal(<div className="sales-overlay"><form className="sales-dialog" role="dialog" aria-modal="true" aria-label="Desqualificar cliente ou Lead" onSubmit={async e=>{e.preventDefault();if(busy||!reason.trim())return;setBusy(true);setError("");try{const r=await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'disqualify',customer_key:customer.key,reason})});const b=await r.json();if(!r.ok)throw Error(b.error);await onSaved();setDialog(false);setRevealed(false)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>
  <div className="sales-between"><h2>Desqualificar {customer.lead?"Lead":"cliente"}</h2><button type="button" aria-label="Fechar" disabled={busy} onClick={()=>setDialog(false)}><X/></button></div>
  <p>{customer.name}</p><p>O cadastro será movido para a aba Desqualificado. O histórico e as visitas agendadas serão mantidos.</p>
  <label>Justificativa<textarea autoFocus required maxLength={2000} rows={4} value={reason} onChange={e=>setReason(e.target.value)}/></label>
- {error&&<p role="alert" className="sales-error">{error}</p>}
+ {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
  <div className="sales-actions"><button type="button" disabled={busy} onClick={()=>setDialog(false)}>Cancelar</button><button className="sales-primary" disabled={busy||!online||!reason.trim()}>{busy?"Salvando…":"Confirmar desqualificação"}</button></div>
  </form></div>,document.body)}
  </div>

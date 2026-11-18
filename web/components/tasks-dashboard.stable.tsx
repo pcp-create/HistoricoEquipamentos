@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import TaskNoteDescription from "./task-note-description";
 import { matchesSearch } from "@/lib/filters";
 
@@ -50,11 +51,11 @@ import {
 import { useSearchParams } from "next/navigation";
 import SiteHeader from "./site-header";
 import TaskSettings from "./task-settings";
-function requestAssignmentReason(): string | null {
+function requestAssignmentReason(onError:(message:string)=>void): string | null {
   const value = window.prompt("Justifique a mudança de responsável:");
   if (value === null) return null;
   if (!value.trim() || value.trim().length > 2000) {
-    window.alert("Informe uma justificativa com até 2.000 caracteres.");
+    onError("Informe uma justificativa com até 2.000 caracteres.");
     return null;
   }
   return value.trim();
@@ -213,7 +214,7 @@ export function TaskDrawer({
     const changed =
       action === "update" &&
       (assigned.trim().toLowerCase() || null) !== data.task.assigned_to;
-    const assignmentReason = changed ? requestAssignmentReason() : undefined;
+    const assignmentReason = changed ? requestAssignmentReason(setError) : undefined;
     if (assignmentReason === null) return;
     const startsProgress = (action === "note" || action === "update") && data.task.status === "not_started";
     if (changed || startsProgress)
@@ -336,12 +337,9 @@ export function TaskDrawer({
         </button>
       </header>
       {error && (
-        <p role="alert" className="task-error">
-          {error}{" "}
-          <button onClick={() => reload().catch((e) => setError(e.message))}>
+        <ActionNotice type="error" actions={<><button onClick={() => reload().catch((e) => setError(e.message))}>
             Recarregar tarefa
-          </button>
-        </p>
+          </button></>} onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       {t?.task_type === "approval" && <TaskApproval data={data} onChanged={()=>{void reload();onChanged?.()}}/>}
       {t && t.task_type !== "approval" && (
@@ -932,7 +930,7 @@ export default function TasksDashboard() {
       }
       return moveTask(id, column as TaskColumn);
     }
-    const assignmentReason = requestAssignmentReason();
+    const assignmentReason = requestAssignmentReason(setError);
     if (assignmentReason === null) return;
     const preview = {
       ...task,
@@ -1054,7 +1052,7 @@ export default function TasksDashboard() {
       (!task.assigned_to ||
         (assignment === "self" &&
           task.assigned_to.toLowerCase() !== data.email?.toLowerCase()));
-    const assignmentReason = changed ? requestAssignmentReason() : undefined;
+    const assignmentReason = changed ? requestAssignmentReason(setError) : undefined;
     if (assignmentReason === null) return;
     const preview = {
       ...task,
@@ -1169,9 +1167,7 @@ export default function TasksDashboard() {
           </div>
         </header>
         {error && (
-          <p role="alert" className="task-error">
-            {error}
-          </p>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
         )}
         {tab === "settings" ? (
           <TaskSettings />
@@ -1903,9 +1899,7 @@ export function EquipmentTaskProvider({ children }: { children: ReactNode }) {
     >
       {children}
       {error && (
-        <p role="status" className="task-error">
-          {error}
-        </p>
+        <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       {selected && (
         <TaskDrawer

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { CalendarCheck2, Users, Info } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { VisitCustomer, SalesVisit, VisitSellerLocation } from "@/lib/visits/model";
@@ -245,7 +246,7 @@ export default function SalesVisitsMap({
       </div>
       {showTerritories && <div className="sales-territory-legend">
         {territoryLoading && <p role="status">Carregando municípios…</p>}
-        {territoryError && <p role="alert">{territoryError}</p>}
+        {territoryError && <ActionNotice type="error" onClose={()=>setTerritoryError('')}>{territoryError}</ActionNotice>}
         {sellerNames.map(name => <span key={name}><i style={{background:sellerColor(name)}} />{name}</span>)}
         {territories && !territories.features.length && <p>Nenhum município disponível.</p>}
         {!!territories?.missing?.length && <details><summary>{territories.missing.length} municípios sem limite disponível</summary>{territories.missing.join(", ")}</details>}

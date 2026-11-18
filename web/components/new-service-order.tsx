@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import CrmProductCosts from "./crm-product-costs";
 import { proposalFinancials } from "@/lib/crm/financials";
 import {applyAverageCosts} from "@/lib/crm/product-cost-model";
@@ -535,9 +536,7 @@ export default function NewServiceOrder({
           </p>
         )}
         {error && (
-          <p role="alert" className="os-error">
-            {error}
-          </p>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
         )}
         {!proposal&&<OrderAttachments company={String(editing?.company||current?.company||form.company)} order={editing?.id||(current?.state==='complete'?String(current.m8Id):undefined)} files={attachmentFiles} onFilesChange={setAttachmentFiles} disabled={busy||active} onBusy={setAttachmentBusy}/>}
         {current?.state==='complete'&&<Link href={`/historico?createdCompany=${current.company}&createdOrder=${editing?.id||current.m8Id}`}>Ver OS salva</Link>}

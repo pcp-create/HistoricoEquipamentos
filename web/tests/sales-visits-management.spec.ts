@@ -66,7 +66,7 @@ test('management denial does not render consolidated information',async({page,co
  await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
  await page.route('**/api/visits/management',r=>r.fulfill({status:403,json:{error:'A Gestão de Visitas está disponível somente para administradores.'}}));
  await page.goto('/visitas/gestao');
- await expect(page.locator('.sales-error[role=alert]')).toContainText('somente para administradores');
+ await expect(page.getByRole('alert').filter({hasText:'somente para administradores'})).toContainText('somente para administradores');
  await expect(page.locator('.sales-management-kpis')).toHaveCount(0);
 });
 

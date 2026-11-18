@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useState } from "react";
 import { Plus, Search, ArrowLeft, ListFilter } from "lucide-react";
 import SiteHeader from "./site-header";
@@ -51,7 +52,7 @@ export function EquipmentOccurrenceHistory({
   return (
     <section className="manual-card bo-history">
       <h2>B.O · Histórico de ocorrências</h2>
-      {error && <p role="alert">{error}</p>}
+      {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
       {loading ? (
         <p>Consultando ocorrências…</p>
       ) : (
@@ -275,8 +276,8 @@ export default function EquipmentOccurrences() {
             </div>
           )}
         </section>
-        {error && <p role="alert">{error}</p>}
-        {message && <p role="status">{message}</p>}
+        {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
+        {message && <ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
         {form && equipment && (
           <form className="manual-card bo-form" onSubmit={save}>
             <h2>Nova ocorrência</h2>

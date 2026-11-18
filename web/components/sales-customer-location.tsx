@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MapPin, Pencil, Save, X, LocateFixed } from "lucide-react";
 import type { VisitCustomer } from "@/lib/visits/model";
@@ -127,7 +128,7 @@ export default function SalesCustomerLocation({ customer, onSaved, draft = false
     {!draft && !point && <p className="sales-muted">Cliente sem posição cadastrada. Selecione “Alterar localização” e mova o mapa até o local desejado.</p>}
     {editing && <><p className="sales-muted">Arraste o mapa até que o local desejado fique sob o marcador central. {draft ? "A posição será salva junto com o cadastro do Lead e o agendamento." : "A alteração será salva para este cliente no módulo Visitas."}</p>
       {!draft && <div className="sales-actions"><button type="button" disabled={busy} onClick={cancel}><X size={16}/>Cancelar</button><button type="button" className="sales-primary" disabled={busy || !point} onClick={()=>void save()}><Save size={16}/>{busy?"Salvando…":"Salvar localização"}</button></div>}</>}
-    {error && <p className="sales-error" role="alert">{error}</p>}
+    {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
     {!draft && <section className="sales-lead-address" aria-label="Endereço do cliente">
       <div className="sales-lead-address-heading"><strong>Endereço do cliente</strong></div>
       <dl><div><dt>Cidade / UF</dt><dd>{[resolvedAddress?.city || customer.city,resolvedAddress?.uf || customer.uf].filter(Boolean).join(" / ") || "Não informado"}</dd></div>

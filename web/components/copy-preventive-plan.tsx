@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEffect,useRef,useState} from "react";
 import {Copy} from "lucide-react";
 import {apiFetch} from "@/lib/client-api-cache";
@@ -19,7 +20,7 @@ export default function CopyPreventivePlan({disabled,onCopy}:{disabled:boolean;o
     <dialog ref={dialog} className="copy-preventive-dialog" onCancel={()=>setOpen(false)} aria-label="Copiar plano existente">
       <h2>Copiar plano existente</h2><p>Copie nome, intervalos, observações, produtos e serviços. A última intervenção e a OS de origem não serão copiadas.</p>
       <label>Buscar plano ou equipamento<input type="search" value={q} onChange={e=>{setQ(e.target.value);setPage(0);}} placeholder="Plano, equipamento ou série"/></label>
-      {error&&<p role="alert">{error}</p>}{loading?<p role="status">Carregando planos…</p>:<div className="copy-preventive-results">{rows.map(row=><article key={row.id}>
+      {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}{loading?<p role="status">Carregando planos…</p>:<div className="copy-preventive-results">{rows.map(row=><article key={row.id}>
         <div><strong>{row.document.name}</strong><small>{row.equipment_name} · Série {row.serial||"não informada"}</small><small>{row.document.hours ? `${row.document.hours} h` : ""} {row.document.months ? `· ${row.document.months} meses` : ""} · {row.document.items?.length||0} itens</small></div>
         <button type="button" disabled={disabled} onClick={()=>{const d=row.document;onCopy({name:d.name,hours:d.hours,months:d.months,notes:d.notes||"",items:structuredClone(d.items||[]),lastDate:"",lastMeter:"",lastOrder:""});setOpen(false);}}>Usar este plano</button>
       </article>)}{!rows.length&&!error&&<p>Nenhum plano encontrado.</p>}</div>}

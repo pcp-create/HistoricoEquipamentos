@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {X,MessageSquare} from 'lucide-react';
@@ -29,7 +30,7 @@ export default function OrderCommentsDialog({company,order,number,onClose,onSave
  return createPortal(<dialog ref={dialog} className="order-comments-dialog" aria-label={`Comentários da OS ${number}`} onCancel={e=>{e.preventDefault();close();}}>
   <header><h2><MessageSquare size={20}/>Comentários da OS {number}</h2><button type="button" aria-label="Fechar comentários" disabled={busy} onClick={close}><X size={20}/></button></header>
   <form onSubmit={save}><label>Novo comentário<AutoResizeTextarea rows={3} maxLength={8000} required disabled={busy} value={text} onChange={e=>setText(e.target.value)}/></label><button type="submit" disabled={busy||reading||!text.trim()}>{busy?'Salvando…':'Salvar comentário'}</button><small>O comentário fica no sistema e no histórico de ações da OS.</small></form>
-  {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
+  {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}{message&&<ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
   <section aria-label="Todos os comentários da OS"><div className="order-comments-heading"><h3>Todos os comentários</h3><button type="button" disabled={reading||busy} onClick={()=>void load()}>Atualizar comentários</button></div>
    {rows.map(row=><article key={row.id}><p>{row.comment}</p><small><b>{row.author}</b> · <time dateTime={row.at}>{new Date(row.at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</time></small></article>)}
    {!reading&&!rows.length&&!error&&<p>Nenhum comentário registrado para esta OS.</p>}{reading&&<p role="status">Carregando comentários…</p>}{more&&<button type="button" disabled={reading||busy} onClick={()=>void load(rows.at(-1)?.id)}>Ver comentários anteriores</button>}

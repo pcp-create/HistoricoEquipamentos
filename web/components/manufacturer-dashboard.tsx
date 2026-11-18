@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {matchesSearch} from "@/lib/filters";
 import { apiFetch } from "@/lib/client-api-cache";
 import VersionPicker from "./version-picker";
@@ -378,7 +379,7 @@ export default function ManufacturerDashboard() {
                 </option>
               ))}
             </select>
-            {intervalsError && <small role="alert">{intervalsError}</small>}
+            {intervalsError && <ActionNotice type="error" onClose={()=>setIntervalsError('')}>{intervalsError}</ActionNotice>}
           </label>
           <label className="manual-check">
             <input
@@ -415,9 +416,7 @@ export default function ManufacturerDashboard() {
           </p>
         )}
         {error && (
-          <div role="alert" className="error">
-            {error}
-          </div>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
         )}
         {loading ? (
           <p role="status">Consultando catálogo…</p>

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
@@ -75,7 +76,7 @@ export default function MaterialPhoto({
         <small role="status">Carregando foto…</small>
       ) : error ? (
         <>
-          <small role="alert">{error}</small>
+          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
           <button
             type="button"
             className="photo-button"

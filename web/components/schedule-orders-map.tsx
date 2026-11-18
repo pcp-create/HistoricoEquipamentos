@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {flowStatusName,flowResponsible,flowResponsibleColor} from "@/lib/service-scheduling/flow-status";
 import { scheduleUrl } from "@/lib/service-scheduling/schedule-url";
 import { latestOpenProgramming, latestProgrammingStatus } from "@/lib/service-scheduling/latest-programming";
@@ -45,12 +46,13 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
   const [savingSeller, setSavingSeller] = useState(false);
   const savingSellerRef = useRef(false);
   const [sellerMessage, setSellerMessage] = useState("");
+  const [sellerFailed,setSellerFailed]=useState(false);
   const sellerChanged = !!municipality && municipalitySeller !== (municipality.seller === "Sem vendedor" ? "" : municipality.seller);
   async function saveMunicipalitySeller() {
     if (!municipality || !sellerChanged || savingSellerRef.current) return;
     savingSellerRef.current = true;
     setSavingSeller(true);
-    setSellerMessage("");
+    setSellerMessage("");setSellerFailed(false);
     try {
       const r = await apiFetch("/api/service-scheduling/territories", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:municipality.id,version:municipality.version,seller:municipalitySeller})});
       const result = await r.json();
@@ -59,7 +61,7 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
       setMunicipality((current: any) => ({...current,version:result.version,seller:result.seller || "Sem vendedor"}));
       setEditingSeller(false);
       setSellerMessage("Vendedor atualizado.");
-    } catch (e) { setSellerMessage(e instanceof Error ? e.message : "Não foi possível salvar."); }
+    } catch (e) { setSellerFailed(true);setSellerMessage(e instanceof Error ? e.message : "Não foi possível salvar."); }
     finally { savingSellerRef.current = false; setSavingSeller(false); }
   }
 
@@ -603,9 +605,7 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
       </div>
       {loading && <p role="status">Carregando localidades…</p>}
       {error && (
-        <p role="alert" className="schedule-map-error">
-          {error}
-        </p>
+        <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       {editing && (
         <form
@@ -698,11 +698,11 @@ export default function ScheduleOrdersMap({ schedules: sourceSchedules }: { sche
                   </svg>
                 </button>
               </div>
-              {sellerMessage && <p role="status">{sellerMessage}</p>}
+              {sellerMessage && <ActionNotice type={sellerFailed?'error':'success'} onClose={()=>setSellerMessage('')}>{sellerMessage}</ActionNotice>}
             </form> : <p>Clique em um município no mapa para editar o vendedor aqui.</p>}
 
             {territoryLoading && <p role="status">Carregando municípios…</p>}
-            {territoryError && <p role="alert">{territoryError}</p>}
+            {territoryError && <ActionNotice type="error" onClose={()=>setTerritoryError('')}>{territoryError}</ActionNotice>}
             {territories && <>
               <label>Vendedor<select aria-label="Vendedor" value={seller} onChange={e => setSeller(e.target.value)}><option value="">Todos os vendedores</option>{sellerNames.map(name => <option key={name}>{name}</option>)}</select></label>
               {sellerNames.map(name => <div key={name}><span style={{ background: sellerColor(name) }} />{name} · {territories.features.filter((f: any) => f.properties.seller === name).length}</div>)}

@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {technicianTimeChangesLocked} from "@/lib/service-scheduling/execution-locks";
 import {Plus,FilePenLine,Copy,Trash2} from "lucide-react";
 import TimeLogDeleteDialog from "./time-log-delete-dialog";
@@ -55,7 +56,7 @@ export default function ScheduleTimeLogs({
           {onRefresh && <button onClick={onRefresh}>Atualizar</button>}
         </div>
       )}
-      {replicationMessage && <p role="status">{replicationMessage}</p>}
+      {replicationMessage && <ActionNotice type="success" onClose={()=>setReplicationMessage('')}>{replicationMessage}</ActionNotice>}
       {replicating && (!technician||editableOperations.length>0) && <TeamMemberPicker title="Replicar apontamento" description="Os horários e as pausas deste apontamento serão copiados para os integrantes selecionados. Cada pessoa terá seu próprio registro." confirmLabel="Replicar apontamento"
         members={(data.users || []).filter((user:any)=>user.enabled!==false&&user.email!==replicating.row.actor&&(canManage||replicating.support.includes(user.email)))}
         onClose={()=>setReplicating(null)} onConfirm={async members=>{

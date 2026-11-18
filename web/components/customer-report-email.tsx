@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import {useEffect,useState} from 'react';
 import EmailRecipientsField from './email-recipients-field';
 import EmailMessageEditor from './email-message-editor';
@@ -89,9 +90,9 @@ export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=
   </fieldset>
   <EmailRecipientsField value={to} draft={recipientDraft} onChange={value=>{setTo(value);setConfirmSend(false);}} onDraftChange={value=>{setRecipientDraft(value);setConfirmSend(false);}} contacts={contacts} disabled={busy||savingContact||!contactsReady} canCreate={canCreate} onCreate={()=>setShowContact(!showContact)}>
   {showContact&&<fieldset disabled={savingContact||busy}><legend>Contato do cliente</legend>{[['email','E-mail do contato'],['name','Nome do contato'],['job_title','Cargo'],['phone','Telefone']].map(([key,label])=><label key={key}>{label}<input type={key==='email'?'email':'text'} value={(contact as any)[key]} maxLength={key==='phone'?40:key==='email'?254:160} onChange={e=>setContact({...contact,[key]:e.target.value})}/></label>)}<div className="scheduling-actions"><button type="button" onClick={()=>setShowContact(false)}>Cancelar cadastro</button><button type="button" disabled={!contact.name.trim()||!contact.email.trim()} onClick={()=>void saveContact()}>{savingContact?'Salvando…':'Salvar contato'}</button></div></fieldset>}
-  {showContact&&contactError&&<p role="alert">{contactError}</p>}
+  {showContact&&contactError&&<ActionNotice type="error" onClose={()=>setContactError('')}>{contactError}</ActionNotice>}
   </EmailRecipientsField>
-  {!showContact&&contactError&&<p role="alert">{contactError}</p>}
+  {!showContact&&contactError&&<ActionNotice type="error" onClose={()=>setContactError('')}>{contactError}</ActionNotice>}
   <label>Nome do anexo<input aria-label="Nome do anexo" required maxLength={220} value={filename} disabled={busy||!contactsReady} onChange={e=>{setFilename(e.target.value);setFilenameEdited(true);}}/></label>
   <small>Relatório resumido em PDF. Este será o nome do arquivo anexado ao e-mail.</small>
   <label>Assunto<input required maxLength={300} value={subject} disabled={busy} onChange={e=>{setSubject(e.target.value);setSubjectEdited(true);}}/></label>
@@ -99,7 +100,7 @@ export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=
   <EmailMessageEditor initialText={body} initialHtml={bodyHtml} resetKey={bodyResetKey} disabled={busy||!contactsReady} onChange={(text,html)=>{setBody(text);setBodyHtml(html);setBodyEdited(true);setEditedEquipment(equipmentSignature);}}/>
   <p>Confira os destinatários, o nome do anexo e a mensagem antes de enviar ou criar o rascunho.</p>
   {!config.gmailClientId&&<small>Para criar o rascunho diretamente no Gmail, configure a conexão Google em Configurações → Envio por e-mail.</small>}
-  {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
+  {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}{message&&<ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
   {gmailHelp&&<a href={'https://console.cloud.google.com/apis/library/gmail.googleapis.com?project='+encodeURIComponent(config.gmailClientId.split('-')[0])} target="_blank" rel="noopener noreferrer">Abrir Gmail API no Google Cloud para ativar</a>}
   {gmailUrl&&<a href={gmailUrl} target="_blank" rel="noreferrer">Abrir rascunhos no Gmail</a>}
   {confirmSend&&<div role="dialog" aria-label="Confirmar envio do relatório"><p>Enviar o relatório para {effectiveTo}?</p><p>Anexo: {filename}</p><p>Operações: {operations.filter(op=>selectedIds.includes(op.id)).map(op=>operationNumber(op.position)).join(', ')}</p><button type="button" disabled={busy} onClick={()=>gmail(true)}>Confirmar envio</button><button type="button" onClick={()=>setConfirmSend(false)}>Cancelar envio</button></div>}

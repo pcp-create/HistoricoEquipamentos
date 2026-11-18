@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import OrderSearchSelect, { type OrderChoice } from "./order-search-select";
@@ -160,7 +161,7 @@ export default function EquipmentCreateDialog({
               onChange={setSelectedEquipment}
             />
           </label>
-          {error && <p role="alert">{error}</p>}
+          {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
           <button
             type="button"
             className="ws-primary"

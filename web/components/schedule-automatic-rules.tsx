@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import SaveActionIcon from "./save-action-icon";
 import { useState } from "react";
 import { Plus, Trash2, ArrowDown, GitBranch } from "lucide-react";
@@ -267,7 +268,7 @@ export default function ScheduleAutomaticRules({
           a partir desse momento. OSs já cadastradas e programações existentes
           permanecem como estão, mesmo que sejam atualizadas posteriormente.
         </p>
-        {error && <p role="alert">{error}</p>}
+        {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
         {preview && (
           <p role="status">
             {preview.matching} OSs correspondentes na base atual (simulação).

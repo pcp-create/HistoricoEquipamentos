@@ -1,4 +1,5 @@
 "use client";
+import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatContactPhone } from "@/lib/contact-phone";
@@ -213,7 +214,7 @@ export default function ContactJobEditor({
             onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
           />
         </label>
-        {error && <p role="alert">{error}</p>}
+        {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
         <footer>
           {onDeleted && <ContactDeleteButton customer={customer} contact={contact} disabled={busy} onDeleted={onDeleted}/>}
           <button type="button" disabled={busy} onClick={onClose}>
