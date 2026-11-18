@@ -1004,8 +1004,8 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
               <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
             )}
             {scheduleOnly && <div className="sales-visit-seller-field">
-              <label>Vendedor responsável</label>
-              <OrderSearchSelect label="Vendedor responsável" value={form.seller || ""}
+              <label>Nome do visitante</label>
+              <OrderSearchSelect label="Nome do visitante" value={form.seller || ""}
                 placeholder="Selecione ou pesquise o usuário" disabled={loading || busy}
                 options={(data?.assignees || []).map(user=>({id:user.id,displayId:"",name:user.name,detail:user.id}))}
                 onChange={user=>setForm({...form,seller:user.id,customer_key:"",contact_id:"",contact:"",phone:""})}/>

@@ -114,7 +114,7 @@ test('management schedules a visit without leaving the page',async({page,context
  await expect(dialog).toBeVisible();
  await expect(dialog).toContainText('Quem cria a visita fica em Acompanhamento');
  await expect(dialog.getByLabel('Agendar lembrete da tarefa para o vendedor')).toBeVisible();
- await dialog.getByRole('combobox',{name:'Vendedor responsável',exact:true}).click();
+ await dialog.getByRole('combobox',{name:'Nome do visitante',exact:true}).click();
  await dialog.getByRole('option').filter({hasText:'Vendedor A'}).click();
  await dialog.getByRole('combobox',{name:'Cliente',exact:true}).click();
  await dialog.getByRole('option').first().click();
@@ -188,7 +188,7 @@ test('management customer tabs scroll on mobile and floating action schedules vi
  expect(await action.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
  await action.click();
  await expect(page.getByRole('dialog',{name:'Formulário de visita'})).toBeVisible();
- await expect(page.getByRole('combobox',{name:'Vendedor responsável'})).toBeVisible();
+ await expect(page.getByRole('combobox',{name:'Nome do visitante'})).toBeVisible();
 });
 
 test('map hides customers whose visits do not match status and period',async({page,context})=>{
@@ -258,7 +258,7 @@ test('management customer cards expose machines, scheduling and historical regis
  await card.getByRole('button',{name:'Registrar',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Formulário de visita'});
  await expect(dialog.getByRole('combobox',{name:'Cliente',exact:true})).toHaveValue('Cliente A · Lages/SC');
- await expect(dialog.getByRole('combobox',{name:'Vendedor responsável',exact:true})).toHaveValue('Vendedor A');
+ await expect(dialog.getByRole('combobox',{name:'Nome do visitante',exact:true})).toHaveValue('Vendedor A');
  await pickDateTime(page,'Data e hora da realização','2026-01-10T10:00');
  await dialog.getByRole('combobox',{name:'Finalidade da Visita',exact:true}).fill('Prospec');
  await dialog.getByRole('listbox').getByRole('option').first().click();
@@ -312,7 +312,7 @@ test('scheduling aligns seller and contacts and exposes new contact for customer
  await page.goto('/visitas/gestao');
  await page.getByRole('button',{name:'Agendar visita',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Formulário de visita'});
- const seller=dialog.getByRole('combobox',{name:'Vendedor responsável',exact:true});
+ const seller=dialog.getByRole('combobox',{name:'Nome do visitante',exact:true});
  const sellerBox=await seller.boundingBox();
  const dialogBox=await dialog.boundingBox();
  expect(sellerBox!.width).toBeGreaterThan(dialogBox!.width*.8);
