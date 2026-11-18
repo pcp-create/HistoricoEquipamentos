@@ -488,17 +488,7 @@ export function TaskDrawer({
                     <RotateCcw size={17}/>Reabrir tarefa
                   </button>
                 )}
-              {t.status !== "completed" &&
-                manuallyCompletableTask(t) && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className="task-complete-action"
-                    onClick={() => void save("move")}
-                  >
-                    <CircleCheck size={17}/>Concluir tarefa
-                  </button>
-                )}
+
               </div>
               {t.source_key?.startsWith("time-request:")&&<TimeRequestApproval task={t} onChanged={(message: string) => { onChanged?.(); onClose(message); }}/>}
               <dl>
@@ -659,6 +649,18 @@ export function TaskDrawer({
               </div>
             </section>
           </aside>
+          {t.status !== "completed" && manuallyCompletableTask(t) && (
+            <footer className="task-completion-footer">
+              <button
+                type="button"
+                disabled={busy}
+                className="task-complete-action"
+                onClick={() => void save("move")}
+              >
+                <CircleCheck size={17}/>Concluir tarefa
+              </button>
+            </footer>
+          )}
         </div>
       )}
     </dialog>

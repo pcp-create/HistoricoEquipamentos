@@ -475,17 +475,7 @@ export function TaskDrawer({
                     <RotateCcw size={17}/>Reabrir tarefa
                   </button>
                 )}
-              {t.status !== "completed" &&
-                t.source_key?.startsWith("manual:") && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className="task-complete-action"
-                    onClick={() => void save("move")}
-                  >
-                    <CircleCheck size={17}/>Concluir tarefa
-                  </button>
-                )}
+
               </div>
               <dl>
                 <dt>Status</dt>
@@ -645,6 +635,11 @@ export function TaskDrawer({
               </div>
             </section>
           </aside>
+          {t.status !== "completed" && t.source_key?.startsWith("manual:") && (
+            <footer className="task-completion-footer">
+              <button type="button" disabled={busy} className="task-complete-action" onClick={() => void save("move")}><CircleCheck size={17}/>Concluir tarefa</button>
+            </footer>
+          )}
         </div>
       )}
     </dialog>
