@@ -19,11 +19,10 @@ Não há restrição por cargo: uma pessoa pode atuar como técnico e vendedor.
 - Tarefas: prazo das tarefas atribuídas ou em acompanhamento. Tarefas restritas
   só aparecem para administradores. Tarefas sem prazo continuam na lista de tarefas.
 
-Todos os eventos são projetados das tabelas originais a cada consulta. Não há cópia,
-recriação de agendamentos, migração SQL ou mudança no integrador. Alterar ou excluir
+Eventos de operações, visitas e tarefas são projetados das tabelas originais a cada consulta. Não há cópia ou recriação desses agendamentos nem mudança no integrador. Compromissos e ausências têm tabela própria, descrita abaixo. Alterar ou excluir
 um registro reflete nas agendas após atualização. A agenda atualiza ao retornar à
 janela, reconectar e a cada minuto; ações dos portais também atualizam os dados.
-A agenda pessoal não amplia acesso a compromissos de outros usuários. No módulo
+Nos portais, a agenda começa nos eventos do próprio usuário. No calendário geral, o filtro de funcionário permite consultar a equipe, respeitando a visibilidade dos compromissos e a restrição das tarefas. No módulo
 Tarefas, o calendário preserva a abrangência da lista e seus filtros de responsável,
 equipamento e situação, usando apenas os registros já autorizados no módulo. A gestão de
 visitas mantém sua visão de equipe e as permissões atuais.
@@ -48,3 +47,24 @@ programação já baixada. Visitas e tarefas abrem o portal web correspondente.
 Validação: testes PostgreSQL com PGlite para acesso e limites de datas; navegador
 com os componentes reais dos dois portais, filtros e tela móvel; teste do pacote
 nativo com SQLite, abertura da operação pela agenda e consulta com servidor suspenso.
+
+## Calendário geral: equipe e compromissos
+
+O calendário geral permite selecionar Meus eventos, Todos os funcionários ou um
+funcionário ativo. A API aceita `employee=me|all|email`; a identidade autenticada
+continua vindo da sessão. Tarefas restritas continuam limitadas aos administradores.
+O nome do responsável aparece nos eventos da equipe. Os portais continuam iniciando
+na agenda pessoal.
+
+A migration `web/sql/119_calendar_appointments.sql` adiciona compromissos pessoais,
+folgas, férias e outros eventos, com início/fim em Brasília, dia inteiro, título,
+descrição e visibilidade privada ou para a equipe. O padrão é visível para a equipe. Cada usuário
+ativo gerencia os próprios registros; administradores também podem cadastrar para
+outros funcionários. Cancelamento é lógico e as alterações geram auditoria.
+Atualizações exigem a versão corrente. Esses eventos não alteram programação de OS,
+visitas, tarefas ou regras trabalhistas automaticamente.
+
+`POST /api/calendar` exige sessão e mesma origem. `GET` inclui os novos eventos
+somente com `appointments=1`, preservando a compatibilidade com APKs antigos que
+conhecem apenas operações, visitas e tarefas. O cadastro está disponível na versão
+web do calendário geral, sem exigir atualização do APK.

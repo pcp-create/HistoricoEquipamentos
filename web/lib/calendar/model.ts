@@ -2,6 +2,7 @@ export const calendarSources = {
   operations: "Operações de OSs",
   visits: "Visitas",
   tasks: "Tarefas",
+  appointments: "Compromissos e ausências",
 } as const;
 export type CalendarSource = keyof typeof calendarSources;
 export type CalendarEvent = {
@@ -16,6 +17,8 @@ export type CalendarEvent = {
   status: string;
   state: "pending" | "completed" | "cancelled";
   href: string;
+  employee?: string;
+  appointment?: {owner:string;kind:string;start:string;end:string;allDay:boolean;visibility:string;version:number;editable:boolean};
 };
 export function calendarDay(value: Date | string = new Date()) {
   return new Intl.DateTimeFormat("en-CA", {

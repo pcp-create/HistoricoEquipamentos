@@ -10,7 +10,8 @@ import {
 test("personal calendar combines technician, seller and follower events without leaking other users or restricted tasks", async () => {
   const db = new PGlite();
   try {
-    await db.exec(`CREATE TABLE web_user_access(email text,enabled boolean,role text,display_name text);
+    await db.exec(`CREATE TABLE web_calendar_appointments(id uuid,owner text,title text,kind text,starts_at timestamptz,ends_at timestamptz,all_day boolean,visibility text,description text,version int,cancelled_at timestamptz);
+ CREATE TABLE web_user_access(email text,enabled boolean,role text,display_name text);
  INSERT INTO web_user_access VALUES('dual@test',true,'user','Técnico e vendedor'),('admin@test',true,'admin','Admin'),('disabled@test',false,'user','Inativo');
  CREATE TABLE web_service_schedules(id int,company_id int,order_id int,active boolean);
  INSERT INTO web_service_schedules VALUES(1,1,101,true),(2,1,102,false);
@@ -48,6 +49,13 @@ test("personal calendar combines technician, seller and follower events without 
       "2026-11-18",
       db,
     );
+    const all=await calendarEvents('dual@test','2026-11-18','2026-11-18',db,'all');
+    assert(all.events.some(e=>e.id==='operation:3'));
+    assert(all.events.some(e=>e.id==='visit:5'));
+    assert(!all.events.some(e=>e.id==='task:3'));
+    await db.exec(`INSERT INTO web_calendar_appointments VALUES('11111111-1111-4111-8111-111111111111','other@test','Privado','personal','2026-11-18T03:00Z','2026-11-19T02:59Z',true,'private','',1,null),('22222222-2222-4222-8222-222222222222','other@test','Folga','leave','2026-11-18T03:00Z','2026-11-20T02:59Z',true,'team','',1,null)`);
+    const appointments=(await calendarEvents('dual@test','2026-11-18','2026-11-19',db,'all',true)).events.filter(e=>e.source==='appointments');
+    assert.equal(appointments.length,2);assert(appointments.every(e=>e.title==='Folga'&&!e.appointment?.editable));
     assert.deepEqual(
       result.events.map((e) => e.id).sort(),
       [

@@ -235,3 +235,11 @@
   border-color: #86c59f;
   background: #effaf2;
 }
+.calendar-appointment-dialog {width:min(560px,calc(100vw - 32px));max-height:90vh;overflow:auto;border:1px solid #dce6f0;border-radius:14px;padding:22px;color:#284e70;}
+.calendar-appointment-dialog::backdrop {background:#173c6166;}
+.calendar-appointment-dialog header,.calendar-appointment-dialog footer {display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;}
+.calendar-appointment-dialog header button {border:0;background:transparent;font-size:24px;}
+.calendar-appointment-dialog fieldset {border:0;padding:0;display:grid;gap:14px;margin:18px 0;min-width:0;}
+.calendar-appointment-dialog label {display:grid;gap:6px;}
+.calendar-appointment-dialog input:not([type=checkbox]),.calendar-appointment-dialog select,.calendar-appointment-dialog textarea {width:100%;box-sizing:border-box;padding:10px;border:1px solid #cbdcec;border-radius:8px;font:inherit;}
+.unified-calendar-event--appointments {border-left:4px solid #8060b5;}

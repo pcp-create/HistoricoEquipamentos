@@ -9,6 +9,7 @@ import {
   MapPin,
   ClipboardList,
 } from "lucide-react";
+import CalendarAppointmentForm from "./calendar-appointment-form";
 import ActionNotice from "./action-notice";
 import {
   calendarDay,
@@ -20,7 +21,7 @@ import {
   type CalendarSource,
 } from "@/lib/calendar/model";
 import "./unified-calendar.css";
-const icons = { operations: Wrench, visits: MapPin, tasks: ClipboardList };
+const icons = { operations: Wrench, visits: MapPin, tasks: ClipboardList, appointments: CalendarDays };
 const stateLabels = {
   pending: "Pendente",
   completed: "Concluído",
@@ -34,6 +35,7 @@ const operationStatuses: Record<string, string> = {
   scheduled: "Programada",
 };
 export default function UnifiedCalendar({
+  general = false,
   initialSource = "all",
   renderEvent,
   onOpen,
@@ -43,6 +45,7 @@ export default function UnifiedCalendar({
   onDayChange,
   taskEvents,
 }: {
+  general?: boolean;
   initialSource?: CalendarSource | "all";
   renderEvent?: (event: CalendarEvent) => ReactNode;
   onOpen?: (event: CalendarEvent) => void;
@@ -52,6 +55,11 @@ export default function UnifiedCalendar({
   onDayChange?: (day: string) => void;
   taskEvents?: CalendarEvent[];
 }) {
+  const [appointment,setAppointment]=useState<CalendarEvent|"new"|null>(null);
+  const [identity,setIdentity]=useState({email:"",canManage:false});
+  const [message,setMessage]=useState("");
+  const [employee,setEmployee]=useState("me");
+  const [employees,setEmployees]=useState<{id:string;name:string}[]>([]);
   const [day, setDay] = useState(calendarDay),
     [view, setView] = useState<"month" | "week" | "day">("month"),
     [source, setSource] = useState<string>(initialSource),
@@ -74,7 +82,7 @@ export default function UnifiedCalendar({
     setLoading(true);
     setError("");
     setFailed(false);
-    fetch(`/api/calendar?start=${range.start}&end=${range.end}`, {
+    fetch(`/api/calendar?appointments=1&start=${range.start}&end=${range.end}${general?"&employee="+encodeURIComponent(employee):""}`, {
       cache: "no-store",
       signal: controller.signal,
     })
@@ -84,7 +92,9 @@ export default function UnifiedCalendar({
           throw Error(data.error || "Não foi possível atualizar o calendário.");
         if (!controller.signal.aborted) {
           setEvents(data.events);
-          setLoadedRange(range.start + range.end);
+          setEmployees(data.employees || []);
+          setIdentity({email:data.email,canManage:!!data.canManageAppointments});
+          setLoadedRange(range.start + range.end + employee);
           setUpdated(data.updatedAt);
         }
       })
@@ -98,7 +108,7 @@ export default function UnifiedCalendar({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [range.start, range.end, retry, revision]);
+  }, [range.start, range.end, retry, revision, general, employee]);
   useEffect(() => {
     const update = () => setRetry((r) => r + 1);
     const timer = window.setInterval(update, 60000);
@@ -110,7 +120,7 @@ export default function UnifiedCalendar({
       window.removeEventListener("online", update);
     };
   }, []);
-  const currentEvents = loadedRange === range.start + range.end ? events : [];
+  const currentEvents = loadedRange === range.start + range.end + employee ? events : [];
   const availableEvents =
     failed && !currentEvents.length
       ? fallbackEvents.filter(
@@ -174,14 +184,15 @@ export default function UnifiedCalendar({
         <Icon size={18} aria-hidden />
         <div>
           <small>
-            {calendarSources[event.source]} · {event.time || "Sem horário"} ·{" "}
-            {operationStatuses[event.status] || stateLabels[event.state]}
+            {calendarSources[event.source]} · {event.appointment?.allDay?"Dia inteiro":event.time || "Sem horário"} ·{" "}
+            {event.appointment ? ({personal:"Compromisso pessoal",leave:"Folga",vacation:"Férias",other:"Outro"} as Record<string,string>)[event.appointment.kind] : operationStatuses[event.status] || stateLabels[event.state]}
           </small>
           <strong>{event.title}</strong>
+          {general && event.employee && <span>{event.employee}</span>}
           {event.customer && <span>{event.customer}</span>}
           {event.description && <p>{event.description}</p>}
         </div>
-        {onOpen ? (
+        {event.appointment ? <button type="button" onClick={()=>setAppointment(event)}>Abrir</button> : onOpen ? (
           <button type="button" onClick={() => onOpen(event)}>
             Abrir
           </button>
@@ -197,19 +208,22 @@ export default function UnifiedCalendar({
       aria-label="Calendário integrado"
       aria-busy={loading}
     >
+      {message&&<ActionNotice type="success" onClose={()=>setMessage('')}>{message}</ActionNotice>}
+      {appointment&&<CalendarAppointmentForm event={appointment==='new'?undefined:appointment} day={day} email={identity.email} employees={employees} canManage={identity.canManage} onClose={()=>setAppointment(null)} onSaved={()=>{setAppointment(null);setRetry(n=>n+1);setMessage('Compromisso atualizado.');}}/>}
+      {general&&<button type="button" disabled={!identity.email||loading} onClick={()=>setAppointment('new')}>Novo compromisso</button>}
       <div className="unified-calendar-title">
         <h2>
           <CalendarDays size={21} />
           {taskEvents
             ? "Agenda de tarefas e compromissos"
-            : "Minha agenda integrada"}
+            : general ? "Agenda integrada" : "Minha agenda integrada"}
         </h2>
         <a href="/calendario">Calendário geral</a>
       </div>
       <p>
         {taskEvents
           ? "Operações e visitas pessoais; tarefas conforme os filtros do módulo."
-          : "Seus compromissos de todos os módulos"}{" "}
+          : general ? "Compromissos de todos os módulos" : "Seus compromissos de todos os módulos"}{" "}
         · Horário de Brasília
       </p>
       <nav className="unified-calendar-sources" aria-label="Origem dos eventos">
@@ -227,6 +241,7 @@ export default function UnifiedCalendar({
         )}
       </nav>
       <div className="unified-calendar-filters">
+        {general&&<label>Funcionário<select aria-label="Funcionário" value={employee} onChange={e=>setEmployee(e.target.value)}><option value="me">Meus eventos</option><option value="all">Todos os funcionários</option>{employees.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select></label>}
         <label>
           Pesquisar
           <input

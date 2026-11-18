@@ -18,7 +18,7 @@ export default async function Page({
       <SiteHeader active="calendar" />
       <main className="general-calendar-page">
         <h1>Calendário geral</h1>
-        <UnifiedCalendar
+        <UnifiedCalendar general
           initialSource={
             source === "operations" || source === "visits" || source === "tasks"
               ? source
