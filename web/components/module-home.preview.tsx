@@ -4,6 +4,7 @@ import {useSessionAccess} from "./session-access";
 import Link from "next/link";
 import {equipmentSections} from "@/lib/equipment-sections";
 import {
+  CalendarDays,
   ArrowUpRight,
   ArrowLeft,
   Users,
@@ -16,6 +17,7 @@ import {
 import SiteHeader from "./site-header";
 
 const modules = [
+  {id:"calendario",title:"Calendário geral",icon:CalendarDays,description:"Operações, visitas e tarefas em uma agenda única.",links:[["Todos os meus eventos","/calendario"],["Operações de OSs","/calendario?source=operations"],["Visitas","/calendario?source=visits"],["Tarefas","/calendario?source=tasks"]],next:"Filtre os compromissos por módulo, situação e período."},
   {
     id: "crm",
     title: "Comercial",
@@ -114,7 +116,7 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
                 prefetch={false}
                 className="module-menu-item"
                 key={label}
-                href={href + "?module=" + selected.id}
+                href={href + (href.includes("?") ? "&" : "?") + "module=" + selected.id}
               >
                 {label}
                 <ArrowUpRight size={18} aria-hidden="true" />

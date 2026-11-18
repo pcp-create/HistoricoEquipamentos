@@ -280,7 +280,7 @@ async function cacheGet(url) {
     if (response.status === 401 || response.status === 403) return response;
     if (!response.ok) throw Error("Servidor indisponível.");
     const body = await response.clone().json();
-    const identity = url === "/api/field" ? body.email : owner;
+    const identity = url === "/api/field" ? body.email : url.startsWith("/api/calendar?") ? (body.email === owner ? owner : null) : owner;
     if (url === "/api/field" && body.email) await write([[body.email + ":server-home", body]]);
     if (identity) {
       const pending = (await read(identity + ":queue")) || [];
@@ -1021,6 +1021,7 @@ self.addEventListener("fetch", (event) => {
       if (
         req.method === "GET" &&
         (url.pathname === "/api/field" ||
+          url.pathname === "/api/calendar" ||
           url.pathname === "/api/field/map" ||
           url.pathname === "/api/field/time-requests" ||
           url.pathname === "/api/service-scheduling/equipment")

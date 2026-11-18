@@ -1,61 +1,123 @@
-import {test,expect} from '@playwright/test';
-
-test('seller calendar shows completed visits and filters status in month, week and day',async({page,context})=>{
- await page.clock.setFixedTime(new Date('2026-11-10T15:00:00Z'));
- await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
- const customers=['Agendada','Realizada','Cancelada'].map((name,index)=>({key:'m8:'+index,name,document:'',city:'Lages',uf:'SC',lead:false,health:'current',equipment:[]}));
- const visits=['scheduled','completed','cancelled'].map((status,index)=>({id:'v'+index,customer_key:'m8:'+index,seller:'seller@test',status,version:1,scheduled_at:'2026-11-'+(index?'09':'10')+'T12:00:00-03:00',completed_at:status==='completed'?'2026-11-09T13:00:00-03:00':null,contact:'Contato',phone:'47999999999',description:'',outcome:''}));
- await page.route('**/api/visits',r=>r.fulfill({json:{name:'Vendedor',customers,visits,purposes:[],sellers:[]}}));
- await page.goto('/visitas');
- await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
- await page.getByRole('button',{name:'Calendário',exact:true}).click();
- const calendar=page.getByRole('region',{name:'Calendário de visitas'}),rows=calendar.locator('.sales-visit-row');
- await expect(rows).toHaveCount(3);
- const yesterday=calendar.getByRole('button',{name:'09/11/2026: 2 visitas',exact:true});
- await expect(yesterday).not.toHaveClass(/field-calendar-overdue/);
- await page.getByLabel('Status da visita',{exact:true}).selectOption('completed');
- await expect(rows).toHaveCount(1);await expect(rows).toContainText('Realizada');
- await calendar.getByRole('button',{name:'Semana',exact:true}).click();
- await expect(rows).toHaveCount(1);await expect(rows).toContainText('Realizada');
- await calendar.getByRole('button',{name:'Dia',exact:true}).click();
- await calendar.getByLabel('Data do calendário',{exact:true}).fill('2026-11-09');
- await expect(rows).toHaveCount(1);await expect(rows).toContainText('Realizada');
- await page.getByLabel('Status da visita',{exact:true}).selectOption('cancelled');
- await expect(rows).toHaveCount(1);await expect(rows).toContainText('Cancelada');
- await calendar.getByRole('button',{name:'Mês',exact:true}).click();
- await expect(rows).toHaveCount(1);await expect(rows).toContainText('Cancelada');
- await page.getByLabel('Status da visita',{exact:true}).selectOption('scheduled');
- await expect(rows).toHaveCount(1);await expect(rows).toContainText('Agendada');
- await page.getByLabel('Status da visita',{exact:true}).selectOption('all');
- await expect(rows).toHaveCount(3);
- await calendar.getByRole('button',{name:'09/11/2026: 2 visitas',exact:true}).click();
- await expect(rows).toHaveCount(2);await expect(calendar.getByRole('heading',{name:'Visitas de 09/11/2026'})).toBeVisible();
+import { test, expect, type Page, type BrowserContext } from "@playwright/test";
+async function openCalendar(page: Page, context: BrowserContext) {
+  await page.clock.setFixedTime(new Date("2026-11-10T15:00:00Z"));
+  await context.addCookies([
+    { name: "m8-refresh", value: "test", domain: "localhost", path: "/" },
+  ]);
+  const customers = ["Agendada", "Realizada", "Cancelada"].map(
+    (name, index) => ({
+      key: "m8:" + index,
+      name,
+      document: "",
+      city: "Lages",
+      uf: "SC",
+      lead: false,
+      health: "current",
+      equipment: [],
+    }),
+  );
+  const visits = ["scheduled", "completed", "cancelled"].map(
+    (status, index) => ({
+      id: "v" + index,
+      customer_key: "m8:" + index,
+      seller: "seller@test",
+      status,
+      version: 1,
+      scheduled_at: "2026-11-10T12:00:00-03:00",
+      completed_at: status === "completed" ? "2026-11-10T13:00:00-03:00" : null,
+      contact: "Contato",
+      phone: "47999999999",
+      description: "",
+      outcome: "",
+    }),
+  );
+  const events = visits.map((v, i) => ({
+    id: "visit:" + v.id,
+    source: "visits",
+    sourceId: v.id,
+    day: "2026-11-10",
+    time: "12:00",
+    title: "Visita comercial",
+    customer: customers[i].name,
+    description: "",
+    status: v.status,
+    state: v.status === "scheduled" ? "pending" : v.status,
+    href: "/visitas?visit=" + v.id,
+  }));
+  events.push({
+    id: "operation:op1",
+    source: "operations",
+    sourceId: "op1",
+    day: "2026-11-10",
+    time: "08:00",
+    title: "OS 15000 · Operação 01",
+    customer: "Cliente técnico",
+    description: "Manutenção",
+    status: "executing",
+    state: "pending",
+    href: "/tecnico?operation=op1",
+  });
+  await page.route("**/api/visits", (r) =>
+    r.fulfill({
+      json: { name: "Vendedor", customers, visits, purposes: [], sellers: [] },
+    }),
+  );
+  await page.route("**/api/calendar?*", (r) =>
+    r.fulfill({ json: { events, updatedAt: "2026-11-10T15:00:00Z" } }),
+  );
+  await page.goto("/visitas");
+  await page.getByRole("button", { name: /Visitas Sua carteira/ }).click();
+  await page.getByRole("button", { name: "Calendário", exact: true }).click();
+  return page.getByRole("region", { name: "Calendário integrado" });
+}
+test("seller calendar combines visits and OSs and preserves visit actions with source/status filters", async ({
+  page,
+  context,
+}) => {
+  const calendar = await openCalendar(page, context),
+    rows = calendar.locator(".sales-visit-row");
+  await expect(rows).toHaveCount(3);
+  await expect(calendar).toContainText("OS 15000");
+  await calendar.getByRole("button", { name: "Visitas", exact: true }).click();
+  await expect(calendar).not.toContainText("OS 15000");
+  await calendar.getByLabel("Situação dos eventos").selectOption("completed");
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText("Realizada");
+  await calendar.getByRole("button", { name: "Semana", exact: true }).click();
+  await expect(rows).toHaveCount(1);
+  await calendar.getByRole("button", { name: "Dia", exact: true }).click();
+  await expect(rows).toHaveCount(1);
+  await calendar.getByLabel("Situação dos eventos").selectOption("cancelled");
+  await expect(rows).toContainText("Cancelada");
+  await calendar.getByRole("button", { name: "Mês", exact: true }).click();
+  await expect(rows).toHaveCount(1);
+  await calendar.getByLabel("Situação dos eventos").selectOption("pending");
+  await expect(rows).toContainText("Agendada");
 });
-
-
-test('mobile calendar groups compact filters and separates counts with completed, overdue and neutral days',async({page,context})=>{
- await page.setViewportSize({width:390,height:844});
- await page.clock.setFixedTime(new Date('2026-11-10T15:00:00Z'));
- await context.addCookies([{name:'m8-refresh',value:'test',domain:'localhost',path:'/'}]);
- const entries=[['completed','05'],['completed','05'],['completed','06'],['scheduled','06'],['scheduled','12'],['cancelled','07']];
- const customer={key:'m8:1',name:'Cliente',document:'',city:'Lages',uf:'SC',lead:false,health:'current',equipment:[]};
- const visits=entries.map(([status,day],index)=>({id:'visit'+index,customer_key:customer.key,seller:'seller@test',status,version:1,scheduled_at:`2026-11-${day}T12:00:00-03:00`,contact:'Contato',phone:'47999999999',description:'',outcome:''}));
- await page.route('**/api/visits',r=>r.fulfill({json:{name:'Vendedor',customers:[customer],visits,purposes:[],sellers:[]}}));
- await page.goto('/visitas');await page.getByRole('button',{name:/Visitas Sua carteira/}).click();await page.getByRole('button',{name:'Calendário',exact:true}).click();
- const calendar=page.getByRole('region',{name:'Calendário de visitas'});
- const filters=page.locator('.sales-calendar-filters');
- await expect(filters.getByLabel('Status da visita',{exact:true})).toBeVisible();
- const selects=filters.locator('select'),portfolio=await selects.first().boundingBox(),status=await selects.last().boundingBox();
- expect(Math.abs(portfolio!.y-status!.y)).toBeLessThan(2);expect(status!.x).toBeGreaterThan(portfolio!.x);
- const completed=calendar.getByRole('button',{name:'05/11/2026: 2 visitas',exact:true});
- await expect(completed).toHaveClass(/visit-day-completed/);await expect(completed).toContainText('2');
- await expect(completed.locator('.visit-calendar-totals>span').first()).toContainText('2');await expect(completed.locator('.visit-calendar-totals>span')).toHaveCount(1);
- await expect(completed).not.toContainText('pend.');
- const overdue=calendar.getByRole('button',{name:'06/11/2026: 2 visitas',exact:true});
- await expect(overdue).toHaveClass(/visit-day-overdue/);await expect(overdue.locator('.visit-calendar-totals>span').first()).toContainText('1');await expect(overdue.locator('.visit-calendar-totals>span').nth(1)).toContainText('1');
- const pending=calendar.getByRole('button',{name:'12/11/2026: 1 visitas',exact:true});
- await pending.click();await expect(pending).toHaveClass(/visit-day-neutral/);expect(await pending.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgb(255, 255, 255)');
- await expect(calendar.getByRole('button',{name:'07/11/2026: 1 visitas',exact:true})).toHaveClass(/visit-day-neutral/);
- expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
- await page.screenshot({path:'test-results/visits-calendar-mobile.png',fullPage:true});
+test("mobile integrated calendar fits the viewport and identifies sources on calendar days", async ({
+  page,
+  context,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const calendar = await openCalendar(page, context);
+  const today = calendar.getByRole("button", {
+    name: "10/11/2026: 4 eventos",
+    exact: true,
+  });
+  await expect(today).toBeVisible();
+  await expect(today.locator(".unified-calendar-dots i")).toHaveCount(2);
+  await calendar
+    .getByRole("button", { name: "Operações de OSs", exact: true })
+    .click();
+  await expect(calendar.locator(".sales-visit-row")).toHaveCount(0);
+  await expect(calendar.getByRole("article")).toHaveCount(1);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: "test-results/visits-calendar-mobile.png",
+    fullPage: true,
+  });
 });

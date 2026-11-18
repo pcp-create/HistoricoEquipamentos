@@ -1,4 +1,5 @@
 "use client";
+import UnifiedCalendar from "./unified-calendar";
 import ActionNotice from "./action-notice";
 import {operationTask,manuallyCompletableTask} from "@/lib/tasks/completion-policy";
 import TaskNoteDescription from "./task-note-description";
@@ -685,12 +686,7 @@ export default function TasksDashboard() {
     [newTaskType,setNewTaskType] = useState("standard"),
     [status, setStatus] = useState("active"),
     [query, setQuery] = useState(""),
-    [selected, setSelected] = useState<string | null>(params.get("task")),
-    [month, setMonth] = useState(() =>
-      new Date()
-        .toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" })
-        .slice(0, 7),
-    );
+    [selected, setSelected] = useState<string | null>(params.get("task"));
   const pan = useRef<{
     x: number;
     y: number;
@@ -1153,9 +1149,6 @@ export default function TasksDashboard() {
       "/tarefas" + (query.size ? "?" + query : ""),
     );
   }
-  const [year, mo] = month.split("-").map(Number),
-    offset = new Date(Date.UTC(year, mo - 1, 1)).getUTCDay(),
-    days = new Date(Date.UTC(year, mo, 0)).getUTCDate();
   return (
     <>
       <SiteHeader active="tasks" />
@@ -1824,53 +1817,8 @@ export default function TasksDashboard() {
               </div>
             ) : (
               <section className="task-card">
-                <label>
-                  Mês
-                  <input
-                    type="month"
-                    value={month}
-                    onChange={(e) => {
-                      if (e.target.value) setMonth(e.target.value);
-                    }}
-                  />
-                </label>
-                <p>Organizado pela data de vencimento do processo.</p>
-                <div className="task-calendar">
-                  {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(
-                    (d) => (
-                      <strong key={d}>{d}</strong>
-                    ),
-                  )}
-                  {Array.from({ length: offset }, (_, i) => (
-                    <div key={"blank" + i} />
-                  ))}
-                  {Array.from({ length: days }, (_, i) => {
-                    const key = month + "-" + String(i + 1).padStart(2, "0");
-                    return (
-                      <div key={key}>
-                        <b>{i + 1}</b>
-                        {rows
-                          .filter((t: any) => day(t.due_date) === key)
-                          .map((t: any) => (
-                            <button
-                              className="task-calendar-event"
-                              style={assigneeStyle(
-                                t.assigned_to,
-                                t.assignee_color,
-                              )}
-                              key={t.id}
-                              onClick={() => open(t.id)}
-                            >
-                              TAR-{t.id} · {t.equipment_name}
-                              <small>
-                                <TaskStatus task={t} />
-                              </small>
-                            </button>
-                          ))}
-                      </div>
-                    );
-                  })}
-                </div>
+                <p>A agenda mostra seus compromissos. Os filtros acima se aplicam às tarefas.</p>
+                <UnifiedCalendar initialSource="tasks" revision={data} taskEvents={rows.filter((task:any)=>task.due_date).map((task:any)=>({id:'task:'+task.id,source:'tasks' as const,sourceId:String(task.id),day:day(task.due_date),time:'',title:`TAR-${task.id} · ${task.title}`,customer:task.customer||'',description:task.equipment_name||'',status:task.status,state:task.status==='completed'?'completed' as const:'pending' as const,href:'/tarefas?task='+task.id}))} onOpen={event=>{if(event.source==='tasks')open(event.sourceId);else window.location.assign(event.href);}}/>
                 <h3>Sem data definida</h3>
                 {rows
                   .filter((t: any) => !t.due_date)

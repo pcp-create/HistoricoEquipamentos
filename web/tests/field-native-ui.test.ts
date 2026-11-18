@@ -19,9 +19,12 @@ test("packaged interface persists to SQLite and opens with suspended server", as
   let blocked = false;
   let internetOverride: boolean | null = null;
   let receivedPhotos = 0;
+  let calendarOwner='tech';
   const id = "10000000-0000-4000-8000-000000000001";
   const row = {
     id,
+    date: new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),
+    time: '08:00',
     schedule_id: 1,
     position: 1,
     number: "15025",
@@ -129,6 +132,12 @@ test("packaged interface persists to SQLite and opens with suspended server", as
       );
       return;
     }
+    if(url.pathname === "/api/calendar") {
+      res.end(JSON.stringify({email:calendarOwner,updatedAt:new Date().toISOString(),events:[
+        {id:'operation:'+id,source:'operations',sourceId:id,day:row.date,time:'08:00',title:'OS 15025 · Operação 01',customer:'Cliente de teste',description:'Inspeção',status:'awaiting_execution',state:'pending',href:'/tecnico?operation='+id},
+        {id:'visit:visit',source:'visits',sourceId:'visit',day:row.date,time:'14:00',title:'Visita comercial',customer:'Lead do técnico vendedor',description:'Apresentação',status:'scheduled',state:'pending',href:'/visitas?visit=visit'}
+      ]}));return;
+    }
     if (url.pathname === "/api/field/map") {res.end(JSON.stringify({technicians:[],orders:[]}));return;}
     if (url.pathname === "/api/field/time-requests") {
       res.end(
@@ -212,6 +221,20 @@ test("packaged interface persists to SQLite and opens with suspended server", as
     await page.getByRole("button",{name:"Mapa",exact:true}).click();
     await expect.poll(() => page.locator(".leaflet-tile-loaded").count()).toBeGreaterThan(0);
     assert.ok(await page.locator(".leaflet-tile-loaded").first().evaluate((img:HTMLImageElement) => img.naturalWidth > 0));
+    await page.getByRole("button",{name:"Calendário",exact:true}).click();
+    const calendar=page.getByRole('region',{name:'Calendário integrado'});
+    await expect(calendar.getByRole('article')).toHaveCount(2);
+    await expect(calendar).toContainText('Lead do técnico vendedor');
+    const calendarSnapshot=sqlite.prepare("SELECT key,value FROM records WHERE key LIKE 'tech:cache:/api/calendar?%' LIMIT 1").get()!;
+    assert.ok(calendarSnapshot);
+    calendarOwner='other';
+    await page.evaluate(async url=>(await fetch(url)).json(),String(calendarSnapshot.key).replace('tech:cache:',''));
+    assert.equal(sqlite.prepare('SELECT value FROM records WHERE key=?').get(calendarSnapshot.key)!.value,calendarSnapshot.value);
+    calendarOwner='tech';
+
+    await calendar.getByRole('article').filter({hasText:'OS 15025'}).getByRole('button',{name:'Abrir',exact:true}).click();
+    await expect(page.getByRole('dialog',{name:/OP01/})).toBeVisible();
+    await page.getByRole('dialog',{name:/OP01/}).getByRole('button',{name:'Voltar',exact:true}).click();
     await page.getByRole("button",{name:"Lista",exact:true}).click();
     await page.getByRole("button",{name:"Voltar ao menu",exact:true}).click();
     blocked = true;
@@ -220,6 +243,9 @@ test("packaged interface persists to SQLite and opens with suspended server", as
     await page
       .getByRole("button", { name: "Programação", exact: false })
       .click();
+    await page.getByRole('button',{name:'Calendário',exact:true}).click();
+    await expect(page.getByRole('region',{name:'Calendário integrado'})).toContainText('Lead do técnico vendedor');
+    await page.getByRole('button',{name:'Lista',exact:true}).click();
     await page.getByText("OS 15025", { exact: true }).click();
     await page.getByRole("button", { name: /OP01/ }).click();
     const dialog = page.getByRole("dialog", { name: /OP01/ });

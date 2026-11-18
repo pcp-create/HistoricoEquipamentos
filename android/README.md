@@ -1,9 +1,18 @@
-# Portal Técnico RJ — APK 2.2.27
+# Portal Técnico RJ — APK 2.2.28
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
 remota para carregar a interface e não depende do cache do Chrome para guardar trabalho.
 O servidor de autenticação e sincronização continua sendo https://rjcompressores.app.
+
+## Versão 2.2.28
+
+- Agenda integrada com operações de OSs, visitas comerciais e prazos das tarefas do usuário.
+- Filtros por origem, situação e pesquisa; visualização por mês, semana ou dia.
+- Consulta offline dos períodos já abertos, com isolamento por conta. A programação técnica baixada continua acessível se o período da agenda ainda não foi consultado.
+- Abrir uma operação na agenda mantém o atendimento dentro do aplicativo. Visitas e tarefas abrem seus respectivos portais.
+- Fechamento discreto das notificações com X no canto superior direito.
+- Instalar como atualização, preservando o banco local e as pendências.
 
 ## Versão 2.2.27
 

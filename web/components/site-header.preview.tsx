@@ -9,6 +9,7 @@ import { useSessionAccess } from "./session-access";
 import { useSearchParams } from "next/navigation";
 import { House, ChevronRight, LogOut, ShieldCheck } from "lucide-react";
 const moduleNames: Record<string, string> = {
+  calendario: "Calendário geral",
   oficina: "Gestão de Oficina",
   almoxarifado: "Almoxarifado",
   configuracoes: "Configurações",
@@ -20,6 +21,7 @@ const moduleNames: Record<string, string> = {
   equipamentos: "Gestão de Equipamentos",
 };
 const screens: Record<string, { label: string; modules: string[] }> = {
+  calendar: {label:"Calendário geral",modules:["calendario"]},
   occurrences: {label:"B.O",modules:["assistencia-tecnica"]},
   commercialContracts: {label:"Contratos",modules:["crm"]},
   commercialSales: {label:"Vendas",modules:["crm"]},
@@ -65,6 +67,7 @@ export default function SiteHeader({
   moduleId,
 }: {
   active:
+    | "calendar"
     | "occurrences"
     | "salesProjection"
     | "billingEvolution"

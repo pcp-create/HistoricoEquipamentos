@@ -1,0 +1,237 @@
+.unified-calendar {
+  background: #fff;
+  border: 1px solid #dce6f0;
+  border-radius: 14px;
+  padding: 20px;
+  color: #284e70;
+  min-width: 0;
+}
+.unified-calendar-title,
+.unified-calendar-title h2,
+.unified-calendar-navigation,
+.unified-calendar-navigation > div,
+.unified-calendar-sources {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.unified-calendar-title {
+  justify-content: space-between;
+}
+.unified-calendar-title h2 {
+  font-size: 20px;
+  margin: 0;
+}
+.unified-calendar > p {
+  font-size: 13px;
+  color: #657e96;
+}
+.unified-calendar-sources {
+  margin: 16px 0;
+}
+.unified-calendar.unified-calendar button {
+  border: 1px solid #ccdbeb;
+  border-radius: 7px;
+  background: white;
+  color: #285680;
+  padding: 8px 10px;
+  cursor: pointer;
+  min-height: 36px;
+  box-shadow: none;
+  white-space: normal;
+}
+.unified-calendar.unified-calendar button[aria-pressed="true"] {
+  background: #e9f3ff;
+  color: #175b97;
+  border-color: #4188c7;
+}
+.unified-calendar-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.unified-calendar-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  font-size: 13px;
+  min-width: 150px;
+}
+.unified-calendar.unified-calendar input,
+.unified-calendar.unified-calendar select {
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 14px;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid #ccdbeb;
+  border-radius: 7px;
+  background: #fff;
+  color: #284e70;
+}
+.unified-calendar-navigation {
+  margin: 12px 0;
+}
+.unified-calendar-navigation strong {
+  font-size: 14px;
+  text-transform: capitalize;
+}
+.unified-calendar-navigation > div:last-child {
+  margin-left: auto;
+}
+.unified-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+}
+.unified-calendar-grid[hidden] {
+  display: none;
+}
+.unified-calendar-grid > span {
+  text-align: center;
+  font-size: 12px;
+}
+.unified-calendar.unified-calendar .unified-calendar-grid button {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  padding: 8px 2px;
+  min-height: 75px;
+  font-size: 13px;
+}
+.unified-calendar-grid button small {
+  font-size: 10px;
+}
+.unified-calendar-grid button[aria-current="date"] {
+  box-shadow: inset 0 0 0 1px #285680;
+}
+.unified-calendar-dots {
+  display: flex;
+  gap: 4px;
+  min-height: 7px;
+}
+.unified-calendar-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.unified-calendar-dot--operations {
+  background: #2670b2;
+}
+.unified-calendar-dot--visits {
+  background: #25815c;
+}
+.unified-calendar-dot--tasks {
+  background: #8456ba;
+}
+.unified-calendar-event {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid #dce6f0;
+  border-left: 4px solid #2670b2;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0;
+  font-size: 13px;
+}
+.unified-calendar-event--visits {
+  border-left-color: #25815c;
+}
+.unified-calendar-event--tasks {
+  border-left-color: #8456ba;
+}
+.unified-calendar-event > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.unified-calendar-event small,
+.unified-calendar-event strong,
+.unified-calendar-event span {
+  display: block;
+}
+.unified-calendar-event small {
+  color: #667d92;
+  margin-bottom: 5px;
+}
+.unified-calendar-event p {
+  white-space: pre-wrap;
+  margin: 6px 0 0;
+}
+.unified-calendar-event > a {
+  padding: 6px;
+}
+.unified-calendar h3 {
+  font-size: 15px;
+  margin: 18px 0 10px;
+}
+.unified-calendar-custom {
+  margin: 8px 0;
+}
+.unified-calendar-agenda-day {
+  border-top: 1px solid #e3ebf2;
+  margin-top: 16px;
+}
+.unified-calendar a {
+  color: #1b65a4;
+}
+.general-calendar-page {
+  max-width: 1200px;
+  padding: 24px;
+  margin: auto;
+}
+.general-calendar-page > h1 {
+  font-size: 28px;
+}
+@media (max-width: 520px) {
+  .unified-calendar {
+    padding: 12px;
+  }
+  .unified-calendar-title h2 {
+    font-size: 18px;
+  }
+  .unified-calendar-navigation > div:last-child {
+    margin-left: 0;
+    width: 100%;
+  }
+  .unified-calendar.unified-calendar .unified-calendar-grid button {
+    min-height: 66px;
+  }
+  .unified-calendar-grid {
+    gap: 3px;
+  }
+  .unified-calendar-event {
+    padding: 10px 8px;
+  }
+  .general-calendar-page {
+    padding: 12px;
+  }
+}
+
+.unified-calendar-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.unified-calendar.unified-calendar .unified-calendar-date input {
+  width: 160px;
+}
+.unified-calendar-loading {
+  min-height: 18px;
+  margin: 4px 0;
+}
+.unified-calendar.unified-calendar .unified-calendar-day--overdue {
+  border-color: #e2a7aa;
+  background: #fff5f5;
+}
+.unified-calendar.unified-calendar .unified-calendar-day--completed {
+  border-color: #86c59f;
+  background: #effaf2;
+}
