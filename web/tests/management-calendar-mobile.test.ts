@@ -21,9 +21,10 @@ test('management calendar uses the seller mobile layout, counts and colors',asyn
  const number=await completed.locator(':scope>span').first().boundingBox(),cell=await completed.boundingBox();
  expect(number!.x-cell!.x).toBeLessThan(9);expect(number!.y-cell!.y).toBeLessThan(10);
  await expect(calendar.getByRole('button',{name:'06/11/2026: 2 visitas',exact:true})).toHaveClass(/visit-day-overdue/);
- await expect(calendar.getByRole('button',{name:'12/11/2026: 1 visitas',exact:true})).toHaveClass(/visit-day-neutral/);
+ const pending=calendar.getByRole('button',{name:'12/11/2026: 1 visitas',exact:true});await expect(pending).toHaveClass(/visit-day-neutral/);
+ await expect(pending.locator('.visit-calendar-totals>span')).toHaveCount(1);await expect(pending).toContainText('1');await expect(pending).not.toContainText('real.');await expect(completed).toContainText('real.');
  await page.getByRole('button',{name:/Filtros de pesquisa.*Expandir/}).click();
- const seller=await page.getByRole('combobox',{name:'Vendedor',exact:true}).boundingBox(),status=await page.getByRole('combobox',{name:'Status da visita',exact:true}).boundingBox();
+ const seller=await page.getByRole('combobox',{name:'Funcionário',exact:true}).boundingBox(),status=await page.getByRole('combobox',{name:'Status da visita',exact:true}).boundingBox();
  expect(Math.abs(seller!.y-status!.y)).toBeLessThan(2);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.setViewportSize({width:1440,height:1000});
