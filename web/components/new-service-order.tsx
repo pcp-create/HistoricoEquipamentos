@@ -3,6 +3,7 @@ import ActionNotice from "./action-notice";
 import CrmProductCosts from "./crm-product-costs";
 import { proposalFinancials } from "@/lib/crm/financials";
 import {applyAverageCosts} from "@/lib/crm/product-cost-model";
+import CrmProductTaxes from "./crm-product-taxes";
 import CrmProposalSummary from "./crm-proposal-summary";
 import CrmProposalItems from "./crm-proposal-items";
 import EquipmentWarrantyAlert from "./equipment-warranty-alert";
@@ -890,7 +891,8 @@ export default function NewServiceOrder({
                   ))}
                 </div>
               </details>
-              {proposal&&<CrmProposalItems active={tab==="material"||tab==="service"} kind={tab==="service"?"service":"material"} customer={form.customer} equipment={form.equipment} company={form.company} items={form.items} disabled={disabled||!!proposal.locked} onChange={items=>setForm(f=>({...f,items}))}/>}
+              {proposal&&<CrmProposalItems draft={form} active={tab==="material"||tab==="service"} kind={tab==="service"?"service":"material"} customer={form.customer} equipment={form.equipment} company={form.company} items={form.items} disabled={disabled||!!proposal.locked} onChange={items=>setForm(f=>({...f,items}))}/>}
+              {proposal&&["summary","material"].includes(tab)&&<CrmProductTaxes draft={form} onChange={setForm} disabled={disabled||!!proposal.locked}/> }
               {proposal&&tab==="summary"&&<CrmProposalSummary draft={form} names={names} disabled={disabled||!!proposal.locked} onChange={items=>setForm(current=>({...current,items}))}/>}
               {proposal&&tab==="service"&&<button type="button" className="primary" onClick={()=>setTab("summary")}>Continuar para Resumo geral</button>}
               {proposal&&tab==="material"&&<button type="button" className="primary" onClick={()=>setTab("service")}>Continuar para Serviços</button>}

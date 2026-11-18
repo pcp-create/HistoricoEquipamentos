@@ -1,4 +1,5 @@
 "use client";
+import CrmProductTerms from "./crm-product-terms";
 import { Trash2 } from "lucide-react";
 import {
   discountedUnitCents,
@@ -105,6 +106,7 @@ export default function CrmProposalSummary({
                               </a>
                             ) : item.code} · {item.name}
                           </strong>
+                          {kind === 'material' && <CrmProductTerms draft={draft} item={item} disabled={disabled} onChange={next=>onChange(draft.items.map(row=>row===item?next:row))}/>}
                           {item.notes?.trim() && (
                             <small className="crm-prewrap">
                               Observação: {item.notes}

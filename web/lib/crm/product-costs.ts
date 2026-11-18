@@ -20,8 +20,8 @@ export async function productAverageCosts(
     );
   if (!codes.length) return [];
   const result = await db.query(
-    `SELECT p.product_id::text code,p.unit,s.average_cost,s.cost_at
- FROM m8_product_catalog p LEFT JOIN (
+    `SELECT p.product_id::text code,p.unit,s.average_cost,s.cost_at,v.available,v.available_at
+ FROM m8_product_catalog p LEFT JOIN m8_product_current v USING(company_id,product_id) LEFT JOIN (
  SELECT product_id,${productAverageCostSql} average_cost,min(collected_at) cost_at
  FROM m8_product_stock WHERE company_id=$1 AND product_id=ANY($2::bigint[]) GROUP BY product_id
  ) s ON s.product_id=p.product_id WHERE p.company_id=$1 AND p.product_id=ANY($2::bigint[])`,
@@ -31,6 +31,8 @@ export async function productAverageCosts(
     const cost = row.average_cost == null ? NaN : Number(row.average_cost);
     return {
       code: row.code,
+      availableStock: row.available == null || !Number.isFinite(Number(row.available)) ? null : Number(row.available),
+      stockAt: row.available_at ? new Date(row.available_at).toISOString() : undefined,
       unit: row.unit,
       unitCost:
         Number.isFinite(cost) && cost >= 0 && cost < 100000000

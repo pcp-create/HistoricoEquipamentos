@@ -1,3 +1,4 @@
+import {taxKey} from "../lib/crm/product-terms";
 import {test,expect} from '@playwright/test';
 const opportunityId='10000000-0000-4000-8000-000000000001',proposalId='20000000-0000-4000-8000-000000000001';
 const draft={company:'1',type:'4',customer:'10',equipment:'',serviceType:'',origin:'',seller:'21',technician:'',payment:'',expected:'',delivery:'',situation:'',flowStatus:'',freight:'',notes:'',internalNotes:'',items:[],extra:{}};
@@ -18,13 +19,15 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  });
  await page.route('**/api/crm*',async r=>{
   const p=new URL(r.request().url()).searchParams;
-  if(r.request().method()==='GET'&&p.has('productCosts'))return r.fulfill({json:{rows:[{code:'50',unit:'UN',unitCost:'5',costAt:'2026-11-13T12:00:00.000Z'}]}});
+  if(r.request().method()==='GET'&&p.has('taxTypes'))return r.fulfill({json:{rows:[{id:'1',name:'Manutenção Preventiva'}]}});
+  if(r.request().method()==='GET'&&p.has('productCosts'))return r.fulfill({json:{rows:[{code:'50',unit:'UN',unitCost:'5',costAt:'2026-11-13T12:00:00.000Z',availableStock:2,stockAt:'2026-11-18T12:00:00.000Z'}]}});
   if(r.request().method()==='GET'&&['leads','customers','contacts','proposals','orders'].includes(p.get('kind')||'')){
    const kind=p.get('kind');const row=kind==='proposals'?{...proposal,type_name:'Preventiva Avulsa',order_count:0,updated_at:new Date().toISOString()}:kind==='orders'?{id:'order-1',order_id:800,proposal_id:proposalId,proposal_number:1,opportunity_id:opportunityId,opportunity_number:1,company_id:1,customer_name:'Cliente Teste',status:'complete',updated_at:new Date().toISOString()}:kind==='contacts'?{id:'contact-1',name:'Contato CRM',customer_name:'Cliente Teste',phone:'49999999999',email:'contato@example.com',job_title:'Compras'}:{id:'1',name:kind==='leads'?'Lead CRM':'Cliente CRM',owner_name:'Vendedor',document:'123',city:'Lages',uf:'SC',email:'cliente@example.com'};
    return r.fulfill({json:{rows:[row],total:1,page:1}});
   }
   if(r.request().method()==='GET')return r.fulfill({json:p.has('catalogs')?catalog:p.has('overview')?{opportunities:1,proposals:1,orders:0,converted:0,conversion:0}:p.has('opportunity')?op:p.has('proposal')?proposal:{rows:[{...op,type_name:'Manutenção',proposal_count:1,order_count:0,updated_at:new Date().toISOString()}],total:1,page:1}});
   const b=r.request().postDataJSON();writes.push(b);
+  if(b.action==='simulate-taxes')return r.fulfill({json:{draft:{...b.draft,items:b.draft.items.map((i:any)=>({...i,taxes:i.kind==='material'?{key:taxKey(b.draft,i),at:new Date().toISOString(),icms:389,icmsSt:0,ipi:108,pis:36,cofins:164}:undefined}))}}});
   if(b.action==='save-opportunity')return r.fulfill({json:op});
   if(b.action==='create-proposal')return r.fulfill({json:proposal});
   if(b.action==='save-proposal'){proposal={...proposal,title:b.title,status:b.status,version:proposal.version+1,document:b.draft,names:b.names};return r.fulfill({json:proposal});}
@@ -90,6 +93,21 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  await page.getByRole('spinbutton',{name:'Quantidade: Filtro histórico',exact:true}).fill('2');
  await page.getByRole('spinbutton',{name:'Venda unitária: Filtro histórico',exact:true}).fill('12.00');
 
+ await page.getByLabel('Tipo de orçamento fiscal (M8)').selectOption('1');
+ await page.getByLabel('Prazo sem estoque (dias úteis)').fill('15');
+ const terms=page.locator('.crm-summary-table').first().locator('.crm-product-terms');
+ await expect(terms).toContainText('Estoque disponível: 2');
+ await expect(terms).toContainText('Automático: Imediato');
+ await page.getByRole('button',{name:'Calcular impostos',exact:true}).click();
+ await expect(terms).toContainText('ICMS R$ 3,89');
+ await page.getByRole('spinbutton',{name:'Quantidade: Filtro histórico',exact:true}).fill('3');
+ await expect(terms).toContainText('Automático: 15 dias úteis');
+ await expect(terms).toContainText('Impostos não calculados para estes dados.');
+ await terms.getByLabel('Prazo de entrega: Filtro histórico').fill('7 dias úteis');
+ await page.getByRole('spinbutton',{name:'Quantidade: Filtro histórico',exact:true}).fill('2');
+ await expect(terms.getByLabel('Prazo de entrega: Filtro histórico')).toHaveValue('7 dias úteis');
+ await terms.getByLabel('Prazo de entrega: Filtro histórico').fill('');
+ await expect(terms).toContainText('Automático: Imediato');
  await page.screenshot({path:'/tmp/crm-summary-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);

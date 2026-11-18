@@ -42,8 +42,10 @@ export default function QuoteItemRow({
   onChange,
   onRemove,
   duplicate = false,
+  descriptionDetails,
 }: {
   duplicate?: boolean;
+  descriptionDetails?: import("react").ReactNode;
   item: QuoteItem;
   reference?: QuoteItem;
   history?: QuoteSalesHistory;
@@ -140,12 +142,13 @@ export default function QuoteItemRow({
             {origin === "unknown" &&
               ` · ${item.kind === "service" ? "Serviço" : "Material"}`}
           </small>
+          {descriptionDetails}
           {item.kind === "material" && (
             <small className="quote-choice-manufacturer">
               Ref. fabricante: {manufacturerReferences || "Não informada"}
             </small>
           )}
-          {item.kind === "material" && (
+          {item.kind === "material" && !descriptionDetails && (
             <small className="quote-choice-stock">
               Estoque:{" "}
               <b

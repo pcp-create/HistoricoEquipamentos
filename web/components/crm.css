@@ -161,3 +161,8 @@
 .crm-order-type-dialog label {display:grid;gap:8px;}
 .crm-order-type-dialog select {width:100%;padding:12px;border:1px solid #cbdcec;border-radius:8px;font:inherit;}
 .crm-order-type-dialog .crm-actions {margin-top:20px;}
+
+.crm-product-terms { display: grid; gap: .35rem; margin-top: .4rem; font-size: .78rem; font-weight: 400; }
+.crm-product-terms small { display: block; }
+.crm-product-terms label { display: grid; gap: .25rem; font-size: .78rem; }
+.crm-product-terms input { font-size: .8rem; padding: .4rem .6rem; min-height: 2rem; max-width: 18rem; }

@@ -22,12 +22,14 @@ export function proposalDraft(raw:any):OrderDraft {
   const unitCost=text(r.unitCost??'',20);
   if(unitCost&&(!/^\d{1,8}(\.\d{1,6})?$/.test(unitCost)||Number(quantity)*Number(unitCost)>100000000))throw new CrmError('Confira o custo unitário dos itens.');
   const quote=r.quote?parseQuote({...blankQuote(),items:[{...r.quote,kind:r.kind,code:r.code,name:r.name,quantity,price,selected:true}]}).items[0]:undefined;
-  return {discountPercent,unitCost,...(quote?{quote}:{}),kind:r.kind,code:String(positive(r.code)),name:text(r.name,500,true),quantity,price,notes:text(r.notes??'',20000),internalNotes:text(r.internalNotes??'',20000)};
+  return {deliveryLeadTime:text(r.deliveryLeadTime??'',100),discountPercent,unitCost,...(quote?{quote}:{}),kind:r.kind,code:String(positive(r.code)),name:text(r.name,500,true),quantity,price,notes:text(r.notes??'',20000),internalNotes:text(r.internalNotes??'',20000)};
  });
  if(raw.commercial!==undefined){
   if(!raw.commercial||typeof raw.commercial!=='object'||Array.isArray(raw.commercial))throw new CrmError('Condições comerciais inválidas.');
-  out.commercial=Object.fromEntries(['contact','phone','validity','sellerName','sellerEmail','sellerPhone','paymentName','freightName','carrier'].filter(k=>Object.hasOwn(raw.commercial,k)).map(k=>[k,text(raw.commercial[k],500)]));
+  out.commercial=Object.fromEntries(['contact','phone','validity','sellerName','sellerEmail','sellerPhone','paymentName','freightName','carrier','deliveryDays','taxBudgetType'].filter(k=>Object.hasOwn(raw.commercial,k)).map(k=>[k,text(raw.commercial[k],500)]));
  }
+ if(out.commercial?.deliveryDays&&!/^\d{1,4}$/.test(out.commercial.deliveryDays))throw new CrmError('Informe o prazo de entrega em dias úteis (0 a 9999).');
+ if(out.commercial?.taxBudgetType)positive(out.commercial.taxBudgetType);
  if(raw.extra){if(typeof raw.extra!=='object'||Array.isArray(raw.extra)||Object.keys(raw.extra).length>100)throw new CrmError('Campos adicionais inválidos.');out.extra=Object.fromEntries(Object.entries(raw.extra).map(([k,v])=>[text(k,100,true),text(v,10000)]));}
  return out;
 }

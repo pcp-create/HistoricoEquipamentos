@@ -1,3 +1,4 @@
+import { currentTaxes, deliveryTerm } from "./product-terms";
 import "server-only";
 import { PDFDocument, StandardFonts, rgb, type PDFPage } from "pdf-lib";
 import { readFile } from "node:fs/promises";
@@ -31,6 +32,8 @@ export async function proposalPdf(
   const draft = proposalDraft(proposal.document),
     totals = proposalFinancials(draft.items),
     commercial = draft.commercial || {};
+  // The route supplies trusted server-side tax and inventory enrichment; the parser strips client snapshots.
+  draft.items = draft.items.map((item,index)=>({...item, taxes:proposal.document.items[index]?.taxes, availableStock:proposal.document.items[index]?.availableStock}));
   if (!draft.items.length)
     throw new CrmError("Inclua produtos ou serviços antes de gerar o PDF.");
   const pdf = await PDFDocument.create(),
@@ -231,8 +234,8 @@ export async function proposalPdf(
       "NCM",
       "QTD",
       "VL. UNIT. R$",
-      "ICMS %",
-      "IPI %",
+      "ICMS R$",
+      "ICMS ST R$",
       "VL. IPI R$",
       "TOTAL R$",
     ].forEach((v, i) => text(v, xs[i] + 4, y + 5, 5.8, true, white));
@@ -241,8 +244,9 @@ export async function proposalPdf(
   tableHeader();
   let index = 0;
   for (const item of draft.items) {
+    const taxes = currentTaxes(draft,item);
     const lines = wrap(
-      item.name + (item.quote?.unit ? " · " + item.quote.unit : "") + (Number(item.discountPercent)>0?` (desconto ${Number(item.discountPercent).toLocaleString('pt-BR')}%)`:''),
+      item.name + (item.kind==='material'?` — Entrega: ${deliveryTerm(draft,item)}`:'') + (taxes?` | PIS: R$ ${money(taxes.pis)}; COFINS: R$ ${money(taxes.cofins)}`:'') + (item.quote?.unit ? " · " + item.quote.unit : "") + (Number(item.discountPercent)>0?` (desconto ${Number(item.discountPercent).toLocaleString('pt-BR')}%)`:''),
       350,
       7,
     );
@@ -266,8 +270,9 @@ export async function proposalPdf(
           y + 2,
         );
         right(money(discountedUnitCents(item)), xs[5] - 8, y + 2);
-        for (const col of [5, 6, 7])
-          text("—", xs[col] + 4, y + 2, 7, false, gray);
+        text(taxes ? money(taxes.icms) : "—", xs[5] + 4, y + 2, 6, false, gray);
+        text(taxes ? money(taxes.icmsSt) : "—", xs[6] + 4, y + 2, 6, false, gray);
+        text(taxes ? money(taxes.ipi) : "—", xs[7] + 4, y + 2, 6, false, gray);
         right(money(itemFinancials(item).sale), W - M - 5, y + 2, 7, true);
       }
       part.forEach((row, j) => text(row, xs[1] + 4, y + 2 + j * 10));
@@ -283,7 +288,8 @@ export async function proposalPdf(
   text("OBSERVAÇÕES E CONDIÇÕES COMERCIAIS", M + 8, y, 6.5, true);
   y += 13;
   const conditions = [
-    "Prazo de entrega em dias úteis a contar da aprovação formal.",
+    "Prazo de entrega por produto; dias úteis a contar da aprovação formal.",
+    "Impostos simulados para consulta, sem acréscimo automático ao preço.",
     "Qualquer alteração de parâmetro implica revisão de valores e novo aceite.",
     "Impostos de responsabilidade do adquirente não inclusos.",
     "Pagamento exclusivamente via boleto bancário emitido pela RJ Compressores.",
@@ -301,7 +307,7 @@ export async function proposalPdf(
   for (const [label, value] of [
     ["Peças — subtotal (s/ IPI)", money(totals.materials)],
     ["Mão de obra — subtotal", money(totals.services)],
-    ["IPI total", "Não informado"],
+    ["IPI total (simulado)", draft.items.filter(i=>i.kind==='material').every(i=>currentTaxes(draft,i)) ? money(draft.items.reduce((sum,i)=>sum+(currentTaxes(draft,i)?.ipi||0),0)) : "Não informado"],
   ]) {
     text(label, tx + 8, totalY, 7, false, gray);
     right(value, W - M - 8, totalY);

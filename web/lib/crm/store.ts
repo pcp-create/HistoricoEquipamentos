@@ -1,3 +1,4 @@
+import {hydrateProductTaxes} from './product-taxes';
 import {hydrateProductCosts} from './product-costs';
 import 'server-only';
 import {database} from '../db';
@@ -66,6 +67,13 @@ export async function createProposal(raw:any,actor:string){
 }
 export async function saveProposal(raw:any,actor:string){
  const id=uuid(raw.id),expected=version(raw.version);let draft=proposalDraft(raw.draft);
+ // Simulate before taking a row lock. Recheck the version inside the transaction.
+ if(draft.commercial?.taxBudgetType){
+  const source=(await database().query('SELECT p.version,o.company_id,o.customer_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1',[id])).rows[0];
+  if(!source||source.version!==expected)throw new CrmError('A proposta foi alterada. Reabra antes de salvar.');
+  draft.company=String(source.company_id);draft.customer=String(source.customer_id);
+  draft=await hydrateProductTaxes(draft);
+ }
  return write(async c=>{
  const p=(await c.query('SELECT p.*,o.customer_id,o.customer_name,o.company_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p',[id])).rows[0];
  if(!p||p.version!==expected)throw new CrmError('A proposta foi alterada. Reabra antes de salvar.');

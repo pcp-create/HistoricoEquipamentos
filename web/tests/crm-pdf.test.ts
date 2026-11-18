@@ -13,3 +13,12 @@ test('CRM produces the landscape proposal model and paginates item descriptions'
  assert.ok((await PDFDocument.load(many)).getPageCount()>2);
  await assert.rejects(()=>proposalPdf({...proposal,document:{...proposal.document,items:[]}}),/Inclua/);
 });
+
+test('proposal PDF receives trusted stock, seller delivery and simulated tax amounts',async()=>{
+ const {taxKey}=await import('../lib/crm/product-terms');
+ const document={...proposal.document,commercial:{...proposal.document.commercial,deliveryDays:'15',taxBudgetType:'1'},items:[{...item,availableStock:2},{...item,code:'20120',availableStock:0},{...item,code:'13927',availableStock:10,deliveryLeadTime:'7 dias úteis'}]};
+ document.items=document.items.map(i=>({...i,taxes:{key:taxKey(document,i),at:'2026-11-18T12:00:00Z',icms:5400,icmsSt:0,ipi:1500,pis:495,cofins:2280}}));
+ const bytes=await proposalPdf({...proposal,document});
+ await writeFile('/tmp/crm-proposta-impostos.pdf',bytes);
+ assert.equal((await PDFDocument.load(bytes)).getPageCount(),1);
+});

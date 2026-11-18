@@ -1,4 +1,5 @@
 "use client";
+import CrmProductTerms from "./crm-product-terms";
 import ActionNotice from "./action-notice";
 import { useEffect, useState } from "react";
 import { itemFinancials } from "@/lib/crm/financials";
@@ -12,7 +13,7 @@ import {
   type QuoteItem,
   type QuoteSalesHistory,
 } from "@/lib/quotes/types";
-import type { OrderItem } from "@/lib/service-orders/model";
+import type { OrderDraft, OrderItem } from "@/lib/service-orders/model";
 import { matchesSearch } from "@/lib/filters";
 
 type History = {
@@ -46,6 +47,7 @@ function savedItem(item: OrderItem, reference?: QuoteItem): QuoteItem {
 /** Reuses the quotation history engine, row editor and general catalog picker. */
 export default function CrmProposalItems({
   active,
+  draft,
   kind,
   customer,
   equipment,
@@ -55,6 +57,7 @@ export default function CrmProposalItems({
   disabled,
 }: {
   active: boolean;
+  draft?: OrderDraft;
   kind: QuoteItem["kind"];
   customer: string;
   equipment: string;
@@ -236,6 +239,7 @@ export default function CrmProposalItems({
             <article className="crm-quote-item" key={quoteItemIdentity(item)}>
               <QuoteItemRow
                 item={item}
+                descriptionDetails={kind==='material'&&saved&&draft?<CrmProductTerms draft={draft} item={saved} disabled={disabled} onChange={next=>onChange(items.map(row=>row===saved?next:row))}/>:undefined}
                 reference={merged.references.get(item.key)}
                 history={merged.histories[item.key]}
                 serial=""

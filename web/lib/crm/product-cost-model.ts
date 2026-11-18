@@ -1,6 +1,8 @@
 import type { OrderItem } from "../service-orders/model";
 import { sameUnit } from "../product-values";
 export type AverageCost = {
+  availableStock?: number | null;
+  stockAt?: string;
   code: string;
   unit: string | null;
   unitCost: string;
@@ -20,6 +22,8 @@ export function applyAverageCosts(
         !sameUnit(item.quote.unit, row.unit);
     return {
       ...item,
+      availableStock: mismatch ? null : row?.availableStock ?? null,
+      stockAt: row?.stockAt,
       unitCost: !mismatch && row?.unitCost ? row.unitCost : "",
       unitCostSource: "average",
       unitCostAt: row?.costAt || undefined,
