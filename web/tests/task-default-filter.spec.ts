@@ -22,3 +22,26 @@ test('Kanban starts with open tasks and allows explicitly selecting all tasks',a
  await expect(status).toHaveValue('active');
  await expect(cards).toHaveCount(2);
 });
+
+test('following scope shows watched tasks assigned to other people and switches independently from mine',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/activity',r=>r.fulfill({json:{}}));
+ await page.route('**/api/task-stages',r=>r.fulfill({json:{stages:[]}}));
+ const tasks=[
+ {id:'1',title:'Tarefa acompanhada',assigned_to:'other@test.com',followers:[' ME@TEST.COM '],status:'not_started',priority:'normal',source_key:'manual:1'},
+ {id:'2',title:'Tarefa minha',assigned_to:'me@test.com',followers:[],status:'in_progress',priority:'normal',source_key:'manual:2'},
+ {id:'3',title:'Tarefa de outra pessoa',assigned_to:'other@test.com',followers:['other@test.com'],status:'not_started',priority:'normal',source_key:'manual:3'},
+ ];
+ await page.route('**/api/tasks',r=>r.fulfill({json:{email:'me@test.com',users:[{email:'me@test.com',display_name:'Eu'},{email:'other@test.com',display_name:'Outra pessoa'}],tasks}}));
+ await page.goto('/tarefas');
+ const cards=page.locator('.task-kanban-card');
+ await expect(cards).toHaveCount(3);
+ const following=page.getByRole('button',{name:'Em acompanhamento',exact:true});
+ const mine=page.getByRole('button',{name:'Minhas tarefas',exact:true});
+ expect((await following.boundingBox())!.x).toBeLessThan((await mine.boundingBox())!.x);
+ await mine.click();await expect(cards).toHaveCount(1);await expect(cards).toContainText('Tarefa minha');
+ await following.click();await expect(following).toHaveAttribute('aria-pressed','true');await expect(mine).toHaveAttribute('aria-pressed','false');
+ await expect(cards).toHaveCount(1);await expect(cards).toContainText('Tarefa acompanhada');
+ await following.click();await expect(cards).toHaveCount(3);
+ await following.click();await mine.click();await expect(following).toHaveAttribute('aria-pressed','false');await expect(cards).toContainText('Tarefa minha');
+});

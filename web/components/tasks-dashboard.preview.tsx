@@ -28,6 +28,7 @@ import {
   ListFilter,
   SlidersHorizontal,
   UserRound,
+  Eye,
   X,
   Circle,
   LoaderCircle,
@@ -672,6 +673,7 @@ export default function TasksDashboard() {
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [mine, setMine] = useState(params.get("mine") === "1"),
+    [following, setFollowing] = useState(false),
     [responsible, setResponsible] = useState("all"),
     [originFilter, setOriginFilter] = useState("all"),
     [period, setPeriod] = useState("all"),
@@ -783,13 +785,16 @@ export default function TasksDashboard() {
   const currentUserRole = (data?.users?.find((user:any) => user.email.toLowerCase() === data?.email?.toLowerCase())?.job_title || "").trim().toLowerCase();
   const selectedStageRole = stageRole ?? currentUserRole;
   const activeStageRole=stageRoles.has(selectedStageRole)?selectedStageRole:"";
+  const followsTask = (task:any) => !!data?.email && (task.followers || []).some((email:string) => email.trim().toLowerCase() === data.email.trim().toLowerCase());
   const chartTasks = (data?.tasks || []).filter((t: any) =>
+    (!following || followsTask(t)) &&
     (!mine || t.is_mine === true || (t.is_mine === undefined && t.assigned_to?.trim().toLowerCase() === data?.email?.trim().toLowerCase())) &&
     (!params.get("inspection") || t.source_key === "inspection:"+params.get("inspection")) &&
     (!params.get("equipment") || String(t.equipment_id) === params.get("equipment")),
   );
   const rows = (data?.tasks || []).filter(
     (t: any) =>
+      (!following || followsTask(t)) &&
       (view!=="kanban" || kanbanView!=="stage" || !activeStageRole || !t.stage_id || stages.some(s=>s.id===t.stage_id&&s.job_title.trim().toLowerCase()===activeStageRole)) &&
       (!mine ||
         t.is_mine === true ||
@@ -1410,6 +1415,7 @@ export default function TasksDashboard() {
                   setStatus("active");
                   setPeriod("all");
                   setMine(false);
+                  setFollowing(false);
                   if (params.get("equipment"))
                     history.replaceState(null, "", "/tarefas");
                 }}
@@ -1422,6 +1428,12 @@ export default function TasksDashboard() {
             <div className="task-results-toolbar">
               <div className="task-scope-controls">
                 <strong>{view === "chart" ? chartTasks.length : rows.length} tarefas</strong>
+                <button type="button" className="task-mine-toggle" aria-label="Em acompanhamento"
+                  aria-pressed={following}
+                  title={following ? "Mostrar todas as tarefas" : "Mostrar tarefas que acompanho"}
+                  onClick={() => {setFollowing(!following);setMine(false);setResponsible("all");}}>
+                  <Eye size={15} aria-hidden="true" /><span>Em acompanhamento</span>
+                </button>
                 <button
                   type="button"
                   className="task-mine-toggle"
@@ -1430,6 +1442,7 @@ export default function TasksDashboard() {
                   title={mine ? "Mostrar todas as tarefas" : "Mostrar somente minhas tarefas"}
                   onClick={() => {
                     setMine(!mine);
+                    setFollowing(false);
                     setResponsible("all");
                   }}
                 >
