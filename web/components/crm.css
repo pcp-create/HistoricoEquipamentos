@@ -151,3 +151,13 @@
 .new-os .crm-summary-table input.crm-summary-price-input{width:125px;min-width:100px;padding:6px 8px;font-size:12px;min-height:32px;}
 /* Use the shared control token so global input typography stays compact. */
 .new-os.crm-proposal-page .crm-summary-table input{--field-font-size:12px;font-size:12px;line-height:1.4;}
+.new-os.crm-proposal-page > header > div:first-child {width:100%;min-width:0;}
+.crm-proposal-title-row {display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;}
+.crm-proposal-title-row > .button {flex-shrink:0;}
+.new-os.crm-proposal-page .crm-proposal-header .crm-proposal-tools {border:0;border-radius:0;margin:0;padding:0;background:transparent;}
+.crm-proposal-header-divider {border:0;border-top:1px solid var(--line,#d1e0f0);margin:22px 0;}
+.crm-order-type-dialog {width:min(520px,calc(100vw - 32px));box-sizing:border-box;border:1px solid #d1e0f0;border-radius:12px;padding:24px;color:#23466a;}
+.crm-order-type-dialog::backdrop {background:#163a5c66;}
+.crm-order-type-dialog label {display:grid;gap:8px;}
+.crm-order-type-dialog select {width:100%;padding:12px;border:1px solid #cbdcec;border-radius:8px;font:inherit;}
+.crm-order-type-dialog .crm-actions {margin-top:20px;}

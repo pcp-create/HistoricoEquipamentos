@@ -3,7 +3,7 @@ import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import NewServiceOrder from "./new-service-order";
-import { crmApi, crmStatus, crmDate, crmMoney } from "./crm-api";
+import { crmApi, crmStatus, crmDate } from "./crm-api";
 import "./crm.css";
 export default function CrmProposal({ id }: { id: string }) {
   const [data, setData] = useState<any>(null),
@@ -15,6 +15,10 @@ export default function CrmProposal({ id }: { id: string }) {
     [status, setStatus] = useState("pending"),
     [orderType, setOrderType] = useState(""),
     [proposalType,setProposalType]=useState("");
+  const [conversionType,setConversionType]=useState("");
+  const [choosingType,setChoosingType]=useState(false);
+  const typeDialog=useRef<HTMLDialogElement>(null);
+  useEffect(()=>{if(choosingType)typeDialog.current?.showModal();},[choosingType]);
   const sending = useRef(false);
   async function load() {
     const [p, c] = await Promise.all([
@@ -32,7 +36,7 @@ export default function CrmProposal({ id }: { id: string }) {
   useEffect(() => {
     void load().catch((e) => setError(e.message));
   }, [id]);
-  async function convert(link?: any, retry = false) {
+  async function convert(link?: any, retry = false, selectedType = orderType) {
     if (sending.current) return;
     if (
       !link &&
@@ -69,7 +73,7 @@ export default function CrmProposal({ id }: { id: string }) {
               proposalId: id,
               version: data.version,
               additional: data.status === "won",
-              orderType,
+              orderType: selectedType,
             },
       );
       // Only explicit ready states advance. An uncertain result always needs human ERP verification.
@@ -78,7 +82,7 @@ export default function CrmProposal({ id }: { id: string }) {
       if (result.state !== "complete")
         setError(
           result.message ||
-            "A criação da OS está pendente. Consulte o andamento abaixo.",
+            "A criação da OS está pendente. Consulte o andamento da OS.",
         );
     } catch (e) {
       setError((e as Error).message);
@@ -107,28 +111,22 @@ export default function CrmProposal({ id }: { id: string }) {
       (l: any) => !["complete", "validation_failed"].includes(l.state),
     ),
     locked = data.status === "converting" || pending;
+  const orderChoices=catalog.orderTypes.filter((t:any)=>t.active&&type?.order_types?.includes(String(t.id)));
+  const cannotConvert=busy||changed||pending||!["pending","won"].includes(data.status)||!orderChoices.length;
+  const headerActions=<>
+    {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
+    <button type="button" className="button primary" disabled={cannotConvert} title={changed?"Salve a proposta antes de gerar o pedido.":undefined} onClick={()=>{
+      if(orderChoices.length===1)void convert(undefined,false,String(orderChoices[0].id));
+      else {setConversionType('');setChoosingType(true);}
+    }}>{busy?'Processando…':'Pedido de Venda (Gerar OS)'}</button>
+    {choosingType&&<dialog ref={typeDialog} className="crm-order-type-dialog" aria-label="Selecionar tipo de ordem de serviço" onCancel={()=>setChoosingType(false)}>
+      <h2>Pedido de Venda (Gerar OS)</h2>
+      <label>Tipo de OS a gerar<select aria-label="Tipo de OS a gerar" value={conversionType} onChange={e=>setConversionType(e.target.value)}><option value="">Selecione o tipo de OS</option>{orderChoices.map((t:any)=><option key={t.id} value={String(t.id)}>{t.id} · {t.name}</option>)}</select></label>
+      <div className="crm-actions"><button type="button" onClick={()=>setChoosingType(false)}>Cancelar</button><button type="button" className="button primary" disabled={cannotConvert||!orderChoices.some((t:any)=>String(t.id)===conversionType)} onClick={()=>{setChoosingType(false);void convert(undefined,false,conversionType);}}>Gerar OS</button></div>
+    </dialog>}
+  </>;
   const actions = (
     <>
-      <label>
-        Tipo de OS a gerar
-        <select
-          aria-label="Tipo de OS a gerar"
-          disabled={busy || pending}
-          value={orderType}
-          onChange={(e) => setOrderType(e.target.value)}
-        >
-          <option value="">Selecione o tipo de OS</option>
-          {catalog.orderTypes
-            .filter(
-              (t: any) => t.active && type?.order_types?.includes(String(t.id)),
-            )
-            .map((t: any) => (
-              <option key={t.id} value={t.id}>
-                {t.id} · {t.name}
-              </option>
-            ))}
-        </select>
-      </label>
       <div className="crm-actions">
         {!changed ? (
           <a
@@ -150,25 +148,6 @@ export default function CrmProposal({ id }: { id: string }) {
           </button>
         )}
         <button
-          type="button"
-          className="button primary"
-          disabled={
-            busy ||
-            changed ||
-            pending ||
-            !["pending", "won"].includes(data.status) ||
-            !orderType
-          }
-          title={changed ? "Salve a proposta antes de concretizar." : undefined}
-          onClick={() => void convert()}
-        >
-          {busy
-            ? "Processando…"
-            : data.status === "won"
-              ? "Gerar outra OS"
-              : "Concretizar e gerar OS"}
-        </button>
-        <button
           className="button"
           type="button"
           disabled={busy}
@@ -184,6 +163,10 @@ export default function CrmProposal({ id }: { id: string }) {
         </button>
       </div>
       {changed && <p>Salve a proposta antes de concretizar ou gerar uma OS.</p>}
+
+    </>
+  );
+  const progress = <>
       {!!data.links.length && (
         <div className="crm-links">
           <h3>Ordens de serviço e envios vinculados</h3>
@@ -233,8 +216,7 @@ export default function CrmProposal({ id }: { id: string }) {
           ))}
         </div>
       )}
-    </>
-  );
+  </>;
   const tools = (
     <section className="crm-proposal-tools" aria-label="Situação da proposta">
       <p>
@@ -271,23 +253,9 @@ export default function CrmProposal({ id }: { id: string }) {
           </select>
         </label>
       </div>
-      <p>
-        Tipo de oportunidade:{" "}
-        <strong>
-          {
-            catalog.opportunityTypes.find(
-              (t: any) => String(t.id) === String(data.opportunity_type_id),
-            )?.name
-          }
-        </strong>
-      </p>
-      <p>{type?.notes}</p>
-      <p>
-        Total salvo: <strong>{crmMoney(data.total_cents)}</strong>
-      </p>
       {locked && (
         <p className="crm-info">
-          Existe um envio de OS pendente. Consulte ou conclua o andamento abaixo
+          Existe um envio de OS pendente. Consulte ou conclua o andamento da OS
           antes de editar esta proposta.
         </p>
       )}
@@ -304,10 +272,6 @@ export default function CrmProposal({ id }: { id: string }) {
           .
         </p>
       )}
-      {error && (
-        <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
-      )}
-      {actions}
     </section>
   );
   return (
@@ -329,14 +293,13 @@ export default function CrmProposal({ id }: { id: string }) {
         }}>{catalog.proposalTypes.filter((t:any)=>String(t.opportunity_type_id)===String(data.opportunity_type_id)&&(t.active||String(t.id)===proposalType)).map((t:any)=><option key={t.id} value={String(t.id)}>{t.code} · {t.name}</option>)}</select></label>,
         locked: locked || busy,
         tools,
+        headerActions,
+        activityTools: progress,
         summaryTools: (
           <section
             className="crm-proposal-tools crm-conversion-tools"
             aria-label="Ações da proposta"
           >
-            {error && (
-              <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
-            )}
             {actions}
           </section>
         ),

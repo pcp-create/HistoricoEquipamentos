@@ -69,7 +69,7 @@ export default function NewServiceOrder({
   editing, returnTo, proposal,
 }: { returnTo?: string; editing?: { company: string; id: string }; proposal?: {
  title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
- typeControl?:React.ReactNode;orderType?:string;tools?:React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
+ activityTools?:React.ReactNode;headerActions?:React.ReactNode;typeControl?:React.ReactNode;orderType?:string;tools?:React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
 } } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
   const [equipmentPending,setEquipmentPending]=useState(false);
@@ -479,11 +479,11 @@ export default function NewServiceOrder({
         </Link>
         <header>
           <div>
-            <h1>
+            <div className={proposal?"crm-proposal-title-row":undefined}><h1>
               {proposal ? proposal.title : editing
                 ? "Editar OS " + (editData?.number || "")
                 : "Nova Ordem de Serviço"}
-            </h1>
+            </h1>{proposal?.headerActions}</div>
             <p>
               {proposal ? proposal.name : editing
                 ? "Revise os dados e salve as alterações na ordem existente."
@@ -602,7 +602,8 @@ export default function NewServiceOrder({
           return JSON.stringify(items)===JSON.stringify(current.items)?current:{...current,items};
         })}/>}
         {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{key==='header'?<ClipboardList size={18} aria-hidden="true"/>:key==='material'?<Package size={18} aria-hidden="true"/>:key==='service'?<Wrench size={18} aria-hidden="true"/>:<ChartNoAxesCombined size={18} aria-hidden="true"/>}<span>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}</span></button>)}</nav>}
-        {proposal&&<div hidden={tab!=='header'&&tab!=='summary'}>{tab==='summary'?proposal.summaryTools:proposal.tools}</div>}
+        {proposal?.activityTools}
+        {proposal&&<div hidden={tab!=='summary'}>{proposal.summaryTools}</div>}
         <form onSubmit={submit} noValidate>
           <fieldset
             disabled={
@@ -635,6 +636,7 @@ export default function NewServiceOrder({
             </nav>}
             <fieldset disabled={!form.company || Boolean(proposal?.locked)} className="os-form-fields">
               <div className={proposal?"crm-proposal-header":undefined} hidden={tab !== "header"}>
+                {proposal&&<>{proposal.tools}<hr className="crm-proposal-header-divider"/></>}
 
                 <div className="os-grid">
                   {proposal&&companyField}

@@ -55,9 +55,11 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  await expect(page.getByRole('heading',{name:'Proposta comercial PROP-1'})).toBeVisible();
  await expect(page.getByRole('combobox',{name:'Vendedor',exact:true})).toHaveValue(/Vendedor manual/);
  await expect(page.getByRole('combobox',{name:'Tipo Ordem de Serviço',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('combobox',{name:'Tipo de OS a gerar',exact:true})).toHaveCount(0);
+ await expect(page.locator('.crm-proposal-header .crm-proposal-tools')).toBeVisible();
  await expect(page.getByRole('combobox',{name:'Tipo de proposta',exact:true})).toHaveValue('1');
  await page.getByLabel('Observações',{exact:false}).first().fill('Proposta local');
- await expect(page.getByRole('button',{name:'Concretizar e gerar OS'})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Pedido de Venda (Gerar OS)'})).toBeDisabled();
  await page.getByRole('button',{name:'Salvar proposta',exact:true}).click();
  await expect.poll(()=>writes.filter(w=>w.action==='save-proposal').length).toBe(1);
  expect(writes.some(w=>w.action==='convert')).toBe(false);expect(directErpWrites).toBe(0);
@@ -97,11 +99,11 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  await expect.poll(()=>writes.filter(w=>w.action==='save-proposal').length).toBe(2);
  expect(writes.filter(w=>w.action==='save-proposal')[1].draft.items).toEqual(expect.arrayContaining([expect.objectContaining({kind:'material',code:'50',quantity:'2',price:'12.00',unitCost:'5',discountPercent:'10'}),expect.objectContaining({kind:'service',code:'60',internalNotes:'Verificar orçamento'})]));
  expect(historyQueries.some(q=>q.get('clientId')==='10'&&q.get('historyScope')==='customer')).toBe(true);
- await expect(page.getByRole('button',{name:'Concretizar e gerar OS'})).toBeEnabled();
+ await expect(page.getByRole('button',{name:'Pedido de Venda (Gerar OS)'})).toBeEnabled();
  page.on('dialog',d=>d.accept());
- await page.getByRole('button',{name:'Concretizar e gerar OS'}).click();
+ await page.getByRole('button',{name:'Pedido de Venda (Gerar OS)'}).click();
  await expect(page.getByRole('link',{name:'OS-900',exact:true})).toBeVisible();
- expect(writes.filter(w=>w.action==='convert')).toHaveLength(1);expect(writes.filter(w=>w.action==='advance')).toHaveLength(1);expect(directErpWrites).toBe(0);
+ expect(writes.find(w=>w.action==='convert').orderType).toBe('4');expect(writes.filter(w=>w.action==='convert')).toHaveLength(1);expect(writes.filter(w=>w.action==='advance')).toHaveLength(1);expect(directErpWrites).toBe(0);
  await expect(page.getByRole('button',{name:'Salvar proposta',exact:true})).toBeEnabled();
  await page.getByLabel('Observações',{exact:false}).first().fill('Ajuste local após concretização');
  await page.getByRole('button',{name:'Salvar proposta',exact:true}).click();
@@ -129,4 +131,25 @@ test('CRM registries allow manually mapping proposal types to ERP order type IDs
  await dialog.getByRole('button',{name:'Salvar cadastro',exact:true}).click();
  await expect(dialog).toHaveCount(0);
  expect(saved).toMatchObject({action:'save-catalog',kind:'proposal',opportunityTypeId:'1',orderTypes:['4','99']});
+});
+
+test('sales order action asks for an OS type only when multiple choices exist',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/**',r=>r.fulfill({json:{}}));
+ const choices={...catalog,proposalTypes:[{...catalog.proposalTypes[0],order_types:['4','5']}],orderTypes:[...catalog.orderTypes,{id:'5',name:'Oficina',active:true}]};
+ const proposal={id:proposalId,number:1,opportunity_id:opportunityId,opportunity_number:1,type_id:1,opportunity_type_id:1,customer_name:'Cliente Teste',title:'Preventiva',status:'pending',version:1,document:draft,names:{customer:'Cliente Teste',equipment:''},links:[]};
+ const writes:any[]=[];
+ await page.route('**/api/service-orders*',r=>r.fulfill({json:new URL(r.request().url()).searchParams.get('lookup')==='metadata'?{types:[{id:'4',name:'Preventiva',equipment_required:false,customer_equipment_only:false}],registries:[],users:[]}:{rows:[{id:'21',name:'Vendedor manual'}],defaultSellerId:'21'}}));
+ await page.route('**/api/crm*',r=>{const url=new URL(r.request().url());if(r.request().method()==='POST'){writes.push(r.request().postDataJSON());return r.fulfill({json:{state:'complete'}});}return r.fulfill({json:url.searchParams.has('catalogs')?choices:url.searchParams.has('productCosts')?{rows:[]}:proposal});});
+ await page.goto('/crm/propostas/'+proposalId);
+ const generate=page.getByRole('button',{name:'Pedido de Venda (Gerar OS)',exact:true});
+ await expect(generate).toBeEnabled();await expect(page.getByLabel('Tipo de OS a gerar')).toHaveCount(0);
+ await generate.click();const dialog=page.getByRole('dialog',{name:'Selecionar tipo de ordem de serviço'});
+ await expect(dialog).toBeVisible();await expect(dialog.getByRole('button',{name:'Gerar OS',exact:true})).toBeDisabled();
+ await dialog.getByLabel('Tipo de OS a gerar').selectOption('5');
+ await expect(dialog.getByRole('button',{name:'Gerar OS',exact:true})).toBeEnabled();
+ await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();expect(writes).toHaveLength(0);
+ await generate.click();await dialog.getByLabel('Tipo de OS a gerar').selectOption('5');
+ page.once('dialog',d=>d.accept());await dialog.getByRole('button',{name:'Gerar OS',exact:true}).click();
+ await expect.poll(()=>writes.length).toBe(1);expect(writes[0]).toMatchObject({action:'convert',orderType:'5'});
 });
