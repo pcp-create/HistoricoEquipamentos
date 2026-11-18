@@ -204,3 +204,14 @@ test('planner corrections retain submission and review status, enforce required 
   await assert.rejects(updateChecklist(db,payload,{...saved,status:'reviewed'},schedule,{},'admin',true),/revisão/);
  }finally{await db.close();}
 });
+
+test('checklist photo settings accept 150 photos and keep attachment limits enforced',()=>{
+ const make=(maxPhotos:number)=>[{id:'photos',name:'Fotos',items:[],stages:[{id:'stage',name:'Etapa',fields:[{id:'field',label:'Fotos',type:'photo',required:false,maxPhotos}]}]}];
+ assert.doesNotThrow(()=>validateChecklists(make(150)));
+ for(const limit of [151,-1,1.5,0])assert.throws(()=>validateChecklists(make(limit)),/1 a 150/);
+ const field={id:'field',label:'Fotos',type:'photo',required:false,maxPhotos:150};
+ const stage={id:'stage',name:'Etapa',fields:[field]};
+ const photos=Array.from({length:150},(_,i)=>String(i+1));
+ assert.doesNotThrow(()=>validateAnswers(stage,{field:photos},false));
+ assert.throws(()=>validateAnswers(stage,{field:[...photos,'151']},false),/Anexos inválidos/);
+});

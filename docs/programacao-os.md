@@ -259,3 +259,6 @@ As tarefas vinculadas são encerradas após a remoção da operação e recebem 
 
 
 Ao salvar a programação de uma operação em execução, o sistema reavalia o encerramento dos integrantes atuais. Se todos já encerraram, o relatório foi enviado (quando exigido) e não há apontamentos ativos, a operação segue para Aguardando Revisão e a tarefa retorna ao planejador. Remover um auxiliar pendente não exige que o responsável encerre novamente. Os registros e horários de encerramento originais são preservados.
+
+
+As mensagens de erro da programação e do salvamento das configurações aparecem em uma notificação fixa na parte inferior, em vermelho, com botão de fechar. Confirmações de sucesso usam o mesmo local e desaparecem após três segundos. A configuração permite até 150 fotos por campo; zero continua desativando fotos nos campos que aceitam essa configuração. Modelos em andamento mantêm a configuração congelada no início do relatório.

@@ -45,7 +45,7 @@ export function validateChecklists(raw:any):ChecklistTemplate[] {
      fieldIds.add(f.id);
      if(fixedStatusOptions[f.type] && f.options!==undefined && JSON.stringify(f.options)!==JSON.stringify(fixedStatusOptions[f.type]))throw Error('As opções deste indicador são fixas e não podem ser alteradas.');
      if(f.alertOptions!==undefined && (!isStatusField(f.type)||!Array.isArray(f.alertOptions)||new Set(f.alertOptions).size!==f.alertOptions.length||f.alertOptions.some((v:any)=>!fieldOptions(f).includes(v))))throw Error('Selecione somente opções válidas do indicador para gerar alertas.');
-     if(f.maxPhotos!==undefined&&(!Number.isInteger(f.maxPhotos)||f.maxPhotos<0||f.maxPhotos>30||(f.type==='photo'&&f.maxPhotos===0)))throw Error('Quantidade máxima de fotos deve ser de 1 a 30 (ou zero para desativar).');
+     if(f.maxPhotos!==undefined&&(!Number.isInteger(f.maxPhotos)||f.maxPhotos<0||f.maxPhotos>150||(f.type==='photo'&&f.maxPhotos===0)))throw Error('Quantidade máxima de fotos deve ser de 1 a 150 (ou zero para desativar).');
      if((['comment','report','internalNote'] as const).some(k=>f[k]!==undefined&&typeof f[k]!=='boolean'))throw Error('Opções do campo inválidas.');
      if((f.type==='select'||(f.type==='flag'&&f.options!==undefined))&&(!Array.isArray(f.options)||!f.options.length||f.options.length>50||f.options.some((v:any)=>!text(v,120))||new Set(f.options).size!==f.options.length))throw Error('Informe opções distintas para o campo de seleção.');
     }

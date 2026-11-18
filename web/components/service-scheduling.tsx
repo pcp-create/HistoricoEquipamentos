@@ -36,6 +36,7 @@ import ScheduleOrdersCalendar, { DayOrders } from "./schedule-orders-calendar";
 import SupportPicker from "./support-picker";
 import SchedulePauseReasons from "./schedule-pause-reasons";
 import SaveActionIcon from "./save-action-icon";
+import ActionToast from "./action-toast";
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -182,6 +183,7 @@ export default function ServiceScheduling() {
     id = params.has("OS") ? new URLSearchParams({OS: params.get("OS")!}).toString() : params.get("id") ? "id=" + encodeURIComponent(params.get("id")!) : null;
   const [data, setData] = useState<any>(null),
     [error, setError] = useState(""),
+    [success, setSuccess] = useState(""),
     [busy, setBusy] = useState(false),
     [config, setConfig] = useState(false),
     [tab, setTab] = useState("operations"),
@@ -279,6 +281,7 @@ export default function ServiceScheduling() {
     const before = data;
     setBusy(true);
     setError("");
+    setSuccess("");
     if (body.action === "operation")
       setData({
         ...data,
@@ -374,6 +377,7 @@ export default function ServiceScheduling() {
         const fresh = await request(undefined, id);
         setData(fresh);
       }
+      setSuccess("Alteração salva com sucesso.");
       return true;
     } catch (e) {
       setData(before);
@@ -423,11 +427,7 @@ export default function ServiceScheduling() {
             </button>
           </nav>
         </header>
-        {error && (
-          <p role="alert" className="scheduling-error">
-            {error}
-          </p>
-        )}
+        <ActionToast message={error || success} type={error?'error':'success'} onClose={()=>{setError('');setSuccess('');}}/>
         <span className="schedule-save-status" role="status">
           {busy ? "Salvando…" : ""}
         </span>
@@ -1556,12 +1556,14 @@ function ScheduleSettings({ data, onSaved }: any) {
     [d, setD] = useState(data.settings.document),
     [version, setVersion] = useState(data.settings.version),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [success, setSuccess] = useState("");
   async function save(next: any) {
     if (busy) return false;
     const before = d;
     setD(next);
     setError("");
+    setSuccess("");
     let document;
     try {
       document = validateSettings(next);
@@ -1576,6 +1578,7 @@ function ScheduleSettings({ data, onSaved }: any) {
       setVersion(result.settings.version);
       setD(result.settings.document);
       onSaved(result.settings);
+      setSuccess("Configurações salvas com sucesso.");
       return true;
     } catch (e) {
       setD(before);
@@ -1605,7 +1608,7 @@ function ScheduleSettings({ data, onSaved }: any) {
           </button>
         ))}
       </nav>
-      {error && <p role="alert">{error}</p>}
+      <ActionToast message={error || success} type={error?'error':'success'} onClose={()=>{setError('');setSuccess('');}}/>
       <span className="schedule-save-status" role="status">
         {busy ? "Salvando…" : ""}
       </span>

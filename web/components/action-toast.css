@@ -1,0 +1,8 @@
+.action-toast { position:fixed; bottom:calc(20px + env(safe-area-inset-bottom,0px)); left:50%; transform:translateX(-50%); z-index:10000; width:max-content; max-width:min(680px,calc(100vw - 32px)); max-height:calc(100dvh - 40px); overflow-y:auto; box-sizing:border-box; display:flex; align-items:center; gap:12px; padding:14px 16px; border:1px solid; border-radius:12px; box-shadow:0 8px 30px #152b4629; font-size:14px; line-height:1.4; }
+.action-toast--error { background:#fff1f2; color:#a61b29; border-color:#f3a4ad; }
+.action-toast--success { background:#ecfdf3; color:#176839; border-color:#93d9ae; }
+.action-toast > svg { flex-shrink:0; }
+.action-toast > span { overflow-wrap:anywhere; white-space:pre-wrap; }
+.action-toast > button { display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; border:0; background:transparent; color:inherit; min-width:36px; min-height:36px; padding:4px; cursor:pointer; border-radius:6px; }
+.action-toast > button:hover { background:#0000000a; }
+.action-toast > button:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
