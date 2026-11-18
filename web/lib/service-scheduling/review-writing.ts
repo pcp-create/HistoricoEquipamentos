@@ -30,3 +30,19 @@ export function validateWritingSuggestions(fields:WritingField[],payload:any):Wr
   return {...field,suggested:item.suggested.trim()};
  }).filter((s:WritingSuggestion)=>s.text!==s.suggested);
 }
+
+// Isolate unsafe suggestions: one changed measurement must not discard other fields.
+// Invalid envelopes and ambiguous/unknown IDs still invalidate the entire response.
+export function reviewWritingSuggestions(fields:WritingField[],payload:any){
+ if(!Array.isArray(payload?.suggestions)||payload.suggestions.length>fields.length)throw Error('Resposta de IA inválida.');
+ const seen=new Set<string>();
+ const suggestions:WritingSuggestion[]=[],rejected:{id:string;label:string}[]=[];
+ for(const item of payload.suggestions){
+  const field=fields.find(f=>f.id===item?.id);
+  if(!field||seen.has(field.id))throw Error('Resposta de IA inválida.');
+  seen.add(field.id);
+  try{suggestions.push(...validateWritingSuggestions([field],{suggestions:[item]}));}
+  catch{rejected.push({id:field.id,label:field.label});}
+ }
+ return {suggestions,rejected};
+}

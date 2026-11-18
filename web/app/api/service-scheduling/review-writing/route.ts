@@ -1,7 +1,7 @@
 import {reviewWritingPrompt} from '@/lib/service-scheduling/review-writing-prompt';
 import {requireUser,sameOrigin,Unauthorized,Forbidden} from '@/lib/auth';
 import {database} from '@/lib/db';
-import {writingFields,validateWritingSuggestions} from '@/lib/service-scheduling/review-writing';
+import {writingFields,reviewWritingSuggestions} from '@/lib/service-scheduling/review-writing';
 export const runtime='nodejs';
 export const maxDuration=60;
 const json=(value:any,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
@@ -37,7 +37,7 @@ export async function POST(req:Request){
    body:JSON.stringify({model:process.env.OPENAI_REVIEW_MODEL||'gpt-4o-mini',store:false,max_output_tokens:10000,
     instructions:reviewWritingPrompt,
     input:JSON.stringify(fields.map(({id,stageId,fieldId,key,label,text}:any)=>({id,stageId,fieldId,key,label,text}))),
-    text:{format:{type:'json_schema',name:'writing_review',strict:true,schema:{type:'object',additionalProperties:false,required:['suggestions'],properties:{suggestions:{type:'array',items:{type:'object',additionalProperties:false,required:['id','suggested'],properties:{id:{type:'string'},suggested:{type:'string'}}}}}}}}
+    text:{format:{type:'json_schema',name:'writing_review',strict:true,schema:{type:'object',additionalProperties:false,required:['suggestions'],properties:{suggestions:{type:'array',items:{type:'object',additionalProperties:false,required:['id','suggested'],properties:{id:{type:'string',enum:fields.map((f:any)=>f.id)},suggested:{type:'string'}}}}}}}}
    })});
   if(!response.ok){
    const failure=await response.json().catch(()=>null);
@@ -51,8 +51,15 @@ export async function POST(req:Request){
   const result=await response.json();
   if(result.status!=='completed')return json({error:'A IA não concluiu a revisão. Nenhum texto foi alterado.'},503);
   const output=(result.output||[]).flatMap((v:any)=>v.content||[]).filter((v:any)=>v.type==='output_text').map((v:any)=>v.text).join('');
-  try{return json({suggestions:validateWritingSuggestions(fields,JSON.parse(output))});}
-  catch{return json({error:'A resposta da IA não passou pela validação. Nenhum texto foi alterado; tente novamente.'},502);}
+  if((result.output||[]).some((v:any)=>(v.content||[]).some((c:any)=>c.type==='refusal')))return json({error:'A IA não pôde revisar este conteúdo. Nenhum texto foi alterado.'},502);
+  try{
+   const review=reviewWritingSuggestions(fields,JSON.parse(output));
+   if(review.rejected.length)console.warn('review-writing: sugestões descartadas',{operationId:body.operationId,responseId:result.id,rejected:review.rejected.map(f=>f.id)});
+   return json(review);
+  }catch{
+   console.warn('review-writing: formato de resposta inválido',{operationId:body.operationId,responseId:result.id});
+   return json({error:'A IA retornou uma resposta com formato inválido. Nenhum texto foi alterado; tente novamente.'},502);
+  }
  }catch(e){
   if(e instanceof Unauthorized)return json({error:'Sessão expirada.'},401);
   if(e instanceof Forbidden)return json({error:'Acesso não permitido.'},403);

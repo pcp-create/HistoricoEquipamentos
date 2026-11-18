@@ -3,8 +3,8 @@ import { blankOperation } from "../lib/service-scheduling/model";
 test("AI writing suggestions require explicit acceptance and survive only as draft until saved", async ({ page, context }) => {
   await context.addCookies([{ name: "m8-access", value: "test", domain: "localhost", path: "/" }]);
   await page.route("**/api/activity", r => r.fulfill({ json: { admin: true } }));
-  const template = { id: "check", name: "Relatório técnico", stages: [{ id: "s", name: "01. Verificação", groups: [{ id: "g", name: "Inspeção", fields: [{ id: "f", label: "Resultado", type: "text", required: true },{id:"flag",label:"Verificação",type:"flag",options:["OK","NOK","NA"],required:true}] }] }] };
-  const operation = { id: "op1", position: 1, version: 1, status: "awaiting_review", document: { ...blankOperation(), responsible: "tech", description: "Revisar compressor", checklistId: "check", checklistRun: { template, submission: { at: "2026-09-30T12:00:00Z", by: "tech" }, stages: { s: { status: "submitted", answers: { f: "Tudo conferido",flag:"OK" } } } } } };
+  const template = { id: "check", name: "Relatório técnico", stages: [{ id: "s", name: "01. Verificação", groups: [{ id: "g", name: "Inspeção", fields: [{ id: "f", label: "Resultado", type: "text", required: true },{id:"pressure",label:"Medição",type:"text"},{id:"flag",label:"Verificação",type:"flag",options:["OK","NOK","NA"],required:true}] }] }] };
+  const operation = { id: "op1", position: 1, version: 1, status: "awaiting_review", document: { ...blankOperation(), responsible: "tech", description: "Revisar compressor", checklistId: "check", checklistRun: { template, submission: { at: "2026-09-30T12:00:00Z", by: "tech" }, stages: { s: { status: "submitted", answers: { f: "Tudo conferido",pressure:"7,5 bar",flag:"OK" } } } } } };
   const data: any = { canEditSettings: true, email: "planner", settings: { version: 1, document: { checklists: [template], serviceTypes: [], calendars: [], vehicles: [] } }, users: [{ email: "tech", display_name: "Técnico", enabled: true }], schedule: { id: "1", company_id: 1, order_id: "100" },
     detail: { order: { numero_sequencia: 123, cliente_nome: "Cliente", equipamento: "Compressor" }, materials: [{ id_m8: "55", item_company: 1, item_order: "100", produto_id: 10, produto_nome: "Filtro", quantidade: 1, unidade_nome: "UN" }], services: [] },
     operations: [operation], usage: [{ item_id: "55", item_company: 1, item_order: "100", withdrawn: 1, allocations: [{ operationId: "op1", position: 1, quantity: 1 }] }], costs: [], events: [{ id: 1, operation_id: "another", action: "work_log", hours: 99 }], fieldSessions: [], fieldEvents: [], requests: [], profit: null };
@@ -13,7 +13,7 @@ test("AI writing suggestions require explicit acceptance and survive only as dra
       const body = r.request().postDataJSON();
       expect(body.operationId).toBe("op1");
       if(body.action==='checklist_review_save'){
-        expect(body.stages[0].answers).toEqual({f:'Tudo foi conferido.',flag:'OK'});
+        expect(body.stages[0].answers).toEqual({f:'Tudo foi conferido.',pressure:'7,5 bar',flag:'OK'});
         operation.document.checklistRun.stages.s.answers=body.stages[0].answers;operation.version++;
         return r.fulfill({json:{operation}});
       }
@@ -27,9 +27,9 @@ test("AI writing suggestions require explicit acceptance and survive only as dra
   await page.route('**/api/service-scheduling/review-writing',r=>{
     calls++;
     const body=r.request().postDataJSON();
-    expect(body.fields).toHaveLength(1);
+    expect(body.fields).toHaveLength(2);
     expect(body.fields[0].text).toBe('Tudo conferido');
-    return r.fulfill({json:{suggestions:[{id:JSON.stringify(['s','f','value']),stageId:'s',fieldId:'f',key:'value',label:'Verificação · Resultado',text:'Tudo conferido',suggested:'Tudo foi conferido.'}]}});
+    return r.fulfill({json:{rejected:calls===2?[{id:JSON.stringify(['s','pressure','value']),label:'Inspeção · Medição'}]:[],suggestions:[{id:JSON.stringify(['s','f','value']),stageId:'s',fieldId:'f',key:'value',label:'Verificação · Resultado',text:'Tudo conferido',suggested:'Tudo foi conferido.'}]}});
   });
   await page.goto('/programacao?id=1');
   await page.getByRole('button',{name:'Acompanhar execução',exact:true}).click();
@@ -43,6 +43,7 @@ test("AI writing suggestions require explicit acceptance and survive only as dra
   await dialog.getByRole('button',{name:'Manter original'}).click();
   await expect(dialog.locator('.report-writing-suggestion')).toHaveCount(0);
   await generate.click();
+  await expect(dialog.getByText(/1 campo\(s\) mantido\(s\) no original/)).toBeVisible();
   await expect(dialog.getByRole('button',{name:'Aceitar sugestão'})).toBeEnabled();
   await text.fill('Texto alterado manualmente');
   await expect(dialog.getByRole('button',{name:'Aceitar sugestão'})).toBeDisabled();

@@ -19,7 +19,10 @@ export default function ReportWritingReview({operation,run,disabled,onApply,onHi
    const result=await response.json();if(!response.ok)throw Error(result.error);
    if(controller.signal.aborted)return;
    setSuggestions(result.suggestions);onHighlight(result.suggestions);
-   setMessage(result.suggestions.length?`${result.suggestions.length} sugestão(ões). Compare os textos antes de aceitar.`:'Nenhuma correção de escrita sugerida.');
+   if(result.rejected?.length){
+    setFailed(true);
+    setMessage(`${result.rejected.length} campo(s) mantido(s) no original porque a sugestão não preservou os dados técnicos ou retornou texto inválido: ${result.rejected.map((f:{label:string})=>f.label).join('; ')}. ${result.suggestions.length?'As demais sugestões estão disponíveis para conferência.':'Nenhuma sugestão segura foi encontrada.'}`);
+   }else setMessage(result.suggestions.length?`${result.suggestions.length} sugestão(ões). Compare os textos antes de aceitar.`:'Nenhuma correção de escrita sugerida.');
   }catch(e){if(!controller.signal.aborted){setFailed(true);setMessage(e instanceof Error?e.message:'Não foi possível revisar.');}}
   finally{if(!controller.signal.aborted)setLoading(false);}
  }
