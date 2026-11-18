@@ -1,13 +1,13 @@
 .action-toast-region { position:fixed; inset:auto auto calc(20px + env(safe-area-inset-bottom,0px)) 50%; transform:translateX(-50%); z-index:10000; width:min(680px,calc(100vw - 32px)); max-height:calc(100vh - 40px); max-height:calc(100dvh - 40px); display:flex; flex-direction:column; gap:10px; align-items:center; pointer-events:none; overflow-y:auto; }
-.action-toast { width:100%; box-sizing:border-box; display:flex; align-items:center; gap:12px; padding:14px 16px; border:1px solid; border-radius:12px; box-shadow:0 8px 30px #152b4629; font-size:14px; line-height:1.4; pointer-events:auto; flex-shrink:0; }
+.action-toast { position:relative; width:100%; box-sizing:border-box; display:flex; align-items:center; gap:12px; padding:14px 44px 14px 16px; border:1px solid; border-radius:12px; box-shadow:0 8px 30px #152b4629; font-size:14px; line-height:1.4; pointer-events:auto; flex-shrink:0; }
 .action-toast--error { background:#fff1f2; color:#a61b29; border-color:#f3a4ad; }
 .action-toast--success { background:#ecfdf3; color:#176839; border-color:#93d9ae; }
 .action-toast > svg { flex-shrink:0; }
 .action-toast > span { flex:1; min-width:0; overflow-wrap:anywhere; white-space:pre-wrap; }
-.action-toast > button { display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; border:0; background:transparent; color:inherit; min-width:36px; min-height:36px; padding:4px; cursor:pointer; border-radius:6px; }
-.action-toast > button:hover { background:#0000000a; }
-.action-toast > button:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
+.action-toast-region .action-toast > button { position:absolute; top:4px; right:4px; width:32px; height:32px; margin:0; box-shadow:none; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; border:0; background:transparent; color:inherit; min-width:32px; min-height:32px; padding:4px; cursor:pointer; border-radius:6px; }
+.action-toast-region .action-toast > button:hover { background:#0000000a; }
+.action-toast-region .action-toast > button:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
 
 .action-toast-actions { display:flex; flex-shrink:0; gap:6px; }
 .action-toast-actions > button { border:1px solid currentColor; border-radius:6px; background:transparent; color:inherit; padding:6px 8px; cursor:pointer; font:inherit; }
-@media(max-width:520px) { .action-toast { flex-wrap:wrap; gap:8px; padding:10px 12px; } .action-toast > span { flex-basis:calc(100% - 80px); } .action-toast-actions { order:2; width:100%; } }
+@media(max-width:520px) { .action-toast { flex-wrap:wrap; gap:8px; padding:10px 44px 10px 12px; } .action-toast > span { flex-basis:calc(100% - 29px); } .action-toast-actions { order:2; width:100%; } }
