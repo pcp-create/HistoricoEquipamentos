@@ -132,6 +132,7 @@ test("order alerts group different operations without blocking individual review
   await alerts.getByRole('button',{name:'Agrupar selecionados em uma tarefa'}).click();
   await expect(alerts.locator('.alert-task-card')).toHaveCount(1);
   const task=alerts.getByRole('region',{name:'Tarefa dos alertas 1',exact:true});
+  await expect(task).toContainText('um único PDF agrupado com os relatórios de todas as operações da OS');
   await expect(task).toContainText('Operação 01');await expect(task).toContainText('Operação 03');
   await expect(dialog.getByRole('button',{name:'Concluir revisão da OS',exact:true})).toBeDisabled();
   await task.getByLabel('Responsável pela tarefa').selectOption('tech');

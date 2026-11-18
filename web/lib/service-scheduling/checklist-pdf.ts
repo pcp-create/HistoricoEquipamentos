@@ -230,10 +230,10 @@ export async function renderChecklistPdf(data:{preliminary?:boolean;title:string
 }
 
 /** Generated task PDFs must fit the same 5 MB constraint as other attachments. */
-export async function renderTaskChecklistPdf(data: Parameters<typeof renderChecklistPdf>[0]) {
+export async function renderTaskChecklistPdf(data: Parameters<typeof renderChecklistPdf>[0], overLimitMessage='O relatório excede o limite de 5 MB do anexo da tarefa mesmo após otimização. Selecione menos operações para gerar o relatório. A revisão não foi concluída.') {
  for(const budget of [2_000_000,700_000]){
   const bytes=await renderChecklistPdf(data,budget);
   if(bytes.length<=5_000_000)return bytes;
  }
- throw new Error('O relatório excede o limite de 5 MB do anexo da tarefa mesmo após otimização. Selecione menos operações para gerar o relatório. A revisão não foi concluída.');
+ throw new Error(overLimitMessage);
 }

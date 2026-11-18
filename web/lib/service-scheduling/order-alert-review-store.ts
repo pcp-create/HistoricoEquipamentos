@@ -1,5 +1,7 @@
 import 'server-only';
 import {createAlertGroup} from './checklist-alert-task';
+import {orderAlertReportPdf} from './order-alert-report';
+import type {ReportMode} from './checklist-report';
 import {validateAlertTaskGroups,pendingChecklistAlerts,type ChecklistAlert} from './checklist-alerts';
 import {orderAlertDocument,orderChecklistAlerts,orderReviewSignature,readOrderReview} from './order-review';
 
@@ -16,12 +18,19 @@ export async function concludeOrderReview(c:any,schedule:any,settings:any,email:
  const pending=pendingChecklistAlerts({checklistAlertTasks:kept},orderChecklistAlerts(operations));
  if(previous?.signature===orderReviewSignature(operations)&&!pending.length)return {orderReview:previous};
  const groups=validateAlertTaskGroups(pending,input.alertTasks);
- // Older installations may have prepared tasks with preliminary attachments.
- for(const task of kept)for(const o of operations){
-  const alerts=(task.alerts||[]).filter((a:ChecklistAlert)=>a.operationId===String(o.id)).map(({operationId,operationPosition,...a}:ChecklistAlert)=>a);
-  if(!alerts.length)continue;
-  const preview=await c.query("SELECT 1 FROM web_task_attachments WHERE task_id=$1 AND (filename LIKE $2 OR filename LIKE 'OS %-Previo.pdf') LIMIT 1",[task.taskId,`Relatorio-OS-%-Operacao-${String(o.position).padStart(2,'0')}-%-Previo.pdf`]);
-  if(preview.rows.length)await createAlertGroup(c,o,schedule,o.document,settings,email,alerts,task,String(task.taskId));
+ const reportCache=new Map<ReportMode,Awaited<ReturnType<typeof orderAlertReportPdf>>>();
+ const actor=(await c.query('SELECT display_name FROM web_user_access WHERE email=$1',[email])).rows[0];
+ async function attachOrderReport(taskId:string,mode:ReportMode){
+  let pdf=reportCache.get(mode);
+  if(!pdf){pdf=await orderAlertReportPdf(c,schedule,operations,settings,mode);reportCache.set(mode,pdf);}
+  await c.query('INSERT INTO web_task_attachments(task_id,filename,content_type,content,created_by,created_name) VALUES($1,$2,$3,$4,$5,$6)',[taskId,pdf.filename,'application/pdf',Buffer.from(pdf.bytes),email,actor?.display_name||email]);
+ }
+ // Finalize preliminary reports from the earlier flow as one complete OS report.
+ for(const task of kept){
+  const preview=await c.query("SELECT 1 FROM web_task_attachments WHERE task_id=$1 AND (filename LIKE 'Relatorio-OS-%-Operacao-%-Previo.pdf' OR filename LIKE 'OS %-Previo.pdf') LIMIT 1",[task.taskId]);
+  if(!preview.rows.length)continue;
+  await c.query("DELETE FROM web_task_attachments WHERE task_id=$1 AND (filename LIKE 'Relatorio-OS-%-Operacao-%-Previo.pdf' OR filename LIKE 'OS %-Previo.pdf')",[task.taskId]);
+  await attachOrderReport(String(task.taskId),task.reportMode);
  }
  const order=(await c.query('SELECT numero_sequencia FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2',[schedule.company_id,schedule.order_id])).rows[0];
  for(const group of groups){
@@ -31,13 +40,14 @@ export async function concludeOrderReview(c:any,schedule:any,settings:any,email:
   for(const o of operations){
    const alerts=group.alerts.filter((a:ChecklistAlert)=>a.operationId===String(o.id)).map(({operationId,operationPosition,...a}:ChecklistAlert)=>a);
    if(!alerts.length)continue;
-   const document=await createAlertGroup(c,o,schedule,o.document,settings,email,alerts,group,taskId);
+   const document=await createAlertGroup(c,o,schedule,o.document,settings,email,alerts,group,taskId,false);
    record=document.checklistAlertTasks.at(-1);
    taskId=String(record.taskId);positions.push(o.position);
   }
   if(taskId){
+   await attachOrderReport(taskId,group.reportMode);
    await c.query('UPDATE web_tasks SET title=$2 WHERE id=$1',[taskId,`Alertas da OS ${order?.numero_sequencia||schedule.order_id} · Operações ${positions.map(p=>String(p).padStart(2,'0')).join(', ')}`.slice(0,160)]);
-   kept.push({...record,signature:undefined,alerts:group.alerts});
+   kept.push({...record,signature:undefined,alerts:group.alerts,reportScope:'order',reportOperationIds:operations.filter((o:any)=>o.document?.checklistRun).map((o:any)=>String(o.id))});
   }
  }
  // Coverage belongs to the OS receipt. Completed operations remain immutable.

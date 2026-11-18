@@ -30,6 +30,7 @@ export default function ChecklistAlertReview({alerts,document,editable,busy,user
   {value.map((task,index)=><section className="alert-task-card" key={index} aria-label={`Tarefa dos alertas ${index+1}`}>
    <header><h4>Tarefa {index+1}</h4><button type="button" aria-label={`Remover tarefa ${index+1}`} disabled={busy||!editable} onClick={()=>onChange(value.filter((_,i)=>i!==index))}><Trash2 size={16}/></button></header>
    {task.alertKeys.map(key=>{const a=pending.find(a=>alertKey(a)===key);return a?<div className="alert-task-item" key={key}>{summary(a)}</div>:<p key={key} role="alert">Este alerta foi alterado no relatório. Remova esta tarefa e reorganize os alertas.</p>;})}
+   {scope==="order"&&<p>Será anexado um único PDF agrupado com os relatórios de todas as operações da OS, no formato selecionado.</p>}
    <div className="checklist-review-alert-form">
     <label>Tipo de tarefa<select disabled={busy||!editable} value={task.taskType||'standard'} onChange={e=>edit(index,{taskType:e.target.value as 'standard'|'approval'})}><option value="standard">Tarefa de ação</option><option value="approval">Tarefa de aprovação</option></select></label>
     {task.taskType==='approval'&&<p>Para ciência e aprovação da condição, sem ação imediata. O destinatário receberá as opções Aprovar ou Reprovar, com justificativa e relatório anexo.</p>}

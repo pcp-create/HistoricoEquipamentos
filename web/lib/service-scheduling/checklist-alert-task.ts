@@ -27,11 +27,14 @@ export async function createChecklistAlertTask(c:PoolClient,operation:any,schedu
  for(const group of groups)document=await createAlertGroup(c,operation,schedule,document,settings,email,group.alerts,group);
  return document;
 }
-export async function createAlertGroup(c:PoolClient,operation:any,schedule:any,document:any,settings:any,email:string,alerts:any[],taskInput:ReturnType<typeof validateAlertTask>,existingTaskId?:string){
+export async function createAlertGroup(c:PoolClient,operation:any,schedule:any,document:any,settings:any,email:string,alerts:any[],taskInput:ReturnType<typeof validateAlertTask>,existingTaskId?:string,attachReport=true){
  const order=(await c.query('SELECT * FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2',[schedule.company_id,schedule.order_id])).rows[0];
  if(!order)throw Error('OS não encontrada para anexar o relatório à tarefa.');
  const users=(await c.query('SELECT email,display_name FROM web_user_access')).rows;
  const actor=users.find(u=>u.email===email);
+ const number=String(order.numero_sequencia||schedule.order_id),position=operationNumber(operation.position);
+ let attachment:{bytes:Uint8Array;filename:string}|undefined;
+ if(attachReport){
  const sessions=(await c.query('SELECT f.*,u.display_name FROM web_field_sessions f LEFT JOIN web_user_access u ON u.email=f.actor WHERE f.operation_id=$1',[operation.id])).rows;
  const events=(await c.query("SELECT * FROM web_field_events WHERE operation_id=$1 AND action IN ('start_work','start_travel','pause','resume','stop') ORDER BY created_at,id",[operation.id])).rows;
  const history=(await c.query('SELECT e.*,u.display_name FROM web_service_operation_events e LEFT JOIN web_user_access u ON u.email=e.actor WHERE e.operation_id=$1',[operation.id])).rows;
@@ -39,14 +42,15 @@ export async function createAlertGroup(c:PoolClient,operation:any,schedule:any,d
  const photoIds=[...new Set(report.flatMap(s=>s.groups.flatMap(g=>g.fields.flatMap(f=>f.photos))))];
  const photos=photoIds.length?(await c.query('SELECT id::text,content FROM web_service_checklist_photos WHERE operation_id=$1 AND id=ANY($2::bigint[])',[operation.id,photoIds])).rows:[];
  if(photos.length!==photoIds.length)throw Error('Há fotos indisponíveis no relatório. Confira os anexos antes de concluir a revisão.');
- const number=String(order.numero_sequencia||schedule.order_id),position=operationNumber(operation.position);
  const bytes=await renderTaskChecklistPdf({title:document.checklistRun.template.name,order:number,position:operation.position,client:order.cliente_nome||'',equipment:'',report,photos,mode:taskInput.reportMode});
  const filename=taskInput.reportMode==="summary"?summaryReportFilename(order,[{...operation,document}],number):`Relatorio-OS-${number.replace(/[^\w-]/g,'')}-Operacao-${position}-${reportFilenameMode[taskInput.reportMode]}.pdf`;
+  attachment={bytes,filename};
+ }
  const result=existingTaskId?{task:{id:existingTaskId}}:await createTask({taskType:taskInput.taskType,title:`${alerts.length?"Alertas":"Tarefa"} da OS ${number} · Operação ${position}`.slice(0,160),description:taskInput.description,assignedTo:taskInput.assignedTo,priority:'high',dueDate:'',orderCompany:String(schedule.company_id),orderId:String(schedule.order_id)}, {id:email,email,user_metadata:{display_name:actor?.display_name||email}},c);
  const taskId=String(result.task.id);
  await c.query("UPDATE web_tasks SET origin='Revisão de relatório' WHERE id=$1",[taskId]);
- if(existingTaskId)await c.query("DELETE FROM web_task_attachments WHERE task_id=$1 AND (filename LIKE $2 OR filename LIKE $3)",[taskId,`Relatorio-OS-%-Operacao-${position}-%-Previo.pdf`,'OS %-Previo.pdf']);
+ if(attachment&&existingTaskId)await c.query("DELETE FROM web_task_attachments WHERE task_id=$1 AND (filename LIKE $2 OR filename LIKE $3)",[taskId,`Relatorio-OS-%-Operacao-${position}-%-Previo.pdf`,'OS %-Previo.pdf']);
  if(alerts.length)await c.query("INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,'Alertas identificados no checklist',$2,true,$3,$4)",[taskId,alerts.map(a=>`Operação ${position} · ${a.stage} · ${a.label}: ${a.value}\nComentário: ${a.comment||"Não informado"}`).join('\n'),email,actor?.display_name||email]);
- await c.query('INSERT INTO web_task_attachments(task_id,filename,content_type,content,created_by,created_name) VALUES($1,$2,$3,$4,$5,$6)',[taskId,filename,'application/pdf',Buffer.from(bytes),email,actor?.display_name||email]);
+ if(attachment)await c.query('INSERT INTO web_task_attachments(task_id,filename,content_type,content,created_by,created_name) VALUES($1,$2,$3,$4,$5,$6)',[taskId,attachment.filename,'application/pdf',Buffer.from(attachment.bytes),email,actor?.display_name||email]);
  return {...document,checklistAlertTasks:[...(document.checklistAlertTasks||[]).filter((t:any)=>!existingTaskId||String(t.taskId)!==existingTaskId),{taskId,signature:checklistAlertSignature(alerts),alerts,assignedTo:taskInput.assignedTo,description:taskInput.description,reportMode:taskInput.reportMode,taskType:taskInput.taskType,at:new Date().toISOString(),by:email}]};
 }

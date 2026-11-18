@@ -10,6 +10,7 @@ import {orderChecklistAlerts,orderReviewSignature,orderReviewBlockReason,orderRe
 import {orderReportPdf} from '../lib/service-scheduling/order-report-store';
 import {checklistPdf} from '../lib/service-scheduling/checklist-pdf';
 import {PDFDocument} from 'pdf-lib';
+import {loadOrderAlertReport} from '../lib/service-scheduling/order-alert-report';
 const field={id:'status',label:'Condição',type:'flag2',required:true,alertOptions:['NOK']};
 const template={id:'check',name:'Inspeção',items:[],stages:[{id:'s',name:'Verificações',fields:[field]}]};
 const run={template,stages:{s:{status:'submitted',answers:{status:'NOK'}}}};
@@ -62,6 +63,8 @@ test('order review atomically groups alerts across operations and controls final
  const op2='10000000-0000-4000-8000-000000000002';
  await query("INSERT INTO web_service_operations(id,schedule_id,position,status,document,updated_by) VALUES($1,1,2,'awaiting_review',$2,'test')",[op2,JSON.stringify({description:'Segunda inspeção',responsible:admin,checklistRun:reviewedRun})]);
  await query('INSERT INTO web_service_checklist_photos VALUES(1,$1,$2)',[op2,photo]);
+ const noAlertOperation='10000000-0000-4000-8000-000000000004';
+ await query("INSERT INTO web_service_operations(id,schedule_id,position,status,document,updated_by) VALUES($1,1,4,'reviewed',$2,'test')",[noAlertOperation,JSON.stringify({description:'Operação sem alertas',responsible:admin,checklistRun:{...reviewedRun,stages:{s:{status:'submitted',answers:{status:'OK'},details:{}}}}})]);
  const reviewed=await mutateSchedule(body,admin);
  assert.equal(reviewed.operation.status,'reviewed');
  const taskCount=async()=>(await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length;
@@ -89,6 +92,10 @@ test('order review atomically groups alerts across operations and controls final
  assert.equal(await taskCount(),0);
  assert.equal(await readOrderReview({query},'1'),null);
  await db.exec('ALTER TABLE web_task_attachments DROP CONSTRAINT reject_test');
+ await query("UPDATE web_service_operations SET document=jsonb_set(document,'{checklistRun,stages,s,details}', $2::jsonb) WHERE id=$1",[noAlertOperation,JSON.stringify({status:{photos:['999']}})]);
+ await assert.rejects(mutateSchedule({...request,alertTasks:grouped},admin),/fotos indisponíveis/);
+ assert.equal(await taskCount(),0);assert.equal(await readOrderReview({query},'1'),null);
+ await query("UPDATE web_service_operations SET document=jsonb_set(document,'{checklistRun,stages,s,details}', '{}'::jsonb) WHERE id=$1",[noAlertOperation]);
  const selection={scheduleId:'1',operationIds:[operationId],mode:'complete'};
  await assert.rejects(orderReportPdf(selection,admin),/alerta/);
  const result=await mutateSchedule({...request,alertTasks:grouped},admin);
@@ -98,8 +105,18 @@ test('order review atomically groups alerts across operations and controls final
  assert.equal(created.task_type,'approval');assert.equal(created.approval_state,'pending');
  assert.match(created.title,/12345.*01, 02/);
  const attachments=(await query('SELECT filename,content FROM web_task_attachments WHERE task_id=$1',[records[0].taskId])).rows;
- assert.equal(attachments.length,2);
- for(const attachment of attachments)assert.ok((await PDFDocument.load(attachment.content)).getPageCount()>0);
+ assert.equal(attachments.length,1);assert.match(attachments[0].filename,/unificado-Completo/);
+ assert.ok((await PDFDocument.load(attachments[0].content)).getPageCount()>=4);
+ assert.deepEqual(records[0].reportOperationIds,[operationId,op2,noAlertOperation]);
+ const groupedReport=await loadOrderAlertReport({query} as any,{id:'1',company_id:1,order_id:100},await getOps(),{},'complete');
+ assert.deepEqual(groupedReport.model.chapters.map(c=>c.id),[operationId,op2,noAlertOperation]);
+ assert.ok(groupedReport.model.chapters[2].title.includes('sem alertas'));
+ assert.deepEqual(groupedReport.photos.map(p=>p.id).sort(),[operationId+':1',op2+':1'].sort());
+ for(const mode of ['summary','budget'] as const){
+  const all=await loadOrderAlertReport({query} as any,{id:'1',company_id:1,order_id:100},await getOps(),{},mode);
+  assert.equal(all.model.mode,mode);assert.deepEqual(all.model.chapters.map(c=>c.id),[operationId,op2,noAlertOperation]);
+ }
+
  const notes=(await query('SELECT description FROM web_task_notes WHERE task_id=$1',[records[0].taskId])).rows.map((n:any)=>n.description).join(' ');
  assert.match(notes,/Operação 01/);assert.match(notes,/Operação 02/);
  assert.equal(orderReviewBlockReason(await getOps(),result.orderReview),'');
@@ -107,7 +124,7 @@ test('order review atomically groups alerts across operations and controls final
  assert.ok((await checklistPdf(operationId,admin))?.bytes.length);
  assert.ok((await orderReportPdf(selection,admin)).bytes.length);
  assert.deepEqual(await mutateSchedule({...request,alertTasks:grouped},admin),JSON.parse(JSON.stringify(result)));
- assert.equal((await query('SELECT * FROM web_task_attachments')).rows.length,2);
+ assert.equal((await query('SELECT * FROM web_task_attachments')).rows.length,1);
  await query("UPDATE web_service_operations SET status='awaiting_review',version=version+1 WHERE id=$1",[op2]);
  await assert.rejects(checklistPdf(operationId,admin),/operação/);
  await mutateSchedule({...body,operationId:op2,version:3},admin);
@@ -122,7 +139,12 @@ test('order review atomically groups alerts across operations and controls final
  await query('INSERT INTO web_service_checklist_photos VALUES(1,$1,$2)',[op3,photo]);
  ops=await getOps();
  const thirdAlerts=orderChecklistAlerts(ops).filter(a=>a.operationId===op3);
- await mutateSchedule({...request,signature:orderReviewSignature(ops),alertTasks:[{...task,alertKeys:thirdAlerts.map(alertKey)}]},admin);
+ const oneOperationTask=await mutateSchedule({...request,signature:orderReviewSignature(ops),alertTasks:[{...task,reportMode:'summary',alertKeys:thirdAlerts.map(alertKey)}]},admin);
+ const latest=oneOperationTask.orderReview.checklistAlertTasks.at(-1);
+ const latestAttachments=(await query('SELECT filename,content FROM web_task_attachments WHERE task_id=$1',[latest.taskId])).rows;
+ assert.equal(latestAttachments.length,1);assert.match(latestAttachments[0].filename,/unificado-Resumido/);
+ assert.ok((await PDFDocument.load(latestAttachments[0].content)).getPageCount()>=5);
+ assert.deepEqual(latest.reportOperationIds,[operationId,op2,op3,noAlertOperation]);
  assert.equal((await getOps())[2].version,1);
  assert.equal(await orderReviewExportReason({query},'1'),'');
  for(const table of ['web_task_notes','web_task_attachments','web_task_notifications'])await query(`DELETE FROM ${table} WHERE task_id=$1`,[records[0].taskId]);
