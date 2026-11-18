@@ -38,7 +38,9 @@ test('following scope shows watched tasks assigned to other people and switches 
  await expect(cards).toHaveCount(3);
  const following=page.getByRole('button',{name:'Em acompanhamento',exact:true});
  const mine=page.getByRole('button',{name:'Minhas tarefas',exact:true});
- expect((await following.boundingBox())!.x).toBeLessThan((await mine.boundingBox())!.x);
+ const followBox=(await following.boundingBox())!,mineBox=(await mine.boundingBox())!;
+ expect(mineBox.x-followBox.x-followBox.width).toBeGreaterThanOrEqual(0);
+ expect(mineBox.x-followBox.x-followBox.width).toBeLessThanOrEqual(16);
  await mine.click();await expect(cards).toHaveCount(1);await expect(cards).toContainText('Tarefa minha');
  await following.click();await expect(following).toHaveAttribute('aria-pressed','true');await expect(mine).toHaveAttribute('aria-pressed','false');
  await expect(cards).toHaveCount(1);await expect(cards).toContainText('Tarefa acompanhada');

@@ -608,7 +608,8 @@
 
 /* Keep the count and all three controls on one toolbar row. */
 .task-results-toolbar { flex-wrap: nowrap; gap: 12px; }
-.task-scope-controls { width: auto; flex: 1; justify-content: space-between; gap: 12px; }
+.task-scope-controls { width: auto; flex: 1; justify-content: flex-end; gap: 12px; }
+.task-scope-controls > strong { margin-right: auto; }
 .task-display-controls { flex-wrap: nowrap; flex-shrink: 0; margin-left: 0; }
 @media (max-width: 650px) {
  .task-results-toolbar { gap: 6px; }
