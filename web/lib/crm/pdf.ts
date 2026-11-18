@@ -159,59 +159,55 @@ export async function proposalPdf(
   function ensure(height: number) {
     if (y + height > H - 55) newPage();
   }
-  function block(
-    title: string,
-    fields: [string, string][],
-    x: number,
-    top: number,
-    w: number,
-  ) {
+  // Compact columns omit empty fields instead of reserving rows for dashes.
+  function details(title: string, fields: [string, string][], x: number, top: number, w: number) {
     text(title, x, top, 6.5, true, blue);
     let cursor = top + 12;
     for (const [label, value] of fields) {
-      text(label.toUpperCase(), x, cursor, 5.5, true, gray);
-      cursor += 8;
-      for (const row of wrap(value || "—", w, 7)) {
+      if (!String(value || "").trim()) continue;
+      for (const row of wrap(`${label}: ${value}`, w, 7)) {
         text(row, x, cursor);
         cursor += 9;
       }
-      cursor += 2;
+      cursor += 3;
     }
     return cursor;
   }
   newPage();
-  const payload = customer.payload || {},
-    half = (width - 24) / 2;
-  function grid(title:string,rows:[string,string][][],x:number,top:number,w:number){
-   text(title,x,top,6.5,true,blue);let cursor=top+12;
-   for(const fields of rows){const col=(w-12*(fields.length-1))/fields.length;const lines=fields.map((field)=>wrap(field[1]||'—',col,7));
-    fields.forEach(([label],i)=>{text(label.toUpperCase(),x+i*(col+12),cursor,5.5,true,gray);lines[i].forEach((line,j)=>text(line,x+i*(col+12),cursor+8+j*9));});cursor+=10+Math.max(...lines.map(a=>a.length))*9;
-   }return cursor;
+  const payload = customer.payload || {}, col = (width - 40) / 3;
+  const ends = [
+    details("DADOS DO CLIENTE", [
+      ["Cliente", proposal.customer_name],
+      ["CPF / CNPJ", customer.document || ""],
+      ["Cidade / UF", [payload.municipioNome, payload.ufSigla].filter(Boolean).join(" / ")],
+      ["Endereço", [payload.logradouro, payload.numero, payload.bairro].filter(Boolean).join(", ")],
+      ["Contato", commercial.contact || ""],
+      ["Telefone", commercial.phone || ""],
+    ], M + 8, y, col),
+    details("EQUIPAMENTO", [
+      ["Equipamento", equipment.name || proposal.names?.equipment || ""],
+      ["Modelo", equipment.model || ""],
+      ["Nº de série", equipment.serial || ""],
+    ], M + 20 + col, y, col),
+    details("VENDEDOR E CONDIÇÕES", [
+      ["Vendedor", commercial.sellerName || ""],
+      ["E-mail", commercial.sellerEmail || ""],
+      ["Telefone", commercial.sellerPhone || ""],
+      ["Pagamento", commercial.paymentName || ""],
+      ["Frete / transportadora", [commercial.freightName, commercial.carrier].filter(Boolean).join(" · ")],
+      ["Validade", commercial.validity ?? "15 dias úteis"],
+      ["Entrega prevista", draft.expected || ""],
+    ], M + 32 + 2 * col, y, col),
+  ];
+  y = Math.max(...ends) + 3;
+  rule(y); y += 8;
+  if (draft.notes?.trim()) {
+    text("ESCOPO / OBSERVAÇÕES", M + 8, y, 6.5, true, blue); y += 12;
+    for (const row of wrap(draft.notes, width - 16)) {
+      ensure(12); text(row, M + 8, y); y += 9;
+    }
+    y += 6;
   }
-  const left=grid('DADOS DO CLIENTE',[
-   [['Razão social / fantasia',proposal.customer_name]],
-   [['CPF / CNPJ',customer.document||''],['Cidade / UF',[payload.municipioNome,payload.ufSigla].filter(Boolean).join(' / ')]],
-   [['Endereço',[payload.logradouro,payload.numero,payload.bairro].filter(Boolean).join(', ')]],
-   [['Contato',commercial.contact||''],['Telefone',commercial.phone||'']],
-  ],M+8,y,half-12);
-  const rightEnd=grid('VENDEDOR E CONDIÇÕES',[
-   [['Vendedor',commercial.sellerName||''],['E-mail',commercial.sellerEmail||'']],
-   [['Telefone',commercial.sellerPhone||'']],
-   [['Pagamento',commercial.paymentName||'']],
-   [['Frete / transportadora',[commercial.freightName,commercial.carrier].filter(Boolean).join(' · ')]],
-  ],M+half+24,y,half-12);
-  y=Math.max(left,rightEnd)+5;rule(y);y+=12;
-  const equipmentEnd=grid('IDENTIFICAÇÃO DO EQUIPAMENTO',[
-   [['Equipamento',proposal.names?.equipment||equipment.name||''],['Modelo',equipment.model||'']],
-   [['Nº de série',equipment.serial||''],['Validade',commercial.validity??'15 dias úteis']],
-  ],M+8,y,half-12);
-  const shortScope=wrap(draft.notes,half-12).length<=5;
-  const scopeEnd=block('ESCOPO DOS SERVIÇOS',[
-   ['Escopo',shortScope?draft.notes:'Consulte o escopo completo abaixo.'],
-   ['Entrega prevista',draft.expected||''],
-  ],M+half+24,y,half-12);
-  y=Math.max(equipmentEnd,scopeEnd)+4;rule(y);y+=12;
-  if(draft.notes&&!shortScope){text('ESCOPO / OBSERVAÇÕES',M+8,y,6.5,true,blue);y+=13;for(const row of wrap(draft.notes,width-16)){ensure(12);text(row,M+8,y);y+=10;}y+=8;}
   const xs = [
     M,
     M + 49,
