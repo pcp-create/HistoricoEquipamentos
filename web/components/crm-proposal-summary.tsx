@@ -1,4 +1,5 @@
 "use client";
+import CrmServiceCostInput from "./crm-service-cost-input";
 import CrmProductTerms from "./crm-product-terms";
 import { Trash2 } from "lucide-react";
 import {
@@ -177,18 +178,13 @@ export default function CrmProposalSummary({
                         <td>{cash(f.sale)}</td>
                         <td>
                           {kind === "service" ? (
-                            <input
+                            <CrmServiceCostInput
                               className="crm-service-cost-input"
                               aria-label={`Custo unitário: ${item.name}`}
-                              type="number"
-                              min="0"
-                              max="99999999.99"
-                              step="0.01"
-                              placeholder="Não informado"
                               disabled={disabled}
                               value={item.unitCost ?? ""}
-                              onChange={(e) => onChange(draft.items.map((row) =>
-                                row === item ? { ...row, unitCost: e.target.value } : row,
+                              onChange={value => onChange(draft.items.map(row =>
+                                row === item ? { ...row, unitCost: value } : row,
                               ))}
                             />
                           ) : item.unitCost

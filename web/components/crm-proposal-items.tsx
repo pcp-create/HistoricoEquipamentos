@@ -1,4 +1,5 @@
 "use client";
+import CrmServiceCostInput from "./crm-service-cost-input";
 import CrmProductTerms from "./crm-product-terms";
 import ActionNotice from "./action-notice";
 import { useEffect, useState } from "react";
@@ -272,24 +273,13 @@ export default function CrmProposalItems({
                   ) : (
                     <label>
                       Custo unitário (R$)
-                      <input
+                      <CrmServiceCostInput
                         aria-label={`Custo unitário: ${item.name}`}
-                        type="number"
-                        min="0"
-                        max="99999999.99"
-                        step="0.01"
-                        placeholder="Não informado"
                         disabled={disabled}
                         value={saved.unitCost ?? ""}
-                        onChange={(e) =>
-                          onChange(
-                            items.map((r) =>
-                              r === saved
-                                ? { ...r, unitCost: e.target.value }
-                                : r,
-                            ),
-                          )
-                        }
+                        onChange={value => onChange(items.map(r =>
+                          r === saved ? { ...r, unitCost: value } : r,
+                        ))}
                       />
                     </label>
                   )}
