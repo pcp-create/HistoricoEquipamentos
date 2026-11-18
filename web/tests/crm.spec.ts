@@ -197,9 +197,14 @@ test('PDF prompts for missing fiscal setup and shows calculation failures withou
  await expect(dialog.getByRole('button',{name:'Salvar tipo fiscal e gerar PDF'})).toBeDisabled();
  await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();expect(writes).toHaveLength(0);
  await generate.click();await dialog.getByLabel('Tipo de orçamento fiscal para o PDF').selectOption('1');
- const downloaded=page.waitForEvent('download');await dialog.getByRole('button',{name:'Salvar tipo fiscal e gerar PDF'}).click();
+ await dialog.getByRole('button',{name:'Salvar tipo fiscal e gerar PDF'}).click();
+ const preview=page.getByRole('dialog',{name:'Pré-visualização da proposta'});
+ await expect(preview).toBeVisible();
+ await expect(preview.locator('iframe')).toHaveAttribute('src',/^blob:/);
+ const downloaded=page.waitForEvent('download');await preview.getByRole('link',{name:'Baixar PDF'}).click();
  expect((await downloaded).suggestedFilename()).toBe('proposta-1.pdf');expect(writes[0].draft.commercial.taxBudgetType).toBe('1');expect(pdfRequests).toBe(1);
  await expect(dialog).toHaveCount(0);
+ await preview.getByRole('button',{name:'Fechar pré-visualização'}).click();
  await page.getByRole('button',{name:'Resumo geral',exact:true}).click();failPdf=true;await generate.click();
  await expect(page.getByText('Não foi possível simular os impostos no M8.',{exact:true})).toBeVisible();
  expect(writes).toHaveLength(1);

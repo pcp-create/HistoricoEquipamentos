@@ -20,6 +20,20 @@ export default function CrmProposalPdf({
     [choosing, setChoosing] = useState(false),
     [types, setTypes] = useState<{ id: string; name: string }[]>([]),
     [selected, setSelected] = useState("");
+  const [preview, setPreview] = useState("");
+  const refreshAfterPreview = useRef(false);
+  function closePreview() {
+    setPreview("");
+    if (refreshAfterPreview.current) {
+      refreshAfterPreview.current = false;
+      void onSaved().catch(e => onError(e.message));
+    }
+  }
+  const previewDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (preview) previewDialog.current?.showModal();
+    return () => { if (preview) URL.revokeObjectURL(preview); };
+  }, [preview]);
   const dialog = useRef<HTMLDialogElement>(null),
     sending = useRef(false);
   useEffect(() => {
@@ -38,21 +52,14 @@ export default function CrmProposalPdf({
     }
     if (!response.headers.get("content-type")?.includes("application/pdf"))
       throw Error("O servidor não retornou um PDF válido.");
-    const url = URL.createObjectURL(await response.blob()),
-      link = document.createElement("a");
-    link.href = url;
-    link.download = `proposta-${proposal.number}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    setPreview(URL.createObjectURL(await response.blob()));
   }
   async function generate(saveType = false) {
     if (sending.current) return;
     sending.current = true;
     setBusy(true);
     onError("");
-    let saved = false;
+    let saved = false, displayed = false;
     try {
       const missing =
         proposal.document.items.some((i: any) => i.kind === "material") &&
@@ -101,10 +108,12 @@ export default function CrmProposalPdf({
         setChoosing(false);
       }
       await download();
+      displayed = true;
+      refreshAfterPreview.current = saved;
     } catch (e) {
       onError((e as Error).message);
     } finally {
-      if (saved) await onSaved().catch((e) => onError(e.message));
+      if (saved && !displayed) await onSaved().catch((e) => onError(e.message));
       sending.current = false;
       setBusy(false);
     }
@@ -122,6 +131,20 @@ export default function CrmProposalPdf({
       >
         {busy ? "Preparando PDF…" : "Gerar PDF da proposta"}
       </button>
+      {preview && (
+        <dialog ref={previewDialog} aria-label="Pré-visualização da proposta"
+          onCancel={closePreview}
+          style={{ width: "95vw", maxWidth: "1400px", height: "90dvh", padding: "16px", border: "1px solid #cbd5e1", borderRadius: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "12px" }}>
+            <strong>Proposta PROP-{proposal.number}</strong>
+            <div className="crm-actions">
+              <a className="button" href={preview} download={`proposta-${proposal.number}.pdf`}>Baixar PDF</a>
+              <button type="button" aria-label="Fechar pré-visualização" onClick={closePreview}>Fechar</button>
+            </div>
+          </div>
+          <iframe title="PDF da proposta" src={preview} style={{ width: "100%", height: "calc(100% - 65px)", border: 0 }} />
+        </dialog>
+      )}
       {choosing && (
         <dialog
           ref={dialog}

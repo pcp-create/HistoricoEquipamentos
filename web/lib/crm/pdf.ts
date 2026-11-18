@@ -313,14 +313,18 @@ export async function proposalPdf(
   const tx = M + width * 0.63,
     tw = width * 0.37;
   let totalY = startY;
+  const materialItems = draft.items.filter(i => i.kind === "material");
+  const taxesComplete = materialItems.every(i => currentTaxes(draft, i));
+  const taxRows = ([['ICMS', 'icms'], ['ICMS-ST', 'icmsSt'], ['IPI', 'ipi'], ['PIS', 'pis'], ['COFINS', 'cofins']] as const)
+    .map(([label, key]) => [`${label} (simulado)`, taxesComplete ? money(materialItems.reduce((sum, item) => sum + (currentTaxes(draft, item)?.[key] || 0), 0)) : "Não informado"]);
   for (const [label, value] of [
-    ["Peças — subtotal (s/ IPI)", money(totals.materials)],
+    ["Peças — subtotal", money(totals.materials)],
     ["Mão de obra — subtotal", money(totals.services)],
-    ["IPI total (simulado)", draft.items.filter(i=>i.kind==='material').every(i=>currentTaxes(draft,i)) ? money(draft.items.reduce((sum,i)=>sum+(currentTaxes(draft,i)?.ipi||0),0)) : "Não informado"],
+    ...taxRows,
   ]) {
     text(label, tx + 8, totalY, 7, false, gray);
     right(value, W - M - 8, totalY);
-    totalY += 17;
+    totalY += 12;
   }
   rect(tx, totalY, tw, 26);
   text("VALOR TOTAL", tx + 8, totalY + 8, 7, true, white);
