@@ -1175,7 +1175,7 @@
 .sales-customer.scheduled { border-left-color:#679dce; }
 
 .visit-lead-seller-label { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.sales-page .visit-lead-seller-edit, .visit-lead-seller-edit { display: inline-flex; align-items: center; justify-content: center; width: 28px; min-height: 28px; padding: 4px; margin: 0; border: 0; background: transparent; color: #376a9c; box-shadow: none; }
+.field-app .visit-lead-seller .visit-lead-seller-edit, .visit-lead-seller .visit-lead-seller-edit { display: inline-flex; align-items: center; justify-content: center; width: 28px; min-height: 28px; padding: 4px; margin: 0; border: 0; background: transparent; color: #376a9c; box-shadow: none; }
 .visit-lead-seller-edit:hover:not(:disabled) { background: #eaf3ff; }
 .visit-lead-seller-form { display: grid; gap: 10px; padding: 12px; margin: 8px 0; background: #f4f8fc; border: 1px solid #dce6f0; border-radius: 8px; }
 .visit-lead-seller-form label { display: grid; gap: 6px; }

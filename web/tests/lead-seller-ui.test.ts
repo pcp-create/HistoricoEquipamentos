@@ -4,7 +4,7 @@ import {createServer} from 'node:http';
 import {build} from 'esbuild';
 import {chromium,expect} from '@playwright/test';
 test('lead seller pencil opens editor, saves the selected seller and keeps other leads in full-base results',async()=>{
- const code=`import React from 'react';import{createRoot}from'react-dom/client';import Seller from './components/visit-lead-seller';import CustomerSelect from './components/sales-customer-select';import './components/sales-visits.css';function App(){const[owner,setOwner]=React.useState('a@test'),[full,setFull]=React.useState(false),[value,setValue]=React.useState('');const customer={key:'lead:11111111-1111-4111-8111-111111111111',lead:true,name:'Lead A',seller_ids:[owner],seller_names:[owner==='a@test'?'Vendedor A':'Vendedor B']};return <><Seller customer={customer} canEdit onSaved={()=>setOwner('b@test')}/><CustomerSelect customers={[customer]} value={value} onChange={setValue} fullBase={full} onFullBaseChange={setFull}/><p>Selecionado: {value}</p></>}createRoot(document.getElementById('root')).render(<App/>);`;
+ const code=`import React from 'react';import{createRoot}from'react-dom/client';import Seller from './components/visit-lead-seller';import CustomerSelect from './components/sales-customer-select';import './components/sales-visits.css';import './components/field-app.css';function App(){const[owner,setOwner]=React.useState('a@test'),[full,setFull]=React.useState(false),[value,setValue]=React.useState('');const customer={key:'lead:11111111-1111-4111-8111-111111111111',lead:true,name:'Lead A',seller_ids:[owner],seller_names:[owner==='a@test'?'Vendedor A':'Vendedor B']};return <main className="field-app sales-app"><Seller customer={customer} canEdit onSaved={()=>setOwner('b@test')}/><CustomerSelect customers={[customer]} value={value} onChange={setValue} fullBase={full} onFullBaseChange={setFull}/><p>Selecionado: {value}</p></main>}createRoot(document.getElementById('root')).render(<App/>);`;
  const compiled=await build({stdin:{contents:code,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,jsx:'automatic',outdir:'out'});
  let saved:any;
  const server=createServer(async(req,res)=>{
@@ -19,7 +19,9 @@ test('lead seller pencil opens editor, saves the selected seller and keeps other
  await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch();
  try{const page=await browser.newPage();await page.goto('http://127.0.0.1:'+(server.address() as any).port);
  await expect(page.getByText('Vendedor: Vendedor A',{exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Alterar vendedor responsável pelo lead'}).click();
+ const pencil=page.getByRole('button',{name:'Alterar vendedor responsável pelo lead'});
+ await expect(pencil).toHaveCSS('border-top-width','0px');await expect(pencil).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+ await pencil.click();
  await page.getByLabel('Vendedor responsável pelo lead',{exact:true}).selectOption('b@test');
  await page.getByRole('button',{name:'Salvar responsável'}).click();
  await expect(page.getByText('Vendedor: Vendedor B',{exact:true})).toBeVisible();
