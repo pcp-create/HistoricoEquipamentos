@@ -28,8 +28,8 @@ export async function contactAccess(db: any, key: string, email: string) {
     if (
       (
         await db.query(
-          "SELECT 1 FROM web_sales_leads WHERE id=$1 AND (owner=$2 OR $3)",
-          [key.slice(5), email, canManageVisits(user.role)],
+          "SELECT 1 FROM web_sales_leads WHERE id=$1",
+          [key.slice(5)],
         )
       ).rows.length
     )

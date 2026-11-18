@@ -1,4 +1,5 @@
 "use client";
+import VisitLeadSeller from "./visit-lead-seller";
 import ActionNotice from "./action-notice";
 import {visitCalendarDay} from "@/lib/visits/calendar-day";
 import VisitCalendarTotals from "./visit-calendar-totals";
@@ -840,6 +841,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
                             ? "Última visita: " + display(c.lastVisit)
                             : "Nenhuma visita realizada registrada"}
                         </p>
+                        {c.lead&&<VisitLeadSeller customer={c} sellers={data?.sellers} canEdit={data?.canManage||c.seller_ids?.includes(data?.email||"")} online={online} onSaved={reload}/>}
                         {planned.filter((v) => v.customer_key === c.key)
                           .length > 0 && (
                           <p className="sales-scheduled">
@@ -1173,7 +1175,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
                 ) : (
                   <>
                     <div className="sales-customer-picker-row">
-                      <SalesCustomerSelect onFullBaseChange={checked=>{setOutsidePortfolio(checked);setForm({...form,customer_key:"",contact_id:"",contact:"",phone:""});}} seller={scheduleOnly?form.seller:undefined} fullBase={outsidePortfolio} onSelectCustomer={customer=>setAllCustomers(current=>[...current.filter(c=>c.key!==customer.key),customer])} customers={(outsidePortfolio ? allCustomers : customers).filter(customer=>!scheduleOnly || !customer.lead || customer.seller_ids?.includes(form.seller || ""))} value={form.customer_key}
+                      <SalesCustomerSelect onFullBaseChange={checked=>{setOutsidePortfolio(checked);setForm({...form,customer_key:"",contact_id:"",contact:"",phone:""});}} seller={scheduleOnly?form.seller:undefined} fullBase={outsidePortfolio} onSelectCustomer={customer=>setAllCustomers(current=>[...current.filter(c=>c.key!==customer.key),customer])} customers={outsidePortfolio ? allCustomers : customers.filter(customer=>!scheduleOnly || !customer.lead || customer.seller_ids?.includes(form.seller || ""))} value={form.customer_key}
                         onChange={customer_key => setForm({ ...form, customer_key, contact_id:"", contact:"", phone:"" })} />
                     </div>
                     {customerLoading && <p role="status">Carregando clientes…</p>}
@@ -1185,6 +1187,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
                 <strong>{customerMap.get(form.customer_key)?.name}</strong>
               </p>
             )}
+            {!form.lead&&formCustomer?.lead&&<VisitLeadSeller customer={formCustomer} sellers={data?.sellers} canEdit={data?.canManage||formCustomer.seller_ids?.includes(data?.email||"")} online={online} onSaved={async()=>{await reload();if(outsidePortfolio)await loadAllCustomers();}}/>}
             {!form.lead && formCustomer && (
               <SalesCustomerLocation key={form.customer_key} customer={formCustomer!} onSaved={async()=>{await reload();if(outsidePortfolio)await loadAllCustomers()}} />
             )}

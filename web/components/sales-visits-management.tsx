@@ -1,4 +1,5 @@
 "use client";
+import VisitLeadSeller from "./visit-lead-seller";
 import ActionNotice from "./action-notice";
 import {visitCalendarDay} from "@/lib/visits/calendar-day";
 import VisitCalendarTotals from "./visit-calendar-totals";
@@ -431,7 +432,7 @@ export default function SalesVisitsManagement() {
                   {customer.tradeName&&<p>{customer.tradeName}</p>}
                   <p>{customer.city} / {customer.uf} {customer.document&&"· "+customer.document}</p>
                   <p className="sales-muted">{customer.lastVisit?"Última visita: "+dateTime(customer.lastVisit):"Nenhuma visita realizada registrada"}</p>
-                  <p className="sales-muted">Vendedor: {customer.seller_ids?.map(id=>sellerMap.get(id)?.name||id).join(", ")||"Não atribuído"}</p>
+                  <VisitLeadSeller customer={customer} sellers={sellers} canEdit={data.canManage} online={online} onSaved={reload}/>
                   {customer.disqualification&&<p className="visit-disqualification-reason"><strong>Justificativa:</strong> {customer.disqualification.reason}</p>}
                   {visits.some(v=>v.customer_key===customer.key&&v.status==="scheduled")&&<p className="sales-scheduled"><CalendarDays size={15}/>Possui visita agendada</p>}
                   <div className="sales-customer-actions"><button className="sales-primary" disabled={!online} onClick={()=>openVisit("schedule",customer)}><CalendarDays size={17}/>Agendar</button><button className="sales-register-button" disabled={!online} onClick={()=>openVisit("history",customer)}><CheckCircle2 size={17}/>Registrar</button><button className="sales-history-button" onClick={()=>setDetail(customer)}><History size={17}/>Histórico</button></div>

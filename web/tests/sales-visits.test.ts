@@ -1,3 +1,4 @@
+import {changeLeadSeller} from "../lib/visits/lead-seller";
 import {updateContactJob} from "../lib/visits/contact-job";
 import {M8RequestError} from '../lib/service-orders/m8';
 import {registerMachine,listMachines,saveMachineSettings,machineSettings} from '../lib/visits/machine-registration';
@@ -534,6 +535,17 @@ test("seller scope, lead isolation, completion, historical dates and idempotent 
     await db.exec("UPDATE web_customer_registry SET seller_user=null WHERE person_id=1");
     assert.equal((await visitsData('a@test.com')).customers.find(c=>c.key==='m8:1')?.in_portfolio,true);
 
+    // A different seller can select an existing lead from the full base without taking ownership.
+    const sharedVisit={...body,id:'01010101-0101-4101-8101-010101010101',customer_key:'lead:'+delegatedLead.lead.id};
+    await saveVisit(sharedVisit,'a@test.com');
+    assert.equal((await db.query<any>('SELECT owner FROM web_sales_leads WHERE id=$1',[delegatedLead.lead.id])).rows[0].owner,'b@test.com');
+    assert.ok((await visitsData('a@test.com')).customers.some(c=>c.key===sharedVisit.customer_key));
+    assert.ok((await visitsData('a@test.com')).visits.some((v:any)=>v.id===sharedVisit.id));
+    await changeLeadSeller({customer_key:sharedVisit.customer_key,seller:'a@test.com',expectedOwner:'b@test.com'},'b@test.com');
+    const formerOwnerData=await visitsData('b@test.com');
+    assert.ok(formerOwnerData.visits.some((v:any)=>v.id===delegatedLead.id));
+    assert.deepEqual(formerOwnerData.customers.find(c=>c.key===sharedVisit.customer_key)?.seller_ids,['a@test.com']);
+    assert.deepEqual((await visitsData('a@test.com')).customers.find(c=>c.key===sharedVisit.customer_key)?.seller_ids,['a@test.com']);
   } finally {
     g.historyPool = old;
     await db.close();

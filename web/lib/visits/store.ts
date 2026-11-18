@@ -50,8 +50,8 @@ export async function visitsData(email: string, db: any = database(), management
     (directSellers.has(r.person_id)?directSellers.get(r.person_id)===email:territories.has(cityKey(r.payload?.municipioNome||'')+':'+String(r.payload?.ufSigla||'').toUpperCase())));
   const leads = (
     await db.query(
-      "SELECT * FROM web_sales_leads WHERE ($2::boolean OR owner=$1) ORDER BY name",
-      [email,management],
+      "SELECT l.*,u.display_name AS owner_name FROM web_sales_leads l LEFT JOIN web_user_access u ON u.email=l.owner WHERE ($2::boolean OR l.owner=$1 OR ('lead:'||l.id::text)=ANY($3::text[])) ORDER BY l.name",
+      [email,management,historical],
     )
   ).rows;
   const keys = [
@@ -127,6 +127,7 @@ export async function visitsData(email: string, db: any = database(), management
       uf: r.uf,
       address: r.address,
       seller_ids: [r.owner],
+      seller_names: [r.owner_name||r.owner],
       in_portfolio: false,
       lead: true,
       equipment: equipmentMap.get(`lead:${r.id}`)||[],
@@ -163,7 +164,7 @@ export async function visitsData(email: string, db: any = database(), management
     ORDER BY u.display_name,u.email`, [email,management || user.role === "admin",management,employeeIds])).rows;
   const purposes = (await db.query("SELECT id::text,name,description,active,version FROM web_sales_visit_purposes WHERE active ORDER BY id")).rows;
   const assignees = management ? (await db.query("SELECT email AS id,COALESCE(NULLIF(display_name,''),email) AS name FROM web_user_access WHERE enabled ORDER BY display_name,email")).rows : undefined;
-  return { assignees, canEditVisits:true, purposes, name: user.display_name || email, customers, visits, sellers, canManage: canManageVisits(user.role) };
+  return { email, assignees, canEditVisits:true, purposes, name: user.display_name || email, customers, visits, sellers, canManage: canManageVisits(user.role) };
 }
 function text(b: any, key: string, max: number, required = false) {
   const value = b?.[key];
@@ -240,7 +241,9 @@ export async function saveVisit(b: any, email: string,registerEquipment=register
         }
 
       } else if (!data.customers.some((x) => x.key === key)) {
-        if (!/^m8:\d+$/.test(key) || !(await c.query("SELECT 1 FROM m8_customer_directory WHERE person_id=$1 LIMIT 1",[key.slice(3)])).rows.length) throw new Forbidden();
+        if(/^lead:[0-9a-f-]{36}$/i.test(key)){
+          if(!(await c.query("SELECT 1 FROM web_sales_leads WHERE id=$1",[key.slice(5)])).rows.length)throw new Forbidden();
+        }else if (!/^m8:\d+$/.test(key) || !(await c.query("SELECT 1 FROM m8_customer_directory WHERE person_id=$1 LIMIT 1",[key.slice(3)])).rows.length) throw new Forbidden();
       }
       const purpose = b.purpose_id;
       if (!/^\d+$/.test(String(purpose || "")) || !(await c.query("SELECT 1 FROM web_sales_visit_purposes WHERE id=$1 AND active FOR SHARE",[purpose])).rows.length)

@@ -319,7 +319,7 @@ test('user without territory schedules an external customer with a purpose',asyn
  await page.goto('/visitas');await page.getByRole('button',{name:/Visitas Sua carteira/}).click();
  await page.getByRole('button',{name:'Agendar visita',exact:true}).click();
  await page.getByRole('combobox',{name:'Cliente',exact:true}).click();
- await page.getByLabel('Base completa de clientes',{exact:true}).check();
+ await page.getByLabel('Base completa de clientes e leads',{exact:true}).check();
  await expect(page.getByRole('combobox',{name:'Cliente',exact:true})).toHaveAttribute('aria-expanded','true');
  await expect(page.getByRole('status').filter({hasText:'Carregando clientes'})).toHaveCount(0);
  await page.getByRole('combobox',{name:'Cliente',exact:true}).click();
@@ -474,7 +474,7 @@ test('full customer base finds COOPERSULCA by trade name on the visits page', as
   await page.getByRole('button',{name:'Abrir ações de visita'}).click();
   await page.getByRole('button',{name:'Agendar visita',exact:true}).click();
   await page.getByRole('combobox',{name:'Cliente',exact:true}).click();
-  await page.getByRole('checkbox',{name:'Base completa de clientes'}).check();
+  await page.getByRole('checkbox',{name:'Base completa de clientes e leads'}).check();
   await page.getByRole('combobox',{name:'Cliente',exact:true}).fill('coopersulca');
   await expect(page.getByRole('listbox').getByRole('option')).toHaveCount(2);
   await expect(page.locator('.order-choice-trade-name')).toHaveText(['COOPERSULCA','COOPERSULCA']);

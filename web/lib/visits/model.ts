@@ -45,6 +45,7 @@ export type VisitCustomer = {
   address: string;
   lead: boolean;
   seller_ids?: string[];
+  seller_names?: string[];
   in_portfolio?: boolean;
   locationVersion?: number;
   equipment?: { brand?:string; registrationNotes?:string; registrationTaskId?:string|null; registrationOrigin?:"visits"|"system"; integrationPending?:boolean; inactivation?:{reason:string;actor:string;created_at:string}; id: string; name: string; model: string; serial: string; meter?: number | null; meterDate?: string; version?: number | null }[];
@@ -81,6 +82,7 @@ export type VisitSellerLocation = {
 };
 export type VisitPurpose = {id:string;name:string;description:string;active:boolean;version:number};
 export type VisitsData = {
+  email?: string;
   assignees?: {id: string; name: string}[];
   canEditVisits?: boolean;
   purposes?: VisitPurpose[];
