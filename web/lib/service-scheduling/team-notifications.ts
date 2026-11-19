@@ -12,6 +12,7 @@ function roles(document: any) {
 
 /** Queue changes in the same transaction as the saved operation. */
 export async function notifyOperationTeamChange(c: any, before: any, after: any, schedule: any) {
+  if (!after.sent_at) return;
   const previous = roles(before.document), next = roles(after.document);
   const changed = [...new Set([...previous.keys(), ...next.keys()])]
     .filter(email => previous.get(email) !== next.get(email));
@@ -20,18 +21,21 @@ export async function notifyOperationTeamChange(c: any, before: any, after: any,
     "SELECT COALESCE(numero_sequencia,id_m8)::text number,cliente_nome FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2",
     [schedule.company_id, schedule.order_id],
   )).rows[0];
+  const responsible = after.document.responsible
+    ? (await c.query("SELECT display_name FROM web_user_access WHERE email=$1",[after.document.responsible])).rows[0]?.display_name || after.document.responsible
+    : "não definido";
   const operation = String(after.position).padStart(2, "0");
   for (const recipient of changed) {
     const oldRole = previous.get(recipient), newRole = next.get(recipient);
     const title = !newRole ? "Operação retirada da sua programação"
       : !oldRole ? "Operação incluída na sua programação" : "Sua função na operação foi alterada";
     const detail = !newRole
-      ? `Você foi retirado da operação, na qual atuava como ${oldRole}.`
+      ? `Você foi retirado da operação, na qual atuava como ${oldRole}. OS removida do dispositivo para esta operação; serviço enviado ao técnico ${responsible}.`
       : !oldRole ? `Você foi incluído como ${newRole} desta operação.`
       : `Sua função passou de ${oldRole} para ${newRole}.`;
     await queueServiceMessage(c,
       `operation-team:${after.id}:${after.version}:${recipient}`,
-      `📋 *${title}*\n*OS ${order?.number || schedule.order_id} · OP${operation} · ${companyName(schedule.company_id)}*\nCliente: ${order?.cliente_nome || "Não informado"}\nOperação: ${after.document.description || "Não informada"}\n${detail}\nData: ${after.document.date || "A confirmar"} ${after.document.time || ""}\n${!after.sent_at && newRole ? "A operação ainda aguarda envio ao Portal Técnico.\n" : ""}Confira sua programação: ${PUBLIC_SYSTEM_URL}/tecnico`,
+      `📋 *${title}*\n*OS ${order?.number || schedule.order_id} · OP${operation} · ${companyName(schedule.company_id)}*\nCliente: ${order?.cliente_nome || "Não informado"}\nOperação: ${after.document.description || "Não informada"}\n${detail}\nData: ${after.document.date || "A confirmar"} ${after.document.time || ""}\nConfira sua programação: ${PUBLIC_SYSTEM_URL}/tecnico`,
       { recipient },
     );
   }

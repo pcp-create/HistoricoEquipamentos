@@ -1,3 +1,5 @@
+import {orderReviewSignature} from "../lib/service-scheduling/order-review";
+import {notifyOperationTeamChange} from "../lib/service-scheduling/team-notifications";
 import {PDFDocument} from "pdf-lib";
 import {prepareCustomerEmail} from "../lib/service-scheduling/customer-email";
 import {recallOperation} from "../lib/service-scheduling/recall-operation";
@@ -193,6 +195,8 @@ test("execution handoffs preserve one task; releases, customer sends and approva
     let teamNotices=(await query<any>("SELECT * FROM web_service_notifications WHERE source_key LIKE 'operation-team:%'")).rows;
     assert.equal(teamNotices.length,4,'each replacement notifies the old and new technician');
     assert.ok(teamNotices.some(n=>n.recipient==='tech@test.com'&&n.text.includes('retirado')));
+    const newTechnician=(await query<any>("SELECT display_name FROM web_user_access WHERE email='budget@test.com'")).rows[0].display_name;
+    assert.ok(teamNotices.some(n=>n.recipient==='tech@test.com'&&n.text.includes('serviço enviado ao técnico '+newTechnician)));
     assert.ok(teamNotices.some(n=>n.recipient==='budget@test.com'&&n.text.includes('incluído como responsável')));
     let teamOperation=await op();
     const saveTeam=async(support:string[])=>{
@@ -316,6 +320,8 @@ test("execution handoffs preserve one task; releases, customer sends and approva
         .rows[0].release_kind,
       "billing",
     );
+    const reviewedOperations=(await query<any>('SELECT * FROM web_service_operations WHERE schedule_id=$1',[schedule.id])).rows;
+    await query("INSERT INTO web_access_events(event,email,actor,details) VALUES('service_order_reviewed','planner@test.com','planner@test.com',$1)",[JSON.stringify({scheduleId:String(schedule.id),signature:orderReviewSignature(reviewedOperations)})]);
     const email=await prepareCustomerEmail(emailInput,'planner@test.com');
     const mime=Buffer.from(email.raw,'base64url').toString();
     assert.match(mime,/Content-Type: application\/pdf/);assert.ok(email.reportFilename.startsWith('OS '));
@@ -512,3 +518,8 @@ test("execution handoffs preserve one task; releases, customer sends and approva
     await db.close();
   }
 });
+
+ test('editing an undispatched operation never queues team notifications',async()=>{
+  const c={query:async()=>{throw Error('Must not query or queue for an undispatched operation');}};
+  await notifyOperationTeamChange(c,{document:{responsible:'old@example.com'}},{sent_at:null,document:{responsible:'new@example.com',support:['support@example.com']}},{});
+ });
