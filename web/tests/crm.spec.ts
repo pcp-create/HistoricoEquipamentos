@@ -93,19 +93,16 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  await page.getByRole('spinbutton',{name:'Quantidade: Filtro histórico',exact:true}).fill('2');
  await page.getByRole('spinbutton',{name:'Venda unitária: Filtro histórico',exact:true}).fill('12.00');
 
- await page.getByLabel('Tipo de orçamento fiscal (M8)').selectOption('1');
- await page.getByLabel('Prazo sem estoque (dias úteis)').fill('15');
+ await expect(page.getByLabel('Tipo de orçamento fiscal (M8)')).toHaveCount(0);
  const terms=page.locator('.crm-summary-table').first();
  await expect(terms).toContainText('Estoque disponível: 2');
  await expect(terms.getByRole('columnheader',{name:'Prazo de entrega',exact:true})).toBeVisible();
  await expect(terms.locator('span[title^="Estoque consultado em"]')).toHaveText('2 UN');
  await expect(terms).not.toContainText('Estoque consultado em');
  await expect(terms.getByLabel('Prazo de entrega: Filtro')).toHaveAttribute('placeholder', 'Imediato');
- await page.getByRole('button',{name:'Calcular impostos',exact:true}).click();
- await expect(terms).toContainText('ICMS R$ 3,89');
+ await expect(page.getByRole('button',{name:'Calcular impostos',exact:true})).toHaveCount(0);
  await page.getByRole('spinbutton',{name:'Quantidade: Filtro histórico',exact:true}).fill('3');
- await expect(terms.getByLabel('Prazo de entrega: Filtro')).toHaveAttribute('placeholder', '15 dias úteis');
- await expect(terms).toContainText('Impostos não calculados para estes dados.');
+ await expect(terms).not.toContainText('Impostos');
  await terms.getByLabel('Prazo de entrega: Filtro histórico').fill('7 dias úteis');
  await page.getByRole('spinbutton',{name:'Quantidade: Filtro histórico',exact:true}).fill('2');
  await expect(terms.getByLabel('Prazo de entrega: Filtro histórico')).toHaveValue('7 dias úteis');
@@ -143,15 +140,16 @@ test('CRM registries allow manually mapping proposal types to ERP order type IDs
  await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
  await page.route('**/api/**',r=>r.fulfill({json:{}}));
  let saved:any;
- await page.route('**/api/crm*',r=>{if(r.request().method()==='POST'){saved=r.request().postDataJSON();return r.fulfill({json:{id:1}});}return r.fulfill({json:catalog});});
+ await page.route('**/api/crm*',r=>{if(r.request().method()==='POST'){saved=r.request().postDataJSON();return r.fulfill({json:{id:1}});}return r.fulfill({json:new URL(r.request().url()).searchParams.has('taxTypes')?{rows:[{id:'7',name:'MANUTENÇÃO PREVENTIVA'}]}:catalog});});
  await page.goto('/configuracoes/cadastros/crm');
  await page.getByRole('button',{name:'Tipos de Proposta',exact:true}).click();
  await page.getByRole('button',{name:'Editar Preventiva Avulsa',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Tipo de proposta',exact:true});
  await dialog.getByLabel('IDs Tipos de Ordem de Serviço M8',{exact:true}).fill('4, 99');
+ await dialog.getByLabel('Tipo de orçamento fiscal (M8)').selectOption('7');
  await dialog.getByRole('button',{name:'Salvar cadastro',exact:true}).click();
  await expect(dialog).toHaveCount(0);
- expect(saved).toMatchObject({action:'save-catalog',kind:'proposal',opportunityTypeId:'1',orderTypes:['4','99']});
+ expect(saved).toMatchObject({action:'save-catalog',kind:'proposal',opportunityTypeId:'1',orderTypes:['4','99'],taxBudgetType:'7'});
 });
 
 test('sales order action asks for an OS type only when multiple choices exist',async({page,context})=>{
@@ -175,7 +173,7 @@ test('sales order action asks for an OS type only when multiple choices exist',a
  await expect.poll(()=>writes.length).toBe(1);expect(writes[0]).toMatchObject({action:'convert',orderType:'5'});
 });
 
-test('PDF prompts for missing fiscal setup and shows calculation failures without an empty PDF',async({page,context})=>{
+test('PDF uses automatic fiscal setup and shows calculation failures without an empty PDF',async({page,context})=>{
  await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
  await page.route('**/api/**',r=>r.fulfill({json:{}}));
  const item={kind:'material',code:'50',name:'Filtro',quantity:'1',price:'100',unitCost:'',availableStock:null,unitCostSource:'average',unitCostReason:'missing'};
@@ -192,24 +190,18 @@ test('PDF prompts for missing fiscal setup and shows calculation failures withou
  await page.route('**/api/crm/pdf?*',r=>{pdfRequests++;pdfModes.push(new URL(r.request().url()).searchParams.get('taxes')||'');return failPdf?r.fulfill({status:400,json:{error:'Não foi possível simular os impostos no M8.'}}):r.fulfill({contentType:'application/pdf',body:'%PDF-1.4\n%%EOF'});});
  await page.goto('/crm/propostas/'+proposalId);await page.getByRole('button',{name:'Resumo geral',exact:true}).click();
  const generate=page.getByRole('button',{name:'Exportar PDF',exact:true});await expect(generate).toBeEnabled();await generate.click();await page.getByRole('button',{name:'Gerar Proposta com Impostos',exact:true}).click();
- const dialog=page.getByRole('dialog',{name:'Configurar impostos da proposta'});
- await expect(dialog).toBeVisible();expect(pdfRequests).toBe(0);
- await expect(dialog.getByRole('button',{name:'Salvar tipo fiscal e gerar PDF'})).toBeDisabled();
- await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();expect(writes).toHaveLength(0);
- await generate.click();await page.getByRole('button',{name:'Gerar Proposta com Impostos',exact:true}).click();await dialog.getByLabel('Tipo de orçamento fiscal para o PDF').selectOption('1');
- await dialog.getByRole('button',{name:'Salvar tipo fiscal e gerar PDF'}).click();
  const preview=page.getByRole('dialog',{name:'Pré-visualização da proposta'});
  await expect(preview).toBeVisible();
  await expect(preview.locator('iframe')).toHaveAttribute('src',/^blob:/);
  const downloaded=page.waitForEvent('download');await preview.getByRole('link',{name:'Baixar PDF'}).click();
- expect((await downloaded).suggestedFilename()).toBe('proposta-1.pdf');expect(writes[0].draft.commercial.taxBudgetType).toBe('1');expect(pdfRequests).toBe(1);
- await expect(dialog).toHaveCount(0);
+ expect((await downloaded).suggestedFilename()).toBe('proposta-1.pdf');expect(writes).toHaveLength(0);expect(pdfRequests).toBe(1);
+ await expect(page.getByRole('dialog',{name:'Configurar impostos da proposta'})).toHaveCount(0);
  await preview.getByRole('button',{name:'Fechar pré-visualização'}).click();
  await page.getByRole('button',{name:'Resumo geral',exact:true}).click();failPdf=true;await generate.click();await page.getByRole('button',{name:'Gerar Proposta com Impostos',exact:true}).click();
  await expect(page.getByText('Não foi possível simular os impostos no M8.',{exact:true})).toBeVisible();
- expect(writes).toHaveLength(1);
+ expect(writes).toHaveLength(0);
  failPdf=false;await generate.click();await page.getByRole('button',{name:'Gerar Proposta sem Impostos',exact:true}).click();
- await expect(preview).toBeVisible();expect(pdfModes.at(-1)).toBe('0');expect(writes).toHaveLength(1);
+ await expect(preview).toBeVisible();expect(pdfModes.at(-1)).toBe('0');expect(writes).toHaveLength(0);
  await expect(page.getByRole('button',{name:'Atualizar andamento',exact:true})).toHaveCount(0);
 });
 
@@ -226,11 +218,17 @@ test('mobile proposal applies reference prices without duplicate action buttons'
  await page.getByRole('button',{name:/^Produtos/}).click();
  const card=page.locator('.quote-choice').filter({hasText:'Filtro teste'}).first();
  await expect(card).toBeVisible();
+ const savebar=page.locator('.crm-proposal-savebar');
+ await expect(savebar.getByRole('button',{name:'Continuar para Serviços',exact:true})).toBeVisible();
+ await expect(savebar).toHaveCSS('position','fixed');
+ await expect.poll(()=>savebar.evaluate(el=>Math.abs(el.getBoundingClientRect().bottom-innerHeight)<2)).toBe(true);
  await expect(card.getByLabel('Valor unitário (R$)',{exact:true})).toHaveCSS('background-color','rgb(255, 240, 240)');
  await expect(card.getByLabel('Valor unitário (R$)',{exact:true})).toHaveCSS('color','rgb(180, 35, 24)');
  await expect(card.getByRole('button',{name:/Usar última venda|Usar venda M8|Remover item/})).toHaveCount(0);
  await card.getByRole('button',{name:/Aplicar última venda/}).click();
  await expect(card.getByLabel('Valor unitário (R$)',{exact:true})).toHaveValue('908,95');
+ await expect(card.getByRole('button',{name:/Aplicar venda M8/})).toBeHidden();
+ await card.getByRole('button',{name:'Ver preços de referência'}).click();
  await card.getByRole('button',{name:/Aplicar venda M8/}).click();
  await expect(card.getByLabel('Valor unitário (R$)',{exact:true})).toHaveValue('849,34');
  await card.getByRole('button',{name:/Aplicar mínimo M8/}).click();
@@ -248,4 +246,8 @@ test('mobile proposal applies reference prices without duplicate action buttons'
    await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  }
  await page.screenshot({path:'/tmp/crm-compact-mobile.png',fullPage:true});
+ await page.setViewportSize({width:1440,height:1000});
+ await expect(card.getByRole('button',{name:'Ocultar preços de referência'})).toBeHidden();
+ await expect.poll(()=>card.evaluate(el=>{const last=el.querySelector('.quote-last-sale')!.getBoundingClientRect(),prices=el.querySelector('.quote-price-comparisons')!.getBoundingClientRect();return prices.left>=last.right && Math.abs(prices.top-last.top)<2;})).toBe(true);
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });

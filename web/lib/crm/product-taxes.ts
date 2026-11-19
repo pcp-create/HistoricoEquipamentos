@@ -87,6 +87,6 @@ export async function hydrateProductTaxes(
 /** PDFs must never silently omit taxes because fiscal setup is incomplete. */
 export async function hydratePdfProductTaxes(draft: OrderDraft, session = m8Session): Promise<OrderDraft> {
   if(draft.items.some(i=>i.kind==='material')&&!draft.commercial?.taxBudgetType)
-    throw new CrmError('Selecione e salve o tipo de orçamento fiscal do M8 antes de gerar o PDF da proposta.');
+    throw new CrmError('Configure o tipo de orçamento fiscal no cadastro do tipo de proposta antes de gerar o PDF com impostos.');
   return hydrateProductTaxes(draft,session);
 }

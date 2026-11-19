@@ -253,7 +253,6 @@ export default function CrmProposalItems({
                     : undefined
                 }
               />
-              {item.selected&&saved&&Number(saved.discountPercent)>0&&<p className="crm-discount-note">Desconto no resumo: {Number(saved.discountPercent).toLocaleString('pt-BR')}% · Total líquido: {crmMoney(itemFinancials(saved).sale)}</p>}
               {item.selected && saved && (
                 <div
                   className="crm-item-financials"

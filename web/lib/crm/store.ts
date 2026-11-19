@@ -1,3 +1,5 @@
+import {applyProposalTaxType} from './proposal-tax-type';
+import {taxBudgetTypes} from './product-taxes';
 import {hydrateProductTaxes} from './product-taxes';
 import {hydrateProductCosts} from './product-costs';
 import 'server-only';
@@ -29,7 +31,7 @@ export async function listCrm(kind:string,q='',page=1,status=''){
  return {rows:rows.rows,total:count.rows[0].total,page};
 }
 export async function getOpportunity(id:string){uuid(id);const row=(await database().query('SELECT * FROM crm_opportunities WHERE id=$1',[id])).rows[0];if(!row)throw new CrmError('Oportunidade não encontrada.');return {...row,proposals:(await database().query('SELECT id,number,title,status,total_cents,version FROM crm_proposals WHERE opportunity_id=$1 ORDER BY number',[id])).rows,history:(await database().query('SELECT e.id,e.action,e.actor,e.created_at,COALESCE(u.display_name,e.actor) author FROM crm_events e LEFT JOIN web_user_access u ON u.email=e.actor WHERE opportunity_id=$1 ORDER BY e.id DESC LIMIT 100',[id])).rows};}
-export async function getProposal(id:string){uuid(id);const row=(await database().query('SELECT p.*,o.number opportunity_number,o.type_id opportunity_type_id,o.customer_name,o.company_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1',[id])).rows[0];if(!row)throw new CrmError('Proposta não encontrada.');return {...row,document:await hydrateProductCosts(row.document),links:(await database().query('SELECT l.id,l.company_id,l.order_id,l.state,l.message,l.actor,l.created_at,s.updated_at submission_updated_at FROM crm_order_links l LEFT JOIN service_order_submissions s ON s.id=l.submission_id WHERE l.proposal_id=$1 ORDER BY l.created_at DESC',[id])).rows};}
+export async function getProposal(id:string){uuid(id);const row=(await database().query('SELECT p.*,o.number opportunity_number,o.type_id opportunity_type_id,o.customer_name,o.company_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1',[id])).rows[0];if(!row)throw new CrmError('Proposta não encontrada.');return {...row,document:await hydrateProductCosts(await applyProposalTaxType(row.document,row.type_id)),links:(await database().query('SELECT l.id,l.company_id,l.order_id,l.state,l.message,l.actor,l.created_at,s.updated_at submission_updated_at FROM crm_order_links l LEFT JOIN service_order_submissions s ON s.id=l.submission_id WHERE l.proposal_id=$1 ORDER BY l.created_at DESC',[id])).rows};}
 export async function saveOpportunity(raw:any,actor:string){
  const id=uuid(raw.id),title=text(raw.title,200,true),type=positive(raw.typeId),customer=positive(raw.customerId),company=positive(raw.company);
  if(![1,2,27404].includes(company)||!['open','lost','cancelled'].includes(raw.status??'open'))throw new CrmError('Empresa ou situação inválida.');
@@ -68,12 +70,11 @@ export async function createProposal(raw:any,actor:string){
 export async function saveProposal(raw:any,actor:string){
  const id=uuid(raw.id),expected=version(raw.version);let draft=proposalDraft(raw.draft);
  // Simulate before taking a row lock. Recheck the version inside the transaction.
- if(draft.commercial?.taxBudgetType){
-  const source=(await database().query('SELECT p.version,o.company_id,o.customer_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1',[id])).rows[0];
-  if(!source||source.version!==expected)throw new CrmError('A proposta foi alterada. Reabra antes de salvar.');
-  draft.company=String(source.company_id);draft.customer=String(source.customer_id);
-  draft=await hydrateProductTaxes(draft);
- }
+ const source=(await database().query('SELECT p.version,p.type_id,o.company_id,o.customer_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1',[id])).rows[0];
+ if(!source||source.version!==expected)throw new CrmError('A proposta foi alterada. Reabra antes de salvar.');
+ draft.company=String(source.company_id);draft.customer=String(source.customer_id);
+ draft=await applyProposalTaxType(draft,raw.typeId??source.type_id);
+ if(draft.commercial?.taxBudgetType)draft=await hydrateProductTaxes(draft);
  return write(async c=>{
  const p=(await c.query('SELECT p.*,o.customer_id,o.customer_name,o.company_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p',[id])).rows[0];
  if(!p||p.version!==expected)throw new CrmError('A proposta foi alterada. Reabra antes de salvar.');
@@ -93,6 +94,12 @@ export async function saveCatalog(raw:any,actor:string){
  const kind=raw.kind;if(!['opportunity','proposal'].includes(kind))throw new CrmError('Cadastro inválido.');
  const code=text(raw.code,20,true).toUpperCase(),name=text(raw.name,200,true),notes=text(raw.notes??'',2000),active=raw.active;
  if(!/^[A-Z0-9_-]+$/.test(code)||typeof active!=='boolean')throw new CrmError('Código ou situação inválidos.');
+ let fiscal:{id:string;name:string}|undefined;
+ if(kind==='proposal'&&raw.taxBudgetType){
+  const fiscalId=String(positive(raw.taxBudgetType));
+  fiscal=(await taxBudgetTypes('1')).find(t=>t.id===fiscalId);
+  if(!fiscal)throw new CrmError('Selecione um tipo de orçamento fiscal ativo do M8.');
+ }
  const table=kind==='opportunity'?'crm_opportunity_types':'crm_proposal_types';
  return write(async c=>{
  const id=raw.id?positive(raw.id):null;
@@ -104,6 +111,9 @@ export async function saveCatalog(raw:any,actor:string){
  const values=[code,name,notes,active,...(parent?[parent]:[])];
  const row=(await c.query(id?`UPDATE ${table} SET code=$1,name=$2,notes=$3,active=$4,version=version+1${parent?',opportunity_type_id=$5':''} WHERE id=$${values.length+1} RETURNING *`:`INSERT INTO ${table}(code,name,notes,active${parent?',opportunity_type_id':''}) VALUES(${values.map((_,i)=>'$'+(i+1))}) RETURNING *`,id?[...values,id]:values)).rows[0];
  if(kind==='proposal'){
+ if(raw.taxBudgetType!==undefined){
+  const updated=(await c.query('UPDATE crm_proposal_types SET tax_budget_type=$2,tax_budget_name=$3 WHERE id=$1 RETURNING *',[row.id,fiscal?.id||null,fiscal?.name||''])).rows[0];Object.assign(row,updated);
+ }
  if(!Array.isArray(raw.orderTypes)||raw.orderTypes.length>30)throw new CrmError('Informe até 30 IDs de tipos de OS.');
  const ids=[...new Set(raw.orderTypes.map(positive))];
  await c.query('DELETE FROM crm_proposal_order_types WHERE proposal_type_id=$1',[row.id]);

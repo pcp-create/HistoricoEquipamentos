@@ -222,3 +222,32 @@
 .new-os .crm-quote-item .quote-price-pair .quote-price-apply {font-size:12px;padding:4px 0;gap:6px;}
 .new-os .crm-quote-item .quote-choice-reference > .quote-price-apply {padding-left:0;font-size:14px;}
 .new-os .crm-quote-item .quote-price-apply svg {flex-shrink:0;}
+
+.quote-last-sale {display:grid;gap:4px;align-content:start;min-width:0;}
+.new-os .crm-quote-item .quote-price-toggle {display:none;}
+.new-os .crm-quote-item .quote-last-sale > .quote-price-apply {padding-left:0;font-size:14px;}
+@media(min-width:901px) {
+  .new-os .crm-quote-item .quote-choice-compact .quote-choice-reference {grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:16px;align-items:start;}
+  .new-os .crm-quote-item .quote-choice-compact .quote-price-comparisons {padding:0 0 0 12px;border-top:0;border-left:1px solid #e3ebf3;gap:4px;}
+}
+@media(min-width:1201px) {
+  .new-os .crm-quote-item .quote-choice-compact .quote-choice-line {grid-template-columns:18px minmax(180px,1fr) minmax(340px,1.5fr) 65px 96px 88px;}
+}
+@media(max-width:900px) {
+  .new-os .crm-quote-item .quote-price-toggle {display:inline-flex;align-items:center;min-height:44px;padding:4px 0;border:0;background:transparent;color:#1768ab;font:inherit;font-size:12px;justify-self:start;cursor:pointer;}
+  .new-os .crm-quote-item .quote-price-comparisons:not(.is-expanded) {display:none;}
+}
+
+.new-os.crm-proposal-page {padding-bottom:180px;}
+.new-os.crm-proposal-page .crm-proposal-savebar {position:fixed;bottom:0;left:0;right:0;z-index:40;margin:0;padding:14px max(20px,calc((100vw - 1560px)/2)) calc(14px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #d1e0f0;box-shadow:0 -4px 18px #163a5c0d;display:flex;align-items:center;justify-content:space-between;gap:20px;box-sizing:border-box;}
+.crm-proposal-save-actions {display:flex;align-items:center;justify-content:flex-end;gap:12px;}
+.new-os.crm-proposal-page .crm-proposal-savebar p {margin:0;max-width:750px;font-size:12px;}
+.new-os.crm-proposal-page .crm-proposal-savebar button {white-space:nowrap;}
+@media(max-width:700px) {
+  .new-os.crm-proposal-page {padding-bottom:220px;}
+  .new-os.crm-proposal-page .crm-proposal-savebar {flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));}
+  .new-os.crm-proposal-page .crm-proposal-savebar p {font-size:11px;}
+  .crm-proposal-save-actions {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+  .new-os.crm-proposal-page .crm-proposal-savebar button {white-space:normal;min-height:44px;padding:8px;justify-content:center;font-size:12px;}
+  .crm-proposal-save-actions > :only-child {grid-column:1 / -1;}
+}

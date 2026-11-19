@@ -12,6 +12,7 @@ test('CRM persists local opportunities and proposals and safely links conversion
  try {
  await db.exec(readFileSync(new URL('../sql/108_crm.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../sql/116_crm_opportunity_pipeline.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../sql/120_crm_proposal_tax_type.sql',import.meta.url),'utf8'));
  await db.exec(`CREATE TABLE m8_order_type_catalog(id bigint PRIMARY KEY,name text,active boolean);
  INSERT INTO m8_order_type_catalog VALUES(4,'Preventiva',true),(2,'Corretiva',true),(43,'Orçamento',true),(42,'Oficina',true);
  CREATE TABLE m8_customer_directory(person_id bigint,company_id int,name text,payload jsonb);INSERT INTO m8_customer_directory VALUES(10,1,'Cliente Teste','{"municipioNome":"Timbó","ufSigla":"SC"}');

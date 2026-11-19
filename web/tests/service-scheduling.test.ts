@@ -183,11 +183,14 @@ test("scheduling includes once, versions operations, protects execution and reco
     ).operation;
     assert.equal(ops[0].status, "scheduled");
     await db.query("UPDATE web_service_operations SET document=document-'vehicleId' WHERE id=$1",[ops[0].id]);
-    await assert.rejects(send('dispatch'),/veículo/);
-    ops[0]=(await send('operation',{document:{...ops[0].document,vehicleId:'v1'}})).operation;
+
     // A sole machine on the OS must not override an explicitly unassigned operation.
     await db.exec("INSERT INTO m8_equipment_catalog VALUES(77,'Máquina da OS','ABC',true);INSERT INTO m8_order_equipment_links VALUES(1,100,77,false)");
-    ops[0]=(await send("dispatch")).operation;
+    const sentWithoutVehicle=await send("dispatch");
+    ops[0]=sentWithoutVehicle.operation;
+    assert.match(sentWithoutVehicle.warning,/sem veículo programado/);
+    assert.equal(ops[0].status,"awaiting_execution");
+    assert.ok(ops[0].sent_at);
     assert.equal(ops[0].document.equipmentId,'');
     assert.equal(ops[0].document.equipmentUnassigned,true);
     assert.equal(ops[0].document.equipment,undefined);

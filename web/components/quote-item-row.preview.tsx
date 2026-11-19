@@ -1,6 +1,6 @@
 "use client";
 import { ArrowDownToLine } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import ProductReservations from "./product-reservations";
 import { companyName, companyNamesInText } from "@/lib/company-names";
 
@@ -79,6 +79,8 @@ export default function QuoteItemRow({
   onChange: (patch: Partial<QuoteItem>) => void;
   onRemove?: () => void;
 }) {
+  const [pricesExpanded, setPricesExpanded] = useState(false);
+  const pricesId = useId();
   products = products?.length
     ? products
     : reference?.products?.length
@@ -225,6 +227,7 @@ export default function QuoteItemRow({
           )}
         </div>
         <div className="quote-choice-reference">
+          <div className="quote-last-sale">
           <small>
             {general
               ? "Última venda · base geral"
@@ -240,7 +243,9 @@ export default function QuoteItemRow({
             title="Aplicar ao valor unitário" onClick={() => onChange({price:Number(last.unitPrice).toFixed(2)})}>
             {money(last.unitPrice)}<ArrowDownToLine size={16} aria-hidden="true" />
           </button> : <strong>{last ? money(last.unitPrice) : "Sem histórico"}</strong>}
-          {compactPricing ? <div className="quote-price-comparisons">
+          </div>
+          {compactPricing && <button type="button" className="quote-price-toggle" aria-expanded={pricesExpanded} aria-controls={pricesId} onClick={() => setPricesExpanded(value => !value)}>{pricesExpanded ? "Ocultar preços de referência" : "Ver preços de referência"}</button>}
+          {compactPricing ? <div id={pricesId} className={`quote-price-comparisons${pricesExpanded ? " is-expanded" : ""}`}>
             <div className="quote-price-pair" aria-label="Preços M8">
               <div><small>Mínimo M8</small>{priceShortcut(ref.minimumPrice, "mínimo M8")}</div>
               <div><small>Venda M8</small>{priceShortcut(ref.referencePrice, "venda M8")}</div>

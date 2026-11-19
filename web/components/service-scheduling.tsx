@@ -378,7 +378,7 @@ export default function ServiceScheduling() {
         const fresh = await request(undefined, id);
         setData(fresh);
       }
-      setSuccess("Alteração salva com sucesso.");
+      setSuccess(result.warning || (body.action === "dispatch" ? "Operação enviada ao técnico." : "Alteração salva com sucesso."));
       return true;
     } catch (e) {
       setData(before);

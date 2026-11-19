@@ -1,3 +1,4 @@
+import {applyProposalTaxType} from '@/lib/crm/proposal-tax-type';
 import {taxBudgetTypes,hydrateProductTaxes} from '@/lib/crm/product-taxes';
 import {proposalDraft} from '@/lib/crm/model';
 import {productAverageCosts} from '@/lib/crm/product-costs';
@@ -16,7 +17,7 @@ export async function GET(req:Request){try{const user=await requireUser();const 
 export async function POST(req:Request){if(!sameOrigin(req))return json({error:'Origem inválida.'},403);try{
  const user=await requireUser(),body=await req.text();if(body.length>500000)return json({error:'Solicitação muito grande.'},413);let b;try{b=JSON.parse(body);}catch{throw new CrmError('Dados inválidos.');}
  switch(b.action){
- case 'simulate-taxes':return json({draft:await hydrateProductTaxes(proposalDraft(b.draft))});
+ case 'simulate-taxes':return json({draft:await hydrateProductTaxes(await applyProposalTaxType(proposalDraft(b.draft),b.typeId))});
  case 'save-opportunity':return json(await saveOpportunity(b,user.email));
  case 'create-proposal':return json(await createProposal(b,user.email));
  case 'save-proposal':return json(await saveProposal(b,user.email));

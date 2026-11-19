@@ -611,7 +611,7 @@ export async function mutateSchedule(b: any, email: string) {
       document.responsible === email || document.support?.includes(email);
     if (b.action === "dispatch") {
       if(!admin) throw new Forbidden();
-      if(!document.vehicleId||!config.document.vehicles?.some((v:any)=>v.id===document.vehicleId))throw new ScheduleInputError("Atribua um veículo válido antes de enviar a operação ao técnico.");
+      if(document.vehicleId&&!config.document.vehicles?.some((v:any)=>v.id===document.vehicleId))throw new ScheduleInputError("O veículo selecionado não está mais cadastrado. Selecione outro ou deixe o campo em branco.");
       if(status!=="scheduled" || !document.responsible || !document.date || !document.time) throw new ScheduleInputError("Salve a data, a hora e o responsável antes de enviar a operação.");
       const enabled=(await c.query("SELECT email FROM web_user_access WHERE enabled AND email=$1",[document.responsible])).rows.length;
       if(!enabled)throw new ScheduleInputError("O responsável precisa estar ativo.");
@@ -773,7 +773,7 @@ export async function mutateSchedule(b: any, email: string) {
       [schedule.company_id, schedule.order_id, email],
     );
     await c.query("COMMIT");
-    return { operation: result };
+    return { operation: result, ...(b.action === "dispatch" && !document.vehicleId ? {warning:"Operação enviada ao técnico sem veículo programado. O técnico deverá informar o veículo utilizado no atendimento."} : {}) };
   } catch (e) {
     await c.query("ROLLBACK");
     throw e;

@@ -108,7 +108,7 @@ export default function CrmProposalSummary({
                               </a>
                             ) : item.code} · {item.name}
                           </strong>
-                          {kind === 'material' && <CrmProductTerms showDelivery={false} draft={draft} item={item} disabled={disabled} onChange={next=>onChange(draft.items.map(row=>row===item?next:row))}/>}
+                          {kind === 'material' && <CrmProductTerms showDelivery={false} showTaxes={false} draft={draft} item={item} disabled={disabled} onChange={next=>onChange(draft.items.map(row=>row===item?next:row))}/>}
                           {item.notes?.trim() && (
                             <small className="crm-prewrap">
                               Observação: {item.notes}

@@ -3,7 +3,6 @@ import ActionNotice from "./action-notice";
 import CrmProductCosts from "./crm-product-costs";
 import { proposalFinancials } from "@/lib/crm/financials";
 import {applyAverageCosts} from "@/lib/crm/product-cost-model";
-import CrmProductTaxes from "./crm-product-taxes";
 import CrmProposalSummary from "./crm-proposal-summary";
 import CrmProposalItems from "./crm-proposal-items";
 import EquipmentWarrantyAlert from "./equipment-warranty-alert";
@@ -807,7 +806,6 @@ export default function NewServiceOrder({
                 </div>
               </div>
               {proposal&&tab==='header'&&<section className="crm-form-grid" aria-label="Condições comerciais da proposta">{[['contact','Contato'],['phone','Telefone do contato'],['validity','Validade da proposta'],['sellerEmail','E-mail do vendedor'],['sellerPhone','Telefone do vendedor'],['carrier','Transportadora']].map(([key,label])=><label key={key}>{label}<input maxLength={500} value={form.commercial?.[key]??(key==='validity'?'15 dias úteis':'')} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,[key]:e.target.value}}))}/></label>)}</section>}
-              {proposal&&tab==="header"&&<button type="button" className="primary" onClick={()=>setTab("material")}>Continuar para Produtos</button>}
               <details className="os-extra" hidden={tab !== "header"}>
                 <summary>Outras informações (opcionais)</summary>
                 <p>
@@ -892,10 +890,7 @@ export default function NewServiceOrder({
                 </div>
               </details>
               {proposal&&<CrmProposalItems draft={form} active={tab==="material"||tab==="service"} kind={tab==="service"?"service":"material"} customer={form.customer} equipment={form.equipment} company={form.company} items={form.items} disabled={disabled||!!proposal.locked} onChange={items=>setForm(f=>({...f,items}))}/>}
-              {proposal&&["summary","material"].includes(tab)&&<CrmProductTaxes draft={form} onChange={setForm} disabled={disabled||!!proposal.locked}/> }
               {proposal&&tab==="summary"&&<CrmProposalSummary draft={form} names={names} disabled={disabled||!!proposal.locked} onChange={items=>setForm(current=>({...current,items}))}/>}
-              {proposal&&tab==="service"&&<button type="button" className="primary" onClick={()=>setTab("summary")}>Continuar para Resumo geral</button>}
-              {proposal&&tab==="material"&&<button type="button" className="primary" onClick={()=>setTab("service")}>Continuar para Serviços</button>}
               {!proposal&&["material", "service"].map((kind) => (
                 <div key={kind} hidden={tab !== kind}>
                   <div className="os-item-heading">
@@ -1019,10 +1014,14 @@ export default function NewServiceOrder({
               ))}
             </fieldset>
           </fieldset>
-          <footer className="os-submit">
+          <footer className={proposal ? "os-submit crm-proposal-savebar" : "os-submit"}>
             <p>
               {proposal?"A proposta pode ser salva incompleta. Os campos obrigatórios serão validados antes da criação da OS.":"Os campos marcados com * são obrigatórios. Produtos e serviços podem ser incluídos conforme a necessidade."}
             </p>
+            <div className="crm-proposal-save-actions">
+            {proposal && tab !== "summary" && <button type="button" disabled={disabled} onClick={() => setTab(tab === "header" ? "material" : tab === "material" ? "service" : "summary")}>
+              Continuar para {tab === "header" ? "Produtos" : tab === "material" ? "Serviços" : "Resumo geral"}
+            </button>}
             <button
               className="primary"
               disabled={
@@ -1043,6 +1042,7 @@ export default function NewServiceOrder({
                   ? "Salvar alterações"
                   : "Criar OS no M8"}
             </button>
+            </div>
           </footer>
         </form>
         <details className="os-recent" hidden={Boolean(editing||proposal)}>
