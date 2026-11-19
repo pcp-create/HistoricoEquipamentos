@@ -488,6 +488,7 @@ export async function mutateSchedule(b: any, email: string) {
     if (operation.status === "completed")
       throw new ScheduleInputError("Operação concluída não pode ser alterada.");
     if(b.action==='operation_duration'){
+      if(operation.status==='reviewed')throw new ScheduleInputError('Operação revisada não pode ser alterada. Volte para edição antes de modificar os campos.');
       const duration=b.duration;
       if(duration!==null&&(typeof duration!=='number'||!Number.isFinite(duration)||duration<0||duration>10000||Math.abs(Math.round(duration*1000)-duration*1000)>0.000001))throw new ScheduleInputError('Duração inválida. Informe de 0 a 10000 horas, com até três casas decimais.');
       const document={...operation.document,duration};

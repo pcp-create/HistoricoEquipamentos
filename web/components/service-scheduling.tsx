@@ -970,10 +970,10 @@ function OperationRow({
   const [rescheduleDraft,setRescheduleDraft]=useState<any>(null);
   const noteDialog = useRef<HTMLDialogElement>(null);
   const [noteError, setNoteError] = useState("");
-  const noteBeforeEditing = useRef("");
+  const noteBeforeEditing = useRef<any>(undefined);
   const [d, setD] = useState(o.document),
     [expanded, setExpanded] = useState(false);
-  useEffect(() => setD(o.document), [o.version]);
+  useEffect(() => setD(o.document), [o.version, o.status]);
   const locked =
       busy || ["completed", "reviewed", "awaiting_review"].includes(o.status),
     users = data.users.filter(
@@ -981,6 +981,8 @@ function OperationRow({
         u.enabled || u.email === d.responsible || d.support.includes(u.email),
     );
   function change(k: string, v: any, save = false, equipment?: any, equipmentUnassigned = false) {
+    if (["reviewed", "completed"].includes(o.status)) return;
+    if (k === "internalNote" && d[k] === v) return;
     const next = {
       ...d,
       [k]: v,
@@ -998,7 +1000,7 @@ function OperationRow({
   useEffect(()=>{if(dirty)dirtyOperations.add(o.id);else dirtyOperations.delete(o.id);return ()=>{dirtyOperations.delete(o.id);};},[dirty,o.id,dirtyOperations]);
   const durationOnly = dirty && JSON.stringify({...d,duration:o.document.duration})===JSON.stringify(o.document);
   async function persist(next = d, rescheduling?: {confirmed:true;reason:string}) {
-    if(!busy && o.status!=='completed' && durationOnly && o.sent_at)return await mutate({action:'operation_duration',operationId:o.id,version:o.version,duration:next.duration});
+    if(!busy && !['completed','reviewed'].includes(o.status) && durationOnly && o.sent_at)return await mutate({action:'operation_duration',operationId:o.id,version:o.version,duration:next.duration});
     if (locked) return false;
     if(needsRescheduling(o,next) && !rescheduling){setRescheduleDraft(next);return false;}
     const changingResponsible=changesDispatchedResponsible(o,next);
@@ -1137,7 +1139,7 @@ function OperationRow({
             min="0"
             max="10000"
             step="0.001"
-            disabled={busy || o.status==='completed'}
+            disabled={busy || ['completed','reviewed'].includes(o.status)}
             value={d.duration ?? ""}
             onChange={(e) => change("duration", number(e.target.value))}
           />
@@ -1175,7 +1177,7 @@ function OperationRow({
           <button
             className="operation-note-preview"
             aria-label={"Observação interna " + operationNumber(o.position)}
-            onClick={() => { noteBeforeEditing.current = d.internalNote || ""; setNoteError(""); noteDialog.current?.showModal(); }}
+            onClick={() => { noteBeforeEditing.current = d.internalNote; setNoteError(""); noteDialog.current?.showModal(); }}
           >
             {d.internalNote || "Incluir observação"}
           </button>
@@ -1225,7 +1227,7 @@ function OperationRow({
           <div className="operation-execution-actions">
           <button
             className="operation-icon-action"
-            disabled={busy || !dirty || (locked && !(durationOnly && o.sent_at && o.status!=="completed"))}
+            disabled={busy || !dirty || (locked && !(durationOnly && o.sent_at && !["completed","reviewed"].includes(o.status)))}
             aria-label={"Salvar operação " + operationNumber(o.position)}
             onClick={() => void persist()}
            title={"Salvar operação " + operationNumber(o.position)}><SaveActionIcon /></button>

@@ -45,6 +45,7 @@ test("reviewed OS edits public notes without sending internal notes", async ({
     status: "reviewed",
     document: {
       ...blankOperation(),
+      internalNote: undefined,
       responsible: "tech",
       description: "Revisar compressor",
       checklistId: "check",
@@ -156,6 +157,14 @@ test("reviewed OS edits public notes without sending internal notes", async ({
     });
   });
   await page.goto("/programacao?OS=123");
+  await expect(page.getByLabel("Duração 01", {exact:true})).toBeDisabled();
+  await expect(page.getByLabel("Veículo 01", {exact:true})).toBeDisabled();
+  await page.getByRole("button", {name:"Observação interna 01", exact:true}).click();
+  await expect(page.getByLabel("Texto da observação interna")).toHaveAttribute("readonly", "");
+  await page.locator(".operation-note-dialog").getByRole("button", {name:"Cancelar", exact:true}).click();
+  await expect(page.locator(".operation-unsaved")).toHaveCount(0);
+  await expect(page.getByRole("button", {name:"Salvar operação 01", exact:true})).toBeDisabled();
+
   await expect(page.locator('.schedule-order-fields')).toContainText('Data prevista de programação');
   await page.locator('.schedule-order-fields .schedule-date-explanation').click();
   await expect(page.getByRole('tooltip')).toContainText('Operação 1 às 08:00 já programada.');
