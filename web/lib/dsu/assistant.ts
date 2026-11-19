@@ -1,3 +1,4 @@
+import {canViewTask} from "../tasks/privacy";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
@@ -200,7 +201,7 @@ async function respond(
     const t = await readTask(id);
     if (!t)
       return text("Tarefa não encontrada ou sem permissão para concluir.");
-    if (t.restricted && actor.role !== "admin")
+    if (!canViewTask(t,actor.email,actor.role === "admin"))
       return text(
         "Essa tarefa é restrita. A conclusão deve ser realizada no sistema por um usuário autorizado.",
       );
@@ -231,7 +232,7 @@ async function respond(
     const page = Number(input.split(":")[1]);
     const rows = (
       await c.query(
-        `SELECT t.id,t.title,t.restricted,t.due_date,t.status,s.name stage_name FROM web_tasks t LEFT JOIN web_task_stages s ON s.id=t.stage_id WHERE t.assigned_to=$1 AND t.status<>'completed' ORDER BY t.due_date NULLS LAST,t.id LIMIT 9 OFFSET $2`,
+        `SELECT t.id,t.title,t.restricted,t.assigned_to,t.followers,t.due_date,t.status,s.name stage_name FROM web_tasks t LEFT JOIN web_task_stages s ON s.id=t.stage_id WHERE t.assigned_to=$1 AND t.status<>'completed' ORDER BY t.due_date NULLS LAST,t.id LIMIT 9 OFFSET $2`,
         [actor.email, page * 8],
       )
     ).rows;
@@ -244,7 +245,7 @@ async function respond(
       title: `TAR-${t.id}`,
       value: `task:${t.id}`,
       description:
-        t.restricted && actor.role !== "admin"
+        !canViewTask(t,actor.email,actor.role === "admin")
           ? "Tarefa restrita"
           : `${dateLabel(t.due_date)} · ${t.title}`,
     }));
@@ -260,7 +261,7 @@ async function respond(
   if (state.step === "mine" && /^task:\d{1,18}$/.test(input)) {
     const t = await readTask(input.slice(5));
     if (!t) return text("Tarefa não encontrada ou sem permissão.");
-    if (t.restricted && actor.role !== "admin")
+    if (!canViewTask(t,actor.email,actor.role === "admin"))
       return text(
         `TAR-${t.id} · Tarefa restrita\nResponsável: ${actor.display_name || "Você"}\nStatus: ${{ not_started: "Não iniciado", in_progress: "Em andamento", completed: "Concluída" }[t.status as string] || "Em aberto"}`,
       );
@@ -292,7 +293,7 @@ async function respond(
     if (input !== "confirm" || !state.task)
       return text("Selecione Confirmar ou Cancelar na mensagem anterior.");
     const t = await readTask(state.task.id);
-    if (!t || (t.restricted && actor.role !== "admin")) return home();
+    if (!t || (!canViewTask(t,actor.email,actor.role === "admin"))) return home();
     await updateTask(
       {
         id: state.task.id,
@@ -325,7 +326,7 @@ async function respond(
   if (state.step === "reminder-id") {
     const m = /^(?:TAR[- ]?)?(\d{1,18})$/i.exec(input);
     const t = m ? await readTask(m[1]) : null;
-    if (!t || (t.restricted && actor.role !== "admin")) return text("Tarefa não encontrada ou sem permissão. Informe outro código ou digite Menu.");
+    if (!t || (!canViewTask(t,actor.email,actor.role === "admin"))) return text("Tarefa não encontrada ou sem permissão. Informe outro código ou digite Menu.");
     if (t.status === "completed") return text("A tarefa está concluída. Informe outra tarefa ou digite Menu.");
     state.task = { id: String(t.id), version: t.version };
     state.step = "reminder-date";
@@ -345,7 +346,7 @@ async function respond(
     if (input === "cancel") return home();
     if (input !== "schedule" || !state.task) return text("Selecione Agendar alerta ou Cancelar na mensagem anterior.");
     const t = await readTask(state.task.id);
-    if (!t || (t.restricted && actor.role !== "admin")) return home();
+    if (!t || (!canViewTask(t,actor.email,actor.role === "admin"))) return home();
     if (t.version !== state.task.version) throw new TaskConflict("A tarefa foi alterada. Inicie novamente o agendamento para conferir o responsável.");
     await saveReminder({ action: "create", taskId: state.task.id, when: state.draft.reminderWhen }, actor.email, c);
     const message = `✅ Alerta de TAR-${state.task.id} agendado para ${alertLabel(state.draft.reminderWhen)}.\nDigite Menu para continuar.`;

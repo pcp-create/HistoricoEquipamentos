@@ -2,7 +2,7 @@ import {operationTask} from './completion-policy';
 import {releaseSchedule} from '../service-scheduling/release';
 import {recordWorkshopTaskEvent} from "../workshop/task-history";
 import {repairOrderReportTasks} from "./order-task-repair";
-import { assertTaskAccess, taskAdministrator, restrictedTaskSummary } from "./privacy";
+import { assertTaskAccess, taskAdministrator, restrictedTaskSummary, canViewTask } from "./privacy";
 import { creationContext, TaskContextError } from "./creation-context";
 import { assignNewTasks } from "./territories";
 import { randomUUID } from "node:crypto";
@@ -244,7 +244,7 @@ export async function listTasks(p: URLSearchParams, user: AuthUser) {
   const db = database();
   const [taskResult, userResult, syncResult, administrator] = await Promise.all([
     db.query(
-      `SELECT t.*,u.display_name assignee_name,to_jsonb(u)->>'task_color' assignee_color,m.display_name modifier_name,creator.display_name creator_name,u.enabled assignee_enabled FROM web_tasks t LEFT JOIN web_user_access u ON u.email=t.assigned_to LEFT JOIN web_user_access m ON m.email=t.updated_by LEFT JOIN web_user_access creator ON lower(creator.email)=lower(trim(t.created_by)) WHERE ($1::text IS NULL OR t.assigned_to=$1) AND ($2::bigint IS NULL OR t.equipment_id=$2) AND ($4::bigint IS NULL OR t.order_id=$4) AND ($5::bigint IS NULL OR t.order_company=$5) AND (t.source_key NOT LIKE 'time-request:%' OR EXISTS(SELECT 1 FROM web_user_access a WHERE a.email=$3 AND a.enabled)) ORDER BY t.created_at DESC,t.id DESC`,
+      `SELECT t.*,u.display_name assignee_name,to_jsonb(u)->>'task_color' assignee_color,m.display_name modifier_name,creator.display_name creator_name,u.enabled assignee_enabled FROM web_tasks t LEFT JOIN web_user_access u ON u.email=t.assigned_to LEFT JOIN web_user_access m ON m.email=t.updated_by LEFT JOIN web_user_access creator ON lower(creator.email)=lower(trim(t.created_by)) WHERE ($1::text IS NULL OR lower(trim(t.assigned_to))=$1) AND ($2::bigint IS NULL OR t.equipment_id=$2) AND ($4::bigint IS NULL OR t.order_id=$4) AND ($5::bigint IS NULL OR t.order_company=$5) AND (t.source_key NOT LIKE 'time-request:%' OR EXISTS(SELECT 1 FROM web_user_access a WHERE a.email=$3 AND a.enabled)) ORDER BY t.created_at DESC,t.id DESC`,
       [p.get("mine") === "true" ? user.email.toLowerCase() : null, equipment, user.email, orderId, orderCompany],
     ),
     db.query(
@@ -255,7 +255,7 @@ export async function listTasks(p: URLSearchParams, user: AuthUser) {
   ]);
   const rows = taskResult.rows, users = userResult.rows, sync = syncResult.rows[0];
   return {
-    tasks: administrator ? rows : rows.map(t => t.restricted ? restrictedTaskSummary(t) : t),
+    tasks: administrator ? rows : rows.map(t => !canViewTask(t,user.email) ? restrictedTaskSummary(t) : t),
     users,
     email: user.email,
     syncedAt: sync?.synced_at || null,
@@ -354,7 +354,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
       await note(client,taskId,title,description,actor);
       await recordWorkshopTaskEvent(client,String(taskId),t.source_key,title,description,actor?.email||'Sistema');
     };
-    if (t.restricted && !(await taskAdministrator(user.email, transaction))) throw new Forbidden();
+    if (!canViewTask(t,user.email,await taskAdministrator(user.email, c))) throw new Forbidden();
     if (t.version !== body.version)
       throw new TaskConflict(
         "A tarefa foi atualizada. Recarregue antes de salvar.",
@@ -401,7 +401,6 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
       }
       const recipients = (await c.query("SELECT email,display_name,enabled,phone,role FROM web_user_access WHERE email=ANY($1::text[]) FOR SHARE",[followers])).rows;
       if (recipients.length!==followers.length || recipients.some(u=>!u.enabled || !/^\d{10,15}$/.test(u.phone || ""))) throw new TaskInputError("Selecione usuários ativos com WhatsApp cadastrado.");
-      if (t.restricted && recipients.some(u=>u.role!=="admin")) throw new TaskInputError("Tarefas restritas só podem notificar administradores.");
       await c.query("UPDATE web_tasks SET followers=$2 WHERE id=$1",[id,followers]);
       await recordNote(c,id,"Pessoas para notificação atualizadas",recipients.length ? recipients.map(u=>u.display_name || u.email).join(", ") : "Nenhuma pessoa adicional selecionada.",user);
     } else if (body.action === "reopen") {
@@ -599,10 +598,9 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
     if (!transaction) c.release();
   }
   if (transaction) return { task: (await c.query("SELECT id,status FROM web_tasks WHERE id=$1", [id!])).rows[0], notes: [], attachments: [], notifications: [], approvalCorrection:null,canRetryApproval:false,canDecideApproval:false, canCloseApproval:false };
-  if (body.action === "update" && body.restricted === true && !(await taskAdministrator(user.email, transaction))) {
-    const task = (await database().query("SELECT id,status,kanban_column FROM web_tasks WHERE id=$1",[id])).rows[0];
-    return {task:restrictedTaskSummary(task),notes:[],attachments:[],notifications:[],approvalCorrection:null,canRetryApproval:false,canDecideApproval:false,canCloseApproval:false};
-  }
+  const updated = (await database().query("SELECT * FROM web_tasks WHERE id=$1",[id])).rows[0];
+  if (!canViewTask(updated,user.email,await taskAdministrator(user.email)))
+    return {task:restrictedTaskSummary(updated),notes:[],attachments:[],notifications:[],approvalCorrection:null,canRetryApproval:false,canDecideApproval:false,canCloseApproval:false};
   return taskDetail(id, user);
 }
 export async function attachTask(id: string, file: File, user: AuthUser) {
@@ -771,7 +769,7 @@ export async function createTask(body: any, user: AuthUser, transaction?: PoolCl
     if (!transaction) c.release();
   }
   if (transaction) return { task: (await c.query("SELECT id,status FROM web_tasks WHERE id=$1", [id!])).rows[0], notes: [], attachments: [], notifications: [], approvalCorrection:null,canRetryApproval:false,canDecideApproval:false, canCloseApproval:false };
-  if (body.restricted && !(await taskAdministrator(user.email, transaction))) return { task: restrictedTaskSummary({id:id!,status:"not_started"}), notes:[],attachments:[],notifications:[],approvalCorrection:null,canRetryApproval:false,canDecideApproval:false,canCloseApproval:false };
+  if (body.restricted && !canViewTask({restricted:true,assigned_to:body.assignedTo},user.email,await taskAdministrator(user.email))) return { task: restrictedTaskSummary({id:id!,status:"not_started"}), notes:[],attachments:[],notifications:[],approvalCorrection:null,canRetryApproval:false,canDecideApproval:false,canCloseApproval:false };
   return taskDetail(id!, user);
 }
 

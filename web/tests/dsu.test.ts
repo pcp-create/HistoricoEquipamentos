@@ -259,8 +259,8 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
       task.id,
     ]);
     r = await send(`Concluir ${task.id}`);
-    assert.match(String(r.body.text), /restrita/);
-    assert.doesNotMatch(String(r.body.text), /Retornar cliente/);
+    assert.match(String(r.body.text), /Confirmar/);
+    assert.match(String(r.body.text), /Retornar cliente/);
     await db.query("UPDATE web_tasks SET restricted=false WHERE id=$1", [
       task.id,
     ]);

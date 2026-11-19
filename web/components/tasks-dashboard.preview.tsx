@@ -443,7 +443,7 @@ export function TaskDrawer({
                   </select>
                 </label>
                 <TaskStageSelect task={t} disabled={busy || t.status === "completed"} onChange={stageId=>void changeStage(stageId)} />
-                {t.source_key?.startsWith("manual:") && <div className="task-restriction-field"><label className="task-restriction-check task-switch"><input type="checkbox" role="switch" checked={restricted} onChange={e=>setRestricted(e.target.checked)} /> Tarefa restrita</label><small>Oculta os detalhes da tarefa, mantendo sua existência e status visíveis.</small></div>}
+                {t.source_key?.startsWith("manual:") && <div className="task-restriction-field"><label className="task-restriction-check task-switch"><input type="checkbox" role="switch" checked={restricted} onChange={e=>setRestricted(e.target.checked)} /> Tarefa restrita</label><small>Detalhes visíveis somente ao responsável, às pessoas em acompanhamento e aos administradores.</small></div>}
                 <label className="task-check task-switch">
                   <input
                     type="checkbox"
@@ -1264,7 +1264,7 @@ export default function TasksDashboard() {
                     Vencimento
                     <input type="date" name="dueDate" />
                   </label>
-                  <div hidden={newTaskType === "approval"} className="task-restriction-field"><label className="task-restriction-check task-switch"><input type="checkbox" role="switch" name="restricted" /> Tarefa restrita</label><small>Oculta os detalhes da tarefa, mantendo sua existência e status visíveis.</small></div>
+                  <div hidden={newTaskType === "approval"} className="task-restriction-field"><label className="task-restriction-check task-switch"><input type="checkbox" role="switch" name="restricted" /> Tarefa restrita</label><small>Detalhes visíveis somente ao responsável, às pessoas em acompanhamento e aos administradores.</small></div>
                   </div>
                 </div>
                 <label>

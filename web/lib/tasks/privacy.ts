@@ -8,9 +8,16 @@ export async function taskAdministrator(email?: string, db: Pick<PoolClient, "qu
   const row = (await db.query("SELECT role,enabled FROM web_user_access WHERE email=$1", [email.toLowerCase()])).rows[0];
   return !!row?.enabled && row.role === "admin";
 }
+export function taskParticipant(task: {assigned_to?: string | null; followers?: string[] | null}, email?: string) {
+  const key = email?.trim().toLowerCase();
+  return !!key && (task.assigned_to?.trim().toLowerCase() === key || (task.followers || []).some(value => value.trim().toLowerCase() === key));
+}
+export function canViewTask(task: {restricted?: boolean | string; assigned_to?: string | null; followers?: string[] | null}, email?: string, administrator = false) {
+  return !(task.restricted === true || task.restricted === "true") || administrator || taskParticipant(task,email);
+}
 export async function assertTaskAccess(id: string, email?: string, db: Pick<PoolClient, "query"> = database()) {
-  const task = (await db.query("SELECT to_jsonb(t)->>'restricted' restricted FROM web_tasks t WHERE id=$1", [id])).rows[0];
-  if (task?.restricted === "true" && !(await taskAdministrator(email, db))) throw new Forbidden();
+  const task = (await db.query("SELECT restricted,assigned_to,followers FROM web_tasks WHERE id=$1", [id])).rows[0];
+  if (task && !canViewTask(task,email,await taskAdministrator(email, db))) throw new Forbidden();
 }
 export function restrictedTaskSummary(task: any) {
   return { id: task.id, restricted: true, redacted: true, title: "Tarefa restrita", status: task.status,

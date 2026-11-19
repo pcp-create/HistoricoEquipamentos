@@ -1,3 +1,4 @@
+import {canViewTask} from "./privacy";
 import "server-only";
 import type { PoolClient } from "pg";
 import { parseRecurrence, nextOccurrence, recurrenceLabel } from "./recurrence";
@@ -152,7 +153,7 @@ export async function claimReminders(origin: string) {
     await c.query("BEGIN READ WRITE");
     const rows = (
       await c.query(
-        `SELECT r.*,to_jsonb(t)->>'restricted' restricted,u.role recipient_role,t.title,t.origin,t.status,u.enabled,u.phone FROM web_task_reminders r JOIN web_tasks t ON t.id=r.task_id LEFT JOIN web_user_access u ON u.email=r.recipient LEFT JOIN web_task_reminder_series s ON s.id=r.series_id WHERE (r.series_id IS NULL OR s.active) AND r.state='pending' AND r.attempts=0 AND r.scheduled_at<=now() AND (r.leased_until IS NULL OR r.leased_until<now()) ORDER BY r.scheduled_at LIMIT 20 FOR UPDATE OF r SKIP LOCKED`,
+        `SELECT r.*,to_jsonb(t)->>'restricted' restricted,u.role recipient_role,t.title,t.origin,t.status,t.assigned_to,t.followers,u.enabled,u.phone FROM web_task_reminders r JOIN web_tasks t ON t.id=r.task_id LEFT JOIN web_user_access u ON u.email=r.recipient LEFT JOIN web_task_reminder_series s ON s.id=r.series_id WHERE (r.series_id IS NULL OR s.active) AND r.state='pending' AND r.attempts=0 AND r.scheduled_at<=now() AND (r.leased_until IS NULL OR r.leased_until<now()) ORDER BY r.scheduled_at LIMIT 20 FOR UPDATE OF r SKIP LOCKED`,
       )
     ).rows;
     const result = [];
@@ -161,7 +162,7 @@ export async function claimReminders(origin: string) {
         SELECT t.id,t.version,u.email,'reminder',$1 FROM web_tasks t JOIN web_user_access u ON u.email=ANY(t.followers)
         WHERE t.id=$2 AND u.email<>$3 ON CONFLICT DO NOTHING`,[r.id,r.task_id,r.recipient]);
       if (
-        (r.restricted === "true" && r.recipient_role !== "admin") ||
+        !canViewTask(r,r.recipient,r.recipient_role === "admin") ||
         r.status === "completed" ||
         !r.enabled ||
         !/^\d{10,15}$/.test(r.phone || "")

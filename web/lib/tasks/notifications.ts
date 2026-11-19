@@ -1,3 +1,4 @@
+import {canViewTask} from "./privacy";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { database } from "../db";
@@ -20,7 +21,7 @@ export async function claimNotifications(origin: string, reminderOnly = false) {
         // A pending withdrawal confirmation is for the employee, not the
         // warehouse operator following the task. The decision still returns to its creator.
         (n.source_key?.startsWith("manual:warehouse:withdrawal:") && n.approval_state === "pending" && n.recipient !== n.approval_approver) ||
-        (n.restricted === "true" && n.recipient_role !== "admin") ||
+        !canViewTask(n,n.recipient,n.recipient_role === "admin") ||
         !n.current_assignment ||
         !n.enabled ||
         !n.phone ||
