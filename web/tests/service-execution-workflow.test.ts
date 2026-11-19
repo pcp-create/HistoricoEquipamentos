@@ -237,6 +237,15 @@ test("execution handoffs preserve one task; releases, customer sends and approva
       "UPDATE web_service_operations SET status='awaiting_review' WHERE id=$1",
       [id],
     );
+    const executorBefore=await op();
+    const executorEdit={action:'checklist_review_save',scheduleId:String(schedule.id),operationId:id,version:executorBefore.version,stages:[],executorName:'Executante corrigido'};
+    await assert.rejects(()=>mutateSchedule(executorEdit,'unauthorized@test.com'));
+    await assert.rejects(()=>mutateSchedule({...executorEdit,executorName:''},'planner@test.com'),/nome/);
+    const executorAfter=(await mutateSchedule(executorEdit,'planner@test.com')).operation;
+    assert.equal(executorAfter.document.checklistRun.reportExecutorName,'Executante corrigido');
+    assert.equal(executorAfter.document.responsible,executorBefore.document.responsible);
+    assert.ok((await query("SELECT 1 FROM web_service_operation_events WHERE operation_id=$1 AND action='review_executor'",[id])).rows.length);
+    await assert.rejects(()=>mutateSchedule(executorEdit,'planner@test.com'),/alterada/);
     assert.equal(
       await handoffOperation(
         db,

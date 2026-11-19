@@ -106,3 +106,13 @@ test('unassigned operation report omits the OS machine and serial',()=>{
  assert.equal(asset.groups[0].fields[0].value,'Sem equipamento informado');
  assert.ok(!JSON.stringify(asset).includes('SERIE-OS'));assert.ok(!JSON.stringify(asset).includes('MODELO-OS'));
 });
+
+test('reviewed executor name overrides the report label without changing the assigned technician',()=>{
+ const operation={id:'one',document:{responsible:'tech',checklistRun:{template:{name:'Teste',stages:[]},stages:{},reportExecutorName:'Executante corrigido'}}};
+ for(const mode of ['complete','summary','budget'] as const){
+  const report=technicalReport(operation,{},[{email:'tech',display_name:'Técnico programado'}],[],[],[],mode);
+  const field=report.find(s=>s.id==='general')!.groups[0].fields.find(f=>f.label==='Profissional responsável');
+  assert.equal(field?.value,'Executante corrigido');
+ }
+ assert.equal(operation.document.responsible,'tech');
+});

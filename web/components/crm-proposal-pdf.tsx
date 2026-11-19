@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { ChevronDown, Download, FileText, Receipt } from "lucide-react";
 import { crmApi } from "./crm-api";
 
 /** Missing fiscal setup is resolved before requesting the customer-facing PDF. */
@@ -20,6 +21,28 @@ export default function CrmProposalPdf({
     [choosing, setChoosing] = useState(false),
     [types, setTypes] = useState<{ id: string; name: string }[]>([]),
     [selected, setSelected] = useState("");
+  const [options, setOptions] = useState(false);
+  const exportControl = useRef<HTMLDivElement>(null);
+  const exportButton = useRef<HTMLButtonElement>(null);
+  const optionsId = useId();
+  useEffect(() => {
+    if (!options) return;
+    function outside(event: PointerEvent) {
+      if (!exportControl.current?.contains(event.target as Node)) setOptions(false);
+    }
+    function escape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOptions(false);
+        exportButton.current?.focus();
+      }
+    }
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [options]);
   const [preview, setPreview] = useState("");
   const refreshAfterPreview = useRef(false);
   function closePreview() {
@@ -39,9 +62,9 @@ export default function CrmProposalPdf({
   useEffect(() => {
     if (choosing) dialog.current?.showModal();
   }, [choosing]);
-  async function download() {
+  async function download(includeTaxes: boolean) {
     const response = await fetch(
-      "/api/crm/pdf?" + new URLSearchParams({ id: proposal.id }),
+      "/api/crm/pdf?" + new URLSearchParams({ id: proposal.id, taxes: includeTaxes ? "1" : "0" }),
       { cache: "no-store" },
     );
     if (!response.ok) {
@@ -54,7 +77,7 @@ export default function CrmProposalPdf({
       throw Error("O servidor não retornou um PDF válido.");
     setPreview(URL.createObjectURL(await response.blob()));
   }
-  async function generate(saveType = false) {
+  async function generate(saveType = false, includeTaxes = true) {
     if (sending.current) return;
     sending.current = true;
     setBusy(true);
@@ -64,7 +87,7 @@ export default function CrmProposalPdf({
       const missing =
         proposal.document.items.some((i: any) => i.kind === "material") &&
         !proposal.document.commercial?.taxBudgetType;
-      if (missing && !saveType) {
+      if (includeTaxes && missing && !saveType) {
         if (locked)
           throw Error(
             "Conclua o envio pendente da OS antes de definir o tipo fiscal desta proposta.",
@@ -107,7 +130,7 @@ export default function CrmProposalPdf({
         saved = true;
         setChoosing(false);
       }
-      await download();
+      await download(includeTaxes);
       displayed = true;
       refreshAfterPreview.current = saved;
     } catch (e) {
@@ -120,17 +143,31 @@ export default function CrmProposalPdf({
   }
   return (
     <>
-      <button
-        type="button"
-        className="button"
-        disabled={disabled || busy}
-        title={
-          disabled ? "Salve a proposta para gerar o PDF atualizado." : undefined
-        }
-        onClick={() => void generate()}
-      >
-        {busy ? "Preparando PDF…" : "Gerar PDF da proposta"}
-      </button>
+      <div className="crm-pdf-export" ref={exportControl}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node)) setOptions(false);
+        }}>
+        <button ref={exportButton} type="button" className="button crm-pdf-export-trigger"
+          disabled={disabled || busy} aria-expanded={options} aria-controls={optionsId}
+          title={disabled ? "Salve a proposta para gerar o PDF atualizado." : undefined}
+          onClick={() => setOptions(value => !value)}>
+          <Download size={18} aria-hidden="true" />
+          {busy ? "Preparando PDF…" : "Exportar PDF"}
+          <ChevronDown size={15} aria-hidden="true" />
+        </button>
+        {options && <div id={optionsId} className="crm-pdf-export-options" role="group" aria-label="Opções de exportação">
+          <button type="button" aria-label="Gerar Proposta com Impostos"
+            onClick={() => { setOptions(false); void generate(false, true); }}>
+            <Receipt size={20} aria-hidden="true" />
+            <span><strong>Gerar Proposta com Impostos</strong><small>Calcula e exibe os impostos dos produtos.</small></span>
+          </button>
+          <button type="button" aria-label="Gerar Proposta sem Impostos"
+            onClick={() => { setOptions(false); void generate(false, false); }}>
+            <FileText size={20} aria-hidden="true" />
+            <span><strong>Gerar Proposta sem Impostos</strong><small>Gera a proposta sem calcular ou exibir impostos.</small></span>
+          </button>
+        </div>}
+      </div>
       {preview && (
         <dialog ref={previewDialog} aria-label="Pré-visualização da proposta"
           onCancel={closePreview}

@@ -35,7 +35,7 @@ export function technicalReport(operation: any, order: any, users: any[] = [], s
       ["Tipo de serviço", operation.document.serviceType || order.tipo_nome],
       ["Descrição da atividade", operation.document.description],
       ...(mode==="budget"?[["Observação interna da operação",operation.document.internalNote],["Observação interna da OS",order.observacao_interna||order.observacaoInterna]] as [string,any][]:[]),
-      ["Profissional responsável", users.find(user => user.email === operation.document.responsible)?.display_name || receipt?.name || operation.document.responsible],
+      ["Profissional responsável", run?.reportExecutorName?.trim() || users.find(user => user.email === operation.document.responsible)?.display_name || receipt?.name || operation.document.responsible],
     ]),
     section("asset", "Identificação do ativo", [
       ["Ativo", reportEquipment(operation, order)], ["Número de série", operation.document.equipment?.serial || (operation.document.equipmentId || operation.document.equipmentUnassigned ? null : order.numero_serie || order.serie)], ["Modelo", operation.document.equipmentId || operation.document.equipmentUnassigned ? null : order.modelo_equipamento],

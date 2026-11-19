@@ -1,4 +1,5 @@
 "use client";
+import OrderCommentsReport from "./order-comments-report";
 import ActionNotice from "./action-notice";
 import {useOrderCommentOutbox} from "./use-order-comment-outbox";
 import OrderCommentsDialog from "./order-comments-dialog";
@@ -394,6 +395,7 @@ export default function CommercialReport({
             </p>
           </div>
           <div className="sp-actions">
+            {kind === "sales" && <OrderCommentsReport rows={visible} period={period} disabled={busy || !data}/>}
             <button className="button" onClick={csv} disabled={busy || !data}>
               <Download size={16} /> Exportar
             </button>

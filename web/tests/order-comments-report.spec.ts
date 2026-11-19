@@ -1,0 +1,21 @@
+import {test,expect} from '@playwright/test';
+import {build} from 'esbuild';
+test('comments report groups orders, loads older comments and escapes text',async({page})=>{
+ const bundle=await build({stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import Report from './components/order-comments-report';createRoot(document.getElementById('root')).render(<Report period="2026-11" rows={[{kind:'salesPending',company:1,id:'10',name:'Cliente A',fields:{number:'123',equipment:'Compressor'}},{kind:'salesPending',company:1,id:'10',name:'Cliente A'}]}/>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,outdir:'out',jsx:'automatic',define:{'process.env.NODE_ENV':'"test"'}});
+ await page.route('**/report-test',r=>r.fulfill({contentType:'text/html',body:'<div id="root"></div>'}));
+ const calls:string[]=[];
+ await page.route('**/api/service-orders/comments?*',r=>{const before=new URL(r.request().url()).searchParams.get('before');calls.push(before||'');return r.fulfill({json:{rows:[before?{id:'1',at:'2026-11-18T15:00:00Z',author:'Ana',comment:'Comentário anterior'}:{id:'2',at:'2026-11-19T15:00:00Z',author:'João',comment:'Ação <script>alert(1)</script>\nConfirmar entrega'}],hasMore:!before}});});
+ await page.goto('/report-test');await page.addScriptTag({content:bundle.outputFiles.find(f=>f.path.endsWith('.js'))!.text});
+ await page.getByRole('button',{name:'Relatório de comentários',exact:true}).click();
+ await page.getByRole('button',{name:'Gerar relatório',exact:true}).click();
+ const report=page.frameLocator('iframe');
+ await expect(report.locator('h2')).toHaveText('OS 123 · Cliente A');
+ await expect(report.locator('article')).toHaveCount(2);
+ await expect(report.locator('article').last()).toContainText('<script>alert(1)</script>');
+ await expect(report.locator('script')).toHaveCount(0);
+ expect(calls).toEqual(['','2']);
+ await page.getByLabel('Comentários desde (opcional)').fill('2026-11-19');
+ await page.getByRole('button',{name:'Gerar relatório',exact:true}).click();
+ await expect(report.locator('article')).toHaveCount(1);
+ await expect(page.getByRole('button',{name:'Imprimir / Salvar PDF'})).toBeVisible();
+});

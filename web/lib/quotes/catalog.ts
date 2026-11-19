@@ -69,7 +69,7 @@ export async function quoteCatalog(p: URLSearchParams) {
         await db.query(
           `WITH lines AS (${source}), sales AS (
     SELECT l.id,l.unit,l.company_id,l.ordem_servico_id,COALESCE(o.emissao,o.data_abertura) AS used_at,
-      COALESCE(o.numero_sequencia,o.id_m8) AS order_number,o.cliente_nome AS customer,sum(l.quantity) AS quantity,
+      COALESCE(o.numero_sequencia,o.id_m8) AS order_number,o.cliente_nome AS customer,max(concat_ws(' · ',NULLIF(o.equipamento,''),NULLIF(COALESCE(o.numero_serie,o.serie),''))) AS equipment,sum(l.quantity) AS quantity,
       CASE WHEN count(l.total)=count(*) THEN sum(l.total) END AS total
     FROM lines l JOIN m8_ordens_servico o ON o.company_id=l.company_id AND o.id_m8=l.ordem_servico_id
     JOIN integracao_m8_os_sync sync ON sync.company_id=o.company_id AND sync.ordem_servico_id=o.id_m8
@@ -98,6 +98,7 @@ export async function quoteCatalog(p: URLSearchParams) {
           unitPrice: number(sale.unit_price),
           total: number(sale.total),
           customer: sale.customer || "",
+          equipment: sale.equipment || "",
         }
       : undefined;
     const key =

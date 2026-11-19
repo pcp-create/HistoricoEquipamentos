@@ -114,8 +114,9 @@ export default function CrmProposal({ id }: { id: string }) {
     locked = data.status === "converting" || pending;
   const orderChoices=catalog.orderTypes.filter((t:any)=>t.active&&type?.order_types?.includes(String(t.id)));
   const cannotConvert=busy||changed||pending||!["pending","won"].includes(data.status)||!orderChoices.length;
-  const headerActions=<>
+  const headerActions=<div className="crm-actions">
     {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
+    <CrmProposalPdf proposal={data} disabled={changed||busy} locked={locked} onSaved={load} onError={setError}/>
     <button type="button" className="button primary" disabled={cannotConvert} title={changed?"Salve a proposta antes de gerar o pedido.":undefined} onClick={()=>{
       if(orderChoices.length===1)void convert(undefined,false,String(orderChoices[0].id));
       else {setConversionType('');setChoosingType(true);}
@@ -125,30 +126,8 @@ export default function CrmProposal({ id }: { id: string }) {
       <label>Tipo de OS a gerar<select aria-label="Tipo de OS a gerar" value={conversionType} onChange={e=>setConversionType(e.target.value)}><option value="">Selecione o tipo de OS</option>{orderChoices.map((t:any)=><option key={t.id} value={String(t.id)}>{t.id} · {t.name}</option>)}</select></label>
       <div className="crm-actions"><button type="button" onClick={()=>setChoosingType(false)}>Cancelar</button><button type="button" className="button primary" disabled={cannotConvert||!orderChoices.some((t:any)=>String(t.id)===conversionType)} onClick={()=>{setChoosingType(false);void convert(undefined,false,conversionType);}}>Gerar OS</button></div>
     </dialog>}
-  </>;
-  const actions = (
-    <>
-      <div className="crm-actions">
-        <CrmProposalPdf proposal={data} disabled={changed||busy} locked={locked} onSaved={load} onError={setError}/>
-        <button
-          className="button"
-          type="button"
-          disabled={busy}
-          onClick={() => {
-            if (
-              !changed ||
-              window.confirm("Descartar as alterações não salvas e recarregar?")
-            )
-              void load().catch((e) => setError(e.message));
-          }}
-        >
-          Atualizar andamento
-        </button>
-      </div>
-      {changed && <p>Salve a proposta antes de concretizar ou gerar uma OS.</p>}
-
-    </>
-  );
+  </div>;
+  const actions = changed ? <p>Salve a proposta antes de concretizar ou gerar uma OS.</p> : null;
   const progress = <>
       {!!data.links.length && (
         <div className="crm-links">

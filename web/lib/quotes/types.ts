@@ -136,6 +136,7 @@ export function parseQuote(body: unknown): Quote {
                 unitPrice: text(sale.unitPrice, 40),
                 total: text(sale.total, 40),
                 customer: text(sale.customer || "", 500),
+                equipment: text(sale.equipment || "", 1000),
               };
             })(),
           }),
@@ -217,6 +218,7 @@ export type ManufacturerRecommendation = {
 
 export type QuoteSale = {
   customer?: string;
+  equipment?: string;
   linkedByObservation?: boolean;
   company: string;
   order: string;

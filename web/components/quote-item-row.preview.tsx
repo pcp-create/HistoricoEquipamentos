@@ -1,4 +1,6 @@
 "use client";
+import { ArrowDownToLine } from "lucide-react";
+import { useState } from "react";
 import ProductReservations from "./product-reservations";
 import { companyName, companyNamesInText } from "@/lib/company-names";
 
@@ -33,6 +35,25 @@ const day = (value: string) =>
       })
     : "Data não informada";
 
+function UnitPriceInput({value, onChange, belowMinimum = false}: {value:string;onChange:(value:string)=>void;belowMinimum?:boolean}) {
+  const [editing, setEditing] = useState(false);
+  const [typed, setTyped] = useState("");
+  const display = value !== "" && Number.isFinite(Number(value))
+    ? Number(value).toLocaleString("pt-BR", {minimumFractionDigits:2,maximumFractionDigits:2,useGrouping:false}) : "";
+  return <input aria-label="Valor unitário (R$)" className={belowMinimum ? "quote-price-below-minimum" : undefined} type="text" inputMode="decimal"
+    value={editing ? typed : display} placeholder="Informar"
+    onFocus={() => {setEditing(true);setTyped(value ? String(Number(value)).replace(".",",") : "");}}
+    onChange={event => {
+      const raw=event.target.value.replace(".",",");
+      if (!/^\d*(,\d{0,2})?$/.test(raw)) return;
+      const number=raw.replace(",", ".");
+      if (Number(number)>10000000) return;
+      setTyped(raw);onChange(number === "." ? "" : number);
+    }}
+    onBlur={() => {setEditing(false);if(value !== "" && Number.isFinite(Number(value))) onChange(Number(value).toFixed(2));}}
+  />;
+}
+
 export default function QuoteItemRow({
   item,
   reference,
@@ -43,8 +64,12 @@ export default function QuoteItemRow({
   onRemove,
   duplicate = false,
   descriptionDetails,
+  showTaskAction = true,
+  compactPricing = false,
 }: {
   duplicate?: boolean;
+  showTaskAction?: boolean;
+  compactPricing?: boolean;
   descriptionDetails?: import("react").ReactNode;
   item: QuoteItem;
   reference?: QuoteItem;
@@ -83,8 +108,16 @@ export default function QuoteItemRow({
     ref.minimumPrice !== "" &&
     Number(item.price) < Number(ref.minimumPrice);
   const manual = item.key.startsWith("manual:");
+  function priceShortcut(value: string, label: string) {
+    if (value === "" || !Number.isFinite(Number(value))) return "—";
+    return <button type="button" className="quote-price-apply"
+      aria-label={`Aplicar ${label}: ${money(value)}`} title="Aplicar ao valor unitário"
+      onClick={() => onChange({price:Number(value).toFixed(2)})}>
+      {money(value)}<ArrowDownToLine size={16} aria-hidden="true" />
+    </button>;
+  }
   return (
-    <article className={`quote-choice${item.selected ? " is-selected" : ""}`}>
+    <article className={`quote-choice${compactPricing ? " quote-choice-compact" : ""}${item.selected ? " is-selected" : ""}`}>
       <div className="quote-choice-line">
         <input
           className="quote-choice-check"
@@ -142,12 +175,12 @@ export default function QuoteItemRow({
             {origin === "unknown" &&
               ` · ${item.kind === "service" ? "Serviço" : "Material"}`}
           </small>
-          {descriptionDetails}
           {item.kind === "material" && (
             <small className="quote-choice-manufacturer">
               Ref. fabricante: {manufacturerReferences || "Não informada"}
             </small>
           )}
+          {descriptionDetails}
           {item.kind === "material" && !descriptionDetails && (
             <small className="quote-choice-stock">
               Estoque:{" "}
@@ -183,7 +216,7 @@ export default function QuoteItemRow({
                 " · saldo incompleto"}
             </small>
           )}
-          <ProductReservations orders={stock?.reservedOrders} showCompany/>
+          {!compactPricing && <ProductReservations orders={stock?.reservedOrders} showCompany/>}
           {!!stock?.blockedCompanies.length && (
             <small className="quote-warning">
               Bloqueado no M8 · empresa(s){" "}
@@ -197,17 +230,29 @@ export default function QuoteItemRow({
               ? "Última venda · base geral"
               : "Última venda · cliente/equipamento"}
           </small>
-          <strong>{last ? money(last.unitPrice) : "Sem histórico"}</strong>
           {last && (
             <small>
-              {day(last.date)} · <QuoteOrderLink sale={last} />
+              {day(last.date)} · <QuoteOrderLink sale={last} showTaskAction={showTaskAction} />
             </small>
           )}
-          <small>
-            Venda M8: {money(ref.referencePrice)} · Mín. M8:{" "}
-            {money(ref.minimumPrice)}
-          </small>
-          {history && !general && (
+          {compactPricing && last?.unitPrice ? <button type="button" className="quote-price-apply"
+            aria-label={`Aplicar última venda: ${money(last.unitPrice)}`}
+            title="Aplicar ao valor unitário" onClick={() => onChange({price:Number(last.unitPrice).toFixed(2)})}>
+            {money(last.unitPrice)}<ArrowDownToLine size={16} aria-hidden="true" />
+          </button> : <strong>{last ? money(last.unitPrice) : "Sem histórico"}</strong>}
+          {compactPricing ? <div className="quote-price-comparisons">
+            <div className="quote-price-pair" aria-label="Preços M8">
+              <div><small>Mínimo M8</small>{priceShortcut(ref.minimumPrice, "mínimo M8")}</div>
+              <div><small>Venda M8</small>{priceShortcut(ref.referencePrice, "venda M8")}</div>
+            </div>
+            {history && !general && <div className="quote-price-pair" aria-label="Preços vendidos">
+              <div><small>Mínimo vendido</small>{priceShortcut(history.minimum, "mínimo vendido")}</div>
+              <div><small>Máximo vendido</small>{priceShortcut(history.maximum, "máximo vendido")}</div>
+            </div>}
+          </div> : <small>
+            Venda M8: {money(ref.referencePrice)} · Mín. M8: {money(ref.minimumPrice)}
+          </small>}
+          {!compactPricing && history && !general && (
             <small>
               Mín./máx. vendido: {money(history.minimum)} a{" "}
               {money(history.maximum)}
@@ -228,16 +273,7 @@ export default function QuoteItemRow({
         </label>
         <label className="quote-choice-price">
           Unitário (R$)
-          <input
-            aria-label="Valor unitário (R$)"
-            type="number"
-            min="0"
-            max="10000000"
-            step="0.01"
-            value={item.price}
-            placeholder="Informar"
-            onChange={(e) => onChange({ price: e.target.value })}
-          />
+          <UnitPriceInput value={item.price} belowMinimum={below} onChange={price => onChange({price})} />
         </label>
         <div className="quote-choice-total">
           <small>Total</small>
@@ -250,7 +286,7 @@ export default function QuoteItemRow({
             Já selecionado em outra linha.
           </small>
         )}
-        {last?.unitPrice !== undefined && last.unitPrice !== "" && (
+        {!compactPricing && last?.unitPrice !== undefined && last.unitPrice !== "" && (
           <button
             type="button"
             onClick={() =>
@@ -260,7 +296,7 @@ export default function QuoteItemRow({
             Usar última venda: {money(last.unitPrice)}
           </button>
         )}
-        {ref.referencePrice !== "" && (
+        {!compactPricing && ref.referencePrice !== "" && (
           <button
             type="button"
             onClick={() =>
@@ -281,7 +317,7 @@ export default function QuoteItemRow({
             />
           </label>
         )}
-        {onRemove && (
+        {!compactPricing && onRemove && (
           <button type="button" onClick={onRemove}>
             Remover item
           </button>
@@ -299,6 +335,9 @@ export default function QuoteItemRow({
         <summary>
           Mais informações{history ? ` · ${history.count} OS` : ""}
         </summary>
+        {compactPricing && <div className="quote-price-details">
+          <ProductReservations orders={stock?.reservedOrders} showCompany/>
+        </div>}
         <h4>
           {general
             ? "Última venda geral · todos os clientes e equipamentos"
@@ -316,7 +355,7 @@ export default function QuoteItemRow({
               <table>
                 <thead>
                   <tr>
-                    <th>OS / empresa</th>
+                    <th>OS / cliente</th>
                     <th>Data</th>
                     <th>Qtd.</th>
                     <th>Unitário</th>
@@ -327,8 +366,9 @@ export default function QuoteItemRow({
                   {history.rows.map((sale) => (
                     <tr key={`${sale.company}:${sale.order}`}>
                       <td>
-                        <QuoteOrderLink sale={sale} /> ·{" "}
-                        {companyName(sale.company)}
+                        <QuoteOrderLink sale={sale} showTaskAction={showTaskAction} /> ·{" "}
+                        {sale.customer || "Cliente não informado"}
+                        <small className="quote-sale-origin">{sale.equipment || "Equipamento não informado"}</small>
                         {sale.linkedByObservation && (
                           <small className="quote-sale-origin">
                             Série nas observações

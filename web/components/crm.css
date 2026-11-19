@@ -167,3 +167,58 @@
 .crm-product-terms label { display: grid; gap: .25rem; font-size: .78rem; }
 .crm-product-terms input { font-size: .8rem; padding: .4rem .6rem; min-height: 2rem; max-width: 18rem; }
 .crm-summary-table .crm-delivery-term { width: 160px; white-space: normal; }
+
+.crm-pdf-export {position:relative;}
+.crm-pdf-export .crm-pdf-export-trigger {display:inline-flex;align-items:center;gap:9px;}
+.crm-pdf-export-options {position:absolute;right:0;top:calc(100% + 6px);z-index:50;width:min(310px,calc(100vw - 40px));overflow:hidden;border:1px solid #cbdcec;border-radius:12px;background:#fff;box-shadow:0 6px 20px #163a5c18;}
+.crm-pdf-export-options > button {display:flex;align-items:flex-start;gap:12px;width:100%;padding:16px 18px;border:0;border-radius:0;background:#fff;color:#173953;text-align:left;white-space:normal;box-shadow:none;}
+.crm-pdf-export-options > button + button {border-top:1px solid #d1e0f0;}
+.crm-pdf-export-options > button:hover,.crm-pdf-export-options > button:focus-visible {background:#eef6ff;}
+.crm-pdf-export-options svg {flex-shrink:0;margin-top:2px;color:#087df0;}
+.crm-pdf-export-options > button + button svg {color:#138746;}
+.crm-pdf-export-options span {display:grid;gap:4px;}
+.crm-pdf-export-options strong {font-size:14px;line-height:1.3;}
+.crm-pdf-export-options small {font-size:12px;line-height:1.3;font-weight:400;color:#6d829d;}
+
+.new-os .quote-choice-compact .quote-price-apply {display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:4px 6px;border:0;border-radius:6px;background:transparent;color:#1768ab;font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px;box-shadow:none;cursor:pointer;}
+.new-os .quote-choice-compact .quote-price-apply:hover {background:#e4f0ff;}
+.new-os .quote-choice-compact .quote-price-apply:focus-visible {outline:2px solid #2879c7;outline-offset:2px;}
+.quote-choice-compact .quote-price-details p {margin:6px 0;color:#6d829d;}
+.quote-choice-compact .quote-choice-actions:empty {display:none;}
+@media(max-width:600px) {
+  .quote-choice-compact .quote-choice-reference {border-top:1px solid #dce5ee;border-bottom:1px solid #dce5ee;padding:8px 0;}
+  .quote-choice-compact .quote-choice-details > summary {min-height:44px;align-content:center;}
+  .quote-choice-compact .quote-choice-check {min-width:20px;min-height:20px;}
+}
+
+/* Keep product cards within their column, including expanded sales tables. */
+.new-os .crm-proposal-items,
+.new-os .crm-quote-item,
+.new-os .crm-quote-item .quote-choice,
+.new-os .crm-quote-item .quote-choice-line,
+.new-os .crm-quote-item .quote-choice-line > *,
+.new-os .crm-quote-item .quote-choice-details,
+.new-os .crm-quote-item .quote-sales-table,
+.new-os .crm-item-financials > * {min-width:0;max-width:100%;box-sizing:border-box;}
+.new-os .crm-quote-item .quote-sales-table {overflow-x:auto;}
+.new-os .crm-quote-item .quote-choice input:not([type=checkbox]) {min-width:0;max-width:100%;box-sizing:border-box;}
+.new-os .crm-quote-item .quote-price-apply {width:auto;max-width:100%;justify-self:start;white-space:nowrap;}
+@media(max-width:600px) {
+  .new-os .crm-proposal-items {width:100%;padding:12px;}
+  .new-os .crm-proposal-items > .crm-heading > div {min-width:0;max-width:100%;}
+  .new-os .crm-quote-item .quote-choice-line {grid-template-columns:20px minmax(0,1fr) minmax(0,1fr);gap:8px;}
+  .new-os .crm-quote-item .quote-choice-product,
+  .new-os .crm-quote-item .quote-choice-reference,
+  .new-os .crm-quote-item .quote-choice-total {grid-column:2 / 4;}
+  .new-os .crm-quote-item .quote-choice-quantity {grid-column:2;}
+  .new-os .crm-quote-item .quote-choice-price {grid-column:3;}
+  .new-os .crm-quote-item .quote-choice-reference > small {overflow-wrap:anywhere;}
+}
+
+.new-os .crm-quote-item .quote-price-comparisons {display:grid;gap:10px;padding-top:8px;border-top:1px solid #e3ebf3;}
+.new-os .crm-quote-item .quote-price-pair {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+.new-os .crm-quote-item .quote-price-pair > div {display:grid;align-content:start;min-width:0;}
+.new-os .crm-quote-item .quote-price-pair small {display:block;line-height:1.4;}
+.new-os .crm-quote-item .quote-price-pair .quote-price-apply {font-size:12px;padding:4px 0;gap:6px;}
+.new-os .crm-quote-item .quote-choice-reference > .quote-price-apply {padding-left:0;font-size:14px;}
+.new-os .crm-quote-item .quote-price-apply svg {flex-shrink:0;}

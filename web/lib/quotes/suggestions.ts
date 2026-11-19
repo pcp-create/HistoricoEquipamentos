@@ -193,7 +193,7 @@ export async function quoteHistory(
         count(*) OVER w AS sale_count,
         row_number() OVER (PARTITION BY kind,identity,unit ORDER BY used_at DESC NULLS LAST,ordem_servico_id DESC,company_id) AS rank
       FROM sale WINDOW w AS (PARTITION BY kind,identity,unit)
-    ) SELECT * FROM ranked WHERE rank<=5 ORDER BY kind,identity,unit,rank`,
+    ) SELECT ranked.*,o.cliente_nome AS customer,concat_ws(' · ',NULLIF(o.equipamento,''),NULLIF(COALESCE(o.numero_serie,o.serie),'')) AS equipment FROM ranked JOIN m8_ordens_servico o ON o.company_id=ranked.company_id AND o.id_m8=ranked.ordem_servico_id WHERE rank<=5 ORDER BY kind,identity,unit,rank`,
         [clientId, serial, equipmentId, serialPattern],
       )
     ).rows;
@@ -215,6 +215,8 @@ export async function quoteHistory(
         rows: [],
       });
       history.rows.push({
+        customer: r.customer || "",
+        equipment: r.equipment || "",
         linkedByObservation: r.observation_link === true,
         company: String(r.company_id),
         order: String(r.ordem_servico_id),

@@ -24,7 +24,8 @@ export default function ChecklistReviewReport({ operation, data, busy=false, dis
   useEffect(()=>{setDraft(null);draftRef.current=null;onDirtyChange?.(false);},[operation.version]);
   function change(stageId:string,fieldId:string,key:string,value:any){
     const next=structuredClone(draftRef.current||savedRun),stage=next.stages[stageId];
-    if(key==='meterDate')next.meterDate=value;
+    if(key==='executorName')next.reportExecutorName=value;
+    else if(key==='meterDate')next.meterDate=value;
     else if(key==='value')stage.answers={...stage.answers,[fieldId]:value};
     else stage.details={...stage.details,[fieldId]:{...stage.details?.[fieldId],[key]:value}};
     draftRef.current=next;setDraft(next);onDirtyChange?.(JSON.stringify(next)!==JSON.stringify(savedRun)||uploads>0);
@@ -32,7 +33,7 @@ export default function ChecklistReviewReport({ operation, data, busy=false, dis
   function uploading(active:boolean){uploadCount.current+=active?1:-1;setUploads(uploadCount.current);onDirtyChange?.(uploadCount.current>0||!!draftRef.current);}
   async function save(){
     const stages=stagesOf(run.template).filter(stage=>JSON.stringify(run.stages[stage.id])!==JSON.stringify(savedRun.stages[stage.id])||run.meterDate!==savedRun.meterDate&&stage.fields.some(f=>f.type==='meter')).map(stage=>({stageId:stage.id,answers:run.stages[stage.id].answers,details:run.stages[stage.id].details||{},equipmentId:run.equipmentId,meterDate:run.meterDate}));
-    if(await mutate({action:'checklist_review_save',operationId:operation.id,version:operation.version,stages})){setDraft(null);draftRef.current=null;onDirtyChange?.(false);}
+    if(await mutate({action:'checklist_review_save',operationId:operation.id,version:operation.version,stages,...(run.reportExecutorName!==savedRun.reportExecutorName?{executorName:run.reportExecutorName}: {})})){setDraft(null);draftRef.current=null;onDirtyChange?.(false);}
   }
   if (!run) return <p>O relatório desta operação ainda não foi preenchido.</p>;
   const report = technicalReport({...operation,document:{...operation.document,checklistRun:run}}, data.detail?.order || {}, data.users || [], data.fieldSessions || [], data.fieldEvents || [], data.events || []);
@@ -54,7 +55,7 @@ export default function ChecklistReviewReport({ operation, data, busy=false, dis
           const meterAlert=meterAlerts.find(alert=>alert.stageId===stage.id&&alert.fieldId===field.id);
           return <div key={field.id} id={meterAlert?`review-meter-${operation.id}-${stage.id}-${field.id}`:undefined} className={`review-report-row ${meterAlert?"review-report-meter-invalid":""} ${aiFields.some(s=>s.stageId===stage.id&&s.fieldId===field.id)?"review-report-ai-field":""}`}>
           <dt>{field.label}{aiFields.some(s=>s.stageId===stage.id&&s.fieldId===field.id)&&<small className="report-writing-tag">Revisão de escrita · IA</small>}</dt>
-          <dd>{stage.id==='asset'&&field.label==='Ativo'&&equipmentControl?equipmentControl:editable&&definition?<ReviewChecklistField field={definition} value={run.stages[stage.id]?.answers?.[field.id]} details={run.stages[stage.id]?.details?.[field.id]||{}} disabled={busy||disabled} operationId={operation.id} stageId={stage.id} meterDate={run.meterDate} equipmentId={operationMeterEquipment(operation.document)?run.equipmentId||operationMeterEquipment(operation.document):undefined} meterReference={meterReference} meterWarning={meterAlert?.message} onUploading={uploading} onValue={(v:any)=>change(stage.id,field.id,'value',v)} onDetail={(key:string,v:any)=>change(stage.id,field.id,key,v)} onMeterDate={(v:string)=>change(stage.id,field.id,'meterDate',v)}/>:<>
+          <dd>{editable&&stage.id==='general'&&field.label==='Profissional responsável'?<><input aria-label="Técnico executante do serviço" maxLength={160} value={run.reportExecutorName ?? field.value ?? ''} disabled={busy||disabled} onChange={e=>change('','','executorName',e.target.value)}/><small>Nome exibido no relatório. Os apontamentos e a equipe programada permanecem no histórico.</small></>:stage.id==='asset'&&field.label==='Ativo'&&equipmentControl?equipmentControl:editable&&definition?<ReviewChecklistField field={definition} value={run.stages[stage.id]?.answers?.[field.id]} details={run.stages[stage.id]?.details?.[field.id]||{}} disabled={busy||disabled} operationId={operation.id} stageId={stage.id} meterDate={run.meterDate} equipmentId={operationMeterEquipment(operation.document)?run.equipmentId||operationMeterEquipment(operation.document):undefined} meterReference={meterReference} meterWarning={meterAlert?.message} onUploading={uploading} onValue={(v:any)=>change(stage.id,field.id,'value',v)} onDetail={(key:string,v:any)=>change(stage.id,field.id,key,v)} onMeterDate={(v:string)=>change(stage.id,field.id,'meterDate',v)}/>:<>
             {field.options?<ReviewFlags label={field.label} options={field.options} alertOptions={field.alertOptions} value={field.value}/>:<span>{reportFieldValue(field)}</span>}
             {field.comment && <p className="review-report-comment"><strong>Comentário:</strong> {field.comment}</p>}
             {field.photos.length > 0 && <div className="review-report-photos">{field.photos.map((id: string, index: number) => <a key={`${id}-${index}`} href={`/api/service-scheduling/photos/${encodeURIComponent(id)}`} target="_blank" rel="noreferrer" aria-label={`Abrir ${field.type === "signature" ? "assinatura" : "foto"} de ${field.label}`}><img src={`/api/service-scheduling/photos/${encodeURIComponent(id)}`} alt={`${field.label} — ${index + 1}`} loading="lazy"/></a>)}</div>}

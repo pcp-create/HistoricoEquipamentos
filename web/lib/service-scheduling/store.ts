@@ -527,8 +527,19 @@ export async function mutateSchedule(b: any, email: string) {
     }
     if(b.action==='checklist_review_save'){
       if(!admin)throw new Forbidden();
-      if(!Array.isArray(b.stages)||!b.stages.length||b.stages.length>100||new Set(b.stages.map((s:any)=>s.stageId)).size!==b.stages.length)throw new ScheduleInputError('Etapas inválidas.');
+      if(!Array.isArray(b.stages)||(!b.stages.length&&b.executorName===undefined)||b.stages.length>100||new Set(b.stages.map((s:any)=>s.stageId)).size!==b.stages.length)throw new ScheduleInputError('Etapas inválidas.');
+      if(operation.status!=='awaiting_review')throw new ScheduleInputError('Somente operações aguardando revisão podem ser corrigidas.');
+      if(pendingTechnicianClosures(operation.document).length)throw new ScheduleInputError('Aguarde o encerramento da operação por todos os técnicos.');
+      if(b.executorName!==undefined&&(typeof b.executorName!=='string'||!b.executorName.trim()||b.executorName.trim().length>160))throw new ScheduleInputError('Informe o nome do técnico executante, com até 160 caracteres.');
       let result=operation;
+      if(b.executorName!==undefined){
+        if(!operation.document.checklistRun)throw new ScheduleInputError('Relatório não encontrado.');
+        const before=operation.document.checklistRun.reportExecutorName||null,after=b.executorName.trim();
+        const document={...operation.document,checklistRun:{...operation.document.checklistRun,reportExecutorName:after}};
+        result=(await c.query('UPDATE web_service_operations SET document=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1 RETURNING *',[operation.id,JSON.stringify(document),email])).rows[0];
+        await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[operation.id,'review_executor',email,`Nome do executante corrigido na revisão: ${after}`]);
+        await audit(c,email,'service_schedule_review_executor',{operation_id:operation.id,before,after});
+      }
       try{for(const stage of b.stages)result=await updateChecklist(c,{...stage,action:'checklist_review_save'},result,schedule,config.document,email,true);}
       catch(e){throw new ScheduleInputError((e as Error).message);}
       await c.query('COMMIT');return {operation:result};

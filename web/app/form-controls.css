@@ -44,6 +44,11 @@
       color: var(--field-disabled-text, #748b9e) !important;
       cursor: not-allowed;
     }
+    &.quote-price-below-minimum {
+      background-color: #fff0f0 !important;
+      color: #b42318 !important;
+      border-color: #e99a96 !important;
+    }
     &[aria-invalid="true"], &.alert-comment-empty {
       border-color: #c43848 !important;
       &:focus { outline-color: #c43848 !important; }

@@ -8,8 +8,10 @@ export default function CrmProductTerms({
   disabled,
   onChange,
   showDelivery = true,
+  showTaxes = true,
 }: {
   showDelivery?: boolean;
+  showTaxes?: boolean;
   draft: OrderDraft;
   item: OrderItem;
   disabled: boolean;
@@ -41,7 +43,7 @@ export default function CrmProductTerms({
           onChange={onChange}
         />
       )}
-      {taxes ? (
+      {showTaxes && (taxes ? (
         <small>
           Impostos simulados: ICMS {crmMoney(taxes.icms)} · ICMS ST{" "}
           {crmMoney(taxes.icmsSt)} · IPI {crmMoney(taxes.ipi)} · PIS{" "}
@@ -49,7 +51,7 @@ export default function CrmProductTerms({
         </small>
       ) : (
         <small>Impostos não calculados para estes dados.</small>
-      )}
+      ))}
     </div>
   );
 }

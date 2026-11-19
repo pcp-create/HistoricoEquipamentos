@@ -1,4 +1,5 @@
 "use client";
+import OrderCommentsReport from "./order-comments-report";
 import ActionNotice from "./action-notice";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -162,6 +163,7 @@ export default function SalesProjection({
             <p>{pastPeriod ? "Resultado consolidado do período e comparação com a projeção." : "O resultado de hoje. O caminho até a meta."}</p>
           </div>
           <div className="sp-actions">
+            <OrderCommentsReport rows={(data?.details||[]).filter(r=>company==="all"||String(r.company)===company)} period={period} disabled={loading || !data}/>
             <Link className="button" href={`/comercial/acompanhamento?period=${period}&company=${company}`}>Acompanhamento <ArrowUpRight size={16}/></Link>
             <button
               className="button"

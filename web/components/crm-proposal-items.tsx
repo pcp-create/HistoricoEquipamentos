@@ -239,8 +239,10 @@ export default function CrmProposalItems({
           return (
             <article className="crm-quote-item" key={quoteItemIdentity(item)}>
               <QuoteItemRow
+                showTaskAction={false}
+                compactPricing
                 item={item}
-                descriptionDetails={kind==='material'&&saved&&draft?<CrmProductTerms draft={draft} item={saved} disabled={disabled} onChange={next=>onChange(items.map(row=>row===saved?next:row))}/>:undefined}
+                descriptionDetails={kind==='material'&&saved&&draft?<CrmProductTerms showDelivery={false} showTaxes={false} draft={draft} item={saved} disabled={disabled} onChange={next=>onChange(items.map(row=>row===saved?next:row))}/>:undefined}
                 reference={merged.references.get(item.key)}
                 history={merged.histories[item.key]}
                 serial=""
@@ -265,7 +267,8 @@ export default function CrmProposalItems({
                           ? Number(saved.unitCost).toLocaleString("pt-BR", {
                               style: "currency",
                               currency: "BRL",
-                              maximumFractionDigits: 6,
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
                             })
                           : "Não informado"}
                       </strong>

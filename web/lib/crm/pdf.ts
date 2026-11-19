@@ -28,6 +28,8 @@ export async function proposalPdf(
   proposal: any,
   customer: any = {},
   equipment: any = {},
+  productNcms: Record<string, string | null> = {},
+  {includeTaxes = true}: {includeTaxes?: boolean} = {},
 ) {
   const draft = proposalDraft(proposal.document),
     totals = proposalFinancials(draft.items),
@@ -177,7 +179,8 @@ export async function proposalPdf(
   const payload = customer.payload || {}, col = (width - 40) / 3;
   const ends = [
     details("DADOS DO CLIENTE", [
-      ["Cliente", proposal.customer_name],
+      ["Razão social", payload.razaoSocial?.trim() || customer.name || proposal.customer_name],
+      ["Nome fantasia", [payload.nomeFantasia, payload.fantasia, payload.apelido].find(value => typeof value === "string" && value.trim())?.trim() || ""],
       ["CPF / CNPJ", customer.document || ""],
       ["Cidade / UF", [payload.municipioNome, payload.ufSigla].filter(Boolean).join(" / ")],
       ["Endereço", [payload.logradouro, payload.numero, payload.bairro].filter(Boolean).join(", ")],
@@ -212,9 +215,9 @@ export async function proposalPdf(
     M,
     M + 49,
     M + 410,
-    M + 459,
-    M + 498,
-    M + 570,
+    M + (includeTaxes ? 459 : 520),
+    M + (includeTaxes ? 498 : 600),
+    M + (includeTaxes ? 570 : 710),
     M + 625,
     M + 678,
     M + 725,
@@ -233,7 +236,14 @@ export async function proposalPdf(
       "ICMS ST R$",
       "VL. IPI R$",
       "TOTAL R$",
-    ].forEach((v, i) => text(v, xs[i] + 4, y + 5, 5.8, true, white));
+     ].forEach((v, i) => {
+      if (!includeTaxes && i >= 5 && i <= 7) return;
+      if (i >= 4) {
+        right(v, i === 8 ? W - M - 5 : xs[i + 1] - 8, y + 5, 5.8, true, white);
+      } else {
+        text(v, xs[i] + 4, y + 5, 5.8, true, white);
+      }
+    });
     text("PRAZO DE ENTREGA", M + 329, y + 5, 5.8, true, white);
     y += 18;
   }
@@ -247,9 +257,9 @@ export async function proposalPdf(
   y+=14;
   let index = 0;
   for (const item of items) {
-    const taxes = currentTaxes(draft,item);
+    const taxes = includeTaxes ? currentTaxes(draft,item) : null;
     const lines = wrap(
-      item.name + (taxes?` | PIS: R$ ${money(taxes.pis)}; COFINS: R$ ${money(taxes.cofins)}`:'') + (item.quote?.unit ? " · " + item.quote.unit : "") + (Number(item.discountPercent)>0?` (desconto ${Number(item.discountPercent).toLocaleString('pt-BR')}%)`:''),
+      item.name + (item.quote?.unit ? " · " + item.quote.unit : "") + (Number(item.discountPercent)>0?` (desconto ${Number(item.discountPercent).toLocaleString('pt-BR')}%)`:''),
       265,
       7,
     );
@@ -266,7 +276,7 @@ export async function proposalPdf(
       if (index % 2) rect(M, y, width, height, pale);
       if (start === 0) {
         text(item.code, M + 4, y + 2, 6, false, gray);
-        text("—", xs[2] + 4, y + 2);
+        text(item.kind === "material" ? productNcms[item.code] || "—" : "—", xs[2] + 4, y + 2, 6);
         text(
           Number(item.quantity).toLocaleString("pt-BR", {
             maximumFractionDigits: 3,
@@ -275,9 +285,11 @@ export async function proposalPdf(
           y + 2,
         );
         right(money(discountedUnitCents(item)), xs[5] - 8, y + 2);
-        text(taxes ? money(taxes.icms) : "—", xs[5] + 4, y + 2, 6, false, gray);
-        text(taxes ? money(taxes.icmsSt) : "—", xs[6] + 4, y + 2, 6, false, gray);
-        text(taxes ? money(taxes.ipi) : "—", xs[7] + 4, y + 2, 6, false, gray);
+        if(includeTaxes) {
+        right(taxes ? money(taxes.icms) : "—", xs[6] - 8, y + 2, 6, false, gray);
+        right(taxes ? money(taxes.icmsSt) : "—", xs[7] - 8, y + 2, 6, false, gray);
+        right(taxes ? money(taxes.ipi) : "—", xs[8] - 8, y + 2, 6, false, gray);
+        }
         right(money(itemFinancials(item).sale), W - M - 5, y + 2, 7, true);
       }
       part.forEach((row, j) => {
@@ -298,9 +310,8 @@ export async function proposalPdf(
   y += 13;
   const conditions = [
     "Prazo de entrega por produto; dias úteis a contar da aprovação formal.",
-    "Impostos simulados para consulta, sem acréscimo automático ao preço.",
+    ...(includeTaxes ? ["Tributos estimados conforme os dados da operação, sujeitos à confirmação no faturamento."] : []),
     "Qualquer alteração de parâmetro implica revisão de valores e novo aceite.",
-    "Impostos de responsabilidade do adquirente não inclusos.",
     "Pagamento exclusivamente via boleto bancário emitido pela RJ Compressores.",
     "Declaro ter conferido todos os dados e estar ciente dos prazos e condições.",
   ];
@@ -316,11 +327,11 @@ export async function proposalPdf(
   const materialItems = draft.items.filter(i => i.kind === "material");
   const taxesComplete = materialItems.every(i => currentTaxes(draft, i));
   const taxRows = ([['ICMS', 'icms'], ['ICMS-ST', 'icmsSt'], ['IPI', 'ipi'], ['PIS', 'pis'], ['COFINS', 'cofins']] as const)
-    .map(([label, key]) => [`${label} (simulado)`, taxesComplete ? money(materialItems.reduce((sum, item) => sum + (currentTaxes(draft, item)?.[key] || 0), 0)) : "Não informado"]);
+    .map(([label, key]) => [label, taxesComplete ? money(materialItems.reduce((sum, item) => sum + (currentTaxes(draft, item)?.[key] || 0), 0)) : "Não informado"]);
   for (const [label, value] of [
     ["Peças — subtotal", money(totals.materials)],
     ["Mão de obra — subtotal", money(totals.services)],
-    ...taxRows,
+    ...(includeTaxes ? taxRows : []),
   ]) {
     text(label, tx + 8, totalY, 7, false, gray);
     right(value, W - M - 8, totalY);
