@@ -1055,7 +1055,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                       </td>
                       <td>{e.serial || "Não informada"}</td>
                       <td>
-                        {e.clients.length
+                        {e.rental && e.rentalStatus?.key === "in_review" ? <span>Em revisão · {e.rentalStatus.workshop || "Oficina"}</span> : e.clients.length
                           ? e.clients.map((c: any) => (
                               <small key={c.id}>
                                 {c.name || `Cliente ${c.id}`}{c.inactivation&&<span className="equipment-inactive-tag"> · INATIVO · {c.inactivation.reason}</span>}
@@ -1179,7 +1179,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                     {detail.equipment.serial || "Não informada"}
                   </p>
                   <p>
-                    <b>Cliente atribuído:</b>{" "}
+                    <b>{detail.equipment.rentalStatus?.key === "in_review" ? "Vínculo cadastral no M8 (não representa locação ativa):" : "Cliente atribuído:"}</b>{" "}
                     {detail.clients
                       .map((c: any) => c.name || c.id)
                       .join(" · ") || "Sem vínculo no cadastro M8"}
