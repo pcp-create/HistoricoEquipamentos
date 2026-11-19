@@ -19,8 +19,8 @@ test('CRM persists local opportunities and proposals and safely links conversion
  CREATE TABLE web_user_access(email text,display_name text);INSERT INTO web_user_access VALUES('planner','Planejador');
  CREATE TABLE service_order_submissions(id uuid PRIMARY KEY,state text,m8_id bigint,message text,updated_at timestamptz DEFAULT now());
  CREATE TABLE m8_product_current(company_id int,product_id bigint,available numeric,available_at timestamptz);
- CREATE TABLE m8_product_catalog(company_id int,product_id bigint,unit text);INSERT INTO m8_product_catalog VALUES(1,50,'UN');
- CREATE TABLE m8_product_stock(company_id int,product_id bigint,average_cost numeric,stock numeric,collected_at timestamptz DEFAULT now());INSERT INTO m8_product_stock(company_id,product_id,average_cost,stock) VALUES(1,50,5,1);`);
+ CREATE TABLE m8_product_catalog(company_id int,product_id bigint,unit text,payload jsonb DEFAULT '{}');INSERT INTO m8_product_catalog(company_id,product_id,unit) VALUES(1,50,'UN');
+ CREATE TABLE m8_product_stock(company_id int,product_id bigint,average_cost numeric,stock numeric,payload jsonb DEFAULT '{}',establishment_id bigint DEFAULT 1,collected_at timestamptz DEFAULT now());INSERT INTO m8_product_stock(company_id,product_id,average_cost,stock) VALUES(1,50,5,1);`);
  const query=(q:string,args?:any[])=>db.query(q.replace('BEGIN READ WRITE','BEGIN'),args);
  g.historyPool={query,connect:async()=>({query,release(){}})};
  const catalog=await catalogs();assert.equal(catalog.opportunityTypes.length,7);assert.equal(catalog.proposalTypes.length,13);

@@ -1,4 +1,4 @@
-import {reviewWritingPrompt} from '@/lib/service-scheduling/review-writing-prompt';
+import {writingReviewRequest} from '@/lib/service-scheduling/review-writing-request';
 import {requireUser,sameOrigin,Unauthorized,Forbidden} from '@/lib/auth';
 import {database} from '@/lib/db';
 import {writingFields,reviewWritingSuggestions} from '@/lib/service-scheduling/review-writing';
@@ -32,16 +32,15 @@ export async function POST(req:Request){
   if(!process.env.OPENAI_API_KEY)return json({error:'A revisão com IA ainda não foi configurada no servidor.'},503);
   if(running.has(user.email))return json({error:'Aguarde a revisão de texto em andamento.'},429);
   owner=user.email;running.add(owner);
+  const request=writingReviewRequest(fields,process.env.OPENAI_REVIEW_MODEL||'gpt-4o-mini');
   const response=await fetch('https://api.openai.com/v1/responses',{
    method:'POST',headers:{Authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(45000),
-   body:JSON.stringify({model:process.env.OPENAI_REVIEW_MODEL||'gpt-4o-mini',store:false,max_output_tokens:10000,
-    instructions:reviewWritingPrompt,
-    input:JSON.stringify(fields.map(({id,stageId,fieldId,key,label,text}:any)=>({id,stageId,fieldId,key,label,text}))),
-    text:{format:{type:'json_schema',name:'writing_review',strict:true,schema:{type:'object',additionalProperties:false,required:['suggestions'],properties:{suggestions:{type:'array',items:{type:'object',additionalProperties:false,required:['id','suggested'],properties:{id:{type:'string',enum:fields.map((f:any)=>f.id)},suggested:{type:'string'}}}}}}}}
-   })});
+   body:JSON.stringify(request.body)});
   if(!response.ok){
    const failure=await response.json().catch(()=>null);
    const code=failure?.error?.code,type=failure?.error?.type;
+   console.warn('review-writing: falha na API',{status:response.status,code,type,requestId:response.headers.get('x-request-id')});
+   if(code==='invalid_json_schema')return json({error:'A integração de revisão enviou um formato inválido à IA. Nenhum texto foi alterado. Informe o suporte.'},503);
    if(code==='credit_balance_exhausted'||code==='insufficient_quota'||type==='insufficient_quota')return json({error:'A conta da OpenAI está sem créditos disponíveis ou atingiu a cota da API. Verifique o saldo e o faturamento da API para continuar.'},503);
    if(response.status===401)return json({error:'A chave da OpenAI não foi aceita. Verifique a configuração da integração no servidor.'},503);
    if(response.status===403||code==='model_not_found')return json({error:'A conta da OpenAI não tem acesso ao modelo configurado. Verifique as permissões da integração.'},503);
@@ -53,7 +52,7 @@ export async function POST(req:Request){
   const output=(result.output||[]).flatMap((v:any)=>v.content||[]).filter((v:any)=>v.type==='output_text').map((v:any)=>v.text).join('');
   if((result.output||[]).some((v:any)=>(v.content||[]).some((c:any)=>c.type==='refusal')))return json({error:'A IA não pôde revisar este conteúdo. Nenhum texto foi alterado.'},502);
   try{
-   const review=reviewWritingSuggestions(fields,JSON.parse(output));
+   const review=reviewWritingSuggestions(fields,request.restore(JSON.parse(output)));
    if(review.rejected.length)console.warn('review-writing: sugestões descartadas',{operationId:body.operationId,responseId:result.id,rejected:review.rejected.map(f=>f.id)});
    return json(review);
   }catch{

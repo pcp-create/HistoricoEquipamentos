@@ -39,7 +39,7 @@ export async function orderLookups(p: URLSearchParams) {
     return {
       rows: (
         await db.query(
-          `SELECT person_id::text id,name,
+          `SELECT person_id::text id,name,document,
  COALESCE(NULLIF(trim(payload->>'nomeFantasia'),''),NULLIF(trim(payload->>'fantasia'),''),NULLIF(trim(payload->>'apelido'),''),'') AS "tradeName",
  concat_ws(' · ',NULLIF(concat_ws('/',payload->>'municipioNome',payload->>'ufSigla'),''),document) detail
  FROM m8_customer_directory WHERE company_id=1 AND concat_ws(' ',person_id,name,document,payload->>'nomeFantasia',payload->>'fantasia',payload->>'apelido',payload->>'municipioNome') ILIKE ALL($1::text[]) ORDER BY person_id LIMIT 31 OFFSET $2`,

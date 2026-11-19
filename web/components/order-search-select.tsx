@@ -11,6 +11,7 @@ export type OrderChoice = {
   name: string;
   detail?: string;
   tradeName?: string;
+  document?: string;
   disabled?: boolean;
   data?: any;
 };
@@ -24,6 +25,7 @@ export default function OrderSearchSelect({
   required = false,
   searchPlaceholder = "Pesquisar por ID ou descrição",
   menuHeader,
+  customerIdentity = false,
   renderOptionActions,
   value,
   selectedLabel,
@@ -37,6 +39,7 @@ export default function OrderSearchSelect({
   required?: boolean;
   searchPlaceholder?: string;
   menuHeader?: ReactNode;
+  customerIdentity?: boolean;
   renderOptionActions?: (row: OrderChoice) => ReactNode;
   value: string;
   selectedLabel?: string;
@@ -233,9 +236,10 @@ export default function OrderSearchSelect({
                     {(row.displayId ?? row.id) && <><span className="order-choice-id">{row.displayId ?? row.id}</span><span className="order-choice-separator" aria-hidden="true">-</span></>}
                     <strong>{row.name.startsWith(`${row.id} · `) ? row.name.slice(row.id.length + 3) : row.name}</strong>
                   </span>
-                  {row.tradeName && <small className="order-choice-trade-name">{row.tradeName}</small>}
+                  {row.tradeName && <small className="order-choice-trade-name">{customerIdentity ? 'Nome fantasia: ' : ''}{row.tradeName}</small>}
+                  {customerIdentity && row.document && <small>{row.document.replace(/\D/g,'').length === 14 ? 'CNPJ' : 'CPF / CNPJ'}: {row.document.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}</small>}
                   {row.detail && row.detail !== row.id && row.detail !== `ID ${row.id}` && (
-                    <small>{row.detail.startsWith(`ID ${row.id} · `) ? row.detail.slice(`ID ${row.id} · `.length) : row.detail}</small>
+                    <small>{customerIdentity && row.document ? row.detail.split(" · ").filter(part=>part!==row.document).join(" · ") : row.detail.startsWith(`ID ${row.id} · `) ? row.detail.slice(`ID ${row.id} · `.length) : row.detail}</small>
                   )}
                 </span>
                 {row.id === value && <Check size={16} />}

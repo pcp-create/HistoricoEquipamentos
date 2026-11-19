@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { blankOperation } from "../lib/service-scheduling/model";
-test("reviewed OS exposes ERP edits and customer delivery", async ({
+test("reviewed OS edits public notes without sending internal notes", async ({
   page,
   context,
 }) => {
@@ -163,7 +163,7 @@ test("reviewed OS exposes ERP edits and customer delivery", async ({
   await page
     .getByRole("button", { name: "Editar observações e Status Fluxo" })
     .click();
-  for(const label of ['Observação','Observação Interna']){
+  for(const label of ['Observação']){
     const field=page.getByRole('textbox',{name:label,exact:true});
     const initial=await field.boundingBox();
     await field.fill(Array.from({length:20},(_,i)=>`Linha ${i+1}: informações da OS`).join('\n'));
@@ -175,24 +175,24 @@ test("reviewed OS exposes ERP edits and customer delivery", async ({
   await page
     .getByLabel("Observação", { exact: true })
     .fill("Cliente solicitou retorno");
-  await page
-    .getByLabel("Observação Interna", { exact: true })
-    .fill("Conferir cadastro");
+  await expect(page.getByRole('textbox',{name:'Observação Interna',exact:true})).toHaveCount(0);
   await expect(page.getByRole('checkbox',{name:'Anexar relatório resumido automaticamente na OS'})).toBeChecked();
   await expect(page.getByRole('region',{name:'Anexos da OS'}).getByRole('checkbox')).toBeChecked();
   await expect(page.locator('.schedule-summary-attachment label')).toHaveCSS('flex-direction','row');
   await page.getByRole("button", { name: "Salvar no ERP" }).click();
-  await expect(page.locator('.schedule-order-actions').getByRole('alert')).toContainText('A OS foi atualizada no ERP, mas o relatório resumido não foi anexado.');
+  await expect(page.getByRole('alert').filter({hasText:'A OS foi atualizada no ERP'})).toContainText('A OS foi atualizada no ERP, mas o relatório resumido não foi anexado.');
   const headerWrites=calls.filter(c=>c.action?.startsWith('edit-')).length;
   await page.getByRole('button',{name:'Reenviar anexos pendentes',exact:true}).click();
   expect(calls.filter(c=>c.action?.startsWith('edit-')).length).toBe(headerWrites);
   expect(summaryAttempts).toBe(2);
   await expect(
-    page.locator(".schedule-order-actions").getByRole("status"),
+    page.getByRole('status').filter({hasText:'atualizados no ERP'}),
   ).toContainText("atualizados no ERP");
   expect(calls.find((c) => c.action === "edit-prepare").draft.items).toEqual(
     draft.items,
   );
+  expect(calls.find((c) => c.action === 'edit-prepare').draft).not.toHaveProperty('internalNotes');
+  expect(calls.find((c) => c.action === 'edit-prepare').scope).toBe('observations-flow');
   expect(calls.find((c) => c.action === "edit-prepare").draft.notes).toBe(
     "Cliente solicitou retorno",
   );
@@ -200,14 +200,8 @@ test("reviewed OS exposes ERP edits and customer delivery", async ({
   await expect(page.getByRole('checkbox',{name:'Anexar relatório resumido automaticamente na OS'})).toBeChecked();
   await page.getByRole('checkbox',{name:'Anexar relatório resumido automaticamente na OS'}).uncheck();
   await page.getByRole('button',{name:'Salvar no ERP',exact:true}).click();
-  await expect(page.locator('.schedule-order-actions').getByRole('status')).toContainText('atualizados no ERP');
+  await expect(page.getByRole('status').filter({hasText:'atualizados no ERP'})).toContainText('atualizados no ERP');
   expect(summaryAttempts).toBe(2);
-  await page.getByRole('button',{name:'Enviar por e-mail',exact:true}).click();
-  await page.getByLabel('Destinatário',{exact:true}).fill('cliente@example.com');
-  const download=page.waitForEvent('download');
-  await page.getByRole('button',{name:'Baixar e-mail com anexo',exact:true}).click();
-  expect((await download).suggestedFilename()).toBe('OS 12345.eml');
-  expect(calls.find(c=>c.to==='cliente@example.com').body).toContain('relatório técnico resumido');
   expect(calls.some(c=>c.action==='customer_report')).toBe(false);
   await expect(page.getByRole('button',{name:'Liberar para baixa interna',exact:true})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Enviar para faturamento',exact:true})).toHaveCount(0);

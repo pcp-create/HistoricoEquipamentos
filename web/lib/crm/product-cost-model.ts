@@ -3,6 +3,9 @@ import { sameUnit } from "../product-values";
 export type AverageCost = {
   availableStock?: number | null;
   stockAt?: string;
+  lastPurchaseCost?: string;
+  lastPurchaseAt?: string;
+  supplierCostAt?: string;
   code: string;
   unit: string | null;
   unitCost: string;
@@ -24,6 +27,9 @@ export function applyAverageCosts(
       ...item,
       availableStock: mismatch ? null : row?.availableStock ?? null,
       stockAt: row?.stockAt,
+      lastPurchaseCost: !mismatch ? row?.lastPurchaseCost : undefined,
+      lastPurchaseAt: row?.lastPurchaseAt,
+      supplierCostAt: row?.supplierCostAt,
       unitCost: !mismatch && row?.unitCost ? row.unitCost : "",
       unitCostSource: "average",
       unitCostAt: row?.costAt || undefined,

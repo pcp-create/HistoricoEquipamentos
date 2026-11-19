@@ -784,6 +784,7 @@ function OpportunityDialog({
                 label="Cliente da oportunidade"
                 disabled={!!data.proposals?.length}
                 endpoint="/api/service-orders?lookup=customers"
+                customerIdentity
                 value={form.customerId}
                 selectedLabel={form.customerName}
                 onChange={(row) =>

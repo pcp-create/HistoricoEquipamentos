@@ -76,7 +76,7 @@ export default function ScheduleOrderActions({
       const [e, f] = await Promise.all([
         api(
           "/api/service-orders?" +
-            new URLSearchParams({ edit: "1", company, order }),
+            new URLSearchParams({ edit: "1", company, order, scope:"observations-flow" }),
         ),
         api("/api/warehouse?flowStatuses=1"),
       ]);
@@ -94,13 +94,15 @@ export default function ScheduleOrderActions({
       if(!headerSaved){
       const id =
         editRequest.current || (editRequest.current = crypto.randomUUID());
+      const {internalNotes: _internalNotes, ...draft}=edit.draft;
       await api("/api/service-orders", {
         action: "edit-prepare",
+        scope:"observations-flow",
         id,
         company,
         order,
         version: edit.version,
-        draft: edit.draft,
+        draft,
       });
       let result;
       for (let i = 0; i < 3; i++) {
@@ -174,27 +176,13 @@ export default function ScheduleOrderActions({
               aria-label="Observação"
               rows={3}
               value={edit.draft.notes}
-              onChange={(e) =>
+              onChange={(e) => {
+                editRequest.current=null;
                 setEdit({
                   ...edit,
                   draft: { ...edit.draft, notes: e.target.value },
-                })
-              }
-              disabled={busy||headerSaved}
-            />
-          </label>
-          <label>
-            Observação Interna
-            <AutoResizeTextarea
-              aria-label="Observação Interna"
-              rows={3}
-              value={edit.draft.internalNotes}
-              onChange={(e) =>
-                setEdit({
-                  ...edit,
-                  draft: { ...edit.draft, internalNotes: e.target.value },
-                })
-              }
+                });
+              }}
               disabled={busy||headerSaved}
             />
           </label>

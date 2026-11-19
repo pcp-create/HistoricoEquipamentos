@@ -157,7 +157,7 @@ export async function resolveEditEquipment(source: any, company: string, id: str
     throw new OrderInputError("Não foi possível identificar o equipamento atual da OS. Confira o cadastro no M8 antes de editar.");
   return { id: text(rows[0].produtoEquipamentoId), name: text(rows[0].equipamento) };
 }
-export async function loadEdit(company: string, id: string) {
+export async function loadEdit(company: string, id: string, observationsOnly=false) {
   const source = await readEditSource(company, id);
   const users = (
     await database().query(
@@ -167,10 +167,12 @@ export async function loadEdit(company: string, id: string) {
   const equipment = await resolveEditEquipment(source, company, id);
   const opening=await openingForEdit(source,company,id);
   const catalog = equipment.id ? (await database().query("SELECT name,model,serial FROM m8_equipment_catalog WHERE equipment_id=$1", [equipment.id])).rows[0] : null;
+  const draft=toEditDraft(source,company,users);
+  if(observationsOnly)delete (draft as Partial<OrderDraft>).internalNotes;
   return {
     version: fingerprint(source),
     number: text(source.numeroSequencia || source.id),
-    draft: { ...toEditDraft(source, company, users), equipment: equipment.id },
+    draft: { ...draft, equipment: equipment.id },
     names: {
       customer: text(source.clienteNome),
       equipment: equipment.name || (catalog ? [catalog.name,catalog.model,catalog.serial].filter(Boolean).join(" · ") : equipment.id ? `Equipamento ${equipment.id}` : ""),
@@ -202,7 +204,7 @@ export async function loadEdit(company: string, id: string) {
       "freteId",
       "observacaoInterna",
       "tipoGarantiaId",
-    ].filter((k) => source[k] === undefined),
+    ].filter((k) => source[k] === undefined && !(observationsOnly && k==="observacaoInterna")),
   };
 }
 async function transaction<T>(fn: (c: any) => Promise<T>): Promise<T> {
@@ -261,6 +263,7 @@ export async function prepareEdit(
   version: string,
   input: unknown,
   session = m8Session,
+  observationsOnly=false,
 ) {
   uuid(id);
   target(company, orderId);
@@ -432,7 +435,8 @@ export async function prepareEdit(
     if (draft[key] !== initial[key])
       header[field] = draft[key] + "T00:00:00-03:00";
   if (draft.notes !== initial.notes) header.observacao = draft.notes;
-  if (draft.internalNotes !== initial.internalNotes)
+  if (observationsOnly) delete header.observacaoInterna;
+  else if (draft.internalNotes !== initial.internalNotes)
     header.observacaoInterna = draft.internalNotes;
   for (const f of extraFields) {
     const value = draft.extra?.[f.key] || "";

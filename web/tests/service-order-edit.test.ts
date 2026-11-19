@@ -94,6 +94,16 @@ test("edit preserves IDs and hidden fields, blocks processed/stale orders and ne
     assert.equal(processedOrder("Processada"), true);
     assert.equal(processedOrder("Processado"), true);
     const draft = toEditDraft(source, "2");
+    const protectedSource={...source,observacaoInterna:'Conteúdo existente no ERP'};
+    current=structuredClone(protectedSource);
+    const scopedId=randomUUID();
+    await prepareEdit('user',scopedId,'2','800',fingerprint(protectedSource),{...toEditDraft(protectedSource,'2'),notes:'Observação pública alterada',internalNotes:''},session,true);
+    const scoped=(await db.query<any>('SELECT steps FROM service_order_edits WHERE id=$1',[scopedId])).rows[0];
+    assert.equal(scoped.steps[0].payload.observacao,'Observação pública alterada');
+    assert.equal(Object.hasOwn(scoped.steps[0].payload,'observacaoInterna'),false);
+    await db.query('DELETE FROM service_order_edits WHERE id=$1',[scopedId]);
+    current=structuredClone(source);
+
     const legacyEquipment = await resolveEditEquipment({equipamentoProduto:{equipamentoId:2383}}, "2", "800", (async()=>async()=>[{id:800,produtoEquipamentoId:23434,equipamento:"2383 - Compressor R160N"}]) as any);
     assert.equal(legacyEquipment.id,"23434");
     assert.equal(legacyEquipment.name,"2383 - Compressor R160N");

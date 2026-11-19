@@ -213,11 +213,19 @@ test('mobile proposal applies reference prices without duplicate action buttons'
  await page.route('**/api/**',r=>r.fulfill({json:{}}));
  await page.route('**/api/service-orders*',r=>r.fulfill({json:{types:[],registries:[],users:[],rows:[]}}));
  await page.route('**/api/quotes*',r=>r.fulfill({json:{items:[item],histories:{[item.key]:{count:1,minimum:'908.95',maximum:'908.95',rows:[sale]}},warnings:[]}}));
- await page.route('**/api/crm*',r=>{const p=new URL(r.request().url()).searchParams;return r.fulfill({json:p.has('catalogs')?catalog:p.has('proposal')?{id:proposalId,number:1,type_id:1,opportunity_type_id:1,company_id:1,title:'Teste',status:'pending',version:1,document:{...draft,items:[{...item,unitCost:'219.83',quote:item}]},names:{customer:'Cliente Teste'},links:[]}:p.has('productCosts')?{rows:[]}:{rows:[]}});});
+ await page.route('**/api/crm*',r=>{const p=new URL(r.request().url()).searchParams;return r.fulfill({json:p.has('catalogs')?catalog:p.has('proposal')?{id:proposalId,number:1,type_id:1,opportunity_type_id:1,company_id:1,title:'Teste',status:'pending',version:1,document:{...draft,items:[{...item,unitCost:'219.83',quote:item}]},names:{customer:'Cliente Teste'},links:[]}:p.has('productCosts')?{rows:[{code:'50',unit:'UN',unitCost:'219.83',lastPurchaseCost:'210.12',lastPurchaseAt:'2026-11-18T10:00:00',supplierCostAt:'2026-11-19T09:00:00'}]}:{rows:[]}});});
  await page.goto('/crm/propostas/'+proposalId);
  await page.getByRole('button',{name:/^Produtos/}).click();
  const card=page.locator('.quote-choice').filter({hasText:'Filtro teste'}).first();
  await expect(card).toBeVisible();
+ await expect(page.getByText('R$ 210,12',{exact:true})).toBeVisible();
+ await expect(page.getByText('19/11/2026',{exact:true})).toBeVisible();
+ await page.getByRole('textbox',{name:'Observação: Filtro teste',exact:true}).fill('Informação pública');
+ await page.getByRole('textbox',{name:'Observação interna: Filtro teste',exact:true}).fill('Informação interna');
+ await page.getByRole('button',{name:/^Serviços/}).click();
+ await page.getByRole('button',{name:/^Produtos/}).click();
+ await expect(page.getByRole('textbox',{name:'Observação: Filtro teste',exact:true})).toHaveValue('Informação pública');
+ await expect(page.getByRole('textbox',{name:'Observação interna: Filtro teste',exact:true})).toHaveValue('Informação interna');
  const savebar=page.locator('.crm-proposal-savebar');
  await expect(savebar.getByRole('button',{name:'Continuar para Serviços',exact:true})).toBeVisible();
  await expect(savebar).toHaveCSS('position','fixed');
@@ -250,4 +258,19 @@ test('mobile proposal applies reference prices without duplicate action buttons'
  await expect(card.getByRole('button',{name:'Ocultar preços de referência'})).toBeHidden();
  await expect.poll(()=>card.evaluate(el=>{const last=el.querySelector('.quote-last-sale')!.getBoundingClientRect(),prices=el.querySelector('.quote-price-comparisons')!.getBoundingClientRect();return prices.left>=last.right && Math.abs(prices.top-last.top)<2;})).toBe(true);
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('CRM customer selection identifies legal name, trade name and tax document',async({page,context})=>{
+ await context.addCookies([{name:'m8-access',value:'test',domain:'localhost',path:'/'}]);
+ await page.route('**/api/**',r=>r.fulfill({json:{}}));
+ await page.route('**/api/crm*',r=>r.fulfill({json:new URL(r.request().url()).searchParams.has('catalogs')?catalog:{rows:[],total:0,page:1,conversion:0}}));
+ await page.route('**/api/service-orders*',r=>r.fulfill({json:{rows:[{id:'10',name:'Cliente Teste LTDA',tradeName:'Loja Teste',document:'12345678000190',detail:'Lages/SC · 12345678000190'}]}}));
+ await page.goto('/crm');
+ await page.getByRole('button',{name:'Nova oportunidade',exact:true}).click();
+ await page.getByRole('combobox',{name:'Cliente da oportunidade'}).click();
+ const option=page.getByRole('option').filter({hasText:'Cliente Teste LTDA'});
+ await expect(option).toContainText('Nome fantasia: Loja Teste');
+ await expect(option).toContainText('CNPJ: 12.345.678/0001-90');
+ await option.click();
+ await expect(page.getByRole('combobox',{name:'Cliente da oportunidade'})).toHaveValue('Cliente Teste LTDA');
 });

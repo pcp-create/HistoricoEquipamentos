@@ -42,7 +42,7 @@ export async function GET(r: Request) {
       p.has("deliveryHistory")
         ? { rows: await deliveryHistory(p.get("company") || "", p.get("order") || "") }
         : p.has("edit")
-        ? await loadEdit(p.get("company") || "", p.get("order") || "")
+        ? await loadEdit(p.get("company") || "", p.get("order") || "", p.get("scope")==="observations-flow")
         : p.has("editStatus")
           ? await editStatus(u.email, p.get("editStatus") || "")
           : p.has("lookup")
@@ -69,6 +69,8 @@ export async function POST(r: Request) {
           b.order,
           b.version,
           b.draft,
+          undefined,
+          b.scope === "observations-flow",
         ),
       );
     if (b.action === "edit-advance")

@@ -597,7 +597,7 @@ export default function NewServiceOrder({
             )}
           </section>
         )}
-        {proposal&&<CrmProductCosts company={form.company} items={form.items} onCosts={(company,costs)=>setForm(current=>{
+        {proposal&&meta&&<CrmProductCosts company={form.company} items={form.items} onCosts={(company,costs)=>setForm(current=>{
           if(current.company!==company)return current;const items=applyAverageCosts(current.items,costs);
           return JSON.stringify(items)===JSON.stringify(current.items)?current:{...current,items};
         })}/>}
@@ -651,6 +651,7 @@ export default function NewServiceOrder({
                       selectedLabel={names.customer}
                       disabled={Boolean(proposal)}
                       endpoint="/api/service-orders?lookup=customers"
+                      customerIdentity
                       placeholder="Selecione o cliente"
                       onChange={(r) => {
                         choose("customer", r.id);setEquipmentPending(false);

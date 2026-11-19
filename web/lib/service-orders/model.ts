@@ -10,6 +10,9 @@ export function positiveId(v: unknown, label: string) {
 export type OrderItem = {
   availableStock?: number | null;
   stockAt?: string;
+  lastPurchaseCost?: string;
+  lastPurchaseAt?: string;
+  supplierCostAt?: string;
   deliveryLeadTime?: string;
   taxes?: import("../crm/product-terms").ProductTaxes;
   /** Local CRM estimate, removed by parseOrder before ERP submission. */

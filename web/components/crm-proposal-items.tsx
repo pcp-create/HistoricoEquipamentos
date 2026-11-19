@@ -17,6 +17,11 @@ import {
 import type { OrderDraft, OrderItem } from "@/lib/service-orders/model";
 import { matchesSearch } from "@/lib/filters";
 
+const costDate = (value?: string) => {
+  if (!value) return 'Não informada';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Não informada' : date.toLocaleDateString('pt-BR', {timeZone:'UTC'});
+};
 type History = {
   items: QuoteItem[];
   histories: Record<string, QuoteSalesHistory>;
@@ -285,6 +290,10 @@ export default function CrmProposalItems({
                       />
                     </label>
                   )}
+                  {kind === 'material' && <>
+                    <div><span>Custo da última compra</span><strong>{saved.lastPurchaseCost != null && saved.lastPurchaseCost !== '' ? Number(saved.lastPurchaseCost).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}) : 'Não informado'}</strong><span>Compra: {costDate(saved.lastPurchaseAt)}</span></div>
+                    <div><span>Atualização do custo fornecedor</span><strong>{costDate(saved.supplierCostAt)}</strong></div>
+                  </>}
                   <div>
                     <span>Custo total</span>
                     <strong>
@@ -328,11 +337,12 @@ export default function CrmProposalItems({
                     automaticamente.
                   </p>
                 )}
-              {kind === "service" && item.selected && (
+              {item.selected && (
                 <div className="crm-form-grid">
                   <label>
                     Observação: {item.name}
                     <textarea
+                      disabled={disabled}
                       maxLength={20000}
                       value={saved?.notes || ""}
                       onChange={(e) =>
@@ -347,6 +357,7 @@ export default function CrmProposalItems({
                   <label>
                     Observação interna: {item.name}
                     <textarea
+                      disabled={disabled}
                       maxLength={20000}
                       value={saved?.internalNotes || ""}
                       onChange={(e) =>

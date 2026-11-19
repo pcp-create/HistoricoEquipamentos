@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
-import {PDFDocument} from 'pdf-lib';
+import {PDFDocument,PDFRawStream,decodePDFRawStream} from 'pdf-lib';
 import {proposalPdf} from '../lib/crm/pdf';
 import {emptyDraft} from '../lib/crm/model';
 const item:any={kind:'material',code:'19420',name:'ELEMENTO FILTRO DE AR',quantity:'2',price:'150.00',unitCost:'71.23',internalNotes:'CONTEUDO INTERNO CONFIDENCIAL'};
@@ -27,4 +27,14 @@ test('proposal without taxes renders without fiscal setup',async()=>{
  const bytes=await proposalPdf(proposal,{},{},{19420:'84219910'},{includeTaxes:false});
  await writeFile('/tmp/crm-proposta-sem-impostos.pdf',bytes);
  assert.equal((await PDFDocument.load(bytes)).getPageCount(),1);
+});
+
+test('public item notes appear in both PDF modes while internal notes remain private',async()=>{
+ for(const includeTaxes of [true,false]){
+ const bytes=await proposalPdf({...proposal,document:{...proposal.document,items:[{...item,notes:'PUBLIC PRODUCT NOTE',internalNotes:'PRIVATE ITEM NOTE'}]}},{},{},{},{includeTaxes});
+ const pdf=await PDFDocument.load(bytes);
+ const content=pdf.context.enumerateIndirectObjects().filter(([,object])=>object instanceof PDFRawStream).map(([,object])=>Buffer.from(decodePDFRawStream(object as PDFRawStream).decode()).toString('latin1')).join('');
+ assert.ok(content.includes(Buffer.from('PUBLIC PRODUCT NOTE').toString('hex').toUpperCase()));
+ assert.ok(!content.includes(Buffer.from('PRIVATE ITEM NOTE').toString('hex').toUpperCase()));
+ }
 });
