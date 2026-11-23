@@ -102,8 +102,9 @@ export async function setAccess(body: any, actor: AuthUser) {
         [email],
       )
     ).rows[0];
-    if (old?.deleted_at) throw new AdminInputError("Este cadastro foi excluído e não pode ser alterado.");
-    if (body.mode === "create" && old)
+    const restoring = !!old?.deleted_at && body.mode === "create" && !!employee;
+    if (old?.deleted_at && !restoring) throw new AdminInputError("Este cadastro foi excluído. Use Novo funcionário para cadastrar novamente este e-mail.");
+    if (body.mode === "create" && old && !restoring)
       throw new AdminInputError(
         "Já existe um funcionário com este e-mail. Use Editar funcionário na lista para atualizar o cadastro e preservar seu perfil de acesso.",
       );
@@ -129,6 +130,14 @@ export async function setAccess(body: any, actor: AuthUser) {
         throw new AdminInputError(
           "Não é possível remover o último administrador ativo.",
         );
+    }
+    // Clear the tombstone before enabling access, within the same transaction.
+    // Keep the linked login and historical references; apply the newly supplied profile below.
+    if (restoring) {
+      await c.query("UPDATE web_user_access SET deleted_at=NULL,last_seen_at=NULL,last_logout_at=now() WHERE email=$1", [email]);
+      if(await managersAvailable(c)) await c.query("UPDATE web_user_access SET managers='[]'::jsonb WHERE email=$1",[email]);
+      const optional=(await c.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='web_user_access' AND column_name IN ('m8_employee_id','hourly_cost')")).rows;
+      for(const {column_name} of optional) if(['m8_employee_id','hourly_cost'].includes(column_name)) await c.query(`UPDATE web_user_access SET ${column_name}=NULL WHERE email=$1`,[email]);
     }
     await c.query(
       `INSERT INTO web_user_access(email,role,enabled,updated_by) VALUES($1,$2,$3,$4) ON CONFLICT(email) DO UPDATE SET role=$2,enabled=$3,updated_by=$4,updated_at=now()`,
@@ -170,6 +179,7 @@ export async function setAccess(body: any, actor: AuthUser) {
         actor.email,
         JSON.stringify({
           before: old || null,
+          restoredDeletedEmployee: restoring,
           after: { role: body.role, enabled: body.enabled, ...employee },
         }),
       ],

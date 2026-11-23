@@ -88,6 +88,17 @@ export function prepareChecklistSubmission(run:any,email:string,operationDocumen
 export async function reopenReport(c:any,operation:any,email:string,admin:boolean){
  if(!admin)throw Error('Somente o planejador pode devolver o relatório ao técnico.');
  if(operation.status==='completed')throw Error('Operações concluídas não podem ser devolvidas por esta ação.');
+ if(operation.status==='reviewed'){
+  const run=structuredClone(operation.document.checklistRun);
+  if(!reportSubmission(run))throw Error('O relatório precisa ter sido enviado antes de retornar para revisão.');
+  const at=new Date().toISOString();
+  run.reviewHistory=[...(run.reviewHistory||[]),{...run.reviewApplied,reopenedAt:at,reopenedBy:email}];
+  delete run.reviewApplied;
+  const result=(await c.query("UPDATE web_service_operations SET document=$2,status='awaiting_review',version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1 RETURNING *",[operation.id,JSON.stringify({...operation.document,checklistRun:run}),email])).rows[0];
+  await c.query("INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,'review_reopen',$2,'Relatório retornado para revisão do planejador')",[operation.id,email]);
+  await c.query("INSERT INTO web_access_events(event,email,actor,details) VALUES('review_reopen',$1,$1,$2)",[email,JSON.stringify({operationId:operation.id,before:operation.document.checklistRun})]);
+  return result;
+ }
  const run=structuredClone(operation.document.checklistRun);
  const receipt=reportSubmission(run);
  if(!receipt)throw Error('Somente relatórios enviados completos precisam ser devolvidos.');

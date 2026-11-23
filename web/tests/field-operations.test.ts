@@ -270,13 +270,24 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
 
     await assert.rejects(mutateSchedule({action:'report_reopen',scheduleId:String(schedule.id),operationId:id,version:toReturn.operation.version-1},'planner'),/outro usuário/);
     await mutateSchedule({action:'report_reopen',scheduleId:String(schedule.id),operationId:id,version:toReturn.operation.version},'planner');
+    const reopenedReview:any=await fieldData('tech',id);
+    assert.equal(reopenedReview.operation.status,'awaiting_review');
+    assert.ok(reopenedReview.reportSubmission);
+    assert.deepEqual(reopenedReview.operation.document.technicianClosures,toReturn.operation.document.technicianClosures);
+    assert.deepEqual(reopenedReview.operation.document.checklistRun.stages,toReturn.operation.document.checklistRun.stages);
+    assert.equal(reopenedReview.operation.document.checklistRun.reviewApplied,undefined);
+    assert.equal(reopenedReview.operation.document.checklistRun.reviewHistory.at(-1).by,'planner');
+    assert.ok(!(await fieldData('tech')).rows?.some((row:any)=>row.id===id));
+    await assert.rejects(act('start_work'),/encerrada|revisão/);
+    // A separate return while awaiting review still explicitly sends it to the technician.
+    await mutateSchedule({action:'report_reopen',scheduleId:String(schedule.id),operationId:id,version:reopenedReview.operation.version},'planner');
     const returned:any=await fieldData('tech',id);
     assert.equal(returned.operation.status,'executing');
     assert.ok((await fieldData('tech')).rows?.some((row:any) => row.id === id));
     assert.equal(returned.reportSubmission,null);
     assert.ok(Object.values(returned.operation.document.checklistRun.stages).every((stage:any)=>stage.status==='released'));
     assert.equal(returned.operation.document.checklistRun.submissionHistory.length,1);
-    assert.equal(returned.operation.document.checklistRun.submissionHistory[0].reviewApplied.by,'planner');
+    assert.equal(returned.operation.document.checklistRun.reviewHistory.at(-1).by,'planner');
     assert.equal(returned.operation.document.checklistRun.reviewApplied,undefined);
     const reopenedTask=(await db.query<any>("SELECT t.status,t.source_resolved FROM web_tasks t JOIN web_service_operation_workflows w ON w.task_id=t.id WHERE w.operation_id=$1",[id])).rows[0];
     assert.equal(reopenedTask.status,'in_progress');assert.equal(reopenedTask.source_resolved,false);

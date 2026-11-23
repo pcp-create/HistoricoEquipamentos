@@ -1232,12 +1232,12 @@ function OperationRow({
             onClick={() => void persist()}
            title={"Salvar operação " + operationNumber(o.position)}><SaveActionIcon /></button>
           {data.canEditSettings && <button className="operation-icon-action" type="button"
-            title={reportSubmission(o.document.checklistRun)?"Devolver relatório ao técnico":o.sent_at?"Retornar OS ao planejamento":"Enviar ao técnico"}
-            aria-label={reportSubmission(o.document.checklistRun)?"Devolver relatório ao técnico":o.sent_at?"Retornar OS ao planejamento":"Enviar ao técnico"}
+            title={o.status==='reviewed'?"Voltar para revisão":reportSubmission(o.document.checklistRun)?"Devolver relatório ao técnico":o.sent_at?"Retornar OS ao planejamento":"Enviar ao técnico"}
+            aria-label={o.status==='reviewed'?"Voltar para revisão":reportSubmission(o.document.checklistRun)?"Devolver relatório ao técnico":o.sent_at?"Retornar OS ao planejamento":"Enviar ao técnico"}
             disabled={busy||dirty||(reportSubmission(o.document.checklistRun)?o.status==="completed":o.sent_at?(locked||!!o.document.checklistRun?.partialSubmission):(o.status!=="scheduled"||!d.responsible))}
             onClick={()=>{
               if(reportSubmission(o.document.checklistRun)){
-                if(o.status==='reviewed'&&!window.confirm('Devolver o relatório revisado ao técnico para ajuste? A operação voltará para execução e precisará de uma nova revisão.'))return;
+                if(o.status==='reviewed'&&!window.confirm('Voltar para revisão? O relatório será reaberto para ajustes pelo planejador.'))return;
                 void mutate({action:'report_reopen',operationId:o.id,version:o.version});return;
               }
               if(!o.sent_at){void mutate({action:"dispatch",operationId:o.id,version:o.version});return;}

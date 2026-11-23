@@ -60,7 +60,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
     fieldEvents: (data.fieldEvents || []).filter((v: any) => v.operation_id === o.id),
     requests: (data.requests || []).filter((v: any) => v.operation_id === o.id) };
   const act = (action: string) => {
-    if(action==='report_reopen'&&o.status==='reviewed'&&!window.confirm('Devolver o relatório revisado ao técnico para ajuste? A operação voltará para execução e precisará de uma nova revisão.'))return;
+    if(action==='report_reopen'&&o.status==='reviewed'&&!window.confirm('Voltar para revisão? O relatório será reaberto para ajustes pelo planejador.'))return;
     return mutate({ action, operationId: o.id, version: o.version, ...(action==="review"?{...(meterConfirmed?{confirmLowerMeter:confirmedMeter}:{})}:{}) });
   };
   const canChooseEquipment=data.canEditSettings&&o.status==='awaiting_review';
@@ -126,7 +126,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
           <section className="review-completion-step" aria-label="Etapa 2: concluir revisão">
             <button type="button" className="review-complete-button" aria-describedby={`${tabsId}-agreement`} disabled={busy || dirty || reportDirty || (!!confirmation&&!meterConfirmed) || scoped.requests.some((r: any) => r.status === "pending")} onClick={() => void act("review")}><CheckCheck size={16} aria-hidden="true"/>Concluir revisão</button>
           </section>
-          {reportSubmission(o.document.checklistRun)&&<button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}><FileOutput size={15} aria-hidden="true"/>Devolver relatório ao técnico</button>}
+          {reportSubmission(o.document.checklistRun)&&<button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}><FileOutput size={15} aria-hidden="true"/>{o.status==='reviewed'?'Voltar para revisão':'Devolver relatório ao técnico'}</button>}
         </div>
         <div className="review-completion-notes">
           {reportDirty&&<span className="review-pending-note" role="status">Há ajustes pendentes. Salve antes de concluir a revisão.</span>}
@@ -134,7 +134,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
           <span id={`${tabsId}-agreement`}>Ao concluir, declaro: li, revisei e estou de acordo com as informações do relatório, das peças e dos apontamentos.</span>
         </div>
       </>}
-      {data.canEditSettings && o.status!=="completed" && o.status!=="awaiting_review" && reportSubmission(o.document.checklistRun) && <button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}><FileOutput size={15} aria-hidden="true"/>Devolver relatório ao técnico</button>}
+      {data.canEditSettings && o.status!=="completed" && o.status!=="awaiting_review" && reportSubmission(o.document.checklistRun) && <button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}><FileOutput size={15} aria-hidden="true"/>{o.status==='reviewed'?'Voltar para revisão':'Devolver relatório ao técnico'}</button>}
       {taskOpen&&<OrderTaskWindow data={data} operation={o} onClose={()=>setTaskOpen(false)}/>}
       {reviewed&&!exportBlocked&&data.canEditSettings&&o.document.checklistRun&&<button type="button" disabled={busy} onClick={()=>setTaskOpen(true)}>Criar tarefa da operação</button>}
       {reviewed && !exportBlocked && o.document.checklistRun && !busy ? <><select aria-label="Tipo de relatório" value={reportMode} onChange={e=>setReportMode(e.target.value)}><option value="complete">Relatório Completo</option><option value="summary">Relatório Resumido</option><option value="budget">Relatório de Orçamento</option></select><a href={`/api/service-scheduling/checklist-pdf?operationId=${o.id}&mode=${reportMode}`} target="_blank" rel="noreferrer"><FileDown size={16}/> Gerar PDF</a></> : o.status!=="awaiting_review" && o.document.checklistId && <small>O PDF será liberado após a conclusão da revisão da OS.</small>}

@@ -20,9 +20,7 @@ test("individual review isolates operation data and keeps PDF locked until order
         return r.fulfill({json:{operation}});
       }
       if(body.action==='report_reopen'){
-        operation.status='executing';operation.version++;
-        delete (operation.document.checklistRun as any).submission;
-        operation.document.checklistRun.stages.s.status='released';
+        operation.status='awaiting_review';operation.version++;
         return r.fulfill({json:{operation}});
       }
       expect(body.action).toBe("review");
@@ -114,12 +112,15 @@ test("individual review isolates operation data and keeps PDF locked until order
   await page.setViewportSize({ width: 390, height: 844 });
   await dialog.getByRole("tab", { name: "Relatório", exact: true }).click();
   expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
-  await expect(dialog.getByRole('button',{name:'Devolver relatório ao técnico',exact:true})).toBeEnabled();
+  await expect(dialog.getByRole('button',{name:'Voltar para revisão',exact:true})).toBeEnabled();
   await dialog.getByRole("button", { name: "Fechar revisão", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   page.once('dialog',d=>d.accept());
-  await page.getByRole('button',{name:'Devolver relatório ao técnico',exact:true}).click();
-  await expect.poll(()=>operation.status).toBe('executing');
+  await page.getByRole('button',{name:'Voltar para revisão',exact:true}).click();
+  await expect.poll(()=>operation.status).toBe('awaiting_review');
+  await page.getByRole('button',{name:'Acompanhar execução',exact:true}).click();
+  await expect(dialog.getByRole('textbox',{name:'Resultado',exact:true})).toBeEditable();
+  await expect(dialog.getByRole('button',{name:'Concluir revisão',exact:true})).toBeEnabled();
   expect(operation.document.checklistRun.stages.s.answers.f).toBe('Corrigido pelo planejador');
 
 });

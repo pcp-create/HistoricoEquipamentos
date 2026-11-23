@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { employeeFields, alertRecipients } from "../lib/employees";
 import { setAccess, recordActivity } from "../lib/admin-store";
 import { createEmployeeLogin } from "../lib/employee-login";
+import { INITIAL_PASSWORD } from "../lib/password-policy";
 const employee = {
   email: "person@example.com",
   display_name: "Nome cadastrado",
@@ -131,7 +132,8 @@ test("account provisioning never returns or records passwords and rejects unregi
     process.env.SUPABASE_SERVICE_ROLE_KEY = "test";
     const admin = { id: "a", email: "guih.waltrick@gmail.com" };
     let calls = 0;
-    globalThis.fetch = async () => {
+    globalThis.fetch = async (_url, init) => {
+      assert.equal(JSON.parse(String(init?.body)).password, INITIAL_PASSWORD);
       calls++;
       return Response.json({ id: "new-user" });
     };
@@ -144,8 +146,6 @@ test("account provisioning never returns or records passwords and rejects unregi
     assert.equal(calls, 0);
     await setAccess(employee, admin);
     assert.equal((await db.query<{task_color:string}>("SELECT task_color FROM web_user_access WHERE email=$1", [employee.email])).rows[0].task_color, "#34d399");
-    await assert.rejects(() => createEmployeeLogin({email: employee.email, password: "abc12"}, admin), /6 a 128/);
-    assert.equal(calls, 0);
     await createEmployeeLogin(
       { email: employee.email, password: "abc123" },
       admin,
@@ -185,4 +185,24 @@ test("hourly labor cost preserves empty values and rejects invalid prices", () =
   assert.equal("hourly_cost" in employeeFields(employee), false);
   for (const hourly_cost of [-1, "1.234", "abc", Infinity])
     assert.throws(() => employeeFields({ ...employee, hourly_cost }), /custo por hora/);
+});
+
+test('explicit creation reuses a deleted email, applies the new profile and preserves history/login',async()=>{
+ const db=new PGlite(),g=globalThis as any,previous=g.historyPool;
+ try{
+  await db.exec('CREATE ROLE anon;CREATE ROLE authenticated');
+  for(const file of ['008_administration.sql','009_employees.sql','021_employee_task_color.sql','095_employee_deletion.sql'])await db.exec(readFileSync(new URL('../sql/'+file,import.meta.url),'utf8'));
+  await db.exec("ALTER TABLE web_user_access ADD COLUMN managers jsonb DEFAULT '[]', ADD COLUMN m8_employee_id bigint, ADD COLUMN hourly_cost numeric");
+  const query=db.query.bind(db);g.historyPool={query,connect:async()=>({query,release(){}})};
+  const actor={id:'a',email:'guih.waltrick@gmail.com'};
+  await setAccess({...employee,mode:'create'},actor);
+  await db.query("UPDATE web_user_access SET deleted_at=now(),enabled=false,user_id='old-login',managers='[\"old-manager\"]',m8_employee_id=123,hourly_cost=50 WHERE email=$1",[employee.email]);
+  await assert.rejects(setAccess({...employee,mode:'update'},actor),/excluído/);
+  await setAccess({...employee,mode:'create',display_name:'Felipe Avila',phone:'+555180880512',job_title:'Vendedor'},actor);
+  const row=(await db.query<any>('SELECT * FROM web_user_access WHERE email=$1',[employee.email])).rows[0];
+  assert.equal(row.deleted_at,null);assert.equal(row.enabled,true);assert.equal(row.display_name,'Felipe Avila');assert.equal(row.phone,'555180880512');assert.equal(row.job_title,'Vendedor');assert.equal(row.user_id,'old-login');
+  assert.deepEqual(row.managers,[]);assert.equal(row.m8_employee_id,null);assert.equal(row.hourly_cost,null);
+  assert.equal(Number((await db.query<any>("SELECT count(*) n FROM web_access_events WHERE email=$1 AND event='access_changed'",[employee.email])).rows[0].n),2);
+  await assert.rejects(setAccess({...employee,mode:'create'},actor),/Já existe/);
+ }finally{g.historyPool=previous;await db.close();}
 });

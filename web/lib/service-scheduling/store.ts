@@ -507,7 +507,7 @@ export async function mutateSchedule(b: any, email: string) {
     if(b.action==='report_reopen'){
       let result;
       try{result=await reopenReport(c,operation,email,admin);}catch(e){throw new ScheduleInputError((e as Error).message);}
-      await handoffOperation(c,result,schedule,email,'execution');
+      await handoffOperation(c,result,schedule,email,result.status==='awaiting_review'?'review':'execution');
       await c.query("UPDATE web_service_schedules SET release_kind=NULL WHERE id=$1",[schedule.id]);
       await c.query('COMMIT');return {operation:result};
     }
