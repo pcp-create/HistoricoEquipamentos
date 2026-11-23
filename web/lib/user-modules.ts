@@ -1,11 +1,11 @@
 import {MODULE_SECTIONS,hasModuleAccess,sectionsForPath} from './module-sections';
 /** Stable identifiers shared by administration, navigation and server authorization. */
 export const USER_MODULES = [
- {id:'crm',name:'Comercial / CRM'}, {id:'assistencia-tecnica',name:'Assistência técnica / Programação'},
- {id:'portal-tecnico',name:'Portal técnico'}, {id:'visitas',name:'Portal do vendedor / Visitas'},
- {id:'gestao-visitas',name:'Gestão de Visitas'}, {id:'suprimentos',name:'Suprimentos'}, {id:'equipamentos',name:'Gestão de equipamentos'},
- {id:'tarefas',name:'Tarefas'}, {id:'oficina',name:'Oficina'}, {id:'almoxarifado',name:'Almoxarifado'},
- {id:'calendario',name:'Calendário'}, {id:'administracao',name:'Administração'}, {id:'configuracoes',name:'Configurações'},
+ {id:'crm',name:'Comercial'}, {id:'assistencia-tecnica',name:'Assistência Técnica'},
+ {id:'portal-tecnico',name:'Portal técnico'}, {id:'visitas',name:'Visitas'},
+ {id:'gestao-visitas',name:'Gestão de Visitas'}, {id:'suprimentos',name:'Suprimentos'}, {id:'equipamentos',name:'Gestão de Equipamentos'},
+ {id:'tarefas',name:'Tarefas'}, {id:'oficina',name:'Gestão de Oficina'}, {id:'almoxarifado',name:'Almoxarifado'},
+ {id:'calendario',name:'Calendário geral'}, {id:'administracao',name:'Administração'}, {id:'configuracoes',name:'Configurações'},
 ] as const;
 export const moduleIds:string[]=[...USER_MODULES.map(m=>m.id),...Object.values(MODULE_SECTIONS).flat().map(s=>s.id)];
 export function userModules(user:any):string[]{

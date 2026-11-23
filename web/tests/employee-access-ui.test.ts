@@ -11,7 +11,7 @@ test('mobile slicers select multiple jobs independently from module access',asyn
  await page.getByRole('button',{name:'Adicionar cargos',exact:true}).click();
  for(const name of ['Técnico','Vendedor']){await page.getByRole('button',{name,exact:true}).click();}
  await page.keyboard.press('Escape');
- for(const name of ['Portal técnico','Portal do vendedor / Visitas']){await page.getByRole('switch',{name,exact:true}).click();await expect(page.getByRole('switch',{name,exact:true})).toHaveAttribute('aria-checked','true');}
+ for(const name of ['Portal técnico','Visitas']){await page.getByRole('switch',{name,exact:true}).click();await expect(page.getByRole('switch',{name,exact:true})).toHaveAttribute('aria-checked','true');}
  let value=JSON.parse((await page.locator('output').textContent())!);assert.deepEqual(value.job_titles,['Técnico','Vendedor']);assert.deepEqual(value.modules,['portal-tecnico','visitas']);
  await page.getByRole('switch',{name:'Portal técnico',exact:true}).click();await expect(page.getByRole('button',{name:'Remover cargo Técnico',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Adicionar cargos',exact:true}).click();
@@ -27,17 +27,17 @@ test('mobile slicers select multiple jobs independently from module access',asyn
  await expect(page.getByRole('button',{name:'Remover cargo Coordenador',exact:true})).toBeVisible();
  await page.keyboard.press('Escape');
 
- const commercial=page.getByRole('checkbox',{name:'Comercial / CRM',exact:true});
+ const commercial=page.getByRole('checkbox',{name:'Comercial',exact:true});
  await commercial.click();await expect(commercial).toHaveAttribute('aria-checked','true');
  const group=page.locator('.employee-module-group').filter({has:commercial});
- await group.locator('summary').click();
- await group.getByRole('switch',{name:'Projeção de vendas',exact:true}).click();
+ await group.getByRole('button',{name:'Submódulos de Comercial'}).click();
+ await group.getByRole('switch',{name:'Projeção de Vendas',exact:true}).click();
  await expect(commercial).toHaveAttribute('aria-checked','mixed');
  value=JSON.parse((await page.locator('output').textContent())!);
  assert.equal(value.modules.includes('crm'),false);assert.equal(value.modules.includes('crm:projecao'),false);
  await commercial.click();await expect(commercial).toHaveAttribute('aria-checked','true');
  await commercial.click();await expect(commercial).toHaveAttribute('aria-checked','false');
- await group.getByRole('switch',{name:'Projeção de vendas',exact:true}).click();
+ await group.getByRole('switch',{name:'Projeção de Vendas',exact:true}).click();
  await expect(commercial).toHaveAttribute('aria-checked','mixed');
  const box=await page.locator('.employee-access-picker').boundingBox();assert.ok(box!.width<=390);
  }finally{await browser.close();await new Promise<void>(resolve=>server.close(()=>resolve()));}

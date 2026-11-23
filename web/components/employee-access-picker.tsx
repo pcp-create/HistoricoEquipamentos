@@ -1,4 +1,6 @@
 "use client";
+import {useState} from "react";
+import {ChevronRight} from "lucide-react";
 import {MODULE_SECTIONS,sectionSelected,toggleModule,toggleSection} from '@/lib/module-sections';
 import SupportPicker from './support-picker';
 import {USER_MODULES,jobTitles,userModules} from '@/lib/user-modules';
@@ -9,6 +11,7 @@ export function AccessSwitch({label,checked,disabled=false,onChange}:{label:stri
  </button>;
 }
 export default function EmployeeAccessPicker({value,onChange,users=[],section='all'}:{value:any;onChange:(value:any)=>void;users?:any[];section?:'all'|'jobs'|'modules'}){
+ const [expanded,setExpanded]=useState<string[]>([]);
  const jobs=jobTitles(value),modules=userModules(value);
  const choices=Array.from(new Set(['Técnico','Vendedor','Planejador','Administrativo','Gestor',...users.flatMap(jobTitles),...jobs]));
  const setModules=(modules:string[])=>onChange({...value,modules});
@@ -26,11 +29,11 @@ export default function EmployeeAccessPicker({value,onChange,users=[],section='a
  const count=children.filter(child=>sectionSelected(modules,module.id,child.id)).length;
  const all=modules.includes(module.id)||(children.length>0&&count===children.length);
  return <div className="employee-module-group" key={module.id}>
- {children.length?<><button type="button" className="employee-access-row" role="checkbox" aria-checked={all?true:count?'mixed':false} aria-label={module.name} onClick={()=>setModules(toggleModule(modules,module.id))}>
- <span className="employee-access-toggle" aria-hidden="true"><span/></span><span className="employee-access-name">{module.name}</span>
- </button><details><summary>Submódulos <span>{count}/{children.length}</span></summary><div className="employee-submodules">
+ {children.length?<><div className="employee-module-heading"><button type="button" className="employee-access-row" role="checkbox" aria-checked={all?true:count?'mixed':false} aria-label={module.name} onClick={()=>setModules(toggleModule(modules,module.id))}>
+ <span className="employee-access-toggle" aria-hidden="true"><span/></span><span className="employee-access-name">{module.name} <span className="employee-module-count">({count} / {children.length})</span></span>
+ </button><button type="button" className="employee-module-expand" aria-label={'Submódulos de '+module.name} aria-expanded={expanded.includes(module.id)} aria-controls={'module-sections-'+module.id} onClick={()=>setExpanded(current=>current.includes(module.id)?current.filter(id=>id!==module.id):[...current,module.id])}><ChevronRight size={18} aria-hidden="true"/></button></div><div id={'module-sections-'+module.id} hidden={!expanded.includes(module.id)} className="employee-submodules">
  {children.map(child=><AccessSwitch key={child.id} label={child.name} checked={sectionSelected(modules,module.id,child.id)} onChange={()=>setModules(toggleSection(modules,module.id,child.id))}/>)}
- </div></details></>:<AccessSwitch label={module.name} disabled={value.role==='admin'&&module.id==='administracao'} checked={modules.includes(module.id)} onChange={()=>setModules(toggleModule(modules,module.id))}/>}
+ </div></>:<AccessSwitch label={module.name} disabled={value.role==='admin'&&module.id==='administracao'} checked={modules.includes(module.id)} onChange={()=>setModules(toggleModule(modules,module.id))}/>}
  </div>;
  })}</div>{value.role==='admin'&&<p>Administradores mantêm acesso à Administração para gerenciar os perfis.</p>}</fieldset>}
  </div>;
