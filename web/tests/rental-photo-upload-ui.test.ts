@@ -17,19 +17,36 @@ test('rental photos offer M8 upload for empty galleries and after existing image
  });
  await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch();
  try{
-  const page=await browser.newPage({viewport:{width:390,height:844}});await page.goto('http://127.0.0.1:'+(server.address() as any).port);
+  const page=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});await page.goto('http://127.0.0.1:'+(server.address() as any).port);
   await page.route('https://app.erpm8.cloud/**',route=>route.fulfill({contentType:'text/html',body:'<p>Formulário M8</p>'}));
   await page.clock.install();
   const empty=page.locator('#empty').getByRole('button',{name:'Adicionar fotos de Sem fotos no M8'});
   await empty.click();
   const upload=page.getByRole('dialog',{name:'Adicionar fotos do equipamento'});
+  await expect(page.locator('body')).toHaveCSS('position','fixed');
   await expect(upload).toContainText('Código 21491');await expect(upload).toContainText('Sem fotos');
   await expect(upload.locator('iframe')).toHaveAttribute('src',m8ProductPhotoUrl('21491')!);
   await expect(upload.getByRole('status')).toContainText('Lista de fotos atualizada');
   uploaded=true;await page.clock.fastForward(10000);
   await expect(page.locator('#empty .material-photo-enlarge')).toHaveCount(1);
   await upload.getByRole('button',{name:'Fechar inclusão de fotos'}).click();await expect(upload).toHaveCount(0);
+  await expect(page.locator('body')).not.toHaveCSS('position','fixed');
   const existing=page.locator('#existing');
+  await existing.getByRole('button',{name:'Ampliar foto 1'}).click();
+  const viewer=page.getByRole('dialog',{name:'Fotos de Com foto'});
+  await expect(page.locator('body')).toHaveCSS('position','fixed');
+  await viewer.getByRole('button',{name:'Girar foto 90 graus'}).click();
+  await expect(viewer.locator('.material-photo-stage img')).toHaveCSS('transform','matrix(0, 1, -1, 0, 0, 0)');
+  const stage=viewer.locator('.material-photo-stage');
+  await stage.dispatchEvent('touchstart',{touches:[{identifier:0,clientX:280,clientY:200}]});
+  await stage.dispatchEvent('touchend',{changedTouches:[{identifier:0,clientX:80,clientY:205}]});
+  await expect(viewer.getByRole('button',{name:'Adicionar fotos de Com foto no M8'})).toBeVisible();
+  await stage.dispatchEvent('touchstart',{touches:[{identifier:0,clientX:80,clientY:200}]});
+  await stage.dispatchEvent('touchend',{changedTouches:[{identifier:0,clientX:280,clientY:205}]});
+  await expect(stage.locator('img')).toBeVisible();
+  await viewer.getByRole('button',{name:'Fechar foto ampliada'}).click();
+  await expect(page.locator('body')).not.toHaveCSS('position','fixed');
+
   await existing.getByRole('button',{name:'Próxima foto',exact:true}).click();
   await existing.getByRole('button',{name:'Adicionar fotos de Com foto no M8'}).click();
   await expect(upload.locator('iframe')).toHaveAttribute('src',m8ProductPhotoUrl('20988')!);

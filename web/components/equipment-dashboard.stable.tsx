@@ -215,6 +215,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
     [message, setMessage] = useState("");
   const [activityBusy,setActivityBusy]=useState('');
   const [equipmentActivity,setEquipmentActivity]=useState("active");
+  const [internalId, setInternalId] = useState("");
   const [query, setQuery] = useState(""),
     [ownership, setOwnership] = useState(""),
     [equipmentTab, setEquipmentTab] = useState(section === "locacao" ? "rental" : "all"),
@@ -265,6 +266,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
     (e: any) =>
       (equipmentActivity === "all" || (equipmentActivity === "inactive" ? !!e.inactivation : !e.inactivation)) &&
       (equipmentTab === "all" || specificationFields.every(([key]) => matchesRentalSpecification(rentalSpecifications(e.name)[key], specFilters[key], key))) &&
+      (!internalId.trim() || String(e.internal_code ?? "").trim() === internalId.trim()) &&
       (!ownership || e.ownership === ownership) &&
       (!state ||
         (state === "none" ? !e.plans : e.forecast?.status === state)) &&
@@ -915,7 +917,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
             )}
             <div className="equipment-clear-filters">
               <button type="button" onClick={() => {
-                setQuery(""); setOwnership(""); setState(""); setRentalStatus([]); setEquipmentActivity("active");
+                setQuery(""); setInternalId(""); setOwnership(""); setState(""); setRentalStatus([]); setEquipmentActivity("active");
                 setContractStatus(""); setContractType("all");
                 setSpecFilters({hp:"",pcm:"",pressure:""}); setPage(1);
               }}>Limpar filtros</button>
@@ -936,6 +938,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                   }}
                 />
               </label>
+              <label>ID Interno<input value={internalId} placeholder="ID interno do equipamento" onChange={event=>{setInternalId(event.target.value);setPage(1);}} /></label>
               <label>
                 Classificação
                 <select

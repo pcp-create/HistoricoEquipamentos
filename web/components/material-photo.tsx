@@ -1,10 +1,11 @@
 "use client";
+import useModalScrollLock from "./use-modal-scroll-lock";
 import M8PhotoUpload from "./m8-photo-upload";
 import ActionNotice from "./action-notice";
 import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useRef, useState } from "react";
 import {m8ProductPhotoUrl} from "@/lib/m8-product-photo-url";
-import { ChevronLeft, ChevronRight, X, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Plus, RotateCw } from "lucide-react";
 type Photo = { company: number; images: { key: string; url: string }[] };
 export default function MaterialPhoto({
   id,
@@ -19,6 +20,10 @@ export default function MaterialPhoto({
   compact?: boolean;
   allowAddPhotos?: boolean;
 }) {
+  const [expandedOpen,setExpandedOpen]=useState(false);
+  useModalScrollLock(expandedOpen);
+  const [rotations,setRotations]=useState<Record<string,number>>({});
+  const touch=useRef<{x:number;y:number}|null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [index, setIndex] = useState(0);
@@ -32,11 +37,17 @@ export default function MaterialPhoto({
   const itemCount = (photo?.images.length || 0) + (uploadUrl ? 1 : 0);
   const addPhoto = (tabIndex = 0) => uploadUrl && <button type="button" className="material-photo-add" tabIndex={tabIndex} aria-label={`Adicionar fotos de ${name} no M8`} title="Adicionar fotos no M8" onClick={e=>{e.stopPropagation();dialog.current?.close();setUploadOpen(true);}}><Plus size={30} aria-hidden="true"/><span>Adicionar fotos</span></button>;
 
+  const swipe=(expanded:boolean)=>({
+    onTouchStart:(e:React.TouchEvent)=>{touch.current=e.touches.length===1?{x:e.touches[0].clientX,y:e.touches[0].clientY}:null;},
+    onTouchEnd:(e:React.TouchEvent)=>{const start=touch.current;touch.current=null;if(!start||e.changedTouches.length!==1)return;const dx=e.changedTouches[0].clientX-start.x,dy=e.changedTouches[0].clientY-start.y;if(Math.abs(dx)<45||Math.abs(dx)<Math.abs(dy)*1.5)return;const step=dx<0?1:-1;if(expanded)setExpandedIndex(i=>Math.max(0,Math.min(itemCount-1,i+step)));else setIndex(i=>Math.max(0,Math.min(Math.max(0,itemCount-visibleCount),i+step)));},
+    onTouchCancel:()=>{touch.current=null;}
+  });
   const visibleCount = compact ? 1 : 2;
   const companyKey = companies.join(",");
   useEffect(() => {
     const controller = new AbortController();
     dialog.current?.close();
+    setExpandedOpen(false);
     setLoading(true);
     setError("");
     setPhoto(null);
@@ -86,7 +97,7 @@ export default function MaterialPhoto({
         <small role="status">Carregando foto…</small>
       ) : error ? (
         <>
-          <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
+          <ActionNotice type="error" autoCloseMs={3000}>{error}</ActionNotice>
           <button
             type="button"
             className="photo-button"
@@ -101,6 +112,7 @@ export default function MaterialPhoto({
             ref={dialog}
             className="material-photo-dialog"
             aria-label={`Fotos de ${name}`}
+            onClose={()=>setExpandedOpen(false)}
             onClick={(e) => {
               if (e.target === e.currentTarget) e.currentTarget.close();
             }}
@@ -128,11 +140,16 @@ export default function MaterialPhoto({
                 <X size={22} />
               </button>
             </header>
+            <div className="material-photo-stage" {...swipe(true)}>
             {expandedIndex === photo.images.length && uploadUrl ? <div className="material-photo-add-stage">{addPhoto()}</div> : <img
+              style={{transform:`rotate(${rotations[photo.images[expandedIndex]?.key]||0}deg)`}}
+              draggable={false}
               src={photo.images[expandedIndex]?.url}
               alt={`${name} — foto ampliada ${expandedIndex + 1}`}
             />}
+            </div>
             <footer>
+              {expandedIndex < photo.images.length && <button type="button" className="photo-button material-photo-rotate" aria-label="Girar foto 90 graus" title="Girar na visualização; não altera o arquivo no M8" onClick={()=>{const key=photo.images[expandedIndex].key;setRotations(previous=>({...previous,[key]:((previous[key]||0)+90)%360}));}}><RotateCw size={20}/><span>Girar</span></button>}
               <button
                 type="button"
                 className="photo-button"
@@ -157,7 +174,7 @@ export default function MaterialPhoto({
             </footer>
           </dialog>
           {/* Images use the existing authenticated endpoint, without a shared optimizer cache. */}
-          <div className="material-carousel-window">
+          <div className="material-carousel-window" {...swipe(false)}>
             <div
               className="material-carousel-track"
               style={{
@@ -180,10 +197,13 @@ export default function MaterialPhoto({
                       aria-label={`Ampliar foto ${i + 1}`}
                       onClick={() => {
                         setExpandedIndex(i);
+                        setExpandedOpen(true);
                         dialog.current?.showModal();
                       }}
                     >
                       <img
+                        style={{transform:`rotate(${rotations[image.key]||0}deg)`}}
+                        draggable={false}
                         src={image.url}
                         alt={`${name} — foto ${i + 1}`}
                         onError={() =>

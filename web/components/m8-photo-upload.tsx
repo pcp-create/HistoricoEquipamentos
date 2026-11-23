@@ -1,9 +1,11 @@
 "use client";
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
+import useModalScrollLock from "./use-modal-scroll-lock";
 import {X,ExternalLink} from 'lucide-react';
 type Image={key:string;url:string};
 export default function M8PhotoUpload({id,name,url,onClose,onPhotos}:{id:string;name:string;url:string;onClose:()=>void;onPhotos:(images:Image[])=>void}){
+ useModalScrollLock(true);
  const dialog=useRef<HTMLDialogElement>(null);
  const callbacks=useRef({onClose,onPhotos});callbacks.current={onClose,onPhotos};
  const refresh=useRef<()=>Promise<void>>(async()=>{});
