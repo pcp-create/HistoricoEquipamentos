@@ -2,18 +2,21 @@
 import ActionNotice from "./action-notice";
 import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import {m8ProductPhotoUrl} from "@/lib/m8-product-photo-url";
+import { ChevronLeft, ChevronRight, X, Plus } from "lucide-react";
 type Photo = { company: number; images: { key: string; url: string }[] };
 export default function MaterialPhoto({
   id,
   name,
   companies,
   compact = false,
+  allowAddPhotos = false,
 }: {
   id: string;
   name: string;
   companies: number[];
   compact?: boolean;
+  allowAddPhotos?: boolean;
 }) {
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [index, setIndex] = useState(0);
@@ -23,6 +26,9 @@ export default function MaterialPhoto({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
+  const uploadUrl = allowAddPhotos ? m8ProductPhotoUrl(id) : null;
+  const itemCount = (photo?.images.length || 0) + (uploadUrl ? 1 : 0);
+  const addPhoto = (tabIndex = 0) => uploadUrl && <a className="material-photo-add" href={uploadUrl} target="_blank" rel="noopener noreferrer" tabIndex={tabIndex} aria-label={`Adicionar fotos de ${name} no M8`} title="Adicionar fotos no M8 (abre em nova aba)" onClick={e=>e.stopPropagation()}><Plus size={30} aria-hidden="true"/><span>Adicionar fotos</span></a>;
   const visibleCount = compact ? 1 : 2;
   const companyKey = companies.join(",");
   useEffect(() => {
@@ -102,7 +108,7 @@ export default function MaterialPhoto({
               if (e.key === "ArrowRight") {
                 e.preventDefault();
                 setExpandedIndex((i) =>
-                  Math.min(photo.images.length - 1, i + 1),
+                  Math.min(itemCount - 1, i + 1),
                 );
               }
             }}
@@ -118,10 +124,10 @@ export default function MaterialPhoto({
                 <X size={22} />
               </button>
             </header>
-            <img
+            {expandedIndex === photo.images.length && uploadUrl ? <div className="material-photo-add-stage">{addPhoto()}</div> : <img
               src={photo.images[expandedIndex]?.url}
               alt={`${name} — foto ampliada ${expandedIndex + 1}`}
-            />
+            />}
             <footer>
               <button
                 type="button"
@@ -133,13 +139,13 @@ export default function MaterialPhoto({
                 <ChevronLeft />
               </button>
               <span aria-live="polite">
-                {expandedIndex + 1} / {photo.images.length}
+                {expandedIndex === photo.images.length ? "Adicionar fotos" : `${expandedIndex + 1} / ${photo.images.length}`}
               </span>
               <button
                 type="button"
                 className="photo-button"
                 aria-label="Próxima foto ampliada"
-                disabled={expandedIndex === photo.images.length - 1}
+                disabled={expandedIndex === itemCount - 1}
                 onClick={() => setExpandedIndex((i) => i + 1)}
               >
                 <ChevronRight />
@@ -184,9 +190,10 @@ export default function MaterialPhoto({
                   )}
                 </div>
               ))}
+              {uploadUrl && <div className="material-carousel-slide" aria-hidden={photo.images.length < index || photo.images.length >= index + visibleCount}>{addPhoto(photo.images.length < index || photo.images.length >= index + visibleCount ? -1 : 0)}</div>}
             </div>
           </div>
-          {photo.images.length > 1 && (
+          {itemCount > 1 && (
             <>
               <button
                 type="button"
@@ -205,7 +212,7 @@ export default function MaterialPhoto({
                 className="material-photo-next"
                 aria-label="Próxima foto"
                 disabled={
-                  index >= Math.max(0, photo.images.length - visibleCount)
+                  index >= Math.max(0, itemCount - visibleCount)
                 }
                 onClick={() => {
                   setIndex((i) => i + 1);
@@ -215,16 +222,13 @@ export default function MaterialPhoto({
                 <ChevronRight size={18} />
               </button>
               <span className="material-photo-count" aria-live="polite">
-                {index + 1}
-                {!compact &&
-                  `–${Math.min(index + visibleCount, photo.images.length)}`}{" "}
-                / {photo.images.length}
+                {index === photo.images.length ? "Adicionar" : `${index + 1}${!compact ? `–${Math.min(index + visibleCount, photo.images.length)}` : ""} / ${photo.images.length}`}
               </span>
             </>
           )}
         </>
       ) : (
-        <small>Produto sem foto cadastrada.</small>
+        uploadUrl ? addPhoto() : <small>Produto sem foto cadastrada.</small>
       )}
     </div>
   );

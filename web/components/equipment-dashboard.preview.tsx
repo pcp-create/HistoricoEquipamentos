@@ -115,7 +115,7 @@ function Forecast({ value }: { value: any }) {
     </>
   );
 }
-function EquipmentPhoto({ id, name }: { id: string; name: string }) {
+function EquipmentPhoto({ id, name, allowAddPhotos }: { id: string; name: string; allowAddPhotos: boolean }) {
   const container = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -134,7 +134,7 @@ function EquipmentPhoto({ id, name }: { id: string; name: string }) {
   return (
     <div ref={container} className="equipment-photo-slot">
       {visible && (
-        <MaterialPhoto id={id} name={name} companies={[1, 2, 27404]} compact />
+        <MaterialPhoto id={id} name={name} companies={[1, 2, 27404]} compact allowAddPhotos={allowAddPhotos} />
       )}
     </div>
   );
@@ -1045,7 +1045,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                       <td data-label="Equipamento">
                         <div className="equipment-identity">
                           {rentalOnly && (
-                            <EquipmentPhoto id={e.id} name={e.name} />
+                            <EquipmentPhoto id={e.id} name={e.name} allowAddPhotos={!!e.rental} />
                           )}
                           <div>
                             <strong>{e.name}</strong>{e.inactivation&&<><small className="equipment-inactive-tag" title={e.inactivation.reason}>INATIVO</small><small>{e.inactivation.reason}</small></>}{e.workshop&&<small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>{e.rental ? "Em Revisão" : "Em Oficina"} · {e.workshop.workshop}</small>}{!e.workshop && e.rentalStatus?.key === "available" && <small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>Disponível · {e.location || (e.rental ? "RJ Compressores" : "Localização não informada")}</small>}
