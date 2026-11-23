@@ -19,6 +19,7 @@ test("packaged interface persists to SQLite and opens with suspended server", as
   let blocked = false;
   let internetOverride: boolean | null = null;
   let receivedPhotos = 0;
+  let automaticLocationPosts = 0;
   let calendarOwner='tech';
   const id = "10000000-0000-4000-8000-000000000001";
   const row = {
@@ -125,6 +126,7 @@ test("packaged interface persists to SQLite and opens with suspended server", as
             : {
                 email: "tech",
                 displayName: "Técnico",
+                isTechnician: true,
                 rows: [row],
                 active: null,
               },
@@ -138,7 +140,7 @@ test("packaged interface persists to SQLite and opens with suspended server", as
         {id:'visit:visit',source:'visits',sourceId:'visit',day:row.date,time:'14:00',title:'Visita comercial',customer:'Lead do técnico vendedor',description:'Apresentação',status:'scheduled',state:'pending',href:'/visitas?visit=visit'}
       ]}));return;
     }
-    if (url.pathname === "/api/field/map") {res.end(JSON.stringify({technicians:[],orders:[]}));return;}
+    if (url.pathname === "/api/field/map") {if(req.method === "POST")automaticLocationPosts++;res.end(JSON.stringify({technicians:[],orders:[]}));return;}
     if (url.pathname === "/api/field/time-requests") {
       res.end(
         JSON.stringify({
@@ -221,6 +223,7 @@ test("packaged interface persists to SQLite and opens with suspended server", as
     await page.getByRole("button",{name:"Mapa",exact:true}).click();
     await expect.poll(() => page.locator(".leaflet-tile-loaded").count()).toBeGreaterThan(0);
     assert.ok(await page.locator(".leaflet-tile-loaded").first().evaluate((img:HTMLImageElement) => img.naturalWidth > 0));
+    assert.equal(automaticLocationPosts,0,"APK must leave automatic location to the Android service");
     await page.getByRole("button",{name:"Calendário",exact:true}).click();
     const calendar=page.getByRole('region',{name:'Calendário integrado'});
     await expect(calendar.getByRole('article')).toHaveCount(2);

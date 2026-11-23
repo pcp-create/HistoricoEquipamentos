@@ -1,9 +1,18 @@
-# Portal Técnico RJ — APK 2.2.28
+# Portal Técnico RJ — APK 2.2.29
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página
 remota para carregar a interface e não depende do cache do Chrome para guardar trabalho.
 O servidor de autenticação e sincronização continua sendo https://rjcompressores.app.
+
+## Versão 2.2.29
+
+- Presença automática unificada no serviço Android, eliminando a coleta duplicada pela interface.
+- Mantém o intervalo de cinco minutos, inclusive entre tentativas com falha. Retomar o app ou alternar redes não antecipa outra tentativa.
+- No acompanhamento automático, reutiliza posição real de até dois minutos; busca primeiro pela rede e aciona GPS após oito segundos sem resposta. A tentativa termina em até quinze segundos, liberando todos os sensores/listeners.
+- Apontamentos mantêm a coleta original: posição recente de até trinta segundos e precisão informada pelo aparelho. O mapa recebe o horário original e a precisão real, sem fabricar atualização.
+- A redução de consumo precisa ser validada em aparelho físico; não há percentual de economia medido.
+- Requer instalar o novo APK como atualização. Uma publicação apenas do servidor não altera o código instalado.
 
 ## Versão 2.2.28
 

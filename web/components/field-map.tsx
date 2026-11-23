@@ -16,12 +16,13 @@ const colors:Record<string,string>={done:'#16834a',executing:'#2563eb',overdue:'
 export function useAutomaticFieldLocation(enabled:boolean) {
  const [locationMessage,setLocationMessage]=useState('');
  useEffect(()=>{
-  if(!enabled)return;
+  // The installed APK owns automatic presence through PortalLocationService.
+  if(!enabled||nativePortal())return;
   let disposed=false,busy=false,last=0;
   const update=()=>{
    if(disposed||busy||document.visibilityState!=='visible'||Date.now()-last<300000)return;
    if(!navigator.geolocation){setLocationMessage('Localização indisponível neste navegador.');return}
-   busy=true;
+   busy=true;last=Date.now();
    const collect=()=>navigator.geolocation.getCurrentPosition(async p=>{
     if(disposed){busy=false;return}
     try{const r=await fetch('/api/field/map',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy,at:new Date(p.timestamp).toISOString()})});if(!r.ok)throw Error('Não foi possível registrar a posição.');last=Date.now();setLocationMessage('')}
@@ -29,7 +30,7 @@ export function useAutomaticFieldLocation(enabled:boolean) {
    },()=>{busy=false;if(!disposed){setLocationMessage('Permita a localização para compartilhar sua posição.')}},{enableHighAccuracy:true,timeout:30000,maximumAge:30000});
    if(nativePortal())void nativePortal()!.connection().then(online=>{if(online)collect();else busy=false}).catch(()=>{busy=false});else if(navigator.onLine)collect();else busy=false;
   };
-  const resume=()=>{last=0;update();};
+  const resume=()=>{update();};
   update();const timer=setInterval(update,300000);document.addEventListener('visibilitychange',resume);window.addEventListener('online',resume);window.addEventListener('rj-network-change',resume);
   return()=>{disposed=true;clearInterval(timer);document.removeEventListener('visibilitychange',resume);window.removeEventListener('online',resume);window.removeEventListener('rj-network-change',resume)};
  },[enabled]);

@@ -22,28 +22,34 @@ final class NativeLocation {
         long elapsed=SystemClock.elapsedRealtimeNanos()-p.getElapsedRealtimeNanos();
         return elapsed>=0&&elapsed<=age*1000000L&&Math.abs(System.currentTimeMillis()-p.getTime())<=300000;
     }
-    void request(long maximumAge,long timeout,Callback callback) {
-        if(Looper.myLooper()!=Looper.getMainLooper()){handler.post(()->request(maximumAge,timeout,callback));return;}
+    void requestPresence(Callback callback) { request(120000,15000,true,callback); }
+    void request(long maximumAge,long timeout,Callback callback) { request(maximumAge,timeout,false,callback); }
+    private void request(long maximumAge,long timeout,boolean presence,Callback callback) {
+        if(Looper.myLooper()!=Looper.getMainLooper()){handler.post(()->request(maximumAge,timeout,presence,callback));return;}
         if(context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){callback.complete(null,"Autorize a localização precisa em Permissões do aplicativo.",1);return;}
         LocationManager manager=(LocationManager)context.getSystemService(Context.LOCATION_SERVICE);
         List<String> providers=manager.getProviders(true);
         if(!providers.contains(LocationManager.GPS_PROVIDER)&&!providers.contains(LocationManager.NETWORK_PROVIDER)){callback.complete(null,"Ative a localização do aparelho e tente novamente.",1);return;}
-        long age=Math.max(0,Math.min(30000,maximumAge));
+        long age=Math.max(0,Math.min(presence?120000:30000,maximumAge));
         Location best=null;
         for(String provider:providers)try{Location last=manager.getLastKnownLocation(provider);if(fresh(last,age)&&(best==null||last.getAccuracy()<best.getAccuracy()))best=last;}catch(SecurityException ignored){}
         if(best!=null){respond(best,callback);return;}
-        final boolean[] finished={false};final LocationListener[] listener={null};final Runnable[] cancel={null};
-        Runnable timeoutTask=()->{if(finished[0])return;finished[0]=true;manager.removeUpdates(listener[0]);cancellations.remove(cancel[0]);callback.complete(null,"A localização está autorizada, mas o aparelho ainda não obteve uma posição recente. Aguarde o sinal GPS, procure uma área aberta e tente novamente. O apontamento não foi salvo.",3);};
-        cancel[0]=()->{if(finished[0])return;finished[0]=true;handler.removeCallbacks(timeoutTask);manager.removeUpdates(listener[0]);callback.complete(null,"Coleta de localização interrompida. Tente novamente.",2);};
+        final boolean[] finished={false};final LocationListener[] listener={null};final Runnable[] cancel={null};final Runnable[] gpsFallback={null};
+        Runnable timeoutTask=()->{if(finished[0])return;finished[0]=true;if(gpsFallback[0]!=null)handler.removeCallbacks(gpsFallback[0]);manager.removeUpdates(listener[0]);cancellations.remove(cancel[0]);callback.complete(null,"A localização está autorizada, mas o aparelho ainda não obteve uma posição recente. Aguarde o sinal GPS, procure uma área aberta e tente novamente. O apontamento não foi salvo.",3);};
+        cancel[0]=()->{if(finished[0])return;finished[0]=true;if(gpsFallback[0]!=null)handler.removeCallbacks(gpsFallback[0]);handler.removeCallbacks(timeoutTask);manager.removeUpdates(listener[0]);callback.complete(null,"Coleta de localização interrompida. Tente novamente.",2);};
         listener[0]=new LocationListener(){
-            @Override public void onLocationChanged(Location p){if(finished[0]||!fresh(p,30000))return;finished[0]=true;handler.removeCallbacks(timeoutTask);manager.removeUpdates(this);cancellations.remove(cancel[0]);respond(p,callback);}
+            @Override public void onLocationChanged(Location p){if(finished[0]||!fresh(p,30000))return;finished[0]=true;if(gpsFallback[0]!=null)handler.removeCallbacks(gpsFallback[0]);handler.removeCallbacks(timeoutTask);manager.removeUpdates(this);cancellations.remove(cancel[0]);respond(p,callback);}
             @Override public void onProviderDisabled(String provider){}
             @Override public void onProviderEnabled(String provider){}
             @Override public void onStatusChanged(String provider,int status,Bundle extras){}
         };
         cancellations.add(cancel[0]);boolean requested=false;
-        for(String provider:providers)if(!LocationManager.PASSIVE_PROVIDER.equals(provider))try{manager.requestLocationUpdates(provider,0,0,listener[0],Looper.getMainLooper());requested=true;}catch(IllegalArgumentException|SecurityException ignored){}
+        for(String provider:providers)if(!LocationManager.PASSIVE_PROVIDER.equals(provider)&&(!presence||provider.equals(providers.contains(LocationManager.NETWORK_PROVIDER)?LocationManager.NETWORK_PROVIDER:LocationManager.GPS_PROVIDER)))try{manager.requestLocationUpdates(provider,0,0,listener[0],Looper.getMainLooper());requested=true;}catch(IllegalArgumentException|SecurityException ignored){}
         if(!requested){cancel[0].run();cancellations.remove(cancel[0]);return;}
+        if(presence&&providers.contains(LocationManager.NETWORK_PROVIDER)&&providers.contains(LocationManager.GPS_PROVIDER)){
+            gpsFallback[0]=()->{if(finished[0])return;try{manager.requestLocationUpdates(LocationManager.GPS_PROVIDER,0,0,listener[0],Looper.getMainLooper());}catch(IllegalArgumentException|SecurityException ignored){}};
+            handler.postDelayed(gpsFallback[0],8000);
+        }
         handler.postDelayed(timeoutTask,Math.max(5000,Math.min(45000,timeout)));
     }
     private static void respond(Location p,Callback callback){try{callback.complete(new JSONObject().put("timestamp",p.getTime()).put("coords",new JSONObject().put("latitude",p.getLatitude()).put("longitude",p.getLongitude()).put("accuracy",p.getAccuracy())),null,0);}catch(Exception e){callback.complete(null,"Não foi possível ler a localização. Tente novamente.",2);}}

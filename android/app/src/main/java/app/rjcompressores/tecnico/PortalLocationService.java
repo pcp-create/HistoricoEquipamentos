@@ -22,7 +22,7 @@ public final class PortalLocationService extends Service {
     private NativeLocation location;
     private ConnectivityManager.NetworkCallback network;
     private boolean busy=false,closed=false,started=false;
-    private long lastSuccess=0;
+    private long lastAttempt=-1;
     private final Runnable tick=new Runnable(){public void run(){if(closed)return;collect();if(!closed)main.postDelayed(this,INTERVAL);}};
     static boolean eligible(JSONObject home){return home!=null&&home.optBoolean("isTechnician",false);}
     @Override public void onCreate(){
@@ -39,8 +39,8 @@ public final class PortalLocationService extends Service {
     @Override public int onStartCommand(Intent intent,int flags,int id){collect();return START_NOT_STICKY;}
     private boolean connected(){ConnectivityManager c=getSystemService(ConnectivityManager.class);NetworkCapabilities n=c.getNetworkCapabilities(c.getActiveNetwork());return n!=null&&n.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);}
     private void collect(){
-        if(!started||closed||busy||!connected()||SystemClock.elapsedRealtime()-lastSuccess<INTERVAL&&lastSuccess>0)return;
-        busy=true;
+        if(!started||closed||busy||!connected()||lastAttempt>=0&&SystemClock.elapsedRealtime()-lastAttempt<INTERVAL)return;
+        busy=true;lastAttempt=SystemClock.elapsedRealtime();
         io.execute(()->{
             String owner=null;
             try(PortalDatabase db=new PortalDatabase(this)){JSONObject home=PortalNotifications.home(db);Object stored=db.read("owner");if(stored instanceof String&&eligible(home))owner=(String)stored;}catch(Exception ignored){}
@@ -48,7 +48,7 @@ public final class PortalLocationService extends Service {
             main.post(()->{
                 if(closed)return;
                 if(account==null){busy=false;stopSelf();return;}
-                location.request(30000,45000,(position,error,code)->{
+                location.requestPresence((position,error,code)->{
                     if(closed)return;
                     if(error!=null){busy=false;return;}
                     final String cookie=CookieManager.getInstance().getCookie(PortalActivity.ORIGIN);
@@ -69,7 +69,7 @@ public final class PortalLocationService extends Service {
             int code=request.getResponseCode();
             for(java.util.Map.Entry<String,java.util.List<String>> header:request.getHeaderFields().entrySet())if("Set-Cookie".equalsIgnoreCase(header.getKey()))for(String value:header.getValue())CookieManager.getInstance().setCookie(PortalActivity.ORIGIN,value);
             CookieManager.getInstance().flush();
-            if(code>=200&&code<300)main.post(()->{if(closed)return;lastSuccess=SystemClock.elapsedRealtime();main.removeCallbacks(tick);main.postDelayed(tick,INTERVAL);});
+            if(code>=200&&code<300)main.post(()->{if(closed)return;main.removeCallbacks(tick);main.postDelayed(tick,INTERVAL);});
             else if(code==401||code==403)main.post(this::stopSelf);
         }catch(Exception ignored){}finally{if(request!=null)request.disconnect();main.post(()->busy=false);}
     }
