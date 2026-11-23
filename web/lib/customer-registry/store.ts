@@ -1,3 +1,4 @@
+import {participantSql} from "../user-module-sql";
 import 'server-only';
 import {database} from '../db';
 import {AdminInputError} from '../admin-store';
@@ -29,7 +30,7 @@ export async function customerRegistry(company:number){
  }
  const territories=(await db.query('SELECT city_key,uf,mesoregion,microregion FROM web_task_territories')).rows;
  const byCity=new Map(territories.map(t=>[t.city_key+':'+t.uf,t]));
- return {rows:rows.map(row=>{const p={...row.payload,...row.detail};const t=byCity.get(cityKey(p.municipioNome||'')+':'+(p.ufSigla||''));return {id:row.id,name:p.razaoSocial||row.name,document:row.document,municipioNome:p.municipioNome||'',ufSigla:p.ufSigla||'',regiaoId:p.regiaoId||'',regiaoNome:p.regiaoNome||'',classificacaoId:p.classificacaoId||'',classificacaoNome:p.classificacaoNome||'',vendedorId:String(((row.sellers||[]).find((s:any)=>s.padrao)||(row.sellers?.length===1?row.sellers[0]:null))?.vendedorId||''),seller:(row.sellers||[]).map((s:any)=>s.vendedorNome||s.nome||String(s.vendedorId||'')).join(', '),mesoregion:t?.mesoregion||'',microregion:t?.microregion||'',assignee:row.assignee||'',seller_user:row.seller_user||'',version:row.version,synced_at:row.synced_at};}),users:(await db.query("SELECT email,display_name,job_title FROM web_user_access WHERE enabled ORDER BY display_name,email")).rows};
+ return {rows:rows.map(row=>{const p={...row.payload,...row.detail};const t=byCity.get(cityKey(p.municipioNome||'')+':'+(p.ufSigla||''));return {id:row.id,name:p.razaoSocial||row.name,document:row.document,municipioNome:p.municipioNome||'',ufSigla:p.ufSigla||'',regiaoId:p.regiaoId||'',regiaoNome:p.regiaoNome||'',classificacaoId:p.classificacaoId||'',classificacaoNome:p.classificacaoNome||'',vendedorId:String(((row.sellers||[]).find((s:any)=>s.padrao)||(row.sellers?.length===1?row.sellers[0]:null))?.vendedorId||''),seller:(row.sellers||[]).map((s:any)=>s.vendedorNome||s.nome||String(s.vendedorId||'')).join(', '),mesoregion:t?.mesoregion||'',microregion:t?.microregion||'',assignee:row.assignee||'',seller_user:row.seller_user||'',version:row.version,synced_at:row.synced_at};}),users:(await db.query("SELECT email,display_name,job_title,to_jsonb(web_user_access)->'job_titles' AS job_titles,to_jsonb(web_user_access)->'modules' AS modules FROM web_user_access WHERE enabled ORDER BY display_name,email")).rows};
 }
 export async function syncCustomerPage(company:number,page:number){
  if(!Number.isInteger(page)||page<1)throw new AdminInputError('Página inválida.');
@@ -60,7 +61,7 @@ async function saveCustomerUnlocked(body:any,actor:string,sessionFactory:typeof 
  if(!current||(current.version||0)!==body.version)throw new AdminInputError('Registro alterado. Atualize antes de salvar.');
  if(body.assignee&&!(await database().query('SELECT 1 FROM web_user_access WHERE email=$1 AND enabled',[body.assignee])).rows.length)throw new AdminInputError('Selecione um orçamentista ativo.');
  const sellerUser=body.seller_user===undefined?current.seller_user||null:body.seller_user||null;
- if(sellerUser!==null&&(typeof sellerUser!=='string'||!(await database().query("SELECT 1 FROM web_user_access WHERE email=$1 AND enabled AND lower(trim(job_title)) IN ('vendedor','vendedora')",[sellerUser])).rows.length))throw new AdminInputError('Selecione um vendedor ativo.');
+ if(sellerUser!==null&&(typeof sellerUser!=='string'||!(await database().query(`SELECT 1 FROM web_user_access WHERE email=$1 AND enabled AND ${participantSql("seller")}`,[sellerUser])).rows.length))throw new AdminInputError('Selecione um vendedor ativo.');
  if(Object.keys(patch).length||sellerChanged){
   const session=await sessionFactory(company),remote=await session(`/v1/configuracoes/cliente/${id}`);
   if(sellerChanged){

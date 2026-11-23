@@ -1,3 +1,4 @@
+import {participantSql} from "../user-module-sql";
 import "server-only";
 import { database } from "../db";
 import { Forbidden } from "../auth";
@@ -5,9 +6,9 @@ import { locationOf } from "./field-model";
 import { scheduleMapData } from "./map-store";
 import { localityText, positionLabel } from "./map-model";
 import { fieldOperationOverdue } from "./field-overdue";
-export const technicianSql = "lower(trim(job_title)) IN ('técnico','tecnico')";
+export const technicianSql = participantSql("technician","u");
 export async function mapAccess(email: string, db = database()) {
-  const u = (await db.query(`SELECT role,${technicianSql} technician FROM web_user_access WHERE email=$1 AND enabled`, [email])).rows[0];
+  const u = (await db.query(`SELECT role,${technicianSql} technician FROM web_user_access u WHERE email=$1 AND enabled`, [email])).rows[0];
   if (!u) throw new Forbidden();
   return u;
 }

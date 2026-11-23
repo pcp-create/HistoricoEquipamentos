@@ -1,3 +1,4 @@
+import {canOpenPath,userModules} from "./user-modules";
 import "server-only";
 import { needsPasswordChange } from "./password-policy";
 import { accessRecord } from "./admin-store";
@@ -75,6 +76,7 @@ export async function requireUser(allowPasswordChange = false) {
         user.email_confirmed_at &&
         (await authorizedEmail(user.email))
       ) {
+        await assertModuleAccess(user.email);
         assertPasswordReady(user,allowPasswordChange);
         return user as AuthUser;
       }
@@ -88,6 +90,7 @@ export async function requireUser(allowPasswordChange = false) {
     const response = await authRequest("token?grant_type=refresh_token", {
       refresh_token: refresh,
     });
+    if (!response.ok && ![400,401,403].includes(response.status))throw new Error("Autenticação indisponível");
     if (response.ok) {
       const data = await response.json();
       if (
@@ -97,6 +100,7 @@ export async function requireUser(allowPasswordChange = false) {
         (await authorizedEmail(data.user.email))
       ) {
         await setSession(data);
+        await assertModuleAccess(data.user.email);
         assertPasswordReady(data.user,allowPasswordChange);
         return data.user as AuthUser;
       }
@@ -171,4 +175,9 @@ export async function requireAdmin() {
   const access = await accessRecord(user.email);
   if (!access?.enabled || access.role !== "admin") throw new Forbidden();
   return user;
+}
+
+async function assertModuleAccess(email:string){
+ const path=(await headers()).get('x-rj-request-path')||'';
+ if(!canOpenPath(userModules(await accessRecord(email)),path))throw new Forbidden();
 }

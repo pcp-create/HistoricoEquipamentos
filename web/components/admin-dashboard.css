@@ -241,3 +241,35 @@
 
 .admin-page .admin-user-actions button { margin: 3px 6px 3px 0; }
 .admin-page .admin-user-actions .admin-delete-user { color: #b42338; border-color: #f0c8cf; }
+
+.employee-access-picker { grid-column:1/-1; display:grid; gap:16px; margin:16px 0; min-width:0; }
+.employee-access-picker fieldset { min-width:0; }
+.employee-access-slicers { display:grid; gap:4px; margin:12px 0; }
+.employee-access-slicers button.employee-access-row {
+ display:flex; align-items:center; justify-content:flex-start; gap:10px;
+ width:100%; min-height:48px; padding:2px 0; border:0; border-radius:0;
+ background:transparent; color:#234e73; text-align:left; font:inherit;
+ box-shadow:none; cursor:pointer;
+}
+.employee-access-name { min-width:0; overflow-wrap:anywhere; }
+.employee-access-toggle { position:relative; flex:0 0 36px; height:20px; border:1px solid #aebdcd; border-radius:20px; background:#dce3eb; transition:background .15s; }
+.employee-access-toggle > span { position:absolute; width:14px; height:14px; left:2px; top:2px; border-radius:50%; background:#fff; box-shadow:0 1px 3px #0002; transition:transform .15s; }
+.employee-access-row[aria-checked=true] .employee-access-toggle { background:#246397; border-color:#246397; }
+.employee-access-row[aria-checked=true] .employee-access-toggle > span { transform:translateX(16px); }
+.employee-jobs-picker { margin:12px 0 30px; }
+.employee-jobs-picker .support-picker { width:100%; min-height:39px; height:auto; }
+.employee-jobs-picker .support-selected { min-height:39px; height:auto; flex-wrap:wrap; }
+.employee-jobs-picker .support-add { position:static; margin-top:4px; }
+.employee-access-picker .employee-access-slicers { gap:0; }
+.employee-access-slicers button.employee-access-row { min-height:38px; font-size:13px; padding:6px 0; }
+@media(pointer:coarse) { .employee-access-slicers button.employee-access-row { min-height:44px; } }
+.employee-access-slicers button.employee-access-row:hover { background:#f5f9fd; }
+.employee-access-row:focus-visible { outline:3px solid #82b9e8; outline-offset:2px; }
+.employee-access-slicers button.employee-access-row:disabled { cursor:default; opacity:1; }
+@media(min-width:900px) {
+ .employee-access-picker { grid-template-columns:minmax(0,1fr); align-items:start; }
+}
+
+.employee-access-picker .employee-module-columns { grid-template-columns:repeat(3,minmax(0,1fr)); column-gap:32px; }
+@media(min-width:601px) and (max-width:900px) { .employee-access-picker .employee-module-columns { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) { .employee-access-picker .employee-module-columns { grid-template-columns:minmax(0,1fr); } }

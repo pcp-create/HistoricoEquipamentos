@@ -1,5 +1,7 @@
 import { needsPasswordChange } from "@/lib/password-policy";
-import { recordActivity } from "@/lib/admin-store";
+import {userModules,jobTitles} from "@/lib/user-modules";
+import {canManageVisits} from "@/lib/access-roles";
+import { recordActivity,accessRecord } from "@/lib/admin-store";
 import { NextResponse } from "next/server";
 import {
   authorizedEmail,
@@ -66,8 +68,10 @@ export async function POST(request: Request) {
     } catch {
       console.error("SESSION_LOGIN_AUDIT_UNAVAILABLE");
     }
+    const profile=await accessRecord(data.user.email);
+    const access={admin:profile?.role==='admin',visitManager:canManageVisits(profile),displayName:profile?.display_name||data.user.email,cacheUser:data.user.id,cacheScope:data.user.id+":"+(profile?.role||"user"),modules:userModules(profile),jobTitles:jobTitles(profile),checkedAt:new Date().toISOString(),accessUpdatedAt:profile?.updated_at?new Date(profile.updated_at).toISOString():''};
     return NextResponse.json(
-      { ok: true, mustChangePassword:needsPasswordChange(data.user) },
+      { ok: true, mustChangePassword:needsPasswordChange(data.user),access },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch {

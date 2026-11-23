@@ -1,4 +1,5 @@
 "use client";
+import {canOpenPath} from "@/lib/user-modules";
 
 import {useSessionAccess} from "./session-access";
 import Link from "next/link";
@@ -17,6 +18,8 @@ import {
 import SiteHeader from "./site-header";
 
 const modules = [
+  {id:"gestao-visitas",title:"Gestão de Visitas",icon:Users,description:"Acompanhamento da equipe e das visitas comerciais.",links:[["Gestão de Visitas","/visitas/gestao"]],next:""},
+  {id:"portal-tecnico",title:"Portal técnico",icon:Wrench,description:"Operações e relatórios de campo.",links:[["Acessar portal técnico","/tecnico"]],next:""},
   {
     id: "crm",
     title: "Comercial",
@@ -87,8 +90,9 @@ const modules = [
 ];
 
 export default function ModuleHome({ moduleId }: { moduleId?: string }) {
-  const {visitManager} = useSessionAccess();
-  const selected = modules.find((module) => module.id === moduleId);
+  const {visitManager,modules:allowed} = useSessionAccess();
+  const visibleModules=modules.filter(module=>!allowed||allowed.includes(module.id==='configuracoes'?'administracao':module.id));
+  const selected = visibleModules.find((module) => module.id === moduleId);
   return (
     <div className="module-home">
       <SiteHeader active="home" moduleId={selected?.id} />
@@ -112,7 +116,7 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
             className="module-menu-grid"
             aria-label={"Menus de " + selected.title}
           >
-            {selected.links.filter(([, href]) => href !== "/visitas/gestao" || visitManager).map(([label, href]) => (
+            {selected.links.filter(([,href])=>!allowed||canOpenPath(allowed,href)).filter(([, href]) => href !== "/visitas/gestao" || visitManager).map(([label, href]) => (
               <Link
                 prefetch={false}
                 className="module-menu-item"
@@ -126,7 +130,7 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
           </nav>
         ) : (
           <nav className="module-tile-grid" aria-label="Módulos do sistema">
-            {modules.map(({ id, title, icon: Icon, description }) => (
+            {visibleModules.map(({ id, title, icon: Icon, description }) => (
               <Link
                 prefetch={false}
                 className="module-tile"

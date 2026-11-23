@@ -31,7 +31,7 @@ export async function createVisitTask(b: any, user: AuthUser) {
     if (
       !access?.enabled ||
       !v ||
-      (v.seller !== user.email && !canManageVisits(access.role))
+      (v.seller !== user.email && !canManageVisits(access))
     )
       throw new Forbidden();
     if (v.status === "cancelled")

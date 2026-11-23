@@ -1,3 +1,5 @@
+import {headers} from "next/headers";
+import {canOpenPath,modulesForPath} from "@/lib/user-modules";
 import NumberInputGuard from "@/components/number-input-guard";
 import type { Metadata, Viewport } from "next";
 import ChangePassword from "@/components/change-password";
@@ -47,6 +49,8 @@ export default async function Layout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const access = await initialSessionAccess();
+  const path=(await headers()).get("x-rj-request-path")||"";
+  const denied=modulesForPath(path).length>0&&(!access.checkedAt||!canOpenPath(access.modules,path));
   return (
     <html lang="pt-BR">
       <head>
@@ -55,7 +59,7 @@ export default async function Layout({
       <body className={access.cacheScope ? "operational-ui" : undefined}>
         <NumberInputGuard/>
         <SessionAccessProvider access={access}>
-          {"mustChangePassword" in access && access.mustChangePassword ? <ChangePassword/> : children}
+          {"mustChangePassword" in access && access.mustChangePassword ? <ChangePassword/> : denied ? <main><h1>Acesso ao módulo indisponível</h1><p>Confira os acessos do seu perfil ou tente novamente.</p><a href="/">Voltar aos módulos</a></main> : children}
         </SessionAccessProvider>
       </body>
     </html>

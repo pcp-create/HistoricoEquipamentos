@@ -1,4 +1,5 @@
 "use client";
+import {canParticipate} from "@/lib/user-modules";
 import ActionNotice from "./action-notice";
 import {tableFilterValues} from "@/lib/table-filter-values";
 import {useEffect,useMemo,useRef,useState} from 'react';
@@ -24,7 +25,7 @@ export default function CustomerRegistry(){
  async function post(body:any){const r=await fetch('/api/customer-registry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,company:Number(company)})});const b=await r.json();if(!r.ok)throw Error(b.error);return b;}
  useEffect(()=>{setData({rows:[],users:[]});setDraft([]);setFilters({});setEditM8(false);setClassifications([]);setSellers([]);void load().catch(e=>setError(e.message))},[company]);
  useEffect(()=>{if(!dirty.length)return;const warn=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue=''};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn)},[dirty.length]);
- const choices=useMemo(()=>({seller_user:data.users.filter((u:any)=>/^vendedor(a)?$/i.test(u.job_title?.trim())).map((u:any)=>({id:u.email,name:u.display_name||u.email})),assignee:data.users.map((u:any)=>({id:u.email,name:u.display_name||u.email})),...Object.fromEntries(['regiaoId','classificacaoId'].map(key=>[key,Array.from(new Map(data.rows.filter((r:any)=>r[key]).map((r:any)=>[String(r[key]),{id:String(r[key]),name:r[key==='regiaoId'?'regiaoNome':'classificacaoNome']||String(r[key])}])).values())]))}),[data]) as Record<string,{id:string;name:string}[]>;
+ const choices=useMemo(()=>({seller_user:data.users.filter((u:any)=>canParticipate(u,'seller')).map((u:any)=>({id:u.email,name:u.display_name||u.email})),assignee:data.users.map((u:any)=>({id:u.email,name:u.display_name||u.email})),...Object.fromEntries(['regiaoId','classificacaoId'].map(key=>[key,Array.from(new Map(data.rows.filter((r:any)=>r[key]).map((r:any)=>[String(r[key]),{id:String(r[key]),name:r[key==='regiaoId'?'regiaoNome':'classificacaoNome']||String(r[key])}])).values())]))}),[data]) as Record<string,{id:string;name:string}[]>;
  const allChoices:Record<string,{id:string;name:string}[]>={...choices,vendedorId:sellers,classificacaoId:classifications.length?classifications:choices.classificacaoId};
  const choicesMap=useMemo(()=>Object.fromEntries(Object.entries(allChoices).map(([key,values])=>[key,new Map(values.map(item=>[item.id,item.name]))])),[choices,classifications,sellers]);
  const options=(key:string)=>allChoices[key]||[];

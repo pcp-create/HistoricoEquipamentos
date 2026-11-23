@@ -1,3 +1,4 @@
+import {participantSql} from "../user-module-sql";
 import {equipmentInactivations} from "./equipment-inactivation";
 import { canManageVisits } from "../access-roles";
 import {registerMachine} from "./machine-registration";
@@ -14,7 +15,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function visitIdentity(db: any, email: string) {
   const u = (
     await db.query(
-      "SELECT enabled,role,job_title,display_name FROM web_user_access WHERE email=$1",
+      "SELECT enabled,role,job_title,display_name,to_jsonb(web_user_access)->'modules' AS modules FROM web_user_access WHERE email=$1",
       [email],
     )
   ).rows[0];
@@ -24,7 +25,7 @@ export async function visitIdentity(db: any, email: string) {
 export async function visitsData(email: string, db: any = database(), management = false) {
   email = email.toLowerCase();
   const user = await visitIdentity(db, email);
-  if (management && !canManageVisits(user.role)) throw new Forbidden();
+  if (management && !canManageVisits(user)) throw new Forbidden();
   const historical = (await db.query("SELECT DISTINCT customer_key FROM web_sales_visits WHERE $2::boolean OR seller=$1",[email,management])).rows.map((r:any)=>r.customer_key);
   const rules = (
     await db.query(
@@ -62,7 +63,7 @@ export async function visitsData(email: string, db: any = database(), management
   const locationMap = new Map<string, any>(locations.map((r: any) => [r.customer_key,r]));
   const last = (
     await db.query(
-      "SELECT v.customer_key,max(v.completed_at) last FROM web_sales_visits v JOIN web_user_access u ON u.email=v.seller WHERE v.customer_key=ANY($1::text[]) AND v.status='completed' AND lower(trim(u.job_title)) IN ('vendedor','vendedora') AND ($3::boolean OR v.seller=$2) GROUP BY v.customer_key",
+      `SELECT v.customer_key,max(v.completed_at) last FROM web_sales_visits v JOIN web_user_access u ON u.email=v.seller WHERE v.customer_key=ANY($1::text[]) AND v.status='completed' AND ${participantSql("seller","u")} AND ($3::boolean OR v.seller=$2) GROUP BY v.customer_key`,
       [keys, email, management],
     )
   ).rows;
@@ -159,12 +160,12 @@ export async function visitsData(email: string, db: any = database(), management
       (u.last_seen_at>now()-interval '15 minutes' AND
        (u.last_logout_at IS NULL OR u.last_seen_at>u.last_logout_at)) IS TRUE AS online
     FROM web_user_access u LEFT JOIN web_field_locations p ON p.actor=u.email
-    WHERE CASE WHEN $3::boolean THEN u.email=ANY($4::text[]) ELSE u.enabled AND lower(trim(u.job_title)) IN ('vendedor','vendedora') END
+    WHERE CASE WHEN $3::boolean THEN u.email=ANY($4::text[]) ELSE u.enabled AND ${participantSql("seller","u")} END
       AND ($2::boolean OR u.email=$1)
     ORDER BY u.display_name,u.email`, [email,management || user.role === "admin",management,employeeIds])).rows;
   const purposes = (await db.query("SELECT id::text,name,description,active,version FROM web_sales_visit_purposes WHERE active ORDER BY id")).rows;
   const assignees = management ? (await db.query("SELECT email AS id,COALESCE(NULLIF(display_name,''),email) AS name FROM web_user_access WHERE enabled ORDER BY display_name,email")).rows : undefined;
-  return { email, assignees, canEditVisits:true, purposes, name: user.display_name || email, customers, visits, sellers, canManage: canManageVisits(user.role) };
+  return { email, assignees, canEditVisits:true, purposes, name: user.display_name || email, customers, visits, sellers, canManage: canManageVisits(user) };
 }
 function text(b: any, key: string, max: number, required = false) {
   const value = b?.[key];
@@ -202,7 +203,7 @@ export async function saveVisit(b: any, email: string,registerEquipment=register
     ]);
     const assigning = ["schedule", "history"].includes(b.action) && b.seller != null;
     const seller = assigning ? text(b, "seller", 254, true).toLowerCase() : email;
-    if (assigning && seller !== email && !canManageVisits(actor.role)) throw new Forbidden();
+    if (assigning && seller !== email && !canManageVisits(actor)) throw new Forbidden();
     if (assigning && seller !== email) await visitIdentity(c, seller);
     const data = await visitsData(seller, c);
     let created=false;
@@ -363,10 +364,10 @@ export async function administerVisit(b:any,email:string) {
   try {
     await c.query('BEGIN READ WRITE');
     const user=await visitIdentity(c,email.toLowerCase());
-    if (b.action==='admin_delete'&&!canManageVisits(user.role)) throw new Forbidden();
+    if (b.action==='admin_delete'&&!canManageVisits(user)) throw new Forbidden();
 
     const old=(await c.query('SELECT * FROM web_sales_visits WHERE id=$1 FOR UPDATE',[b.id])).rows[0];
-    if(old&&!canManageVisits(user.role)&&old.seller!==email.toLowerCase())throw new Forbidden();
+    if(old&&!canManageVisits(user)&&old.seller!==email.toLowerCase())throw new Forbidden();
     if(!old || old.version!==b.version)throw new AdminInputError('Visita alterada ou excluída. Atualize a lista.');
     let after=null;
     if(b.action==='admin_delete'){await syncVisitTask(c,b.id,email,false,undefined,true);await c.query('DELETE FROM web_sales_visits WHERE id=$1',[b.id]);}

@@ -1,3 +1,4 @@
+import {canParticipate} from "../user-modules";
 import "server-only";
 import { assignNewRentalTasks } from "./rental-assignment";
 import type { PoolClient } from "pg";
@@ -23,7 +24,7 @@ export async function territoryList() {
     ).rows,
     users: (
       await database().query(
-        "SELECT email,display_name,job_title FROM web_user_access WHERE enabled ORDER BY display_name,email",
+        "SELECT email,display_name,job_title,to_jsonb(web_user_access)->'job_titles' AS job_titles,to_jsonb(web_user_access)->'modules' AS modules FROM web_user_access WHERE enabled ORDER BY display_name,email",
       )
     ).rows,
   };
@@ -93,13 +94,13 @@ export async function saveTerritory(b: any, email: string, transaction?: PoolCli
           throw new AdminInputError("Vendedor inválido.");
         const seller = (
           await c.query(
-            "SELECT enabled,job_title FROM web_user_access WHERE email=$1",
+            "SELECT enabled,job_title,to_jsonb(web_user_access)->'job_titles' AS job_titles,to_jsonb(web_user_access)->'modules' AS modules FROM web_user_access WHERE email=$1",
             [sellerUser],
           )
         ).rows[0];
         if (
           !seller?.enabled ||
-          !/^vendedor(a)?$/i.test(seller.job_title.trim())
+          !canParticipate(seller,'seller')
         )
           throw new AdminInputError(
             "Selecione um usuário ativo com cargo Vendedor.",

@@ -56,8 +56,8 @@ test("map uses company 1 for every OS and invalidates changed addresses; writes 
  INSERT INTO web_user_access VALUES('admin','admin',true),('tech','user',true);
  CREATE TABLE web_service_schedules(id bigint PRIMARY KEY,company_id integer,order_id bigint,active boolean);
  INSERT INTO web_service_schedules VALUES(1,2,100,true),(2,27404,101,true),(3,1,102,false);
- CREATE TABLE m8_ordens_servico(company_id integer,id_m8 bigint,cliente_id bigint,endereco_entrega_id bigint);
- INSERT INTO m8_ordens_servico VALUES(2,100,7,1),(27404,101,7,1),(1,102,7,1);
+ CREATE TABLE m8_ordens_servico(status text,company_id integer,id_m8 bigint,cliente_id bigint,endereco_entrega_id bigint);
+ INSERT INTO m8_ordens_servico(company_id,id_m8,cliente_id,endereco_entrega_id) VALUES(2,100,7,1),(27404,101,7,1),(1,102,7,1);
  CREATE TABLE m8_customer_localities(company_id integer,person_id bigint,address_id bigint,address_type text,street text,number text,letter text,complement text,district text,city text,state text,postal_code text,country text,present boolean);
  INSERT INTO m8_customer_localities VALUES(1,7,1,'Padrao','Rua A','1',NULL,NULL,NULL,'Aurora','SC',NULL,'Brasil',true),
  (2,7,2,'Entrega','Incorrect','1',NULL,NULL,NULL,'Aurora','SC',NULL,'Brasil',true);`);
@@ -92,7 +92,7 @@ test("map uses company 1 for every OS and invalidates changed addresses; writes 
     await assert.rejects(()=>saveFieldLocation('admin',{latitude:-27,longitude:-49,accuracy:10,at:new Date().toISOString()}));
     await saveFieldLocation('tech',{latitude:-27,longitude:-49,accuracy:10,at:new Date().toISOString()});
     field=await fieldMapData('tech');
-    assert.equal(field.technicians[0].source,'Acesso ao portal');
+    assert.equal(field.technicians[0].source,'Última localização no sistema');
     assert.equal(field.technicians[0].latitude,-27);
     await db.exec("UPDATE web_service_operations SET status='awaiting_execution' WHERE schedule_id=1");
     assert.equal((await fieldMapData('tech')).orders[0].status,'overdue');

@@ -7,7 +7,7 @@ export async function accessRecord(email: string) {
   return (
     (
       await database().query(
-        "SELECT role,enabled,display_name FROM web_user_access WHERE email=$1",
+        "SELECT role,enabled,display_name,to_jsonb(web_user_access)->'modules' AS modules,to_jsonb(web_user_access)->'job_titles' AS job_titles,to_jsonb(web_user_access)->>'job_title' AS job_title,updated_at FROM web_user_access WHERE email=$1",
         [email.toLowerCase()],
       )
     ).rows[0] || null
@@ -136,8 +136,8 @@ export async function setAccess(body: any, actor: AuthUser) {
     if (restoring) {
       await c.query("UPDATE web_user_access SET deleted_at=NULL,last_seen_at=NULL,last_logout_at=now() WHERE email=$1", [email]);
       if(await managersAvailable(c)) await c.query("UPDATE web_user_access SET managers='[]'::jsonb WHERE email=$1",[email]);
-      const optional=(await c.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='web_user_access' AND column_name IN ('m8_employee_id','hourly_cost')")).rows;
-      for(const {column_name} of optional) if(['m8_employee_id','hourly_cost'].includes(column_name)) await c.query(`UPDATE web_user_access SET ${column_name}=NULL WHERE email=$1`,[email]);
+      const optional=(await c.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='web_user_access' AND column_name IN ('m8_employee_id','hourly_cost','job_titles','modules')")).rows;
+      for(const {column_name} of optional) if(['m8_employee_id','hourly_cost','job_titles','modules'].includes(column_name)) await c.query(`UPDATE web_user_access SET ${column_name}=NULL WHERE email=$1`,[email]);
     }
     await c.query(
       `INSERT INTO web_user_access(email,role,enabled,updated_by) VALUES($1,$2,$3,$4) ON CONFLICT(email) DO UPDATE SET role=$2,enabled=$3,updated_by=$4,updated_at=now()`,
@@ -159,6 +159,12 @@ export async function setAccess(body: any, actor: AuthUser) {
           employee.task_color,
         ],
       );
+    if(employee && ('modules' in employee || 'job_titles' in employee)){
+      const columns=(await c.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='web_user_access' AND column_name IN ('modules','job_titles')")).rows;
+      if(columns.length!==2)throw new AdminInputError('Atualize a estrutura de cargos e módulos antes de salvar.');
+      if('modules' in employee)await c.query('UPDATE web_user_access SET modules=$2 WHERE email=$1',[email,JSON.stringify(employee.modules)]);
+      if('job_titles' in employee)await c.query('UPDATE web_user_access SET job_titles=$2 WHERE email=$1',[email,JSON.stringify(employee.job_titles)]);
+    }
     if(employee && "m8_employee_id" in employee)await c.query("UPDATE web_user_access SET m8_employee_id=$2 WHERE email=$1",[email,employee.m8_employee_id]);
     if(employee && "managers" in employee){
       const managers=employee.managers as string[];
@@ -195,7 +201,7 @@ export async function setAccess(body: any, actor: AuthUser) {
 export async function adminOverview() {
   const db = database();
   const users = (
-    await db.query(`SELECT COALESCE(to_jsonb(web_user_access)->'managers','[]'::jsonb) managers,to_jsonb(web_user_access)->>'m8_employee_id' AS m8_employee_id,to_jsonb(web_user_access)->>'hourly_cost' AS hourly_cost,to_jsonb(web_user_access)->>'task_color' AS task_color,email,display_name,department,job_title,phone,alert_preventive,alert_rental,alert_email,alert_whatsapp,user_id,role,enabled,last_login_at,last_seen_at,last_logout_at,
+    await db.query(`SELECT to_jsonb(web_user_access)->'modules' AS modules,to_jsonb(web_user_access)->'job_titles' AS job_titles,COALESCE(to_jsonb(web_user_access)->'managers','[]'::jsonb) managers,to_jsonb(web_user_access)->>'m8_employee_id' AS m8_employee_id,to_jsonb(web_user_access)->>'hourly_cost' AS hourly_cost,to_jsonb(web_user_access)->>'task_color' AS task_color,email,display_name,department,job_title,phone,alert_preventive,alert_rental,alert_email,alert_whatsapp,user_id,role,enabled,last_login_at,last_seen_at,last_logout_at,
  (enabled AND last_seen_at>now()-interval '15 minutes' AND (last_logout_at IS NULL OR last_seen_at>last_logout_at)) AS online FROM web_user_access WHERE to_jsonb(web_user_access)->>'deleted_at' IS NULL ORDER BY role,email`)
   ).rows;
   const events = (

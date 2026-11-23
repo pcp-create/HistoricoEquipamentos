@@ -1,4 +1,6 @@
 "use client";
+import EmployeeAccessPicker, {AccessSwitch} from "./employee-access-picker";
+import {jobTitles,userModules} from "@/lib/user-modules";
 import ActionNotice from "./action-notice";
 import UserPhotoEditor from "./user-photo-editor";
 import IntegrationItems from "./integration-items";
@@ -15,6 +17,8 @@ const emptyEmployee = {
   display_name: "",
   department: "",
   job_title: "",
+  job_titles: [] as string[],
+  modules: [] as string[],
   m8_employee_id: "",
   managers: [] as string[],
   phone: "",
@@ -56,7 +60,7 @@ export default function AdminDashboard() {
   const [userSearch,setUserSearch] = useState("");
   const normalizeSearch=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
   const searchTerms=normalizeSearch(userSearch.trim()).split(/\s+/).filter(Boolean);
-  const filteredUsers=(data?.users||[]).filter((u:any)=>{const text=normalizeSearch([u.display_name,u.email,u.department,u.job_title,u.phone].filter(Boolean).join(' '));return searchTerms.every(term=>text.includes(term));});
+  const filteredUsers=(data?.users||[]).filter((u:any)=>{const text=normalizeSearch([u.display_name,u.email,u.department,jobTitles(u).join(" "),u.phone].filter(Boolean).join(' '));return searchTerms.every(term=>text.includes(term));});
   const hasLogin = Boolean(data?.users?.find((u: any) => u.email === form.email)?.user_id);
   async function load() {
     try {
@@ -169,12 +173,12 @@ export default function AdminDashboard() {
                           {editing ? "Editar funcionário" : "Novo funcionário"}
                         </legend>
                         {editing ? <UserPhotoEditor key={form.email} email={form.email}/> : <p>Salve o cadastro para anexar a foto do usuário.</p>}
-                        <div className="admin-form-grid">
+                        <EmployeeAccessPicker section="jobs" value={form} users={data.users} onChange={setForm}/><div className="admin-form-grid">
                           {(
                             [
                               ["display_name", "Nome completo"],
                               ["department", "Setor"],
-                              ["job_title", "Cargo"], ["m8_employee_id", "ID do técnico no M8"],
+                              ["m8_employee_id", "ID do técnico no M8"],
                               ["phone", "WhatsApp (país + DDD + número)"],
                             ] as const
                           ).map(([key, label]) => (
@@ -274,6 +278,7 @@ export default function AdminDashboard() {
                         </div>
                         <fieldset>
                           <legend>Recebimento de alertas</legend>
+                          <div className="employee-access-slicers">
                           {(
                             [
                               [
@@ -288,17 +293,10 @@ export default function AdminDashboard() {
                               ["alert_whatsapp", "Receber pelo WhatsApp"],
                             ] as const
                           ).map(([key, label]) => (
-                            <label key={key} className="admin-alert-option">
-                              <input
-                                type="checkbox"
-                                checked={form[key]}
-                                onChange={(e) =>
-                                  setForm({ ...form, [key]: e.target.checked })
-                                }
-                              />{" "}
-                              <span>{label}</span>
-                            </label>
+                            <AccessSwitch key={key} label={label} checked={form[key]}
+                              onChange={()=>setForm({...form,[key]:!form[key]})}/>
                           ))}
+                          </div>
                           <p className="muted">
                             Valem os horários dos relatórios diários, semanais e
                             mensais. WhatsApp usa o número pessoal informado;
@@ -306,6 +304,7 @@ export default function AdminDashboard() {
                             automação.
                           </p>
                         </fieldset>
+                        <EmployeeAccessPicker section="modules" value={form} onChange={setForm}/>
                         <div className="catalog-editor-actions">
                           <button className="catalog-save-button">Salvar funcionário</button>
                           <button
@@ -428,7 +427,7 @@ export default function AdminDashboard() {
                             {u.display_name || "Nome ainda não registrado"}
                             <small>{u.email}</small>
                             <small>
-                              {[u.department, u.job_title, u.phone]
+                              {[u.department, jobTitles(u).join(" · "), u.phone]
                                 .filter(Boolean)
                                 .join(" · ")}
                             </small>
@@ -460,7 +459,7 @@ export default function AdminDashboard() {
                                   ...Object.fromEntries(
                                     Object.keys(emptyEmployee).map((k) => [
                                       k,
-                                      u[k] ??
+                                      (k==="job_titles"?jobTitles(u):k==="modules"?userModules(u):u[k]) ??
                                         emptyEmployee[
                                           k as keyof typeof emptyEmployee
                                         ],

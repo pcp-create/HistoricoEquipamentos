@@ -30,6 +30,7 @@ export default function Login({
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
+      if(result.access?.cacheScope)try{sessionStorage.setItem('rj-access:'+(result.access.cacheUser||result.access.cacheScope),JSON.stringify(result.access));}catch{}
       const destination = sales
           ? "/visitas"
           : technician

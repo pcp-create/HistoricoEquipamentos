@@ -1,3 +1,4 @@
+import {userModules,jobTitles} from "./user-modules";
 import {canManageVisits} from "./access-roles";
 import "server-only";
 import { needsPasswordChange } from "./password-policy";
@@ -24,7 +25,7 @@ export async function resolveInitialSession(
   request = authRequest,
   lookup = accessRecord,
 ) {
-  const empty = { admin: false, visitManager: false, displayName: "", cacheScope: "" };
+  const empty = { admin: false, visitManager: false, displayName: "", cacheScope: "", cacheUser: "", modules: [] as string[], jobTitles: [] as string[], checkedAt: "", accessUpdatedAt: "" };
   if (!token) return empty;
   try {
     const response = await request("user", undefined, token);
@@ -37,15 +38,17 @@ export async function resolveInitialSession(
       typeof user.email !== "string"
     )
       return empty;
-    const access = await lookup(user.email);
+    let access;
+    try{access=await lookup(user.email);}catch{return {...empty,cacheUser:user.id};}
     if(access?.enabled !== false && needsPasswordChange(user))return {...empty,mustChangePassword:true};
     return {
+      cacheUser:user.id,modules:userModules(access),jobTitles:jobTitles(access),checkedAt:new Date().toISOString(),accessUpdatedAt:access?.updated_at?new Date(access.updated_at).toISOString():'',
       cacheScope:
         access?.enabled === false
           ? ""
           : user.id + ":" + (access?.role || "user"),
       admin: access?.enabled === true && access.role === "admin",
-      visitManager: access?.enabled === true && canManageVisits(access.role),
+      visitManager: access?.enabled === true && canManageVisits(access),
       displayName:
         access?.enabled === false
           ? ""

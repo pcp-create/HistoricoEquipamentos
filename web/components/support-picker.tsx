@@ -3,7 +3,7 @@ import { matchesSearch } from "@/lib/filters";
 
 import {useState,useEffect,useRef,useId} from "react";
 import "./support-picker.css";
-export default function SupportPicker({ position, disabled, users, selected, onChange, label, removeLabel = "Remover apoio", filterLabel, className = "" }: any) {
+export default function SupportPicker({ position, disabled, users, selected, onChange, label, removeLabel = "Remover apoio", filterLabel, onCreate, placeholder = "Pesquisar usuário...", emptyLabel = "Nenhum usuário encontrado.", className = "" }: any) {
   const optionsId = useId();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -42,6 +42,13 @@ export default function SupportPicker({ position, disabled, users, selected, onC
   const filtered = users.filter((u: any) =>
     matchesSearch(fold(u.display_name || u.email), fold(query.trim())),
   );
+  const exactMatch = users.find((u:any)=>fold((u.display_name || u.email).trim())===fold(query.trim()));
+  const canCreate = !!onCreate && !!query.trim() && query.trim().length<=120 && !exactMatch;
+  const createOption = () => {
+    if(!canCreate)return;
+    onCreate(query.trim());
+    setQuery("");
+  };
   return (
     <div
       className={"support-picker " + className}
@@ -51,7 +58,13 @@ export default function SupportPicker({ position, disabled, users, selected, onC
           setOpen(false);
         }
         // Enter in this picker selects a person without submitting the operation.
-        if (e.key === "Enter") { e.stopPropagation(); if(e.target instanceof HTMLInputElement)e.preventDefault(); }
+        if (e.key === "Enter") { e.stopPropagation(); if(e.target instanceof HTMLInputElement){
+          e.preventDefault();
+          if(!e.nativeEvent.isComposing && onCreate){
+            if(canCreate)createOption();
+            else if(exactMatch && !selected.includes(exactMatch.email)){onChange([...selected,exactMatch.email]);setQuery("");}
+          }
+        } }
       }}
     >
       <div className="support-selected">
@@ -100,7 +113,8 @@ export default function SupportPicker({ position, disabled, users, selected, onC
           <input
             autoFocus
             aria-label={filterLabel || "Filtrar equipe de apoio " + position}
-            placeholder="Pesquisar usuário..."
+            placeholder={placeholder}
+            maxLength={onCreate ? 120 : undefined}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -125,7 +139,8 @@ export default function SupportPicker({ position, disabled, users, selected, onC
                 )}
               </button>
             ))}
-            {!filtered.length && <small>Nenhum usuário encontrado.</small>}
+            {canCreate && <button type="button" onClick={createOption}>Adicionar “{query.trim()}”</button>}
+            {!filtered.length && !canCreate && <small>{emptyLabel}</small>}
           </div>
         </div>
       )}

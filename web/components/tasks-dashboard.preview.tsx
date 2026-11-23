@@ -1,4 +1,5 @@
 "use client";
+import {useSessionAccess} from "./session-access";
 import UnifiedCalendar from "./unified-calendar";
 import ActionNotice from "./action-notice";
 import {operationTask,manuallyCompletableTask} from "@/lib/tasks/completion-policy";
@@ -1850,6 +1851,8 @@ const TaskContext = createContext<{ tasks: any[]; open: (id: string) => void }>(
   { tasks: [], open: () => {} },
 );
 export function EquipmentTaskProvider({ children }: { children: ReactNode }) {
+  const {modules:allowed}=useSessionAccess();
+  const canReadTasks=!allowed||allowed.includes("tarefas");
   const [tasks, setTasks] = useState<any[]>([]),
     [selected, setSelected] = useState<string | null>(null),
     [error, setError] = useState("");
@@ -1858,6 +1861,7 @@ export function EquipmentTaskProvider({ children }: { children: ReactNode }) {
     setTasks(b.tasks);
   }
   useEffect(() => {
+    if(!canReadTasks){setTasks([]);setSelected(null);setError("");return;}
     let alive = true, refreshing = false, failureNotified = false;
     async function refresh() {
       if (refreshing) return;
@@ -1890,7 +1894,7 @@ export function EquipmentTaskProvider({ children }: { children: ReactNode }) {
       alive = false;
       clearInterval(timer);
     };
-  }, []);
+  }, [canReadTasks]);
   return (
     <TaskContext.Provider
       value={{ tasks, open: (id) => setSelected(String(id)) }}

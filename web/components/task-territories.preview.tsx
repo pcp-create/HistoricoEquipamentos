@@ -1,4 +1,5 @@
 "use client";
+import {canParticipate} from "@/lib/user-modules";
 import ActionNotice from "./action-notice";
 import {tableFilterValues} from "@/lib/table-filter-values";
 import SheetFillCell from "./sheet-fill-cell";
@@ -47,7 +48,7 @@ export default function TaskTerritories(){
  }
  function resolveUser(value:string,seller:boolean){
   if(!value.trim()&&seller)return '';
-  const candidates=users.filter(user=>(!seller||/^vendedor(a)?$/i.test(user.job_title?.trim()))&&(fold(user.email)===fold(value)||fold(user.display_name||'')===fold(value)));
+  const candidates=users.filter(user=>(!seller||canParticipate(user,'seller'))&&(fold(user.email)===fold(value)||fold(user.display_name||'')===fold(value)));
   if(candidates.length!==1)throw Error(`Usuário "${value}" inválido ou ambíguo. Informe o e-mail de um ${seller?'vendedor':'usuário'} ativo.`);
   return candidates[0].email;
  }
@@ -89,6 +90,6 @@ export default function TaskTerritories(){
   </div>
   {!rows.length&&<p>{loaded?'Nenhuma regra nos filtros selecionados.':'Carregando divisão comercial…'}</p>}
   <datalist id="territory-users">{users.map(user=><option key={user.email} value={user.email}>{user.display_name}</option>)}</datalist>
-  <datalist id="territory-sellers">{users.filter(user=>/^vendedor(a)?$/i.test(user.job_title?.trim())).map(user=><option key={user.email} value={user.email}>{user.display_name}</option>)}</datalist>
+  <datalist id="territory-sellers">{users.filter(user=>canParticipate(user,'seller')).map(user=><option key={user.email} value={user.email}>{user.display_name}</option>)}</datalist>
  </section>
 }

@@ -1,3 +1,4 @@
+import {participantSql} from "../user-module-sql";
 import 'server-only';
 import {database} from '../db';
 import {AdminInputError} from '../admin-store';
@@ -12,8 +13,8 @@ export async function leadSellerOptions(key:unknown,email:string){
  const db=database(),actor=await visitIdentity(db,email);
  const lead=(await db.query('SELECT owner FROM web_sales_leads WHERE id=$1',[leadId(key)])).rows[0];
  if(!lead)throw new AdminInputError('Lead não encontrado.');
- if(lead.owner!==email&&!canManageVisits(actor.role))throw new Forbidden();
- const sellers=(await db.query("SELECT email AS id,COALESCE(NULLIF(display_name,''),email) AS name FROM web_user_access WHERE enabled AND lower(trim(job_title)) IN ('vendedor','vendedora') ORDER BY display_name,email")).rows;
+ if(lead.owner!==email&&!canManageVisits(actor))throw new Forbidden();
+ const sellers=(await db.query(`SELECT email AS id,COALESCE(NULLIF(display_name,''),email) AS name FROM web_user_access WHERE enabled AND ${participantSql("seller")} ORDER BY display_name,email`)).rows;
  return {owner:lead.owner,sellers};
 }
 export async function changeLeadSeller(body:any,email:string){
@@ -26,9 +27,9 @@ export async function changeLeadSeller(body:any,email:string){
   const actor=await visitIdentity(c,email);
   const lead=(await c.query('SELECT * FROM web_sales_leads WHERE id=$1 FOR UPDATE',[id])).rows[0];
   if(!lead)throw new AdminInputError('Lead não encontrado.');
-  if(lead.owner!==email&&!canManageVisits(actor.role))throw new Forbidden();
+  if(lead.owner!==email&&!canManageVisits(actor))throw new Forbidden();
   if(lead.owner!==body.expectedOwner)throw new AdminInputError('O responsável pelo lead foi alterado. Atualize os dados antes de salvar.');
-  const target=(await c.query("SELECT email FROM web_user_access WHERE email=$1 AND enabled AND lower(trim(job_title)) IN ('vendedor','vendedora') FOR SHARE",[seller])).rows[0];
+  const target=(await c.query(`SELECT email FROM web_user_access WHERE email=$1 AND enabled AND ${participantSql("seller")} FOR SHARE`,[seller])).rows[0];
   if(!target)throw new AdminInputError('Selecione um vendedor ativo.');
   if(lead.owner!==seller){
    await c.query('UPDATE web_sales_leads SET owner=$2 WHERE id=$1',[id,seller]);
