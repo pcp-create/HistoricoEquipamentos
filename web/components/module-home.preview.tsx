@@ -91,7 +91,7 @@ const modules = [
 
 export default function ModuleHome({ moduleId }: { moduleId?: string }) {
   const {visitManager,modules:allowed} = useSessionAccess();
-  const visibleModules=modules.filter(module=>!allowed||allowed.includes(module.id==='configuracoes'?'administracao':module.id));
+  const visibleModules=modules.filter(module=>!allowed||allowed.includes(module.id));
   const selected = visibleModules.find((module) => module.id === moduleId);
   return (
     <div className="module-home">

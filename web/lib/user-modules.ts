@@ -4,13 +4,13 @@ export const USER_MODULES = [
  {id:'portal-tecnico',name:'Portal técnico'}, {id:'visitas',name:'Portal do vendedor / Visitas'},
  {id:'gestao-visitas',name:'Gestão de Visitas'}, {id:'suprimentos',name:'Suprimentos'}, {id:'equipamentos',name:'Gestão de equipamentos'},
  {id:'tarefas',name:'Tarefas'}, {id:'oficina',name:'Oficina'}, {id:'almoxarifado',name:'Almoxarifado'},
- {id:'calendario',name:'Calendário'}, {id:'administracao',name:'Administração / Configurações'},
+ {id:'calendario',name:'Calendário'}, {id:'administracao',name:'Administração'}, {id:'configuracoes',name:'Configurações'},
 ] as const;
 export const moduleIds=USER_MODULES.map(m=>m.id) as string[];
 export function userModules(user:any):string[]{
  if(user?.enabled===false)return [];
  // NULL retains legacy access until an administrator explicitly configures the profile.
- const configured=Array.isArray(user?.modules)?user.modules.map((id:unknown)=>id==='tecnico'?'portal-tecnico':id==='programacao'?'assistencia-tecnica':id).filter((id:unknown)=>typeof id==='string'&&moduleIds.includes(id)):moduleIds.filter(id=>(id!=='administracao'||user?.role==='admin')&&(id!=='gestao-visitas'||['admin','manager'].includes(user?.role)));
+ const configured=Array.isArray(user?.modules)?user.modules.map((id:unknown)=>id==='tecnico'?'portal-tecnico':id==='programacao'?'assistencia-tecnica':id).filter((id:unknown)=>typeof id==='string'&&moduleIds.includes(id)):moduleIds.filter(id=>(!['administracao','configuracoes'].includes(id)||user?.role==='admin')&&(id!=='gestao-visitas'||['admin','manager'].includes(user?.role)));
  // Administrative accounts must retain access to manage permissions.
  return user?.role==='admin'?Array.from(new Set<string>([...configured,'administracao'])):configured;
 }
@@ -29,7 +29,7 @@ export function modulesForPath(path:string):string[]{
   const shared:Record<string,string[]>={
    'customer-registry':['crm','visitas','gestao-visitas'], 'customer-contacts':['crm','visitas','gestao-visitas','assistencia-tecnica'], 'contact-sync':['crm','visitas','gestao-visitas','assistencia-tecnica'],
    'customer-fleet':['equipamentos','visitas','gestao-visitas','assistencia-tecnica','crm'], 'products':['suprimentos','crm','assistencia-tecnica','portal-tecnico','almoxarifado','oficina'],
-   'registries':['crm','visitas','gestao-visitas','assistencia-tecnica','equipamentos','suprimentos','oficina'],
+   'registries':['configuracoes','crm','visitas','gestao-visitas','assistencia-tecnica','equipamentos','suprimentos','oficina'],
    'service-orders':['crm','assistencia-tecnica'], 'orders':['crm','assistencia-tecnica'], 'localities':['assistencia-tecnica','portal-tecnico','visitas'],
    'task-settings':['tarefas','administracao'], 'task-stages':['tarefas','administracao'], 'task-territories':['tarefas','visitas','gestao-visitas','administracao'],
    'inspections':['assistencia-tecnica','equipamentos'], 'preventive-reports':['assistencia-tecnica','equipamentos'], 'rental-reports':['equipamentos'], 'dsu':['assistencia-tecnica'],
@@ -40,11 +40,12 @@ export function modulesForPath(path:string):string[]{
   if(path.startsWith('/api/service-scheduling/photos'))return ['assistencia-tecnica','portal-tecnico'];
  }
  if(/^\/(visitas\/gestao|api\/visits\/management)(\/|$)/.test(path))return ['gestao-visitas'];
- if(path.startsWith('/modulos/'))return [path.split('/')[2]==='configuracoes'?'administracao':path.split('/')[2]];
+ if(path.startsWith('/modulos/'))return [path.split('/')[2]];
  const roots:[RegExp,string[]][]=[
+ [/^\/(configuracoes|api\/contact-job-types|api\/catalog-configuration)(\/|$)/,['configuracoes']],
  [/^\/(tecnico|api\/field)(\/|$)/,['portal-tecnico']],
  [/^\/(visitas|api\/visits)(\/|$)/,['visitas','gestao-visitas']],
- [/^\/(administracao|api\/admin|configuracoes|api\/contact-job-types|api\/catalog-configuration)(\/|$)/,['administracao']],
+ [/^\/(administracao|api\/admin)(\/|$)/,['administracao']],
  [/^\/(comercial|crm|orcamentos|api\/crm|api\/quotes|api\/m8-quotes|api\/billing-evolution|api\/sales-projection|api\/commercial)(\/|$)/,['crm']],
  [/^\/(programacao|historico|OrdemServico|bo|analise-vibracao|caca-vazamento|api\/service-scheduling|api\/history|api\/equipment-occurrences|api\/vibration-reports|api\/leakage-reports)(\/|$)/,['assistencia-tecnica']],
  [/^\/(equipamentos|api\/equipment-management|api\/equipment|api\/rental)(\/|$)/,['equipamentos']],

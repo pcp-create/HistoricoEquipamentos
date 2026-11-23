@@ -41,7 +41,7 @@ test('administrators retain administration independently of module selection',()
  for(const modules of [null,[],['crm'],['crm','administracao']]){
   const access=userModules({role:'admin',enabled:true,modules});
   assert.equal(access.filter(id=>id==='administracao').length,1);
-  for(const path of ['/administracao','/api/admin','/configuracoes'])assert.ok(canOpenPath(access,path));
+  for(const path of ['/administracao','/api/admin'])assert.ok(canOpenPath(access,path));
  }
  assert.deepEqual(userModules({role:'admin',enabled:false,modules:['administracao']}),[]);
  assert.equal(userModules({role:'user',enabled:true,modules:[]}).includes('administracao'),false);
@@ -71,4 +71,11 @@ test('visits management has an independent selectable permission',async()=>{
  assert.equal(canOpenPath(['visitas'],'/visitas/gestao'),false);
  assert.equal(canOpenPath(['gestao-visitas'],'/visitas/gestao'),true);
  assert.equal(canOpenPath(['gestao-visitas'],'/api/visits/management'),true);
+});
+
+test('configuration access is separate from administration',()=>{
+ const config=userModules({role:'user',enabled:true,modules:['configuracoes']});
+ for(const path of ['/configuracoes/cadastros','/modulos/configuracoes','/api/catalog-configuration','/api/registries/quote-types'])assert.ok(canOpenPath(config,path));
+ for(const path of ['/administracao','/api/admin'])assert.equal(canOpenPath(config,path),false);
+ assert.equal(canOpenPath(userModules({role:'admin',enabled:true,modules:[]}),'/configuracoes'),false);
 });
