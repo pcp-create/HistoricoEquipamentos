@@ -239,7 +239,7 @@ async function finishPending(c: any, p: any, email: string, materialsComplete: b
   const progress = (await c.query(`SELECT
     EXISTS(SELECT 1 FROM web_field_events WHERE operation_id=$1 AND actor=$2 AND action='info_read') AS info,
     EXISTS(SELECT 1 FROM web_field_material_checks WHERE operation_id=$1 AND actor=$2) AS checked,
-    EXISTS(SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND kind='work' AND (state='finished' OR actor=$2)) AS worked,
+    EXISTS(SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND kind='work' AND actor=$2) AS worked,
     EXISTS(SELECT 1 FROM web_field_sessions WHERE operation_id=$1 AND actor=$2 AND kind<>'work' AND state<>'finished') AS active
   `, [p.id, email])).rows[0];
   const pending: string[] = [];
@@ -247,7 +247,7 @@ async function finishPending(c: any, p: any, email: string, materialsComplete: b
   if (!materialsComplete || !progress.checked) pending.push("Peças: conclua a conferência dos materiais.");
   if (!progress.worked) pending.push("Atividade: registre e conclua um apontamento de atividade.");
   if (progress.active) pending.push("Apontamentos: finalize seu deslocamento informando o odômetro antes de encerrar.");
-  if (p.document.checklistId) {
+  if (p.document.checklistId && p.document.responsible === email) {
     if (!reportSubmission(p.document.checklistRun)) pending.push("Relatório: conclua as etapas obrigatórias e faça o envio completo.");
     else {
       try { prepareChecklistSubmission(p.document.checklistRun, email,p.document); }
@@ -573,7 +573,7 @@ export async function fieldAction(b: any, email: string) {
       const receipt={at:occurredAt,by:email,name:(await user(c,email)).display_name||email};
       if(partial)checklistRun.partialSubmission=receipt;
       else checklistRun.submission=receipt;
-      await c.query("UPDATE web_service_operations SET document=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1",[p.id,JSON.stringify({...p.document,checklistRun,...(!partial?{requireTechnicianClosure:true,technicianClosures:{}}:{})}),email]);
+      await c.query("UPDATE web_service_operations SET document=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1",[p.id,JSON.stringify({...p.document,checklistRun,...(!partial?{requireTechnicianClosure:true,technicianClosures:p.document.technicianClosures||{}}:{})}),email]);
       await c.query('INSERT INTO web_service_operation_events(operation_id,action,actor,description) VALUES($1,$2,$3,$4)',[p.id,b.action,email,partial?'Relatório enviado parcialmente; edição permanece liberada':'Relatório enviado completo pelo técnico']);
       operationUpdated=true;
     } else if (b.action === "finish_full") {

@@ -422,7 +422,7 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
       /menor/,
     );
     await act("stop", { sessionId: session.id, odometer: 1010 });
-    await assert.rejects(act("finish_full", {}, "helper"), /envio completo/);
+    await assert.rejects(act("finish_full", {}, "helper"), /Atividade/);
     await assert.rejects(act("finish_partial"), /não está mais disponível/);
     await act("start_work");
     session = (
@@ -433,6 +433,14 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     await act("stop", { sessionId: session.id });
     await assert.rejects(act("finish_partial"), /não está mais disponível/);
     assert.ok((await fieldData("tech")).rows?.some((row: any) => row.id === id));
+    await act("start_work");
+    await act("start_work", {}, "helper");
+    assert.deepEqual((await fieldData("helper", id)).finishPending, []);
+    await act("finish_full", {}, "helper");
+    assert.equal((await fieldData("tech", id)).operation.status, "executing");
+    assert.equal((await fieldData("tech")).active?.state, "running");
+    const responsibleSession = (await fieldData("tech")).active;
+    await act("stop", { sessionId: responsibleSession.id });
     const pendingFinish: any = await fieldData("tech", id);
     assert.ok(pendingFinish.finishPending.some((v: string) => v.startsWith("Relatório:")));
     await assert.rejects(act("finish_full"), /envio completo/);
@@ -447,16 +455,12 @@ test("field actions enforce dispatch, own assignment, material review, shared ve
     await act("start_work");
     await act("finish_full");
     const waitingTeam:any=await fieldData('tech',id);
-    assert.equal(waitingTeam.operation.status,'executing');
+    assert.equal(waitingTeam.operation.status,'awaiting_review');
     assert.equal(waitingTeam.technicianClosed,true);
-    assert.deepEqual(waitingTeam.pendingTechnicians,['helper']);
-    assert.ok(!(await fieldData('tech')).rows?.some((row:any)=>row.id===id));
-    assert.ok((await fieldData('helper')).rows?.some((row:any)=>row.id===id));
-    await assert.rejects(act('start_work'),/encerrada|revisão/);
-    await act('start_work',{},'helper');
-    await act('finish_full',{},'helper');
-    assert.equal((await fieldData('tech',id) as any).operation.status,'awaiting_review');
+    assert.deepEqual(waitingTeam.pendingTechnicians,[]);
+    assert.ok(waitingTeam.operation.document.technicianClosures.helper);
     assert.ok(!(await fieldData('helper')).rows?.some((row:any)=>row.id===id));
+    await assert.rejects(act('start_work'),/encerrada|revisão/);
     const beforeClosedMaterials=JSON.stringify((await fieldData('tech',id)).materials);
     await assert.rejects(act('materials',parts(0,1)),/Operação finalizada/);
     assert.equal(JSON.stringify((await fieldData('tech',id)).materials),beforeClosedMaterials);

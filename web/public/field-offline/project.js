@@ -5,7 +5,7 @@ function projectField(home, detail, body) {
     action = body.action;
   if (op.document.responsible !== home.email &&
       (/^(report_|checklist_)/.test(action)))
-    throw new Error("Somente o técnico responsável pode acessar o relatório ou finalizar a operação.");
+    throw new Error("Somente o técnico responsável pode acessar o relatório.");
   const submitted=!!(detail.reportSubmission||op.document.checklistRun?.submission);
   if(action==='materials'&&['awaiting_review','reviewed','completed'].includes(op.status))throw Error('Operação finalizada. Peças disponíveis somente para consulta; devoluções não são permitidas.');
   const returnsOnly=submitted;
@@ -30,7 +30,7 @@ function projectField(home, detail, body) {
       }
     }
   }
-  if(action==='finish_full'&&op.document.checklistId&&!submitted)throw Error('Conclua e envie o relatório antes de encerrar.');
+  if(action==='finish_full'&&op.document.responsible===home.email&&op.document.checklistId&&!submitted)throw Error('Conclua e envie o relatório antes de encerrar.');
   let active = home.active,
     closed = null;
   const same = active?.operation_id === op.id;
@@ -198,7 +198,7 @@ function projectField(home, detail, body) {
       run.meterDate = stage.meterDate;
     }
     if (action === "report_send") {
-      op.document.requireTechnicianClosure=true;op.document.technicianClosures={};
+      op.document.requireTechnicianClosure=true;op.document.technicianClosures={...op.document.technicianClosures};
       run.submission = { at, by: home.email, name: home.displayName };
       detail.reportSubmission = run.submission;
     }
@@ -208,7 +208,7 @@ function projectField(home, detail, body) {
     op.status = "planning";
   }
   else if (action === "finish_full") {
-    if(op.document.checklistId&&!submitted)throw Error('Conclua e envie o relatório antes de encerrar.');
+    if(op.document.responsible===home.email&&op.document.checklistId&&!submitted)throw Error('Conclua e envie o relatório antes de encerrar.');
     op.document.requireTechnicianClosure=true;
     op.document.technicianClosures={...op.document.technicianClosures,[home.email]:{at,by:home.email}};
     detail.technicianClosed=true;
@@ -245,7 +245,7 @@ function projectField(home, detail, body) {
     detail.finishPending.push(
       "Apontamentos: finalize os apontamentos em andamento.",
     );
-  if (op.document.checklistId && !detail.reportSubmission)
+  if (op.document.responsible === home.email && op.document.checklistId && !detail.reportSubmission)
     detail.finishPending.push("Relatório: conclua e envie o relatório.");
   detail.history = [
     {
