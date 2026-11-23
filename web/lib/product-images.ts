@@ -187,10 +187,10 @@ export class ProductImageService {
     this.authentication.set(company, promise);
     return promise;
   }
-  async get(company: string, id: string): Promise<ImageSet> {
+  async get(company: string, id: string, refresh = false): Promise<ImageSet> {
     const key = imageIdentity(company, id);
     const cached = this.cache.get(key);
-    if (cached && cached.expires > this.now()) {
+    if (cached && cached.expires > this.now() && (!refresh || this.now() - Date.parse(cached.data.collectedAt) < 5000)) {
       this.cache.delete(key);
       this.cache.set(key, cached);
       return cached.data;

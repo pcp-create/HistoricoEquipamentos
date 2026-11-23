@@ -1,4 +1,5 @@
 "use client";
+import M8PhotoUpload from "./m8-photo-upload";
 import ActionNotice from "./action-notice";
 import { apiFetch } from "@/lib/client-api-cache";
 import { useEffect, useRef, useState } from "react";
@@ -18,6 +19,7 @@ export default function MaterialPhoto({
   compact?: boolean;
   allowAddPhotos?: boolean;
 }) {
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [index, setIndex] = useState(0);
   const [expandedIndex, setExpandedIndex] = useState(0);
@@ -28,7 +30,8 @@ export default function MaterialPhoto({
   const [retry, setRetry] = useState(0);
   const uploadUrl = allowAddPhotos ? m8ProductPhotoUrl(id) : null;
   const itemCount = (photo?.images.length || 0) + (uploadUrl ? 1 : 0);
-  const addPhoto = (tabIndex = 0) => uploadUrl && <a className="material-photo-add" href={uploadUrl} target="_blank" rel="noopener noreferrer" tabIndex={tabIndex} aria-label={`Adicionar fotos de ${name} no M8`} title="Adicionar fotos no M8 (abre em nova aba)" onClick={e=>e.stopPropagation()}><Plus size={30} aria-hidden="true"/><span>Adicionar fotos</span></a>;
+  const addPhoto = (tabIndex = 0) => uploadUrl && <button type="button" className="material-photo-add" tabIndex={tabIndex} aria-label={`Adicionar fotos de ${name} no M8`} title="Adicionar fotos no M8" onClick={e=>{e.stopPropagation();dialog.current?.close();setUploadOpen(true);}}><Plus size={30} aria-hidden="true"/><span>Adicionar fotos</span></button>;
+
   const visibleCount = compact ? 1 : 2;
   const companyKey = companies.join(",");
   useEffect(() => {
@@ -78,6 +81,7 @@ export default function MaterialPhoto({
   }, [id, companyKey, retry]);
   return (
     <div className={`material-photo${compact ? " equipment-photo" : ""}`}>
+      {uploadOpen && uploadUrl && <M8PhotoUpload key={id} id={id} name={name} url={uploadUrl} onClose={()=>setUploadOpen(false)} onPhotos={images=>{setPhoto({company:1,images});setIndex(0);setExpandedIndex(0);setBroken([]);}}/>}
       {loading ? (
         <small role="status">Carregando foto…</small>
       ) : error ? (

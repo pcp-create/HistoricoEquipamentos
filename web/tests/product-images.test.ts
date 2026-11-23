@@ -69,6 +69,15 @@ test("M8 image cache isolates companies, coalesces requests, expires and retries
     now += 600001;
     await service.get("1", "10");
     assert.equal(images, 4);
+    // Targeted refresh bypasses the normal ten-minute cache, but is bounded.
+    await service.get("1", "10", true);
+    assert.equal(images, 4);
+    now += 5001;
+    await service.get("1", "10", true);
+    assert.equal(images, 5);
+    await service.get("2", "10");
+    assert.equal(images, 6); // Other company's existing cache expired normally.
+
   } finally {
     keys.forEach((k, i) => {
       if (previous[i] === undefined) delete process.env[k];

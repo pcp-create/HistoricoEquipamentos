@@ -29,7 +29,7 @@ export async function GET(
         { status: 400, headers },
       );
     }
-    const data = await productImages().get(company, id);
+    const data = await productImages().get(company, id, !image && new URL(request.url).searchParams.get("refresh") === "1");
     if (image) {
       const item = data.images.find((i) => i.key === image);
       if (!item)
