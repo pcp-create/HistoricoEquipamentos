@@ -10,7 +10,7 @@ function acquireRegion(target:HTMLElement){
  region.count++;
  return {element:region.element,release:()=>{if(--region!.count===0){region!.element.remove();regions.delete(target);}}};
 }
-export default function ActionToast({message,type='error',onClose,actions}:{message:string;type?:'error'|'success';onClose:()=>void;actions?:ReactNode}){
+export default function ActionToast({message,type='error',onClose,actions,autoCloseMs}:{message:string;type?:'error'|'success';onClose:()=>void;actions?:ReactNode;autoCloseMs?:number}){
  const close=useRef(onClose);close.current=onClose;
  const anchor=useRef<HTMLSpanElement>(null),[container,setContainer]=useState<HTMLDivElement|null>(null);
  const visible=!!message;
@@ -24,10 +24,11 @@ export default function ActionToast({message,type='error',onClose,actions}:{mess
   return region.release;
  },[visible]);
  useEffect(()=>{
-  if(!message||type!=='success')return;
-  const timer=window.setTimeout(()=>close.current(),3000);
+  const delay=autoCloseMs ?? (type==='success'?3000:0);
+  if(!message||delay<=0)return;
+  const timer=window.setTimeout(()=>close.current(),delay);
   return()=>window.clearTimeout(timer);
- },[message,type]);
+ },[message,type,autoCloseMs]);
  return <><span ref={anchor} hidden/>{message&&container&&createPortal(<div className={`action-toast action-toast--${type}`} role={type==='error'?'alert':'status'}>
   {type==='error'?<AlertTriangle size={21} aria-hidden="true"/>:<CheckCircle2 size={21} aria-hidden="true"/>}
   <span>{message}</span>{actions&&<div className="action-toast-actions">{actions}</div>}<button type="button" aria-label="Fechar notificação" onClick={onClose}><X size={19} aria-hidden="true"/></button>

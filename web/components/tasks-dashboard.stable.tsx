@@ -1864,19 +1864,28 @@ export function EquipmentTaskProvider({ children }: { children: ReactNode }) {
     setTasks(b.tasks);
   }
   useEffect(() => {
-    let alive = true;
+    let alive = true, refreshing = false, failureNotified = false;
     async function refresh() {
+      if (refreshing) return;
+      refreshing = true;
       try {
-        const b = await taskSnapshot();
+        // Equipment links only read existing tasks. Full synchronization belongs
+        // to the Tasks module and must not block unrelated screens.
+        const b = await api("/api/tasks");
         if (alive) {
           setTasks(b.tasks);
           setError("");
+          failureNotified = false;
         }
       } catch {
-        if (alive)
+        if (alive && !failureNotified) {
+          failureNotified = true;
           setError(
             "Tarefas indisponíveis. Acesse o módulo Tarefas para atualizar os alertas.",
           );
+        }
+      } finally {
+        refreshing = false;
       }
     }
     void refresh();
@@ -1894,7 +1903,7 @@ export function EquipmentTaskProvider({ children }: { children: ReactNode }) {
     >
       {children}
       {error && (
-        <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
+        <ActionNotice autoCloseMs={5000} type="error" onClose={()=>setError('')}>{error}</ActionNotice>
       )}
       {selected && (
         <TaskDrawer
