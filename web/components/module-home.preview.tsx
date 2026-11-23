@@ -1,4 +1,5 @@
 "use client";
+import {MODULE_SECTIONS,hasModuleAccess} from "@/lib/module-sections";
 import {canOpenPath} from "@/lib/user-modules";
 
 import {useSessionAccess} from "./session-access";
@@ -91,7 +92,7 @@ const modules = [
 
 export default function ModuleHome({ moduleId }: { moduleId?: string }) {
   const {visitManager,modules:allowed} = useSessionAccess();
-  const visibleModules=modules.filter(module=>!allowed||allowed.includes(module.id));
+  const visibleModules=modules.filter(module=>!allowed||hasModuleAccess(allowed,module.id));
   const selected = visibleModules.find((module) => module.id === moduleId);
   return (
     <div className="module-home">
@@ -116,7 +117,7 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
             className="module-menu-grid"
             aria-label={"Menus de " + selected.title}
           >
-            {selected.links.filter(([,href])=>!allowed||canOpenPath(allowed,href)).filter(([, href]) => href !== "/visitas/gestao" || visitManager).map(([label, href]) => (
+            {(MODULE_SECTIONS[selected.id]?.map(section=>[section.name,section.paths[0]])||selected.links).filter(([,href])=>!allowed||canOpenPath(allowed,href)).filter(([, href]) => href !== "/visitas/gestao" || visitManager).map(([label, href]) => (
               <Link
                 prefetch={false}
                 className="module-menu-item"

@@ -24,7 +24,7 @@ test('multi-job profile persists atomically, qualifies on both maps, and rejects
  const db=new PGlite(),g=globalThis as any,old=g.historyPool;
  try{
  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated');
- for(const file of ['008_administration.sql','009_employees.sql','021_employee_task_color.sql','095_employee_deletion.sql','121_user_modules.sql'])await db.exec(readFileSync(new URL('../sql/'+file,import.meta.url),'utf8'));
+ for(const file of ['008_administration.sql','009_employees.sql','021_employee_task_color.sql','095_employee_deletion.sql','121_user_modules.sql','124_module_sections.sql'])await db.exec(readFileSync(new URL('../sql/'+file,import.meta.url),'utf8'));
  const query=db.query.bind(db);g.historyPool={query,connect:async()=>({query,release(){}})};
  const form={email:'dual@test.com',mode:'create',display_name:'Técnico e vendedor',department:'Serviços',job_titles:['Técnico','Vendedor'],modules:['portal-tecnico','visitas'],phone:'555180880512',role:'user',enabled:true,alert_preventive:false,alert_rental:false,alert_email:false,alert_whatsapp:false};
  await setAccess(form,{id:'admin',email:'guih.waltrick@gmail.com'});
@@ -32,6 +32,8 @@ test('multi-job profile persists atomically, qualifies on both maps, and rejects
  assert.equal(rows.rows[0].technician,true);assert.equal(rows.rows[0].seller,true);assert.deepEqual(rows.rows[0].modules,form.modules);
  await setAccess({...form,mode:'update',modules:['visitas']},{id:'admin',email:'guih.waltrick@gmail.com'});
  assert.equal((await db.query<any>(`SELECT ${participantSql('technician')} yes FROM web_user_access WHERE email=$1`,[form.email])).rows[0].yes,false);
+ await setAccess({...form,mode:'update',modules:['crm:projecao']},{id:'admin',email:'guih.waltrick@gmail.com'});
+ assert.deepEqual((await db.query<any>('SELECT modules FROM web_user_access WHERE email=$1',[form.email])).rows[0].modules,['crm:projecao']);
  assert.throws(()=>employeeFields({...form,modules:['inventado']}),/Módulo inválido/);
  assert.throws(()=>employeeFields({...form,job_titles:'Técnico'}),/Seleção/);
  }finally{g.historyPool=old;await db.close();}
@@ -78,4 +80,30 @@ test('configuration access is separate from administration',()=>{
  for(const path of ['/configuracoes/cadastros','/modulos/configuracoes','/api/catalog-configuration','/api/registries/quote-types'])assert.ok(canOpenPath(config,path));
  for(const path of ['/administracao','/api/admin'])assert.equal(canOpenPath(config,path),false);
  assert.equal(canOpenPath(userModules({role:'admin',enabled:true,modules:[]}),'/configuracoes'),false);
+});
+
+test('selecting modules and sections preserves independent grants and blocks sibling routes',async()=>{
+ const {toggleModule,toggleSection,sectionSelected,hasModuleAccess}=await import('../lib/module-sections');
+ let selected=['visitas','crm'];
+ selected=toggleSection(selected,'crm','crm:projecao');
+ assert.equal(selected.includes('crm'),false);
+ assert.equal(sectionSelected(selected,'crm','crm:projecao'),false);
+ assert.equal(sectionSelected(selected,'crm','crm:evolucao'),true);
+ assert.equal(selected.includes('visitas'),true);
+ assert.equal(canOpenPath(selected,'/comercial/projecao'),false);
+ assert.equal(canOpenPath(selected,'/api/sales-projection'),false);
+ assert.equal(canOpenPath(selected,'/comercial/evolucao'),true);
+ selected=toggleModule(selected,'crm');assert.deepEqual(selected,['visitas','crm']);
+ selected=toggleModule(selected,'crm');assert.deepEqual(selected,['visitas']);
+ selected=toggleSection(selected,'crm','crm:projecao');
+ assert.equal(hasModuleAccess(selected,'crm'),true);
+ assert.equal(canOpenPath(selected,'/modulos/crm'),true);
+ assert.equal(canOpenPath(selected,'/comercial/projecao'),true);
+ assert.equal(canOpenPath(selected,'/api/sales-projection'),true);
+ assert.equal(canOpenPath(selected,'/crm'),false);
+ assert.equal(canOpenPath(selected,'/api/crm'),false);
+ assert.equal(canOpenPath(['crm:orcamentos'],'/orcamentos/novo'),false);
+ assert.equal(canOpenPath(['configuracoes:cadastros'],'/configuracoes/cadastros/crm'),false);
+ assert.equal(canOpenPath(['crm:catalogo'],'/fabricante'),true);
+ assert.equal(canOpenPath(['equipamentos:locacao'],'/equipamentos/inspecoes'),false);
 });

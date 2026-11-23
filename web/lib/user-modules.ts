@@ -1,3 +1,4 @@
+import {MODULE_SECTIONS,hasModuleAccess,sectionsForPath} from './module-sections';
 /** Stable identifiers shared by administration, navigation and server authorization. */
 export const USER_MODULES = [
  {id:'crm',name:'Comercial / CRM'}, {id:'assistencia-tecnica',name:'Assistência técnica / Programação'},
@@ -6,11 +7,11 @@ export const USER_MODULES = [
  {id:'tarefas',name:'Tarefas'}, {id:'oficina',name:'Oficina'}, {id:'almoxarifado',name:'Almoxarifado'},
  {id:'calendario',name:'Calendário'}, {id:'administracao',name:'Administração'}, {id:'configuracoes',name:'Configurações'},
 ] as const;
-export const moduleIds=USER_MODULES.map(m=>m.id) as string[];
+export const moduleIds:string[]=[...USER_MODULES.map(m=>m.id),...Object.values(MODULE_SECTIONS).flat().map(s=>s.id)];
 export function userModules(user:any):string[]{
  if(user?.enabled===false)return [];
  // NULL retains legacy access until an administrator explicitly configures the profile.
- const configured=Array.isArray(user?.modules)?user.modules.map((id:unknown)=>id==='tecnico'?'portal-tecnico':id==='programacao'?'assistencia-tecnica':id).filter((id:unknown)=>typeof id==='string'&&moduleIds.includes(id)):moduleIds.filter(id=>(!['administracao','configuracoes'].includes(id)||user?.role==='admin')&&(id!=='gestao-visitas'||['admin','manager'].includes(user?.role)));
+ const configured=Array.isArray(user?.modules)?user.modules.map((id:unknown)=>id==='tecnico'?'portal-tecnico':id==='programacao'?'assistencia-tecnica':id).filter((id:unknown)=>typeof id==='string'&&moduleIds.includes(id)):USER_MODULES.map(m=>m.id).filter(id=>(!['administracao','configuracoes'].includes(id)||user?.role==='admin')&&(id!=='gestao-visitas'||['admin','manager'].includes(user?.role)));
  // Administrative accounts must retain access to manage permissions.
  return user?.role==='admin'?Array.from(new Set<string>([...configured,'administracao'])):configured;
 }
@@ -58,4 +59,19 @@ export function modulesForPath(path:string):string[]{
  ];
  return roots.find(([pattern])=>pattern.test(path))?.[1]||[];
 }
-export function canOpenPath(modules:string[],path:string){const required=modulesForPath(path);return !required.length||required.some(id=>modules.includes(id));}
+export function canOpenPath(modules:string[],path:string){
+ path=path.split('?')[0];
+ if(path.startsWith('/modulos/'))return hasModuleAccess(modules,path.split('/')[2]);
+ const sections=sectionsForPath(path);
+ if(sections.length){
+  if(sections.some(id=>modules.includes(id)||modules.includes(id.split(':')[0])))return true;
+  // Shared APIs retain access for other operational modules that consume them.
+  if(path.startsWith('/api/')){
+   const parents=sections.map(id=>id.split(':')[0]);
+   return modulesForPath(path).some(id=>!parents.includes(id)&&hasModuleAccess(modules,id));
+  }
+  return false;
+ }
+ const required=modulesForPath(path);
+ return !required.length||required.some(id=>path.startsWith('/api/')?hasModuleAccess(modules,id):modules.includes(id));
+}

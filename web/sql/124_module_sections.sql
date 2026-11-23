@@ -1,0 +1,5 @@
+ALTER TABLE public.web_user_access DROP CONSTRAINT IF EXISTS web_user_access_modules_valid;
+ALTER TABLE public.web_user_access ADD CONSTRAINT web_user_access_modules_valid
+ CHECK (modules IS NULL OR (jsonb_typeof(modules)='array' AND modules <@
+ '["crm","assistencia-tecnica","portal-tecnico","visitas","gestao-visitas","suprimentos","equipamentos","tarefas","oficina","almoxarifado","calendario","administracao","configuracoes","crm:projecao","crm:evolucao","crm:contratos","crm:vendas","crm:orcamentos","crm:propostas","crm:oportunidades","crm:catalogo","assistencia-tecnica:ordens","assistencia-tecnica:programacao","assistencia-tecnica:ocorrencias","assistencia-tecnica:vibracao","assistencia-tecnica:vazamentos","assistencia-tecnica:catalogo","suprimentos:materiais","suprimentos:catalogo","equipamentos:preventivas","equipamentos:inspecoes","equipamentos:locacao","equipamentos:clientes","configuracoes:catalogo","configuracoes:cadastros","configuracoes:crm","configuracoes:divisao","configuracoes:sincronismos","configuracoes:cargos","programacao","tecnico"]'::jsonb));
+-- Existing parent selections continue granting all of their sections.
