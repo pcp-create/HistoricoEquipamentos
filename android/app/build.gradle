@@ -9,8 +9,8 @@ android {
         applicationId 'app.rjcompressores.tecnico'
         minSdk 24
         targetSdk 35
-        versionCode 40
-        versionName '2.2.30'
+        versionCode 42
+        versionName '2.2.32'
     }
     signingConfigs {
         if (signingFile.exists()) {

@@ -28,14 +28,14 @@ test('report status distinguishes saved drafts, partial sends, full sends and re
 
 import {validateAlertComments,validateFieldDetails} from '../lib/service-scheduling/checklists';
 import {checklistReport} from '../lib/service-scheduling/checklist-report';
-test('configured alerts require meaningful comments even when optional comments are disabled',()=>{
+test('NOK requires a photo but allows an empty comment',()=>{
  const field={id:'f',label:'Condição',type:'flag2',required:false,alertOptions:['NOK'],comment:false};
  const stage={id:'s',name:'Inspeção',fields:[field]};
  const run:any={template:{id:'t',name:'Checklist',items:[],stages:[stage]},stages:{s:{status:'released',answers:{f:'NOK'},details:{f:{comment:'   '}}}}};
- assert.throws(()=>prepareChecklistSubmission(run,'tech'),/Informe um comentário.*Condição/);
- assert.throws(()=>validateAlertComments(stage,{f:'NOK'},{}),/comentário/);
+ assert.throws(()=>prepareChecklistSubmission(run,'tech'),/foto/);
+ assert.throws(()=>validateAlertComments(stage,{f:'NOK'},{}),/foto/);
  assert.doesNotThrow(()=>validateAlertComments(stage,{f:'OK'},{}));
- assert.throws(()=>validateAlertComments({...stage,fields:[{...field,alertOptions:[]}]},{f:'NOK'},{}),/comentário/);
+ assert.throws(()=>validateAlertComments({...stage,fields:[{...field,alertOptions:[]}]},{f:'NOK'},{}),/foto/);
  run.stages.s.details.f.comment='Vazamento na conexão';
  run.stages.s.details.f.photos=['1'];
  assert.doesNotThrow(()=>validateFieldDetails(stage,run.stages.s.details));

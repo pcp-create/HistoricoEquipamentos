@@ -50,3 +50,12 @@ test('offline finalized operations reject materials and returns before mutating 
   assert.equal(JSON.stringify({home,detail}),before);
  }
 });
+
+
+test('offline send accepts ORÇAR without a comment and still requires NOK photos',()=>{
+ const make=(value:string)=>({operation:{id:'op',version:1,document:{responsible:'tech',checklistRun:{template:{stages:[{id:'s',fields:[{id:'f',label:'COMPRESSOR',type:'flag',options:['OK','NOK','ORÇAR'],alertOptions:['ORÇAR','NOK']}]}]},stages:{s:{answers:{f:value},details:{}}}}}}} as any);
+ const body:any={action:'report_send',offline:{capturedAt:new Date().toISOString()}};
+ const orcar=make('ORÇAR');projectField({email:'tech',active:null},orcar,body);assert.ok(orcar.reportSubmission);
+ const nok=make('NOK');assert.throws(()=>projectField({email:'tech',active:null},nok,body),/foto/);
+ nok.operation.document.checklistRun.stages.s.details.f={photos:['1']};projectField({email:'tech',active:null},nok,body);assert.ok(nok.reportSubmission);
+});

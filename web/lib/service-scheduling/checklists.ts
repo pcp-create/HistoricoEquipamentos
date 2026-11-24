@@ -78,15 +78,12 @@ export function validateAnswers(stage:ChecklistStage,raw:any,complete:boolean){
 // Older checklist snapshots predate configurable alerts. Preserve explicit configurations.
 export const effectiveAlertOptions = (f:ChecklistField):string[] => !isStatusField(f.type)?[]:f.alertOptions ?? fieldOptions(f).filter(option=>option.trim().toUpperCase()==='NOK');
 export const hasAlertComment = (f:ChecklistField) => effectiveAlertOptions(f).length>0 || isStatusField(f.type)&&fieldOptions(f).some(v=>v.trim().toUpperCase()==='NOK');
-export const requiresAlertComment = (f:ChecklistField,value:any) => isStatusField(f.type)&&String(value).trim().toUpperCase()==='NOK' || hasAlertComment(f) && fieldOptions(f).includes(value) && effectiveAlertOptions(f).includes(value);
+// Status alerts do not require comments; NOK still requires photographic evidence.
+export const requiresAlertComment = (_f:ChecklistField,_value:any) => false;
 export function validateAlertComments(stage:ChecklistStage,answers:any,details:any){
  for(const f of normalizeStage(stage).fields){
-  if(isStatusField(f.type)&&String(answers?.[f.id]).trim().toUpperCase()==='NOK'){
-   if(!details?.[f.id]?.comment?.trim())throw Error(`Informe um comentário com o item a substituir e sua referência, se houver: ${f.label}.`);
-   if(!details?.[f.id]?.photos?.length)throw Error(`Anexe uma foto do item a substituir: ${f.label} (NOK).`);
-  }
-  if(requiresAlertComment(f,answers?.[f.id]) && (typeof details?.[f.id]?.comment!=='string'||!details[f.id].comment.trim()))
-   throw Error(`Informe um comentário para o alerta: ${f.label} (${answers[f.id]}).`);
+  if(isStatusField(f.type)&&String(answers?.[f.id]).trim().toUpperCase()==='NOK'&&!details?.[f.id]?.photos?.length)
+   throw Error(`Anexe uma foto do item a substituir: ${f.label} (NOK).`);
  }
 }
 export function validateRunAlertComments(run:any){

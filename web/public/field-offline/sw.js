@@ -121,6 +121,7 @@ function queueBlockers(queue,dependencies=queueDependencies(queue)){
 }
 function recoverableFailure(item){
   return item.retryable===true
+    || (item.type==='action'&&['report_send','report_send_partial','checklist_submit'].includes(item.body?.action)&&typeof item.error==='string'&&(item.error.startsWith('Informe um comentário para o alerta: ')||item.error.startsWith('Informe um comentário com o item a substituir e sua referência, se houver: ')))
     || (item.type==='action'&&!!item.body?.offline&&item.error==='Conflito: a operação foi alterada no sistema. Os dados offline foram preservados para conferência.')
     || (isTimer(item)&&item.error==='Finalize o apontamento em andamento antes de iniciar outro.')
     || (['photo','action'].includes(item.type)&&item.error==='Inicie ou retome a atividade desta operação para preencher o relatório técnico.');

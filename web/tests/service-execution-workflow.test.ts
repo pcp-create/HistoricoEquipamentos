@@ -26,7 +26,7 @@ import {
   photoLimit,
   validateAlertComments,
 } from "../lib/service-scheduling/checklists";
-test("NOK requires a photo and identification comment even without configured photos", () => {
+test("NOK requires a photo without requiring a comment", () => {
   const field = {
       id: "filter",
       label: "Filtro",
@@ -39,7 +39,7 @@ test("NOK requires a photo and identification comment even without configured ph
   assert.ok(photoLimit(field) > 0);
   assert.throws(
     () => validateAlertComments(stage, { filter: "NOK" }, {}),
-    /comentário/,
+    /foto/,
   );
   assert.throws(
     () =>

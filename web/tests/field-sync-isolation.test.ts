@@ -123,3 +123,13 @@ test('legacy version conflict is retried automatically after offline replay rule
  await runInContext('sync()',context);
  assert.equal(records.get('tech:queue').length,0);
 });
+
+
+test('old missing-comment rejection is retried without changing report or dependent closure',async()=>{
+ const {context,records}=fixture();
+ const original={id:'failed',type:'action',operationId:'a',error:'Informe um comentário para o alerta: COMPRESSOR (ORÇAR).',failedPermanent:true,body:{action:'report_send',requestId:'failed',offline:{baseVersion:1}}};
+ const dependent={id:'finish',type:'action',operationId:'a',body:{action:'finish_full',requestId:'finish',offline:{baseVersion:2,previousRequestId:'failed'}}};
+ records.set('tech:queue',[original,dependent]);const fetchOriginal=context.fetch as any, sent:any[]=[];
+ context.fetch=async(url:string,options:any={})=>{if(options.method){sent.push(JSON.parse(options.body));return Response.json({saved:true});}return fetchOriginal(url,options);};
+ await runInContext('sync()',context);assert.deepEqual(sent,[original.body,dependent.body]);assert.equal(records.get('tech:queue').length,0);
+});

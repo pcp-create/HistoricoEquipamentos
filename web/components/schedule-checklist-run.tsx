@@ -13,7 +13,7 @@ import {checklistProgress,progressLabels,checklistCounts} from '@/lib/service-sc
 import { ChevronRight, Plus, Minus } from "lucide-react";
 import SaveActionIcon from "./save-action-icon";
 import {useState,useEffect,useRef,useId} from 'react';
-import {validateAnswers,validateFieldDetails,validateAlertComments,hasAlertComment,requiresAlertComment,stagesOf,groupsOf,photoLimit,isStatusField,fieldOptions,type ChecklistField} from '@/lib/service-scheduling/checklists';
+import {validateAnswers,validateFieldDetails,validateAlertComments,hasAlertComment,requiresAlertComment,effectiveAlertOptions,stagesOf,groupsOf,photoLimit,isStatusField,fieldOptions,type ChecklistField} from '@/lib/service-scheduling/checklists';
 import {apiFetch} from '@/lib/client-api-cache';
 import {DictationText,SignatureInput} from './checklist-inputs';
 import './schedule-checklists.css';
@@ -134,7 +134,7 @@ function Stage({draftContext,stageAccordionName,stage,operation,data,mutate,lock
  {f.type==='textarea'?<><span className="checklist-field-title">{fieldLabel}</span><DictationText label={label} value={v} disabled={disabled} onChange={s=>answer(f.id,s)}/></>:
  f.type==='signature'?<><span className="checklist-field-title">{fieldLabel}</span><SignatureInput label={label} ids={answers[f.id]||[]} disabled={disabled} onClear={()=>answer(f.id,[])} onUpload={file=>upload(f,[file])}/></>:
  f.type==='photo'?<><span className="checklist-field-title">{fieldLabel}</span>{photos(f)}</>:
- isStatusField(f.type)?<div className="checklist-status-field"><span className="checklist-field-title">{fieldLabel}</span><div className="checklist-status-options" role="radiogroup" aria-label={label}>{fieldOptions(f).map(option=><label key={option} className={'checklist-status-option'+(v===option?' selected':'')+(v===option&&requiresAlertComment(f,option)?' status-alert-selected':'')}><input type="radio" name={operation.id+':'+stage.id+':'+f.id} value={option} checked={v===option} disabled={disabled} onChange={()=>answer(f.id,option)}/><span>{option}</span></label>)}</div></div>:
+ isStatusField(f.type)?<div className="checklist-status-field"><span className="checklist-field-title">{fieldLabel}</span><div className="checklist-status-options" role="radiogroup" aria-label={label}>{fieldOptions(f).map(option=><label key={option} className={'checklist-status-option'+(v===option?' selected':'')+(v===option&&effectiveAlertOptions(f).includes(option)?' status-alert-selected':'')}><input type="radio" name={operation.id+':'+stage.id+':'+f.id} value={option} checked={v===option} disabled={disabled} onChange={()=>answer(f.id,option)}/><span>{option}</span></label>)}</div></div>:
  <label className="checklist-answer">{fieldLabel}{f.type==='select'?<select value={v} onChange={e=>answer(f.id,e.target.value)}><option value="">Selecione</option>{fieldOptions(f).map(x=><option key={x} value={x}>{x}</option>)}</select>:<input type={f.type==='number'||f.type==='meter'?'number':f.type==='date'||f.type==='time'?f.type:'text'} min={f.type==='meter'?0:undefined} step={f.type==='number'||f.type==='meter'?'any':undefined} value={v} onChange={e=>answer(f.id,(f.type==='number'||f.type==='meter')&&e.target.value!==''?Number(e.target.value):e.target.value)}/>}</label>}
  {f.type==='meter'&&!collectsMeter&&<small className="checklist-meter-note">{unlinkedMeterMessage}</small>}
  {f.type==='meter'&&collectsMeter&&<>
@@ -146,7 +146,7 @@ function Stage({draftContext,stageAccordionName,stage,operation,data,mutate,lock
  <label className="checklist-answer">Data da leitura<input type="date" value={meterDate} onChange={e=>setMeterDate(e.target.value)}/></label>
  <small className="checklist-meter-note">A atualização do equipamento e da preventiva ocorre após a revisão do relatório.</small>
  </>}
- {String(v).trim().toUpperCase()==='NOK'&&isStatusField(f.type)&&<p role="note">Foto obrigatória do item a substituir. Informe no comentário qual item deve ser trocado e a referência, se houver.</p>}
+ {String(v).trim().toUpperCase()==='NOK'&&isStatusField(f.type)&&<p role="note">Foto obrigatória do item a substituir. O comentário é opcional.</p>}
  {f.type!=='photo'&&photoLimit(f)>0&&photos(f,true)}
  {(f.comment||hasAlertComment(f))&&<div className="checklist-field-extra"><span>Comentário{requiresAlertComment(f,v)&&<> <RequiredMarker/></>}</span><DictationText required={requiresAlertComment(f,v)} label={'Comentário — '+f.label} value={details[f.id]?.comment||''} disabled={disabled} onChange={s=>detail(f.id,'comment',s)}/></div>}
  {f.internalNote&&<div className="checklist-field-extra"><span>Observação interna · Somente no relatório de orçamento</span><DictationText label={'Observação interna — '+f.label} value={details[f.id]?.internalNote||''} disabled={disabled} onChange={s=>detail(f.id,'internalNote',s)}/></div>}

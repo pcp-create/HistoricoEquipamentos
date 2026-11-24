@@ -22,7 +22,6 @@ function projectField(home, detail, body) {
         const value = answers[field.id];
         if(['flag','flag2','flag3','flag4'].includes(field.type)&&String(value).trim().toUpperCase()==='NOK'){
           const details=draft?.details||run.stages?.[stage.id]?.details||{};
-          if(!details[field.id]?.comment?.trim())throw Error('Informe o item a substituir e sua referência no comentário: '+field.label+'.');
           if(!details[field.id]?.photos?.length)throw Error('Anexe uma foto do item a substituir: '+field.label+' (NOK).');
         }
         if (field.required && (value == null || typeof value === "string" && !value.trim() || Array.isArray(value) && !value.length))
