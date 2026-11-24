@@ -32,16 +32,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
   const [reviewRun,setReviewRun]=useState<any>(null);
   useEffect(()=>setReviewRun(null),[o.id,o.version]);
   const meterReference=useEquipmentMeterReading(stagesOf(o.document.checklistRun?.template||{items:[],stages:[]}).some(stage=>stage.fields.some(field=>field.type==='meter'))?operationMeterEquipment(o.document):undefined);
-  const meterAlerts=meterReviewAlerts(reviewRun||o.document.checklistRun,meterReference.reading?.meter);
-  const [confirmedMeter,setConfirmedMeter]=useState<any>(null);
-  const meterRun=reviewRun||o.document.checklistRun;
-  const lowerMeter=meterAlerts[0];
-  const confirmation=lowerMeter&&meterReference.reading?.meterDate&&meterRun?.meterDate>=meterReference.reading.meterDate?{
-    equipmentId:operationMeterEquipment(o.document),meter:lowerMeter.value,meterDate:meterRun.meterDate,
-    previousMeter:meterReference.reading.meter,previousMeterDate:meterReference.reading.meterDate,
-  }:null;
-  const meterConfirmed=!!confirmation&&JSON.stringify(confirmation)===JSON.stringify(confirmedMeter);
-  useEffect(()=>setConfirmedMeter(null),[o.id,o.version,reviewRun]);
+  const meterAlerts=meterReviewAlerts(reviewRun||o.document.checklistRun,meterReference.reading?.meter,meterReference.reading?.meterDate);
   const meterWarning=unlinkedMeterWarning(o.document);
   useEffect(()=>{onReportDirty?.(reportDirty);},[reportDirty]);
   const exportBlocked=orderReviewBlockReason(data.operations||[],data.orderReview);
@@ -61,7 +52,7 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
     requests: (data.requests || []).filter((v: any) => v.operation_id === o.id) };
   const act = (action: string) => {
     if(action==='report_reopen'&&o.status==='reviewed'&&!window.confirm('Voltar para revisão? O relatório será reaberto para ajustes pelo planejador.'))return;
-    return mutate({ action, operationId: o.id, version: o.version, ...(action==="review"?{...(meterConfirmed?{confirmLowerMeter:confirmedMeter}:{})}:{}) });
+    return mutate({ action, operationId: o.id, version: o.version });
   };
   const canChooseEquipment=data.canEditSettings&&o.status==='awaiting_review';
   const equipmentPicker=(inReport=false)=><OperationEquipmentSelect scheduleId={String(data.schedule.id)} value={o.document.equipmentId||''} label={o.document.equipment?.name||''} displayLabel={inReport?reportEquipment(o,data.detail?.order||{}):undefined} unassigned={o.document.equipmentUnassigned===true} orderLabel="Selecionar equipamento" allowOrderFallback={false} unassignedLabel="Sem equipamento informado" disabled={busy||dirty||reportDirty} onChange={(equipmentId)=>void mutate({action:'review_equipment',operationId:o.id,version:o.version,equipmentId})}/>;
@@ -110,21 +101,13 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
     </div>
     <footer className="operation-review-footer">
       {data.canEditSettings && o.status === "awaiting_review" && <>
-        {confirmation&&<section className="review-meter-regression-alert" aria-label="Confirmação do horímetro real">
-          <strong>Horímetro menor que a última coleta</strong>
-          <p>Relatório: {confirmation.meter.toLocaleString('pt-BR')} h em {confirmation.meterDate.split('-').reverse().join('/')}. Equipamento: {confirmation.previousMeter?.toLocaleString('pt-BR')} h em {confirmation.previousMeterDate.split('-').reverse().join('/')}.</p>
-          <p>A confirmação permitirá atualizar o horímetro da máquina e a preventiva vinculada ao concluir a revisão. A alteração ficará no histórico com seu nome.</p>
-          <button type="button" disabled={busy||dirty||reportDirty||meterConfirmed} onClick={()=>{
-            if(window.confirm(`Confirma que a máquina está realmente com ${confirmation.meter.toLocaleString('pt-BR')} h? Ao concluir a revisão, esse valor substituirá o horímetro atual de ${confirmation.previousMeter?.toLocaleString('pt-BR')} h e será aplicado à preventiva vinculada.`))setConfirmedMeter(confirmation);
-          }}>{meterConfirmed?'Horímetro confirmado':'Confirmar horímetro real da máquina'}</button>
-        </section>}
         <div className="review-completion-steps">
           <section className="review-completion-step" aria-label="Etapa 1: salvar ajustes">
             <div ref={setSaveTarget} className="review-save-actions"/>
             {!reportDirty&&<span className="review-saved">Ajustes salvos</span>}
           </section>
           <section className="review-completion-step" aria-label="Etapa 2: concluir revisão">
-            <button type="button" className="review-complete-button" aria-describedby={`${tabsId}-agreement`} disabled={busy || dirty || reportDirty || (!!confirmation&&!meterConfirmed) || scoped.requests.some((r: any) => r.status === "pending")} onClick={() => void act("review")}><CheckCheck size={16} aria-hidden="true"/>Concluir revisão</button>
+            <button type="button" className="review-complete-button" aria-describedby={`${tabsId}-agreement`} disabled={busy || dirty || reportDirty || meterAlerts.length>0 || scoped.requests.some((r: any) => r.status === "pending")} onClick={() => void act("review")}><CheckCheck size={16} aria-hidden="true"/>Concluir revisão</button>
           </section>
           {reportSubmission(o.document.checklistRun)&&<button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}><FileOutput size={15} aria-hidden="true"/>{o.status==='reviewed'?'Voltar para revisão':'Devolver relatório ao técnico'}</button>}
         </div>

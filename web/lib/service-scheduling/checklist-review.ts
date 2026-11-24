@@ -7,7 +7,7 @@ import {stagesOf,validateRunAlertComments} from './checklists';
 import {emptyOperating,validDate,brazilToday,parsePlan} from '../equipment-management/planning';
 
 /** Called inside the operation review transaction, after permissions and version checks. */
-export async function reviewChecklist(c:any,operation:any,schedule:any,settings:any,email:string,confirmation?:any){
+export async function reviewChecklist(c:any,operation:any,schedule:any,settings:any,email:string,_confirmation?:any){
  if(pendingTechnicianClosures(operation.document).length)throw Error("Aguarde o encerramento da operação por todos os técnicos antes de revisar o relatório.");
  const run=operation.document.checklistRun;
  validateRunAlertComments(run);
@@ -31,15 +31,8 @@ export async function reviewChecklist(c:any,operation:any,schedule:any,settings:
   if(!linked)throw Error('O equipamento da leitura não está mais vinculado à OS.');
   const old=(await c.query('SELECT document FROM web_equipment_settings WHERE equipment_id=$1 FOR UPDATE',[equipment])).rows[0]?.document||emptyOperating;
   const plans=(await c.query('SELECT * FROM web_equipment_plans WHERE equipment_id=$1 AND NOT archived FOR UPDATE',[equipment])).rows;
-  let confirmed=false;
-  if(confirmation!=null){
-   if(confirmation.equipmentId!==equipment||confirmation.meter!==meter||confirmation.meterDate!==run.meterDate||confirmation.previousMeter!==old.meter||confirmation.previousMeterDate!==old.meterDate)throw Error('A leitura ou o horímetro do equipamento mudou. Confira os valores e confirme novamente.');
-   if(!validDate(old.meterDate)||run.meterDate<old.meterDate)throw Error('Uma coleta histórica não pode substituir o horímetro atual.');
-   confirmed=true;
-   applied.meterConfirmation={at:applied.at,by:email,equipmentId:equipment,before:{meter:old.meter,meterDate:old.meterDate},after:{meter,meterDate:run.meterDate}};
-  }
   // An older report may be reviewed after a more recent reading. Never rewind the meter.
-  if(!confirmed&&old.meterDate<=run.meterDate&&old.meter!=null&&meter<Number(old.meter))throw Error('A leitura não pode diminuir o horímetro do equipamento sem confirmar o valor real da máquina.');
+  if(old.meter!=null&&meter<Number(old.meter)&&(!validDate(old.meterDate)||run.meterDate>=old.meterDate))throw Error('A leitura não pode diminuir o horímetro do equipamento na mesma data ou em data posterior. Confira o valor e as datas de coleta.');
   if(old.meterDate>run.meterDate&&old.meter!=null&&meter>Number(old.meter))throw Error('A leitura anterior é maior que o horímetro mais recente do equipamento.');
   // Historical reports are evidence of their collection date, not a new machine baseline.
   if(validDate(old.meterDate)&&old.meterDate>run.meterDate){
@@ -52,10 +45,10 @@ export async function reviewChecklist(c:any,operation:any,schedule:any,settings:
   const inconsistent=plans.filter((p:any)=>superseded(p.document));
   if(inconsistent.length)applied.inconsistentInterventions=inconsistent.map((p:any)=>({id:p.id,name:p.document.name,meter:p.document.lastMeter,date:p.document.lastDate}));
   const conflict=plans.find((p:any)=>!superseded(p.document)&&p.document.lastDate<=run.meterDate&&p.document.lastMeter!=null&&Number(p.document.lastMeter)>meter);
-  if(conflict&&!confirmed)throw Error(`Leitura menor que o horímetro da intervenção ${conflict.document.name}: ${conflict.document.lastMeter} h em ${conflict.document.lastDate}. Confira o histórico do equipamento.`);
+  if(conflict)throw Error(`Leitura menor que o horímetro da intervenção ${conflict.document.name}: ${conflict.document.lastMeter} h em ${conflict.document.lastDate}. Confira o histórico do equipamento.`);
   const orderNumber=(await c.query('SELECT numero_sequencia FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2',[schedule.company_id,schedule.order_id])).rows[0]?.numero_sequencia || schedule.order_id;
   async function audit(kind:string,before:any,after:any,planId:string|null=null){
-   await c.query(`INSERT INTO web_equipment_events(equipment_id,plan_id,kind,document,created_by,display_name) VALUES($1,$2,$3,$4,$5,coalesce((SELECT display_name FROM web_user_access WHERE email=$5),$5))`,[equipment,planId,kind,JSON.stringify({before,after,source:'checklist_review',operationId:operation.id,operationPosition:operation.position,orderId:schedule.order_id,orderNumber,companyId:schedule.company_id,...(confirmed?{meterConfirmation:applied.meterConfirmation}:{})}),email]);
+   await c.query(`INSERT INTO web_equipment_events(equipment_id,plan_id,kind,document,created_by,display_name) VALUES($1,$2,$3,$4,$5,coalesce((SELECT display_name FROM web_user_access WHERE email=$5),$5))`,[equipment,planId,kind,JSON.stringify({before,after,source:'checklist_review',operationId:operation.id,operationPosition:operation.position,orderId:schedule.order_id,orderNumber,companyId:schedule.company_id}),email]);
   }
   if(!old.meterDate||old.meterDate<=run.meterDate){
    const next={...emptyOperating,...old,meter,meterDate:run.meterDate};
@@ -71,7 +64,7 @@ export async function reviewChecklist(c:any,operation:any,schedule:any,settings:
    const before=existing?.document;
    if(before?.lastDate>run.meterDate){applied.preventiveUpdated=false;applied.planId=existing.id;}
    else{
-    if(before?.lastMeter!=null&&Number(before.lastMeter)>meter&&!superseded(before)&&!confirmed)throw Error('A leitura não pode diminuir o horímetro da preventiva.');
+    if(before?.lastMeter!=null&&Number(before.lastMeter)>meter&&!superseded(before))throw Error('A leitura não pode diminuir o horímetro da preventiva.');
     const after=existing?{...before,lastDate:run.meterDate,lastMeter:meter,lastOrder:String(schedule.order_id)}:parsePlan({name:identifier.slice(0,160),m8Identifier:identifier,hours:interval.hours,months:interval.months,lastDate:run.meterDate,lastMeter:meter,lastOrder:String(schedule.order_id),notes:'',items:[]});
     const planId=existing?.id||randomUUID();
     if(existing)await c.query('UPDATE web_equipment_plans SET document=$2,version=version+1,updated_at=now(),updated_by=$3 WHERE id=$1',[planId,JSON.stringify(after),email]);

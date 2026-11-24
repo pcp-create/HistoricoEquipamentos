@@ -20,15 +20,17 @@ test('review uses the latest collection instead of contradictory imported interv
  await db.query("UPDATE web_equipment_plans SET document=document||$2::jsonb WHERE id=$1",[planId,JSON.stringify({lastDate:'2026-11-13',lastMeter:2000})]);
  await assert.rejects(review(1700,'2026-11-14'),/Importada 24000.*2000/);
  const confirmation={equipmentId:'7',meter:1600,meterDate:'2026-11-13',previousMeter:1611,previousMeterDate:'2026-11-12'};
- await assert.rejects(review(1600,'2026-11-13',{...confirmation,previousMeter:1610}),/mudou/);
- const confirmed=await review(1600,'2026-11-13',confirmation);
- assert.equal(confirmed.checklistRun.reviewApplied.meterUpdated,true);assert.equal(confirmed.checklistRun.reviewApplied.preventiveUpdated,true);
- assert.equal(confirmed.checklistRun.reviewApplied.meterConfirmation.by,'admin');
- assert.equal((await db.query<any>('SELECT document FROM web_equipment_settings')).rows[0].document.meter,1600);
- assert.equal((await db.query<any>("SELECT document FROM web_equipment_plans WHERE document->>'m8Identifier'='Preventiva 8000'")).rows[0].document.lastMeter,1600);
- const audit=(await db.query<any>("SELECT document FROM web_equipment_events WHERE document ? 'meterConfirmation' AND kind='settings'")).rows[0].document;
- assert.equal(audit.meterConfirmation.before.meter,1611);assert.equal(audit.meterConfirmation.after.meter,1600);
- await assert.rejects(review(1500,'2026-08-30',{equipmentId:'7',meter:1500,meterDate:'2026-08-30',previousMeter:1600,previousMeterDate:'2026-11-13'}),/histórica/);
+ await assert.rejects(review(1600,'2026-11-13',confirmation),/diminuir/);
+ assert.equal((await db.query<any>('SELECT document FROM web_equipment_settings')).rows[0].document.meter,1611);
+ assert.equal((await db.query<any>("SELECT document FROM web_equipment_plans WHERE document->>'m8Identifier'='Preventiva 8000'")).rows[0].document.lastMeter,1611);
+ const beforeHistorical=await db.query('SELECT * FROM web_equipment_settings');
+ const beforePlans=await db.query('SELECT * FROM web_equipment_plans ORDER BY id');
+ const historicalWithOldConfirmation=await review(1500,'2026-08-30',{equipmentId:'7',meter:1500,meterDate:'2026-08-30',previousMeter:1611,previousMeterDate:'2026-11-12'});
+ assert.equal(historicalWithOldConfirmation.checklistRun.reviewApplied.reason,'historical_reading');
+ assert.deepEqual((await db.query('SELECT * FROM web_equipment_settings')).rows,beforeHistorical.rows);
+ assert.deepEqual((await db.query('SELECT * FROM web_equipment_plans ORDER BY id')).rows,beforePlans.rows);
+ await db.query("UPDATE web_equipment_settings SET document=document-$1 WHERE equipment_id=7",['meterDate']);
+ await assert.rejects(review(1500,'2026-08-30'),/diminuir/);
 
  }finally{await db.close();}
 });

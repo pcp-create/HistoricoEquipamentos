@@ -18,7 +18,7 @@ export default function ChecklistReviewReport({ operation, data, busy=false, dis
   const draftRef=useRef<any>(null),uploadCount=useRef(0);
   const editable=!!mutate&&data.canEditSettings&&operation.status==='awaiting_review';
   const run=draft||savedRun;
-  const meterAlerts=meterReviewAlerts(run,meterReference?.reading?.meter);
+  const meterAlerts=meterReviewAlerts(run,meterReference?.reading?.meter,meterReference?.reading?.meterDate);
   useEffect(()=>{onRunChange?.(run);},[run,onRunChange]);
   const edited=!!draft&&JSON.stringify(draft)!==JSON.stringify(savedRun);
   useEffect(()=>{setDraft(null);draftRef.current=null;onDirtyChange?.(false);},[operation.version]);

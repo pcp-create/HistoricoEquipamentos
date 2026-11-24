@@ -7,3 +7,14 @@ test('only valid total-meter values below the latest collection are flagged',()=
  assert.deepEqual(meterReviewAlerts(undefined,79399),[]);
  assert.deepEqual(meterReviewAlerts(run,null),[]);
 });
+
+
+test('a lower historical reading has no warning, but a same-day or later reading does',()=>{
+ const run:any={meterDate:'2026-11-10',template:{items:[],stages:[{id:'s',fields:[{id:'total',label:'Horímetro Total',type:'meter'}]}]},stages:{s:{answers:{total:37708}}}};
+ assert.deepEqual(meterReviewAlerts(run,37922,'2026-11-11'),[]);
+ assert.equal(meterReviewAlerts(run,37922,'2026-11-10').length,1);
+ assert.equal(meterReviewAlerts(run,37922,'2026-11-09').length,1);
+ assert.equal(meterReviewAlerts(run,37922,null).length,1);
+ run.meterDate='';assert.equal(meterReviewAlerts(run,37922,'2026-11-11').length,1);
+ run.meterDate='2026-02-31';assert.equal(meterReviewAlerts(run,37922,'2026-11-11').length,1);
+});
