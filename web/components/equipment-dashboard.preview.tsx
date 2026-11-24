@@ -1050,9 +1050,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                     <tr key={e.key || e.id} className="fleet-equipment-row">
                       <td data-label="Equipamento">
                         <div className="equipment-identity">
-                          {rentalOnly && (
-                            <EquipmentPhoto id={e.id} name={e.name} allowAddPhotos={!!e.rental} />
-                          )}
+                          <EquipmentPhoto id={e.id} name={e.name} allowAddPhotos={!rentalOnly || !!e.rental} />
                           <div>
                             <strong>{e.name}</strong>{e.inactivation&&<><small className="equipment-inactive-tag" title={e.inactivation.reason}>INATIVO</small><small>{e.inactivation.reason}</small></>}{e.workshop&&<small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>{e.rental ? "Em Revisão" : "Em Oficina"} · {e.workshop.workshop}</small>}{!e.workshop && e.rentalStatus?.key === "available" && <small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>Disponível · {e.location || (e.rental ? "RJ Compressores" : "Localização não informada")}</small>}
                             {rentalOnly && <span className="fleet-serial">Série <b>{e.serial || "Não informada"}</b></span>}

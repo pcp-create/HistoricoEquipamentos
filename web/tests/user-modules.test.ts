@@ -129,3 +129,12 @@ test('standalone portal permissions expose their parent menu without granting si
  assert.equal(canOpenPath(['gestao-visitas'],'/visitas/gestao'),true);
  assert.equal(hasModuleAccess([], 'visitas'),false);
 });
+
+
+test('equipment maintenance access permits product photo loading and refresh',()=>{
+ for(const access of [['equipamentos'],['equipamentos:preventivas'],['equipamentos:clientes'],['equipamentos:locacao']]){
+  assert.equal(canOpenPath(access,'/api/products/1/21491/images'),true);
+  assert.equal(canOpenPath(access,'/api/products/1/21491/images?refresh=1'),true);
+ }
+ assert.equal(canOpenPath([], '/api/products/1/21491/images'),false);
+});

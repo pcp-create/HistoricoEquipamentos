@@ -218,7 +218,9 @@ test("rental views show a compact photo carousel, popup and separate situation c
   });
   await page.goto("/equipamentos");
   await expect(page.getByRole("button", { name: "Gerenciar" })).toBeVisible();
-  expect(photos).toBe(0);
+  await page.locator(".equipment-photo-slot").scrollIntoViewIfNeeded();
+  await expect(page.getByRole("button", {name: "Ampliar foto 1", exact: true})).toBeVisible();
+  expect(photos).toBeGreaterThan(0);
   const initial = reads;
   await page.locator(".equipment-search-filter-panel > summary").click();
   await page

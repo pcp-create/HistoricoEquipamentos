@@ -1028,9 +1028,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
                     <tr key={e.key || e.id}>
                       <td>
                         <div className="equipment-identity">
-                          {rentalOnly && (
-                            <EquipmentPhoto id={e.id} name={e.name} allowAddPhotos={!!e.rental} />
-                          )}
+                          <EquipmentPhoto id={e.id} name={e.name} allowAddPhotos={!rentalOnly || !!e.rental} />
                           <div>
                             <strong>{e.name}</strong>{e.inactivation&&<><small className="equipment-inactive-tag" title={e.inactivation.reason}>INATIVO</small><small>{e.inactivation.reason}</small></>}{e.workshop&&<small style={{display:"block",fontSize:11,color:"#16756b",fontWeight:600}}>{e.rental ? "Em Revisão" : "Em Oficina"} · {e.workshop.workshop}</small>}
                             <small>
