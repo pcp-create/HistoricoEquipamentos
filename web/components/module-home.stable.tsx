@@ -17,8 +17,6 @@ import {
 import SiteHeader from "./site-header";
 
 const modules = [
-  {id:"gestao-visitas",title:"Gestão de Visitas",icon:Users,description:"Acompanhamento da equipe e das visitas comerciais.",links:[["Gestão de Visitas","/visitas/gestao"]],next:""},
-  {id:"portal-tecnico",title:"Portal técnico",icon:Wrench,description:"Operações e relatórios de campo.",links:[["Acessar portal técnico","/tecnico"]],next:""},
   {id:"almoxarifado",title:"Almoxarifado",icon:PackageSearch,description:"Controle de movimentações de peças.",links:[["Acessar almoxarifado","/almoxarifado"]],next:""},
   {id:"calendario",title:"Calendário",icon:ClipboardList,description:"Agenda e compromissos.",links:[["Acessar calendário","/calendario"]],next:""},
   {
@@ -113,7 +111,7 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
             className="module-menu-grid"
             aria-label={"Menus de " + selected.title}
           >
-            {(MODULE_SECTIONS[selected.id]?.map(section=>[section.name,section.paths[0]])||selected.links).filter(([,href])=>!allowed||canOpenPath(allowed,href)).filter(([, href]) => href !== "/visitas/gestao" || visitManager).map(([label, href]) => (
+            {(MODULE_SECTIONS[selected.id]?[...MODULE_SECTIONS[selected.id].map(section=>[section.name,section.paths[0]]),...(selected.id==='assistencia-tecnica'?[["Portal técnico","/tecnico"]]:[])]:selected.links).filter(([,href])=>!allowed||(href==='/visitas'?allowed.includes('visitas'):canOpenPath(allowed,href))).filter(([, href]) => href !== "/visitas/gestao" || visitManager).map(([label, href]) => (
               <Link
                 prefetch={false}
                 className="module-menu-item"

@@ -41,7 +41,9 @@ export const MODULE_SECTIONS:Record<string,ModuleSection[]>={
 };
 export function sectionIds(parent:string){return (MODULE_SECTIONS[parent]||[]).map(s=>s.id);}
 export function hasModuleAccess(permissions:string[],parent:string){
- return permissions.includes(parent)||sectionIds(parent).some(id=>permissions.includes(id));
+ return permissions.includes(parent)||sectionIds(parent).some(id=>permissions.includes(id))
+  ||(parent==='assistencia-tecnica'&&permissions.includes('portal-tecnico'))
+  ||(parent==='visitas'&&permissions.includes('gestao-visitas'));
 }
 export function sectionSelected(permissions:string[],parent:string,id:string){return permissions.includes(parent)||permissions.includes(id);}
 export function toggleModule(permissions:string[],parent:string){

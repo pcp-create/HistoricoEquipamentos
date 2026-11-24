@@ -117,3 +117,15 @@ test('embedded calendars are accessible without granting the general calendar pa
  assert.equal(canOpenPath([],'/api/calendar'),false);
  assert.equal(canOpenPath(['calendario'],'/api/calendar'),true);
 });
+
+test('standalone portal permissions expose their parent menu without granting sibling areas',async()=>{
+ const {hasModuleAccess}=await import('../lib/module-sections');
+ assert.equal(hasModuleAccess(['portal-tecnico'],'assistencia-tecnica'),true);
+ assert.equal(canOpenPath(['portal-tecnico'],'/modulos/assistencia-tecnica'),true);
+ assert.equal(canOpenPath(['portal-tecnico'],'/tecnico'),true);
+ assert.equal(canOpenPath(['portal-tecnico'],'/programacao'),false);
+ assert.equal(hasModuleAccess(['gestao-visitas'],'visitas'),true);
+ assert.equal(canOpenPath(['gestao-visitas'],'/modulos/visitas'),true);
+ assert.equal(canOpenPath(['gestao-visitas'],'/visitas/gestao'),true);
+ assert.equal(hasModuleAccess([], 'visitas'),false);
+});
