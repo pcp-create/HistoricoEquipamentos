@@ -54,7 +54,7 @@ test('order review atomically groups alerts across operations and controls final
  await query("INSERT INTO web_service_operations(id,schedule_id,position,status,document,updated_by) VALUES($1,1,1,'awaiting_review',$2,'test')",[operationId,JSON.stringify({description:'Inspeção',responsible:'assignee@test.com',checklistRun:run})]);
  const admin='assignee@test.com';
  const body={action:'review',scheduleId:'1',operationId,version:1};
- await assert.rejects(mutateSchedule(body,admin),/Informe um comentário/);
+ await assert.rejects(mutateSchedule(body,admin),/foto/);
  const reviewedRun={...run,stages:{s:{...run.stages.s,details:{status:{comment:'Vazamento identificado',photos:['1']}}}}};
  await query("UPDATE web_service_operations SET document=jsonb_set(document,'{checklistRun}',$1::jsonb)",[JSON.stringify(reviewedRun)]);
  const sharp=(await import('sharp')).default;
