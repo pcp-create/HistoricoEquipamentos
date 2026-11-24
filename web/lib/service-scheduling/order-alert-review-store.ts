@@ -1,4 +1,5 @@
 import 'server-only';
+import {canViewTask,taskAdministrator} from '../tasks/privacy';
 import {createAlertGroup} from './checklist-alert-task';
 import {orderAlertReportPdf} from './order-alert-report';
 import type {ReportMode} from './checklist-report';
@@ -17,7 +18,7 @@ export async function concludeOrderReview(c:any,schedule:any,settings:any,email:
  const kept=records.filter((t:any)=>live.has(String(t.taskId)));
  const pending=pendingChecklistAlerts({checklistAlertTasks:kept},orderChecklistAlerts(operations));
  if(previous?.signature===orderReviewSignature(operations)&&!pending.length)return {orderReview:previous};
- const groups=validateAlertTaskGroups(pending,input.alertTasks);
+ const groups=validateAlertTaskGroups(pending,input.alertTasks,true,true);
  const reportCache=new Map<ReportMode,Awaited<ReturnType<typeof orderAlertReportPdf>>>();
  const actor=(await c.query('SELECT display_name FROM web_user_access WHERE email=$1',[email])).rows[0];
  async function attachOrderReport(taskId:string,mode:ReportMode){
@@ -35,6 +36,17 @@ export async function concludeOrderReview(c:any,schedule:any,settings:any,email:
  const order=(await c.query('SELECT numero_sequencia FROM m8_ordens_servico WHERE company_id=$1 AND id_m8=$2',[schedule.company_id,schedule.order_id])).rows[0];
  for(const group of groups){
   if(!group.alerts.length)throw Error('Selecione ao menos um alerta para cada tarefa da OS.');
+  if('existingTaskId' in group && group.existingTaskId){
+   const existing=(await c.query("SELECT id::text,title,status,assigned_to,followers,to_jsonb(web_tasks)->>'restricted' AS restricted FROM web_tasks WHERE id=$1 FOR UPDATE",[group.existingTaskId])).rows[0];
+   if(!existing||!canViewTask(existing,email,await taskAdministrator(email,c)))throw Error('Tarefa não encontrada ou indisponível para este usuário.');
+   const note=group.alerts.map((a:ChecklistAlert)=>`Operação ${String(a.operationPosition).padStart(2,'0')} · ${a.stage} · ${a.label}: ${a.value}\nComentário: ${a.comment||'Não informado'}`).join('\n');
+   await c.query("INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,$2,$3,true,$4,$5)",[existing.id,`Alertas vinculados da OS ${order?.numero_sequencia||schedule.order_id}`,note,email,actor?.display_name||email]);
+   await attachOrderReport(existing.id,'complete');
+   const prior=kept.find((t:any)=>String(t.taskId)===existing.id);
+   if(prior)prior.alerts=[...(prior.alerts||[]),...group.alerts];
+   else kept.push({taskId:existing.id,alerts:group.alerts,assignedTo:existing.assigned_to,reportMode:'complete',existingTask:true,at:new Date().toISOString(),by:email});
+   continue;
+  }
   let taskId:string|undefined,record:any;
   const positions:number[]=[];
   for(const o of operations){

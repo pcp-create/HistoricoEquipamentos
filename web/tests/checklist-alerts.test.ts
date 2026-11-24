@@ -151,6 +151,18 @@ test('order review atomically groups alerts across operations and controls final
  await query('DELETE FROM web_tasks WHERE id=$1',[records[0].taskId]);
  assert.match(await orderReviewExportReason({query},'1'),/2 alerta/);
  await assert.rejects(mutateSchedule({...request,signature:orderReviewSignature(ops),alertTasks:[]},admin),/Distribua/);
+ const relinkAlerts=orderChecklistAlerts(ops).filter(a=>a.operationId===operationId||a.operationId===op2);
+ const relinkRequest={...request,signature:orderReviewSignature(ops),alertTasks:[{existingTaskId:'99999999',alertKeys:relinkAlerts.map(alertKey)}]};
+ await assert.rejects(mutateSchedule(relinkRequest,admin),/Tarefa não encontrada/);
+ const beforeCount=await taskCount();
+ const beforeTask=(await query('SELECT title,status,assigned_to FROM web_tasks WHERE id=$1',[latest.taskId])).rows[0];
+ relinkRequest.alertTasks[0].existingTaskId=String(latest.taskId);
+ const linked=await mutateSchedule(relinkRequest,admin);
+ assert.equal(await taskCount(),beforeCount);
+ assert.deepEqual((await query('SELECT title,status,assigned_to FROM web_tasks WHERE id=$1',[latest.taskId])).rows[0],beforeTask);
+ assert.equal(linked.orderReview.checklistAlertTasks.find((r:any)=>String(r.taskId)===String(latest.taskId)).alerts.length,3);
+ assert.match((await query('SELECT description FROM web_task_notes WHERE task_id=$1 ORDER BY id DESC LIMIT 1',[latest.taskId])).rows[0].description,/Operação 01/);
+ assert.equal(await orderReviewExportReason({query},'1'),'');
  }finally{g.historyPool=old;await db.close();}
 });
 

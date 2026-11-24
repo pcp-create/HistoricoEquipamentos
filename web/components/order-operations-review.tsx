@@ -20,7 +20,7 @@ export default function OrderOperationsReview({data,busy,error,mutate,onClose,di
   const allReviewed=operations.length>0&&operations.every(o=>["reviewed","completed"].includes(o.status));
   const concluded=!orderReviewBlockReason(operations,data.orderReview);
   let invalidTasks=false;
-  try{validateAlertTaskGroups(pending,alertTasks);}catch{invalidTasks=true;}
+  try{validateAlertTaskGroups(pending,alertTasks,true,true);}catch{invalidTasks=true;}
   const dialog=useRef<HTMLDialogElement>(null);
   const sections=useRef(new Map<string,HTMLDivElement>());
   const [hasPendingEdits,setHasPendingEdits]=useState(false);

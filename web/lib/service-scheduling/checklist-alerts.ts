@@ -25,13 +25,15 @@ export function pendingChecklistAlerts(document:any,alerts:ChecklistAlert[]){
  if(existingAlertTask(document,alerts))return [];
  return alerts.filter(a=>!covered.has(alertKey(a)));
 }
-export function validateAlertTaskGroups(alerts:ChecklistAlert[],input:any,requireAll=true){
+export function validateAlertTaskGroups(alerts:ChecklistAlert[],input:any,requireAll=true,allowExisting=false){
  const groups=Array.isArray(input)?input:(input||alerts.length)?[{...input,alertKeys:alerts.map(alertKey)}]:[];
  if(groups.length>50)throw Error('Crie no máximo 50 tarefas por revisão.');
  if(!groups.length&&alerts.length)throw Error('Distribua todos os alertas entre as tarefas.');
  const seen=new Set<string>();
  const result=groups.map(group=>{
-  const task=validateAlertTask(group);
+  const existingTaskId=allowExisting&&typeof group?.existingTaskId==='string'&&/^[1-9]\d{0,14}$/.test(group.existingTaskId)?group.existingTaskId:undefined;
+  if(group?.existingTaskId&&!existingTaskId)throw Error('Informe uma tarefa válida.');
+  const task=existingTaskId?{existingTaskId,assignedTo:'',description:'',reportMode:'complete' as const,taskType:'standard' as const}:validateAlertTask(group);
   if(!Array.isArray(group.alertKeys))throw Error('Seleção de alertas inválida.');
   const selected=group.alertKeys.map((key:any)=>{
    const alert=alerts.find(a=>alertKey(a)===key);
