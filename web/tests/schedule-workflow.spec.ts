@@ -130,7 +130,7 @@ test("reviewed OS edits public notes without sending internal notes", async ({
     }
     return r.fulfill({ json: data });
   });
-  await page.route("**/api/warehouse**", (r) =>
+  await page.route("**/api/registries/flow-statuses", (r) =>
     r.fulfill({
       json: { rows: [{ id: "18", name: "Liberado para faturamento" }] },
     }),

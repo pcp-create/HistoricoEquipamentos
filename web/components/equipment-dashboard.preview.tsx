@@ -1,5 +1,6 @@
 "use client";
 import ActionNotice from "./action-notice";
+import {rentalExportRows} from "@/lib/equipment-management/rental-export";
 import "./equipment-activity.css";
 import {EquipmentOccurrenceHistory} from "./equipment-occurrences";
 import "./rental-equipment.css";
@@ -28,6 +29,7 @@ import {
   ArrowLeft,
   Eye,
   ChevronDown,
+  Download,
 } from "lucide-react";
 import PreventivePlanItems from "./preventive-plan-items";
 import PreventivePlanQuote from "./preventive-plan-quote";
@@ -215,6 +217,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
     [saveError, setSaveError] = useState(""),
     [message, setMessage] = useState("");
   const [activityBusy,setActivityBusy]=useState('');
+  const [exporting,setExporting]=useState(false);
   const [equipmentActivity,setEquipmentActivity]=useState("active");
   const [internalId, setInternalId] = useState("");
   const [query, setQuery] = useState(""),
@@ -362,6 +365,17 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
       if (bDays == null) return -1;
       return aDays - bDays;
     });
+  }
+  async function exportRentalExcel(){
+    if(!filteredRows.length||exporting)return;
+    setExporting(true);setError('');
+    try{
+      const XLSX=await import('xlsx'),book=XLSX.utils.book_new(),sheet=XLSX.utils.json_to_sheet(rentalExportRows(filteredRows));
+      sheet['!cols']=[12,14,50,18,20,18,18,35,24,18,18,16,22,16,24,24,20,16,18,28,18,32].map(wch=>({wch}));
+      XLSX.utils.book_append_sheet(book,sheet,'Equipamentos');
+      XLSX.writeFile(book,'equipamentos-locacao.xlsx',{compression:true});
+    }catch{setError('Não foi possível exportar os equipamentos para Excel. Tente novamente.');}
+    finally{setExporting(false);}
   }
   const groups = new Map<string, {id: string; name: string; city?: string; state?: string; document?: string; equipment: any[]}>();
   for (const equipment of filteredRows) {
@@ -1014,7 +1028,7 @@ export default function EquipmentDashboard({section}:{section?:EquipmentSection}
             </nav>
             {equipmentView === "clients" && <p className="equipment-group-hint">{clientGroups.length} grupos · Equipamentos com mais de um vínculo aparecem em cada cliente. Quantidades conforme os filtros selecionados.</p>}
             {loading && <p role="status">Consultando equipamentos…</p>}
-            {rentalOnly && <div className="fleet-list-heading"><div><h2>Equipamentos da frota</h2><p>Consulte a localização, os contratos e a manutenção de cada máquina.</p></div><span>{result?.total || 0} equipamentos encontrados</span></div>}
+            {rentalOnly && <div className="fleet-list-heading"><div><h2>Equipamentos da frota</h2><p>Consulte a localização, os contratos e a manutenção de cada máquina.</p></div><div className="fleet-list-actions"><span>{result?.total || 0} equipamentos encontrados</span><button type="button" disabled={loading||exporting||!filteredRows.length} onClick={()=>void exportRentalExcel()}><Download size={16}/>{exporting?"Exportando…":"Exportar Excel"}</button></div></div>}
             <div className={`equipment-table${rentalOnly ? " fleet-table" : ""}`}>
               <table>
                 <thead>

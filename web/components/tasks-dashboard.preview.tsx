@@ -677,6 +677,7 @@ export default function TasksDashboard() {
     [mine, setMine] = useState(params.get("mine") === "1"),
     [following, setFollowing] = useState(false),
     [responsible, setResponsible] = useState("all"),
+    [creator, setCreator] = useState("all"),
     [originFilter, setOriginFilter] = useState("all"),
     [period, setPeriod] = useState("all"),
     [sort, setSort] = useState("status"),
@@ -777,6 +778,13 @@ export default function TasksDashboard() {
         t.assigned_to.toLowerCase(),
         t.assignee_name || "Funcionário sem nome cadastrado",
       );
+  const creatorOptions = new Map<string,string>();
+  for (const task of data?.tasks || []) {
+    if(task.redacted || typeof task.created_by !== 'string' || !task.created_by.trim())continue;
+    const key=task.created_by.trim().toLowerCase();
+    if(!creatorOptions.has(key))creatorOptions.set(key,task.creator_name||(key==='sistema'?'Sistema':'Usuário sem nome cadastrado'));
+  }
+  const matchesCreator = (task:any) => creator==='all' || (!task.redacted && typeof task.created_by==='string' && task.created_by.trim().toLowerCase()===creator);
   const stageRoles = new Map<string,string>();
   for(const stage of stages)stageRoles.set(stage.job_title.trim().toLowerCase(),stage.job_title);
   const currentUserRole = (data?.users?.find((user:any) => user.email.toLowerCase() === data?.email?.toLowerCase())?.job_title || "").trim().toLowerCase();
@@ -784,6 +792,7 @@ export default function TasksDashboard() {
   const activeStageRole=stageRoles.has(selectedStageRole)?selectedStageRole:"";
   const followsTask = (task:any) => !!data?.email && (task.followers || []).some((email:string) => email.trim().toLowerCase() === data.email.trim().toLowerCase());
   const chartTasks = (data?.tasks || []).filter((t: any) =>
+    matchesCreator(t) &&
     (!following || followsTask(t)) &&
     (!mine || t.is_mine === true || (t.is_mine === undefined && t.assigned_to?.trim().toLowerCase() === data?.email?.trim().toLowerCase())) &&
     (!params.get("inspection") || t.source_key === "inspection:"+params.get("inspection")) &&
@@ -791,6 +800,7 @@ export default function TasksDashboard() {
   );
   const rows = (data?.tasks || []).filter(
     (t: any) =>
+      matchesCreator(t) &&
       (!following || followsTask(t)) &&
       (view!=="kanban" || kanbanView!=="stage" || !activeStageRole || !t.stage_id || stages.some(s=>s.id===t.stage_id&&s.job_title.trim().toLowerCase()===activeStageRole)) &&
       (!mine ||
@@ -1363,6 +1373,13 @@ export default function TasksDashboard() {
                 </select>
               </label>
               <label>
+                Criado por
+                <select aria-label="Criado por" value={creator} onChange={e=>setCreator(e.target.value)}>
+                  <option value="all">Todos os criadores</option>
+                  {[...creatorOptions.entries()].sort((a,b)=>a[1].localeCompare(b[1],'pt-BR')).map(([key,name])=><option key={key} value={key}>{name}</option>)}
+                </select>
+              </label>
+              <label>
                 Origem da tarefa
                 <select
                   value={originFilter}
@@ -1403,6 +1420,7 @@ export default function TasksDashboard() {
                 onClick={() => {
                   setQuery("");
                   setResponsible("all");
+                  setCreator("all");
                   setOriginFilter("all");
                   setStatus("active");
                   setPeriod("all");

@@ -580,7 +580,7 @@
 .task-search-panel > summary::-webkit-details-marker { display: none; }
 .task-search-panel:not([open]) > summary > svg { transform: rotate(-90deg); }
 .task-search-panel > summary:focus-visible { outline: 2px solid #337cc1; outline-offset: -3px; }
-.task-search-panel .task-filter-panel { border: 0; border-radius: 0; box-shadow: none; padding: 0 20px 20px; grid-template-columns: minmax(220px,2fr) repeat(4,minmax(130px,1fr)); }
+.task-search-panel .task-filter-panel { border: 0; border-radius: 0; box-shadow: none; padding: 0 20px 20px; grid-template-columns: minmax(200px,2fr) repeat(5,minmax(115px,1fr)); }
 .tasks-page .task-search-panel .task-clear-filters { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; box-shadow: none; text-decoration: none; color: #8a96a6; padding: 0 3px; height: 37px; font-size: 11px; }
 .tasks-page .task-search-panel .task-clear-filters:hover { color: #2e5d93; }
 @media(max-width:1100px) { .task-search-panel .task-filter-panel { grid-template-columns: repeat(3,minmax(0,1fr)); } }

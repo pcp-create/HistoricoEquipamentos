@@ -1,5 +1,6 @@
 "use client";
 import ActionNotice from "./action-notice";
+import {operationLineChanged,operationDurationOnlyChanged,mergeOperationLine} from "@/lib/service-scheduling/operation-line-draft";
 import {readSchedulePreferences,type ScheduleViewPreferences} from "@/lib/service-scheduling/view-preferences";
 import EquipmentWarrantyAlert from "./equipment-warranty-alert";
 import OperationClosureProgress from "./operation-closure-progress";
@@ -993,12 +994,12 @@ function OperationRow({
       ...(k === "checklistId" ? { checked: [] } : {}),
       ...(k === "date" && !v ? { time: "" } : {}),
     };
-    if(JSON.stringify(next)!==JSON.stringify(o.document))dirtyOperations.add(o.id);else dirtyOperations.delete(o.id);
+    if(operationLineChanged(next,o.document))dirtyOperations.add(o.id);else dirtyOperations.delete(o.id);
     setD(next);
   }
-  const dirty = JSON.stringify(d) !== JSON.stringify(o.document);
+  const dirty = operationLineChanged(d,o.document);
   useEffect(()=>{if(dirty)dirtyOperations.add(o.id);else dirtyOperations.delete(o.id);return ()=>{dirtyOperations.delete(o.id);};},[dirty,o.id,dirtyOperations]);
-  const durationOnly = dirty && JSON.stringify({...d,duration:o.document.duration})===JSON.stringify(o.document);
+  const durationOnly = operationDurationOnlyChanged(d,o.document);
   async function persist(next = d, rescheduling?: {confirmed:true;reason:string}) {
     if(!busy && !['completed','reviewed'].includes(o.status) && durationOnly && o.sent_at)return await mutate({action:'operation_duration',operationId:o.id,version:o.version,duration:next.duration});
     if (locked) return false;
@@ -1007,12 +1008,12 @@ function OperationRow({
     if(changingResponsible&&!window.confirm(responsibleChangeWarning))return false;
     const replacing=!!o.document.checklistRun&&next.checklistId!==o.document.checklistId;
     if(replacing&&!window.confirm("Substituir o checklist apagará todo o preenchimento e as fotos do relatório desta operação. Deseja continuar?"))return false;
-    if (JSON.stringify(next) !== JSON.stringify(o.document))
+    if (operationLineChanged(next,o.document))
       return await mutate({
         action: "operation",
         operationId: o.id,
         version: o.version,
-        document: next,
+        document: mergeOperationLine(next,o.document),
         confirmChecklistReplacement: replacing,
         confirmResponsibleChange: changingResponsible,
         rescheduling,

@@ -10,7 +10,7 @@ test('observation button collapses and restores the draft without fetching or sa
   reads++;
   return r.fulfill({json:new URL(r.request().url()).searchParams.has('edit')?{version:1,draft:{notes:'Observação original',internalNotes:'',flowStatus:'1'},labels:{flowStatus:'Aberta'}}:{rows:[]}});
  });
- await page.route('**/api/warehouse?**',r=>{reads++;return r.fulfill({json:{rows:[{id:'1',name:'Aberta'}]}});});
+ await page.route('**/api/registries/flow-statuses',r=>{reads++;return r.fulfill({json:{rows:[{id:'1',name:'Aberta'}]}});});
  await page.goto('/programacao?id=1');
  const toggle=page.getByRole('button',{name:'Editar observações e Status Fluxo',exact:true});
  await toggle.click();

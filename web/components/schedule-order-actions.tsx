@@ -78,13 +78,13 @@ export default function ScheduleOrderActions({
           "/api/service-orders?" +
             new URLSearchParams({ edit: "1", company, order, scope:"observations-flow" }),
         ),
-        api("/api/warehouse?flowStatuses=1"),
+        api("/api/registries/flow-statuses"),
       ]);
       setAttachmentFiles([]);
       setAttachSummary(true);setSummaryAttached(false);setHeaderSaved(false);
       setEdit(e);
       setEditOpen(true);
-      setFlows(f.rows);
+      setFlows(f.rows.filter((row:any)=>row.active!==false));
       editRequest.current = null;
     });
   }

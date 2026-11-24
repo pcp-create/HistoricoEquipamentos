@@ -11,7 +11,8 @@ test('flow status searches by text or ID, retains click and keyboard choices and
  const page=await browser.newPage();let submitted:any;
  await page.route('**/api/**',async route=>{
   const request=route.request(),url=new URL(request.url());
-  if(url.pathname==='/api/warehouse')return route.fulfill({json:{rows:[{id:8,name:'Serviço agendado'},{id:12,name:'Liberado faturamento'},{id:13,name:'Aguardando revisão'}]}});
+  if(url.pathname==='/api/warehouse')return route.fulfill({status:403,json:{error:'Acesso não permitido.'}});
+  if(url.pathname==='/api/registries/flow-statuses')return route.fulfill({json:{rows:[{id:8,name:'Serviço agendado'},{id:12,name:'Liberado faturamento'},{id:13,name:'Aguardando revisão'}]}});
   if(url.pathname.endsWith('/attachments'))return route.fulfill({json:{rows:[]}});
   if(request.method()==='GET')return route.fulfill({json:{version:'v1',draft:{notes:'Texto original',internalNotes:'Interna',flowStatus:'8'},labels:{flowStatus:'Serviço agendado'}}});
   const body=request.postDataJSON();if(body.action==='edit-prepare')submitted=body;

@@ -138,3 +138,10 @@ test('equipment maintenance access permits product photo loading and refresh',()
  }
  assert.equal(canOpenPath([], '/api/products/1/21491/images'),false);
 });
+
+test('OS scheduling can read flow statuses without warehouse access',()=>{
+ const access=['assistencia-tecnica:programacao'];
+ assert.equal(canOpenPath(access,'/api/registries/flow-statuses'),true);
+ assert.equal(canOpenPath(access,'/api/service-orders'),true);
+ assert.equal(canOpenPath(access,'/api/warehouse'),false);
+});
