@@ -107,3 +107,13 @@ test('selecting modules and sections preserves independent grants and blocks sib
  assert.equal(canOpenPath(['crm:catalogo'],'/fabricante'),true);
  assert.equal(canOpenPath(['equipamentos:locacao'],'/equipamentos/inspecoes'),false);
 });
+
+test('embedded calendars are accessible without granting the general calendar page',()=>{
+ for(const module of ['visitas','gestao-visitas','portal-tecnico','tarefas']){
+  assert.equal(canOpenPath([module],'/api/calendar'),true,module);
+  assert.equal(canOpenPath([module],'/calendario'),false,module);
+ }
+ assert.equal(canOpenPath(['crm'],'/api/calendar'),false);
+ assert.equal(canOpenPath([],'/api/calendar'),false);
+ assert.equal(canOpenPath(['calendario'],'/api/calendar'),true);
+});

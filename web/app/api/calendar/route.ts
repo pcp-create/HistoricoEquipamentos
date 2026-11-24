@@ -1,3 +1,5 @@
+import {accessRecord} from '@/lib/admin-store';
+import {userModules} from '@/lib/user-modules';
 import {saveAppointment} from '@/lib/calendar/appointments';
 import { requireUser, Forbidden, Unauthorized, sameOrigin } from "@/lib/auth";
 import { calendarEvents, CalendarInputError } from "@/lib/calendar/store";
@@ -11,13 +13,16 @@ export async function GET(request: Request) {
   try {
     const user = await requireUser(),
       params = new URL(request.url).searchParams;
+    const employee=params.get("employee") || undefined;
+    if(employee && employee!=="me" && employee.toLowerCase()!==user.email.toLowerCase()
+      && !userModules(await accessRecord(user.email)).includes("calendario"))throw new Forbidden();
     return json(
       await calendarEvents(
         user.email,
         params.get("start") || "",
         params.get("end") || "",
         undefined,
-        params.get("employee") || undefined,
+        employee,
         params.get("appointments") === "1",
       ),
     );

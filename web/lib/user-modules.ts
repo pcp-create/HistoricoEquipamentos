@@ -28,6 +28,7 @@ export function modulesForPath(path:string):string[]{
  const api=path.split('/')[2];
  if(path.startsWith('/api/')){
   const shared:Record<string,string[]>={
+   'calendar':['calendario','visitas','gestao-visitas','portal-tecnico','tarefas'],
    'customer-registry':['crm','visitas','gestao-visitas'], 'customer-contacts':['crm','visitas','gestao-visitas','assistencia-tecnica'], 'contact-sync':['crm','visitas','gestao-visitas','assistencia-tecnica'],
    'customer-fleet':['equipamentos','visitas','gestao-visitas','assistencia-tecnica','crm'], 'products':['suprimentos','crm','assistencia-tecnica','portal-tecnico','almoxarifado','oficina'],
    'registries':['configuracoes','crm','visitas','gestao-visitas','assistencia-tecnica','equipamentos','suprimentos','oficina'],
