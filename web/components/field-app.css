@@ -814,3 +814,10 @@ dialog.field-report-screen {
 .field-close-warning svg {flex-shrink:0;}
 
 .field-equipment-information{margin-bottom:12px;border:1px solid #d2dfeb;border-radius:10px;padding:0 12px;background:#fff}.field-equipment-information>summary{padding:14px 0;font-weight:600;cursor:pointer;color:#345771;overflow-wrap:anywhere}.field-equipment-information[open]{padding-bottom:12px}.field-equipment-information .equipment-warranty-alert{margin-top:0}.field-equipment-information .equipment-warranty-alert p{font-size:12px}
+
+.field-location-gate { display:flex; align-items:center; justify-content:center; }
+.field-location-gate-card { width:100%; max-width:480px; padding:28px; border:1px solid #d6e2ed; border-radius:16px; background:#fff; box-shadow:0 8px 30px #163a5c12; }
+.field-location-gate-card > svg { color:#266aa5; }
+.field-location-gate-card h1 { margin:12px 0; font-size:22px; }
+.field-location-gate-card p { color:#526b82; line-height:1.5; }
+.field-location-gate-card button { width:100%; margin-top:8px; background:#24649c; border-color:#24649c; color:#fff; }

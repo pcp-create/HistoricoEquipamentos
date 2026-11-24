@@ -354,6 +354,12 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
       await note(client,taskId,title,description,actor);
       await recordWorkshopTaskEvent(client,String(taskId),t.source_key,title,description,actor?.email||'Sistema');
     };
+    const notifyReassignment = async (previous: string | null, next: string | null, reason: string) => {
+      if (previous && previous.trim().toLowerCase() !== next?.trim().toLowerCase()) {
+        await c.query("UPDATE web_tasks SET followers=array_append(COALESCE(followers,ARRAY[]::text[]),$2) WHERE id=$1 AND NOT EXISTS (SELECT 1 FROM unnest(COALESCE(followers,ARRAY[]::text[])) f WHERE lower(trim(f))=lower(trim($2)))", [id, previous.trim().toLowerCase()]);
+      }
+      await c.query("INSERT INTO web_task_notifications(task_id,task_version,recipient,kind,assignment_reason) SELECT $1,$2,u.email,'assignment',$3 FROM web_user_access u WHERE u.email=$4 OR u.email=ANY(COALESCE((SELECT followers FROM web_tasks WHERE id=$1),ARRAY[]::text[])) ON CONFLICT DO NOTHING", [id, t.version + 1, reason, next]);
+    };
     if (!canViewTask(t,user.email,await taskAdministrator(user.email, c))) throw new Forbidden();
     if (t.version !== body.version)
       throw new TaskConflict(
@@ -497,10 +503,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
             `Atribuído a: ${actor.display_name || "Funcionário sem nome cadastrado"}. Atribuição ao iniciar pelo Kanban. Justificativa: ${reason}`,
             user,
           );
-          await c.query(
-            "INSERT INTO web_task_notifications(task_id,task_version,recipient,assignment_reason) VALUES($1,$2,$3,$4)",
-            [id, t.version + 1, actorEmail, reason],
-          );
+          await notifyReassignment(t.assigned_to, actorEmail, reason);
         }
       }
       const completed = body.column === "completed";
@@ -574,12 +577,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
         `Atribuído a: ${assignedName}. Prioridade: ${{ normal: "Normal", high: "Alta", urgent: "Urgente" }[body.priority as string]}.${reason ? ` Justificativa: ${reason}` : ""}`,
         user,
       );
-      if (changed && assigned)
-        await c.query(
-          "INSERT INTO web_task_notifications(task_id,task_version,recipient,assignment_reason) VALUES($1,$2,$3,$4)",
-          [id, t.version + 1, assigned, reason],
-        );
-      if (changed && !assigned) await c.query("INSERT INTO web_task_notifications(task_id,task_version,recipient,kind,assignment_reason) SELECT $1,$2,u.email,'assignment',$3 FROM web_user_access u WHERE u.email=ANY($4::text[]) ON CONFLICT DO NOTHING",[id,t.version+1,reason,t.followers || []]);
+      if (changed) await notifyReassignment(t.assigned_to, assigned, reason!);
     } else throw new TaskInputError("Operação inválida.");
     if(body.action==='stage'&&(await c.query("SELECT to_regclass('public.web_service_operation_workflows') IS NOT NULL available")).rows[0]?.available){
       const workflow=(await c.query('SELECT w.operation_id,p.schedule_id,s.name FROM web_service_operation_workflows w JOIN web_service_operations p ON p.id=w.operation_id JOIN web_task_stages s ON s.id=$2 WHERE w.task_id=$1',[id,body.stageId])).rows[0];

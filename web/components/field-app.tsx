@@ -46,6 +46,7 @@ import FieldMap, { useAutomaticFieldLocation } from "./field-map";
 import FieldTimeLogs from "./field-time-logs";
 import { fieldOperationOverdue } from "@/lib/service-scheduling/field-overdue";
 import FieldReportScreen from "./field-report-screen";
+import FieldLocationGate from "./field-location-gate";
 import ScheduleChecklistRun from "./schedule-checklist-run";
 import { statusNames } from "@/lib/service-scheduling/model";
 import { sessionTotals } from "@/lib/service-scheduling/field-model";
@@ -113,6 +114,9 @@ const elapsed = (seconds: number) => {
   return `${String(Math.floor(n / 3600)).padStart(2, "0")}:${String(Math.floor((n % 3600) / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
 };
 export default function FieldApp() {
+  return <FieldLocationGate><FieldAppContent /></FieldLocationGate>;
+}
+function FieldAppContent() {
   const orderAccordionName = useId();
   const [signingOut, setSigningOut] = useState(false);
   async function signOut() {

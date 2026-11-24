@@ -636,8 +636,9 @@ export default function NewServiceOrder({
             </nav>}
             <fieldset disabled={!form.company || Boolean(proposal?.locked)} className="os-form-fields">
               <div className={proposal?"crm-proposal-header":undefined} hidden={tab !== "header"}>
-                {proposal&&<>{proposal.tools}<div className="crm-proposal-section-heading"><h3>Dados da proposta</h3><p>Cliente, equipamento e informações para o pedido.</p></div></>}
-
+                {proposal&&proposal.tools}
+                <div className={proposal ? "crm-proposal-data" : "os-header-data"}>
+                {proposal&&<div className="crm-proposal-section-heading"><h3>Dados da proposta</h3><p>Cliente, equipamento e informações para o pedido.</p></div>}
                 <div className="os-grid">
                   {proposal&&companyField}
                   {!proposal&&select("type", "Tipo Ordem de Serviço", meta?.types || [])}
@@ -782,7 +783,7 @@ export default function NewServiceOrder({
                       placeholder="Definido pelo tipo de atendimento"
                     />
                   </label>
-                  <label className="os-wide">
+                  <label className={proposal ? "os-wide crm-proposal-notes" : "os-wide"}>
                     <span className="os-field-title">
                       Observações {!editing && <b>*</b>}
                     </span>
@@ -794,7 +795,7 @@ export default function NewServiceOrder({
                       onChange={(e) => set("notes", e.target.value)}
                     />
                   </label>
-                  <label className="os-wide">
+                  <label className={proposal ? "os-wide crm-proposal-internal-notes" : "os-wide"}>
                     <span className="os-field-title">
                       Observações Internas
                     </span>
@@ -805,6 +806,7 @@ export default function NewServiceOrder({
                       onChange={(e) => set("internalNotes", e.target.value)}
                     />
                   </label>
+                </div>
                 </div>
               {proposal&&tab==='header'&&<section className="crm-proposal-commercial" aria-label="Condições comerciais da proposta"><div className="crm-proposal-section-heading"><h3>Condições comerciais</h3><p>Contatos, validade e transporte.</p></div><div className="crm-form-grid">{[['contact','Contato'],['phone','Telefone do contato'],['validity','Validade da proposta'],['sellerEmail','E-mail do vendedor'],['sellerPhone','Telefone do vendedor'],['carrier','Transportadora']].map(([key,label])=><label key={key}>{label}<input maxLength={500} value={form.commercial?.[key]??(key==='validity'?'15 dias úteis':'')} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,[key]:e.target.value}}))}/></label>)}</div></section>}
               </div>

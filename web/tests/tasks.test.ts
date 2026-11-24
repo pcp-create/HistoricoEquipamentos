@@ -243,15 +243,18 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       user,
     );
     assert.equal(d.task.assignee_name, "Outro");
+    assert.ok(d.task.followers.includes(user.email));
     assert.equal(d.task.modifier_name, "Pessoa");
     assert.match(d.notes[0].description, /Atribuído a: Outro/);
     const reassigned = await claimNotifications("https://app.example");
-    assert.equal(reassigned.length, 1);
-    assert.match(reassigned[0].text, /Etapa: Contato com cliente/);
-    assert.match(reassigned[0].text, /Justificativa: Redistribuição da equipe/);
+    assert.equal(reassigned.length, 2);
+    const newOwnerNotice = reassigned.find(n => n.number === "5547888888888")!;
+    const previousOwnerNotice = reassigned.find(n => n.number === "5547999999999")!;
+    assert.match(newOwnerNotice.text, /Etapa: Contato com cliente/);
+    assert.match(newOwnerNotice.text, /Justificativa: Redistribuição da equipe/);
+    assert.match(previousOwnerNotice.text, /Responsável da tarefa atualizado/);
     assert.match(d.notes[0].description, /Justificativa: Redistribuição da equipe/);
-    assert.equal(reassigned[0].number, "5547888888888");
-    await acknowledgeNotification(reassigned[0].id, reassigned[0].token);
+    for (const notice of reassigned) await acknowledgeNotification(notice.id, notice.token);
     d = await updateTask(
       {
         id,
@@ -351,9 +354,11 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     assert.equal(d.task.status, "completed");
     assert.ok(d.task.completed_at);
     const completedAuto = await claimNotifications("https://app.example");
-    assert.equal(completedAuto.length,1);
-    assert.match(completedAuto[0].text,/Tarefa concluída/);
-    await acknowledgeNotification(completedAuto[0].id,completedAuto[0].token);
+    assert.equal(completedAuto.length,2);
+    for (const notice of completedAuto) {
+      assert.match(notice.text,/Tarefa concluída/);
+      await acknowledgeNotification(notice.id,notice.token);
+    }
     await syncTasks(async () => [{ ...source, state:"current", alert:false, resolved:true }]);
     assert.equal((await claimNotifications("https://app.example")).length,0);
     assert.ok(
@@ -412,7 +417,9 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     assert.equal(movable.task.assigned_to, "other@example.com");
     movable = await move("self");
     assert.equal(movable.task.assigned_to, user.email);
-    assert.equal(movable.notifications[0].recipient, user.email);
+    assert.ok(movable.task.followers.includes("other@example.com"));
+    assert.ok(movable.notifications.some((n: any) => n.recipient === user.email));
+    assert.ok(movable.notifications.some((n: any) => n.recipient === "other@example.com"));
     const noticeCount = movable.notifications.length;
     movable = await move("self");
     assert.equal(movable.notifications.length, noticeCount);
@@ -424,7 +431,7 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     assert.equal(movable.task.assigned_to, user.email);
     assert.equal(movable.task.status, "in_progress");
     assert.ok(movable.task.first_assigned_at);
-    assert.equal(movable.notifications.length, noticeCount + 1);
+    assert.equal(movable.notifications.length, noticeCount + 2);
 
     movable = await updateTask(
       {

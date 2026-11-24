@@ -263,7 +263,7 @@ export async function proposalPdf(
       265,
       7,
     );
-    if (item.notes?.trim()) lines.push(...wrap(`Observação: ${item.notes.trim()}`, 265, 7));
+    if (item.notes?.trim()) lines.push(...wrap(item.notes.trim(), 265, 7));
     const deliveryLines = item.kind === "material" ? wrap(deliveryTerm(draft,item),77,7) : [];
     while(lines.length < deliveryLines.length) lines.push("");
     for (let start = 0; start < lines.length;) {

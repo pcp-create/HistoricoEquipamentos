@@ -183,6 +183,7 @@ export default function CrmProposal({ id }: { id: string }) {
     <section className="crm-proposal-tools crm-proposal-identity" aria-label="Situação da proposta">
       <div className="crm-proposal-section-heading"><h3>Informações gerais</h3><p>Identificação e acompanhamento da proposta.</p></div>
       <p className="crm-proposal-opportunity">
+        <span>Oportunidade</span>
         <Link href={"/crm?opportunity=" + data.opportunity_id}>
           OP-{data.opportunity_number} · {data.customer_name}
         </Link>{" "}
@@ -258,7 +259,7 @@ export default function CrmProposal({ id }: { id: string }) {
         tools,
         headerActions,
         activityTools: progress,
-        summaryTools: (
+        summaryTools: actions && (
           <section
             className="crm-proposal-tools crm-conversion-tools"
             aria-label="Ações da proposta"
