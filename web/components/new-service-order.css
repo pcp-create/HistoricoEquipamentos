@@ -368,3 +368,4 @@
 .new-os .os-equipment-create-row > .os-add-equipment { width: 44px; padding: 0; color: #fff; background: #176f77; border-color: #176f77; }
 .new-os .os-equipment-create-row > .os-add-equipment:hover:not(:disabled) { background: #125a61; border-color: #125a61; }
 .new-os .os-equipment-create-row > .os-add-equipment:focus-visible { outline: 2px solid #176f77; outline-offset: 3px; }
+.os-header-data { display:contents; }

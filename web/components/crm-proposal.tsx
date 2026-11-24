@@ -179,7 +179,7 @@ export default function CrmProposal({ id }: { id: string }) {
         </div>
       )}
   </>;
-  const tools = (
+  const tools = (validityControl: React.ReactNode) => (
     <section className="crm-proposal-tools crm-proposal-identity" aria-label="Situação da proposta">
       <div className="crm-proposal-section-heading"><h3>Informações gerais</h3><p>Identificação e acompanhamento da proposta.</p></div>
       <p className="crm-proposal-opportunity">
@@ -216,6 +216,7 @@ export default function CrmProposal({ id }: { id: string }) {
             ))}
           </select>
         </label>
+        {validityControl}
       </div>
       {locked && (
         <p className="crm-info">

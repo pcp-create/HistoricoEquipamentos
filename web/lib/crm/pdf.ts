@@ -5,7 +5,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { addReportFooter } from "../reports/pdf-footer";
 import { proposalDraft, CrmError } from "./model";
-import { proposalFinancials, itemFinancials, discountedUnitCents } from "./financials";
+import { proposalFinancials, itemFinancials } from "./financials";
+import { formatContactPhone } from "../contact-phone";
 const companies: Record<string, { name: string; address: string }> = {
   "1": {
     name: "RJ Indústria e Comércio de Máquinas LTDA",
@@ -151,11 +152,14 @@ export async function proposalPdf(
           timeZone: "America/Sao_Paulo",
         }),
       W - M - 145,
-      58,
+      52,
       6,
       false,
       white,
     );
+    const validity = `Validade: ${commercial.validity ?? "15 dias úteis"}`;
+    const validitySize = Math.min(6, 137 / Math.max(1, font.widthOfTextAtSize(clean(validity), 1)));
+    text(validity, W - M - 145, 62, validitySize, false, white);
     y = 82;
   }
   function ensure(height: number) {
@@ -167,8 +171,12 @@ export async function proposalPdf(
     let cursor = top + 12;
     for (const [label, value] of fields) {
       if (!String(value || "").trim()) continue;
-      for (const row of wrap(`${label}: ${value}`, w, 7)) {
-        text(row, x, cursor);
+      const prefix = `${label}: `;
+      const prefixWidth = bold.widthOfTextAtSize(clean(prefix), 7);
+      const rows = wrap(value, Math.max(1, w - prefixWidth), 7);
+      text(prefix, x, cursor, 7, true);
+      for (const [index, row] of rows.entries()) {
+        text(row, x + (index === 0 ? prefixWidth : 0), cursor);
         cursor += 9;
       }
       cursor += 3;
@@ -195,10 +203,9 @@ export async function proposalPdf(
     details("VENDEDOR E CONDIÇÕES", [
       ["Vendedor", commercial.sellerName || ""],
       ["E-mail", commercial.sellerEmail || ""],
-      ["Telefone", commercial.sellerPhone || ""],
+      ["Telefone", (() => { const phone=commercial.sellerPhone || "", digits=phone.replace(/\D/g, ""); return (/^\d{10,11}$/.test(digits) || /^55\d{10,11}$/.test(digits)) ? formatContactPhone(phone) : phone; })()],
       ["Pagamento", commercial.paymentName || ""],
-      ["Frete / transportadora", [commercial.freightName, commercial.carrier].filter(Boolean).join(" · ")],
-      ["Validade", commercial.validity ?? "15 dias úteis"],
+      ["Frete", (commercial.freightName || "").replace(/^\s*\d+\s*[-–—]\s*/, "")],
       ["Entrega prevista", draft.expected || ""],
     ], M + 32 + 2 * col, y, col),
   ];
@@ -211,107 +218,90 @@ export async function proposalPdf(
     }
     y += 6;
   }
-  const xs = [
-    M,
-    M + 49,
-    M + 410,
-    M + (includeTaxes ? 459 : 520),
-    M + (includeTaxes ? 498 : 600),
-    M + (includeTaxes ? 570 : 710),
-    M + 625,
-    M + 678,
-    M + 725,
+  const columns = [
+    {key:"code",label:"CÓDIGO",w:38},{key:"name",label:"DESCRIÇÃO",w:includeTaxes?235:330},
+    {key:"delivery",label:"PRAZO ENTREGA",w:58},{key:"ncm",label:"NCM",w:43},{key:"quantity",label:"QTD",w:25},{key:"unit",label:"UN.",w:28},{key:"price",label:"VL. UNIT. R$",w:53},
+    ...(includeTaxes?[{key:"icms",label:"ICMS",w:46},{key:"pis",label:"PIS",w:44},{key:"cofins",label:"COFINS",w:44},{key:"ipi",label:"IPI",w:42},{key:"icmsSt",label:"ST",w:42}]:[]),
+    {key:"discount",label:"DESCONTO",w:48},{key:"total",label:"TOTAL R$",w:56},
   ];
-  function tableHeader(label: string) {
+  const scale=width/columns.reduce((sum,c)=>sum+c.w,0);
+  let cursor=M;
+  const layout=columns.map(c=>{const v={...c,x:cursor,w:c.w*scale};cursor+=v.w;return v});
+  const column=(key:string)=>layout.find(c=>c.key===key)!;
+  function cell(key:string,value:string,top:number,strong=false,color=navy) {
+    const c=column(key), size=Math.min(6.2,(c.w-5)/Math.max(1,(strong?bold:font).widthOfTextAtSize(clean(value),1)));
+    right(value,c.x+c.w-3,top,size,strong,color);
+  }
+  const gross=(item:typeof draft.items[number])=>Math.round(Number(item.quantity)*Math.round(Number(item.price)*100));
+  const discount=(item:typeof draft.items[number])=>gross(item)-itemFinancials(item).sale;
+  const unit=(value:string)=>({UNIDADE:'UN',UNIDADES:'UN',HORA:'H',HORAS:'H',PACOTE:'PCT',SERVIÇO:'SV',SERVICO:'SV'} as Record<string,string>)[value.trim().toUpperCase()]||value.trim().toUpperCase()||'—';
+  function tableHeader(label:string) {
     ensure(40);
-    if(label){text(label, M + 8, y, 6.5, true, blue);y += 11;}
-    rect(M, y, width, 17);
-    [
-      "CÓDIGO",
-      "DESCRIÇÃO / UN.",
-      "NCM",
-      "QTD",
-      "VL. UNIT. R$",
-      "ICMS R$",
-      "ICMS ST R$",
-      "VL. IPI R$",
-      "TOTAL R$",
-     ].forEach((v, i) => {
-      if (!includeTaxes && i >= 5 && i <= 7) return;
-      if (i >= 4) {
-        right(v, i === 8 ? W - M - 5 : xs[i + 1] - 8, y + 5, 5.8, true, white);
-      } else {
-        text(v, xs[i] + 4, y + 5, 5.8, true, white);
-      }
-    });
-    text("PRAZO DE ENTREGA", M + 329, y + 5, 5.8, true, white);
-    y += 18;
+    if(label){text(label,M+8,y,6.5,true,blue);y+=11;}
+    rect(M,y,width,17);
+    for(const c of layout){
+      const size=Math.min(5.2,(c.w-4)/Math.max(1,bold.widthOfTextAtSize(clean(c.label),1)));
+      if (["quantity","price","icms","pis","cofins","ipi","icmsSt","discount","total"].includes(c.key))
+        right(c.label,c.x+c.w-3,y+5,size,true,white);
+      else text(c.label,c.x+2,y+5,size,true,white);
+    }
+    y+=18;
   }
   tableHeader("");
-  for (const kind of ["material", "service"] as const) {
-  const items = draft.items.filter(item => item.kind === kind);
-  if (!items.length) continue;
-  const title = kind === "material" ? "MATERIAIS" : "SERVIÇOS";
-  if (y + 30 > H - 55) { newPage(); tableHeader("ITENS DA PROPOSTA (CONTINUAÇÃO)"); }
-  text(`${title} / ${items.length} ${items.length === 1 ? "ITEM" : "ITENS"}`, M+8,y+3,6.5,true,blue);
-  y+=14;
-  let index = 0;
-  for (const item of items) {
-    const taxes = includeTaxes ? currentTaxes(draft,item) : null;
-    const lines = wrap(
-      item.name + (item.quote?.unit ? " · " + item.quote.unit : "") + (Number(item.discountPercent)>0?` (desconto ${Number(item.discountPercent).toLocaleString('pt-BR')}%)`:''),
-      265,
-      7,
-    );
-    if (item.notes?.trim()) lines.push(...wrap(item.notes.trim(), 265, 7));
-    const deliveryLines = item.kind === "material" ? wrap(deliveryTerm(draft,item),77,7) : [];
-    while(lines.length < deliveryLines.length) lines.push("");
-    for (let start = 0; start < lines.length;) {
-      if (y + 14 > H - 55) {
-        newPage();
-        tableHeader(`${title} (CONTINUAÇÃO)`);
-      }
-      const fits = Math.max(1, Math.floor((H - 58 - y) / 10)),
-        part = lines.slice(start, start + fits),
-        height = part.length * 10 + 5;
-      if (index % 2) rect(M, y, width, height, pale);
-      if (start === 0) {
-        text(item.code, M + 4, y + 2, 6, false, gray);
-        text(item.kind === "material" ? productNcms[item.code] || "—" : "—", xs[2] + 4, y + 2, 6);
-        text(
-          Number(item.quantity).toLocaleString("pt-BR", {
-            maximumFractionDigits: 3,
-          }),
-          xs[3] + 4,
-          y + 2,
-        );
-        right(money(discountedUnitCents(item)), xs[5] - 8, y + 2);
-        if(includeTaxes) {
-        right(taxes ? money(taxes.icms) : "—", xs[6] - 8, y + 2, 6, false, gray);
-        right(taxes ? money(taxes.icmsSt) : "—", xs[7] - 8, y + 2, 6, false, gray);
-        right(taxes ? money(taxes.ipi) : "—", xs[8] - 8, y + 2, 6, false, gray);
+  for(const kind of ["material","service"] as const) {
+    const items=draft.items.filter(item=>item.kind===kind);
+    if(!items.length) continue;
+    const title=kind==="material"?"MATERIAIS":"SERVIÇOS";
+    if(y+30>H-55){newPage();tableHeader("ITENS DA PROPOSTA (CONTINUAÇÃO)");}
+    text(`${title} / ${items.length} ${items.length===1?"ITEM":"ITENS"}`,M+8,y+3,6.5,true,blue);y+=14;
+    let index=0;
+    for(const item of items){
+      const taxes=includeTaxes&&item.kind==="material"?currentTaxes(draft,item):null;
+      const lines=wrap(item.name,column("name").w-6,6.2);
+      if(item.notes?.trim())lines.push(...wrap(item.notes.trim(),column("name").w-6,6.2));
+      const deliveryLines=item.kind==="material"?wrap(deliveryTerm(draft,item),column("delivery").w-6,6):[];
+      while(lines.length<deliveryLines.length)lines.push("");
+      for(let start=0;start<lines.length;){
+        if(y+14>H-55){newPage();tableHeader(`${title} (CONTINUAÇÃO)`);}
+        const fits=Math.max(1,Math.floor((H-58-y)/10)),part=lines.slice(start,start+fits),height=part.length*10+5;
+        if(index%2)rect(M,y,width,height,pale);
+        if(start===0){
+          text(item.code,column("code").x+2,y+2,5.8,false,gray);
+          text(item.kind==="material"?productNcms[item.code]||"—":"—",column("ncm").x+2,y+2,5.8);
+          cell("quantity",Number(item.quantity).toLocaleString("pt-BR",{maximumFractionDigits:3}),y+2);
+          text(unit(item.quote?.unit||""),column("unit").x+2,y+2,5.8);
+          cell("price",money(Math.round(Number(item.price)*100)),y+2);
+          if(includeTaxes)for(const key of ["icms","pis","cofins","ipi","icmsSt"] as const)cell(key,taxes?money(taxes[key]):"—",y+2,false,gray);
+          const discountPercent=Math.min(100,Math.max(0,Number(item.discountPercent)||0)).toLocaleString("pt-BR",{maximumFractionDigits:2});
+          const discountColumn=column("discount"), discountValue=money(discount(item)), percentText=`- ${discountPercent}%`;
+          const discountWidth=font.widthOfTextAtSize(clean(discountValue),1)+font.widthOfTextAtSize(clean(percentText),1)*0.9+2;
+          const discountSize=Math.min(6.2,(discountColumn.w-5)/discountWidth), percentSize=discountSize*0.9;
+          const discountEdge=discountColumn.x+discountColumn.w-3, percentWidth=font.widthOfTextAtSize(clean(percentText),percentSize);
+          right(percentText,discountEdge,y+2+(discountSize-percentSize),percentSize,false,gray);
+          right(discountValue,discountEdge-percentWidth-2,y+2,discountSize);
+          cell("total",money(gross(item)),y+2,true);
         }
-        right(money(itemFinancials(item).sale), W - M - 5, y + 2, 7, true);
+        part.forEach((row,j)=>{text(row,column("name").x+2,y+2+j*10,6.2);if(deliveryLines[start+j])text(deliveryLines[start+j],column("delivery").x+2,y+2+j*10,6);});
+        y+=height;start+=part.length;
       }
-      part.forEach((row, j) => {
-        text(row, xs[1] + 4, y + 2 + j * 10);
-        if(deliveryLines[start+j])text(deliveryLines[start+j],M+329,y+2+j*10,7);
-      });
-      y += height;
-      start += part.length;
+      rule(y);index++;
     }
-    rule(y);
-    index++;
+    y+=4;
   }
-  y += 4;
-  }
-  ensure(152);
+  ensure(27);
+  const materialItems=draft.items.filter(i=>i.kind==="material"),taxesComplete=materialItems.length>0&&materialItems.every(i=>currentTaxes(draft,i));
+  rect(M,y,width,19,rgb(0.86,0.91,0.97));
+  right("SUBTOTAL",column("price").x+column("price").w-3,y+6,6,true,blue);
+  if(includeTaxes)for(const key of ["icms","pis","cofins","ipi","icmsSt"] as const)cell(key,taxesComplete?money(materialItems.reduce((sum,item)=>sum+(currentTaxes(draft,item)?.[key]||0),0)):"—",y+6,true);
+  cell("discount",money(draft.items.reduce((sum,item)=>sum+discount(item),0)),y+6,true);
+  cell("total",money(draft.items.reduce((sum,item)=>sum+gross(item),0)),y+6,true);y+=25;
+  ensure(120);
   const startY = y;
   text("OBSERVAÇÕES E CONDIÇÕES COMERCIAIS", M + 8, y, 6.5, true);
   y += 13;
   const conditions = [
     "Prazo de entrega por produto; dias úteis a contar da aprovação formal.",
-    ...(includeTaxes ? ["Tributos estimados conforme os dados da operação, sujeitos à confirmação no faturamento."] : []),
+    ...(includeTaxes ? ["Tributos estimados dos produtos, sujeitos à confirmação no faturamento. Impostos de serviços não simulados."] : []),
     "Qualquer alteração de parâmetro implica revisão de valores e novo aceite.",
     "Pagamento exclusivamente via boleto bancário emitido pela RJ Compressores.",
     "Declaro ter conferido todos os dados e estar ciente dos prazos e condições.",
@@ -325,14 +315,13 @@ export async function proposalPdf(
   const tx = M + width * 0.63,
     tw = width * 0.37;
   let totalY = startY;
-  const materialItems = draft.items.filter(i => i.kind === "material");
-  const taxesComplete = materialItems.every(i => currentTaxes(draft, i));
-  const taxRows = ([['ICMS', 'icms'], ['ICMS-ST', 'icmsSt'], ['IPI', 'ipi'], ['PIS', 'pis'], ['COFINS', 'cofins']] as const)
-    .map(([label, key]) => [label, taxesComplete ? money(materialItems.reduce((sum, item) => sum + (currentTaxes(draft, item)?.[key] || 0), 0)) : "Não informado"]);
+  const grossMaterials=draft.items.filter(i=>i.kind==="material").reduce((sum,i)=>sum+gross(i),0);
+  const grossServices=draft.items.filter(i=>i.kind==="service").reduce((sum,i)=>sum+gross(i),0);
+  const totalDiscount=draft.items.reduce((sum,i)=>sum+discount(i),0);
   for (const [label, value] of [
-    ["Peças — subtotal", money(totals.materials)],
-    ["Mão de obra — subtotal", money(totals.services)],
-    ...(includeTaxes ? taxRows : []),
+    ["Peças — subtotal", money(grossMaterials)],
+    ["Mão de obra — subtotal", money(grossServices)],
+    ["Descontos", "- " + money(totalDiscount)],
   ]) {
     text(label, tx + 8, totalY, 7, false, gray);
     right(value, W - M - 8, totalY);
@@ -348,7 +337,8 @@ export async function proposalPdf(
     true,
     rgb(0.91, 0.63, 0),
   );
-  y = Math.max(y, totalY + 32) + 8;
+  totalY += 32;
+  y = Math.max(y, totalY) + 8;
   ensure(70);
   rect(M, y, width, 40, pale);
   const confirmation = wrap(

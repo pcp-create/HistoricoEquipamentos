@@ -69,7 +69,7 @@ export default function NewServiceOrder({
   editing, returnTo, proposal,
 }: { returnTo?: string; editing?: { company: string; id: string }; proposal?: {
  title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
- activityTools?:React.ReactNode;headerActions?:React.ReactNode;typeControl?:React.ReactNode;orderType?:string;tools?:React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
+ activityTools?:React.ReactNode;headerActions?:React.ReactNode;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
 } } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
   const [equipmentPending,setEquipmentPending]=useState(false);
@@ -212,11 +212,14 @@ export default function NewServiceOrder({
             : d.rows.length === 1
               ? d.rows[0]
               : null;
-        setForm((f) =>
-          (proposal && !!f.seller) || (editing && f.customer === editData?.draft.customer)
-            ? f
-            : { ...f, seller: chosen?.id || "" },
-        );
+        setForm((f) => {
+          const keepSeller=(proposal && !!f.seller) || (editing && f.customer === editData?.draft.customer);
+          const seller=keepSeller ? f.seller : chosen?.id || "";
+          const phone=d.rows.find((r:any)=>String(r.id)===String(seller))?.phone;
+          if (proposal && phone && !f.commercial?.sellerPhone?.trim())
+            return {...f,seller,commercial:{...f.commercial,sellerPhone:phone}};
+          return keepSeller ? f : {...f,seller};
+        });
         if(!d.rows.some((r:any)=>!r.disabled))setSellerError("Nenhum vendedor habilitado disponível no M8.");
         else if(d.warning)setSellerError(d.warning);
       })
@@ -440,9 +443,11 @@ export default function NewServiceOrder({
             ...r,
             detail: key === "technician" ? "" : key === "seller" ? r.detail || `ID ${r.id}` : `ID ${r.id}`,
           }))}
-        onChange={(r) =>
-          key === "type" ? choose("type", r.id) : set(key, r.id)
-        }
+        onChange={(r) => {
+          if(key === "type") choose("type",r.id);
+          else if(key === "seller" && proposal) setForm(f=>({...f,seller:r.id,commercial:{...f.commercial,sellerPhone:options.find(option=>String(option.id)===String(r.id))?.phone||""}}));
+          else set(key,r.id);
+        }}
       />
       {extra && <small>{extra}</small>}
     </label>
@@ -636,7 +641,7 @@ export default function NewServiceOrder({
             </nav>}
             <fieldset disabled={!form.company || Boolean(proposal?.locked)} className="os-form-fields">
               <div className={proposal?"crm-proposal-header":undefined} hidden={tab !== "header"}>
-                {proposal&&proposal.tools}
+                {proposal?.tools?.(<label>Validade da proposta<input maxLength={500} value={form.commercial?.validity ?? "15 dias úteis"} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,validity:e.target.value}}))}/></label>)}
                 <div className={proposal ? "crm-proposal-data" : "os-header-data"}>
                 {proposal&&<div className="crm-proposal-section-heading"><h3>Dados da proposta</h3><p>Cliente, equipamento e informações para o pedido.</p></div>}
                 <div className="os-grid">
@@ -710,6 +715,7 @@ export default function NewServiceOrder({
                     "Origem Atendimento",
                     registry("service-origins"),
                   )}
+                  <div className={proposal ? "crm-proposal-seller" : "os-header-data"}>
                   {select(
                     "seller",
                     "Vendedor",
@@ -719,6 +725,7 @@ export default function NewServiceOrder({
                       : sellerError ||
                           (proposal ? "" : "Preenchido pelo padrão do cliente, quando disponível. Clique para selecionar ou trocar o vendedor."),
                   )}
+                  </div>
                   {select(
                     "payment",
                     "Condição de Pagamento",
@@ -808,7 +815,6 @@ export default function NewServiceOrder({
                   </label>
                 </div>
                 </div>
-              {proposal&&tab==='header'&&<section className="crm-proposal-commercial" aria-label="Condições comerciais da proposta"><div className="crm-proposal-section-heading"><h3>Condições comerciais</h3><p>Contatos, validade e transporte.</p></div><div className="crm-form-grid">{[['contact','Contato'],['phone','Telefone do contato'],['validity','Validade da proposta'],['sellerEmail','E-mail do vendedor'],['sellerPhone','Telefone do vendedor'],['carrier','Transportadora']].map(([key,label])=><label key={key}>{label}<input maxLength={500} value={form.commercial?.[key]??(key==='validity'?'15 dias úteis':'')} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,[key]:e.target.value}}))}/></label>)}</div></section>}
               </div>
 
               <details className="os-extra" hidden={tab !== "header"}>
@@ -895,7 +901,7 @@ export default function NewServiceOrder({
                 </div>
               </details>
               {proposal&&<CrmProposalItems draft={form} active={tab==="material"||tab==="service"} kind={tab==="service"?"service":"material"} customer={form.customer} equipment={form.equipment} company={form.company} items={form.items} disabled={disabled||!!proposal.locked} onChange={items=>setForm(f=>({...f,items}))}/>}
-              {proposal&&tab==="summary"&&<CrmProposalSummary draft={form} names={names} disabled={disabled||!!proposal.locked} onChange={items=>setForm(current=>({...current,items}))}/>}
+              {proposal&&tab==="summary"&&<CrmProposalSummary draft={form} disabled={disabled||!!proposal.locked} onChange={items=>setForm(current=>({...current,items}))}/>}
               {!proposal&&["material", "service"].map((kind) => (
                 <div key={kind} hidden={tab !== kind}>
                   <div className="os-item-heading">

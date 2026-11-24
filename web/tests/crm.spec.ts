@@ -80,7 +80,7 @@ test('CRM saves proposals locally and only creates an ERP order when concretizin
  await service.getByLabel('Observação interna: Revisão histórica',{exact:true}).fill('Verificar orçamento');
  await service.getByLabel('Custo unitário: Revisão histórica',{exact:true}).fill('10.00');
  await page.getByRole('button',{name:'Continuar para Resumo geral',exact:true}).click();
- await expect(page.getByRole('heading',{name:'Resumo geral',exact:true})).toBeVisible();
+ await expect(page.getByRole('region',{name:'Resumo geral da proposta'})).toBeVisible();
  await expect(page.locator('.crm-summary-table')).toHaveCount(2);
  await expect(page.getByRole('spinbutton',{name:'Quantidade: Filtro histórico',exact:true})).toHaveCSS('font-size','12px');
  await expect(page.getByRole('spinbutton',{name:'Venda unitária: Filtro histórico',exact:true})).toHaveCSS('font-size','12px');

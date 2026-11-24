@@ -20,13 +20,49 @@ test('proposal PDF receives trusted stock, seller delivery and simulated tax amo
  document.items=document.items.map(i=>({...i,taxes:{key:taxKey(document,i),at:'2026-11-18T12:00:00Z',icms:5400,icmsSt:0,ipi:1500,pis:495,cofins:2280}}));
  const bytes=await proposalPdf({...proposal,document},{},{},{19420:"84219910",20120:"84219910",13927:"84149039"});
  await writeFile('/tmp/crm-proposta-impostos.pdf',bytes);
- assert.equal((await PDFDocument.load(bytes)).getPageCount(),1);
+ const pdf=await PDFDocument.load(bytes);
+ assert.equal(pdf.getPageCount(),1);
+ const content=pdf.context.enumerateIndirectObjects().filter(([,object])=>object instanceof PDFRawStream).map(([,object])=>Buffer.from(decodePDFRawStream(object as PDFRawStream).decode()).toString('latin1')).join('');
+ const encoded=(text:string)=>Buffer.from(text,'latin1').toString('hex').toUpperCase();
+ assert.ok(content.indexOf(encoded('VALOR TOTAL')) >= 0);
+ for (const label of ['PIS','COFINS','IPI','ST','DESCONTO','SUBTOTAL','Descontos']) assert.ok(content.includes(encoded(label)), label);
+ assert.ok(!content.includes(encoded('DETALHAMENTO DE IMPOSTOS')));
 });
 
 test('proposal without taxes renders without fiscal setup',async()=>{
  const bytes=await proposalPdf(proposal,{},{},{19420:'84219910'},{includeTaxes:false});
  await writeFile('/tmp/crm-proposta-sem-impostos.pdf',bytes);
  assert.equal((await PDFDocument.load(bytes)).getPageCount(),1);
+});
+
+test('proposal PDF displays freight description without its code or carrier',async()=>{
+ const document={...proposal.document,commercial:{...proposal.document.commercial,freightName:'0 - Frete CIF',carrier:'TRANSPORTADORA TESTE'}};
+ const pdf=await PDFDocument.load(await proposalPdf({...proposal,document},{},{},{},{includeTaxes:false}));
+ const content=pdf.context.enumerateIndirectObjects().filter(([,object])=>object instanceof PDFRawStream).map(([,object])=>Buffer.from(decodePDFRawStream(object as PDFRawStream).decode()).toString('latin1')).join('');
+ const contains=(text:string)=>content.includes(Buffer.from(text,'latin1').toString('hex').toUpperCase());
+ assert.ok(contains('Frete: '));
+ assert.ok(contains('Frete CIF'));
+ assert.ok(!contains('Frete / transportadora'));
+ assert.ok(!contains('TRANSPORTADORA TESTE'));
+ assert.ok(!contains('0 - Frete CIF'));
+});
+
+test('proposal PDF shows validity with issue date and formats seller telephone',async()=>{
+ const document={...proposal.document,commercial:{...proposal.document.commercial,sellerPhone:'5549991294213',validity:'15 dias úteis'}};
+ const pdf=await PDFDocument.load(await proposalPdf({...proposal,document},{},{},{},{includeTaxes:false}));
+ const content=pdf.context.enumerateIndirectObjects().filter(([,object])=>object instanceof PDFRawStream).map(([,object])=>Buffer.from(decodePDFRawStream(object as PDFRawStream).decode()).toString('latin1')).join('');
+ const contains=(text:string)=>content.includes(Buffer.from(text,'latin1').toString('hex').toUpperCase());
+ assert.ok(contains('Validade: 15 dias úteis'));
+ assert.ok(contains('(49) 99129-4213'));
+ assert.ok(!contains('5549991294213'));
+});
+
+test('proposal PDF shows gross prices and deducts discounts from the final total',async()=>{
+ const document={...proposal.document,items:[{...item,discountPercent:'10'},{...item,kind:'service',code:'30',name:'MANUTENÇÃO',quantity:'1',price:'250.00'}]};
+ const pdf=await PDFDocument.load(await proposalPdf({...proposal,document},{},{},{},{includeTaxes:false}));
+ const content=pdf.context.enumerateIndirectObjects().filter(([,object])=>object instanceof PDFRawStream).map(([,object])=>Buffer.from(decodePDFRawStream(object as PDFRawStream).decode()).toString('latin1')).join('');
+ const contains=(text:string)=>content.includes(Buffer.from(text,'latin1').toString('hex').toUpperCase());
+ for(const value of ['300,00','250,00','550,00','30,00','- 10%','- 30,00','R$ 520,00']) assert.ok(contains(value),value);
 });
 
 test('public item notes appear in both PDF modes while internal notes remain private',async()=>{

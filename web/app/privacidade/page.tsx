@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
       <article className={styles.document}>
         <p className={styles.eyebrow}>TRANSPARÊNCIA E PROTEÇÃO DE DADOS</p>
         <h1>Política de Privacidade</h1>
-        <p>Última atualização: <time dateTime="2026-11-11">11 de novembro de 2026</time>.</p>
+        <p>Última atualização: <time dateTime="2026-11-24">24 de novembro de 2026</time>.</p>
         <p>Esta política explica o tratamento de dados pessoais no sistema Gestão Integrada RJ Compressores, no Portal Técnico RJ para Android e nos portais de vendas e visitas disponíveis em rjcompressores.app. Aplica-se a usuários autorizados, técnicos, vendedores, clientes e pessoas identificadas nos atendimentos.</p>
 
         <h2>1. Responsável e contato</h2>
@@ -58,8 +58,9 @@ export default function PrivacyPolicy() {
         <p>A infraestrutura de terceiros pode envolver processamento fora do Brasil. Esse tratamento deve observar os mecanismos de proteção e transferência internacional aplicáveis. Os dados não são comercializados nem utilizados pela plataforma para publicidade comportamental.</p>
 
         <h2>6. Conexão opcional com Google e Gmail</h2>
-        <p>Quando o usuário escolhe conectar uma conta Google, a autorização permite identificar a conta de e-mail e criar rascunhos ou enviar mensagens com o relatório e os anexos selecionados. Os destinatários, assunto, mensagem e PDF são enviados ao Gmail para essa finalidade. A conexão é opcional e a senha Google não é solicitada pela plataforma.</p>
-        <p>O token de autorização é utilizado no navegador durante a operação e descartado do fluxo ao finalizar. A funcionalidade não utiliza a caixa de entrada para pesquisas ou análises. Mensagens e rascunhos criados permanecem na conta Gmail e podem ser gerenciados pelo titular.</p>
+        <p>A conexão com o Google é opcional e é iniciada pelo usuário na função de envio de relatórios técnicos. A Gestão Integrada solicita a identificação da conta e a permissão <strong>gmail.compose</strong>, que permite criar e gerenciar rascunhos e enviar mensagens. O sistema usa essa permissão para criar o rascunho ou enviar a mensagem que o usuário escolheu, com os destinatários, assunto, conteúdo e relatório em PDF selecionados. O endereço de e-mail retornado pelo Google pode ser usado para abrir os rascunhos na conta correta. A plataforma não solicita nem recebe a senha da conta Google.</p>
+        <p>O relatório e os dados da mensagem são preparados pelo sistema e enviados pelo navegador à API do Gmail. O token de acesso é usado no navegador durante a operação e não é gravado pelo sistema nesse fluxo. A funcionalidade não pesquisa nem analisa a caixa de entrada. Os rascunhos criados e as mensagens enviadas permanecem na conta Gmail, sujeitos às configurações dessa conta; os relatórios e dados de atendimento continuam armazenados na plataforma conforme a seção 8.</p>
+        <p>Os dados recebidos do Google são usados para executar a ação solicitada pelo usuário, não para publicidade. O conteúdo e os anexos são compartilhados com o Gmail e com os destinatários informados pelo usuário quando a mensagem é enviada. Pessoas autorizadas podem acessar os registros do atendimento de acordo com seu perfil; provedores de infraestrutura tratam os dados necessários à operação da plataforma.</p>
         <p>O uso e a transferência de informações recebidas das APIs Google seguem a <a href="https://developers.google.com/terms/api-services-user-data-policy">Política de Dados do Usuário dos Serviços de API do Google</a>, incluindo os requisitos de Uso Limitado. Esses dados não são utilizados para anúncios ou treinamento de modelos de inteligência artificial. A autorização pode ser revogada nas <a href="https://myaccount.google.com/connections">conexões da Conta Google</a>; a revogação não apaga mensagens já enviadas ou documentos do atendimento.</p>
 
         <h2>7. Fundamentos e segurança do tratamento</h2>
@@ -80,7 +81,7 @@ export default function PrivacyPolicy() {
         <p>Esta política pode ser atualizada para refletir mudanças no serviço ou nas regras aplicáveis. A versão vigente e a data de atualização estarão nesta página. Novos usos de dados que exijam informação ou autorização adicional serão apresentados ao usuário antes de sua adoção.</p>
         <p>Dúvidas sobre este documento podem ser encaminhadas pelo contato informado na seção 1.</p>
       </article>
-      <footer className={styles.footer}>RJ Compressores · Gestão Integrada · <Link href="/login">Voltar ao acesso</Link></footer>
+      <footer className={styles.footer}>RJ Compressores · Gestão Integrada · <Link href="/">Página inicial</Link> · <Link href="/login">Acessar o sistema</Link></footer>
     </main>
   );
 }

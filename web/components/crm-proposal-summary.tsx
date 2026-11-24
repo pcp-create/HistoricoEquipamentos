@@ -16,14 +16,12 @@ const percent = (v: number | null) =>
     : v.toLocaleString("pt-BR", { maximumFractionDigits: 2 }) + "%";
 export default function CrmProposalSummary({
   draft,
-  names,
   onChange,
   disabled = false,
 }: {
   draft: OrderDraft;
   onChange: (items: OrderDraft["items"]) => void;
   disabled?: boolean;
-  names: { customer: string; equipment: string };
 }) {
   const totals = proposalFinancials(draft.items);
   return (
@@ -31,12 +29,6 @@ export default function CrmProposalSummary({
       className="crm-proposal-summary"
       aria-label="Resumo geral da proposta"
     >
-      <header>
-        <h2>Resumo geral</h2>
-        <p>
-          {names.customer} {names.equipment && `· ${names.equipment}`}
-        </p>
-      </header>
       <div className="crm-financial-cards">
         {[
           ["Produtos", cash(totals.materials)],

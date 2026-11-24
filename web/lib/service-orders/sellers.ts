@@ -6,7 +6,7 @@ export async function orderSellers(api:Api){
  if(!Array.isArray(rows))throw Error('Consulta de vendedores indisponível.');
  return [...new Map(rows.filter(r=>Number.isSafeInteger(r.id)&&r.id>0&&r.id<=2147483647).map(r=>{
   const blocked=r.bloqueado===true||String(r.bloqueado).toLowerCase()==='sim';
-  return [String(r.id),{id:String(r.id),name:r.razaoSocial||r.nomeFantasia||r.fantasia||r.apelido||String(r.id),disabled:r.ativo===false||blocked,detail:r.ativo===false?'Inativo':blocked?'Bloqueado':`ID ${r.id}`}];
+  return [String(r.id),{id:String(r.id),name:r.razaoSocial||r.nomeFantasia||r.fantasia||r.apelido||String(r.id),phone:typeof r.telefone==='string'?r.telefone.trim():'',disabled:r.ativo===false||blocked,detail:r.ativo===false?'Inativo':blocked?'Bloqueado':`ID ${r.id}`}];
  })).values()].sort((a,b)=>Number(a.id)-Number(b.id));
 }
 export async function customerOrderSellers(api:Api,customer:string|number){
