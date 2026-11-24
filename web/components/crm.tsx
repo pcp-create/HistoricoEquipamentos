@@ -655,7 +655,8 @@ function OpportunityDialog({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [proposalType, setProposalType] = useState(""),
-    [proposalTitle, setProposalTitle] = useState("");
+    [proposalTitle, setProposalTitle] = useState(""),
+    [proposalOpen, setProposalOpen] = useState(false);
   useEffect(() => {
     ref.current?.showModal();
   }, []);
@@ -708,7 +709,7 @@ function OpportunityDialog({
   return createPortal(
     <dialog
       ref={ref}
-      className="crm-dialog"
+      className="crm-dialog crm-opportunity-dialog"
       aria-label={
         data.id ? "Oportunidade OP-" + data.number : "Nova oportunidade"
       }
@@ -718,7 +719,7 @@ function OpportunityDialog({
       }}
     >
       <header>
-        <h2>{data.id ? "OP-" + data.number : "Nova oportunidade"}</h2>
+        <div className="crm-opportunity-heading"><span>OPORTUNIDADE</span><h2>{data.id ? "OP-" + data.number : "Nova oportunidade"}</h2></div>
         <button
           className="button"
           type="button"
@@ -729,14 +730,14 @@ function OpportunityDialog({
           <X size={20} />
         </button>
       </header>
-      <form
+      <form className="crm-opportunity-form" id="crm-opportunity-form"
         onSubmit={(e) => {
           e.preventDefault();
           void save();
         }}
       >
         <fieldset disabled={busy} style={{ border: 0, padding: 0 }}>
-          <div className="crm-form-grid">
+          <div className="crm-form-grid crm-opportunity-grid">
             <label className="crm-wide">
               Título *
               <input
@@ -888,19 +889,19 @@ function OpportunityDialog({
                 }
               />
             </label>
-            <label className="crm-wide">
+            <label className="crm-wide crm-opportunity-notes">
               Observações
               <textarea
                 maxLength={10000}
-                rows={3}
+                rows={2}
                 value={form.notes}
                 onChange={(e) => change("notes", e.target.value)}
               />
             </label>
           </div>
-          <button className="button primary" type="submit">
+          <div className="crm-opportunity-save"><button className="button primary" type="submit">
             {busy ? "Salvando…" : "Salvar oportunidade"}
-          </button>
+          </button></div>
         </fieldset>
       </form>
       {error && (
@@ -908,7 +909,9 @@ function OpportunityDialog({
       )}
       {data.id && (
         <>
-          <h3>Propostas vinculadas</h3>
+          <section className="crm-opportunity-proposals" aria-label="Propostas vinculadas">
+          <div className="crm-opportunity-proposals-heading"><div><h3>Propostas vinculadas <span>{data.proposals?.length || 0}</span></h3><p>Acompanhe as propostas desta oportunidade.</p></div>
+          {!proposalOpen && <button type="button" className="button crm-add-proposal" disabled={busy || data.status !== "open"} onClick={() => setProposalOpen(true)}><Plus size={16} /> Adicionar proposta</button>}</div>
           <div className="crm-links">
             {data.proposals?.map((p: any) => (
               <article key={p.id}>
@@ -919,15 +922,14 @@ function OpportunityDialog({
                 >
                   PROP-{p.number}
                 </Link>
-                <span> · {p.title}</span>
-                <p>
-                  {crmStatus(p.status)} · {crmMoney(p.total_cents)}
-                </p>
+                <span className="crm-opportunity-proposal-title">{p.title}</span>
+                <span className="crm-opportunity-proposal-status">{crmStatus(p.status)}</span>
+                <strong className="crm-opportunity-proposal-total">{crmMoney(p.total_cents)}</strong>
               </article>
             ))}
           </div>
           {!data.proposals?.length && <p>Nenhuma proposta cadastrada.</p>}
-          <form
+          {proposalOpen && <form className="crm-opportunity-proposal-form"
             onSubmit={(e) => {
               e.preventDefault();
               void addProposal();
@@ -986,9 +988,11 @@ function OpportunityDialog({
                 <Plus size={16} />
                 Criar proposta
               </button>
+              <button type="button" className="button" onClick={() => setProposalOpen(false)}>Cancelar</button>
             </fieldset>
-          </form>
-          <details>
+          </form>}
+          </section>
+          <details className="crm-opportunity-history">
             <summary>Histórico da oportunidade</summary>
             <ul className="crm-history">
               {data.history?.map((e: any) => (

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {emailBodyHtml} from '../lib/service-scheduling/email-body-html';
+import {emailBodyHtml,cleanEmailBodyHtml} from '../lib/service-scheduling/email-body-html';
 import {emailTextHtml,validEmailLink} from '../lib/service-scheduling/email-body-text';
 import {emailMessage} from '../lib/service-scheduling/customer-email';
 import {defaultCustomerEmail,validateCustomerEmail,fillCustomerEmail,fillCustomerEmailHtml} from '../lib/service-scheduling/customer-email-template';
@@ -48,7 +48,7 @@ test('message HTML strips executable content and unsafe pasted styles and links'
  assert.match(safe,/<strong>Texto<\/strong>/);assert.match(safe,/color:#ff0000/);
  assert.doesNotMatch(safe,/onclick|onerror|<script|<iframe|<img|javascript:|position:|background-image/);
  assert.throws(()=>emailBodyHtml('<p><br></p>'),/texto/);
- assert.throws(()=>emailBodyHtml('a'.repeat(100001)),/limite/);
+ assert.throws(()=>emailBodyHtml('a'.repeat(900001)),/limite/);
  assert.equal(emailTextHtml('Olá <script> & teste\nNova linha'),'<p>Olá &lt;script&gt; &amp; teste<br>Nova linha</p>');
  assert.equal(validEmailLink('javascript:alert(1)'),false);assert.equal(validEmailLink('https://example.com'),true);
 });
@@ -58,5 +58,16 @@ test('formatted defaults validate their size and escape dynamic values without l
  assert.match(config.bodyHtml,/<strong>/);
  const html=fillCustomerEmailHtml(config.bodyHtml,{cliente:'A & B <img src=x onerror=alert(1)>',equipamento:'Compressor ABC\nSecador DEF'});
  assert.match(html,/<strong>Olá A &amp; B &lt;img/);assert.match(html,/Compressor ABC<br>Secador DEF/);assert.doesNotMatch(html,/<img/);
- assert.throws(()=>validateCustomerEmail({bodyHtml:'x'.repeat(100001)}),/formatado/);
+ assert.throws(()=>validateCustomerEmail({bodyHtml:'x'.repeat(900001)}),/formatado/);
+});
+
+
+test('inline images survive sanitization and are embedded in the email alongside the PDF',()=>{
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6zZsAAAAASUVORK5CYII=','base64');
+ const html='<p>Olá</p><img src="data:image/png;base64,'+png.toString('base64')+'" alt="Logo" onerror="alert(1)">';
+ assert.match(cleanEmailBodyHtml(html)!,/<img/);
+ assert.doesNotMatch(cleanEmailBodyHtml(html)!,/onerror/);
+ const mime=emailMessage({to:'a@example.com',subject:'Teste',body:'Olá',bodyHtml:html,filename:'OS.pdf',pdf:Buffer.from('%PDF')});
+ assert.match(mime,/multipart\/related/);assert.match(mime,/Content-ID: <[^>]+>/);assert.match(mime,/Content-Type: image\/png/);assert.ok(mime.replace(/\s/g,'').includes(png.toString('base64')));assert.match(mime,/Content-Type: application\/pdf/);
+ assert.throws(()=>emailMessage({to:'a@example.com',subject:'Teste',body:'Olá',bodyHtml:'<p>Olá</p><img src="data:image/png;base64,YWJj">',filename:'OS.pdf',pdf:Buffer.from('%PDF')}),/Imagem inválida/);
 });

@@ -242,7 +242,7 @@ export default function CrmProposalItems({
             (r) => r.kind === item.kind && r.code === item.code,
           );
           return (
-            <article className="crm-quote-item" key={quoteItemIdentity(item)}>
+            <article className={`crm-quote-item${item.selected ? " is-selected" : ""}`} key={quoteItemIdentity(item)}>
               <QuoteItemRow
                 showTaskAction={false}
                 compactPricing
@@ -259,6 +259,8 @@ export default function CrmProposalItems({
                 }
               />
               {item.selected && saved && (
+                <details className="crm-item-section">
+                  <summary>Custos e margem</summary>
                 <div
                   className="crm-item-financials"
                   aria-label={`Custos e margem: ${item.name}`}
@@ -292,7 +294,7 @@ export default function CrmProposalItems({
                   )}
                   {kind === 'material' && <>
                     <div><span>Custo da última compra</span><strong>{saved.lastPurchaseCost != null && saved.lastPurchaseCost !== '' ? Number(saved.lastPurchaseCost).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}) : 'Não informado'}</strong><span>Compra: {costDate(saved.lastPurchaseAt)}</span></div>
-                    <div><span>Atualização do custo fornecedor</span><strong>{costDate(saved.supplierCostAt)}</strong></div>
+                    <div><span>Custo fornecedor</span><strong>{saved.supplierCost != null && saved.supplierCost !== '' ? Number(saved.supplierCost).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}) : 'Não informado'}</strong><span>Atualização: {costDate(saved.supplierCostAt)}</span></div>
                   </>}
                   <div>
                     <span>Custo total</span>
@@ -328,6 +330,7 @@ export default function CrmProposalItems({
                     </strong>
                   </div>
                 </div>
+                </details>
               )}
               {kind === "material" &&
                 saved?.unitCostReason === "unit_mismatch" && (
@@ -338,9 +341,12 @@ export default function CrmProposalItems({
                   </p>
                 )}
               {item.selected && (
-                <div className="crm-form-grid">
+                <details className="crm-item-section">
+                  <summary>Observações do item {(saved?.notes || saved?.internalNotes) && <span className="crm-item-section-indicator">Preenchida</span>}</summary>
+                <div className="crm-item-notes" aria-label={`Observações: ${item.name}`}>
+                  <div className="crm-form-grid">
                   <label>
-                    Observação: {item.name}
+                    Observação na proposta
                     <textarea
                       disabled={disabled}
                       maxLength={20000}
@@ -355,7 +361,7 @@ export default function CrmProposalItems({
                     />
                   </label>
                   <label>
-                    Observação interna: {item.name}
+                    Observação interna
                     <textarea
                       disabled={disabled}
                       maxLength={20000}
@@ -371,7 +377,9 @@ export default function CrmProposalItems({
                       }
                     />
                   </label>
+                  </div>
                 </div>
+                </details>
               )}
             </article>
           );

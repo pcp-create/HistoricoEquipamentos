@@ -119,7 +119,7 @@ export default function QuoteItemRow({
     </button>;
   }
   return (
-    <article className={`quote-choice${compactPricing ? " quote-choice-compact" : ""}${item.selected ? " is-selected" : ""}`}>
+    <article className={`quote-choice${compactPricing ? " quote-choice-compact" : ""}${compactPricing && item.kind === "service" ? " quote-choice-service" : ""}${item.selected ? " is-selected" : ""}`}>
       <div className="quote-choice-line">
         <input
           className="quote-choice-check"
@@ -226,6 +226,15 @@ export default function QuoteItemRow({
             </small>
           )}
         </div>
+        {compactPricing && item.kind === "service" && (
+          <label className="quote-choice-unit">
+            Unidade
+            <select aria-label={`Unidade: ${item.name}`} value={item.unit} onChange={(e) => onChange({unit:e.target.value})}>
+              {!item.unit && <option value="">Selecione</option>}
+              {Array.from(new Set([item.unit, "UNIDADE", "PCT", "HORA", "DIÁRIA", "SERVIÇO"].filter(Boolean))).map(unit => <option key={unit} value={unit}>{unit}</option>)}
+            </select>
+          </label>
+        )}
         <div className="quote-choice-reference">
           <div className="quote-last-sale">
           <small>
@@ -311,7 +320,7 @@ export default function QuoteItemRow({
             Usar venda M8: {money(ref.referencePrice)}
           </button>
         )}
-        {(manual || !ref.unit) && (
+        {(manual || !ref.unit) && !(compactPricing && item.kind === "service") && (
           <label>
             Unidade
             <input

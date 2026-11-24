@@ -3,11 +3,11 @@ import sanitizeHtml from 'sanitize-html';
 /** Only formatting and safe links may leave the portal as email HTML. */
 export function cleanEmailBodyHtml(value:unknown){
  if(value===undefined)return undefined;
- if(typeof value!=='string'||value.length>100000)throw Error('A mensagem formatada excede o limite permitido.');
+ if(typeof value!=='string'||value.length>900000)throw Error('A mensagem formatada excede o limite permitido.');
  const html=sanitizeHtml(value,{
-  allowedTags:['p','br','div','span','strong','b','em','i','u','s','strike','a','ul','ol','li','blockquote'],
-  allowedAttributes:{'*':['style'],a:['href','target','rel'],ol:['start']},
-  allowedSchemes:['http','https','mailto','tel'],allowProtocolRelative:false,
+  allowedTags:['p','br','div','span','strong','b','em','i','u','s','strike','a','ul','ol','li','blockquote','img'],
+  allowedAttributes:{'*':['style'],a:['href','target','rel'],ol:['start'],img:['src','alt']},
+  allowedSchemes:['http','https','mailto','tel'],allowedSchemesByTag:{img:['data']},allowProtocolRelative:false,
   allowedStyles:{'*':{
    'color':[/^#[0-9a-f]{3,8}$/i,/^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$/],
    'font-family':[/^(?:Arial|Georgia|Verdana|monospace|sans-serif|serif)(?:,\s*(?:sans-serif|serif))?$/i],
@@ -17,6 +17,7 @@ export function cleanEmailBodyHtml(value:unknown){
    'font-style':[/^(?:italic|normal)$/],
    'text-decoration':[/^(?:underline|line-through|none)$/],
   }},
+  exclusiveFilter:frame=>frame.tag==='img'&&!/^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/i.test(frame.attribs.src||''),
   transformTags:{a:(_tag,attrs)=>({tagName:'a',attribs:{...attrs,target:'_blank',rel:'noopener noreferrer'}})},
  });
  if(!sanitizeHtml(html,{allowedTags:[],allowedAttributes:{}}).replace(/(?:&nbsp;|&#160;|\s)/g,''))throw Error('Informe o texto da mensagem.');

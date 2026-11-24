@@ -18,9 +18,18 @@ export function emailMessage({to,subject,body,filename,pdf,bodyHtml}:{to:string;
  const fallback=filename.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7e]|["\\]/g,'_');
  const disposition='Content-Disposition: attachment; filename="'+fallback+'";\r\n'+nameParts.map((part,i)=>' filename*'+i+'*='+(i===0?"UTF-8''":'')+part).join(';\r\n');
  let html:string|undefined;try{html=emailBodyHtml(bodyHtml);}catch(e){throw new CustomerEmailError((e as Error).message);}
- const alternative='rj_alt_'+randomUUID();
+ const inlineImages:{id:string;mime:string;bytes:Buffer}[]=[];
+ if(html)html=html.replace(/src="data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})"/gi,(_match,kind:string,data:string)=>{
+  const bytes=Buffer.from(data,'base64'),mime='image/'+kind.toLowerCase();
+  const valid=mime==='image/png'?bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])):bytes[0]===255&&bytes[1]===216&&bytes[2]===255;
+  if(!valid||bytes.length>500000||bytes.toString('base64')!==data)throw new CustomerEmailError('Imagem inválida ou superior a 500 KB.');
+  const id=randomUUID()+'@rj';inlineImages.push({id,mime,bytes});return 'src="cid:'+id+'"';
+ });
+ const alternative='rj_alt_'+randomUUID(),related='rj_related_'+randomUUID();
  const textPart=['Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',base64(body)];
- const messagePart=html?['Content-Type: multipart/alternative; boundary="'+alternative+'"','','--'+alternative,...textPart,'--'+alternative,'Content-Type: text/html; charset=UTF-8','Content-Transfer-Encoding: base64','',base64(html),'--'+alternative+'--']:textPart;
+ const htmlPart=html?['Content-Type: text/html; charset=UTF-8','Content-Transfer-Encoding: base64','',base64(html)]:[];
+ const formattedPart=inlineImages.length?['Content-Type: multipart/related; boundary="'+related+'"','','--'+related,...htmlPart,...inlineImages.flatMap(image=>['--'+related,'Content-Type: '+image.mime,'Content-Disposition: inline','Content-ID: <'+image.id+'>','Content-Transfer-Encoding: base64','',base64(image.bytes)]),'--'+related+'--']:htmlPart;
+ const messagePart=html?['Content-Type: multipart/alternative; boundary="'+alternative+'"','','--'+alternative,...textPart,'--'+alternative,...formattedPart,'--'+alternative+'--']:textPart;
  return ['X-Unsent: 1','To: '+to,'Subject: '+encodedSubject,'MIME-Version: 1.0','Content-Type: multipart/mixed; boundary="'+boundary+'"','','--'+boundary,...messagePart,'--'+boundary,'Content-Type: application/pdf',disposition,'Content-Transfer-Encoding: base64','',base64(pdf),'--'+boundary+'--',''].join('\r\n');
 }
 export async function prepareCustomerEmail(input:any,actor:string){

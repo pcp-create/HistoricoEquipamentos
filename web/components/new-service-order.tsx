@@ -636,11 +636,11 @@ export default function NewServiceOrder({
             </nav>}
             <fieldset disabled={!form.company || Boolean(proposal?.locked)} className="os-form-fields">
               <div className={proposal?"crm-proposal-header":undefined} hidden={tab !== "header"}>
-                {proposal&&<>{proposal.tools}<hr className="crm-proposal-header-divider"/></>}
+                {proposal&&<>{proposal.tools}<div className="crm-proposal-section-heading"><h3>Dados da proposta</h3><p>Cliente, equipamento e informações para o pedido.</p></div></>}
 
                 <div className="os-grid">
                   {proposal&&companyField}
-                  {proposal?proposal.typeControl:select("type", "Tipo Ordem de Serviço", meta?.types || [])}
+                  {!proposal&&select("type", "Tipo Ordem de Serviço", meta?.types || [])}
                   <label>
                     <span className="os-field-title">
                       Cliente <b>*</b>
@@ -659,7 +659,7 @@ export default function NewServiceOrder({
                       }}
                     />
                   </label>
-                  <label>
+                  <label className={proposal ? "crm-proposal-equipment" : undefined}>
                     <span className="os-field-title">
                       Equipamento {!equipmentOptionalForOrderType(form.type,type?.equipment_required) && <b>*</b>}
                     </span>
@@ -688,7 +688,7 @@ export default function NewServiceOrder({
                     </div>
                     {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&form.equipment&&<button type="button" disabled={disabled} onClick={()=>{set('equipment','');setNames(names=>({...names,equipment:''}));setEquipmentPending(false);}}>Sem equipamento</button>}
                     {!proposal&&<button type="button" className="os-add-equipment" aria-label="Cadastrar equipamento" title="Cadastrar equipamento" disabled={!form.customer||!form.type} onClick={()=>setAddingEquipment(true)}><Plus size={18}/></button>}</div>
-                    {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&<small>Equipamento opcional conforme a configuração do tipo de OS.</small>}
+                    {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&<small>{proposal ? "Equipamento opcional." : "Equipamento opcional conforme a configuração do tipo de OS."}</small>}
                     {equipmentPending&&<small className="ws-integration-pending">Vínculo com cliente pendente de integração</small>}
                     <small>
                       {type?.customer_equipment_only === true
@@ -698,6 +698,7 @@ export default function NewServiceOrder({
                           : "Selecione um tipo de OS atualizado"}
                     </small>
                   </label>
+                  {proposal&&proposal.typeControl}
                   {select(
                     "serviceType",
                     "Tipo Atendimento",
@@ -715,7 +716,7 @@ export default function NewServiceOrder({
                     sellerBusy
                       ? "Consultando vendedor do cliente…"
                       : sellerError ||
-                          "Preenchido pelo padrão do cliente, quando disponível. Clique para selecionar ou trocar o vendedor.",
+                          (proposal ? "" : "Preenchido pelo padrão do cliente, quando disponível. Clique para selecionar ou trocar o vendedor."),
                   )}
                   {select(
                     "payment",
@@ -733,7 +734,7 @@ export default function NewServiceOrder({
                       Hora Abertura <b>*</b>
                     </span>
                     <input readOnly aria-readonly="true" value={openingTime} placeholder={proposal||editing?"Não informada":"Definida ao criar a OS"} />
-                    <small>Horário de Brasília. A data e a hora de abertura são fixas após a criação.</small>
+                    {!proposal && <small>Horário de Brasília. A data e a hora de abertura são fixas após a criação.</small>}
                   </label>
                   <label>
                     <span className="os-field-title">
@@ -768,7 +769,7 @@ export default function NewServiceOrder({
                     "flowStatus",
                     "Status Fluxo",
                     registry("flow-statuses"),
-                    "Aplicado após a criação da OS e a inclusão do equipamento, produtos e serviços.",
+                    proposal ? "" : "Aplicado após a criação da OS e a inclusão do equipamento, produtos e serviços.",
                   )}
                   {select("freight", "Frete", registry("freight"))}
                   <label>
@@ -805,8 +806,9 @@ export default function NewServiceOrder({
                     />
                   </label>
                 </div>
+              {proposal&&tab==='header'&&<section className="crm-proposal-commercial" aria-label="Condições comerciais da proposta"><div className="crm-proposal-section-heading"><h3>Condições comerciais</h3><p>Contatos, validade e transporte.</p></div><div className="crm-form-grid">{[['contact','Contato'],['phone','Telefone do contato'],['validity','Validade da proposta'],['sellerEmail','E-mail do vendedor'],['sellerPhone','Telefone do vendedor'],['carrier','Transportadora']].map(([key,label])=><label key={key}>{label}<input maxLength={500} value={form.commercial?.[key]??(key==='validity'?'15 dias úteis':'')} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,[key]:e.target.value}}))}/></label>)}</div></section>}
               </div>
-              {proposal&&tab==='header'&&<section className="crm-form-grid" aria-label="Condições comerciais da proposta">{[['contact','Contato'],['phone','Telefone do contato'],['validity','Validade da proposta'],['sellerEmail','E-mail do vendedor'],['sellerPhone','Telefone do vendedor'],['carrier','Transportadora']].map(([key,label])=><label key={key}>{label}<input maxLength={500} value={form.commercial?.[key]??(key==='validity'?'15 dias úteis':'')} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,[key]:e.target.value}}))}/></label>)}</section>}
+
               <details className="os-extra" hidden={tab !== "header"}>
                 <summary>Outras informações (opcionais)</summary>
                 <p>

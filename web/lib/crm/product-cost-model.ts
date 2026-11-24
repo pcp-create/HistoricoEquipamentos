@@ -5,6 +5,7 @@ export type AverageCost = {
   stockAt?: string;
   lastPurchaseCost?: string;
   lastPurchaseAt?: string;
+  supplierCost?: string;
   supplierCostAt?: string;
   code: string;
   unit: string | null;
@@ -29,6 +30,7 @@ export function applyAverageCosts(
       stockAt: row?.stockAt,
       lastPurchaseCost: !mismatch ? row?.lastPurchaseCost : undefined,
       lastPurchaseAt: row?.lastPurchaseAt,
+      supplierCost: !mismatch ? row?.supplierCost : undefined,
       supplierCostAt: row?.supplierCostAt,
       unitCost: !mismatch && row?.unitCost ? row.unitCost : "",
       unitCostSource: "average",

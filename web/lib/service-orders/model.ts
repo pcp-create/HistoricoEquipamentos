@@ -12,6 +12,7 @@ export type OrderItem = {
   stockAt?: string;
   lastPurchaseCost?: string;
   lastPurchaseAt?: string;
+  supplierCost?: string;
   supplierCostAt?: string;
   deliveryLeadTime?: string;
   taxes?: import("../crm/product-terms").ProductTaxes;

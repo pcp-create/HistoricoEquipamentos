@@ -4,16 +4,24 @@ import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {EditorContent,useEditor} from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import {Node,mergeAttributes} from '@tiptap/core';
 import {TextStyleKit} from '@tiptap/extension-text-style';
 import TextAlign from '@tiptap/extension-text-align';
-import {Bold,Italic,Underline,Strikethrough,Link,Unlink,List,ListOrdered,IndentDecrease,IndentIncrease,Quote,RemoveFormatting,Undo2,Redo2} from 'lucide-react';
+import {Bold,Italic,Underline,Strikethrough,Link,Unlink,List,ListOrdered,IndentDecrease,IndentIncrease,Quote,RemoveFormatting,Undo2,Redo2,ImagePlus} from 'lucide-react';
 import {emailTextHtml,validEmailLink} from '@/lib/service-scheduling/email-body-text';
+const EmailImage=Node.create({
+ name:'emailImage',group:'block',atom:true,draggable:true,
+ addAttributes(){return {src:{default:null},alt:{default:'Imagem'}};},
+ parseHTML(){return [{tag:'img[src^="data:image/"]'}];},
+ renderHTML({HTMLAttributes}){return ['img',mergeAttributes(HTMLAttributes)];},
+});
 export default function EmailMessageEditor({initialText,initialHtml,label='Mensagem',resetKey=0,disabled,onChange}:{initialText:string;initialHtml?:string;label?:string;resetKey?:number;disabled:boolean;onChange:(text:string,html:string)=>void}){
  const [link,setLink]=useState<{from:number;to:number;text:string;href:string}|null>(null),[linkError,setLinkError]=useState('');
- const dialog=useRef<HTMLDialogElement>(null);
+ const dialog=useRef<HTMLDialogElement>(null),imageInput=useRef<HTMLInputElement>(null);
+ const [imageError,setImageError]=useState('');
  const editor=useEditor({
   immediatelyRender:false,shouldRerenderOnTransaction:true,
-  extensions:[StarterKit.configure({heading:false,codeBlock:false,code:false,horizontalRule:false,link:{openOnClick:false,protocols:['mailto','tel'],HTMLAttributes:{target:'_blank',rel:'noopener noreferrer'}}}),TextStyleKit,TextAlign.configure({types:['paragraph']})],
+  extensions:[StarterKit.configure({heading:false,codeBlock:false,code:false,horizontalRule:false,link:{openOnClick:false,protocols:['mailto','tel'],HTMLAttributes:{target:'_blank',rel:'noopener noreferrer'}}}),EmailImage,TextStyleKit,TextAlign.configure({types:['paragraph']})],
   content:initialHtml||emailTextHtml(initialText),editable:!disabled,
   editorProps:{attributes:{role:'textbox','aria-label':label,'aria-multiline':'true',class:'email-message-content'}},
   onUpdate:({editor})=>onChange(editor.getText({blockSeparator:'\n\n'}),editor.getHTML()),
@@ -46,7 +54,16 @@ export default function EmailMessageEditor({initialText,initialHtml,label='Mensa
     {button('Aumentar recuo',<IndentIncrease size={17}/>,()=>editor.chain().focus().sinkListItem('listItem').run(),false,!editor.can().sinkListItem('listItem'))}
     {button('Citação',<Quote size={17}/>,()=>editor.chain().focus().toggleBlockquote().run(),editor.isActive('blockquote'))}
     <span className="email-format-divider"/>
-    {button('Inserir ou editar link',<Link size={17}/>,openLink,editor.isActive('link'))}
+    <input ref={imageInput} type="file" accept="image/png,image/jpeg" hidden disabled={disabled} onChange={async e=>{
+      const file=e.target.files?.[0];e.target.value='';if(!file)return;setImageError('');
+      if(!['image/png','image/jpeg'].includes(file.type)||file.size>500000){setImageError('Selecione uma imagem PNG ou JPEG de até 500 KB.');return;}
+      try{const src=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(Error());reader.readAsDataURL(file);});
+       if(editor.getHTML().length+src.length>900000){setImageError('As imagens e o texto ultrapassam o limite da mensagem.');return;}
+       editor.chain().focus().insertContent({type:'emailImage',attrs:{src,alt:file.name.slice(0,120)}}).run();
+      }catch{setImageError('Não foi possível carregar a imagem.');}
+    }}/>
+    {button('Inserir imagem',<ImagePlus size={17}/>,()=>imageInput.current?.click())}
+    {button('Inserir ou editar link' ,<Link size={17}/>,openLink,editor.isActive('link'))}
     {button('Remover link',<Unlink size={17}/>,()=>editor.chain().focus().extendMarkRange('link').unsetLink().run(),false,!editor.isActive('link'))}
     {button('Remover formatação',<RemoveFormatting size={17}/>,()=>editor.chain().focus().unsetAllMarks().clearNodes().unsetTextAlign().run())}
     {button('Desfazer',<Undo2 size={17}/>,()=>editor.chain().focus().undo().run(),false,!editor.can().undo())}
@@ -54,6 +71,7 @@ export default function EmailMessageEditor({initialText,initialHtml,label='Mensa
    </div>
    <EditorContent editor={editor}/>
   </div>
+  {imageError&&<ActionNotice type="error" onClose={()=>setImageError('')}>{imageError}</ActionNotice>}
   <small>{editor.getText().length.toLocaleString('pt-BR')} / 10.000 caracteres</small>
   {editor.getText().length>10000&&<p role="alert">A mensagem deve ter até 10.000 caracteres.</p>}
   {link&&createPortal(<dialog ref={dialog} className="email-link-dialog" aria-label="Inserir link" onCancel={e=>{e.preventDefault();setLink(null);}}>

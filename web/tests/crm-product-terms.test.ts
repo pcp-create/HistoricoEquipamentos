@@ -140,7 +140,7 @@ test("duplicate product lines are calculated separately and missing taxes never 
 test('PDF requires fiscal setup for products but allows service-only proposals',async()=>{
  const {hydratePdfProductTaxes}=await import('../lib/crm/product-taxes');
  let calls=0;const session=async()=>{calls++;return async()=>[];};
- await assert.rejects(()=>hydratePdfProductTaxes({...draft(),commercial:{}},session),/Selecione e salve o tipo/);
+ await assert.rejects(()=>hydratePdfProductTaxes({...draft(),commercial:{}},session),/Configure o tipo de orçamento fiscal/);
  assert.equal(calls,0);
  const services={...draft(),commercial:{},items:[{...item,kind:'service' as const}]};
  assert.deepEqual(await hydratePdfProductTaxes(services,session),services);

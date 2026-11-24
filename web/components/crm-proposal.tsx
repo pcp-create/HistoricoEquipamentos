@@ -180,8 +180,9 @@ export default function CrmProposal({ id }: { id: string }) {
       )}
   </>;
   const tools = (
-    <section className="crm-proposal-tools" aria-label="Situação da proposta">
-      <p>
+    <section className="crm-proposal-tools crm-proposal-identity" aria-label="Situação da proposta">
+      <div className="crm-proposal-section-heading"><h3>Informações gerais</h3><p>Identificação e acompanhamento da proposta.</p></div>
+      <p className="crm-proposal-opportunity">
         <Link href={"/crm?opportunity=" + data.opportunity_id}>
           OP-{data.opportunity_number} · {data.customer_name}
         </Link>{" "}

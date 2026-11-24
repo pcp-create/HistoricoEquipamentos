@@ -1241,3 +1241,5 @@
 .order-review-finalize > span { display: block; }
 
 .order-review-finalize { position: static; }
+
+.email-message-content img { display:block; max-width:100%; height:auto; margin:8px 0; }

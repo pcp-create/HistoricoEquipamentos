@@ -20,14 +20,17 @@ test('formatted email defaults survive saving/reopening and selected equipment e
   await editor.click();await editor.press('ControlOrMeta+a');
   await settings.getByRole('button',{name:'Itálico',exact:true}).click();
   await settings.getByLabel('Tamanho da fonte',{exact:true}).selectOption('18px');
+  await editor.press('ArrowDown');await settings.locator('input[type=file]').setInputFiles({name:'logo.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6zZsAAAAASUVORK5CYII=','base64')});
+  await expect(editor.locator('img')).toHaveCount(1);
   await page.getByRole('button',{name:'Salvar configuração de e-mail',exact:true}).click();
   await expect(page.getByText('Texto padrão e formatação salvos.',{exact:true})).toBeVisible();
   const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('saved-email-config')!));
   const validated=validateCustomerEmail(saved);const safe=cleanEmailBodyHtml(validated.bodyHtml)!;
-  assert.match(safe,/<em>/);assert.match(safe,/font-size:18px/);assert.match(safe,/https:\/\/example.com\/contato/);
+  assert.match(safe,/<img/);assert.match(safe,/<em>/);assert.match(safe,/font-size:18px/);assert.match(safe,/https:\/\/example.com\/contato/);
   await page.reload();
-  await expect(editor.locator('em')).not.toHaveCount(0);
+  await expect(editor.locator('em')).not.toHaveCount(0);await expect(editor.locator('img')).toHaveCount(1);
   const message=page.getByRole('textbox',{name:'Mensagem',exact:true});
+  await expect(message.locator('img')).toHaveCount(1);
   await expect(message.locator('strong')).toHaveText('Olá Cliente Teste');
   await expect(message.locator('u')).toContainText('Compressor GA22 · Série ABC');
   await expect(message.locator('u')).toContainText('Secador SR30 · Série DEF');
@@ -37,7 +40,7 @@ test('formatted email defaults survive saving/reopening and selected equipment e
   await expect(message.locator('em')).not.toHaveCount(0);
   await expect(message.locator('a')).toHaveAttribute('href','https://example.com/contato');
   await page.getByRole('button',{name:'Baixar e-mail com anexo',exact:true}).click();
-  await expect(page.locator('form.customer-report-email').getByRole('status')).toContainText('E-mail baixado');
-  assert.match(prepared.bodyHtml,/<strong>/);assert.match(prepared.bodyHtml,/Olá Cliente Teste/);assert.match(prepared.bodyHtml,/<em>/);assert.match(prepared.bodyHtml,/Compressor GA22/);assert.doesNotMatch(prepared.bodyHtml,/Secador SR30|\{cliente\}|\{equipamento\}/);
+  await expect(page.getByRole('status')).toContainText('E-mail baixado');
+  assert.match(prepared.bodyHtml,/<img/);assert.match(prepared.bodyHtml,/<strong>/);assert.match(prepared.bodyHtml,/Olá Cliente Teste/);assert.match(prepared.bodyHtml,/<em>/);assert.match(prepared.bodyHtml,/Compressor GA22/);assert.doesNotMatch(prepared.bodyHtml,/Secador SR30|\{cliente\}|\{equipamento\}/);
  }finally{await browser.close();await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });

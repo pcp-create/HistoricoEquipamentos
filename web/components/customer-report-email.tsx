@@ -53,7 +53,7 @@ export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=
   const response=await fetch('/api/service-scheduling/customer-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scheduleId:String(data.schedule.id),to:effectiveTo,subject,body,bodyHtml,operationIds:selectedIds,reportFilename:filename})});
   const result=await response.json();if(!response.ok)throw Error(result.error||'Não foi possível preparar o e-mail.');return result;
  }
- function valid(){try{emailRecipients(effectiveTo);reportAttachmentName(filename);return !!(selectedIds.length&&subject.trim()&&body.trim()&&body.length<=10000&&(bodyHtml===undefined||bodyHtml.length<=100000));}catch{return false;}}
+ function valid(){try{emailRecipients(effectiveTo);reportAttachmentName(filename);return !!(selectedIds.length&&subject.trim()&&body.trim()&&body.length<=10000&&(bodyHtml===undefined||bodyHtml.length<=900000));}catch{return false;}}
  async function download(){
   if(busy||!contactsReady||savingContact||!valid())return;setBusy(true);setError('');setMessage('');setGmailHelp(false);
   try{const result=await prepare(),encoded=result.raw.replace(/-/g,'+').replace(/_/g,'/');const bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
