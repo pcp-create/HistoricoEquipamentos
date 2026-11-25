@@ -344,6 +344,7 @@ test("DSU: conversa persistente, criação/conclusão atômicas, deduplicação,
     await send("Menu", external);
     r = await send("listar @ana", external, "external-legacy", true);
     assert.match(String(r.body.text), /digite o número/);
+    assert.match(String(r.body.text), /\*1 — Comercial\*\n\*2 — Assistência Técnica\*\n\*3 — Financeiro\*\n\*4 — RH\*/);
     assert.deepEqual(await processMessage({text:"listar @ana",phone:external,id:"external-legacy",instance:"BotDemandas"},true),{replies:[],duplicate:true});
     assert.equal(await send("999", external), undefined);
     r = await send("Menu", external);

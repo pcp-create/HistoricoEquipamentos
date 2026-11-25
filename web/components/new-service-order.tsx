@@ -780,7 +780,7 @@ export default function NewServiceOrder({
                     proposal ? "" : "Aplicado após a criação da OS e a inclusão do equipamento, produtos e serviços.",
                   )}
                   {select("freight", "Frete", registry("freight"))}
-                  <label>
+                  {!proposal && <label>
                     <span className="os-field-title">
                       Prazo Garantia {!editing && <b>*</b>}
                     </span>
@@ -789,7 +789,7 @@ export default function NewServiceOrder({
                       value={service?.warranty_description || ""}
                       placeholder="Definido pelo tipo de atendimento"
                     />
-                  </label>
+                  </label>}
                   <label className={proposal ? "os-wide crm-proposal-notes" : "os-wide"}>
                     <span className="os-field-title">
                       Observações {!editing && <b>*</b>}
@@ -824,6 +824,7 @@ export default function NewServiceOrder({
                   corresponder aos cadastros do M8.
                 </p>
                 <div className="os-grid">
+                  {proposal && <label><span className="os-field-title">Prazo Garantia</span><input readOnly value={service?.warranty_description || ""} placeholder="Definido pelo tipo de atendimento" /></label>}
                   {select(
                     "technician",
                     "Técnico",

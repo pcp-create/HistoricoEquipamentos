@@ -49,6 +49,9 @@ const clientSectors = [
 ];
 const name = "Assistente RJ (DSU)";
 const footer = "Digital Support Unit · *Menu*: início · *Cancelar*: pausar atendimento automático";
+const formatMenuOptions = (choices: Choice[]) => choices.map((choice, index) =>
+  `*${index + 1} — ${choice.title}*${choice.description && choice.description !== choice.title ? `\n   ${choice.description}` : ""}`,
+).join("\n");
 const clip = (s: string, n: number) => [...s].slice(0, n).join("");
 const dateLabel = (value: any) =>
   value
@@ -74,9 +77,7 @@ async function respond(
   const menu = (description: string, choices: Choice[]): Reply => {
     state.nonce = randomUUID();
     state.choices = choices;
-    const options = choices.map((choice, index) =>
-      `*${index + 1} — ${choice.title}*${choice.description && choice.description !== choice.title ? `\n   ${choice.description}` : ""}`,
-    ).join("\n");
+    const options = formatMenuOptions(choices);
     return {
       ...text(`${description}\n\n${options}\n\nResponda com o número da opção.\n${footer}`),
       menu: {
@@ -119,7 +120,7 @@ async function respond(
       return [];
     }
     state.invalidMenuReplies = 1;
-    return text("Por favor, digite o número de uma das opções do menu: 1 — Comercial, 2 — Assistência Técnica, 3 — Financeiro ou 4 — RH. Para ver o menu novamente, digite MENU.");
+    return text(`Por favor, digite o número de uma das opções do menu:\n\n${formatMenuOptions(clientSectors)}\n\nResponda com o número da opção.\n${footer}`);
   };
   let input = event.text;
   if (/^menu$/i.test(input)) return home();
