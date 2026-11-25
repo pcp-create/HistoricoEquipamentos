@@ -75,10 +75,10 @@ export default function CrmProposalPdf({
         <button ref={exportButton} type="button" className="button crm-pdf-export-trigger"
           disabled={disabled || busy} aria-expanded={options} aria-controls={optionsId}
           title={disabled ? "Salve a proposta para gerar o PDF atualizado." : undefined}
-          onClick={() => setOptions(value => !value)}>
+          onClick={() => proposal.workflow?.state === 'sent' ? void generate(true) : setOptions(value => !value)}>
           <Download size={18} aria-hidden="true" />
-          {busy ? "Preparando PDF…" : "Exportar PDF"}
-          <ChevronDown size={15} aria-hidden="true" />
+          {busy ? "Preparando PDF…" : proposal.workflow?.state === 'sent' ? "PDF enviado" : "Exportar PDF"}
+          {proposal.workflow?.state !== 'sent' && <ChevronDown size={15} aria-hidden="true" />}
         </button>
         {options && <div id={optionsId} className="crm-pdf-export-options" role="group" aria-label="Opções de exportação">
           <button type="button" aria-label="Gerar Proposta com Impostos"

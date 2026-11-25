@@ -1,5 +1,6 @@
 "use client";
 import CrmProposalPdf from "./crm-proposal-pdf";
+import CrmProposalEmail from "./crm-proposal-email";
 import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -17,6 +18,8 @@ export default function CrmProposal({ id }: { id: string }) {
     [orderType, setOrderType] = useState(""),
     [proposalType,setProposalType]=useState("");
   const [conversionType,setConversionType]=useState("");
+  const [emailOpen,setEmailOpen]=useState(false);
+  const [reviewOpen,setReviewOpen]=useState(false),[reviewer,setReviewer]=useState(''),[reviewComment,setReviewComment]=useState(''),[reviewUsers,setReviewUsers]=useState<any[]>([]);
   const [choosingType,setChoosingType]=useState(false);
   const typeDialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{if(choosingType)typeDialog.current?.showModal();},[choosingType]);
@@ -37,6 +40,16 @@ export default function CrmProposal({ id }: { id: string }) {
   useEffect(() => {
     void load().catch((e) => setError(e.message));
   }, [id]);
+  async function requestReview(){
+    setBusy(true);setError('');
+    try{await crmApi('',{action:'request_review',id,version:data.version,reviewer,comment:reviewComment});setReviewOpen(false);setReviewer('');setReviewComment('');await load();}
+    catch(e){setError((e as Error).message);}finally{setBusy(false);}
+  }
+  async function openReview(){
+    setError('');
+    try{const r=await fetch('/api/service-orders?lookup=metadata');const d=await r.json();if(!r.ok)throw Error(d.error||'Não foi possível carregar funcionários.');setReviewUsers(d.users||[]);setReviewOpen(true);}
+    catch(e){setError((e as Error).message);}
+  }
   async function convert(link?: any, retry = false, selectedType = orderType) {
     if (sending.current) return;
     if (
@@ -111,16 +124,19 @@ export default function CrmProposal({ id }: { id: string }) {
   const pending = data.links.some(
       (l: any) => !["complete", "validation_failed"].includes(l.state),
     ),
-    locked = data.status === "converting" || pending;
+    locked = ['converting','won','lost','cancelled'].includes(data.status) || pending || ['sent','reviewed'].includes(data.workflow?.state) || (data.workflow?.state==='in_review' && data.workflow.reviewer!==data.currentUser);
   const orderChoices=catalog.orderTypes.filter((t:any)=>t.active&&type?.order_types?.includes(String(t.id)));
-  const cannotConvert=busy||changed||pending||!["pending","won"].includes(data.status)||!orderChoices.length;
+  const cannotConvert=busy||changed||pending||data.workflow?.state!=='sent'||data.status!=='pending'||!orderChoices.length;
   const headerActions=<div className="crm-actions">
     {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
+    {data.emailAttempt&&<div role="alert"><p>{data.emailAttempt.can_resolve?'Envio sem confirmação. Confira a pasta Enviados do Gmail antes de continuar.':'Envio em andamento. Aguarde e atualize a proposta.'}</p>{data.emailAttempt.can_resolve&&data.emailAttempt.actor===data.currentUser&&<><button type="button" disabled={busy} onClick={async()=>{if(!window.confirm('Confirma que encontrou o e-mail enviado no Gmail?'))return;setBusy(true);try{await crmApi('',{action:'resolve-proposal-email',id,attemptId:data.emailAttempt.id,resolution:'sent',confirmed:true});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Confirmei que foi enviado</button><button type="button" disabled={busy} onClick={async()=>{if(!window.confirm('Confirma que o e-mail não foi enviado? Isso permitirá uma nova tentativa.'))return;setBusy(true);try{await crmApi('',{action:'resolve-proposal-email',id,attemptId:data.emailAttempt.id,resolution:'not_sent',confirmed:true});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Confirmei que não foi enviado</button></>}</div>}
     <CrmProposalPdf proposal={data} disabled={changed||busy} locked={locked} onSaved={load} onError={setError}/>
-    <button type="button" className="button primary" disabled={cannotConvert} title={changed?"Salve a proposta antes de gerar o pedido.":undefined} onClick={()=>{
+    {data.workflow?.state==='reviewed'&&<button type="button" className="button primary" disabled={busy||changed||!!data.emailAttempt} onClick={()=>setEmailOpen(true)}>Enviar ao cliente</button>}
+    {emailOpen&&<ProposalDialog label="Enviar proposta ao cliente" onClose={()=>setEmailOpen(false)}><CrmProposalEmail proposal={data} onClose={()=>setEmailOpen(false)} onSent={load}/></ProposalDialog>}
+    {data.workflow?.state==='sent'&&data.status==='pending'&&<button type="button" className="button primary" disabled={cannotConvert} title={changed?"Salve a proposta antes de gerar o pedido.":undefined} onClick={()=>{
       if(orderChoices.length===1)void convert(undefined,false,String(orderChoices[0].id));
       else {setConversionType('');setChoosingType(true);}
-    }}>{busy?'Processando…':'Pedido de Venda (Gerar OS)'}</button>
+    }}>{busy?'Processando…':'Pedido de Venda (Gerar OS)'}</button>}
     {choosingType&&<dialog ref={typeDialog} className="crm-order-type-dialog" aria-label="Selecionar tipo de ordem de serviço" onCancel={()=>setChoosingType(false)}>
       <h2>Pedido de Venda (Gerar OS)</h2>
       <label>Tipo de OS a gerar<select aria-label="Tipo de OS a gerar" value={conversionType} onChange={e=>setConversionType(e.target.value)}><option value="">Selecione o tipo de OS</option>{orderChoices.map((t:any)=><option key={t.id} value={String(t.id)}>{t.id} · {t.name}</option>)}</select></label>
@@ -129,6 +145,7 @@ export default function CrmProposal({ id }: { id: string }) {
   </div>;
   const actions = changed ? <p>Salve a proposta antes de concretizar ou gerar uma OS.</p> : null;
   const progress = <>
+      {!!data.sentRevisions?.length&&<section className="crm-links"><h3>Revisões enviadas</h3>{data.sentRevisions.map((r:any)=><article key={r.revision}><a href={`/api/crm/pdf?id=${encodeURIComponent(id)}&revision=${r.revision}`} target="_blank" rel="noreferrer">Rev.{r.revision} · Abrir PDF enviado</a><p>{crmDate(r.sent_at)} · {r.sent_by} · {r.recipients}</p></article>)}</section>}
       {!!data.links.length && (
         <div className="crm-links">
           <h3>Ordens de serviço e envios vinculados</h3>
@@ -201,35 +218,20 @@ export default function CrmProposal({ id }: { id: string }) {
         </label>
         <label>
           Status da proposta
-          <select
-            value={status}
-            disabled={busy || locked || data.status === "won"}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            {(locked || data.status === "won"
-              ? [data.status]
-              : ["pending", "lost", "cancelled"]
-            ).map((s) => (
-              <option key={s} value={s}>
-                {crmStatus(s)}
-              </option>
-            ))}
-          </select>
+          <input readOnly value={data.status==='won'?'Concretizada':({creating:'Em criação',in_review:'Em revisão',reviewed:'Revisada',sent:'Enviada ao cliente'} as Record<string,string>)[data.workflow?.state]||crmStatus(data.status)}/>
         </label>
         {validityControl}
       </div>
-      {locked && (
+      {data.workflow?.state!=='creating'&&data.workflow?.revision!=null&&<p className="crm-info">Revisão {data.workflow.revision}{data.workflow.reviewed_by&&data.workflow.reviewed_at?` · Revisada por ${data.workflow.reviewed_by} em ${crmDate(data.workflow.reviewed_at)}`:''}</p>}
+      {(pending||data.status==='converting') && (
         <p className="crm-info">
           Existe um envio de OS pendente. Consulte ou conclua o andamento da OS
           antes de editar esta proposta.
         </p>
       )}
-      {data.status === "won" && (
-        <p className="crm-info">
-          Você pode editar esta proposta. As alterações ficam no CRM e não
-          modificam as OSs já geradas.
-        </p>
-      )}
+      {data.workflow?.state==='sent'&&data.status!=='won'&&<p className="crm-info">A revisão enviada está bloqueada. Solicite nova revisão para alterar a proposta.</p>}
+      {data.workflow?.state==='reviewed'&&<p className="crm-info">A revisão foi concluída. Envie ao cliente ou solicite outra revisão para alterar a proposta.</p>}
+      {data.status === "won" && <p className="crm-info">O pedido de venda foi gerado e a proposta está concluída.</p>}
       {!type?.order_types?.length && (
         <p className="crm-info">
           Este tipo de proposta ainda não tem um ID de tipo de OS configurado.{" "}
@@ -244,7 +246,7 @@ export default function CrmProposal({ id }: { id: string }) {
       key={data.version}
       returnTo="/crm"
       proposal={{
-        title: "Proposta comercial PROP-" + data.number,
+        title: "Proposta comercial PROP-" + data.number + (data.workflow?.state&&data.workflow.state!=='creating'?` · Rev.${data.workflow.revision}`:''),
         name: title,
         createdAt: data.created_at,
         typeName: type ? `${type.code} · ${type.name}` : "",
@@ -257,6 +259,8 @@ export default function CrmProposal({ id }: { id: string }) {
           if(!selected?.order_types?.includes(orderType))setOrderType('');
         }}>{catalog.proposalTypes.filter((t:any)=>String(t.opportunity_type_id)===String(data.opportunity_type_id)&&(t.active||String(t.id)===proposalType)).map((t:any)=><option key={t.id} value={String(t.id)}>{t.code} · {t.name}</option>)}</select></label>,
         locked: locked || busy,
+        saveLabel:data.workflow?.state==='in_review'?'Concluir revisão':undefined,
+        footerActions:<>{data.status==='pending'&&['creating','reviewed','sent'].includes(data.workflow?.state||'creating')&&<button type="button" disabled={busy||changed||pending} onClick={()=>void openReview()}>{data.workflow?.state==='creating'?'Enviar para revisão':'Revisar proposta'}</button>}{reviewOpen&&<ProposalDialog label="Enviar proposta para revisão" onClose={()=>setReviewOpen(false)}><h2>Enviar para revisão</h2><label>Funcionário<select value={reviewer} onChange={e=>setReviewer(e.target.value)}><option value="">Selecione</option>{reviewUsers.map((u:any)=><option key={u.email} value={u.email}>{u.display_name||u.name||u.email}</option>)}</select></label><label>Comentário<textarea value={reviewComment} maxLength={2000} onChange={e=>setReviewComment(e.target.value)}/></label><div className="crm-actions"><button type="button" onClick={()=>setReviewOpen(false)}>Cancelar</button><button type="button" disabled={busy||!reviewer} onClick={()=>void requestReview()}>Enviar para revisão</button></div></ProposalDialog>}</>,
         tools,
         headerActions,
         activityTools: progress,
@@ -270,7 +274,7 @@ export default function CrmProposal({ id }: { id: string }) {
         ),
         onDirty: setDirty,
         onSave: async (draft, names) => {
-          await crmApi("", {
+          const saved=await crmApi("", {
             action: "save-proposal",
             typeId:proposalType,
             id,
@@ -280,9 +284,15 @@ export default function CrmProposal({ id }: { id: string }) {
             draft,
             names,
           });
+          if(data.workflow?.state==='in_review')try{await crmApi('',{action:'complete_review',id,version:saved.version});}catch(e){await load();throw e;}
           await load();
         },
       }}
     />
   );
+}
+function ProposalDialog({label,onClose,children}:{label:string;onClose:()=>void;children:React.ReactNode}){
+ const ref=useRef<HTMLDialogElement>(null);
+ useEffect(()=>{ref.current?.showModal();return()=>ref.current?.close();},[]);
+ return <dialog ref={ref} className="crm-dialog crm-proposal-flow-dialog" aria-label={label} onCancel={e=>{e.preventDefault();onClose();}}>{children}</dialog>;
 }

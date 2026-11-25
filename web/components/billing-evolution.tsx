@@ -57,6 +57,7 @@ const sourceLabel = (cell: Cell) =>
       : "Histórico da planilha";
 function Chart({
   rows,
+  allYears,
   monthly,
   from,
   to,
@@ -64,6 +65,7 @@ function Chart({
   onSelectYear,
 }: {
   rows: EvolutionYear[];
+  allYears: EvolutionYear[];
   monthly: boolean;
   from: number;
   to: number;
@@ -199,13 +201,15 @@ function Chart({
               })
             : rows.map((row, i) => {
                 const value = periodTotal(row, from, to);
+                const growth = comparableGrowth(row, allYears.find(previous => previous.year === row.year - 1), from, to);
+                const growthLabel = growth == null ? null : `${growth > 0 ? '↑' : growth < 0 ? '↓' : '→'} ${percent(growth)}`;
                 if (value == null) return null;
                 return (
                   <g
                     key={row.year}
                     tabIndex={0}
                     role="button"
-                    aria-label={`Selecionar ano ${row.year}`}
+                    aria-label={`Selecionar ano ${row.year}${growthLabel ? `, variação de ${percent(growth)} em relação a ${row.year - 1}` : ''}`}
                     aria-pressed={row.year === selectedYear}
                     onClick={() => onSelectYear(row.year)}
                     onKeyDown={(e) => {
@@ -216,7 +220,7 @@ function Chart({
                     }}
                     className="be-year-bar"
                     {...tooltip(
-                      `${row.year} · ${money(value)}${row.annualOnly ? " · Somente histórico anual" : ""}`,
+                      `${row.year} · ${money(value)}${growthLabel ? ` · ${growthLabel} em relação a ${row.year - 1}` : ''}${row.annualOnly ? " · Somente histórico anual" : ""}`,
                     )}
                   >
                     <rect
@@ -230,14 +234,14 @@ function Chart({
                       fill={row.year === selectedYear ? "#2563a1" : "#9db6d0"}
                       opacity={row.year === selectedYear ? 1 : 0.82}
                     />
-                    <title>{`${row.year}: ${money(value)}`}</title>
+                    <title>{`${row.year}: ${money(value)}${growthLabel ? ` · ${growthLabel} em relação a ${row.year - 1}` : ''}`}</title>
                     <text
                       x={x(i)}
                       y={value >= 0 ? y(value) - 9 : y(value) + 16}
                       textAnchor="middle"
                       className="be-value"
                     >
-                      {compact(value)}
+                      <tspan>{compact(value)}</tspan>{growthLabel && <tspan dx="5" fill={growth! > 0 ? '#168047' : growth! < 0 ? '#c33535' : '#68829b'}>{growthLabel}</tspan>}
                     </text>
                   </g>
                 );
@@ -961,7 +965,7 @@ export default function BillingEvolution() {
                   <p>
                     {monthly
                       ? "Compare a sazonalidade entre os anos selecionados."
-                      : "Totais dos meses selecionados, por ano."}
+                      : "Totais dos meses selecionados, por ano. A variação compara os meses disponíveis em ambos os anos."}
                   </p>
                 </div>
                 <div
@@ -986,6 +990,7 @@ export default function BillingEvolution() {
               </header>
               <Chart
                 rows={rows}
+                allYears={allYears}
                 monthly={monthly}
                 from={from}
                 to={to}

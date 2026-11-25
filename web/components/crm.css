@@ -305,6 +305,9 @@
 .new-os.crm-proposal-page .crm-proposal-header .crm-proposal-identity,
 .new-os.crm-proposal-page .crm-proposal-commercial { margin:0 0 18px; padding:16px 18px; border:1px solid #dbe7f2; border-radius:10px; background:#f8fbfe; }
 .crm-proposal-section-heading { margin:0 0 12px; }
+.crm-proposal-flow-dialog { width:min(900px,calc(100vw - 32px)); max-height:90dvh; overflow:auto; padding:24px; }
+.crm-proposal-flow-dialog label { display:grid; gap:6px; margin:12px 0; }
+.crm-proposal-flow-dialog input:not([type="checkbox"]),.crm-proposal-flow-dialog select,.crm-proposal-flow-dialog textarea { width:100%; }
 .crm-proposal-section-heading h3 { margin:0; color:#234e73; font-size:15px; }
 .new-os.crm-proposal-page .crm-proposal-section-heading p { margin:4px 0 0; color:#788da2; font-size:12px; }
 .new-os.crm-proposal-page .crm-proposal-opportunity { margin:0 0 10px; font-size:12px; }

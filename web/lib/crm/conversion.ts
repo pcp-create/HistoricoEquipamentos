@@ -15,7 +15,7 @@ async function recordResult(link:any,r:any){
  await c.query('UPDATE crm_order_links SET state=$2,order_id=$3,message=$4,updated_at=now() WHERE id=$1',[link.id,r.state,r.m8Id||null,r.message||null]);
  if(r.state==='complete'){
   const p=(await c.query("UPDATE crm_proposals SET status='won',version=version+1,updated_at=now(),updated_by=$2 WHERE id=$1 AND status<>'won' RETURNING opportunity_id",[link.proposal_id,link.actor])).rows[0];
-  if(p)await c.query(`INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,'proposal_converted',$4::jsonb)`,[p.opportunity_id,link.proposal_id,link.actor,JSON.stringify({company:link.company_id,order:r.m8Id})]);
+  if(p){await c.query("UPDATE crm_opportunities SET status='won',version=version+1,updated_by=$2,updated_at=now() WHERE id=$1 AND status<>'won'",[p.opportunity_id,link.actor]);await c.query(`INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,'proposal_converted',$4::jsonb)`,[p.opportunity_id,link.proposal_id,link.actor,JSON.stringify({company:link.company_id,order:r.m8Id})]);}
  }
  });
  return {...r,linkId:link.id};
@@ -24,16 +24,20 @@ async function recordResult(link:any,r:any){
 export async function beginConversion(raw:any,actor:string,deps=defaults){
  const id=uuid(raw.id),proposal=uuid(raw.proposalId),expected=version(raw.version);
  const link=await transaction(async c=>{
- const p=(await c.query('SELECT p.*,o.status opportunity_status FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p',[proposal])).rows[0];
+ const p=(await c.query('SELECT p.*,o.status opportunity_status FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p,o',[proposal])).rows[0];
  if(!p)throw new CrmError('Proposta não encontrada.');
  const old=(await c.query('SELECT * FROM crm_order_links WHERE id=$1',[id])).rows[0];
  if(old){if(old.actor!==actor||old.proposal_id!==proposal)throw new CrmError('Envio pertence a outro usuário.');if(old.state==='validation_failed')throw new CrmError('Corrija e salve a proposta antes de uma nova tentativa.');return old;}
  const pending=(await c.query("SELECT * FROM crm_order_links WHERE proposal_id=$1 AND state NOT IN('complete','validation_failed')",[proposal])).rows[0];
  if(pending)throw new CrmError('Já existe um envio pendente. Abra o andamento para continuar sem duplicar a OS.');
  if(p.version!==expected)throw new CrmError('A proposta foi alterada. Reabra antes de concretizar.');
+ const workflow=(await c.query('SELECT state,revision FROM crm_proposal_workflows WHERE proposal_id=$1 FOR UPDATE',[proposal])).rows[0];
+ if(workflow?.state!=='sent')throw new CrmError('Envie a proposta revisada ao cliente antes de gerar a OS.');
  if(p.opportunity_status!=='open'||!['pending','won'].includes(p.status))throw new CrmError('A proposta e a oportunidade precisam estar disponíveis para concretização.');
  if(p.status==='won'&&raw.additional!==true)throw new CrmError('A proposta já foi concretizada. Utilize Gerar outra OS.');
- const draft=proposalDraft(p.document);
+ const sent=(await c.query('SELECT document FROM crm_proposal_sent_revisions WHERE proposal_id=$1 AND revision=$2',[proposal,workflow.revision])).rows[0];
+ if(!sent)throw new CrmError('A versão enviada não está disponível para gerar a OS.');
+ const draft=proposalDraft(sent.document);
  if(raw.orderType)draft.type=String(positive(raw.orderType));
  const mapping=(await c.query(`SELECT 1 FROM crm_proposal_types p JOIN crm_opportunity_types o ON o.id=p.opportunity_type_id JOIN crm_proposal_order_types m ON m.proposal_type_id=p.id JOIN m8_order_type_catalog t ON t.id=m.m8_order_type_id WHERE p.id=$1 AND m.m8_order_type_id=$2 AND p.active AND o.active AND t.active`,[p.type_id,draft.type||null])).rows[0];
  if(!mapping)throw new CrmError('Defina na proposta um tipo de OS ativo, vinculado em Configurações / Cadastros / Tipos de Proposta.');

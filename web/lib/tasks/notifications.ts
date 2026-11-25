@@ -44,7 +44,9 @@ export async function claimNotifications(origin: string, reminderOnly = false) {
         id: String(n.id),
         token,
         number: n.phone,
-        text: n.task_type === 'approval'
+        text: n.source_key?.startsWith('manual:crm-review:') && n.kind === 'assignment'
+          ? `📋 *Proposta para revisão*\n*TAR-${n.task_id} · ${n.title}*\n${(await c.query("SELECT description FROM web_task_notes WHERE task_id=$1 AND title='Solicitação de revisão' ORDER BY id LIMIT 1",[n.task_id])).rows[0]?.description || ''}\n\nTarefa: ${origin}/tarefas?task=${n.task_id}\nProposta: ${origin}/crm/propostas/${n.source_key.split(':')[2]}`
+          : n.task_type === 'approval'
           ? `📋 *${n.approval_state === 'pending' ? 'Solicitação de aprovação' : n.approval_state === 'approved' ? 'Solicitação aprovada — de acordo' : 'Solicitação reprovada'}*\n${n.approval_description}${n.approval_state !== 'pending' ? '\n\n'+n.approval_reason : ''}\n\n${n.approval_state === 'pending' ? 'Abra para aprovar ou reprovar' : 'Retornou para sua tratativa'}: ${origin}/tarefas?task=${n.task_id}`
           : n.kind === "reminder"
           ? `⏰ *Lembrete de tarefa*\n*TAR-${n.task_id} · ${n.title}*\nEtapa: ${n.stage_name || "Não definida"}\nResponsável: ${n.assignee_name || "Não atribuído"}\nAgendado para: ${new Date(n.reminder_at).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})} (Brasília)\n${origin}/tarefas?task=${n.task_id}`

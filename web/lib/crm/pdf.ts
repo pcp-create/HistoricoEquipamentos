@@ -57,7 +57,7 @@ export async function proposalPdf(
     white = rgb(1, 1, 1),
     pale = rgb(0.957, 0.965, 0.976);
   const issuer = companies[draft.company] || companies["1"],
-    number = "PROP-" + proposal.number;
+    number = "PROP-" + proposal.number + (proposal.workflow && proposal.workflow.state !== 'creating' ? ` · Rev.${proposal.workflow.revision}` : '');
   const money = (cents: number) =>
     (cents / 100).toLocaleString("pt-BR", {
       minimumFractionDigits: 2,

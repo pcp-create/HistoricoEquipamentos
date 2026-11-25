@@ -70,7 +70,7 @@ export default function NewServiceOrder({
   editing, returnTo, proposal,
 }: { returnTo?: string; editing?: { company: string; id: string }; proposal?: {
  title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
- activityTools?:React.ReactNode;headerActions?:React.ReactNode;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
+ activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
 } } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
   const [equipmentPending,setEquipmentPending]=useState(false);
@@ -1059,7 +1059,7 @@ export default function NewServiceOrder({
               }
             >
               <Save size={18} />
-              {proposal ? busy?"Salvando proposta…":"Salvar proposta" : busy
+              {proposal ? busy?"Salvando proposta…":proposal.saveLabel||"Salvar proposta" : busy
                 ? editing
                   ? "Salvando no M8…"
                   : "Criando no M8…"
@@ -1067,6 +1067,7 @@ export default function NewServiceOrder({
                   ? "Salvar alterações"
                   : "Criar OS no M8"}
             </button>
+            {proposal?.footerActions}
             </div>
           </footer>
         </form>

@@ -259,7 +259,7 @@ export default function Crm() {
                   {(kind === "opportunities"
                     ? ["open", "lost", "cancelled"]
                     : kind === "proposals"
-                      ? ["pending", "converting", "won", "lost", "cancelled"]
+                      ? ["creating", "in_review", "reviewed", "sent", "converting", "won", "lost", "cancelled"]
                       : [
                           "complete",
                           "preparing",
@@ -658,18 +658,20 @@ function OpportunityDialog({
     ref.current?.showModal();
   }, []);
   const change = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
-  async function save() {
+  async function save(statusOverride?:string) {
     setBusy(true);
     setError("");
     try {
       const row = await crmApi("", {
         action: "save-opportunity",
         ...form,
+        status:statusOverride||form.status,
         id: request.current,
         version: data.version,
       });
       const updated = await crmApi("?opportunity=" + row.id);
       setData(updated);
+      setForm(f=>({...f,status:updated.status}));
       saved(updated);
     } catch (e) {
       setError((e as Error).message);
@@ -898,7 +900,7 @@ function OpportunityDialog({
           </div>
           <div className="crm-opportunity-save"><button className="button primary" type="submit">
             {busy ? "Salvando…" : "Salvar oportunidade"}
-          </button></div>
+          </button>{data.id&&data.status==='open'&&<button className="button" type="button" disabled={busy} onClick={()=>{if(window.confirm('Marcar esta oportunidade como perdida?'))void save('lost');}}>Marcar como perdida</button>}</div>
         </fieldset>
       </form>
       {error && (
