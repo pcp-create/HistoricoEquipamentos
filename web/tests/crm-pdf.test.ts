@@ -9,8 +9,13 @@ const proposal={number:17,created_at:'2026-11-13T12:00:00Z',customer_name:'Clien
 test('CRM produces the landscape proposal model and paginates item descriptions',async()=>{
  const bytes=await proposalPdf(proposal,{document:'12345678000100',payload:{razaoSocial:'Cliente de teste LTDA',nomeFantasia:'Nome comercial de teste',municipioNome:'Rio do Sul',ufSigla:'SC',logradouro:'Rua de teste',numero:'100'}},{model:'GA22',serial:'ABC123'});
  await writeFile('/tmp/crm-proposta.pdf',bytes);const pdf=await PDFDocument.load(bytes);assert.equal(pdf.getPageCount(),1);assert.ok(pdf.getPage(0).getWidth()>pdf.getPage(0).getHeight());
+ const content=pdf.context.enumerateIndirectObjects().filter(([,object])=>object instanceof PDFRawStream).map(([,object])=>Buffer.from(decodePDFRawStream(object as PDFRawStream).decode()).toString('latin1')).join('');
+ for(const label of ['Produtos (1)','Serviços (1)'])assert.ok(content.includes(Buffer.from(label,'latin1').toString('hex').toUpperCase()),label);
  const many=await proposalPdf({...proposal,document:{...proposal.document,items:Array.from({length:100},(_,i)=>({...item,code:String(i+1),name:'Peça '+i+' descrição técnica '.repeat(15)}))}});
- assert.ok((await PDFDocument.load(many)).getPageCount()>2);
+ const manyPdf=await PDFDocument.load(many);assert.ok(manyPdf.getPageCount()>2);
+ const allContent=manyPdf.context.enumerateIndirectObjects().filter(([,object])=>object instanceof PDFRawStream).map(([,object])=>Buffer.from(decodePDFRawStream(object as PDFRawStream).decode()).toString('latin1')).join('');
+ for(const label of ['Serrana Compressores · Otacílio Costa','Criciúma Compressores · Criciúma'])assert.equal(allContent.split(Buffer.from(label,'latin1').toString('hex').toUpperCase()).length-1,manyPdf.getPageCount());
+ for(let i=1;i<=manyPdf.getPageCount();i++)assert.ok(allContent.includes(Buffer.from(`Página ${i} de ${manyPdf.getPageCount()}`,'latin1').toString('hex').toUpperCase()));
  await assert.rejects(()=>proposalPdf({...proposal,document:{...proposal.document,items:[]}}),/Inclua/);
 });
 
@@ -38,6 +43,13 @@ test('proposal without taxes renders without fiscal setup',async()=>{
  const pdf=await PDFDocument.load(bytes);assert.equal(pdf.getPageCount(),1);
  const content=pdf.context.enumerateIndirectObjects().filter(([,object])=>object instanceof PDFRawStream).map(([,object])=>Buffer.from(decodePDFRawStream(object as PDFRawStream).decode()).toString('latin1')).join('');
  assert.ok(!content.includes(Buffer.from('Tributos estimados na proposta').toString('hex').toUpperCase()));
+});
+
+test('confirmation stays on the same page when it fits above the footer',async()=>{
+ const document={...proposal.document,items:[...Array.from({length:4},(_,i)=>({...item,code:String(200+i),name:'ELEMENTO FILTRO DE AR - PEÇA '+i,notes:i===2?'Filtro de óleo paralelo':''})),{...item,kind:'service',code:'30',name:'SERVIÇO DE MANUTENÇÃO',quantity:'1',price:'250.00'}]};
+ const bytes=await proposalPdf({...proposal,document},{document:'12345678000100',payload:{razaoSocial:'Cliente de teste LTDA',nomeFantasia:'Nome comercial de teste',municipioNome:'Rio do Sul',ufSigla:'SC'}},{name:'COMPRESSOR DE PARAFUSO',model:'GA22',serial:'ABC123'});
+ const pdf=await PDFDocument.load(bytes);
+ assert.equal(pdf.getPageCount(),1);
 });
 
 test('PDF includes service PIS and COFINS in totals without presenting product taxes for services',async()=>{

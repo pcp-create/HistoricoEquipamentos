@@ -26,3 +26,27 @@ export async function addReportFooter(pdf:PDFDocument,title:string,margin=24){
   page.node.addAnnot(pdf.context.register(pdf.context.obj({Type:'Annot',Subtype:'Link',Rect:[margin,8,brandX+Math.max(font.widthOfTextAtSize(REPORT_CREDIT,5),100),35],Border:[0,0,0],A:{Type:'Action',S:'URI',URI:PDFString.of(REPORT_WHATSAPP_URL)}})));
  }
 }
+
+/** Proposal footer: brand, company contacts and page count on every page. */
+export async function addProposalFooter(pdf:PDFDocument,margin=20){
+ const font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);
+ const logo=await pdf.embedPng(await readFile(path.join(process.cwd(),'public/branding/gw-solucoes-digitais.png')));
+ const navy=rgb(.059,.18,.314),white=rgb(1,1,1),muted=rgb(.78,.86,.94),pages=pdf.getPages();
+ for(const [index,page] of pages.entries()){
+  const width=page.getWidth(),inner=width-2*margin,brandWidth=180,start=margin+brandWidth,available=inner-brandWidth-66,groupWidth=available/3;
+  page.drawRectangle({x:margin,y:8,width:inner,height:31,color:navy});
+  const size=logo.scaleToFit(38,24);
+  page.drawImage(logo,{x:margin+5+(38-size.width)/2,y:11+(24-size.height)/2,...size});
+  page.drawText(REPORT_CREDIT,{x:margin+48,y:26,size:5,font,color:muted});
+  page.drawText(REPORT_PHONE,{x:margin+48,y:15,size:6,font,color:white});
+  const companies=[['RJ Compressores · Rio do Sul','(47) 3522-6652'],['Serrana Compressores · Otacílio Costa','(49) 3240-0901'],['Criciúma Compressores · Criciúma','rjcompressores.com.br']];
+  for(const [i,[name,contact]] of companies.entries()){
+   const x=start+i*groupWidth,headingSize=Math.min(6,(groupWidth-8)/bold.widthOfTextAtSize(name,1));
+   page.drawText(name,{x,y:26,size:headingSize,font:bold,color:white});
+   page.drawText(contact,{x,y:15,size:5.5,font,color:muted});
+  }
+  const pageText=`Página ${index+1} de ${pages.length}`;
+  page.drawText(pageText,{x:width-margin-8-font.widthOfTextAtSize(pageText,6),y:20,size:6,font,color:white});
+  page.node.addAnnot(pdf.context.register(pdf.context.obj({Type:'Annot',Subtype:'Link',Rect:[margin,8,start-6,39],Border:[0,0,0],A:{Type:'Action',S:'URI',URI:PDFString.of(REPORT_WHATSAPP_URL)}})));
+ }
+}

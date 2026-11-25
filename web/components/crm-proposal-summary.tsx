@@ -124,6 +124,7 @@ export default function CrmProposalSummary({
                             ))} />
                         </td>
                         <td>
+                          <div className="crm-summary-price-field">
                           <input className="crm-summary-price-input"
                             aria-label={`Venda unitária: ${item.name}`} type="number"
                             min="0" max="99999999.99" step="0.01"
@@ -132,10 +133,11 @@ export default function CrmProposalSummary({
                               row === item ? { ...row, price: e.target.value } : row,
                             ))} />
                           {Number(item.discountPercent) > 0 && (
-                            <small>
+                            <small className="crm-summary-net-price">
                               Líquido: {cash(discountedUnitCents(item))}
                             </small>
                           )}
+                          </div>
                         </td>
                         <td>
                           <input

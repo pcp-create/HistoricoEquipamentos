@@ -473,3 +473,8 @@
 @media (min-width:601px) and (max-width:1099px) {
  .new-os.crm-proposal-page .crm-proposal-identity .crm-form-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
 }
+
+/* Keep the price input aligned with the other cells when its net value is shown. */
+.crm-summary-price-field { display:inline-block; position:relative; vertical-align:middle; }
+.crm-summary-table .crm-summary-net-price { position:absolute; top:100%; left:0; margin-top:3px; white-space:nowrap; font-size:10px; line-height:1.2; }
+.crm-summary-table tr:has(.crm-summary-net-price) > td { padding-bottom:20px; }

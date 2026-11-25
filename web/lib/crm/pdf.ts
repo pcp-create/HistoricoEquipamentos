@@ -3,7 +3,7 @@ import "server-only";
 import { PDFDocument, StandardFonts, rgb, type PDFPage } from "pdf-lib";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { addReportFooter } from "../reports/pdf-footer";
+import { addProposalFooter } from "../reports/pdf-footer";
 import { proposalDraft, CrmError } from "./model";
 import { proposalFinancials, itemFinancials } from "./financials";
 import { formatContactPhone } from "../contact-phone";
@@ -249,9 +249,10 @@ export async function proposalPdf(
   for(const kind of ["material","service"] as const) {
     const items=draft.items.filter(item=>item.kind===kind);
     if(!items.length) continue;
-    const title=kind==="material"?"MATERIAIS":"SERVIÇOS";
+    const title=kind==="material"?"Produtos":"Serviços";
     if(y+30>H-55){newPage();tableHeader("ITENS DA PROPOSTA (CONTINUAÇÃO)");}
-    text(`${title} / ${items.length} ${items.length===1?"ITEM":"ITENS"}`,M+8,y+3,6.5,true,blue);y+=14;
+    rect(M,y,width,16,rgb(0.91,0.95,0.98));
+    text(`${title} (${items.length})`,M+8,y+4,6.5,true,blue);y+=16;
     let index=0;
     for(const item of items){
       const taxes=includeTaxes?currentTaxes(draft,item):null;
@@ -291,7 +292,7 @@ export async function proposalPdf(
   const discountSubtotalSize=Math.min(6.2,(discountColumn.w-6)/Math.max(1,bold.widthOfTextAtSize(clean(discountSubtotal),1)));
   text(discountSubtotal,discountColumn.x+(discountColumn.w-bold.widthOfTextAtSize(clean(discountSubtotal),discountSubtotalSize))/2,y+6,discountSubtotalSize,true);
   cell("total",money(draft.items.reduce((sum,item)=>sum+gross(item),0)),y+6,true);y+=25;
-  ensure(includeTaxes ? 148 : 120);
+  ensure(includeTaxes ? 100 : 80);
   const startY = y;
   text("OBSERVAÇÕES E CONDIÇÕES COMERCIAIS", M + 8, y, 6.5, true);
   y += 13;
@@ -321,19 +322,19 @@ export async function proposalPdf(
   ]) {
     text(label, tx + 8, totalY, 7, false, gray);
     right(value, W - M - 8, totalY);
-    totalY += 12;
+    totalY += 11;
   }
-  rect(tx, totalY, tw, 26);
-  text("VALOR TOTAL", tx + 8, totalY + 8, 7, true, white);
+  rect(tx, totalY, tw, 24);
+  text("VALOR TOTAL", tx + 8, totalY + 7, 7, true, white);
   right(
     "R$ " + money(totals.sale),
     W - M - 8,
-    totalY + 7,
+    totalY + 6,
     11,
     true,
     rgb(0.91, 0.63, 0),
   );
-  totalY += 32;
+  totalY += 28;
   if (includeTaxes) {
     const taxValues=draft.items.flatMap(item=>{
       const tax=currentTaxes(draft,item);
@@ -343,14 +344,15 @@ export async function proposalPdf(
       ? 'R$ '+money(taxValues.reduce<number>((sum,value)=>sum+value!,0)) : 'Não informado';
     text('Tributos estimados na proposta',tx+8,totalY,7,true);
     right(taxTotal,W-M-8,totalY,7,true);
-    totalY+=12;
+    totalY+=10;
     for(const row of wrap('O eventual aproveitamento de créditos deve ser confirmado pela contabilidade do cliente.',tw-16,6)){
       text(row,tx+8,totalY,6,false,gray);
-      totalY+=9;
+      totalY+=8;
     }
   }
-  y = Math.max(y, totalY) + 8;
-  ensure(70);
+  y = Math.max(y, totalY) + 9;
+  // Keep a gap above the fixed footer, moving the panel only when it cannot fit.
+  if (y + 40 > H - 44) newPage();
   rect(M, y, width, 40, pale);
   const confirmation = wrap(
     `Confirmo o pedido referente ao orçamento ${number}, autorizando a emissão das notas fiscais no total de R$ ${money(totals.sale)}.`,
@@ -374,15 +376,6 @@ export async function proposalPdf(
     false,
     gray,
   );
-  y += 46;
-  ensure(35);
-  rect(M, y, width, 28);
-  text("RJ Compressores · Rio do Sul", M + 8, y + 5, 6, true, white);
-  text("(47) 3522-6652", M + 8, y + 15, 5.5, false, white);
-  text("Serrana Compressores · Otacílio Costa", M + 255, y + 5, 6, true, white);
-  text("(49) 3240-0901", M + 255, y + 15, 5.5, false, white);
-  text("Criciúma Compressores · Criciúma", M + 520, y + 5, 6, true, white);
-  text("rjcompressores.com.br", M + 520, y + 15, 5.5, false, white);
-  await addReportFooter(pdf, "Proposta comercial · Gestão Integrada", M);
+  await addProposalFooter(pdf, M);
   return pdf.save();
 }
