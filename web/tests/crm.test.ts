@@ -17,7 +17,8 @@ test('CRM persists local opportunities and proposals and safely links conversion
  INSERT INTO m8_order_type_catalog VALUES(4,'Preventiva',true),(2,'Corretiva',true),(43,'Orçamento',true),(42,'Oficina',true);
  CREATE TABLE m8_customer_directory(person_id bigint,company_id int,name text,payload jsonb);INSERT INTO m8_customer_directory VALUES(10,1,'Cliente Teste','{"municipioNome":"Timbó","ufSigla":"SC"}');
  CREATE TABLE web_user_access(email text,display_name text);INSERT INTO web_user_access VALUES('planner','Planejador');
- CREATE TABLE service_order_submissions(id uuid PRIMARY KEY,state text,m8_id bigint,message text,updated_at timestamptz DEFAULT now());
+ CREATE TABLE service_order_submissions(id uuid PRIMARY KEY,state text,m8_id bigint,message text,request jsonb,updated_at timestamptz DEFAULT now());
+ CREATE TABLE m8_ordens_servico(company_id int,id_m8 bigint,numero_sequencia bigint);
  CREATE TABLE m8_product_current(company_id int,product_id bigint,available numeric,available_at timestamptz);
  CREATE TABLE m8_product_catalog(company_id int,product_id bigint,unit text,payload jsonb DEFAULT '{}');INSERT INTO m8_product_catalog(company_id,product_id,unit) VALUES(1,50,'UN');
  CREATE TABLE m8_product_stock(company_id int,product_id bigint,average_cost numeric,stock numeric,payload jsonb DEFAULT '{}',establishment_id bigint DEFAULT 1,collected_at timestamptz DEFAULT now());INSERT INTO m8_product_stock(company_id,product_id,average_cost,stock) VALUES(1,50,5,1);`);
@@ -28,7 +29,9 @@ test('CRM persists local opportunities and proposals and safely links conversion
  const catalog=await catalogs();assert.equal(catalog.opportunityTypes.length,7);assert.equal(catalog.proposalTypes.length,13);
  const man=catalog.opportunityTypes.find(t=>t.code==='MAN'),mpa=catalog.proposalTypes.find(t=>t.code==='MPA'),mca=catalog.proposalTypes.find(t=>t.code==='MCA');
  assert.deepEqual(mpa.order_types,['4']);assert.deepEqual(mca.order_types,['2','42','43']);assert.deepEqual(catalog.proposalTypes.find(t=>t.code==='ST').order_types,[]);
- const opportunity=await saveOpportunity({id:randomUUID(),typeId:man.id,customerId:10,company:1,title:'Manutenção Cliente',commercial:{stage:'negotiation',probability:60,amount:'1234.50',closeDate:'2026-11-30',contact:'João'}},'planner');
+ const opportunity=await saveOpportunity({id:randomUUID(),typeId:man.id,customerId:10,company:1,title:'Manutenção Cliente',commercial:{stage:'negotiation',probability:60,amount:'1234.50',closeDate:'2026-11-30',contact:'João',origin:'visit'}},'planner');
+ assert.equal((await getOpportunity(opportunity.id)).commercial.origin,'visit');
+ await assert.rejects(saveOpportunity({id:randomUUID(),typeId:man.id,customerId:10,company:1,title:'Inválida',commercial:{origin:'invalida'}},'planner'),/origem válida/);
  assert.equal((await listCrm('opportunities')).rows[0].customer_city,'Timbó');assert.equal((await listCrm('opportunities')).rows[0].customer_state,'SC');assert.equal(opportunity.commercial.stage,'negotiation');assert.equal((await listCrm('opportunities')).rows[0].owner_name,'Planejador');
  const p=await createProposal({id:randomUUID(),opportunityId:opportunity.id,typeId:mpa.id,title:'Preventiva'},'planner');
  const second=await createProposal({id:randomUUID(),opportunityId:opportunity.id,typeId:mca.id,title:'Corretiva alternativa'},'planner');
@@ -59,7 +62,9 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await continueConversion({id:request,action:'advance'},'planner',{...deps,advance:async()=>({...last,state:'complete',m8Id:900})});
  const stale=await continueConversion({id:request,action:'advance'},'planner',{...deps,advance:async()=>({...last,state:'ready',m8Id:null})});
  assert.equal(stale.state,'complete');assert.equal(Number(stale.m8Id),900);
- const converted=await getProposal(p.id);assert.equal(converted.status,'won');assert.equal(Number(converted.links[0].order_id),900);
+ const converted=await getProposal(p.id);assert.equal(converted.status,'won');assert.equal(Number(converted.links[0].order_id),900);assert.equal(converted.links[0].actor_name,'Planejador');
+ const listed=(await listCrm('proposals','Preventiva')).rows[0];assert.equal(Number(listed.order_id),900);assert.equal(Number(listed.order_company_id),1);
+ await assert.rejects(beginConversion({id:randomUUID(),proposalId:p.id,version:converted.version,additional:true},'planner',deps),/já possui uma OS/);
  await assert.rejects(saveProposal({id:p.id,version:converted.version,status:'won',draft:{...saved.document,items:[{...saved.document.items[0],price:'12.00'}]}},'planner'),/concluída/);
  assert.equal((await db.query<any>('SELECT document FROM crm_order_links WHERE id=$1',[request])).rows[0].document.items[0].price,'10.50');
  assert.equal((await getOpportunity(opportunity.id)).status,'won');
@@ -71,7 +76,7 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await db.query("INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id) SELECT id,0,version,document,names,title,decode('00','hex'),'planner','cliente@example.com','test-2' FROM crm_proposals WHERE id=$1",[s.id]);
  await assert.rejects(beginConversion({id:randomUUID(),proposalId:s.id,version:s.version},'planner',{...deps,prepare:async()=>{throw new OrderInputError('Falta vendedor');}}),/Falta vendedor/);
  assert.equal((await getProposal(s.id)).status,'pending');
- assert.equal((await listCrm('orders')).total,2);
+ assert.equal((await listCrm('orders')).total,1);
  assert.equal((await listCrm('proposals','Preventiva')).total,1);
  await saveCatalog({kind:'proposal',id:mpa.id,version:mpa.version,code:mpa.code,name:mpa.name,notes:'Manual',active:true,opportunityTypeId:man.id,orderTypes:['4','99']},'planner');
  await db.exec(readFileSync(new URL('../sql/108_crm.sql',import.meta.url),'utf8'));

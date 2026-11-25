@@ -1,6 +1,7 @@
 "use client";
 import CrmProposalPdf from "./crm-proposal-pdf";
 import CrmProposalEmail from "./crm-proposal-email";
+import OrderDetailLink from "./order-detail-link";
 import CrmEmailSettings from "./crm-email-settings";
 import {FileText,Settings} from "lucide-react";
 import ActionNotice from "./action-notice";
@@ -150,12 +151,13 @@ export default function CrmProposal({ id }: { id: string }) {
     </dialog>}
   </div>;
   const actions = changed ? <p>Salve a proposta antes de concretizar ou gerar uma OS.</p> : null;
+  const revisionEntry=(r:any)=><article key={r.revision}><a className="crm-revision-pdf" href={`/api/crm/pdf?id=${encodeURIComponent(id)}&revision=${r.revision}`} target="_blank" rel="noreferrer"><span className="crm-revision-pdf-icon" aria-hidden="true"><FileText size={18}/><span>PDF</span></span>Rev.{r.revision} · Abrir PDF enviado</a><p>{crmDate(r.sent_at)} · {r.sent_by} · {r.recipients}</p></article>;
   const progress = <>
-      {!!data.sentRevisions?.length&&<section className="crm-links"><h3>Revisões enviadas</h3>{data.sentRevisions.map((r:any)=><article key={r.revision}><a className="crm-revision-pdf" href={`/api/crm/pdf?id=${encodeURIComponent(id)}&revision=${r.revision}`} target="_blank" rel="noreferrer"><span className="crm-revision-pdf-icon" aria-hidden="true"><FileText size={18}/><span>PDF</span></span>Rev.{r.revision} · Abrir PDF enviado</a><p>{crmDate(r.sent_at)} · {r.sent_by} · {r.recipients}</p></article>)}</section>}
-      {!!data.links.length && (
+      {!!data.sentRevisions?.length&&<section className="crm-links"><h3>Revisões enviadas</h3>{revisionEntry(data.sentRevisions[0])}{data.sentRevisions.length>1&&<details className="crm-previous-revisions"><summary>Ver todas as revisões</summary><div>{data.sentRevisions.slice(1).map(revisionEntry)}</div></details>}</section>}
+      {data.links.some((l:any)=>l.state!=='validation_failed') && (
         <div className="crm-links">
           <h3>Ordens de serviço e envios vinculados</h3>
-          {data.links.map((l: any) => (
+          {data.links.filter((l:any)=>l.state!=='validation_failed').map((l: any) => (
             <article key={l.id}>
               <span className={"crm-status crm-status-" + l.state}>
                 {crmStatus(l.state)}
@@ -164,15 +166,13 @@ export default function CrmProposal({ id }: { id: string }) {
                 <>
                   {" "}
                   ·{" "}
-                  <Link
-                    href={`/historico?createdCompany=${l.company_id}&createdOrder=${l.order_id}`}
-                  >
+                  <OrderDetailLink id={String(l.order_id)} company={l.company_id}>
                     OS-{l.order_id}
-                  </Link>
+                  </OrderDetailLink>
                 </>
               )}
               <p>
-                {crmDate(l.created_at)} · {l.actor}
+                {crmDate(l.created_at)} · {l.actor_name || l.actor}
               </p>
               {l.message && <p>{l.message}</p>}
               {["preparing", "ready", "partial", "sending"].includes(

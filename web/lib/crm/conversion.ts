@@ -28,13 +28,14 @@ export async function beginConversion(raw:any,actor:string,deps=defaults){
  if(!p)throw new CrmError('Proposta não encontrada.');
  const old=(await c.query('SELECT * FROM crm_order_links WHERE id=$1',[id])).rows[0];
  if(old){if(old.actor!==actor||old.proposal_id!==proposal)throw new CrmError('Envio pertence a outro usuário.');if(old.state==='validation_failed')throw new CrmError('Corrija e salve a proposta antes de uma nova tentativa.');return old;}
+ if((await c.query('SELECT 1 FROM crm_order_links WHERE proposal_id=$1 AND order_id IS NOT NULL LIMIT 1',[proposal])).rows.length)throw new CrmError('Esta proposta já possui uma OS vinculada.');
  const pending=(await c.query("SELECT * FROM crm_order_links WHERE proposal_id=$1 AND state NOT IN('complete','validation_failed')",[proposal])).rows[0];
  if(pending)throw new CrmError('Já existe um envio pendente. Abra o andamento para continuar sem duplicar a OS.');
  if(p.version!==expected)throw new CrmError('A proposta foi alterada. Reabra antes de concretizar.');
  const workflow=(await c.query('SELECT state,revision FROM crm_proposal_workflows WHERE proposal_id=$1 FOR UPDATE',[proposal])).rows[0];
  if(workflow?.state!=='sent')throw new CrmError('Envie a proposta revisada ao cliente antes de gerar a OS.');
  if(p.opportunity_status!=='open'||!['pending','won'].includes(p.status))throw new CrmError('A proposta e a oportunidade precisam estar disponíveis para concretização.');
- if(p.status==='won'&&raw.additional!==true)throw new CrmError('A proposta já foi concretizada. Utilize Gerar outra OS.');
+ if(p.status==='won')throw new CrmError('Esta proposta já foi concretizada.');
  const sent=(await c.query('SELECT document FROM crm_proposal_sent_revisions WHERE proposal_id=$1 AND revision=$2',[proposal,workflow.revision])).rows[0];
  if(!sent)throw new CrmError('A versão enviada não está disponível para gerar a OS.');
  const draft=proposalDraft(sent.document);

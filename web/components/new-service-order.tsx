@@ -612,8 +612,8 @@ export default function NewServiceOrder({
           if(current.company!==company)return current;const items=applyAverageCosts(current.items,costs);
           return JSON.stringify(items)===JSON.stringify(current.items)?current:{...current,items};
         })}/>}
-        {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{key==='header'?<ClipboardList size={18} aria-hidden="true"/>:key==='material'?<Package size={18} aria-hidden="true"/>:key==='service'?<Wrench size={18} aria-hidden="true"/>:<ChartNoAxesCombined size={18} aria-hidden="true"/>}<span>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}</span></button>)}</nav>}
         {proposal?.activityTools}
+        {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{key==='header'?<ClipboardList size={18} aria-hidden="true"/>:key==='material'?<Package size={18} aria-hidden="true"/>:key==='service'?<Wrench size={18} aria-hidden="true"/>:<ChartNoAxesCombined size={18} aria-hidden="true"/>}<span>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}</span></button>)}</nav>}
         {proposal&&<div hidden={tab!=='summary'}>{proposal.summaryTools}</div>}
         <form onSubmit={submit} onKeyDown={event=>{if(proposal && event.key==='Enter' && event.target instanceof HTMLInputElement && !event.nativeEvent.isComposing)event.preventDefault();}} noValidate>
           <fieldset

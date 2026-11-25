@@ -22,6 +22,7 @@ import {
 import SiteHeader from "./site-header";
 import ContactDeleteButton from "./contact-delete-button";
 import ContactJobEditor from "./contact-job-editor";
+import OrderDetailLink from "./order-detail-link";
 import OrderSearchSelect from "./order-search-select";
 import { companyName } from "@/lib/company-names";
 import { contactJobLabel } from "@/lib/contact-job-label";
@@ -315,7 +316,7 @@ export default function Crm() {
                               "Tipo de proposta",
                               "Status",
                               "Valor total",
-                              "OSs",
+                              "OS",
                               "Atualização",
                             ]
                           : kind === "orders"
@@ -449,26 +450,15 @@ export default function Crm() {
                               </span>
                             </td>
                             <td>{crmMoney(row.total_cents)}</td>
-                            <td>{row.order_count}</td>
+                            <td>{row.order_id ? <OrderDetailLink id={String(row.order_id)} company={row.order_company_id}>{`OS-${row.order_id}`}</OrderDetailLink> : '—'}</td>
                             <td>{crmDate(row.updated_at)}</td>
                           </>
                         ) : kind === "orders" ? (
                           <>
                             <td>
-                              {row.order_id ? (
-                                <Link
-                                  className="crm-record-link"
-                                  href={`/historico?createdCompany=${row.company_id}&createdOrder=${row.order_id}`}
-                                >
-                                  OS-{row.order_id}
-                                </Link>
-                              ) : (
-                                <Link
-                                  href={"/crm/propostas/" + row.proposal_id}
-                                >
-                                  Envio pendente
-                                </Link>
-                              )}
+                              <OrderDetailLink id={String(row.order_id)} company={row.company_id}>
+                                OS-{row.order_id}
+                              </OrderDetailLink>
                             </td>
                             <td>{row.customer_name}</td>
                             <td>{companyName(String(row.company_id))}</td>
@@ -646,6 +636,7 @@ function OpportunityDialog({
         amount: "",
         closeDate: "",
         contact: "",
+        origin: "",
         ...initial.commercial,
       },
     }),
@@ -696,6 +687,7 @@ function OpportunityDialog({
       setBusy(false);
     }
   }
+  const won = data.status === 'won' || Number(data.order_count || 0) > 0;
   const eventLabel = (s: string) =>
     ({
       opportunity_created: "Oportunidade criada",
@@ -797,12 +789,22 @@ function OpportunityDialog({
               />
             </label>
             <label>
+              Origem da oportunidade
+              <select value={form.commercial.origin} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,origin:e.target.value}}))}>
+                <option value="">Selecione</option>
+                <option value="visit">Visita comercial</option>
+                <option value="preventive">Controle de preventiva</option>
+                <option value="customer_contact">Contato do cliente</option>
+              </select>
+            </label>
+            <label>
               Status
               <select
-                value={form.status}
+                value={won ? "won" : form.status}
+                disabled={won}
                 onChange={(e) => change("status", e.target.value)}
               >
-                {["open", "lost", "cancelled"].map((s) => (
+                {[...(won ? ["won"] : []), "open", "lost", "cancelled"].map((s) => (
                   <option key={s} value={s}>
                     {crmStatus(s)}
                   </option>
@@ -812,7 +814,8 @@ function OpportunityDialog({
             <label>
               Fase
               <select
-                value={form.commercial.stage}
+                value={won ? "won" : form.commercial.stage}
+                disabled={won}
                 onChange={(e) =>
                   setForm((f) => ({
                     ...f,
@@ -820,6 +823,7 @@ function OpportunityDialog({
                   }))
                 }
               >
+                {won && <option value="won">Ganha</option>}
                 {Object.entries(stages).map(([key, label]) => (
                   <option key={key} value={key}>
                     {label}
@@ -828,7 +832,7 @@ function OpportunityDialog({
               </select>
             </label>
             <label>
-              Data de fechamento
+              Data prevista de fechamento
               <input
                 type="date"
                 value={form.commercial.closeDate}
@@ -863,7 +867,8 @@ function OpportunityDialog({
                 min="0"
                 max="100"
                 step="1"
-                value={form.commercial.probability}
+                value={won ? 100 : form.commercial.probability}
+                disabled={won}
                 onChange={(e) =>
                   setForm((f) => ({
                     ...f,
