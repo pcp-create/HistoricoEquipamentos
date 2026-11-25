@@ -19,7 +19,7 @@ export default function CrmProductTaxes({
   latest.current = draft;
   const fingerprint = (d: OrderDraft) =>
     JSON.stringify(
-      d.items.filter((i) => i.kind === "material").map((i) => taxKey(d, i)),
+      d.items.map((i) => taxKey(d, i)),
     );
   useEffect(() => {
     const controller = new AbortController();

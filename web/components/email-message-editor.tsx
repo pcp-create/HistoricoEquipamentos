@@ -11,7 +11,7 @@ import {Bold,Italic,Underline,Strikethrough,Link,Unlink,List,ListOrdered,IndentD
 import {emailTextHtml,validEmailLink} from '@/lib/service-scheduling/email-body-text';
 const EmailImage=Node.create({
  name:'emailImage',group:'block',atom:true,draggable:true,
- addAttributes(){return {src:{default:null},alt:{default:'Imagem'}};},
+ addAttributes(){return {src:{default:null},alt:{default:'Imagem'},width:{default:null,parseHTML:element=>{const width=Number(element.getAttribute('width'));return Number.isInteger(width)&&width>=40&&width<=1200?width:null;},renderHTML:attributes=>attributes.width?{width:attributes.width}:{} }};},
  parseHTML(){return [{tag:'img[src^="data:image/"]'}];},
  renderHTML({HTMLAttributes}){return ['img',mergeAttributes(HTMLAttributes)];},
 });
@@ -62,7 +62,8 @@ export default function EmailMessageEditor({initialText,initialHtml,label='Mensa
        editor.chain().focus().insertContent({type:'emailImage',attrs:{src,alt:file.name.slice(0,120)}}).run();
       }catch{setImageError('Não foi possível carregar a imagem.');}
     }}/>
-    {button('Inserir imagem',<ImagePlus size={17}/>,()=>imageInput.current?.click())}
+   {button('Inserir imagem',<ImagePlus size={17}/>,()=>imageInput.current?.click())}
+    {editor.isActive('emailImage')&&<label className="email-image-size">Largura da imagem <input key={editor.state.selection.from} type="number" aria-label="Largura da imagem em pixels" min={40} max={1200} step={10} disabled={disabled} defaultValue={editor.getAttributes('emailImage').width||''} placeholder="Original" onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur();}}} onBlur={e=>{const value=e.target.value,width=Number(value);if(!value)editor.commands.updateAttributes('emailImage',{width:null});else if(Number.isInteger(width)&&width>=40&&width<=1200){editor.commands.updateAttributes('emailImage',{width});setImageError('');}else setImageError('Informe uma largura entre 40 e 1.200 pixels.');}}/><span>px</span></label>}
     {button('Inserir ou editar link' ,<Link size={17}/>,openLink,editor.isActive('link'))}
     {button('Remover link',<Unlink size={17}/>,()=>editor.chain().focus().extendMarkRange('link').unsetLink().run(),false,!editor.isActive('link'))}
     {button('Remover formatação',<RemoveFormatting size={17}/>,()=>editor.chain().focus().unsetAllMarks().clearNodes().unsetTextAlign().run())}

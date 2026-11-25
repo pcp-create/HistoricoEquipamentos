@@ -137,12 +137,27 @@ test("duplicate product lines are calculated separately and missing taxes never 
   );
 });
 
-test('PDF requires fiscal setup for products but allows service-only proposals',async()=>{
+test('PDF requires fiscal setup for products and services',async()=>{
  const {hydratePdfProductTaxes}=await import('../lib/crm/product-taxes');
  let calls=0;const session=async()=>{calls++;return async()=>[];};
  await assert.rejects(()=>hydratePdfProductTaxes({...draft(),commercial:{}},session),/Configure o tipo de orçamento fiscal/);
  assert.equal(calls,0);
  const services={...draft(),commercial:{},items:[{...item,kind:'service' as const}]};
- assert.deepEqual(await hydratePdfProductTaxes(services,session),services);
+ await assert.rejects(()=>hydratePdfProductTaxes(services,session),/Configure o tipo de orçamento fiscal/);
  assert.equal(calls,0);
+});
+
+test('service taxes use code 11869 for each line, excluding product-only taxes',async()=>{
+ const services={...draft(),items:[{...item,kind:'service' as const,code:'77',price:'100'},{...item,kind:'service' as const,code:'78',price:'200'}, {...item,code:'11869'}]};
+ const calls:any[]=[];
+ const result=await hydrateProductTaxes(services,async()=>async(_path,body:any)=>{
+  calls.push(body);
+  return body.itens.map((line:any)=>({produtoId:line.produtoId,impostos:{valorIcms:17,valorIcmsSt:4,valorIpi:2,valorPis:line.valorUnitario*.01,valorCofins:line.valorUnitario*.05}}));
+ });
+ assert.equal(calls.length,3);
+ assert.ok(calls.every(call=>call.itens[0].produtoId===11869));
+ assert.deepEqual(result.items.slice(0,2).map(i=>[i.taxes?.pis,i.taxes?.cofins,i.taxes?.icms,i.taxes?.ipi]),[[90,450,null,null],[180,900,null,null]]);
+ assert.equal(result.items[2].taxes?.icms,1700);
+ assert.notEqual(result.items[0].taxes?.key,result.items[2].taxes?.key);
+ await assert.rejects(()=>hydrateProductTaxes({...services,items:[services.items[0]]},async()=>async()=>[{produtoId:11869,impostos:{valorPis:null,valorCofins:0}}]),/Não foi possível simular/);
 });

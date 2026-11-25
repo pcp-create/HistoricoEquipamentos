@@ -39,6 +39,7 @@ export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=
  function addRecipient(email:string){try{setTo(emailRecipients([to,email].filter(Boolean).join(', ')).join(', '));}catch(e){setContactError((e as Error).message);}}
  async function saveContact(){setSavingContact(true);setContactError('');try{const r=await fetch('/api/service-scheduling/customer-email/contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...contact,scheduleId:String(data.schedule.id)})});const result=await r.json();if(!r.ok)throw Error(result.error);setContacts(result.contacts);addRecipient(result.saved.email);setContact({email:'',name:'',job_title:'',phone:''});setShowContact(false);}catch(e){setContactError((e as Error).message);}finally{setSavingContact(false);}}
  const [gmailHelp,setGmailHelp]=useState(false);
+ const [retryGmailConsent,setRetryGmailConsent]=useState(false);
  const [busy,setBusy]=useState(false),[ready,setReady]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[gmailUrl,setGmailUrl]=useState('');
  useEffect(()=>{
   if(!config.gmailClientId)return;
@@ -68,10 +69,16 @@ export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=
    callback:async(token:any)=>{
     if(token.error||!token.access_token){setBusy(false);setError('O Google não autorizou o acesso ao Gmail.');return;}
     try{
+     const gmailScope='https://www.googleapis.com/auth/gmail.compose';
+     if(typeof token.scope==='string'&&!token.scope.split(/\s+/).includes(gmailScope)){
+      setRetryGmailConsent(true);
+      throw Error('A permissão do Gmail não foi concedida. Tente novamente e marque a opção para criar, editar e enviar e-mails na tela do Google.');
+     }
      const result=await prepare();
      const response=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/'+(send?'messages/send':'drafts'),{method:'POST',headers:{Authorization:'Bearer '+token.access_token,'Content-Type':'application/json'},body:JSON.stringify(send?{raw:result.raw}:{message:{raw:result.raw}})});
      const responseBody=await response.json().catch(()=>null);
-     if(!response.ok){const failure=gmailDraftError(response.status,responseBody);setGmailHelp(failure.enableApi);throw Error(failure.message);}
+     if(!response.ok){const failure=gmailDraftError(response.status,responseBody);setGmailHelp(failure.enableApi);if('retryConsent' in failure&&failure.retryConsent)setRetryGmailConsent(true);throw Error(failure.message);}
+     setRetryGmailConsent(false);
 
      if(send){setMessage('E-mail enviado com sucesso com o relatório resumido em anexo.');return;}
      const profile:{email?:string}=await fetch('https://openidconnect.googleapis.com/v1/userinfo',{headers:{Authorization:'Bearer '+token.access_token}}).then(r=>r.ok?r.json():{}).catch(()=>({}));
@@ -79,7 +86,7 @@ export default function CustomerReportEmail({data,onClose}:{data:any;onClose:()=
      window.open(url,'_blank','noopener,noreferrer');
     }catch(e){setError((e as Error).message);}finally{token.access_token='';setBusy(false);}
    }});
-  client.requestAccessToken();}catch{setBusy(false);setError('Não foi possível iniciar a conexão Google. Confira a configuração ou baixe o e-mail com o anexo.');}
+  client.requestAccessToken(retryGmailConsent?{prompt:'consent'}:undefined);}catch{setBusy(false);setError('Não foi possível iniciar a conexão Google. Confira a configuração ou baixe o e-mail com o anexo.');}
  }
  return <form className="customer-report-email" onSubmit={e=>{e.preventDefault();void download();}}>
   <h3>Enviar relatório por e-mail</h3>

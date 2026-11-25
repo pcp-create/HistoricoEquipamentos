@@ -3,17 +3,18 @@ import { discountedUnitCents } from "./financials";
 export type ProductTaxes = {
   key: string;
   at: string;
-  icms: number;
-  icmsSt: number;
+  icms: number | null;
+  icmsSt: number | null;
   pis: number;
   cofins: number;
-  ipi: number;
+  ipi: number | null;
 };
 export function taxKey(draft: OrderDraft, item: OrderItem) {
   return JSON.stringify([
     draft.company,
     draft.customer,
     draft.commercial?.taxBudgetType,
+    item.kind,
     item.code,
     item.quantity,
     discountedUnitCents(item),

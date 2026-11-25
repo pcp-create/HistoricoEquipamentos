@@ -64,8 +64,9 @@ test('formatted defaults validate their size and escape dynamic values without l
 
 test('inline images survive sanitization and are embedded in the email alongside the PDF',()=>{
  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6zZsAAAAASUVORK5CYII=','base64');
- const html='<p>Olá</p><img src="data:image/png;base64,'+png.toString('base64')+'" alt="Logo" onerror="alert(1)">';
- assert.match(cleanEmailBodyHtml(html)!,/<img/);
+ const html='<p>Olá</p><img src="data:image/png;base64,'+png.toString('base64')+'" alt="Logo" width="240" onerror="alert(1)">';
+ assert.match(cleanEmailBodyHtml(html)!,/width="240"/);
+ assert.doesNotMatch(cleanEmailBodyHtml(html.replace('width="240"','width="9999"'))!,/width=/);
  assert.doesNotMatch(cleanEmailBodyHtml(html)!,/onerror/);
  const mime=emailMessage({to:'a@example.com',subject:'Teste',body:'Olá',bodyHtml:html,filename:'OS.pdf',pdf:Buffer.from('%PDF')});
  assert.match(mime,/multipart\/related/);assert.match(mime,/Content-ID: <[^>]+>/);assert.match(mime,/Content-Type: image\/png/);assert.ok(mime.replace(/\s/g,'').includes(png.toString('base64')));assert.match(mime,/Content-Type: application\/pdf/);

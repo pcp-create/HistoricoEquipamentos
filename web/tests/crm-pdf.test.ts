@@ -27,12 +27,27 @@ test('proposal PDF receives trusted stock, seller delivery and simulated tax amo
  assert.ok(content.indexOf(encoded('VALOR TOTAL')) >= 0);
  for (const label of ['PIS','COFINS','IPI','ST','DESCONTO','SUBTOTAL','Descontos']) assert.ok(content.includes(encoded(label)), label);
  assert.ok(!content.includes(encoded('DETALHAMENTO DE IMPOSTOS')));
+ assert.ok(content.includes(encoded('Tributos estimados na proposta')));
+ assert.ok(content.includes(encoded('R$ 290,25')));
+ assert.ok(!content.includes(encoded('crédito garantido')));
 });
 
 test('proposal without taxes renders without fiscal setup',async()=>{
  const bytes=await proposalPdf(proposal,{},{},{19420:'84219910'},{includeTaxes:false});
  await writeFile('/tmp/crm-proposta-sem-impostos.pdf',bytes);
- assert.equal((await PDFDocument.load(bytes)).getPageCount(),1);
+ const pdf=await PDFDocument.load(bytes);assert.equal(pdf.getPageCount(),1);
+ const content=pdf.context.enumerateIndirectObjects().filter(([,object])=>object instanceof PDFRawStream).map(([,object])=>Buffer.from(decodePDFRawStream(object as PDFRawStream).decode()).toString('latin1')).join('');
+ assert.ok(!content.includes(Buffer.from('Tributos estimados na proposta').toString('hex').toUpperCase()));
+});
+
+test('PDF includes service PIS and COFINS in totals without presenting product taxes for services',async()=>{
+ const {taxKey}=await import('../lib/crm/product-terms');
+ const document={...proposal.document,commercial:{...proposal.document.commercial,taxBudgetType:'1'}};
+ document.items=document.items.map((i:any)=>({...i,taxes:{key:taxKey(document,i),at:'2026-11-24T12:00:00Z',icms:i.kind==='service'?null:1700,icmsSt:i.kind==='service'?null:0,ipi:i.kind==='service'?null:0,pis:i.kind==='service'?200:100,cofins:i.kind==='service'?600:300}}));
+ const pdf=await PDFDocument.load(await proposalPdf({...proposal,document}));
+ const content=pdf.context.enumerateIndirectObjects().filter(([,object])=>object instanceof PDFRawStream).map(([,object])=>Buffer.from(decodePDFRawStream(object as PDFRawStream).decode()).toString('latin1')).join('');
+ const contains=(text:string)=>content.includes(Buffer.from(text,'latin1').toString('hex').toUpperCase());
+ for(const value of ['1,00','2,00','3,00','6,00','9,00'])assert.ok(contains(value),value);
 });
 
 test('proposal PDF displays freight description without its code or carrier',async()=>{

@@ -19,7 +19,7 @@ export async function hydrateProductTaxes(
   draft: OrderDraft,
   session = m8Session,
 ): Promise<OrderDraft> {
-  const products = draft.items.filter((i) => i.kind === "material");
+  const products = draft.items;
   if (!products.length || !draft.commercial?.taxBudgetType) return draft;
   try {
     const request = await session(positive(draft.company)),
@@ -27,7 +27,8 @@ export async function hydrateProductTaxes(
     // The response identifies only the product, not the line. Separate repeated codes to avoid mixing prices.
     const batches: (typeof products)[] = [];
     for (const item of products) {
-      let batch = batches.find((b) => !b.some((i) => i.code === item.code));
+      const simulationCode=item.kind==='service'?'11869':item.code;
+      let batch = batches.find((b) => !b.some((i) => (i.kind==='service'?'11869':i.code) === simulationCode));
       if (!batch) {
         batch = [];
         batches.push(batch);
@@ -39,24 +40,19 @@ export async function hydrateProductTaxes(
         clienteId: positive(draft.customer),
         tipoOrcamentoId: positive(draft.commercial.taxBudgetType),
         itens: batch.map((i) => ({
-          produtoId: positive(i.code),
+          produtoId: positive(i.kind==='service'?'11869':i.code),
           quantidade: Number(i.quantity),
           valorUnitario: discountedUnitCents(i) / 100,
         })),
       });
       if (!Array.isArray(rows)) throw Error("Resposta inválida.");
       for (const item of batch) {
-        const matches = rows.filter((r) => String(r.produtoId) === item.code);
+        const matches = rows.filter((r) => String(r.produtoId) === (item.kind==='service'?'11869':item.code));
         if (matches.length !== 1) throw Error("Produto sem resultado fiscal.");
         const source = matches[0].impostos,
           values: Record<string, number> = {};
-        for (const [key, field] of Object.entries({
-          icms: "valorIcms",
-          icmsSt: "valorIcmsSt",
-          pis: "valorPis",
-          cofins: "valorCofins",
-          ipi: "valorIpi",
-        })) {
+        const fields=item.kind==='service'?{pis:'valorPis',cofins:'valorCofins'}:{icms:'valorIcms',icmsSt:'valorIcmsSt',pis:'valorPis',cofins:'valorCofins',ipi:'valorIpi'};
+        for (const [key, field] of Object.entries(fields)) {
           const value = source?.[field];
           if (typeof value !== "number" || !Number.isFinite(value) || value < 0)
             throw Error("Valor fiscal inválido.");
@@ -64,6 +60,7 @@ export async function hydrateProductTaxes(
         }
         taxes.set(taxKey(draft, item), {
           ...values,
+          ...(item.kind==='service'?{icms:null,icmsSt:null,ipi:null}:{}),
           key: taxKey(draft, item),
           at: new Date().toISOString(),
         } as ProductTaxes);
@@ -71,11 +68,7 @@ export async function hydrateProductTaxes(
     }
     return {
       ...draft,
-      items: draft.items.map((i) =>
-        i.kind === "material"
-          ? { ...i, taxes: taxes.get(taxKey(draft, i)) }
-          : i,
-      ),
+      items: draft.items.map((i) => ({ ...i, taxes: taxes.get(taxKey(draft, i)) })),
     };
   } catch {
     throw new CrmError(
@@ -86,7 +79,7 @@ export async function hydrateProductTaxes(
 
 /** PDFs must never silently omit taxes because fiscal setup is incomplete. */
 export async function hydratePdfProductTaxes(draft: OrderDraft, session = m8Session): Promise<OrderDraft> {
-  if(draft.items.some(i=>i.kind==='material')&&!draft.commercial?.taxBudgetType)
+  if(draft.items.length&&!draft.commercial?.taxBudgetType)
     throw new CrmError('Configure o tipo de orçamento fiscal no cadastro do tipo de proposta antes de gerar o PDF com impostos.');
   return hydrateProductTaxes(draft,session);
 }

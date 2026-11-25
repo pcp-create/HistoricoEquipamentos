@@ -1243,3 +1243,6 @@
 .order-review-finalize { position: static; }
 
 .email-message-content img { display:block; max-width:100%; height:auto; margin:8px 0; }
+.email-format-toolbar .email-image-size { display:inline-flex; flex-direction:row; align-items:center; gap:5px; margin:0 4px; color:#52677e; font-size:12px; font-weight:600; }
+.email-format-toolbar .email-image-size input { width:78px; min-height:30px; height:30px; margin:0; padding:3px 5px; border:1px solid #cbdcf0; border-radius:5px; background:#fff; font-size:12px; }
+.email-message-content img.ProseMirror-selectednode { outline:2px solid #2b74b4; outline-offset:2px; }

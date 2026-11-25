@@ -43,10 +43,12 @@ export default function CrmProductTerms({
           onChange={onChange}
         />
       )}
-      {showTaxes && (taxes ? (
+      {showTaxes && (taxes && item.kind === "service" ? (
+        <small>Impostos estimados: PIS {crmMoney(taxes.pis)} · COFINS {crmMoney(taxes.cofins)}</small>
+      ) : taxes ? (
         <small>
-          Impostos simulados: ICMS {crmMoney(taxes.icms)} · ICMS ST{" "}
-          {crmMoney(taxes.icmsSt)} · IPI {crmMoney(taxes.ipi)} · PIS{" "}
+          Impostos simulados: ICMS {taxes.icms===null?'—':crmMoney(taxes.icms)} · ICMS ST{" "}
+          {taxes.icmsSt===null?'—':crmMoney(taxes.icmsSt)} · IPI {taxes.ipi===null?'—':crmMoney(taxes.ipi)} · PIS{" "}
           {crmMoney(taxes.pis)} · COFINS {crmMoney(taxes.cofins)}
         </small>
       ) : (
