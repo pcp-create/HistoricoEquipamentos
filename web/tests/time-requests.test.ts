@@ -55,7 +55,7 @@ test("adjustments apply immediately, retain manager review, reject without rollb
       ),
     );
     await db.exec(
-      "ALTER TABLE web_tasks ADD COLUMN followers text[] NOT NULL DEFAULT '{}'",
+      "ALTER TABLE web_tasks ADD COLUMN followers text[] NOT NULL DEFAULT '{}'; ALTER TABLE web_tasks ADD COLUMN restricted boolean NOT NULL DEFAULT false",
     );
     await db.exec(`CREATE TABLE m8_ordens_servico(company_id integer,id_m8 bigint,numero_sequencia bigint,equipamento text,cliente_nome text);
  INSERT INTO m8_ordens_servico VALUES(1,100,100,'Compressor','Cliente');
@@ -165,12 +165,10 @@ test("adjustments apply immediately, retain manager review, reject without rollb
     assert.equal(applied.status, "pending");
     assert.ok(applied.applied_at);
     assert.equal(applied.correction.active_seconds, 7200);
-    assert.equal((await db.query("SELECT * FROM web_tasks")).rows.length, 2);
-    assert.ok(
-      (await db.query<any>("SELECT followers FROM web_tasks")).rows.every(
-        (t) => t.followers.join() === "tech",
-      ),
-    );
+    assert.equal((await db.query("SELECT * FROM web_tasks")).rows.length, 1);
+    const sharedTask = (await db.query<any>("SELECT id,assigned_to,followers FROM web_tasks")).rows[0];
+    assert.equal(sharedTask.assigned_to, 'manager');
+    assert.deepEqual([...sharedTask.followers].sort(), ['manager2','tech']);
     const notifications = (
       await db.query<any>(
         "SELECT n.recipient,n.state,n.task_version,t.assigned_to FROM web_task_notifications n JOIN web_tasks t ON t.id=n.task_id ORDER BY n.recipient",
@@ -185,7 +183,7 @@ test("adjustments apply immediately, retain manager review, reject without rollb
         (n) =>
           n.state === "pending" &&
           n.task_version === 1 &&
-          n.recipient === n.assigned_to,
+          (n.recipient === n.assigned_to || sharedTask.followers.includes(n.recipient)),
       ),
     );
     // Repeating the same request above must not enqueue duplicate messages.
@@ -193,7 +191,7 @@ test("adjustments apply immediately, retain manager review, reject without rollb
     assert.equal(
       (await db.query("SELECT * FROM web_tasks WHERE status='not_started'"))
         .rows.length,
-      2,
+      1,
     );
     const task = (await db.query<any>("SELECT * FROM web_tasks LIMIT 1"))
       .rows[0];
@@ -219,9 +217,9 @@ test("adjustments apply immediately, retain manager review, reject without rollb
       changeTimeRequest({ action: "approve", id: result.id }, "outsider"),
       (e: any) => e.constructor.name === "Forbidden",
     );
-    await changeTimeRequest({ action: "approve", id: result.id }, "manager");
+    await changeTimeRequest({ action: "approve", id: result.id }, "manager2");
     await assert.rejects(
-      changeTimeRequest({ action: "approve", id: result.id }, "manager2"),
+      changeTimeRequest({ action: "approve", id: result.id }, "manager"),
       /já foi/,
     );
     const saved = (

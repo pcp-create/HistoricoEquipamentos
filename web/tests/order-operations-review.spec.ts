@@ -82,7 +82,7 @@ test("planner reviews operations together and navigates in numeric order", async
     costs: [],
     events: [],
     fieldEvents: [],
-    requests: [],
+    requests: [{id:'20000000-0000-4000-8000-000000000001',operation_id:operations[2].id,status:'pending'}],
     profit: null,
     fieldSessions: [1, 2].map((n) => ({
       id: `s${n}`,

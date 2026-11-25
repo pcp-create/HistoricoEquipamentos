@@ -448,7 +448,7 @@ export async function changeTimeRequest(b: any, email: string) {
     ).rows[0];
     const managers = (
       await c.query(
-        "SELECT email FROM web_user_access WHERE enabled AND email<>$2 AND email=ANY($1::text[])",
+        "SELECT email FROM web_user_access WHERE enabled AND email<>$2 AND email=ANY($1::text[]) ORDER BY array_position($1::text[],email)",
         [employee.managers || [], actor],
       )
     ).rows.map((u: any) => u.email);
@@ -536,10 +536,12 @@ export async function changeTimeRequest(b: any, email: string) {
       ).rows[0];
       const fmt = (v: string) =>
         new Date(v).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-      for (const manager of managers) {
+      {
+        const manager = managers[0];
+        const followers = [...new Set([email.toLowerCase(), ...managers.slice(1)])].filter(follower => follower !== manager);
         const task = (
           await c.query(
-            `INSERT INTO web_tasks(source_key,cycle,origin,title,equipment_name,customer,source_status,priority,assigned_to,first_assigned_at,created_by,updated_by,order_company,order_id,order_number,followers) VALUES($1,$2,'Aprovação de apontamento',$3,$4,$5,'Aplicado · Aguardando aprovação','normal',$6,now(),$7,$7,$8,$9,$10,ARRAY[lower($7)]) RETURNING id`,
+            `INSERT INTO web_tasks(source_key,cycle,origin,title,equipment_name,customer,source_status,priority,assigned_to,first_assigned_at,created_by,updated_by,order_company,order_id,order_number,followers) VALUES($1,$2,'Aprovação de apontamento',$3,$4,$5,'Aplicado · Aguardando aprovação','normal',$6,now(),$7,$7,$8,$9,$10,$11::text[]) RETURNING id`,
             [
               "time-request:" + id + ":" + manager,
               id,
@@ -551,12 +553,13 @@ export async function changeTimeRequest(b: any, email: string) {
               os.company_id,
               os.order_id,
               String(os.numero_sequencia || os.order_id),
+              followers,
             ],
           )
         ).rows[0];
         await c.query(
-          "INSERT INTO web_task_notifications(task_id,task_version,recipient) VALUES($1,1,$2)",
-          [task.id, manager],
+          "INSERT INTO web_task_notifications(task_id,task_version,recipient) SELECT $1,1,unnest($2::text[])",
+          [task.id, managers],
         );
         const description = `Ajuste já aplicado aos totais. A aprovação registra a concordância; a reprovação exige tratamento manual, sem desfazer os horários automaticamente.\nFuncionário: ${employee.display_name || actor}\nOS ${os.numero_sequencia || os.order_id} · Operação ${operationNumber(operation.position)} · ${operation.document.description}\nTipo: ${s || legacy ? "Ajuste" : "Inclusão manual"} de ${kind === "work" ? "atividade" : "deslocamento"}\nMotivo: ${justification}\nHorário solicitado: ${fmt(proposed.started_at)} até ${fmt(proposed.finished_at)}\nAtividade/deslocamento: ${(proposed.active_seconds / 3600).toFixed(2)} h · Paradas: ${(proposed.pause_seconds / 3600).toFixed(2)} h\nPausas: ${proposed.pauses.map((p: any) => p.reason + " (" + fmt(p.start) + " – " + fmt(p.end) + ")").join("; ") || "Nenhuma"}\n${s ? "Original: " + fmt(s.correction?.started_at || s.started_at) + " até " + fmt(s.correction?.finished_at || s.finished_at) : legacy ? "Horas originais: " + legacy.hours + " h" : "Localização capturada na solicitação, não no horário manual."}`;
         await c.query(

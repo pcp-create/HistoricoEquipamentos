@@ -107,13 +107,12 @@ export default function OperationReviewWindow({ operation: o, data, busy, dirty,
             {!reportDirty&&<span className="review-saved">Ajustes salvos</span>}
           </section>
           <section className="review-completion-step" aria-label="Etapa 2: concluir revisão">
-            <button type="button" className="review-complete-button" aria-describedby={`${tabsId}-agreement`} disabled={busy || dirty || reportDirty || meterAlerts.length>0 || scoped.requests.some((r: any) => r.status === "pending")} onClick={() => void act("review")}><CheckCheck size={16} aria-hidden="true"/>Concluir revisão</button>
+            <button type="button" className="review-complete-button" aria-describedby={`${tabsId}-agreement`} disabled={busy || dirty || reportDirty || meterAlerts.length>0} onClick={() => void act("review")}><CheckCheck size={16} aria-hidden="true"/>Concluir revisão</button>
           </section>
           {reportSubmission(o.document.checklistRun)&&<button type="button" className="review-return-button" disabled={busy || dirty || reportDirty} onClick={() => void act("report_reopen")}><FileOutput size={15} aria-hidden="true"/>{o.status==='reviewed'?'Voltar para revisão':'Devolver relatório ao técnico'}</button>}
         </div>
         <div className="review-completion-notes">
           {reportDirty&&<span className="review-pending-note" role="status">Há ajustes pendentes. Salve antes de concluir a revisão.</span>}
-          {scoped.requests.some((r:any)=>r.status==='pending')&&<span>Há solicitações de apontamento aguardando aprovação.</span>}
           <span id={`${tabsId}-agreement`}>Ao concluir, declaro: li, revisei e estou de acordo com as informações do relatório, das peças e dos apontamentos.</span>
         </div>
       </>}

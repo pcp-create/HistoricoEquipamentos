@@ -711,10 +711,6 @@ export async function mutateSchedule(b: any, email: string) {
       if (!admin) throw new Forbidden();
       if (status !== "awaiting_review")
         throw new ScheduleInputError("A operação ainda não aguarda revisão.");
-      if (await timeRequestsAvailable(c)) {
-        if ((await c.query("SELECT 1 FROM web_field_time_requests WHERE operation_id=$1 AND status='pending' AND (to_jsonb(web_field_time_requests)->>'applied_at') IS NULL", [operation.id])).rows.length)
-          throw new ScheduleInputError("Analise as solicitações de apontamento pendentes antes de concluir a revisão.");
-      }
       try { document=await reviewChecklist(c,operation,schedule,config.document,email,b.confirmLowerMeter); }
       catch(e){throw new ScheduleInputError((e as Error).message);}
       status = "reviewed";

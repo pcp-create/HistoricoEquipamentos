@@ -229,8 +229,8 @@ export async function proposalPdf(
     right(value,discountAmountEdge,top,size,strong);
   }
   function cell(key:string,value:string,top:number,strong=false,color=navy) {
-    const c=column(key), size=Math.min(6.2,(c.w-5)/Math.max(1,(strong?bold:font).widthOfTextAtSize(clean(value),1)));
-    right(value,c.x+c.w-3,top,size,strong,color);
+    const c=column(key), inset=key==='total'?8:3, size=Math.min(6.2,(c.w-inset-2)/Math.max(1,(strong?bold:font).widthOfTextAtSize(clean(value),1)));
+    right(value,c.x+c.w-inset,top,size,strong,color);
   }
   const gross=(item:typeof draft.items[number])=>Math.round(Number(item.quantity)*Math.round(Number(item.price)*100));
   const discount=(item:typeof draft.items[number])=>gross(item)-itemFinancials(item).sale;
@@ -240,11 +240,11 @@ export async function proposalPdf(
     if(label){text(label,M+8,y,6.5,true,blue);y+=11;}
     rect(M,y,width,17);
     for(const c of layout){
-      const size=Math.min(5.2,(c.w-4)/Math.max(1,bold.widthOfTextAtSize(clean(c.label),1)));
+      const size=Math.min(5.2,(c.w-(c.key==='code'||c.key==='total'?10:4))/Math.max(1,bold.widthOfTextAtSize(clean(c.label),1)));
       if (c.key === "discount") text(c.label,c.x+(c.w-bold.widthOfTextAtSize(clean(c.label),size))/2,y+5,size,true,white);
       else if (["quantity","price","icms","pis","cofins","ipi","icmsSt","total"].includes(c.key))
-        right(c.label,c.x+c.w-3,y+5,size,true,white);
-      else text(c.label,c.x+2,y+5,size,true,white);
+        right(c.label,c.x+c.w-(c.key==='total'?8:3),y+5,size,true,white);
+      else text(c.label,c.x+(c.key==='code'?8:2),y+5,size,true,white);
     }
     y+=18;
   }
@@ -268,7 +268,8 @@ export async function proposalPdf(
         const fits=Math.max(1,Math.floor((H-58-y)/10)),part=lines.slice(start,start+fits),height=part.length*10+5;
         if(index%2)rect(M,y,width,height,pale);
         if(start===0){
-          text(item.code,column("code").x+2,y+2,5.8,false,gray);
+          const codeColumn=column('code'),codeSize=Math.min(5.8,(codeColumn.w-10)/Math.max(1,font.widthOfTextAtSize(clean(item.code),1)));
+          text(item.code,codeColumn.x+8,y+2,codeSize,false,gray);
           text(item.kind==="material"?productNcms[item.code]||"—":"—",column("ncm").x+2,y+2,5.8);
           cell("quantity",Number(item.quantity).toLocaleString("pt-BR",{maximumFractionDigits:3}),y+2);
           text(unit(item.quote?.unit||""),column("unit").x+2,y+2,5.8);

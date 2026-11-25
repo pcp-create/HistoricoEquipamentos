@@ -65,8 +65,11 @@ test('order review atomically groups alerts across operations and controls final
  await query('INSERT INTO web_service_checklist_photos VALUES(1,$1,$2)',[op2,photo]);
  const noAlertOperation='10000000-0000-4000-8000-000000000004';
  await query("INSERT INTO web_service_operations(id,schedule_id,position,status,document,updated_by) VALUES($1,1,4,'reviewed',$2,'test')",[noAlertOperation,JSON.stringify({description:'Operação sem alertas',responsible:admin,checklistRun:{...reviewedRun,stages:{s:{status:'submitted',answers:{status:'OK'},details:{}}}}})]);
+ const requestId='20000000-0000-4000-8000-000000000001';
+ await query("INSERT INTO web_field_time_requests(id,request_key,operation_id,requester,actor,kind,reason,proposed,location) VALUES($1,$1,$2,$3,$3,'work','Ajuste pendente','{}','{}')",[requestId,operationId,admin]);
  const reviewed=await mutateSchedule(body,admin);
  assert.equal(reviewed.operation.status,'reviewed');
+ assert.equal((await query('SELECT status FROM web_field_time_requests WHERE id=$1',[requestId])).rows[0].status,'pending');
  const taskCount=async()=>(await query("SELECT * FROM web_tasks WHERE source_key NOT LIKE 'manual:schedule-operation:%'")).rows.length;
  assert.equal(await taskCount(),0);
  await assert.rejects(checklistPdf(operationId,admin),/operação/);
@@ -99,6 +102,7 @@ test('order review atomically groups alerts across operations and controls final
  const selection={scheduleId:'1',operationIds:[operationId],mode:'complete'};
  await assert.rejects(orderReportPdf(selection,admin),/alerta/);
  const result=await mutateSchedule({...request,alertTasks:grouped},admin);
+ assert.equal((await query('SELECT status FROM web_field_time_requests WHERE id=$1',[requestId])).rows[0].status,'pending');
  const records=result.orderReview.checklistAlertTasks;
  assert.equal(records.length,1);assert.equal(records[0].alerts.length,2);
  const created=(await query('SELECT * FROM web_tasks WHERE id=$1',[records[0].taskId])).rows[0];
