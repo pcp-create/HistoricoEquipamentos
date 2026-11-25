@@ -46,6 +46,7 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await assert.rejects(beginConversion({id:randomUUID(),proposalId:p.id,version:saved.version},'planner',deps),/Envie a proposta/);
  await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision,last_sent_revision,reviewed_by,reviewed_at) VALUES($1,'sent',0,0,'planner',now())",[p.id]);
  await db.query("INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id) SELECT id,0,version,document,names,title,decode('00','hex'),'planner','cliente@example.com','test-1' FROM crm_proposals WHERE id=$1",[p.id]);
+ assert.equal((await getProposal(p.id)).sentRevisions[0].sent_by_name,'Planejador');
  await db.query("UPDATE crm_proposals SET document=jsonb_set(document,'{items,0,price}','\"999\"') WHERE id=$1",[p.id]);
  await db.query('UPDATE m8_product_stock SET average_cost=99 WHERE product_id=50');
  assert.equal((await getProposal(p.id)).document.items[0].unitCost,'5');

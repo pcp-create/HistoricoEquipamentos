@@ -151,7 +151,7 @@ export default function CrmProposal({ id }: { id: string }) {
     </dialog>}
   </div>;
   const actions = changed ? <p>Salve a proposta antes de concretizar ou gerar uma OS.</p> : null;
-  const revisionEntry=(r:any)=><article key={r.revision}><a className="crm-revision-pdf" href={`/api/crm/pdf?id=${encodeURIComponent(id)}&revision=${r.revision}`} target="_blank" rel="noreferrer"><span className="crm-revision-pdf-icon" aria-hidden="true"><FileText size={18}/><span>PDF</span></span>Rev.{r.revision} · Abrir PDF enviado</a><p>{crmDate(r.sent_at)} · {r.sent_by} · {r.recipients}</p></article>;
+  const revisionEntry=(r:any)=><article key={r.revision}><a className="crm-revision-pdf" href={`/api/crm/pdf?id=${encodeURIComponent(id)}&revision=${r.revision}`} target="_blank" rel="noreferrer"><span className="crm-revision-pdf-icon" aria-hidden="true"><FileText size={18}/><span>PDF</span></span>Rev.{r.revision} · Abrir PDF enviado</a><p>{crmDate(r.sent_at)} · {r.sent_by_name || r.sent_by} · {r.recipients}</p></article>;
   const progress = <>
       {!!data.sentRevisions?.length&&<section className="crm-links"><h3>Revisões enviadas</h3>{revisionEntry(data.sentRevisions[0])}{data.sentRevisions.length>1&&<details className="crm-previous-revisions"><summary>Ver todas as revisões</summary><div>{data.sentRevisions.slice(1).map(revisionEntry)}</div></details>}</section>}
       {data.links.some((l:any)=>l.state!=='validation_failed') && (

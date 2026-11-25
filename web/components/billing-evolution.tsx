@@ -241,8 +241,18 @@ function Chart({
                       textAnchor="middle"
                       className="be-value"
                     >
-                      <tspan>{compact(value)}</tspan>{growthLabel && <tspan dx="5" fill={growth! > 0 ? '#168047' : growth! < 0 ? '#c33535' : '#68829b'}>{growthLabel}</tspan>}
+                      {compact(value)}
                     </text>
+                    {growthLabel && (() => {
+                      const barHeight=Math.abs(zero-y(value));
+                      const inside=barHeight>=20;
+                      const labelY=inside ? Math.min(y(value),zero)+Math.min(32,barHeight/2) : (value>=0 ? y(value)-22 : y(value)+30);
+                      const labelWidth=Math.min(50,Math.max(30,growthLabel.length*5.5));
+                      return <g pointerEvents="none">
+                        {inside&&<rect x={x(i)-labelWidth/2-3} y={labelY-10} width={labelWidth+6} height={16} rx="4" fill="#fff" opacity="0.95"/>}
+                        <text x={x(i)} y={labelY+1} textAnchor="middle" fontSize="9" fontWeight="600" fill={growth!>0?'#168047':growth!<0?'#c33535':'#526c83'} textLength={labelWidth} lengthAdjust="spacingAndGlyphs">{growthLabel}</text>
+                      </g>;
+                    })()}
                   </g>
                 );
               })}
