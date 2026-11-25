@@ -139,9 +139,6 @@ export default function Crm() {
             <p>Relacionamentos, oportunidades e propostas em um só lugar.</p>
           </div>
           <div className="crm-actions">
-            <Link className="button" href="/configuracoes/cadastros/crm">
-              Cadastros do CRM
-            </Link>
             <button
               className="button"
               disabled={loading}

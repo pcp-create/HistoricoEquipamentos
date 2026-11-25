@@ -37,6 +37,7 @@ export function modulesForPath(path:string):string[]{
    'inspections':['assistencia-tecnica','equipamentos'], 'preventive-reports':['assistencia-tecnica','equipamentos'], 'rental-reports':['equipamentos'], 'dsu':['assistencia-tecnica'],
   };
   if(/^\/api\/products\/[^/]+\/[^/]+\/images(?:\/|$)/.test(path))return [...shared.products,'equipamentos'];
+  if(/^\/api\/visits\/photos\/[^/]+\/?$/.test(path))return ['visitas','gestao-visitas','tarefas'];
   if(shared[api])return shared[api];
   // These read APIs supply shared selectors and images; their own write/admin checks remain in effect.
   if(api==='users')return [];

@@ -145,6 +145,10 @@ test('OS scheduling can read flow statuses without warehouse access',()=>{
  assert.equal(canOpenPath(access,'/api/service-orders'),true);
  assert.equal(canOpenPath(access,'/api/warehouse'),false);
 });
+test('visit photos are shared with tasks and visits modules',()=>{
+ for(const module of ['tarefas','visitas','gestao-visitas'])assert.equal(canOpenPath([module],'/api/visits/photos/00000000-0000-4000-8000-000000000001'),true,module);
+ assert.equal(canOpenPath(['crm'],'/api/visits/photos/00000000-0000-4000-8000-000000000001'),false);
+});
 
 test('contact job type selectors are available to all profiles while catalog management stays restricted',()=>{
  for(const module of ['visitas','gestao-visitas','crm','assistencia-tecnica','tarefas','portal-tecnico','almoxarifado']){

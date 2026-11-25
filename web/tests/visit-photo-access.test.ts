@@ -21,3 +21,23 @@ test('all active profiles can view photos of customers and leads owned by other 
   for(const email of ['disabled@test','unknown@test'])await assert.rejects(()=>getVisitPhoto('p2',email,db),Forbidden);
  } finally {await db.close();}
 });
+
+test('task users can access linked photos only when the task is visible',async()=>{
+ const db=new PGlite();
+ try {
+  await db.exec(`CREATE TABLE web_user_access(email text,enabled boolean,role text,job_title text,display_name text,modules jsonb);
+   INSERT INTO web_user_access VALUES ('follower@test',true,'user','','Follower','["tarefas"]'),('other@test',true,'user','','Other','["tarefas"]'),('visitor@test',true,'user','','Visitor','["visitas"]');
+   CREATE TABLE web_sales_visits(id text,customer_key text,seller text);
+   INSERT INTO web_sales_visits VALUES ('v1','m8:1','visitor@test');
+   CREATE TABLE web_visit_photos(id text,visit_id text,content bytea);
+   INSERT INTO web_visit_photos VALUES ('p1','v1',decode('0102','hex')),('p2','v1',decode('0304','hex'));
+   CREATE TABLE web_tasks(id int,restricted boolean,assigned_to text,followers text[]);
+   INSERT INTO web_tasks VALUES (1,true,'visitor@test',ARRAY['follower@test']);
+   CREATE TABLE web_task_notes(task_id int,description text);
+   INSERT INTO web_task_notes VALUES (1,'Foto da visita: /api/visits/photos/p1');`);
+  assert.ok(await getVisitPhoto('p1','follower@test',db));
+  await assert.rejects(()=>getVisitPhoto('p1','other@test',db),Forbidden);
+  await assert.rejects(()=>getVisitPhoto('p2','follower@test',db),Forbidden);
+  assert.ok(await getVisitPhoto('p2','visitor@test',db));
+ } finally {await db.close();}
+});
