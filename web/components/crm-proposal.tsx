@@ -1,6 +1,8 @@
 "use client";
 import CrmProposalPdf from "./crm-proposal-pdf";
 import CrmProposalEmail from "./crm-proposal-email";
+import CrmEmailSettings from "./crm-email-settings";
+import {FileText,Settings} from "lucide-react";
 import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -19,6 +21,8 @@ export default function CrmProposal({ id }: { id: string }) {
     [proposalType,setProposalType]=useState("");
   const [conversionType,setConversionType]=useState("");
   const [emailOpen,setEmailOpen]=useState(false);
+  const [emailSettings,setEmailSettings]=useState<any>(null),[settingsOpen,setSettingsOpen]=useState(false);
+  useEffect(()=>{let active=true;crmApi('?proposalEmailSettings=1').then(value=>{if(active)setEmailSettings(value);}).catch(()=>{});return()=>{active=false;};},[]);
   const [reviewOpen,setReviewOpen]=useState(false),[reviewer,setReviewer]=useState(''),[reviewComment,setReviewComment]=useState(''),[reviewUsers,setReviewUsers]=useState<any[]>([]);
   const [choosingType,setChoosingType]=useState(false);
   const typeDialog=useRef<HTMLDialogElement>(null);
@@ -120,7 +124,7 @@ export default function CrmProposal({ id }: { id: string }) {
   const type = catalog.proposalTypes.find(
       (t: any) => String(t.id) === proposalType,
     ),
-    changed = dirty || title !== data.title || status !== data.status || proposalType!==String(data.type_id);
+    changed = (!['sent','reviewed'].includes(data.workflow?.state) && dirty) || title !== data.title || status !== data.status || proposalType!==String(data.type_id);
   const pending = data.links.some(
       (l: any) => !["complete", "validation_failed"].includes(l.state),
     ),
@@ -130,6 +134,8 @@ export default function CrmProposal({ id }: { id: string }) {
   const headerActions=<div className="crm-actions">
     {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
     {data.emailAttempt&&<div role="alert"><p>{data.emailAttempt.can_resolve?'Envio sem confirmação. Confira a pasta Enviados do Gmail antes de continuar.':'Envio em andamento. Aguarde e atualize a proposta.'}</p>{data.emailAttempt.can_resolve&&data.emailAttempt.actor===data.currentUser&&<><button type="button" disabled={busy} onClick={async()=>{if(!window.confirm('Confirma que encontrou o e-mail enviado no Gmail?'))return;setBusy(true);try{await crmApi('',{action:'resolve-proposal-email',id,attemptId:data.emailAttempt.id,resolution:'sent',confirmed:true});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Confirmei que foi enviado</button><button type="button" disabled={busy} onClick={async()=>{if(!window.confirm('Confirma que o e-mail não foi enviado? Isso permitirá uma nova tentativa.'))return;setBusy(true);try{await crmApi('',{action:'resolve-proposal-email',id,attemptId:data.emailAttempt.id,resolution:'not_sent',confirmed:true});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Confirmei que não foi enviado</button></>}</div>}
+    {emailSettings&&<button type="button" className="button" onClick={()=>setSettingsOpen(true)}><Settings size={16}/> Configurações</button>}
+    {settingsOpen&&<CrmEmailSettings initial={emailSettings} onClose={()=>setSettingsOpen(false)} onSaved={setEmailSettings}/>}
     <CrmProposalPdf proposal={data} disabled={changed||busy} locked={locked} onSaved={load} onError={setError}/>
     {data.workflow?.state==='reviewed'&&<button type="button" className="button primary" disabled={busy||changed||!!data.emailAttempt} onClick={()=>setEmailOpen(true)}>Enviar ao cliente</button>}
     {emailOpen&&<ProposalDialog label="Enviar proposta ao cliente" onClose={()=>setEmailOpen(false)}><CrmProposalEmail proposal={data} onClose={()=>setEmailOpen(false)} onSent={load}/></ProposalDialog>}
@@ -145,7 +151,7 @@ export default function CrmProposal({ id }: { id: string }) {
   </div>;
   const actions = changed ? <p>Salve a proposta antes de concretizar ou gerar uma OS.</p> : null;
   const progress = <>
-      {!!data.sentRevisions?.length&&<section className="crm-links"><h3>Revisões enviadas</h3>{data.sentRevisions.map((r:any)=><article key={r.revision}><a href={`/api/crm/pdf?id=${encodeURIComponent(id)}&revision=${r.revision}`} target="_blank" rel="noreferrer">Rev.{r.revision} · Abrir PDF enviado</a><p>{crmDate(r.sent_at)} · {r.sent_by} · {r.recipients}</p></article>)}</section>}
+      {!!data.sentRevisions?.length&&<section className="crm-links"><h3>Revisões enviadas</h3>{data.sentRevisions.map((r:any)=><article key={r.revision}><a className="crm-revision-pdf" href={`/api/crm/pdf?id=${encodeURIComponent(id)}&revision=${r.revision}`} target="_blank" rel="noreferrer"><span className="crm-revision-pdf-icon" aria-hidden="true"><FileText size={18}/><span>PDF</span></span>Rev.{r.revision} · Abrir PDF enviado</a><p>{crmDate(r.sent_at)} · {r.sent_by} · {r.recipients}</p></article>)}</section>}
       {!!data.links.length && (
         <div className="crm-links">
           <h3>Ordens de serviço e envios vinculados</h3>
@@ -222,7 +228,7 @@ export default function CrmProposal({ id }: { id: string }) {
         </label>
         {validityControl}
       </div>
-      {data.workflow?.state!=='creating'&&data.workflow?.revision!=null&&<p className="crm-info">Revisão {data.workflow.revision}{data.workflow.reviewed_by&&data.workflow.reviewed_at?` · Revisada por ${data.workflow.reviewed_by} em ${crmDate(data.workflow.reviewed_at)}`:''}</p>}
+      {data.workflow?.state!=='creating'&&data.workflow?.revision!=null&&<p className="crm-info">Revisão {data.workflow.revision}{data.workflow.reviewed_by&&data.workflow.reviewed_at?` · Revisada por ${data.workflow.reviewed_name || data.workflow.reviewed_by} em ${crmDate(data.workflow.reviewed_at)}`:''}</p>}
       {(pending||data.status==='converting') && (
         <p className="crm-info">
           Existe um envio de OS pendente. Consulte ou conclua o andamento da OS
@@ -230,7 +236,6 @@ export default function CrmProposal({ id }: { id: string }) {
         </p>
       )}
       {data.workflow?.state==='sent'&&data.status!=='won'&&<p className="crm-info">A revisão enviada está bloqueada. Solicite nova revisão para alterar a proposta.</p>}
-      {data.workflow?.state==='reviewed'&&<p className="crm-info">A revisão foi concluída. Envie ao cliente ou solicite outra revisão para alterar a proposta.</p>}
       {data.status === "won" && <p className="crm-info">O pedido de venda foi gerado e a proposta está concluída.</p>}
       {!type?.order_types?.length && (
         <p className="crm-info">
@@ -260,7 +265,7 @@ export default function CrmProposal({ id }: { id: string }) {
         }}>{catalog.proposalTypes.filter((t:any)=>String(t.opportunity_type_id)===String(data.opportunity_type_id)&&(t.active||String(t.id)===proposalType)).map((t:any)=><option key={t.id} value={String(t.id)}>{t.code} · {t.name}</option>)}</select></label>,
         locked: locked || busy,
         saveLabel:data.workflow?.state==='in_review'?'Concluir revisão':undefined,
-        footerActions:<>{data.status==='pending'&&['creating','reviewed','sent'].includes(data.workflow?.state||'creating')&&<button type="button" disabled={busy||changed||pending} onClick={()=>void openReview()}>{data.workflow?.state==='creating'?'Enviar para revisão':'Revisar proposta'}</button>}{reviewOpen&&<ProposalDialog label="Enviar proposta para revisão" onClose={()=>setReviewOpen(false)}><h2>Enviar para revisão</h2><label>Funcionário<select value={reviewer} onChange={e=>setReviewer(e.target.value)}><option value="">Selecione</option>{reviewUsers.map((u:any)=><option key={u.email} value={u.email}>{u.display_name||u.name||u.email}</option>)}</select></label><label>Comentário<textarea value={reviewComment} maxLength={2000} onChange={e=>setReviewComment(e.target.value)}/></label><div className="crm-actions"><button type="button" onClick={()=>setReviewOpen(false)}>Cancelar</button><button type="button" disabled={busy||!reviewer} onClick={()=>void requestReview()}>Enviar para revisão</button></div></ProposalDialog>}</>,
+        footerActions:<>{data.status==='pending'&&['creating','reviewed','sent'].includes(data.workflow?.state||'creating')&&<button type="button" className="primary" disabled={busy||changed||pending} onClick={()=>void openReview()}>{data.workflow?.state==='creating'?'Enviar para revisão':'Revisar proposta'}</button>}{reviewOpen&&<ProposalDialog label="Enviar proposta para revisão" onClose={()=>setReviewOpen(false)}><h2>Enviar para revisão</h2><label>Funcionário<select value={reviewer} onChange={e=>setReviewer(e.target.value)}><option value="">Selecione</option>{reviewUsers.map((u:any)=><option key={u.email} value={u.email}>{u.display_name||u.name||u.email}</option>)}</select></label><label>Comentário<textarea value={reviewComment} maxLength={2000} onChange={e=>setReviewComment(e.target.value)}/></label><div className="crm-actions crm-review-dialog-actions"><button type="button" onClick={()=>setReviewOpen(false)}>Cancelar</button><button type="button" className="crm-review-dialog-submit" disabled={busy||!reviewer} onClick={()=>void requestReview()}>Enviar para revisão</button></div></ProposalDialog>}</>,
         tools,
         headerActions,
         activityTools: progress,

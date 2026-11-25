@@ -41,11 +41,12 @@ test('CRM persists local opportunities and proposals and safely links conversion
  let writes=0,state='ready',last:any;
  const deps={prepare:async(actor:string,id:any,draft:any)=>{assert.equal(actor,'planner');assert.equal(draft.customer,'10');if(draft.items.length){assert.equal(draft.items[0].discountPercent,undefined);assert.equal(draft.items[0].price,'9.45');}last={id,company:1,state,m8Id:state==='ready'?null:900};return last;},advance:async()=>{if(state==='ready'){writes++;state='uncertain';}return {...last,state,message:'Confira no ERP'};},retry:async()=>{state='ready';return {...last,state};}};
  await assert.rejects(beginConversion({id:randomUUID(),proposalId:p.id,version:saved.version},'planner',deps),/Envie a proposta/);
- await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision,last_sent_revision) VALUES($1,'sent',0,0)",[p.id]);
+ await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision,last_sent_revision,reviewed_by,reviewed_at) VALUES($1,'sent',0,0,'planner',now())",[p.id]);
  await db.query("INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id) SELECT id,0,version,document,names,title,decode('00','hex'),'planner','cliente@example.com','test-1' FROM crm_proposals WHERE id=$1",[p.id]);
  await db.query("UPDATE crm_proposals SET document=jsonb_set(document,'{items,0,price}','\"999\"') WHERE id=$1",[p.id]);
  await db.query('UPDATE m8_product_stock SET average_cost=99 WHERE product_id=50');
  assert.equal((await getProposal(p.id)).document.items[0].unitCost,'5');
+ assert.equal((await getProposal(p.id)).workflow.reviewed_name,'Planejador');
  await assert.rejects(beginConversion({id:randomUUID(),proposalId:p.id,version:saved.version,orderType:'99'},'planner',deps),/Defina/);
  const request=randomUUID();
  assert.equal((await beginConversion({id:request,proposalId:p.id,version:saved.version},'planner',deps)).state,'ready');assert.equal(writes,0);

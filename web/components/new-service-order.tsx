@@ -1,6 +1,7 @@
 "use client";
 import ActionNotice from "./action-notice";
 import CrmProductCosts from "./crm-product-costs";
+import {validProposalDate,missingProposalFields,proposalFieldNames} from '@/lib/crm/proposal-required';
 import { proposalFinancials } from "@/lib/crm/financials";
 import { DEFAULT_BACKUP_TERMS } from "@/lib/crm/backup";
 import {applyAverageCosts} from "@/lib/crm/product-cost-model";
@@ -269,7 +270,10 @@ export default function NewServiceOrder({
     setError("");
     if(proposal){
       if(proposal.locked)return;
-      if(form.commercial?.backupEnabled==='yes' && form.commercial?.backupRentalIncluded==='yes' && !form.commercial?.backupRentalValue?.trim()) { setError('Informe o valor da locação embutida.'); return; }
+      if(proposal.saveLabel==='Concluir revisão'){
+        const missing=missingProposalFields(form,!equipmentOptionalForOrderType(form.type,type?.equipment_required));
+        if(missing.length){setTab('header');setError('Preencha os campos obrigatórios: '+missing.map(key=>proposalFieldNames[key]).join(', ')+'.');return;}
+      }
       sending.current=true;setBusy(true);
       try{await proposal.onSave({...form,commercial:{...form.commercial,sellerName:sellers.find((r:any)=>String(r.id)===form.seller)?.name||form.commercial?.sellerName||'',paymentName:registry('payment-terms').find((r:any)=>String(r.id)===form.payment)?.name||'',freightName:registry('freight').find((r:any)=>String(r.id)===form.freight)?.name||''}},names);}catch(e){setError((e as Error).message);}finally{sending.current=false;setBusy(false);}
       return;
@@ -415,7 +419,7 @@ export default function NewServiceOrder({
     options: any[],
     extra?: string,
   ) => (
-    <label>
+    <label data-proposal-required-empty={proposal && key!=="origin" && key!=="technician" && !String(form[key] ?? "").trim() ? "true" : undefined}>
       <span className="os-field-title">
         {label}{" "}
         {key !== "technician" && key !== "origin" &&
@@ -455,7 +459,7 @@ export default function NewServiceOrder({
     </label>
   );
   const companyField=(<div className="os-company">
-              <label>
+              <label data-proposal-required-empty={proposal && !form.company ? "true" : undefined}>
                 <span className="os-field-title">
                   Empresa <b>*</b>
                 </span>
@@ -611,7 +615,7 @@ export default function NewServiceOrder({
         {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{key==='header'?<ClipboardList size={18} aria-hidden="true"/>:key==='material'?<Package size={18} aria-hidden="true"/>:key==='service'?<Wrench size={18} aria-hidden="true"/>:<ChartNoAxesCombined size={18} aria-hidden="true"/>}<span>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}</span></button>)}</nav>}
         {proposal?.activityTools}
         {proposal&&<div hidden={tab!=='summary'}>{proposal.summaryTools}</div>}
-        <form onSubmit={submit} noValidate>
+        <form onSubmit={submit} onKeyDown={event=>{if(proposal && event.key==='Enter' && event.target instanceof HTMLInputElement && !event.nativeEvent.isComposing)event.preventDefault();}} noValidate>
           <fieldset
             disabled={
               disabled ||
@@ -649,7 +653,7 @@ export default function NewServiceOrder({
                 <div className="os-grid">
                   {proposal&&companyField}
                   {!proposal&&select("type", "Tipo Ordem de Serviço", meta?.types || [])}
-                  <label>
+                  <label data-proposal-required-empty={proposal && !form.customer ? "true" : undefined}>
                     <span className="os-field-title">
                       Cliente <b>*</b>
                     </span>
@@ -667,7 +671,7 @@ export default function NewServiceOrder({
                       }}
                     />
                   </label>
-                  <label className={proposal ? "crm-proposal-equipment" : undefined}>
+                  <label className={proposal ? "crm-proposal-equipment" : undefined} data-proposal-required-empty={proposal && !equipmentOptionalForOrderType(form.type,type?.equipment_required) && !form.equipment ? "true" : undefined}>
                     <span className="os-field-title">
                       Equipamento {!equipmentOptionalForOrderType(form.type,type?.equipment_required) && <b>*</b>}
                     </span>
@@ -750,7 +754,7 @@ export default function NewServiceOrder({
                     <span className="os-field-title">
                       Data Entrega Prevista <b>*</b>
                     </span>
-                    <input
+                    <input data-proposal-required-empty={proposal && !validProposalDate(form.expected) ? "true" : undefined}
                       required
                       type="date"
                       value={form.expected}
@@ -763,7 +767,7 @@ export default function NewServiceOrder({
                     <span className="os-field-title">
                       Data Entrega <b>*</b>
                     </span>
-                    <input
+                    <input data-proposal-required-empty={proposal && !validProposalDate(form.delivery) ? "true" : undefined}
                       required
                       type="date"
                       value={form.delivery}
@@ -788,7 +792,7 @@ export default function NewServiceOrder({
                       {form.commercial?.backupEnabled === 'yes' && <>
                         <label><span>Prazo de utilização (dias)</span><input type="number" min="1" max="9999" step="1" value={form.commercial?.backupDays || ''} onChange={e => setForm(f => ({...f,commercial:{...f.commercial,backupDays:e.target.value}}))}/></label>
                         <label><span>Locação embutida?</span><select value={form.commercial?.backupRentalIncluded || 'no'} onChange={e => setForm(f => ({...f,commercial:{...f.commercial,backupRentalIncluded:e.target.value}}))}><option value="no">Não</option><option value="yes">Sim</option></select></label>
-                        {form.commercial?.backupRentalIncluded === 'yes' && <label><span>Valor da locação embutida (uso interno) <b>*</b></span><CurrencyInput required label="Valor da locação embutida" value={form.commercial?.backupRentalValue || ''} onChange={value => setForm(f => ({...f,commercial:{...f.commercial,backupRentalValue:value}}))}/><small>Não aparece no PDF da proposta.</small></label>}
+                        {form.commercial?.backupRentalIncluded === 'yes' && <label data-proposal-required-empty={!form.commercial?.backupRentalValue?.trim() ? 'true' : undefined}><span>Valor da locação embutida (uso interno) <b>*</b></span><CurrencyInput required label="Valor da locação embutida" value={form.commercial?.backupRentalValue || ''} onChange={value => setForm(f => ({...f,commercial:{...f.commercial,backupRentalValue:value}}))}/><small>Não aparece no PDF da proposta.</small></label>}
                       </>}
                     </div>
                     {form.commercial?.backupEnabled === 'yes' && <label className="crm-proposal-backup-terms"><span>Condições de empréstimo na proposta</span><textarea rows={4} maxLength={4000} value={form.commercial?.backupTerms ?? DEFAULT_BACKUP_TERMS} onChange={e => setForm(f => ({...f,commercial:{...f.commercial,backupTerms:e.target.value}}))}/><small>Este texto e o prazo de utilização serão apresentados no PDF.</small></label>}
@@ -803,7 +807,7 @@ export default function NewServiceOrder({
                       placeholder="Definido pelo tipo de atendimento"
                     />
                   </label>}
-                  <label className={proposal ? "os-wide crm-proposal-notes" : "os-wide"}>
+                  <label className={proposal ? "os-wide crm-proposal-notes" : "os-wide"} data-proposal-required-empty={proposal && !form.notes.trim() ? "true" : undefined}>
                     <span className="os-field-title">
                       Observações {!editing && <b>*</b>}
                     </span>
@@ -1041,7 +1045,7 @@ export default function NewServiceOrder({
           </fieldset>
           <footer className={proposal ? "os-submit crm-proposal-savebar" : "os-submit"}>
             <p>
-              {proposal?"A proposta pode ser salva incompleta. Os campos obrigatórios serão validados antes da criação da OS.":"Os campos marcados com * são obrigatórios. Produtos e serviços podem ser incluídos conforme a necessidade."}
+              {proposal?"A proposta pode ser salva e enviada para revisão incompleta. Preencha os campos obrigatórios para concluir a revisão.":"Os campos marcados com * são obrigatórios. Produtos e serviços podem ser incluídos conforme a necessidade."}
             </p>
             <div className="crm-proposal-save-actions">
             {proposal && tab !== "summary" && <button type="button" disabled={disabled} onClick={() => setTab(tab === "header" ? "material" : tab === "material" ? "service" : "summary")}>

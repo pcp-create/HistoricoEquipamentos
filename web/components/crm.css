@@ -23,6 +23,9 @@
 .crm-proposal-tools label { display:grid; gap:6px; }
 .crm-links { display:grid; gap:10px; margin:12px 0; }
 .crm-links article { padding:12px; border:1px solid var(--line); border-radius:7px; }
+.crm-revision-pdf { display:inline-flex; align-items:center; gap:9px; }
+.crm-revision-pdf-icon { display:inline-flex; flex-direction:column; align-items:center; justify-content:center; width:30px; height:34px; border-radius:5px; background:#eaf2fa; color:#246397; }
+.crm-revision-pdf-icon span { font-size:8px; font-weight:700; line-height:9px; }
 .crm-history li { margin:10px 0; }
 .crm-check { display:flex!important; align-items:center; gap:8px; margin:8px 0; }
 .crm-check input { width:18px; min-height:18px; }
@@ -500,3 +503,17 @@
  .new-os.crm-proposal-page .crm-proposal-header .os-grid > .crm-proposal-notes,
  .new-os.crm-proposal-page .crm-proposal-header .os-grid > .crm-proposal-internal-notes { grid-column:span 1; }
 }
+
+.crm-proposal-flow-dialog .crm-review-dialog-actions { justify-content:flex-end; gap:10px; margin-top:20px; padding-top:16px; border-top:1px solid #dce7f1; }
+.crm-proposal-flow-dialog .crm-review-dialog-actions button { min-height:42px; padding:10px 18px; border-radius:8px; font-weight:600; }
+.crm-proposal-flow-dialog .crm-review-dialog-actions .crm-review-dialog-submit { background:#246397; border-color:#246397; color:#fff; }
+.crm-proposal-flow-dialog .crm-review-dialog-actions .crm-review-dialog-submit:hover:not(:disabled) { background:#1d507d; }
+@media(max-width:600px) { .crm-proposal-flow-dialog .crm-review-dialog-actions button { flex:1 1 100%; } }
+
+.new-os.crm-proposal-page .crm-proposal-header [data-proposal-required-empty="true"] > input,
+.new-os.crm-proposal-page .crm-proposal-header [data-proposal-required-empty="true"] > textarea,
+.new-os.crm-proposal-page .crm-proposal-header [data-proposal-required-empty="true"] > select,
+.new-os.crm-proposal-page .crm-proposal-header [data-proposal-required-empty="true"] .order-search-trigger,
+.new-os.crm-proposal-page .crm-proposal-header input[data-proposal-required-empty="true"],
+.new-os.crm-proposal-page .crm-proposal-header input[required]:invalid,
+.new-os.crm-proposal-page .crm-proposal-header textarea[required]:invalid { background-color:#ffe3e3; border-color:#cf6262; }

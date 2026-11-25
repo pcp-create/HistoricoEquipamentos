@@ -10,6 +10,7 @@ import {emailRecipients} from '../service-scheduling/email-recipients';
 import {validateCustomerEmail} from '../service-scheduling/customer-email-template';
 import {cleanEmailBodyHtml} from '../service-scheduling/email-body-html';
 
+export async function proposalEmailSettings(){const row=(await database().query('SELECT document FROM crm_proposal_email_settings WHERE id=1')).rows[0];return validateCustomerEmail(row?.document);}
 export async function proposalEmailDetails(id:string,actor?:string,input?:any){
  const proposal=await getProposal(uuid(id)),db=database();
  let saved;
@@ -54,7 +55,7 @@ async function renderProposalEmail(input:any,deps=defaultEmailDeps){
  const includeTaxes=input?.includeTaxes!==false;
  proposal.document=includeTaxes?await deps.taxes(draft):draft;
  const pdf=await deps.render(proposal,client.rows[0]||{},equipment.rows[0]||{},Object.fromEntries(products.rows.map((p:any)=>[p.code,p.ncm])),{includeTaxes});
- const raw=Buffer.from(emailMessage({to,subject,body,bodyHtml,filename:`Proposta-${proposal.number}-Rev-${revision}.pdf`,pdf})).toString('base64url');
+ const raw=Buffer.from(emailMessage({to,subject,body,bodyHtml,filename:text(input?.filename || `Proposta-${proposal.number}-Rev-${revision}.pdf`,220,true),pdf})).toString('base64url');
  return {id,expected,to,proposal,draft,pdf,raw,revision};
 }
 export async function prepareProposalEmail(input:any){

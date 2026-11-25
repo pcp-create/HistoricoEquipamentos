@@ -3,6 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {database} from '../db';
 import {canOpenPath,userModules} from '../user-modules';
 import {CrmError,text,uuid,version} from './model';
+import {missingProposalFields,proposalRequiresEquipment,proposalFieldNames} from './proposal-required';
 import {initialProposalWorkflow,transitionProposalWorkflow} from './proposal-workflow';
 
 /** Atomically assign or complete a review; callers must also enforce CRM route access. */
@@ -21,6 +22,11 @@ export async function changeProposalReview(input:any, actor:string) {
   const row=(await c.query('SELECT * FROM crm_proposal_workflows WHERE proposal_id=$1 FOR UPDATE',[id])).rows[0];
   const current={state:row.state,revision:row.revision,lastSentRevision:row.last_sent_revision} as ReturnType<typeof initialProposalWorkflow>;
   let next;try{next=transitionProposalWorkflow(current,input.action);}catch{throw new CrmError('A revisão não pode ser alterada nesta etapa.');}
+  if(input.action==='complete_review'){
+   const types=(await c.query('SELECT id,equipment_required FROM m8_order_type_catalog WHERE id=$1',[proposal.document?.type||null])).rows;
+   const missing=missingProposalFields(proposal.document,proposalRequiresEquipment(proposal.document,types));
+   if(missing.length)throw new CrmError('Preencha os campos obrigatórios: '+missing.map(key=>proposalFieldNames[key]).join(', ')+'.');
+  }
   if(input.action==='request_review'){
    const reviewer=text(input.reviewer,254,true).toLowerCase(), comment=text(input.comment??'',2000);
    const employee=(await c.query('SELECT * FROM web_user_access WHERE email=$1 AND enabled',[reviewer])).rows[0];

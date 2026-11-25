@@ -36,7 +36,7 @@ export async function getProposal(id:string){
  const row=(await db.query('SELECT p.*,o.number opportunity_number,o.type_id opportunity_type_id,o.customer_name,o.company_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1',[id])).rows[0];
  if(!row)throw new CrmError('Proposta não encontrada.');
  const [wf,revisions,attempt,links]=await Promise.all([
-  db.query('SELECT * FROM crm_proposal_workflows WHERE proposal_id=$1',[id]),
+  db.query("SELECT w.*, COALESCE(NULLIF(TRIM(u.display_name), ''), w.reviewed_by) reviewed_name FROM crm_proposal_workflows w LEFT JOIN web_user_access u ON u.email=w.reviewed_by WHERE w.proposal_id=$1",[id]),
   db.query('SELECT revision,sent_at,sent_by,recipients FROM crm_proposal_sent_revisions WHERE proposal_id=$1 ORDER BY revision DESC',[id]),
   db.query("SELECT id,actor,state,created_at,(state='uncertain' OR created_at<now()-interval '2 minutes') can_resolve FROM crm_proposal_email_attempts WHERE proposal_id=$1 AND state IN ('sending','uncertain')",[id]),
   db.query('SELECT l.id,l.company_id,l.order_id,l.state,l.message,l.actor,l.created_at,s.updated_at submission_updated_at FROM crm_order_links l LEFT JOIN service_order_submissions s ON s.id=l.submission_id WHERE l.proposal_id=$1 ORDER BY l.created_at DESC',[id]),

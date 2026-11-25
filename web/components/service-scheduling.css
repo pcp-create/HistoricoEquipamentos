@@ -1246,3 +1246,20 @@
 .email-format-toolbar .email-image-size { display:inline-flex; flex-direction:row; align-items:center; gap:5px; margin:0 4px; color:#52677e; font-size:12px; font-weight:600; }
 .email-format-toolbar .email-image-size input { width:78px; min-height:30px; height:30px; margin:0; padding:3px 5px; border:1px solid #cbdcf0; border-radius:5px; background:#fff; font-size:12px; }
 .email-message-content img.ProseMirror-selectednode { outline:2px solid #2b74b4; outline-offset:2px; }
+
+.customer-report-email button.proposal-tax-switch { display:flex; align-items:center; justify-content:flex-start; gap:10px; width:fit-content; min-height:36px; padding:4px 0; border:0; background:transparent; box-shadow:none; color:#234e73; font:inherit; text-align:left; cursor:pointer; }
+.customer-report-email .proposal-tax-switch-track { position:relative; flex:0 0 36px; height:20px; box-sizing:content-box; border:1px solid #aebdcd; border-radius:20px; background:#dce3eb; transition:background .15s; }
+.customer-report-email .proposal-tax-switch-track > span { position:absolute; width:14px; height:14px; left:2px; top:2px; border-radius:50%; background:#fff; box-shadow:0 1px 3px #0002; transition:transform .15s; }
+.customer-report-email .proposal-tax-switch[aria-checked="true"] .proposal-tax-switch-track { background:#246397; border-color:#246397; }
+.customer-report-email .proposal-tax-switch[aria-checked="true"] .proposal-tax-switch-track > span { transform:translateX(16px); }
+
+.proposal-email .proposal-email-settings { margin:16px 0 0; border:1px solid #d8e5f1; border-radius:9px; background:#f7fafd; }
+.proposal-email .proposal-email-settings summary { padding:13px 16px; color:#234e73; font-weight:600; cursor:pointer; }
+.proposal-email .proposal-email-settings-content { display:grid; gap:16px; padding:4px 16px 16px; }
+.proposal-email .proposal-email-settings-content > button { justify-self:start; }
+.proposal-email .proposal-email-footer { display:flex; flex-direction:column; gap:14px; margin-top:20px; padding-top:16px; border-top:1px solid #dce7f1; }
+.proposal-email .proposal-email-footer > small { color:#66819d; line-height:1.5; }
+.proposal-email .proposal-email-actions { display:flex; flex-wrap:wrap; gap:10px; margin:0; }
+.proposal-email .proposal-email-actions button { min-height:42px; }
+.proposal-email .proposal-email-actions button.proposal-email-send { background:#246397; border-color:#246397; color:#fff; }
+@media (max-width:600px) { .proposal-email .proposal-email-actions button { flex:1 1 100%; } }

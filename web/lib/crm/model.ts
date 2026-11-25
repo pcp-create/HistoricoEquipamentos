@@ -31,7 +31,6 @@ export function proposalDraft(raw:any):OrderDraft {
   for(const k of ['backupEnabled','backupRentalIncluded'])if(out.commercial[k]&&!['yes','no'].includes(out.commercial[k]))throw new CrmError('Confira as opções de equipamento backup.');
   if(out.commercial.backupDays&&!/^[1-9]\d{0,3}$/.test(out.commercial.backupDays))throw new CrmError('Informe o prazo de utilização entre 1 e 9999 dias.');
   if(out.commercial.backupRentalValue&&!/^\d{1,8}(\.\d{1,2})?$/.test(out.commercial.backupRentalValue))throw new CrmError('Confira o valor da locação embutida.');
-  if(out.commercial.backupEnabled==='yes'&&out.commercial.backupRentalIncluded==='yes'&&!out.commercial.backupRentalValue)throw new CrmError('Informe o valor da locação embutida.');
  }
  if(out.commercial?.deliveryDays&&!/^\d{1,4}$/.test(out.commercial.deliveryDays))throw new CrmError('Informe o prazo de entrega em dias úteis (0 a 9999).');
  if(out.commercial?.taxBudgetType)positive(out.commercial.taxBudgetType);

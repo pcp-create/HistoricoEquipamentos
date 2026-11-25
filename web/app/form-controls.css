@@ -53,6 +53,12 @@
       border-color: #c43848 !important;
       &:focus { outline-color: #c43848 !important; }
     }
+    .crm-proposal-page .crm-proposal-header &[data-proposal-required-empty="true"],
+    .crm-proposal-page .crm-proposal-header &[required]:invalid,
+    .crm-proposal-page .crm-proposal-header [data-proposal-required-empty="true"] & {
+      background-color: #ffe3e3 !important;
+      border-color: #cf6262 !important;
+    }
     @media (max-width: 640px) { font-size: var(--field-font-size, 16px) !important; }
   }
   /* Dropdown content must not inherit label or button typography. */
