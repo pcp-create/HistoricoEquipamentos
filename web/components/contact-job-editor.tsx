@@ -168,7 +168,7 @@ export default function ContactJobEditor({
             ))}
           </select>
         </label>
-        {!loading && !rows.length && (
+        {!loading && !rows.length && !error && (
           <p>
             Cadastre um cargo ativo em{" "}
             <a

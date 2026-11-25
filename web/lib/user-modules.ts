@@ -61,8 +61,10 @@ export function modulesForPath(path:string):string[]{
  ];
  return roots.find(([pattern])=>pattern.test(path))?.[1]||[];
 }
+export function canManageContactJobTypes(user:any){return user?.enabled===true&&canOpenPath(userModules(user),'/configuracoes/cadastros/tipos-cargo');}
 export function canOpenPath(modules:string[],path:string){
  path=path.split('?')[0];
+ if(path==='/api/contact-job-types')return true;
  if(path.startsWith('/modulos/'))return hasModuleAccess(modules,path.split('/')[2]);
  const sections=sectionsForPath(path);
  if(sections.length){

@@ -204,29 +204,12 @@ export async function proposalPdf(
   ];
   y = Math.max(...ends) + 3;
   rule(y); y += 8;
-  const hasScope = Boolean(draft.notes?.trim()), hasBackup = commercial.backupEnabled === 'yes';
-  if (hasScope || hasBackup) {
-    const sideBySide = hasScope && hasBackup;
-    const sectionWidth = sideBySide ? (width - 32) / 2 : width - 16;
-    const scopeX = M + 8, backupX = sideBySide ? M + 24 + sectionWidth : scopeX;
-    const scopeRows = hasScope ? wrap(draft.notes, sectionWidth).map(value => ({value, strong:false})) : [];
-    const backupRows = hasBackup ? [
-      ...(commercial.backupDays ? [{value:`Prazo previsto de utilização: ${commercial.backupDays} ${commercial.backupDays === '1' ? 'dia' : 'dias'}.`,strong:true}] : []),
-      ...wrap(commercial.backupTerms?.trim() || DEFAULT_BACKUP_TERMS, sectionWidth).map(value => ({value,strong:false})),
-    ] : [];
-    let index = 0;
-    const headings = () => {
-      if (index < scopeRows.length) text('ESCOPO / OBSERVAÇÕES', scopeX, y, 6.5, true, blue);
-      if (index < backupRows.length) text('CONDIÇÕES DO EQUIPAMENTO BACKUP', backupX, y, 6.5, true, blue);
-      y += 12;
-    };
-    ensure(30); headings();
-    while (index < Math.max(scopeRows.length, backupRows.length)) {
-      if (y + 12 > H - 55) { newPage(); headings(); }
-      const scope = scopeRows[index], backup = backupRows[index];
-      if (scope) text(scope.value, scopeX, y, 7, scope.strong);
-      if (backup) text(backup.value, backupX, y, 7, backup.strong);
-      y += 9; index++;
+  const hasBackup = commercial.backupEnabled === 'yes';
+  if (draft.notes?.trim()) {
+    ensure(30);
+    text('ESCOPO / OBSERVAÇÕES', M + 8, y, 6.5, true, blue); y += 12;
+    for (const row of wrap(draft.notes, width - 16)) {
+      ensure(12); text(row, M + 8, y); y += 9;
     }
     y += 6;
   }
@@ -312,10 +295,6 @@ export async function proposalPdf(
   const discountSubtotalSize=Math.min(6.2,(discountColumn.w-6)/Math.max(1,bold.widthOfTextAtSize(clean(discountSubtotal),1)));
   text(discountSubtotal,discountColumn.x+(discountColumn.w-bold.widthOfTextAtSize(clean(discountSubtotal),discountSubtotalSize))/2,y+6,discountSubtotalSize,true);
   cell("total",money(draft.items.reduce((sum,item)=>sum+gross(item),0)),y+6,true);y+=25;
-  ensure(includeTaxes ? 100 : 80);
-  const startY = y;
-  text("OBSERVAÇÕES E CONDIÇÕES COMERCIAIS", M + 8, y, 6.5, true);
-  y += 13;
   const conditions = [
     "Prazo de entrega por produto; dias úteis a contar da aprovação formal.",
     ...(includeTaxes ? ["Tributos estimados sujeitos à confirmação no faturamento."] : []),
@@ -323,11 +302,14 @@ export async function proposalPdf(
     "Pagamento exclusivamente via boleto bancário emitido pela RJ Compressores.",
     "Declaro ter conferido todos os dados e estar ciente dos prazos e condições.",
   ];
-  for (const value of conditions) {
-    for (const row of wrap("• " + value, width * 0.58 - 20, 6)) {
-      text(row, M + 8, y, 6, false, gray);
-      y += 9;
-    }
+  const conditionRows = conditions.flatMap(value => wrap("• " + value, width * (hasBackup ? 0.28 : 0.58) - 20, 6));
+  ensure(Math.max(includeTaxes ? 100 : 80, 13 + conditionRows.length * 9));
+  const startY = y;
+  text("OBSERVAÇÕES E CONDIÇÕES COMERCIAIS", M + 8, y, 6.5, true);
+  y += 13;
+  for (const row of conditionRows) {
+    text(row, M + 8, y, 6, false, gray);
+    y += 9;
   }
   const tx = M + width * 0.63,
     tw = width * 0.37;
@@ -370,7 +352,24 @@ export async function proposalPdf(
       totalY+=8;
     }
   }
-  y = Math.max(y, totalY) + 9;
+  const summaryBottom = Math.max(y, totalY);
+  if (hasBackup) {
+    const backupX = M + width * 0.29, backupWidth = width * 0.34 - 12;
+    const rows = [
+      ...(commercial.backupDays ? [`Prazo previsto de utilização: ${commercial.backupDays} ${commercial.backupDays === '1' ? 'dia' : 'dias'}.`] : []),
+      ...wrap(commercial.backupTerms?.trim() || DEFAULT_BACKUP_TERMS, backupWidth, 6),
+    ];
+    const firstPage = page;
+    y = startY;
+    const heading = () => { text('CONDIÇÕES DO EQUIPAMENTO BACKUP', backupX, y, 6.5, true); y += 13; };
+    heading();
+    for (const row of rows) {
+      if (y + 12 > H - 55) { newPage(); heading(); }
+      text(row, backupX, y, 6, false, gray); y += 9;
+    }
+    if (page === firstPage) y = Math.max(y, summaryBottom);
+  } else y = summaryBottom;
+  y += 9;
   // Keep a gap above the fixed footer, moving the panel only when it cannot fit.
   if (y + 40 > H - 44) newPage();
   rect(M, y, width, 40, pale);

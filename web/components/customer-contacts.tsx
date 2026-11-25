@@ -399,7 +399,7 @@ export default function CustomerContacts({
                     </select>
                   </label>
                   {jobTypesError && <ActionNotice type="error" onClose={()=>setJobTypesError('')}>{jobTypesError}</ActionNotice>}
-                  {!jobTypes.length && (
+                  {!jobTypes.length && !jobTypesError && (
                     <small>
                       Cadastre um cargo ativo em{" "}
                       <a

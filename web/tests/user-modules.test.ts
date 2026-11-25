@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
 import {readFileSync} from 'node:fs';
-import {userModules,canOpenPath,canParticipate,jobTitles} from '../lib/user-modules';
+import {userModules,canOpenPath,canParticipate,jobTitles,canManageContactJobTypes} from '../lib/user-modules';
 import {participantSql} from '../lib/user-module-sql';
 import {setAccess} from '../lib/admin-store';
 import {employeeFields} from '../lib/employees';
@@ -144,4 +144,17 @@ test('OS scheduling can read flow statuses without warehouse access',()=>{
  assert.equal(canOpenPath(access,'/api/registries/flow-statuses'),true);
  assert.equal(canOpenPath(access,'/api/service-orders'),true);
  assert.equal(canOpenPath(access,'/api/warehouse'),false);
+});
+
+test('contact job type selectors are available to all profiles while catalog management stays restricted',()=>{
+ for(const module of ['visitas','gestao-visitas','crm','assistencia-tecnica','tarefas','portal-tecnico','almoxarifado']){
+  const user={enabled:true,role:'user',modules:[module]};
+  assert.equal(canOpenPath(user.modules,'/api/contact-job-types'),true,module);
+  assert.equal(canManageContactJobTypes(user),false,module);
+  assert.equal(canOpenPath(user.modules,'/configuracoes/cadastros/tipos-cargo'),false,module);
+ }
+ assert.equal(canOpenPath([],'/api/contact-job-types'),true);
+ assert.equal(canManageContactJobTypes({enabled:true,role:'user',modules:['configuracoes:cargos']}),true);
+ assert.equal(canManageContactJobTypes({enabled:true,role:'user',modules:['configuracoes']}),true);
+ assert.equal(canManageContactJobTypes({enabled:false,role:'user',modules:['configuracoes']}),false);
 });

@@ -1,5 +1,6 @@
 import { requireUser, sameOrigin, Forbidden, Unauthorized } from "@/lib/auth";
-import { AdminInputError } from "@/lib/admin-store";
+import { AdminInputError, accessRecord } from "@/lib/admin-store";
+import { canManageContactJobTypes } from "@/lib/user-modules";
 import { listJobTypes, saveJobType } from "@/lib/visits/job-types";
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -26,11 +27,10 @@ function fail(e: unknown) {
 export async function GET(r: Request) {
   try {
     const u = await requireUser();
+    const all = new URL(r.url).searchParams.get("all") === "1";
+    if (all && !canManageContactJobTypes(await accessRecord(u.email))) throw new Forbidden();
     return json({
-      rows: await listJobTypes(
-        u.email,
-        new URL(r.url).searchParams.get("all") === "1",
-      ),
+      rows: await listJobTypes(u.email, all),
     });
   } catch (e) {
     return fail(e);
@@ -41,6 +41,7 @@ export async function POST(r: Request) {
   try {
     const u = await requireUser(),
       raw = await r.text();
+    if (!canManageContactJobTypes(await accessRecord(u.email))) throw new Forbidden();
     if (raw.length > 3000) throw new AdminInputError("Dados excedem o limite.");
     let b;
     try {

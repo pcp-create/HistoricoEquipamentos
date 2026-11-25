@@ -29,8 +29,8 @@ test('PDF shows backup conditions without disclosing internal rental value',asyn
   }
  }
 });
-test('scope and backup conditions appear side by side and long text continues on later pages',async()=>{
- const document={...draft,notes:'ESCOPO DE TESTE',commercial:{...commercial,backupTerms:('Condição de empréstimo. '.repeat(140)+'FIM DAS CONDIÇÕES')}};
+test('backup conditions appear between commercial conditions and totals, with long text continuing on later pages',async()=>{
+ const document={...draft,notes:'ESCOPO DE TESTE',commercial:{...commercial,backupTerms:('Condição de empréstimo. '.repeat(140)+'FIMCONDICOES')}};
  const pdf=await PDFDocument.load(await proposalPdf({number:1,document},{},{},{},{includeTaxes:false}));
  const content=pdf.context.enumerateIndirectObjects().filter(([,o])=>o instanceof PDFRawStream).map(([,o])=>Buffer.from(decodePDFRawStream(o as PDFRawStream).decode()).toString('latin1')).join('');
  const position=(label:string)=>{
@@ -38,8 +38,8 @@ test('scope and backup conditions appear side by side and long text continues on
   const match=content.match(new RegExp(`1 0 0 1 ([\\d.]+) ([\\d.]+) Tm\\s*<${hex}> Tj`));
   assert.ok(match, label); return [Number(match[1]),Number(match[2])];
  };
- const scope=position('ESCOPO / OBSERVAÇÕES'),backup=position('CONDIÇÕES DO EQUIPAMENTO BACKUP');
- assert.equal(scope[1],backup[1]); assert.ok(backup[0]>scope[0]);
+ const scope=position('ESCOPO / OBSERVAÇÕES'),backup=position('CONDIÇÕES DO EQUIPAMENTO BACKUP'), conditions=position('OBSERVAÇÕES E CONDIÇÕES COMERCIAIS'),total=position('Descontos');
+ assert.ok(scope[1]>backup[1]); assert.equal(conditions[1],backup[1]); assert.ok(backup[0]>conditions[0] && backup[0]<total[0]);
  assert.ok(pdf.getPageCount()>1);
- assert.ok(content.includes(Buffer.from('FIM DAS CONDIÇÕES','latin1').toString('hex').toUpperCase()));
+ assert.ok(content.includes(Buffer.from('FIMCONDICOES','latin1').toString('hex').toUpperCase()));
 });
