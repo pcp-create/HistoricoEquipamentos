@@ -27,6 +27,11 @@ export function proposalDraft(raw:any):OrderDraft {
  if(raw.commercial!==undefined){
   if(!raw.commercial||typeof raw.commercial!=='object'||Array.isArray(raw.commercial))throw new CrmError('Condições comerciais inválidas.');
   out.commercial=Object.fromEntries(['contact','phone','validity','sellerName','sellerEmail','sellerPhone','paymentName','freightName','carrier','deliveryDays','taxBudgetType'].filter(k=>Object.hasOwn(raw.commercial,k)).map(k=>[k,text(raw.commercial[k],500)]));
+  for(const k of ['backupEnabled','backupDays','backupRentalIncluded','backupRentalValue','backupTerms'])if(Object.hasOwn(raw.commercial,k))out.commercial[k]=text(raw.commercial[k],k==='backupTerms'?4000:30);
+  for(const k of ['backupEnabled','backupRentalIncluded'])if(out.commercial[k]&&!['yes','no'].includes(out.commercial[k]))throw new CrmError('Confira as opções de equipamento backup.');
+  if(out.commercial.backupDays&&!/^[1-9]\d{0,3}$/.test(out.commercial.backupDays))throw new CrmError('Informe o prazo de utilização entre 1 e 9999 dias.');
+  if(out.commercial.backupRentalValue&&!/^\d{1,8}(\.\d{1,2})?$/.test(out.commercial.backupRentalValue))throw new CrmError('Confira o valor da locação embutida.');
+  if(out.commercial.backupEnabled==='yes'&&out.commercial.backupRentalIncluded==='yes'&&!out.commercial.backupRentalValue)throw new CrmError('Informe o valor da locação embutida.');
  }
  if(out.commercial?.deliveryDays&&!/^\d{1,4}$/.test(out.commercial.deliveryDays))throw new CrmError('Informe o prazo de entrega em dias úteis (0 a 9999).');
  if(out.commercial?.taxBudgetType)positive(out.commercial.taxBudgetType);

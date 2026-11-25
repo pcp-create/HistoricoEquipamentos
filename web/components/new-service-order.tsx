@@ -2,6 +2,7 @@
 import ActionNotice from "./action-notice";
 import CrmProductCosts from "./crm-product-costs";
 import { proposalFinancials } from "@/lib/crm/financials";
+import { DEFAULT_BACKUP_TERMS } from "@/lib/crm/backup";
 import {applyAverageCosts} from "@/lib/crm/product-cost-model";
 import CrmProposalSummary from "./crm-proposal-summary";
 import CrmProposalItems from "./crm-proposal-items";
@@ -268,6 +269,7 @@ export default function NewServiceOrder({
     setError("");
     if(proposal){
       if(proposal.locked)return;
+      if(form.commercial?.backupEnabled==='yes' && form.commercial?.backupRentalIncluded==='yes' && !form.commercial?.backupRentalValue?.trim()) { setError('Informe o valor da locação embutida.'); return; }
       sending.current=true;setBusy(true);
       try{await proposal.onSave({...form,commercial:{...form.commercial,sellerName:sellers.find((r:any)=>String(r.id)===form.seller)?.name||form.commercial?.sellerName||'',paymentName:registry('payment-terms').find((r:any)=>String(r.id)===form.payment)?.name||'',freightName:registry('freight').find((r:any)=>String(r.id)===form.freight)?.name||''}},names);}catch(e){setError((e as Error).message);}finally{sending.current=false;setBusy(false);}
       return;
@@ -780,6 +782,17 @@ export default function NewServiceOrder({
                     proposal ? "" : "Aplicado após a criação da OS e a inclusão do equipamento, produtos e serviços.",
                   )}
                   {select("freight", "Frete", registry("freight"))}
+                  {proposal && <section className="crm-proposal-backup" aria-label="Equipamento backup">
+                    <div className="crm-proposal-backup-fields">
+                      <label><span>Equipamento Backup?</span><select value={form.commercial?.backupEnabled || 'no'} onChange={e => setForm(f => ({...f, commercial:{...f.commercial, backupEnabled:e.target.value, ...(e.target.value === 'yes' && !f.commercial?.backupTerms?.trim() ? {backupTerms:DEFAULT_BACKUP_TERMS} : {})}}))}><option value="no">Não</option><option value="yes">Sim</option></select></label>
+                      {form.commercial?.backupEnabled === 'yes' && <>
+                        <label><span>Prazo de utilização (dias)</span><input type="number" min="1" max="9999" step="1" value={form.commercial?.backupDays || ''} onChange={e => setForm(f => ({...f,commercial:{...f.commercial,backupDays:e.target.value}}))}/></label>
+                        <label><span>Locação embutida?</span><select value={form.commercial?.backupRentalIncluded || 'no'} onChange={e => setForm(f => ({...f,commercial:{...f.commercial,backupRentalIncluded:e.target.value}}))}><option value="no">Não</option><option value="yes">Sim</option></select></label>
+                        {form.commercial?.backupRentalIncluded === 'yes' && <label><span>Valor da locação embutida (uso interno) <b>*</b></span><CurrencyInput required label="Valor da locação embutida" value={form.commercial?.backupRentalValue || ''} onChange={value => setForm(f => ({...f,commercial:{...f.commercial,backupRentalValue:value}}))}/><small>Não aparece no PDF da proposta.</small></label>}
+                      </>}
+                    </div>
+                    {form.commercial?.backupEnabled === 'yes' && <label className="crm-proposal-backup-terms"><span>Condições de empréstimo na proposta</span><textarea rows={4} maxLength={4000} value={form.commercial?.backupTerms ?? DEFAULT_BACKUP_TERMS} onChange={e => setForm(f => ({...f,commercial:{...f.commercial,backupTerms:e.target.value}}))}/><small>Este texto e o prazo de utilização serão apresentados no PDF.</small></label>}
+                  </section>}
                   {!proposal && <label>
                     <span className="os-field-title">
                       Prazo Garantia {!editing && <b>*</b>}

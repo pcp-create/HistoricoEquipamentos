@@ -7,6 +7,7 @@ import { addProposalFooter } from "../reports/pdf-footer";
 import { proposalDraft, CrmError } from "./model";
 import { proposalFinancials, itemFinancials } from "./financials";
 import { formatContactPhone } from "../contact-phone";
+import { DEFAULT_BACKUP_TERMS } from "./backup";
 const companies: Record<string, { name: string; address: string }> = {
   "1": {
     name: "RJ Indústria e Comércio de Máquinas LTDA",
@@ -203,10 +204,29 @@ export async function proposalPdf(
   ];
   y = Math.max(...ends) + 3;
   rule(y); y += 8;
-  if (draft.notes?.trim()) {
-    text("ESCOPO / OBSERVAÇÕES", M + 8, y, 6.5, true, blue); y += 12;
-    for (const row of wrap(draft.notes, width - 16)) {
-      ensure(12); text(row, M + 8, y); y += 9;
+  const hasScope = Boolean(draft.notes?.trim()), hasBackup = commercial.backupEnabled === 'yes';
+  if (hasScope || hasBackup) {
+    const sideBySide = hasScope && hasBackup;
+    const sectionWidth = sideBySide ? (width - 32) / 2 : width - 16;
+    const scopeX = M + 8, backupX = sideBySide ? M + 24 + sectionWidth : scopeX;
+    const scopeRows = hasScope ? wrap(draft.notes, sectionWidth).map(value => ({value, strong:false})) : [];
+    const backupRows = hasBackup ? [
+      ...(commercial.backupDays ? [{value:`Prazo previsto de utilização: ${commercial.backupDays} ${commercial.backupDays === '1' ? 'dia' : 'dias'}.`,strong:true}] : []),
+      ...wrap(commercial.backupTerms?.trim() || DEFAULT_BACKUP_TERMS, sectionWidth).map(value => ({value,strong:false})),
+    ] : [];
+    let index = 0;
+    const headings = () => {
+      if (index < scopeRows.length) text('ESCOPO / OBSERVAÇÕES', scopeX, y, 6.5, true, blue);
+      if (index < backupRows.length) text('CONDIÇÕES DO EQUIPAMENTO BACKUP', backupX, y, 6.5, true, blue);
+      y += 12;
+    };
+    ensure(30); headings();
+    while (index < Math.max(scopeRows.length, backupRows.length)) {
+      if (y + 12 > H - 55) { newPage(); headings(); }
+      const scope = scopeRows[index], backup = backupRows[index];
+      if (scope) text(scope.value, scopeX, y, 7, scope.strong);
+      if (backup) text(backup.value, backupX, y, 7, backup.strong);
+      y += 9; index++;
     }
     y += 6;
   }
