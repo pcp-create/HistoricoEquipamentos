@@ -290,9 +290,12 @@
 .crm-account-kind-switch button:focus-visible {outline:2px solid #2478bb;outline-offset:1px}
 .crm-opportunity-dialog .crm-opportunity-grid .crm-wide { grid-column:span 2; }
 .crm-opportunity-dialog .crm-opportunity-grid .crm-opportunity-notes { grid-column:1/-1; }
+.crm-opportunity-account-hint { grid-column:2 / 4; margin-top:-7px; color:#71869e; font-size:11px; line-height:1.4; }
 .crm-opportunity-dialog .crm-opportunity-grid input,.crm-opportunity-dialog .crm-opportunity-grid select,.crm-opportunity-dialog .crm-opportunity-grid textarea { min-height:38px; padding:8px 10px; font-size:13px; font-weight:400; }
 .crm-opportunity-dialog .crm-opportunity-grid textarea { min-height:54px; resize:vertical; }
-.crm-opportunity-save { display:flex; justify-content:flex-end; margin:0 0 16px; }
+.crm-opportunity-save { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin:0 0 16px; }
+.crm-opportunity-save button { display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+.crm-opportunity-save button svg { flex-shrink:0; }
 .crm-opportunity-proposals { border:1px solid #dbe7f2; border-radius:10px; padding:15px 16px; background:#f8fbfe; }
 .crm-opportunity-proposals-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
 .crm-opportunity-dialog .crm-opportunity-proposals-heading h3 { margin:0; font-size:15px; }
@@ -310,7 +313,7 @@
 .crm-opportunity-proposal-form .crm-form-grid { margin:12px 0; }
 .crm-opportunity-proposal-form fieldset > button + button { margin-left:8px; }
 .crm-opportunity-history { margin-top:14px; color:#526d88; font-size:13px; }
-@media(max-width:760px) { .crm-opportunity-dialog .crm-opportunity-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:760px) { .crm-opportunity-dialog .crm-opportunity-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .crm-opportunity-account-hint { grid-column:1/-1; } }
 @media(max-width:480px) { .crm-opportunity-dialog { padding:16px; } .crm-opportunity-dialog .crm-opportunity-grid { gap:12px; } .crm-opportunity-dialog .crm-opportunity-grid .crm-wide { grid-column:1/-1; } .crm-opportunity-proposals .crm-links article { grid-template-columns:auto minmax(0,1fr); } .crm-opportunity-save button { width:100%; } }
 
 /* Proposal header: compact groups aligned with the opportunity editor. */

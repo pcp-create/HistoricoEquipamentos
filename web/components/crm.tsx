@@ -18,6 +18,8 @@ import {
   UserPlus,
   Building2,
   ContactRound,
+  Save,
+  CircleX,
 } from "lucide-react";
 import SiteHeader from "./site-header";
 import ContactDeleteButton from "./contact-delete-button";
@@ -796,8 +798,6 @@ function OpportunityDialog({
                   }))
                 }
               />
-              {accountKind==='lead' && <small>Para gerar a OS, vincule a oportunidade a um cliente cadastrado no M8.</small>}
-              {!!data.proposals?.length && !data.customer_locked && !won && <small>Ao trocar o cliente, propostas revisadas ou enviadas precisarão de nova revisão. Os PDFs enviados serão mantidos.</small>}
             </label>
             <label>
               Origem da oportunidade
@@ -808,6 +808,7 @@ function OpportunityDialog({
                 <option value="customer_contact">Contato do cliente</option>
               </select>
             </label>
+            {accountKind==='lead' && <small className="crm-opportunity-account-hint">Para gerar a OS, vincule a oportunidade a um cliente cadastrado no M8.</small>}
             <label>
               Status
               <select
@@ -915,8 +916,8 @@ function OpportunityDialog({
             </label>
           </div>
           <div className="crm-opportunity-save"><button className="button primary" type="submit">
-            {busy ? "Salvando…" : "Salvar oportunidade"}
-          </button>{data.id&&data.status==='open'&&<button className="button" type="button" disabled={busy} onClick={()=>{if(window.confirm('Marcar esta oportunidade como perdida?'))void save('lost');}}>Marcar como perdida</button>}</div>
+            <Save size={16} aria-hidden="true" />{busy ? "Salvando…" : "Salvar oportunidade"}
+          </button>{data.id&&data.status==='open'&&<button className="button" type="button" disabled={busy} onClick={()=>{if(window.confirm('Marcar esta oportunidade como perdida?'))void save('lost');}}><CircleX size={16} aria-hidden="true" />Marcar como perdida</button>}</div>
         </fieldset>
       </form>
       {error && (
