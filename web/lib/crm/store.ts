@@ -4,6 +4,7 @@ import {hydrateProductTaxes} from './product-taxes';
 import {hydrateProductCosts} from './product-costs';
 import {proposalFlowStatus} from './proposal-flow-status';
 import {canEditProposalReview} from './review-access';
+import {isReviewAdmin} from './review-admin';
 import 'server-only';
 import {database} from '../db';
 import {CrmError,uuid,text,positive,version,proposalDraft,emptyDraft,totalCents,conversionRate} from './model';
@@ -117,7 +118,7 @@ export async function saveProposal(raw:any,actor:string){
  const workflow=(await c.query('SELECT state,reviewer,review_requested_by FROM crm_proposal_workflows WHERE proposal_id=$1 FOR UPDATE',[id])).rows[0];
  if((await c.query("SELECT 1 FROM crm_proposal_email_attempts WHERE proposal_id=$1 AND state IN ('sending','uncertain')",[id])).rows.length)throw new CrmError('Há um envio de e-mail em andamento ou aguardando conferência.');
  if(workflow?.state==='sent'||workflow?.state==='reviewed')throw new CrmError('Solicite uma nova revisão antes de alterar esta proposta.');
- if(workflow?.state==='in_review'&&!canEditProposalReview(workflow,actor))throw new CrmError('Somente o solicitante ou o revisor designado pode editar a proposta durante a revisão.');
+ if(workflow?.state==='in_review'&&!canEditProposalReview(workflow,actor)&&!await isReviewAdmin(c,actor))throw new CrmError('Somente o solicitante, o revisor designado ou um administrador pode editar a proposta durante a revisão.');
  if(p.status==='converting'||(await c.query("SELECT 1 FROM crm_order_links WHERE proposal_id=$1 AND state NOT IN('complete','validation_failed') LIMIT 1",[id])).rows.length)throw new CrmError('Existe um envio de OS pendente. Conclua a conferência antes de editar a proposta.');
  if(!(p.status==='won'?['won']:['pending','lost','cancelled']).includes(raw.status??p.status))throw new CrmError('Situação inválida.');
  const proposalTypeId=raw.typeId==null?Number(p.type_id):positive(raw.typeId);

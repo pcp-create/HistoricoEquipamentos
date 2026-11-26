@@ -130,7 +130,7 @@ export default function CrmProposal({ id }: { id: string }) {
   const pending = data.links.some(
       (l: any) => !["complete", "validation_failed"].includes(l.state),
     ),
-    locked = ['converting','won','lost','cancelled'].includes(data.status) || pending || ['sent','reviewed'].includes(data.workflow?.state) || (data.workflow?.state==='in_review' && !canEditProposalReview(data.workflow,data.currentUser));
+    locked = ['converting','won','lost','cancelled'].includes(data.status) || pending || ['sent','reviewed'].includes(data.workflow?.state) || (data.workflow?.state==='in_review' && !canEditProposalReview(data.workflow,data.currentUser,data.currentUserIsAdmin));
   const orderChoices=catalog.orderTypes.filter((t:any)=>t.active&&type?.order_types?.includes(String(t.id)));
   const cannotConvert=busy||changed||pending||!!data.emailAttempt||!['reviewed','sent'].includes(data.workflow?.state)||data.status!=='pending'||!orderChoices.length;
   const headerActions=<div className="crm-actions">

@@ -144,11 +144,14 @@ test('CRM persists local opportunities and proposals and safely links conversion
  const accessOp=await saveOpportunity({id:randomUUID(),typeId:man.id,customerId:10,company:1,title:'Acesso à revisão'},'planner');
  const accessProposal=await createProposal({id:randomUUID(),opportunityId:accessOp.id,typeId:mpa.id,title:'Revisão compartilhada'},'planner');
  await db.query("INSERT INTO web_user_access(email,display_name) VALUES('reviewer','Revisor')");
+ await db.query("INSERT INTO web_user_access(email,display_name,role,enabled) VALUES('review-admin','Admin','admin',true)");
  await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision,reviewer,review_requested_by) VALUES($1,'in_review',0,'reviewer','planner')",[accessProposal.id]);
- await assert.rejects(saveProposal({id:accessProposal.id,version:accessProposal.version,draft:emptyDraft()},'other'),/solicitante ou o revisor/);
+ await assert.rejects(saveProposal({id:accessProposal.id,version:accessProposal.version,draft:emptyDraft()},'other'),/solicitante.*revisor/);
  const savedByRequester=await saveProposal({id:accessProposal.id,version:accessProposal.version,draft:emptyDraft()},'planner');
  const savedByReviewer=await saveProposal({id:accessProposal.id,version:savedByRequester.version,draft:emptyDraft()},'reviewer');
  assert.equal(savedByReviewer.updated_by,'reviewer');
+ const savedByAdmin=await saveProposal({id:accessProposal.id,version:savedByReviewer.version,draft:emptyDraft()},'review-admin');
+ assert.equal(savedByAdmin.updated_by,'review-admin');
 
  assert.throws(()=>proposalDraft({...emptyDraft(),items:[{kind:'material',code:'1',name:'x',quantity:'-1',price:'5'}]}));
  }finally{g.historyPool=old;await db.close();}

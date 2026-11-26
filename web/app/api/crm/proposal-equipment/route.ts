@@ -9,6 +9,7 @@ import { AdminInputError } from '@/lib/admin-store';
 import { TaskInputError } from '@/lib/tasks/store';
 import { M8RequestError } from '@/lib/service-orders/m8';
 import { canEditProposalReview } from '@/lib/crm/review-access';
+import { isReviewAdmin } from '@/lib/crm/review-admin';
 
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
 
@@ -21,7 +22,7 @@ async function proposalCustomer(request: Request, actor: string) {
     FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id
     LEFT JOIN crm_proposal_workflows w ON w.proposal_id=p.id WHERE p.id=$1`, [id])).rows[0];
   if (!row) throw new EquipmentRegistrationError('Proposta não encontrada.');
-  if (['won','lost','cancelled','converting'].includes(row.status) || ['sent','reviewed'].includes(row.state) || (row.state === 'in_review' && !canEditProposalReview(row,actor)) || row.pending_order || row.pending_email) throw new EquipmentRegistrationError('Esta proposta não pode ser alterada neste momento.');
+  if (['won','lost','cancelled','converting'].includes(row.status) || ['sent','reviewed'].includes(row.state) || (row.state === 'in_review' && !canEditProposalReview(row,actor) && !await isReviewAdmin(database(),actor)) || row.pending_order || row.pending_email) throw new EquipmentRegistrationError('Esta proposta não pode ser alterada neste momento.');
   const key = row.lead_id ? `lead:${row.lead_id}` : row.customer_id ? `m8:${row.customer_id}` : '';
   if (!key) throw new EquipmentRegistrationError('Selecione um cliente ou lead para a proposta.');
   return key;

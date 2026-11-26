@@ -10,7 +10,7 @@ test('proposal review creates one task and records who completed it',async()=>{
  try {
   await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated;
    CREATE TABLE web_user_access(email text PRIMARY KEY,enabled boolean,role text,modules jsonb,display_name text);
-   INSERT INTO web_user_access VALUES ('solicitante',true,'user','["crm"]','Solicitante'),('revisor',true,'user','["crm"]','Revisor');
+   INSERT INTO web_user_access VALUES ('solicitante',true,'user','["crm"]','Solicitante'),('revisor',true,'user','["crm"]','Revisor'),('admin',true,'admin','["crm"]','Administrador');
    CREATE TABLE crm_opportunities(id uuid PRIMARY KEY,customer_name text,lead_id uuid,status text DEFAULT 'open',updated_at timestamptz,version integer DEFAULT 1);
    CREATE TABLE crm_proposals(id uuid PRIMARY KEY,opportunity_id uuid,number int,status text,version int,names jsonb,document jsonb,updated_by text,updated_at timestamptz,type_id bigint DEFAULT 1);
    CREATE TABLE crm_proposal_types(id bigint PRIMARY KEY); INSERT INTO crm_proposal_types VALUES(1);
@@ -71,7 +71,8 @@ test('proposal review creates one task and records who completed it',async()=>{
   await assert.rejects(()=>sendProposalEmail(input,'solicitante',async()=>Response.json({id:'duplicate'}),deps),/alterada/);
   const next=await changeProposalReview({id,version:4,action:'request_review',reviewer:'revisor',comment:'Nova revisão'},'solicitante');
   assert.equal(next.revision,1);
-  await changeProposalReview({id,version:5,action:'complete_review'},'revisor');
+  await changeProposalReview({id,version:5,action:'complete_review'},'admin');
+  assert.equal((await query<any>('SELECT reviewed_by FROM crm_proposal_workflows WHERE proposal_id=$1',[id])).rows[0].reviewed_by,'admin');
   proposal.version=6;proposal.workflow={state:'reviewed',revision:1};
   const retryInput={...input,version:6};
   await assert.rejects(()=>sendProposalEmail(retryInput,'solicitante',async()=>{throw Error('rede indisponível')},deps),/confirmar o envio/);
