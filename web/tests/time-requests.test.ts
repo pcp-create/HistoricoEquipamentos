@@ -6,6 +6,7 @@ import { syncTasks, updateTask } from "../lib/tasks/store";
 import { PGlite } from "@electric-sql/pglite";
 import {
   changeTimeRequest,
+  checkPersonalTimeOverlap,
   personalTimeLogs,
 } from "../lib/service-scheduling/time-request-store";
 test("adjustments apply immediately, retain manager review, reject without rollback and notify requester and planner", async () => {
@@ -144,6 +145,12 @@ test("adjustments apply immediately, retain manager review, reject without rollb
       "UPDATE web_service_operations SET document=document-'checklistRun'-'technicianClosures' WHERE id=$1",
       [op],
     );
+    const conflictInput = { ...input(), sessionId: undefined, kind: 'work', proposed: { started_at: '2026-01-01T08:30:00Z', finished_at: '2026-01-01T09:30:00Z', pauses: [] } };
+    await assert.rejects(checkPersonalTimeOverlap('tech', conflictInput.proposed), /OS 100 · Operação 01/);
+    await checkPersonalTimeOverlap('tech', conflictInput.proposed, session);
+    await assert.rejects(changeTimeRequest(conflictInput, 'tech'), /OS 100 · Operação 01/);
+    assert.equal((await db.query('SELECT * FROM web_field_time_requests')).rows.length, 0);
+    assert.equal((await db.query('SELECT * FROM web_tasks')).rows.length, 0);
     const b = input(),
       result = await changeTimeRequest(b, "tech");
     assert.equal((await changeTimeRequest(b, "tech")).id, result.id);

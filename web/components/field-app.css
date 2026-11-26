@@ -498,10 +498,15 @@ dialog.field-report-screen {
 
 .field-view-switch {
   display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 8px;
   gap: 8px;
   margin: 12px 0 16px;
 }
 .field-app .field-view-switch button {
+  flex: 0 0 auto;
   min-height: 40px;
   padding: 8px 14px;
   font-size: 13px;

@@ -11,6 +11,20 @@ import { Forbidden } from "../auth";
 import { locationOf } from "./field-model";
 import { validateTimeAdjustment } from "./time-adjustment";
 export class TimeRequestError extends Error {}
+async function assertNoTimeOverlap(c: any, actor: string, sessionId: string | null, start: string, end: string) {
+  const conflict = (await c.query(
+    `SELECT f.operation_id FROM web_field_sessions f
+     WHERE f.actor=$1 AND ($2::uuid IS NULL OR f.id<>$2)
+       AND COALESCE((f.correction->>'started_at')::timestamptz,f.started_at)<$4::timestamptz
+       AND COALESCE((f.correction->>'finished_at')::timestamptz,f.finished_at,'infinity'::timestamptz)>$3::timestamptz
+     ORDER BY COALESCE((f.correction->>'started_at')::timestamptz,f.started_at) LIMIT 1`,
+    [actor, sessionId, start, end],
+  )).rows[0];
+  if (conflict) {
+    const operation = (await c.query(`SELECT COALESCE(o.numero_sequencia,o.id_m8,s.order_id)::text AS order_number,p.position FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id WHERE p.id=$1`, [conflict.operation_id])).rows[0];
+    throw new TimeRequestError(`O horário coincide com outro apontamento: OS ${operation.order_number} · Operação ${operationNumber(operation.position)}. Ajuste o horário para continuar.`);
+  }
+}
 const uuid = (v: any) => {
   if (
     typeof v !== "string" ||
@@ -24,6 +38,16 @@ const reason = (v: any) => {
     throw new TimeRequestError("Informe o motivo (até 2.000 caracteres).");
   return v.trim();
 };
+export async function checkPersonalTimeOverlap(email: string, proposed: any, sessionId?: string) {
+  const interval = validateTimeAdjustment(proposed);
+  const db = database();
+  let exclude: string | null = null;
+  if (sessionId) {
+    exclude = uuid(sessionId);
+    if (!(await db.query('SELECT 1 FROM web_field_sessions WHERE id=$1 AND actor=$2', [exclude, email])).rows.length) throw new Forbidden();
+  }
+  await assertNoTimeOverlap(db, email, exclude, interval.started_at, interval.finished_at);
+}
 export async function personalTimeLogs(email: string) {
   const db = database();
   const timeAdjustmentsAvailable = await timeRequestsAvailable(db);
@@ -84,14 +108,7 @@ export async function personalTimeLogs(email: string) {
 }
 async function apply(c: any, r: any, reviewer: string, immediate = false) {
   const p = r.proposed;
-  const overlap = await c.query(
-    "SELECT id FROM web_field_sessions WHERE actor=$1 AND ($2::uuid IS NULL OR id<>$2) AND COALESCE((correction->>'started_at')::timestamptz,started_at)<$4::timestamptz AND COALESCE((correction->>'finished_at')::timestamptz,finished_at,'infinity'::timestamptz)>$3::timestamptz",
-    [r.actor, r.session_id || null, p.started_at, p.finished_at],
-  );
-  if (overlap.rows.length)
-    throw new TimeRequestError(
-      "O horário coincide com outro apontamento da pessoa. Confira os horários antes de salvar.",
-    );
+  await assertNoTimeOverlap(c, r.actor, r.session_id || null, p.started_at, p.finished_at);
   let sessionId = r.session_id;
   if (r.legacy_event_id) {
     const legacy = (
@@ -481,14 +498,7 @@ export async function changeTimeRequest(b: any, email: string) {
         );
     }
     // Guard against concurrent/overlapping sessions, including previously approved corrections.
-    const overlaps = await c.query(
-      `SELECT id FROM web_field_sessions WHERE actor=$1 AND ($2::uuid IS NULL OR id<>$2) AND COALESCE((correction->>'started_at')::timestamptz,started_at)<$4::timestamptz AND COALESCE((correction->>'finished_at')::timestamptz,finished_at,'infinity'::timestamptz)>$3::timestamptz`,
-      [actor, s?.id || null, proposed.started_at, proposed.finished_at],
-    );
-    if (overlaps.rows.length)
-      throw new TimeRequestError(
-        "O horário coincide com outro apontamento da pessoa.",
-      );
+    await assertNoTimeOverlap(c, actor, s?.id || null, proposed.started_at, proposed.finished_at);
     const id = randomUUID();
     const r = {
       id,

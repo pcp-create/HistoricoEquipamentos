@@ -82,6 +82,13 @@ export default function TimeAdjustmentForm({
           end: convert(p.end),
         })),
       };
+      if (!planner) {
+        let check: Response;
+        try {
+          check = await fetch('/api/field/time-requests/check', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proposed,sessionId:row?.legacyEventId?undefined:row?.id}),cache:'no-store'});
+        } catch { throw Error('Conecte-se à internet para verificar se há conflito de horários antes de solicitar a aprovação.'); }
+        if (!check.ok) {const result=await check.json().catch(()=>({}));throw Error(result.error||'Não foi possível verificar os horários. Conecte-se e tente novamente.');}
+      }
       const location = planner ? undefined : await gps();
       const res = await fetch("/api/field/time-requests", {
         method: "POST",
@@ -139,6 +146,7 @@ export default function TimeAdjustmentForm({
           : "O ajuste será aplicado ao ser sincronizado e enviado aos gestores para aprovação. Em caso de reprovação, o tratamento será manual."}{" "}
         Horários de Brasília.
       </p>
+      {!planner && <p>É necessário estar conectado para verificar conflitos de horário antes da solicitação.</p>}
       <fieldset disabled={busy}>
         <label>
           Operação

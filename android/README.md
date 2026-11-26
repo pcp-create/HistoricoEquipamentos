@@ -1,4 +1,12 @@
-# Portal Técnico RJ — APK 2.2.29
+# Portal Técnico RJ — APK 2.2.33
+
+## Versão 2.2.33
+
+- Calendário de programação retomado no formato da versão 2.2.23.
+- Apontamentos pessoais em calendário mensal, com filtros para celular e exportação do relatório quando conectado.
+- Navegação da programação em uma linha com rolagem horizontal.
+- O servidor bloqueia solicitações de horários sobrepostos e informa a OS e operação do conflito. A conferência antes da solicitação exige conexão.
+- Instalar como atualização, sem desinstalar nem limpar os dados e a fila do aplicativo.
 
 A versão 2.0 utiliza uma tela de entrada **nativa do Android**, a interface operacional
 empacotada no APK e um banco **SQLite privado do aplicativo**. Não abre a página

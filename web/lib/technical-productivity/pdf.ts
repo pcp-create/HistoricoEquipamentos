@@ -20,7 +20,7 @@ export async function productivityPdf(data:any){
  const W=595.28,H=841.89,M=36,usable=W-2*M;let page!:PDFPage;let y=0,activeUser='';
  const month=new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(data.month+'-01T12:00:00Z'));
  const draw=(value:string,x:number,at:number,size=9,face=font,color=navy)=>page.drawText(safe(value,face),{x,y:at,size,font:face,color});
- const startPage=()=>{page=pdf.addPage([W,H]);page.drawRectangle({x:0,y:H-82,width:W,height:82,color:navy});const logoSize=systemLogo.scaleToFit(82,58);page.drawImage(systemLogo,{x:M+(82-logoSize.width)/2,y:H-41-logoSize.height/2,...logoSize});page.drawLine({start:{x:M+94,y:H-67},end:{x:M+94,y:H-15},thickness:.6,color:rgb(.61,.72,.79)});draw('Apontamentos e produtividade',M+108,H-34,15,bold,rgb(1,1,1));draw(month.toLocaleUpperCase('pt-BR'),M+108,H-53,9,font,rgb(.8,.88,.95));y=H-101;if(activeUser){draw('Continuação · '+activeUser,M,y,10,bold,blue);y-=24;}};
+ const startPage=()=>{page=pdf.addPage([W,H]);page.drawRectangle({x:0,y:H-82,width:W,height:82,color:navy});const logoSize=systemLogo.scaleToFit(82,58);page.drawImage(systemLogo,{x:M-12+(82-logoSize.width)/2,y:H-41-logoSize.height/2,...logoSize});page.drawLine({start:{x:M+94,y:H-67},end:{x:M+94,y:H-15},thickness:.6,color:rgb(.61,.72,.79)});draw('APONTAMENTOS E PRODUTIVIDADE',M+108,H-34,15,bold,rgb(1,1,1));draw(month.toLocaleUpperCase('pt-BR'),M+108,H-53,9,font,rgb(.8,.88,.95));y=H-101;if(activeUser){draw('Continuação · '+activeUser,M,y,10,bold,blue);y-=24;}};
  const need=(height:number)=>{if(y-height<70)startPage();};
  startPage();
  if(!data.users.length){draw('Nenhum técnico encontrado para os filtros selecionados.',M,y,10);y-=24;}

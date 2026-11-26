@@ -33,7 +33,6 @@
 .technical-productivity-personal{padding:12px 0}
 .technical-productivity-personal h1{font-size:20px}
 .field-app .productivity-modes button[aria-pressed=true]{background:#245e92;color:white;border-color:#245e92}
-.field-app .field-view-switch{flex-wrap:wrap}
 @media(min-width:1100px){
  .technical-productivity-page{max-width:none;margin:12px auto;padding:0 16px}
  .technical-productivity:not(.technical-productivity-personal)>header h1{font-size:22px}
@@ -85,3 +84,21 @@
 @media(max-width:420px){.productivity-dialog{padding:16px}.productivity-detail-summary>div{padding:9px 7px}.productivity-detail-summary strong{font-size:15px}.productivity-detail-meta>div{grid-template-columns:75px minmax(0,1fr)}}
 .technical-productivity .productivity-export{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 14px;border:1px solid #245e92;border-radius:8px;background:#245e92;color:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
 .technical-productivity .productivity-export:disabled{opacity:.55;cursor:wait}
+.technical-productivity-personal>header{display:block}
+.technical-productivity-personal .productivity-filters{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px;margin-top:16px}
+.technical-productivity-personal .productivity-filters label{min-width:0}
+.technical-productivity-personal .productivity-filters input{width:100%;min-width:0;box-sizing:border-box}
+.technical-productivity-personal .productivity-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;background:#e8f0f8;border-radius:10px}
+.field-app .technical-productivity-personal .productivity-modes button{justify-content:center;gap:5px;min-width:0;min-height:44px;padding:7px 3px;border:0;background:transparent;color:#526f8d;font-size:11px;line-height:1.15}
+.field-app .technical-productivity-personal .productivity-modes button[aria-pressed=true]{background:#fff;color:#1d5f99;box-shadow:0 1px 5px #173b5220}
+.productivity-calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));overflow:hidden;border:1px solid #d8e5f1;border-radius:10px;background:#fff}
+.productivity-calendar-weekday{padding:9px 0;background:#1d4d7c;color:#fff;text-align:center;font-size:11px;font-weight:600}
+.productivity-calendar-blank{min-height:62px;background:#f4f7fb;border-right:1px solid #e0e9f2;border-bottom:1px solid #e0e9f2}
+.field-app .productivity-calendar button{display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-width:0;min-height:62px;padding:7px 2px;border:0;border-right:1px solid #e0e9f2;border-bottom:1px solid #e0e9f2;border-radius:0;background:#fff;color:#245e92;font-size:12px}
+.field-app .productivity-calendar button:disabled{opacity:1;color:#9aabbc}
+.productivity-calendar button span{align-self:flex-start;font-size:11px;font-weight:600}
+.productivity-calendar button strong{align-self:center;margin:auto 0;font-size:11px;white-space:nowrap}
+.field-app .productivity-calendar button.productivity-good{background:#e3f6e9;color:#137238}
+.field-app .productivity-calendar button.productivity-low{background:#fff1da;color:#8a590c}
+.productivity-calendar-empty{grid-column:1/-1;padding:12px;color:#7289a2;font-size:12px}
+@media(max-width:380px){.technical-productivity-personal .productivity-export{padding:8px;font-size:11px}.field-app .technical-productivity-personal .productivity-modes button{font-size:10px}.productivity-calendar button strong{font-size:10px}}

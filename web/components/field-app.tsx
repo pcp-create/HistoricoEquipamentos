@@ -1,6 +1,4 @@
 "use client";
-import UnifiedCalendar from "./unified-calendar";
-import type {CalendarEvent} from "@/lib/calendar/model";
 import ActionNotice from "./action-notice";
 import EquipmentWarrantyDetails from "./equipment-warranty-details";
 import FieldOccurrenceForm from "./field-occurrence-form";
@@ -45,6 +43,7 @@ import SaveActionIcon from "./save-action-icon";
 import FieldMap, { useAutomaticFieldLocation } from "./field-map";
 import ProductivityMap from "./technical-productivity";
 import FieldTimeLogs from "./field-time-logs";
+import FieldCalendar, { fieldToday } from "./field-calendar";
 import { fieldOperationOverdue } from "@/lib/service-scheduling/field-overdue";
 import FieldReportScreen from "./field-report-screen";
 import FieldLocationGate from "./field-location-gate";
@@ -147,6 +146,7 @@ function FieldAppContent() {
     return () => window.removeEventListener("rj-open-operation",open);
   }, []);
   const [scheduleView, setScheduleView] = useState("list");
+  const [selectedDay, setSelectedDay] = useState(() => fieldToday(Date.now()));
   const [includeClosed,setIncludeClosed]=useState(false);
   const [screen, setScreen] = useState("home"),
     [data, setData] = useState<any>(null),
@@ -205,7 +205,6 @@ function FieldAppContent() {
   },[openOperation,scheduleView,includeClosed]);
   const openedLink=useRef(false);
   useEffect(()=>{if(!data||openedLink.current)return;const id=new URLSearchParams(window.location.search).get("operation");if(id&&(data.calendarRows||data.rows||[]).some((r:any)=>r.id===id)){openedLink.current=true;openCalendarOperation(id);}},[data]);
-  const calendarFallback:CalendarEvent[]=((data?.calendarRows||data?.rows||[]) as any[]).filter(row=>row.date).map(row=>({id:'operation:'+row.id,source:'operations',sourceId:row.id,day:row.date,time:row.time||'',title:`OS ${row.number} · Operação ${operationNumber(row.position)}`,customer:row.customer||'',description:row.description||'',status:row.status,state:row.technician_closed||['awaiting_review','reviewed','completed'].includes(row.status)?'completed':'pending',href:'/tecnico?operation='+row.id}));
   const active = data?.active;
   return (
     <FieldSessionActions.Provider value={{signOut: () => void signOut(), signingOut}}><main className={"field-app" + (screen !== "home" && scheduleView === "map" ? " field-app-map" : "")}>
@@ -306,9 +305,10 @@ function FieldAppContent() {
           </nav>
           {scheduleView==="list"&&<label className="field-include-closed"><input type="checkbox" checked={includeClosed} onChange={e=>setIncludeClosed(e.target.checked)}/> Mostrar também operações encerradas</label>}
           <FieldMap visible={scheduleView === "map"}/>
-          {scheduleView === "calendar" && <><UnifiedCalendar revision={data} fallbackEvents={calendarFallback} onOpen={event=>{if(event.source==='operations')openCalendarOperation(event.sourceId);else window.location.assign(event.href);}}/>{(data?.calendarRows||data?.rows||[]).some((row:any)=>!row.date)&&<button type="button" onClick={()=>{setIncludeClosed(true);setScheduleView("list");}}>Ver operações sem data programada</button>}</>}
+          {scheduleView === "calendar" && <FieldCalendar rows={data?.calendarRows || data?.rows || []} selected={selectedDay} onSelect={setSelectedDay} now={now}/>}
+          {scheduleView === "calendar" && data && groups.size > 0 && !(data.calendarRows || data.rows || []).some((row: any) => (row.date || "") === selectedDay) && <p className="field-day-empty">Nenhuma OS programada para esta data.</p>}
           {scheduleView === "productivity" && <ProductivityMap personal/>}
-          {scheduleView === "map" || scheduleView === "calendar" || scheduleView === "productivity" ? null : !data ? (
+          {scheduleView === "map" || scheduleView === "productivity" ? null : !data ? (
             <p>Carregando programação…</p>
           ) : !groups.size ? (
             <section className="field-empty">
@@ -318,7 +318,7 @@ function FieldAppContent() {
             </section>
           ) : (
             [...groups].map(([id, rows]) => {
-              const first = rows[0];
+              const first = (scheduleView === "calendar" ? rows.find(row => (row.date || "") === selectedDay) : null) || rows[0];
               const done = rows.every(row=>["awaiting_review","reviewed","completed"].includes(row.status));
               const overdue = rows.some((row) => fieldOperationOverdue(row.date, row.status, now));
               return (
@@ -333,7 +333,7 @@ function FieldAppContent() {
                   requestAnimationFrame(() => {
                     if (order.open) order.scrollIntoView({ block: "start", behavior: "smooth" });
                   });
-                }} className={"field-order" + (done ? " field-order-completed" : overdue ? " field-order-overdue" : "")} key={id}>
+                }} hidden={scheduleView === "calendar" && !rows.some(row => (row.date || "") === selectedDay)} className={"field-order" + (done ? " field-order-completed" : overdue ? " field-order-overdue" : "")} key={id}>
                   <summary>
                     <div>
                       <strong>OS {first.number}</strong>
@@ -357,7 +357,7 @@ function FieldAppContent() {
                   <div className="field-operations">
                     {rows.some(row=>row.can_report !== false) && <FieldPdfButton scheduleId={String(first.schedule_id)}/>}
                     {rows.map((row) => (
-                      <div id={"field-operation-"+row.id} key={row.id}><FieldOperation
+                      <div id={"field-operation-"+row.id} key={row.id} hidden={scheduleView === "calendar" && (row.date || "") !== selectedDay}><FieldOperation
                         key={row.id}
                         row={row}
                         open={openOperation === row.id}
