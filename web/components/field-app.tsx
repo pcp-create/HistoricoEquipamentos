@@ -43,6 +43,7 @@ import {stagesOf,groupsOf} from '@/lib/service-scheduling/checklists';
 import {checklistProgress} from '@/lib/service-scheduling/checklist-progress';
 import SaveActionIcon from "./save-action-icon";
 import FieldMap, { useAutomaticFieldLocation } from "./field-map";
+import ProductivityMap from "./technical-productivity";
 import FieldTimeLogs from "./field-time-logs";
 import { fieldOperationOverdue } from "@/lib/service-scheduling/field-overdue";
 import FieldReportScreen from "./field-report-screen";
@@ -301,11 +302,13 @@ function FieldAppContent() {
             <button aria-pressed={scheduleView === "list"} onClick={() => setScheduleView("list")}><ClipboardList size={16}/>Lista</button>
             <button aria-pressed={scheduleView === "calendar"} onClick={() => setScheduleView("calendar")}><CalendarDays size={16}/>Calendário</button>
             <button aria-pressed={scheduleView === "map"} onClick={() => setScheduleView("map")}><MapPin size={16}/>Mapa</button>
+            <button aria-pressed={scheduleView === "productivity"} onClick={() => setScheduleView("productivity")}><Clock3 size={16}/>Apontamentos</button>
           </nav>
           {scheduleView==="list"&&<label className="field-include-closed"><input type="checkbox" checked={includeClosed} onChange={e=>setIncludeClosed(e.target.checked)}/> Mostrar também operações encerradas</label>}
           <FieldMap visible={scheduleView === "map"}/>
           {scheduleView === "calendar" && <><UnifiedCalendar revision={data} fallbackEvents={calendarFallback} onOpen={event=>{if(event.source==='operations')openCalendarOperation(event.sourceId);else window.location.assign(event.href);}}/>{(data?.calendarRows||data?.rows||[]).some((row:any)=>!row.date)&&<button type="button" onClick={()=>{setIncludeClosed(true);setScheduleView("list");}}>Ver operações sem data programada</button>}</>}
-          {scheduleView === "map" || scheduleView === "calendar" ? null : !data ? (
+          {scheduleView === "productivity" && <ProductivityMap personal/>}
+          {scheduleView === "map" || scheduleView === "calendar" || scheduleView === "productivity" ? null : !data ? (
             <p>Carregando programação…</p>
           ) : !groups.size ? (
             <section className="field-empty">

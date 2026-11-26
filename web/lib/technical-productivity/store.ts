@@ -1,0 +1,19 @@
+import 'server-only';
+import {database} from '../db';
+import {monthBounds,productivityMap} from './model';
+export async function technicalProductivity(month:string,email?:string){
+ const {start,end}=monthBounds(month),db=database(),args=[start,end,email||null];
+ const [users,settings,operations,sessions,events,legacy]=await Promise.all([
+  db.query('SELECT email,display_name,job_title,job_titles,enabled FROM web_user_access WHERE ($1::text IS NULL OR email=$1)',[email||null]),
+  db.query('SELECT document FROM web_service_schedule_settings WHERE id=1'),
+  db.query(`SELECT p.id,p.position,p.document,s.company_id,s.order_id,COALESCE(o.numero_sequencia,o.id_m8,s.order_id)::text number,o.cliente_nome customer,o.equipamento order_equipment FROM web_service_operations p JOIN web_service_schedules s ON s.id=p.schedule_id LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id WHERE s.active AND p.document->>'date' < $2::text AND ((p.ends_at >= ($1::date::timestamp AT TIME ZONE 'America/Sao_Paulo')) OR p.document->>'date' >= $1::text) AND ($3::text IS NULL OR (p.sent_at IS NOT NULL AND (p.document->>'responsible'=$3 OR p.document->'support' ? $3)))`,args),
+  db.query(`SELECT f.*,s.company_id,s.order_id,p.position,p.document,COALESCE(o.numero_sequencia,o.id_m8,s.order_id)::text number,o.cliente_nome customer,o.equipamento order_equipment FROM web_field_sessions f JOIN web_service_operations p ON p.id=f.operation_id JOIN web_service_schedules s ON s.id=p.schedule_id LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id WHERE COALESCE(NULLIF(f.correction->>'started_at','')::timestamptz,f.started_at) < ($2::date::timestamp AT TIME ZONE 'America/Sao_Paulo') AND COALESCE(NULLIF(f.correction->>'finished_at','')::timestamptz,f.finished_at,now()) >= ($1::date::timestamp AT TIME ZONE 'America/Sao_Paulo') AND ($3::text IS NULL OR f.actor=$3)`,args),
+  db.query(`SELECT e.id,e.operation_id,e.actor,e.action,e.created_at,e.document FROM web_field_events e JOIN web_field_sessions f ON e.document->>'sessionId'=f.id::text WHERE COALESCE(NULLIF(f.correction->>'started_at','')::timestamptz,f.started_at) < ($2::date::timestamp AT TIME ZONE 'America/Sao_Paulo') AND COALESCE(NULLIF(f.correction->>'finished_at','')::timestamptz,f.finished_at,now()) >= ($1::date::timestamp AT TIME ZONE 'America/Sao_Paulo') AND ($3::text IS NULL OR f.actor=$3) AND e.action IN ('start_work','start_travel','pause','resume','stop')`,args),
+  db.query(`SELECT e.*,s.company_id,s.order_id,p.position,p.document,COALESCE(o.numero_sequencia,o.id_m8,s.order_id)::text number,o.cliente_nome customer,o.equipamento order_equipment FROM web_service_operation_events e JOIN web_service_operations p ON p.id=e.operation_id JOIN web_service_schedules s ON s.id=p.schedule_id LEFT JOIN m8_ordens_servico o ON o.company_id=s.company_id AND o.id_m8=s.order_id WHERE e.action IN ('work_log','travel_log') AND e.created_at >= ($1::date::timestamp AT TIME ZONE 'America/Sao_Paulo') AND e.created_at < ($2::date::timestamp AT TIME ZONE 'America/Sao_Paulo') AND ($3::text IS NULL OR e.actor=$3) AND NOT EXISTS(SELECT 1 FROM web_field_sessions f WHERE f.legacy_event_id=e.id OR (f.operation_id=e.operation_id AND f.actor=e.actor AND f.finished_at=e.created_at AND f.kind=CASE WHEN e.action='travel_log' THEN 'travel' ELSE 'work' END))`,args),
+ ]);
+ const people=users.rows.filter(u=>u.enabled&&Array.isArray(u.job_titles)&&u.job_titles.some((title:unknown)=>typeof title==='string'&&/^(técnico|tecnico)$/i.test(title.trim())));
+ const technicians=new Set(people.map(u=>u.email));
+ const result=productivityMap(month,people,operations.rows,sessions.rows,events.rows,legacy.rows,settings.rows[0]?.document?.calendars||[]);
+ result.users=result.users.filter(user=>technicians.has(user.email)&&(!email||user.email===email));
+ return result;
+}

@@ -115,7 +115,7 @@ export default function ModuleHome({ moduleId }: { moduleId?: string }) {
             className="module-menu-grid"
             aria-label={"Menus de " + selected.title}
           >
-            {(MODULE_SECTIONS[selected.id]?[...MODULE_SECTIONS[selected.id].map(section=>[section.name,section.paths[0]]),...(selected.id==='assistencia-tecnica'?[["Portal técnico","/tecnico"]]:[])]:selected.links).filter(([,href])=>!allowed||(href==='/visitas'?allowed.includes('visitas'):canOpenPath(allowed,href))).filter(([, href]) => href !== "/visitas/gestao" || visitManager).map(([label, href]) => (
+            {(MODULE_SECTIONS[selected.id]?[...MODULE_SECTIONS[selected.id].map(section=>[section.name,section.paths[0]]),...(selected.id==='assistencia-tecnica'?[["Portal técnico","/tecnico"],["Apontamentos e produtividade","/programacao/produtividade"]]:[])]:selected.links).filter(([,href])=>!allowed||(href==='/visitas'?allowed.includes('visitas'):canOpenPath(allowed,href))).filter(([, href]) => href !== "/visitas/gestao" || visitManager).map(([label, href]) => (
               <Link
                 prefetch={false}
                 className="module-menu-item"
