@@ -7,13 +7,14 @@ import { DEFAULT_BACKUP_TERMS } from "@/lib/crm/backup";
 import {applyAverageCosts} from "@/lib/crm/product-cost-model";
 import CrmProposalSummary from "./crm-proposal-summary";
 import CrmProposalItems from "./crm-proposal-items";
+import CrmProposalAttachments from "./crm-proposal-attachments";
 import EquipmentWarrantyAlert from "./equipment-warranty-alert";
 import EquipmentCreateDialog from "./equipment-create-dialog";
 import OrderAttachments,{sendOrderAttachments} from "./order-attachments";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Trash2, RefreshCw, Plus, ClipboardList, Package, Wrench, ChartNoAxesCombined } from "lucide-react";
+import { ArrowLeft, Save, Trash2, RefreshCw, Plus, ClipboardList, Package, Wrench, ChartNoAxesCombined,Paperclip } from "lucide-react";
 import SiteHeader from "./site-header";
 import OrderSearchSelect from "./order-search-select";
 import OrderDeliveryHistory from "./order-delivery-history";
@@ -613,7 +614,8 @@ export default function NewServiceOrder({
           return JSON.stringify(items)===JSON.stringify(current.items)?current:{...current,items};
         })}/>}
         {proposal?.activityTools}
-        {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{key==='header'?<ClipboardList size={18} aria-hidden="true"/>:key==='material'?<Package size={18} aria-hidden="true"/>:key==='service'?<Wrench size={18} aria-hidden="true"/>:<ChartNoAxesCombined size={18} aria-hidden="true"/>}<span>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}</span></button>)}</nav>}
+        {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['attachments','Anexos'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{key==='header'?<ClipboardList size={18} aria-hidden="true"/>:key==='material'?<Package size={18} aria-hidden="true"/>:key==='service'?<Wrench size={18} aria-hidden="true"/>:key==='attachments'?<Paperclip size={18} aria-hidden="true"/>:<ChartNoAxesCombined size={18} aria-hidden="true"/>}<span>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}</span></button>)}</nav>}
+        {proposal&&tab==='attachments'&&<CrmProposalAttachments proposalId={proposal.id}/>}
         {proposal&&<div hidden={tab!=='summary'}>{proposal.summaryTools}</div>}
         <form onSubmit={submit} onKeyDown={event=>{if(proposal && event.key==='Enter' && event.target instanceof HTMLInputElement && !event.nativeEvent.isComposing)event.preventDefault();}} noValidate>
           <fieldset
@@ -700,7 +702,7 @@ export default function NewServiceOrder({
                     <div className="os-equipment-warranty"><EquipmentWarrantyAlert equipmentId={form.equipment} company={editing?.company} orderId={editing?.id} compact hover/></div>
                     </div>
                     {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&form.equipment&&<button type="button" disabled={disabled} onClick={()=>{set('equipment','');setNames(names=>({...names,equipment:''}));setEquipmentPending(false);}}>Sem equipamento</button>}
-                    {!proposal&&<button type="button" className="os-add-equipment" aria-label="Cadastrar equipamento" title="Cadastrar equipamento" disabled={!form.customer||!form.type} onClick={()=>setAddingEquipment(true)}><Plus size={18}/></button>}</div>
+                    <button type="button" className="os-add-equipment" aria-label="Cadastrar equipamento" title="Cadastrar equipamento" disabled={disabled || (proposal ? Boolean(proposal.locked || (!form.customer && !proposal.leadId)) : !form.customer || !form.type)} onClick={()=>setAddingEquipment(true)}><Plus size={18}/></button></div>
                     {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&<small>{proposal ? "Equipamento opcional." : "Equipamento opcional conforme a configuração do tipo de OS."}</small>}
                     {equipmentPending&&<small className="ws-integration-pending">Vínculo com cliente pendente de integração. Confirme o vínculo antes de gerar a OS.</small>}
                     <small>
@@ -1130,7 +1132,7 @@ export default function NewServiceOrder({
           })}
         />}
       </main>
-      {addingEquipment&&<EquipmentCreateDialog source="service-order" customer={{id:"m8:"+form.customer,name:names.customer}} onClose={()=>setAddingEquipment(false)} onCreated={equipment=>{set("equipment",equipment.id);setNames(n=>({...n,equipment:equipment.name}));setEquipmentPending(!!equipment.integrationPending);setAddingEquipment(false);}}/>}
+      {addingEquipment&&<EquipmentCreateDialog source={proposal ? "visits" : "service-order"} proposalId={proposal?.id} customer={{id:proposal?.leadId ? "lead:"+proposal.leadId : "m8:"+form.customer,name:names.customer}} onClose={()=>setAddingEquipment(false)} onCreated={equipment=>{set("equipment",String(equipment.id));setNames(n=>({...n,equipment:equipment.name}));setEquipmentPending(!!equipment.integrationPending);setAddingEquipment(false);}}/>}
     </>
   );
 }

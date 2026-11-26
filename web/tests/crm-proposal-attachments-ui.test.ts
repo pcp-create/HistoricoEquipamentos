@@ -1,0 +1,11 @@
+import {test} from 'node:test';
+import {build} from 'esbuild';
+import {createServer} from 'node:http';
+import {chromium,expect} from '@playwright/test';
+
+test('proposal attachments can be uploaded, opened and removed',async()=>{
+ const bundle=await build({stdin:{contents:`import React from 'react';import{createRoot}from'react-dom/client';import Attachments from './components/crm-proposal-attachments';createRoot(document.getElementById('root')).render(<Attachments proposalId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"/>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,outfile:'app.js',jsx:'automatic',loader:{'.css':'empty'}});
+ let rows:any[]=[];const server=createServer((req,res)=>{if(req.url?.startsWith('/api/crm/attachments')){res.setHeader('Content-Type','application/json');if(req.method==='POST')rows=[{id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',filename:'foto.png',size:3,created_name:'Ana',created_at:'2026-11-26T12:00:00Z'}];if(req.method==='DELETE')rows=[];res.end(JSON.stringify({rows,ok:true}));return;}res.end(`<div id="root"></div><script>${bundle.outputFiles[0].text}</script>`)});
+ await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));const browser=await chromium.launch();
+ try{const page=await browser.newPage({viewport:{width:390,height:844}});await page.goto('http://127.0.0.1:'+(server.address() as any).port);await expect(page.getByText('Nenhum anexo adicionado')).toBeVisible();await page.getByLabel('Selecionar arquivos da proposta').setInputFiles({name:'foto.png',mimeType:'image/png',buffer:Buffer.from('png')});const link=page.getByRole('link',{name:/foto.png/});await expect(link).toBeVisible();await expect(link).toHaveAttribute('href',/proposal=.*&id=/);page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Remover foto.png'}).click();await expect(page.getByText('Nenhum anexo adicionado')).toBeVisible();}finally{await browser.close();await new Promise<void>(resolve=>server.close(()=>resolve()))}
+});

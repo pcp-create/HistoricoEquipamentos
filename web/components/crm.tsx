@@ -697,6 +697,8 @@ function OpportunityDialog({
       opportunity_updated: "Oportunidade alterada",
       proposal_created: "Proposta criada",
       proposal_updated: "Proposta alterada",
+      attachment_added: "Anexo adicionado à proposta",
+      attachment_removed: "Anexo removido da proposta",
       conversion_requested: "Criação de OS solicitada",
       proposal_converted: "Proposta concretizada",
     })[s] || s;

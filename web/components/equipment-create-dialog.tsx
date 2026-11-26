@@ -14,9 +14,11 @@ export default function EquipmentCreateDialog({
   onClose,
   onDraft,
   equipmentOptions,
+  proposalId,
 }: {
   customer?: { id: string; name: string };
   source: "visits" | "service-order" | "workshop";
+  proposalId?: string;
   equipmentOptions?: OrderChoice[];
   onCreated: (equipment: any) => void;
   onClose: () => void;
@@ -175,7 +177,8 @@ export default function EquipmentCreateDialog({
       ) : (
         <RegisterEquipment
           key={customer?.id || "draft"}
-          endpoint={source === "visits" ? "/api/visits/machines" : undefined}
+          endpoint={proposalId ? `/api/crm/proposal-equipment?proposal=${encodeURIComponent(proposalId)}` : source === "visits" ? "/api/visits/machines" : undefined}
+          equipmentEndpoint={proposalId ? `/api/crm/proposal-equipment?proposal=${encodeURIComponent(proposalId)}` : undefined}
           customer={customer}
           source={source}
           customerOnly={source !== "service-order"}
