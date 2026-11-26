@@ -45,7 +45,7 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await assert.rejects(saveOpportunity({id:opportunity.id,version:opportunity.version,typeId:man.id,customerId:10,company:2,title:'Trocar empresa'},'planner'));
  let writes=0,state='ready',last:any;
  const deps={prepare:async(actor:string,id:any,draft:any)=>{assert.equal(actor,'planner');assert.equal(draft.customer,'10');if(draft.items.length){assert.equal(draft.items[0].discountPercent,undefined);assert.equal(draft.items[0].price,'9.45');}last={id,company:1,state,m8Id:state==='ready'?null:900};return last;},advance:async()=>{if(state==='ready'){writes++;state='uncertain';}return {...last,state,message:'Confira no ERP'};},retry:async()=>{state='ready';return {...last,state};}};
- await assert.rejects(beginConversion({id:randomUUID(),proposalId:p.id,version:saved.version},'planner',deps),/Envie a proposta/);
+ await assert.rejects(beginConversion({id:randomUUID(),proposalId:p.id,version:saved.version},'planner',deps),/Conclua a revisão/);
  await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision,last_sent_revision,reviewed_by,reviewed_at) VALUES($1,'sent',0,0,'planner',now())",[p.id]);
  await db.query("INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id) SELECT id,0,version,document,names,title,decode('00','hex'),'planner','cliente@example.com','test-1' FROM crm_proposals WHERE id=$1",[p.id]);
  assert.equal((await getProposal(p.id)).sentRevisions[0].sent_by_name,'Planejador');
@@ -104,7 +104,8 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await db.query('UPDATE crm_proposal_types SET tax_budget_type=NULL WHERE id=$1',[mpa.id]);
  assert.equal(savedLead.document.customer,'');assert.equal(savedLead.document.equipment,'101');
  await assert.rejects(beginConversion({id:randomUUID(),proposalId:leadProposal.id,version:savedLead.version},'planner',deps),/cliente cadastrado no M8/);
- await assert.rejects(saveOpportunity({id:randomUUID(),typeId:man.id,leadId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',company:1,title:'Lead privado'},'planner'),/lead disponível/);
+ const otherLead=await saveOpportunity({id:randomUUID(),typeId:man.id,leadId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',company:1,title:'Lead de outro responsável'},'planner');
+ assert.equal(otherLead.lead_id,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
  const linked=await saveOpportunity({id:leadOpportunity.id,version:leadOpportunity.version,typeId:man.id,customerId:10,company:1,title:'Oportunidade de lead'},'planner');
  assert.equal(linked.lead_id,null);assert.equal(Number(linked.customer_id),10);
  assert.equal(linked.origin_lead_id,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
@@ -126,6 +127,14 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await db.query("UPDATE crm_order_links SET order_id=901,state='complete' WHERE id=$1",[pendingLink]);
  assert.equal((await getOpportunity(changeOp.id)).customer_locked,true);
  await assert.rejects(saveOpportunity({id:changeOp.id,version:changedToLead.version,typeId:man.id,customerId:10,company:1,title:'Alterar cliente'},'planner'),/não pode ser alterado/);
+
+ const earlyOp=await saveOpportunity({id:randomUUID(),typeId:man.id,customerId:10,company:1,title:'Pedido antecipado'},'planner');
+ const earlyProposal=await createProposal({id:randomUUID(),opportunityId:earlyOp.id,typeId:mpa.id,title:'Proposta revisada'},'planner');
+ const earlySaved=await saveProposal({id:earlyProposal.id,version:earlyProposal.version,draft:{...emptyDraft(),company:'1',customer:'10',type:'4',notes:'Dados revisados'}},'planner');
+ await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision) VALUES($1,'reviewed',0)",[earlyProposal.id]);
+ const earlyRequest=randomUUID();
+ const early=await beginConversion({id:earlyRequest,proposalId:earlyProposal.id,version:earlySaved.version},'planner',{...deps,prepare:async(_actor:string,_id:string,draft:any)=>{assert.equal(draft.notes,'Dados revisados');return {state:'ready',company:1};}});
+ assert.equal(early.state,'ready');assert.equal((await db.query<any>('SELECT document FROM crm_order_links WHERE id=$1',[earlyRequest])).rows[0].document.notes,'Dados revisados');
 
  assert.throws(()=>proposalDraft({...emptyDraft(),items:[{kind:'material',code:'1',name:'x',quantity:'-1',price:'5'}]}));
  }finally{g.historyPool=old;await db.close();}

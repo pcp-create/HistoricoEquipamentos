@@ -70,10 +70,10 @@ export async function sendProposalEmail(input:any,actor:string,send:typeof fetch
  const attempt=randomUUID(),c=await db.connect();
  try{
   await c.query('BEGIN READ WRITE');
-  const locked=(await c.query('SELECT p.version,o.status opportunity_status FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p,o',[id])).rows[0];
+  const locked=(await c.query('SELECT p.version,p.status proposal_status,o.status opportunity_status FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p,o',[id])).rows[0];
   const workflow=(await c.query('SELECT * FROM crm_proposal_workflows WHERE proposal_id=$1 FOR UPDATE',[id])).rows[0];
   if(locked?.version!==expected||workflow?.state!=='reviewed'||workflow.revision!==revision)throw new CrmError('A proposta foi alterada. Atualize antes de enviar.');
-  if(locked.opportunity_status!=='open')throw new CrmError('A oportunidade não está disponível para envio.');
+  if(locked.opportunity_status!=='open'&&!(locked.opportunity_status==='won'&&locked.proposal_status==='won'))throw new CrmError('A oportunidade não está disponível para envio.');
   if((await c.query("SELECT 1 FROM crm_proposal_email_attempts WHERE proposal_id=$1 AND state IN ('sending','uncertain')",[id])).rows.length)throw new CrmError('Há um envio aguardando conferência.');
   await c.query("INSERT INTO crm_proposal_email_attempts(id,proposal_id,revision,proposal_version,actor,recipients,document,names,title,pdf,state) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,'sending')",[attempt,id,revision,expected,actor,to,JSON.stringify(draft),JSON.stringify(proposal.names),proposal.title,Buffer.from(pdf)]);
   await c.query('COMMIT');

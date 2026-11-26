@@ -5,7 +5,6 @@ import {hydrateProductCosts} from './product-costs';
 import 'server-only';
 import {database} from '../db';
 import {CrmError,uuid,text,positive,version,proposalDraft,emptyDraft,totalCents,conversionRate} from './model';
-import {canManageVisits} from '../access-roles';
 async function write<T>(work:(c:any)=>Promise<T>):Promise<T>{const c=await database().connect();try{await c.query('BEGIN READ WRITE');const result=await work(c);await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK');if((e as any)?.code==='23505')throw new CrmError('Este código já está cadastrado. Atualize a lista antes de tentar novamente.');throw e;}finally{c.release();}}
 async function event(c:any,actor:string,action:string,opportunity:string|null,proposal:string|null,details:any){await c.query('INSERT INTO crm_events(actor,action,opportunity_id,proposal_id,details) VALUES($1,$2,$3,$4,$5::jsonb)',[actor,action,opportunity,proposal,JSON.stringify(details)]);}
 export async function catalogs(){
@@ -54,7 +53,7 @@ export async function saveOpportunity(raw:any,actor:string){
  return write(async c=>{
  const t=(await c.query('SELECT id FROM crm_opportunity_types WHERE id=$1 AND active',[type])).rows[0];
  const user=lead?(await c.query('SELECT enabled,role FROM web_user_access WHERE email=$1',[actor])).rows[0]:null;
- const client=lead?(await c.query('SELECT name FROM web_sales_leads WHERE id=$1 AND (owner=$2 OR $3::boolean)',[lead,actor,!!user?.enabled&&canManageVisits(user.role)])).rows[0]:(await c.query('SELECT name FROM m8_customer_directory WHERE person_id=$1 ORDER BY company_id LIMIT 1',[customer])).rows[0];
+ const client=lead?(await c.query('SELECT name FROM web_sales_leads WHERE id=$1',[lead])).rows[0]:(await c.query('SELECT name FROM m8_customer_directory WHERE person_id=$1 ORDER BY company_id LIMIT 1',[customer])).rows[0];
  if(!t||!client||(lead&&!user?.enabled))throw new CrmError('Selecione um tipo ativo e um cliente ou lead disponível.');
  const old=(await c.query('SELECT * FROM crm_opportunities WHERE id=$1 FOR UPDATE',[id])).rows[0];
  if(raw.status==='won'&&old?.status!=='won')throw new CrmError('A oportunidade será concretizada após a criação da OS.');

@@ -57,8 +57,12 @@ test('proposal review creates one task and records who completed it',async()=>{
   const input={id,version:3,accessToken:'token',to:'cliente@example.com',subject:'Proposta',body:'Segue a proposta.'};
   await assert.rejects(()=>sendProposalEmail(input,'solicitante',async()=>new Response('{}',{status:403}),deps),/recusou/);
   assert.equal((await query<any>('SELECT state FROM crm_proposal_workflows')).rows[0].state,'reviewed');
+  await query("UPDATE crm_proposals SET status='won' WHERE id=$1",[id]);
+  await query("UPDATE crm_opportunities SET status='won' WHERE id=$1",[op]);
   const result=await sendProposalEmail(input,'solicitante',async()=>Response.json({id:'gmail-123'}),deps);
   assert.equal(result.revision,0);
+  await query("UPDATE crm_proposals SET status='pending' WHERE id=$1",[id]);
+  await query("UPDATE crm_opportunities SET status='open' WHERE id=$1",[op]);
   assert.equal((await query<any>('SELECT state FROM crm_proposal_workflows')).rows[0].state,'sent');
   assert.equal((await query<any>('SELECT gmail_message_id FROM crm_proposal_sent_revisions')).rows[0].gmail_message_id,'gmail-123');
   await assert.rejects(()=>sendProposalEmail(input,'solicitante',async()=>Response.json({id:'duplicate'}),deps),/alterada/);

@@ -131,7 +131,7 @@ export default function CrmProposal({ id }: { id: string }) {
     ),
     locked = ['converting','won','lost','cancelled'].includes(data.status) || pending || ['sent','reviewed'].includes(data.workflow?.state) || (data.workflow?.state==='in_review' && data.workflow.reviewer!==data.currentUser);
   const orderChoices=catalog.orderTypes.filter((t:any)=>t.active&&type?.order_types?.includes(String(t.id)));
-  const cannotConvert=busy||changed||pending||data.workflow?.state!=='sent'||data.status!=='pending'||!orderChoices.length;
+  const cannotConvert=busy||changed||pending||!!data.emailAttempt||!['reviewed','sent'].includes(data.workflow?.state)||data.status!=='pending'||!orderChoices.length;
   const headerActions=<div className="crm-actions">
     {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
     {data.emailAttempt&&<div role="alert"><p>{data.emailAttempt.can_resolve?'Envio sem confirmação. Confira a pasta Enviados do Gmail antes de continuar.':'Envio em andamento. Aguarde e atualize a proposta.'}</p>{data.emailAttempt.can_resolve&&data.emailAttempt.actor===data.currentUser&&<><button type="button" disabled={busy} onClick={async()=>{if(!window.confirm('Confirma que encontrou o e-mail enviado no Gmail?'))return;setBusy(true);try{await crmApi('',{action:'resolve-proposal-email',id,attemptId:data.emailAttempt.id,resolution:'sent',confirmed:true});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Confirmei que foi enviado</button><button type="button" disabled={busy} onClick={async()=>{if(!window.confirm('Confirma que o e-mail não foi enviado? Isso permitirá uma nova tentativa.'))return;setBusy(true);try{await crmApi('',{action:'resolve-proposal-email',id,attemptId:data.emailAttempt.id,resolution:'not_sent',confirmed:true});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Confirmei que não foi enviado</button></>}</div>}
@@ -140,7 +140,7 @@ export default function CrmProposal({ id }: { id: string }) {
     <CrmProposalPdf proposal={data} disabled={changed||busy} locked={locked} onSaved={load} onError={setError}/>
     {data.workflow?.state==='reviewed'&&<button type="button" className="button primary" disabled={busy||changed||!!data.emailAttempt} onClick={()=>setEmailOpen(true)}>Enviar ao cliente</button>}
     {emailOpen&&<ProposalDialog label="Enviar proposta ao cliente" onClose={()=>setEmailOpen(false)}><CrmProposalEmail proposal={data} onClose={()=>setEmailOpen(false)} onSent={load}/></ProposalDialog>}
-    {data.workflow?.state==='sent'&&data.status==='pending'&&<button type="button" className="button primary" disabled={cannotConvert} title={changed?"Salve a proposta antes de gerar o pedido.":undefined} onClick={()=>{
+    {data.status==='pending'&&<button type="button" className="button primary" disabled={cannotConvert} title={changed?"Salve a proposta antes de gerar o pedido.":!['reviewed','sent'].includes(data.workflow?.state)?"Conclua a revisão antes de gerar o pedido.":undefined} onClick={()=>{
       if(orderChoices.length===1)void convert(undefined,false,String(orderChoices[0].id));
       else {setConversionType('');setChoosingType(true);}
     }}>{busy?'Processando…':'Pedido de Venda (Gerar OS)'}</button>}
