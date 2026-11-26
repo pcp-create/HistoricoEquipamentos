@@ -3,7 +3,7 @@ import CrmProposalPdf from "./crm-proposal-pdf";
 import CrmProposalEmail from "./crm-proposal-email";
 import OrderDetailLink from "./order-detail-link";
 import CrmEmailSettings from "./crm-email-settings";
-import {FileText,Settings} from "lucide-react";
+import {FileText,Settings,Send,ClipboardList} from "lucide-react";
 import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -138,12 +138,12 @@ export default function CrmProposal({ id }: { id: string }) {
     {emailSettings&&<button type="button" className="button" onClick={()=>setSettingsOpen(true)}><Settings size={16}/> Configurações</button>}
     {settingsOpen&&<CrmEmailSettings initial={emailSettings} onClose={()=>setSettingsOpen(false)} onSaved={setEmailSettings}/>}
     <CrmProposalPdf proposal={data} disabled={changed||busy} locked={locked} onSaved={load} onError={setError}/>
-    {data.workflow?.state==='reviewed'&&<button type="button" className="button primary" disabled={busy||changed||!!data.emailAttempt} onClick={()=>setEmailOpen(true)}>Enviar ao cliente</button>}
+    {data.workflow?.state==='reviewed'&&<button type="button" className="button primary" disabled={busy||changed||!!data.emailAttempt} onClick={()=>setEmailOpen(true)}><Send size={16} aria-hidden="true"/>Enviar ao cliente</button>}
     {emailOpen&&<ProposalDialog label="Enviar proposta ao cliente" onClose={()=>setEmailOpen(false)}><CrmProposalEmail proposal={data} onClose={()=>setEmailOpen(false)} onSent={load}/></ProposalDialog>}
     {data.status==='pending'&&<button type="button" className="button primary" disabled={cannotConvert} title={changed?"Salve a proposta antes de gerar o pedido.":!['reviewed','sent'].includes(data.workflow?.state)?"Conclua a revisão antes de gerar o pedido.":undefined} onClick={()=>{
       if(orderChoices.length===1)void convert(undefined,false,String(orderChoices[0].id));
       else {setConversionType('');setChoosingType(true);}
-    }}>{busy?'Processando…':'Pedido de Venda (Gerar OS)'}</button>}
+    }}><ClipboardList size={16} aria-hidden="true"/>{busy?'Processando…':'Pedido de Venda (Gerar OS)'}</button>}
     {choosingType&&<dialog ref={typeDialog} className="crm-order-type-dialog" aria-label="Selecionar tipo de ordem de serviço" onCancel={()=>setChoosingType(false)}>
       <h2>Pedido de Venda (Gerar OS)</h2>
       <label>Tipo de OS a gerar<select aria-label="Tipo de OS a gerar" value={conversionType} onChange={e=>setConversionType(e.target.value)}><option value="">Selecione o tipo de OS</option>{orderChoices.map((t:any)=><option key={t.id} value={String(t.id)}>{t.id} · {t.name}</option>)}</select></label>
