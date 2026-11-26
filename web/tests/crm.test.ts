@@ -133,7 +133,7 @@ test('CRM persists local opportunities and proposals and safely links conversion
  const earlySaved=await saveProposal({id:earlyProposal.id,version:earlyProposal.version,draft:{...emptyDraft(),company:'1',customer:'10',type:'4',notes:'Dados revisados'}},'planner');
  await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision) VALUES($1,'reviewed',0)",[earlyProposal.id]);
  const earlyRequest=randomUUID();
- const early=await beginConversion({id:earlyRequest,proposalId:earlyProposal.id,version:earlySaved.version},'planner',{...deps,prepare:async(_actor:string,_id:string,draft:any)=>{assert.equal(draft.notes,'Dados revisados');return {state:'ready',company:1};}});
+ const early=await beginConversion({id:earlyRequest,proposalId:earlyProposal.id,version:earlySaved.version},'planner',{...deps,prepare:async(_actor:string,_id:unknown,draft:any)=>{assert.equal(draft.notes,'Dados revisados');return {state:'ready',company:1};}} as any);
  assert.equal(early.state,'ready');assert.equal((await db.query<any>('SELECT document FROM crm_order_links WHERE id=$1',[earlyRequest])).rows[0].document.notes,'Dados revisados');
 
  assert.throws(()=>proposalDraft({...emptyDraft(),items:[{kind:'material',code:'1',name:'x',quantity:'-1',price:'5'}]}));
