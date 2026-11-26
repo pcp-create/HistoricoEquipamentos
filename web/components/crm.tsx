@@ -773,12 +773,7 @@ function OpportunityDialog({
                 ))}
               </select>
             </label>
-            <label>
-              Cadastro *
-              <select aria-label="Tipo de cadastro" disabled={!!data.proposals?.length || !!data.customer_locked || won} value={accountKind} onChange={e=>{setAccountKind(e.target.value as 'customer'|'lead');setForm(f=>({...f,customerId:'',customerName:'',leadId:''}));}}>
-                <option value="customer">Cliente</option><option value="lead">Lead</option>
-              </select>
-            </label>
+            <div className="crm-account-kind"><span>Cadastro *</span><div className="crm-account-kind-switch" role="group" aria-label="Tipo de cadastro">{([['customer','Cliente'],['lead','Lead']] as const).map(([kind,label])=><button key={kind} type="button" aria-pressed={accountKind===kind} disabled={!!data.customer_locked || won || (!!data.proposals?.length && kind==='lead' && !data.lead_id)} onClick={()=>{if(accountKind===kind)return;setAccountKind(kind);setForm(f=>({...f,customerId:'',customerName:'',leadId:''}));}}>{label}</button>)}</div></div>
             <label className="crm-wide">
               {accountKind==='lead' ? 'Lead *' : 'Cliente *'}
               <OrderSearchSelect
@@ -786,6 +781,8 @@ function OpportunityDialog({
                 disabled={!!data.customer_locked || won}
                 endpoint={accountKind==='lead' ? "/api/crm?kind=leads" : "/api/crm?kind=customers"}
                 customerIdentity={accountKind==='customer'}
+                hideId={accountKind==='lead'}
+                searchPlaceholder={accountKind==='lead'?'Pesquisar por nome ou cidade':'Pesquisar por ID ou descrição'}
                 value={accountKind==='lead'?form.leadId:form.customerId}
                 selectedLabel={form.customerName}
                 onChange={(row) =>
@@ -797,7 +794,7 @@ function OpportunityDialog({
                   }))
                 }
               />
-              {accountKind==='lead' && <small>Para criar uma proposta, vincule esta oportunidade a um cliente cadastrado.</small>}
+              {accountKind==='lead' && <small>Para gerar a OS, vincule a oportunidade a um cliente cadastrado no M8.</small>}
               {!!data.proposals?.length && !data.customer_locked && !won && <small>Ao trocar o cliente, propostas revisadas ou enviadas precisarão de nova revisão. Os PDFs enviados serão mantidos.</small>}
             </label>
             <label>
@@ -927,7 +924,7 @@ function OpportunityDialog({
         <>
           <section className="crm-opportunity-proposals" aria-label="Propostas vinculadas">
           <div className="crm-opportunity-proposals-heading"><div><h3>Propostas vinculadas <span>{data.proposals?.length || 0}</span></h3><p>Acompanhe as propostas desta oportunidade.</p></div>
-          {!proposalOpen && <button type="button" className="button crm-add-proposal" disabled={busy || data.status !== "open" || !!data.lead_id || accountKind==='lead' || form.customerId!==String(data.customer_id||'')} onClick={() => setProposalOpen(true)}><Plus size={16} /> Adicionar proposta</button>}</div>
+          {!proposalOpen && <button type="button" className="button crm-add-proposal" disabled={busy || data.status !== "open" || form.customerId!==String(data.customer_id||'') || form.leadId!==String(data.lead_id||'')} onClick={() => setProposalOpen(true)}><Plus size={16} /> Adicionar proposta</button>}</div>
           <div className="crm-links">
             {data.proposals?.map((p: any) => (
               <article key={p.id}>

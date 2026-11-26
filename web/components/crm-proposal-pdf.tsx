@@ -82,9 +82,10 @@ export default function CrmProposalPdf({
         </button>
         {options && <div id={optionsId} className="crm-pdf-export-options" role="group" aria-label="Opções de exportação">
           <button type="button" aria-label="Gerar Proposta com Impostos"
+            disabled={!!proposal.lead_id} title={proposal.lead_id?'Vincule a oportunidade a um cliente no M8 para calcular impostos.':undefined}
             onClick={() => { setOptions(false); void generate(true); }}>
             <Receipt size={20} aria-hidden="true" />
-            <span><strong>Gerar Proposta com Impostos</strong><small>Calcula e exibe os impostos dos produtos.</small></span>
+            <span><strong>Gerar Proposta com Impostos</strong><small>{proposal.lead_id?'Disponível após vincular um cliente no M8.':'Calcula e exibe os impostos dos produtos.'}</small></span>
           </button>
           <button type="button" aria-label="Gerar Proposta sem Impostos"
             onClick={() => { setOptions(false); void generate(false); }}>

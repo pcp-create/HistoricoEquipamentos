@@ -234,7 +234,7 @@ export async function proposalPdf(
   }
   const gross=(item:typeof draft.items[number])=>Math.round(Number(item.quantity)*Math.round(Number(item.price)*100));
   const discount=(item:typeof draft.items[number])=>gross(item)-itemFinancials(item).sale;
-  const unit=(value:string)=>({UNIDADE:'UN',UNIDADES:'UN',HORA:'H',HORAS:'H',PACOTE:'PCT',SERVIÇO:'SV',SERVICO:'SV'} as Record<string,string>)[value.trim().toUpperCase()]||value.trim().toUpperCase()||'—';
+  const unit=(value:string)=>({UNIDADE:'UN',UNIDADES:'UN',LITRO:'L',LITROS:'L',HORA:'H',HORAS:'H',PACOTE:'PCT',SERVIÇO:'SV',SERVICO:'SV'} as Record<string,string>)[value.trim().toUpperCase()]||value.trim().toUpperCase()||'—';
   function tableHeader(label:string) {
     ensure(40);
     if(label){text(label,M+8,y,6.5,true,blue);y+=11;}

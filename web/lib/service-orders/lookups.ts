@@ -1,4 +1,4 @@
-import {customerOrderSellers} from "./sellers";
+import {customerOrderSellers,orderSellers} from "./sellers";
 import {searchPatterns} from "@/lib/filters";
 import "server-only";
 import { database } from "../db";
@@ -31,6 +31,7 @@ export async function orderLookups(p: URLSearchParams) {
     const m = await m8Session(company);
     return customerOrderSellers(m,id);
   }
+  if(kind==='proposal-sellers')return {rows:await orderSellers(await m8Session(positiveId(p.get('company'),'a empresa')))};
   const q = searchPatterns((p.get("q") || "").trim().slice(0,120));
   const page = Number(p.get("page") || 1);
   if (!Number.isInteger(page) || page < 1 || page > 10000)
@@ -48,17 +49,19 @@ export async function orderLookups(p: URLSearchParams) {
       ).rows,
     };
   if (kind === "equipment" || kind === "proposal-equipment") {
-    const customer = positiveId(p.get("customer"), "o cliente");
+    let customer = kind === 'equipment' ? positiveId(p.get("customer"), "o cliente") : null;
     const type = kind === "equipment" || p.get("type") ? positiveId(p.get("type"), "o tipo de OS") : null;
     let leadKey:string|null=null;
     if(kind==='proposal-equipment'){
       const proposal=p.get('proposal')||'';
       if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(proposal))throw new OrderInputError('Selecione uma proposta válida.');
-      const account=(await db.query('SELECT o.customer_id,o.origin_lead_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1',[proposal])).rows[0];
-      if(!account||String(account.customer_id)!==String(customer))throw new OrderInputError('Cliente não corresponde à proposta.');
-      if(account.origin_lead_id)leadKey='lead:'+account.origin_lead_id;
+      const account=(await db.query('SELECT o.customer_id,o.lead_id,o.origin_lead_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1',[proposal])).rows[0];
+      if(!account)throw new OrderInputError('Proposta não encontrada.');
+      if(account.customer_id){customer=positiveId(p.get('customer'),'o cliente');if(String(account.customer_id)!==String(customer))throw new OrderInputError('Cliente não corresponde à proposta.');}
+      else if(!account.lead_id||p.get('customer'))throw new OrderInputError('Cliente não corresponde à proposta.');
+      if(account.lead_id||account.origin_lead_id)leadKey='lead:'+(account.lead_id||account.origin_lead_id);
     }
-    const t = type ? (
+    const t = customer && type ? (
       await db.query(
         "SELECT customer_equipment_only FROM m8_order_type_catalog WHERE id=$1 AND active",
         [type],

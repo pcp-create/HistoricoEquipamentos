@@ -12,6 +12,8 @@ export type OrderChoice = {
   detail?: string;
   tradeName?: string;
   document?: string;
+  city?: string;
+  uf?: string;
   disabled?: boolean;
   data?: any;
 };
@@ -26,6 +28,7 @@ export default function OrderSearchSelect({
   searchPlaceholder = "Pesquisar por ID ou descrição",
   menuHeader,
   customerIdentity = false,
+  hideId = false,
   renderOptionActions,
   value,
   selectedLabel,
@@ -40,6 +43,7 @@ export default function OrderSearchSelect({
   searchPlaceholder?: string;
   menuHeader?: ReactNode;
   customerIdentity?: boolean;
+  hideId?: boolean;
   renderOptionActions?: (row: OrderChoice) => ReactNode;
   value: string;
   selectedLabel?: string;
@@ -103,7 +107,7 @@ export default function OrderSearchSelect({
             }))
           : (d.rows || [])
               .slice(0, 30)
-              .map((i: any) => ({ ...i, detail: i.detail || `ID ${i.id}` }));
+              .map((i: any) => ({ ...i, detail: hideId ? [i.city,i.uf].filter(Boolean).join(' / ') : i.detail || `ID ${i.id}` }));
         setRemote((prev) =>
           page === 1
             ? rows
@@ -126,7 +130,7 @@ export default function OrderSearchSelect({
       clearTimeout(timer);
       c.abort();
     };
-  }, [open, endpoint, q, page]);
+  }, [open, endpoint, q, page, hideId]);
   const rows = endpoint
     ? remote
     : options.filter((r) =>
@@ -233,7 +237,7 @@ export default function OrderSearchSelect({
               >
                 <span className="order-choice-content">
                   <span className="order-choice-line">
-                    {(row.displayId ?? row.id) && <><span className="order-choice-id">{row.displayId ?? row.id}</span><span className="order-choice-separator" aria-hidden="true">-</span></>}
+                    {!hideId && (row.displayId ?? row.id) && <><span className="order-choice-id">{row.displayId ?? row.id}</span><span className="order-choice-separator" aria-hidden="true">-</span></>}
                     <strong>{row.name.startsWith(`${row.id} · `) ? row.name.slice(row.id.length + 3) : row.name}</strong>
                   </span>
                   {row.tradeName && <small className="order-choice-trade-name">{customerIdentity ? 'Nome fantasia: ' : ''}{row.tradeName}</small>}

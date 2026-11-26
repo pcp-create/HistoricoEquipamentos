@@ -11,7 +11,7 @@ test('proposal review creates one task and records who completed it',async()=>{
   await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated;
    CREATE TABLE web_user_access(email text PRIMARY KEY,enabled boolean,role text,modules jsonb,display_name text);
    INSERT INTO web_user_access VALUES ('solicitante',true,'user','["crm"]','Solicitante'),('revisor',true,'user','["crm"]','Revisor');
-   CREATE TABLE crm_opportunities(id uuid PRIMARY KEY,customer_name text,status text DEFAULT 'open',updated_at timestamptz,version integer DEFAULT 1);
+   CREATE TABLE crm_opportunities(id uuid PRIMARY KEY,customer_name text,lead_id uuid,status text DEFAULT 'open',updated_at timestamptz,version integer DEFAULT 1);
    CREATE TABLE crm_proposals(id uuid PRIMARY KEY,opportunity_id uuid,number int,status text,version int,names jsonb,document jsonb,updated_by text,updated_at timestamptz);
    CREATE TABLE m8_order_type_catalog(id bigint,equipment_required boolean); INSERT INTO m8_order_type_catalog VALUES(4,true);
    CREATE TABLE crm_order_links(proposal_id uuid,order_id bigint);
@@ -39,6 +39,8 @@ test('proposal review creates one task and records who completed it',async()=>{
   await assert.rejects(()=>changeProposalReview({id,version:2,action:'complete_review'},'revisor'),/Data Entrega Prevista/);
   assert.equal((await query<any>('SELECT state FROM crm_proposal_workflows WHERE proposal_id=$1',[id])).rows[0].state,'in_review');
   await query("UPDATE crm_proposals SET document=jsonb_set(document,'{expected}','\"2026-11-25\"') WHERE id=$1",[id]);
+  await query("UPDATE crm_opportunities SET lead_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' WHERE id=$1",[op]);
+  await query("UPDATE crm_proposals SET document=jsonb_set(document,'{customer}',to_jsonb(''::text)) WHERE id=$1",[id]);
   const completed=await changeProposalReview({id,version:2,action:'complete_review'},'revisor');
   assert.equal(completed.state,'reviewed');
   const workflow=(await query<any>('SELECT * FROM crm_proposal_workflows')).rows[0];

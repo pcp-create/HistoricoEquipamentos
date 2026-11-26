@@ -13,7 +13,7 @@ export async function changeProposalReview(input:any, actor:string) {
  const c=await database().connect();
  try {
   await c.query('BEGIN READ WRITE');
-  const proposal=(await c.query('SELECT p.*,o.customer_name,o.status opportunity_status FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p,o',[id])).rows[0];
+  const proposal=(await c.query('SELECT p.*,o.customer_name,o.lead_id,o.status opportunity_status FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p,o',[id])).rows[0];
   if(!proposal||proposal.version!==expected)throw new CrmError('A proposta foi alterada. Atualize antes de continuar.');
   if(['won','converting','lost','cancelled'].includes(proposal.status))throw new CrmError('Esta proposta não está disponível para revisão.');
   if(proposal.opportunity_status!=='open')throw new CrmError('A oportunidade não está disponível para revisão.');
@@ -24,7 +24,7 @@ export async function changeProposalReview(input:any, actor:string) {
   let next;try{next=transitionProposalWorkflow(current,input.action);}catch{throw new CrmError('A revisão não pode ser alterada nesta etapa.');}
   if(input.action==='complete_review'){
    const types=(await c.query('SELECT id,equipment_required FROM m8_order_type_catalog WHERE id=$1',[proposal.document?.type||null])).rows;
-   const missing=missingProposalFields(proposal.document,proposalRequiresEquipment(proposal.document,types));
+   const missing=missingProposalFields(proposal.document,proposalRequiresEquipment(proposal.document,types),!!proposal.lead_id);
    if(missing.length)throw new CrmError('Preencha os campos obrigatórios: '+missing.map(key=>proposalFieldNames[key]).join(', ')+'.');
   }
   if(input.action==='request_review'){

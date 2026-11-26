@@ -13,20 +13,21 @@ import {cleanEmailBodyHtml} from '../service-scheduling/email-body-html';
 export async function proposalEmailSettings(){const row=(await database().query('SELECT document FROM crm_proposal_email_settings WHERE id=1')).rows[0];return validateCustomerEmail(row?.document);}
 export async function proposalEmailDetails(id:string,actor?:string,input?:any){
  const proposal=await getProposal(uuid(id)),db=database();
+ const customerKey=proposal.lead_id?'lead:'+proposal.lead_id:proposal.document.customer?'m8:'+proposal.document.customer:'';
  let saved;
  if(input){
-  if(!actor||!proposal.document.customer)throw new CrmError('Cliente não disponível para cadastro de contato.');
+  if(!actor||!customerKey)throw new CrmError('Cliente ou lead não disponível para cadastro de contato.');
   const name=text(input.name,160,true),phone=text(input.phone??'',40),job=text(input.job_title??'',160);
   let emails:string[];try{emails=emailRecipients(text(input.email,254,true));}catch(e){throw new CrmError((e as Error).message);}
   if(emails.length!==1||(phone&&!/^[+()\d\s.-]+$/.test(phone)))throw new CrmError('Confira o e-mail e o telefone do contato.');
-  const c=await db.connect();try{await c.query('BEGIN READ WRITE');saved=(await c.query(`INSERT INTO web_customer_contacts(id,customer_key,name,phone,email,job_title,created_by) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(customer_key,name,phone) WHERE m8_id IS NULL DO UPDATE SET email=EXCLUDED.email,job_title=EXCLUDED.job_title RETURNING id,name,phone,email,job_title`,[randomUUID(),'m8:'+proposal.document.customer,name,phone,emails[0],job,actor])).rows[0];await c.query('COMMIT');}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+  const c=await db.connect();try{await c.query('BEGIN READ WRITE');saved=(await c.query(`INSERT INTO web_customer_contacts(id,customer_key,name,phone,email,job_title,created_by) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(customer_key,name,phone) WHERE m8_id IS NULL DO UPDATE SET email=EXCLUDED.email,job_title=EXCLUDED.job_title RETURNING id,name,phone,email,job_title`,[randomUUID(),customerKey,name,phone,emails[0],job,actor])).rows[0];await c.query('COMMIT');}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
  }
  const [settings,contacts,customer]=await Promise.all([
   db.query('SELECT document FROM crm_proposal_email_settings WHERE id=1'),
-  db.query(`SELECT id,COALESCE(to_jsonb(c)->'field_overrides'->>'name',name) name,COALESCE(to_jsonb(c)->'field_overrides'->>'email',email) email,job_title FROM web_customer_contacts c WHERE customer_key=$1 AND to_jsonb(c)->>'deleted_at' IS NULL ORDER BY lower(name),id`,['m8:'+proposal.document.customer]),
-  db.query("SELECT payload->>'email' email FROM m8_customer_directory WHERE person_id=$1 AND company_id=$2 LIMIT 1",[proposal.document.customer,proposal.company_id]),
+  db.query(`SELECT id,COALESCE(to_jsonb(c)->'field_overrides'->>'name',name) name,COALESCE(to_jsonb(c)->'field_overrides'->>'email',email) email,job_title FROM web_customer_contacts c WHERE customer_key=$1 AND to_jsonb(c)->>'deleted_at' IS NULL ORDER BY lower(name),id`,[customerKey]),
+  db.query("SELECT payload->>'email' email FROM m8_customer_directory WHERE person_id=$1 AND company_id=$2 LIMIT 1",[proposal.document.customer||null,proposal.company_id]),
  ]);
- return {config:validateCustomerEmail(settings.rows[0]?.document),contacts:contacts.rows,saved,canCreate:!!proposal.document.customer,defaultEmail:customer.rows[0]?.email||'',customer:proposal.customer_name,equipment:proposal.names?.equipment||'',number:proposal.number};
+ return {config:validateCustomerEmail(settings.rows[0]?.document),contacts:contacts.rows,saved,canCreate:!!customerKey,defaultEmail:customer.rows[0]?.email||'',customer:proposal.customer_name,equipment:proposal.names?.equipment||'',number:proposal.number};
 }
 export async function saveProposalEmailSettings(input:any,actor:string){
  const config=validateCustomerEmail(input);
@@ -47,7 +48,7 @@ async function renderProposalEmail(input:any,deps=defaultEmailDeps){
  if(proposal.version!==expected||proposal.workflow?.state!=='reviewed')throw new CrmError('A proposta deve estar revisada e atualizada antes do envio.');
  const db=database(),draft=proposal.document;
  const [client,equipment,products]=await Promise.all([
-  db.query('SELECT document,payload FROM m8_customer_directory WHERE person_id=$1 AND company_id=$2 LIMIT 1',[draft.customer,draft.company]),
+  proposal.lead_id?db.query("SELECT name,jsonb_build_object('municipioNome',city,'ufSigla',uf) payload FROM web_sales_leads WHERE id=$1",[proposal.lead_id]):db.query('SELECT document,payload FROM m8_customer_directory WHERE person_id=$1 AND company_id=$2 LIMIT 1',[draft.customer||null,draft.company]),
   draft.equipment?db.query('SELECT name,model,serial FROM m8_equipment_catalog WHERE equipment_id=$1',[draft.equipment]):Promise.resolve({rows:[]}),
   db.query("SELECT product_id::text code,NULLIF(trim(payload->>'ncm'),'') ncm FROM m8_product_catalog WHERE company_id=$1 AND product_id=ANY($2::bigint[])",[draft.company,draft.items.filter((item:any)=>item.kind==='material').map((item:any)=>item.code)]),
  ]);

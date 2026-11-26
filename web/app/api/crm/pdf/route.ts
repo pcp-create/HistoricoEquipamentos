@@ -17,7 +17,7 @@ export async function GET(request:Request){
    if(!sent)throw new CrmError('A versão enviada não está disponível.');
    return new Response(new Uint8Array(sent.pdf),{headers:{'Content-Type':'application/pdf','Content-Disposition':`inline; filename="proposta-${proposal.number}-rev-${sent.revision}.pdf"`,'Cache-Control':'private, no-store'}});
   }
-  const [client,equipment]=await Promise.all([db.query('SELECT document,payload FROM m8_customer_directory WHERE person_id=$1 AND company_id=$2 LIMIT 1',[draft.customer,draft.company]),draft.equipment?db.query('SELECT name,model,serial FROM m8_equipment_catalog WHERE equipment_id=$1',[draft.equipment]):Promise.resolve({rows:[]})]);
+  const [client,equipment]=await Promise.all([proposal.lead_id?db.query("SELECT name,jsonb_build_object('municipioNome',city,'ufSigla',uf) payload FROM web_sales_leads WHERE id=$1",[proposal.lead_id]):db.query('SELECT document,payload FROM m8_customer_directory WHERE person_id=$1 AND company_id=$2 LIMIT 1',[draft.customer||null,draft.company]),draft.equipment?db.query('SELECT name,model,serial FROM m8_equipment_catalog WHERE equipment_id=$1',[draft.equipment]):Promise.resolve({rows:[]})]);
   proposal.document=includeTaxes?await hydratePdfProductTaxes(draft):draft;
   const codes=[...new Set(draft.items.filter((item:any)=>item.kind==='material').map((item:any)=>item.code))];
   const products=codes.length?(await db.query("SELECT product_id::text code,NULLIF(trim(payload->>'ncm'),'') ncm FROM m8_product_catalog WHERE company_id=$1 AND product_id=ANY($2::bigint[])",[draft.company,codes])).rows:[];

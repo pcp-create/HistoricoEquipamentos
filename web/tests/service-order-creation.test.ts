@@ -178,7 +178,7 @@ test("creation uses customer equipment rule, persists progress, isolates users a
  INSERT INTO service_order_registries(kind,id,name,updated_by,warranty_id,warranty_description) VALUES('service-types',1,'Corretiva','test',3,'90 dias'),('service-origins',1,'Contato','test',null,null),('payment-terms',1,'À vista','test',null,null),('order-statuses',1,'Aberta','test',null,null),('freight',1,'Sem frete','test',null,null),('flow-statuses',1,'Aberta','test',null,null);`);
     await db.exec(readFileSync(new URL('../sql/107_order_type_equipment_requirement.sql',import.meta.url),'utf8'));
     await db.exec(`CREATE TABLE web_equipment_customer_links(person_id bigint,equipment_id bigint);CREATE TABLE lead_equipment(customer_key text,equipment_id bigint);CREATE VIEW web_effective_person_equipment AS SELECT company_id,'m8:'||person_id::text customer_key,person_id,equipment_id,present,false integration_pending FROM m8_person_equipment UNION ALL SELECT 1,'m8:'||person_id::text,person_id,equipment_id,true,true FROM web_equipment_customer_links UNION ALL SELECT 1,customer_key,NULL::bigint,equipment_id,true,true FROM lead_equipment;
-    CREATE TABLE crm_opportunities(id uuid PRIMARY KEY,customer_id bigint,origin_lead_id uuid);CREATE TABLE crm_proposals(id uuid PRIMARY KEY,opportunity_id uuid);INSERT INTO crm_opportunities VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',10,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');INSERT INTO crm_proposals VALUES('cccccccc-cccc-4ccc-8ccc-cccccccccccc','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');INSERT INTO lead_equipment VALUES('lead:bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',101);`);
+    CREATE TABLE crm_opportunities(id uuid PRIMARY KEY,customer_id bigint,lead_id uuid,origin_lead_id uuid);CREATE TABLE crm_proposals(id uuid PRIMARY KEY,opportunity_id uuid);INSERT INTO crm_opportunities VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',10,NULL,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),('dddddddd-dddd-4ddd-8ddd-dddddddddddd',NULL,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');INSERT INTO crm_proposals VALUES('cccccccc-cccc-4ccc-8ccc-cccccccccccc','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','dddddddd-dddd-4ddd-8ddd-dddddddddddd');INSERT INTO lead_equipment VALUES('lead:bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',101);`);
     const query = db.query.bind(db);
     g.historyPool = { query, connect: async () => ({ query, release() {} }) };
     Object.assign(process.env, {
@@ -199,6 +199,8 @@ test("creation uses customer equipment rule, persists progress, isolates users a
     const proposalEquipment = await orderLookups(new URLSearchParams('lookup=proposal-equipment&customer=10&proposal=cccccccc-cccc-4ccc-8ccc-cccccccccccc'));
     assert.deepEqual(proposalEquipment.rows?.map((row:any)=>row.id), ['100','101']);
     assert.equal(proposalEquipment.rows?.find((row:any)=>row.id==='101').data.integrationPending,true);
+    const leadEquipment=await orderLookups(new URLSearchParams('lookup=proposal-equipment&customer=&type=2&proposal=eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'));
+    assert.deepEqual(leadEquipment.rows?.map((row:any)=>row.id),['101']);
     await assert.rejects(()=>orderLookups(new URLSearchParams('lookup=proposal-equipment&customer=11&proposal=cccccccc-cccc-4ccc-8ccc-cccccccccccc')),/não corresponde/);
     await assert.rejects(() => orderLookups(new URLSearchParams('lookup=equipment&customer=10')), /tipo de OS/);
     assert.equal(

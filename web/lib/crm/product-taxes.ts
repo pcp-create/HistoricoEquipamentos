@@ -21,6 +21,7 @@ export async function hydrateProductTaxes(
 ): Promise<OrderDraft> {
   const products = draft.items;
   if (!products.length || !draft.commercial?.taxBudgetType) return draft;
+  if(!draft.customer)throw new CrmError('Para calcular impostos, vincule a oportunidade a um cliente cadastrado no M8.');
   try {
     const request = await session(positive(draft.company)),
       taxes = new Map<string, ProductTaxes>();

@@ -97,11 +97,18 @@ test('CRM persists local opportunities and proposals and safely links conversion
  const leadOpportunity=await saveOpportunity({id:randomUUID(),typeId:man.id,leadId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',company:1,title:'Oportunidade de lead'},'planner');
  assert.equal(leadOpportunity.customer_id,null);assert.equal(leadOpportunity.customer_name,'Lead Teste');
  assert.equal((await getOpportunity(leadOpportunity.id)).lead_id,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
- await assert.rejects(createProposal({id:randomUUID(),opportunityId:leadOpportunity.id,typeId:mpa.id,title:'Proposta'},'planner'),/cliente cadastrado/);
+ const leadProposal=await createProposal({id:randomUUID(),opportunityId:leadOpportunity.id,typeId:mpa.id,title:'Proposta'},'planner');
+ assert.equal(leadProposal.document.customer,'');assert.equal(leadProposal.names.customer,'Lead Teste');
+ await db.query('UPDATE crm_proposal_types SET tax_budget_type=1 WHERE id=$1',[mpa.id]);
+ const savedLead=await saveProposal({id:leadProposal.id,version:leadProposal.version,draft:{...emptyDraft(),company:'1',equipment:'101',items:[{kind:'material',code:'50',name:'Filtro',quantity:'1',price:'10'}]},names:{equipment:'Equipamento do lead'}},'planner');
+ await db.query('UPDATE crm_proposal_types SET tax_budget_type=NULL WHERE id=$1',[mpa.id]);
+ assert.equal(savedLead.document.customer,'');assert.equal(savedLead.document.equipment,'101');
+ await assert.rejects(beginConversion({id:randomUUID(),proposalId:leadProposal.id,version:savedLead.version},'planner',deps),/cliente cadastrado no M8/);
  await assert.rejects(saveOpportunity({id:randomUUID(),typeId:man.id,leadId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',company:1,title:'Lead privado'},'planner'),/lead disponível/);
  const linked=await saveOpportunity({id:leadOpportunity.id,version:leadOpportunity.version,typeId:man.id,customerId:10,company:1,title:'Oportunidade de lead'},'planner');
  assert.equal(linked.lead_id,null);assert.equal(Number(linked.customer_id),10);
  assert.equal(linked.origin_lead_id,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+ assert.equal((await getProposal(leadProposal.id)).document.customer,'10');
  assert.ok((await createProposal({id:randomUUID(),opportunityId:linked.id,typeId:mpa.id,title:'Proposta'},'planner')).id);
 
  const changeOp=await saveOpportunity({id:randomUUID(),typeId:man.id,customerId:10,company:1,title:'Alterar cliente'},'planner');

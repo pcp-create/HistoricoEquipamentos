@@ -24,8 +24,9 @@ async function recordResult(link:any,r:any){
 export async function beginConversion(raw:any,actor:string,deps=defaults){
  const id=uuid(raw.id),proposal=uuid(raw.proposalId),expected=version(raw.version);
  const link=await transaction(async c=>{
- const p=(await c.query('SELECT p.*,o.status opportunity_status FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p,o',[proposal])).rows[0];
+ const p=(await c.query('SELECT p.*,o.status opportunity_status,o.customer_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p,o',[proposal])).rows[0];
  if(!p)throw new CrmError('Proposta não encontrada.');
+ if(!p.customer_id)throw new CrmError('Para gerar a OS, vincule primeiro a oportunidade a um cliente cadastrado no M8.');
  const old=(await c.query('SELECT * FROM crm_order_links WHERE id=$1',[id])).rows[0];
  if(old){if(old.actor!==actor||old.proposal_id!==proposal)throw new CrmError('Envio pertence a outro usuário.');if(old.state==='validation_failed')throw new CrmError('Corrija e salve a proposta antes de uma nova tentativa.');return old;}
  if((await c.query('SELECT 1 FROM crm_order_links WHERE proposal_id=$1 AND order_id IS NOT NULL LIMIT 1',[proposal])).rows.length)throw new CrmError('Esta proposta já possui uma OS vinculada.');

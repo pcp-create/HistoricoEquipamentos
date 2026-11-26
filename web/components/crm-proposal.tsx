@@ -252,6 +252,7 @@ export default function CrmProposal({ id }: { id: string }) {
       returnTo="/crm"
       proposal={{
         id,
+        leadId: data.lead_id,
         title: "Proposta comercial PROP-" + data.number + (data.workflow?.state&&data.workflow.state!=='creating'?` · Rev.${data.workflow.revision}`:''),
         name: title,
         createdAt: data.created_at,

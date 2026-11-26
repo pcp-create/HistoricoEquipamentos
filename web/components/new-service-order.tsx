@@ -70,7 +70,7 @@ async function api(body?: unknown, query = "") {
 export default function NewServiceOrder({
   editing, returnTo, proposal,
 }: { returnTo?: string; editing?: { company: string; id: string }; proposal?: {
- id:string;title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
+ id:string;leadId?:string|null;title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
  activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
 } } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
@@ -184,7 +184,7 @@ export default function NewServiceOrder({
     const c = new AbortController();
     setSellers([]);
     setSellerError("");
-    if (!form.customer || !form.company) {
+    if ((!form.customer&&!proposal?.leadId) || !form.company) {
       setSellerBusy(false);
       return;
     }
@@ -192,7 +192,7 @@ export default function NewServiceOrder({
     fetch(
       "/api/service-orders?" +
         new URLSearchParams({
-          lookup: "sellers",
+          lookup: form.customer?"sellers":"proposal-sellers",
           customer: form.customer,
           company: form.company,
         }),
@@ -232,7 +232,7 @@ export default function NewServiceOrder({
         if (!c.signal.aborted) setSellerBusy(false);
       });
     return () => c.abort();
-  }, [form.company, form.customer]);
+  }, [form.company, form.customer, proposal?.leadId]);
   const registry = (kind: string) =>
     (meta?.registries || []).filter((r: any) => r.kind === kind);
   const service = registry("service-types").find(
@@ -271,7 +271,7 @@ export default function NewServiceOrder({
     if(proposal){
       if(proposal.locked)return;
       if(proposal.saveLabel==='Concluir revisão'){
-        const missing=missingProposalFields(form,!equipmentOptionalForOrderType(form.type,type?.equipment_required));
+        const missing=missingProposalFields(form,!equipmentOptionalForOrderType(form.type,type?.equipment_required),!!proposal.leadId);
         if(missing.length){setTab('header');setError('Preencha os campos obrigatórios: '+missing.map(key=>proposalFieldNames[key]).join(', ')+'.');return;}
       }
       sending.current=true;setBusy(true);
@@ -431,7 +431,7 @@ export default function NewServiceOrder({
       <OrderSearchSelect
         label={label}
         value={String(form[key])}
-        disabled={key==="seller"&&(sellerBusy||!form.customer)}
+        disabled={key==="seller"&&(sellerBusy||(!form.customer&&!proposal?.leadId))}
         options={(editing &&
         form[key] &&
         !options.some((r) => String(r.id) === String(form[key]))
@@ -653,7 +653,7 @@ export default function NewServiceOrder({
                 <div className="os-grid">
                   {proposal&&companyField}
                   {!proposal&&select("type", "Tipo Ordem de Serviço", meta?.types || [])}
-                  <label data-proposal-required-empty={proposal && !form.customer ? "true" : undefined}>
+                  <label data-proposal-required-empty={proposal && !form.customer && !proposal.leadId ? "true" : undefined}>
                     <span className="os-field-title">
                       Cliente <b>*</b>
                     </span>
@@ -681,7 +681,7 @@ export default function NewServiceOrder({
                       label="Equipamento"
                       value={form.equipment}
                       selectedLabel={names.equipment}
-                      disabled={!form.customer || (!proposal && !form.type)}
+                      disabled={(!form.customer&&!proposal?.leadId) || (!proposal && !form.type)}
                       endpoint={
                         "/api/service-orders?" +
                         new URLSearchParams({
