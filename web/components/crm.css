@@ -290,7 +290,7 @@
 .crm-account-kind-switch button:focus-visible {outline:2px solid #2478bb;outline-offset:1px}
 .crm-opportunity-dialog .crm-opportunity-grid .crm-wide { grid-column:span 2; }
 .crm-opportunity-dialog .crm-opportunity-grid .crm-opportunity-notes { grid-column:1/-1; }
-.crm-opportunity-account-hint { grid-column:2 / 4; margin-top:-7px; color:#71869e; font-size:11px; line-height:1.4; }
+.crm-opportunity-account-hint { grid-column:1 / -1; margin:-7px 0 0 calc(25% + 4px); color:#71869e; font-size:11px; line-height:1.4; }
 .crm-opportunity-dialog .crm-opportunity-grid input,.crm-opportunity-dialog .crm-opportunity-grid select,.crm-opportunity-dialog .crm-opportunity-grid textarea { min-height:38px; padding:8px 10px; font-size:13px; font-weight:400; }
 .crm-opportunity-dialog .crm-opportunity-grid textarea { min-height:54px; resize:vertical; }
 .crm-opportunity-save { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin:0 0 16px; }
@@ -313,7 +313,7 @@
 .crm-opportunity-proposal-form .crm-form-grid { margin:12px 0; }
 .crm-opportunity-proposal-form fieldset > button + button { margin-left:8px; }
 .crm-opportunity-history { margin-top:14px; color:#526d88; font-size:13px; }
-@media(max-width:760px) { .crm-opportunity-dialog .crm-opportunity-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .crm-opportunity-account-hint { grid-column:1/-1; } }
+@media(max-width:760px) { .crm-opportunity-dialog .crm-opportunity-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .crm-opportunity-account-hint { margin-left:0; } }
 @media(max-width:480px) { .crm-opportunity-dialog { padding:16px; } .crm-opportunity-dialog .crm-opportunity-grid { gap:12px; } .crm-opportunity-dialog .crm-opportunity-grid .crm-wide { grid-column:1/-1; } .crm-opportunity-proposals .crm-links article { grid-template-columns:auto minmax(0,1fr); } .crm-opportunity-save button { width:100%; } }
 
 /* Proposal header: compact groups aligned with the opportunity editor. */
@@ -473,6 +473,9 @@
 .new-os.crm-proposal-page > form { padding:14px; margin-top:10px; }
 .new-os.crm-proposal-page .crm-proposal-header .os-field-title b { position:static; }
 .new-os.crm-proposal-page .crm-proposal-header .os-equipment-create-row { margin-top:0; }
+.new-os.crm-proposal-page .os-equipment-create-row > .os-add-equipment { background:#246397; border-color:#246397; }
+.new-os.crm-proposal-page .os-equipment-create-row > .os-add-equipment:hover:not(:disabled) { background:#1d507d; border-color:#1d507d; }
+.new-os.crm-proposal-page .os-equipment-create-row > .os-add-equipment:focus-visible { outline-color:#246397; }
 .new-os.crm-proposal-page .crm-proposal-header .os-grid > label:has(textarea) > .os-field-title { padding-top:0; }
 
 /* Keep the product and service actions together on narrow screens. */

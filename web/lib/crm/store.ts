@@ -151,6 +151,10 @@ export async function saveCatalog(raw:any,actor:string){
  const values=[code,name,notes,active,...(parent?[parent]:[])];
  const row=(await c.query(id?`UPDATE ${table} SET code=$1,name=$2,notes=$3,active=$4,version=version+1${parent?',opportunity_type_id=$5':''} WHERE id=$${values.length+1} RETURNING *`:`INSERT INTO ${table}(code,name,notes,active${parent?',opportunity_type_id':''}) VALUES(${values.map((_,i)=>'$'+(i+1))}) RETURNING *`,id?[...values,id]:values)).rows[0];
  if(kind==='proposal'){
+ if(raw.equipmentRequired!==undefined){
+  if(typeof raw.equipmentRequired!=='boolean')throw new CrmError('Informe se o tipo de proposta exige equipamento.');
+  const updated=(await c.query('UPDATE crm_proposal_types SET equipment_required=$2 WHERE id=$1 RETURNING *',[row.id,raw.equipmentRequired])).rows[0];Object.assign(row,updated);
+ }
  if(raw.taxBudgetType!==undefined){
   const updated=(await c.query('UPDATE crm_proposal_types SET tax_budget_type=$2,tax_budget_name=$3 WHERE id=$1 RETURNING *',[row.id,fiscal?.id||null,fiscal?.name||''])).rows[0];Object.assign(row,updated);
  }

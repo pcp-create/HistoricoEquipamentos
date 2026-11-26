@@ -71,7 +71,7 @@ async function api(body?: unknown, query = "") {
 export default function NewServiceOrder({
   editing, returnTo, proposal,
 }: { returnTo?: string; editing?: { company: string; id: string }; proposal?: {
- id:string;leadId?:string|null;title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
+ id:string;leadId?:string|null;equipmentRequired?:boolean;title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
  activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
 } } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
@@ -272,7 +272,7 @@ export default function NewServiceOrder({
     if(proposal){
       if(proposal.locked)return;
       if(proposal.saveLabel==='Concluir revisão'){
-        const missing=missingProposalFields(form,!equipmentOptionalForOrderType(form.type,type?.equipment_required),!!proposal.leadId);
+        const missing=missingProposalFields(form,proposal.equipmentRequired !== false,!!proposal.leadId);
         if(missing.length){setTab('header');setError('Preencha os campos obrigatórios: '+missing.map(key=>proposalFieldNames[key]).join(', ')+'.');return;}
       }
       sending.current=true;setBusy(true);
@@ -673,9 +673,9 @@ export default function NewServiceOrder({
                       }}
                     />
                   </label>
-                  <label className={proposal ? "crm-proposal-equipment" : undefined} data-proposal-required-empty={proposal && !equipmentOptionalForOrderType(form.type,type?.equipment_required) && !form.equipment ? "true" : undefined}>
+                  <label className={proposal ? "crm-proposal-equipment" : undefined} data-proposal-required-empty={proposal && !(proposal ? proposal.equipmentRequired === false : equipmentOptionalForOrderType(form.type,type?.equipment_required)) && !form.equipment ? "true" : undefined}>
                     <span className="os-field-title">
-                      Equipamento {!equipmentOptionalForOrderType(form.type,type?.equipment_required) && <b>*</b>}
+                      Equipamento {!(proposal ? proposal.equipmentRequired === false : equipmentOptionalForOrderType(form.type,type?.equipment_required)) && <b>*</b>}
                     </span>
                     <div className="os-equipment-create-row">
                     <div className="os-equipment-select">
@@ -693,7 +693,7 @@ export default function NewServiceOrder({
                           ...(proposal?{proposal:proposal.id}:{}),
                         })
                       }
-                      placeholder={equipmentOptionalForOrderType(form.type,type?.equipment_required) ? "Equipamento opcional" : "Selecione o equipamento"}
+                      placeholder={(proposal ? proposal.equipmentRequired === false : equipmentOptionalForOrderType(form.type,type?.equipment_required)) ? "Equipamento opcional" : "Selecione o equipamento"}
                       onChange={(r) => {
                         set("equipment", r.id);setEquipmentPending(!!r.data?.integrationPending);
                         setNames((n) => ({ ...n, equipment: r.name }));
@@ -701,9 +701,9 @@ export default function NewServiceOrder({
                     />
                     <div className="os-equipment-warranty"><EquipmentWarrantyAlert equipmentId={form.equipment} company={editing?.company} orderId={editing?.id} compact hover/></div>
                     </div>
-                    {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&form.equipment&&<button type="button" disabled={disabled} onClick={()=>{set('equipment','');setNames(names=>({...names,equipment:''}));setEquipmentPending(false);}}>Sem equipamento</button>}
+                    {(proposal ? proposal.equipmentRequired === false : equipmentOptionalForOrderType(form.type,type?.equipment_required))&&form.equipment&&<button type="button" disabled={disabled} onClick={()=>{set('equipment','');setNames(names=>({...names,equipment:''}));setEquipmentPending(false);}}>Sem equipamento</button>}
                     <button type="button" className="os-add-equipment" aria-label="Cadastrar equipamento" title="Cadastrar equipamento" disabled={disabled || (proposal ? Boolean(proposal.locked || (!form.customer && !proposal.leadId)) : !form.customer || !form.type)} onClick={()=>setAddingEquipment(true)}><Plus size={18}/></button></div>
-                    {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&<small>{proposal ? "Equipamento opcional." : "Equipamento opcional conforme a configuração do tipo de OS."}</small>}
+                    {(proposal ? proposal.equipmentRequired === false : equipmentOptionalForOrderType(form.type,type?.equipment_required))&&<small>{proposal ? "Equipamento opcional." : "Equipamento opcional conforme a configuração do tipo de OS."}</small>}
                     {equipmentPending&&<small className="ws-integration-pending">Vínculo com cliente pendente de integração. Confirme o vínculo antes de gerar a OS.</small>}
                     <small>
                       {proposal && !form.type ? "Somente equipamentos do cliente" : type?.customer_equipment_only === true
