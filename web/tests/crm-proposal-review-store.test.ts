@@ -1,8 +1,9 @@
+import {prepareExternalDelivery,confirmExternalDelivery} from '../lib/crm/proposal-external-delivery';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {PGlite} from '@electric-sql/pglite';
-import {changeProposalReview} from '../lib/crm/proposal-review-store';
+import {changeProposalReview,cancelProposal} from '../lib/crm/proposal-review-store';
 import {sendProposalEmail,resolveProposalEmail} from '../lib/crm/proposal-email';
 
 test('proposal review creates one task and records who completed it',async()=>{
@@ -15,7 +16,7 @@ test('proposal review creates one task and records who completed it',async()=>{
    CREATE TABLE crm_proposals(id uuid PRIMARY KEY,opportunity_id uuid,number int,status text,version int,names jsonb,document jsonb,updated_by text,updated_at timestamptz,type_id bigint DEFAULT 1);
    CREATE TABLE crm_proposal_types(id bigint PRIMARY KEY); INSERT INTO crm_proposal_types VALUES(1);
    CREATE TABLE m8_order_type_catalog(id bigint,equipment_required boolean); INSERT INTO m8_order_type_catalog VALUES(4,true);
-   CREATE TABLE crm_order_links(proposal_id uuid,order_id bigint);
+   CREATE TABLE crm_order_links(proposal_id uuid,order_id bigint,state text);
    CREATE TABLE crm_events(opportunity_id uuid,proposal_id uuid,actor text,action text,details jsonb);
    CREATE TABLE web_service_schedule_settings(id int,document jsonb);
    CREATE TABLE m8_customer_directory(person_id bigint,company_id integer,document text,payload jsonb);
@@ -26,6 +27,7 @@ test('proposal review creates one task and records who completed it',async()=>{
    CREATE TABLE web_task_notifications(task_id bigint,task_version int,recipient text);`);
   await db.exec(readFileSync(new URL('../sql/125_crm_proposal_review_workflow.sql',import.meta.url),'utf8'));
   await db.exec(readFileSync(new URL('../sql/128_crm_proposal_equipment_required.sql',import.meta.url),'utf8'));
+  await db.exec(readFileSync(new URL('../sql/131_crm_proposal_external_delivery.sql',import.meta.url),'utf8'));
   assert.equal((await db.query<any>('SELECT equipment_required FROM crm_proposal_types WHERE id=1')).rows[0].equipment_required,true);
   const id='00000000-0000-4000-8000-000000000001',op='00000000-0000-4000-8000-000000000002';
   await db.query('INSERT INTO crm_opportunities(id,customer_name) VALUES($1,$2)',[op,'Cliente']);
@@ -87,5 +89,49 @@ test('proposal review creates one task and records who completed it',async()=>{
   await resolveProposalEmail({id,attemptId:pending.id,resolution:'sent',confirmed:true},'solicitante');
   assert.deepEqual((await query<any>('SELECT revision,last_sent_revision,state FROM crm_proposal_workflows')).rows[0],{revision:1,last_sent_revision:1,state:'sent'});
   assert.equal((await query<any>('SELECT count(*)::int count FROM crm_proposal_sent_revisions')).rows[0].count,2);
+  const beforeReopen=(await query<any>('SELECT version FROM crm_proposals WHERE id=$1',[id])).rows[0].version;
+  const reopened=await changeProposalReview({id,version:beforeReopen,action:'reopen_proposal'},'solicitante');
+  assert.equal(reopened.state,'creating');assert.equal(reopened.revision,2);
+  assert.equal((await query<any>('SELECT count(*)::int count FROM crm_proposal_sent_revisions')).rows[0].count,2);
+  const again=await changeProposalReview({id,version:reopened.version,action:'request_review',reviewer:'revisor'},'solicitante');
+  await assert.rejects(changeProposalReview({id,version:again.version,action:'reopen_proposal'},'terceiro'),/solicitante/);
+  const returned=await changeProposalReview({id,version:again.version,action:'reopen_proposal'},'solicitante');
+  assert.equal(returned.state,'creating');
+  const directPending=await changeProposalReview({id,version:returned.version,action:'complete_review',allowUnapprovedPrices:true},'solicitante',checkPrices);
+  assert.equal(directPending.state,'creating');assert.equal(directPending.pendingCount,2);
+  const direct=await changeProposalReview({id,version:returned.version,action:'complete_review'},'solicitante',async()=>({items:[],approvals:[],approved:true,minimumPrices:{}}));
+  assert.equal(direct.state,'reviewed');
+  const render:any=async(input:any)=>({id,expected:input.version,revision:2,proposal:{number:1,title:'Proposta',names:{}},draft:{company:'1',customer:'10',items:[]},pdf:new Uint8Array([1,2,3])});
+  const prepared=await prepareExternalDelivery({id,version:direct.version,channel:'whatsapp'},'solicitante',render);
+  assert.equal((await query<any>('SELECT state FROM crm_proposal_workflows WHERE proposal_id=$1',[id])).rows[0].state,'reviewed');
+  await assert.rejects(confirmExternalDelivery({id,deliveryId:prepared.deliveryId,confirmed:true},'revisor'),/não encontrado/);
+  await assert.rejects(confirmExternalDelivery({id,deliveryId:prepared.deliveryId},'solicitante'),/Confirme/);
+  await confirmExternalDelivery({id,deliveryId:prepared.deliveryId,confirmed:true},'solicitante');
+  await confirmExternalDelivery({id,deliveryId:prepared.deliveryId,confirmed:true},'solicitante');
+  const stored=(await query<any>('SELECT * FROM crm_proposal_sent_revisions WHERE proposal_id=$1 AND revision=2',[id])).rows[0];
+  assert.equal(stored.delivery_channel,'whatsapp');assert.equal(stored.gmail_message_id,null);assert.deepEqual([...stored.pdf],[1,2,3]);
+  const edit=await changeProposalReview({id,version:direct.version+1,action:'reopen_proposal'},'solicitante');
+  const reviewed=await changeProposalReview({id,version:edit.version,action:'complete_review'},'solicitante',async()=>({items:[],approvals:[],approved:true,minimumPrices:{}}));
+  const manualRender:any=async(input:any)=>({...await render(input),revision:3});
+  const manual=await prepareExternalDelivery({id,version:reviewed.version,channel:'manual'},'solicitante',manualRender);
+  await query('UPDATE crm_proposals SET version=version+1 WHERE id=$1',[id]);
+  await assert.rejects(confirmExternalDelivery({id,deliveryId:manual.deliveryId,confirmed:true},'solicitante'),/alterada/);
+  const manualCurrent=await prepareExternalDelivery({id,version:reviewed.version+1,channel:'manual'},'solicitante',manualRender);
+  await confirmExternalDelivery({id,deliveryId:manualCurrent.deliveryId,confirmed:true},'solicitante');
+  assert.equal((await query<any>('SELECT delivery_channel FROM crm_proposal_sent_revisions WHERE proposal_id=$1 AND revision=3',[id])).rows[0].delivery_channel,'manual');
+
+  assert.equal((await query<any>('SELECT reviewed_by FROM crm_proposal_workflows WHERE proposal_id=$1',[id])).rows[0].reviewed_by,'solicitante');
+
+  assert.equal((await query<any>("SELECT count(*)::int n FROM web_tasks WHERE source_resolved IS NOT TRUE")).rows[0].n,0);
+
+  const cancelVersion=(await query<any>('SELECT version FROM crm_proposals WHERE id=$1',[id])).rows[0].version;
+  await assert.rejects(cancelProposal({id,version:cancelVersion-1},'solicitante'),/alterada/);
+  await query("INSERT INTO crm_order_links(proposal_id,order_id,state) VALUES($1,123,'complete')",[id]);
+  await assert.rejects(cancelProposal({id,version:cancelVersion},'solicitante'),/pedido criado/);
+  await query('DELETE FROM crm_order_links WHERE proposal_id=$1',[id]);
+  await cancelProposal({id,version:cancelVersion},'solicitante');
+  assert.equal((await query<any>('SELECT status FROM crm_proposals WHERE id=$1',[id])).rows[0].status,'cancelled');
+  assert.equal((await query<any>("SELECT count(*)::int n FROM crm_events WHERE proposal_id=$1 AND action='cancel_proposal'",[id])).rows[0].n,1);
+  await assert.rejects(cancelProposal({id,version:cancelVersion+1},'solicitante'),/encerrada/);
  } finally {g.historyPool=old;await db.close();}
 });

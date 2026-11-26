@@ -44,6 +44,11 @@
       color: var(--field-disabled-text, #748b9e) !important;
       cursor: not-allowed;
     }
+    &.quote-price-approved {
+      background-color: #eaf8ee !important;
+      color: #217346 !important;
+      border-color: #79b991 !important;
+    }
     &.quote-price-below-minimum {
       background-color: #fff0f0 !important;
       color: #b42318 !important;

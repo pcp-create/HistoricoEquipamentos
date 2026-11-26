@@ -43,13 +43,15 @@ test('CRM persists local opportunities and proposals and safely links conversion
  const second=await createProposal({id:randomUUID(),opportunityId:opportunity.id,typeId:mca.id,title:'Corretiva alternativa'},'planner');
  assert.equal((await getOpportunity(opportunity.id)).proposals.length,2);
  await assert.rejects(createProposal({id:randomUUID(),opportunityId:opportunity.id,typeId:catalog.proposalTypes.find(t=>t.code==='CLO').id,title:'Inválida'},'planner'));
- let saved=await saveProposal({id:p.id,version:p.version,draft:{...emptyDraft(),company:'2',customer:'999',type:'4',origin:'1',seller:'21',items:[{kind:'material',code:'50',name:'Filtro',price:'10.50',quantity:'2',unitCost:'999.00',discountPercent:'10'}]},names:{equipment:''}},'planner');
+ let saved=await saveProposal({id:p.id,version:p.version,draft:{...emptyDraft(),company:'2',customer:'999',type:'4',origin:'1',seller:'21',serviceType:'1',payment:'1',expected:'2026-11-25',delivery:'2026-11-26',situation:'1',freight:'0',notes:'Observação',items:[{kind:'material',code:'50',name:'Filtro',price:'10.50',quantity:'2',unitCost:'999.00',discountPercent:'10'}]},names:{equipment:''}},'planner');
  assert.equal(saved.document.customer,'10');assert.equal(saved.document.company,'1');assert.equal(Number(saved.total_cents),1890);assert.equal(saved.document.items[0].unitCost,'5');
  await assert.rejects(saveProposal({id:p.id,version:p.version,draft:emptyDraft()},'planner'));
  await assert.rejects(saveOpportunity({id:opportunity.id,version:opportunity.version,typeId:man.id,customerId:10,company:2,title:'Trocar empresa'},'planner'));
  let writes=0,state='ready',last:any;
  const deps={prices:async(id:string)=>({items:[],approvals:[],minimumPrices:{},users:[],draft:{},number:1,approved:true,version:(await db.query<any>('SELECT version FROM crm_proposals WHERE id=$1',[id])).rows[0].version}),prepare:async(actor:string,id:any,draft:any)=>{assert.equal(actor,'planner');assert.equal(draft.customer,'10');if(draft.items.length){assert.equal(draft.items[0].discountPercent,undefined);assert.equal(draft.items[0].price,'9.45');}last={id,company:1,state,m8Id:state==='ready'?null:900};return last;},advance:async()=>{if(state==='ready'){writes++;state='uncertain';}return {...last,state,message:'Confira no ERP'};},retry:async()=>{state='ready';return {...last,state};}};
+ await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state) VALUES($1,'in_review')",[p.id]);
  await assert.rejects(beginConversion({id:randomUUID(),proposalId:p.id,version:saved.version},'planner',deps),/Conclua a revisão/);
+ await db.query('DELETE FROM crm_proposal_workflows WHERE proposal_id=$1',[p.id]);
  await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision,last_sent_revision,reviewed_by,reviewed_at) VALUES($1,'sent',0,0,'planner',now())",[p.id]);
  await db.query("INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id) SELECT id,0,version,document,names,title,decode('00','hex'),'planner','cliente@example.com','test-1' FROM crm_proposals WHERE id=$1",[p.id]);
  assert.equal((await getProposal(p.id)).sentRevisions[0].sent_by_name,'Planejador');
@@ -80,7 +82,7 @@ test('CRM persists local opportunities and proposals and safely links conversion
  let overview=await crmOverview();assert.equal(overview.opportunities,1);assert.equal(overview.proposals,2);assert.equal(overview.orders,1);assert.equal(overview.conversion,100);
  const nextOpportunity=await saveOpportunity({id:randomUUID(),typeId:man.id,customerId:10,company:1,title:'Outra oportunidade'},'planner');
  const nextProposal=await createProposal({id:randomUUID(),opportunityId:nextOpportunity.id,typeId:mca.id,title:'Corretiva'},'planner');
- const s=await saveProposal({id:nextProposal.id,version:nextProposal.version,draft:{...emptyDraft(),company:'1',customer:'10',type:'2',origin:'1'}},'planner');
+ const s=await saveProposal({id:nextProposal.id,version:nextProposal.version,draft:{...emptyDraft(),company:'1',customer:'10',type:'2',origin:'1',seller:'21',equipment:'1',serviceType:'1',payment:'1',expected:'2026-11-25',delivery:'2026-11-26',situation:'1',freight:'0',notes:'Observação',}},'planner');
  await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision,last_sent_revision) VALUES($1,'sent',0,0)",[s.id]);
  await db.query("INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id) SELECT id,0,version,document,names,title,decode('00','hex'),'planner','cliente@example.com','test-2' FROM crm_proposals WHERE id=$1",[s.id]);
  await assert.rejects(beginConversion({id:randomUUID(),proposalId:s.id,version:s.version},'planner',{...deps,prepare:async()=>{throw new OrderInputError('Falta vendedor');}}),/Falta vendedor/);
@@ -137,8 +139,8 @@ test('CRM persists local opportunities and proposals and safely links conversion
  const earlyOp=await saveOpportunity({id:randomUUID(),typeId:man.id,customerId:10,company:1,title:'Pedido antecipado'},'planner');
  const earlyProposal=await createProposal({id:randomUUID(),opportunityId:earlyOp.id,typeId:mpa.id,title:'Proposta revisada'},'planner');
  assert.equal(earlyProposal.document.flowStatus,'1');
- const earlySaved=await saveProposal({id:earlyProposal.id,version:earlyProposal.version,draft:{...emptyDraft(),company:'1',customer:'10',type:'4',origin:'1',notes:'Dados revisados'}},'planner');
- await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision) VALUES($1,'reviewed',0)",[earlyProposal.id]);
+ const earlySaved=await saveProposal({id:earlyProposal.id,version:earlyProposal.version,draft:{...emptyDraft(),company:'1',customer:'10',type:'4',origin:'1',seller:'21',serviceType:'1',payment:'1',expected:'2026-11-25',delivery:'2026-11-26',situation:'1',freight:'0',notes:'Dados revisados'}},'planner');
+ await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision) VALUES($1,'creating',0)",[earlyProposal.id]);
  const earlyRequest=randomUUID();
  assert.equal(earlySaved.document.flowStatus,'1');
  await db.query("UPDATE crm_proposals SET document=jsonb_set(document,'{flowStatus}',to_jsonb('51'::text)) WHERE id=$1",[earlyProposal.id]);

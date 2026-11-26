@@ -63,8 +63,8 @@ export async function saveOpportunity(raw:any,actor:string){
  if(!t||!client||(lead&&!user?.enabled))throw new CrmError('Selecione um tipo ativo e um cliente ou lead disponível.');
  const old=(await c.query('SELECT * FROM crm_opportunities WHERE id=$1 FOR UPDATE',[id])).rows[0];
  if(raw.status==='won'&&old?.status!=='won')throw new CrmError('A oportunidade será concretizada após a criação da OS.');
- if(old&&raw.status==='lost'&&(await c.query("SELECT 1 FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id WHERE p.opportunity_id=$1 AND (l.order_id IS NOT NULL OR l.state NOT IN ('complete','validation_failed')) LIMIT 1",[id])).rows.length)throw new CrmError('A oportunidade possui pedido criado ou em andamento e não pode ser marcada como perdida.');
- if(old&&raw.status==='lost'&&(await c.query("SELECT 1 FROM crm_proposal_email_attempts a JOIN crm_proposals p ON p.id=a.proposal_id WHERE p.opportunity_id=$1 AND a.state IN ('sending','uncertain') LIMIT 1",[id])).rows.length)throw new CrmError('Há um envio de proposta em andamento ou aguardando conferência.');
+ if(old&&['lost','cancelled'].includes(raw.status)&&(await c.query("SELECT 1 FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id WHERE p.opportunity_id=$1 AND (l.order_id IS NOT NULL OR l.state NOT IN ('complete','validation_failed')) LIMIT 1",[id])).rows.length)throw new CrmError('A oportunidade possui pedido criado ou em andamento e não pode ser encerrada.');
+ if(old&&['lost','cancelled'].includes(raw.status)&&(await c.query("SELECT 1 FROM crm_proposal_email_attempts a JOIN crm_proposals p ON p.id=a.proposal_id WHERE p.opportunity_id=$1 AND a.state IN ('sending','uncertain') LIMIT 1",[id])).rows.length)throw new CrmError('Há um envio de proposta em andamento ou aguardando conferência.');
  if(old?.status==='won'&&(raw.status??old.status)!=='won')throw new CrmError('Esta oportunidade já foi concretizada.');
  if(old&&!raw.version){if(old.created_by===actor)return old;throw new CrmError('Identificador já utilizado.');}
  if(old&&old.version!==version(raw.version))throw new CrmError('A oportunidade foi alterada. Reabra antes de salvar.');

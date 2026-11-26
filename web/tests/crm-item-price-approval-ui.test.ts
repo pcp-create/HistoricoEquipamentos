@@ -36,7 +36,7 @@ test("item approval sits below unit price, respects role and disappears when the
     page.on("pageerror", (e) => console.error(e));
     await page.goto("http://127.0.0.1:" + (server.address() as any).port);
     const approve = page.getByRole("button", {
-      name: "Aprovar abaixo do mínimo",
+      name: "Aprovar",
       exact: true,
     });
     await expect(approve).toBeDisabled();
@@ -56,12 +56,18 @@ test("item approval sits below unit price, respects role and disappears when the
       page.getByText("Aprovado por Maria Coordenadora em", { exact: false }),
     ).toContainText("15:30");
     await expect(approve).toHaveCount(0);
+    await expect(input).toHaveClass('quote-price-approved');
+    await expect(input).toHaveCSS('background-color','rgb(234, 248, 238)');
+    const notice=page.locator('.quote-price-approval-footer');
+    expect((await notice.boundingBox())!.y).toBeGreaterThan((await input.boundingBox())!.y);
+
     await page.screenshot({ path: "/tmp/crm-item-approval/approved.png" });
     await input.focus();
     await input.press("ControlOrMeta+A");
     await input.pressSequentially("390,00");
     await input.blur();
     await expect(approve).toBeEnabled();
+    await expect(input).toHaveClass('quote-price-below-minimum');
     await expect(
       page.getByText("Aprovado por Maria Coordenadora em", { exact: false }),
     ).toHaveCount(0);

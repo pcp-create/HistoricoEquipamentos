@@ -1,4 +1,5 @@
 "use client";
+import {equipmentDisplayName} from "@/lib/equipment-display-name";
 import ActionNotice from "./action-notice";
 import CrmProductCosts from "./crm-product-costs";
 import {validProposalDate,missingProposalFields,proposalFieldNames} from '@/lib/crm/proposal-required';
@@ -73,7 +74,7 @@ export default function NewServiceOrder({
   editing, returnTo, proposal,
 }: { returnTo?: string; editing?: { company: string; id: string }; proposal?: {
  id:string;leadId?:string|null;equipmentRequired?:boolean;title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
- productsFocus?:number;itemPriceApprovals?:any[];canApproveItemPrice?:boolean;onApproveItem?:(draft:OrderDraft,names:{customer:string;equipment:string},code:string)=>Promise<void>;activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;canCompleteReview?:boolean;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string},completeReview?:boolean)=>Promise<void>;
+ stageActions?:React.ReactNode;productsFocus?:number;itemPriceApprovals?:any[];canApproveItemPrice?:boolean;onApproveItem?:(draft:OrderDraft,names:{customer:string;equipment:string},code:string)=>Promise<void>;activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;canCompleteReview?:boolean;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string},completeReview?:boolean)=>Promise<void>;
 } } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
   const [attachmentCount,setAttachmentCount]=useState(0);
@@ -508,7 +509,7 @@ export default function NewServiceOrder({
             {proposal && (
               <dl className="crm-proposal-overview" aria-label="Informações da proposta">
                 <div><dt>Cliente</dt><dd>{names.customer || proposal.names.customer || "Não informado"}</dd></div>
-                <div><dt>Equipamento</dt><dd>{names.equipment || "Não informado"}</dd></div>
+                <div><dt>Equipamento</dt><dd>{equipmentDisplayName(names.equipment) || "Não informado"}</dd></div>
                 <div><dt>Tipo da proposta</dt><dd>{proposal.typeName || "Não informado"}</dd></div>
                 <div><dt>Valor da proposta</dt><dd>{(proposalFinancials(form.items).sale / 100).toLocaleString("pt-BR", {style:"currency",currency:"BRL"})}</dd></div>
                 <div><dt>Validade da proposta</dt><dd>{form.commercial?.validity ?? "15 dias úteis"}</dd></div>
@@ -618,7 +619,8 @@ export default function NewServiceOrder({
           return JSON.stringify(items)===JSON.stringify(current.items)?current:{...current,items};
         })}/>}
         {proposal?.activityTools}
-        {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['attachments','Anexos'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{key==='header'?<ClipboardList size={18} aria-hidden="true"/>:key==='material'?<Package size={18} aria-hidden="true"/>:key==='service'?<Wrench size={18} aria-hidden="true"/>:key==='attachments'?<Paperclip size={18} aria-hidden="true"/>:<ChartNoAxesCombined size={18} aria-hidden="true"/>}<span>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}{key==='attachments'&&attachmentCount>0&&` (${attachmentCount})`}</span></button>)}</nav>}
+        {proposal?.stageActions}
+        {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['attachments','Anexos'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{key==='header'?<ClipboardList size={18} aria-hidden="true"/>:key==='material'?<Package size={18} aria-hidden="true"/>:key==='service'?<Wrench size={18} aria-hidden="true"/>:key==='attachments'?<Paperclip size={18} aria-hidden="true"/>:<ChartNoAxesCombined size={18} aria-hidden="true"/>}<span>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}{key==='attachments'&&` (${attachmentCount})`}</span></button>)}</nav>}
         {proposal&&<div hidden={tab!=='attachments'}><CrmProposalAttachments proposalId={proposal.id} onCountChange={setAttachmentCount}/></div>}
         {proposal&&<div hidden={tab!=='summary'}>{proposal.summaryTools}</div>}
         <form onSubmit={submit} onKeyDown={event=>{if(proposal && event.key==='Enter' && event.target instanceof HTMLInputElement && !event.nativeEvent.isComposing)event.preventDefault();}} noValidate>
@@ -686,7 +688,7 @@ export default function NewServiceOrder({
                     <OrderSearchSelect
                       label="Equipamento"
                       value={form.equipment}
-                      selectedLabel={names.equipment}
+                      selectedLabel={equipmentDisplayName(names.equipment)}
                       disabled={(!form.customer&&!proposal?.leadId) || (!proposal && !form.type)}
                       endpoint={
                         "/api/service-orders?" +

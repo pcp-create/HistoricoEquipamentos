@@ -254,7 +254,9 @@ export default function CrmProposalItems({
                 compactPricing
                 readOnly={disabled}
                 belowMinimumOverride={!!below}
-                priceApprovalControl={kind==='material'&&saved&&(approval?<small className="crm-item-price-approved"><ShieldCheck size={13} aria-hidden="true"/>Aprovado por {approval.approved_name} em {new Date(approval.approved_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</small>:below?<button className="crm-item-price-approve" type="button" disabled={!canApprove} title={!canApprove?'Disponível durante a revisão para Gestor, Coordenador, Diretor ou Administrador.':undefined} onClick={()=>void onApprove?.(saved.code)}><ShieldCheck size={14} aria-hidden="true"/>Aprovar abaixo do mínimo</button>:null)}
+                priceApproved={!!approval}
+                priceApprovalNotice={approval?<small className="crm-item-price-approved"><ShieldCheck size={13} aria-hidden="true"/>Aprovado por {approval.approved_name} em {new Date(approval.approved_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</small>:null}
+                priceApprovalControl={kind==='material'&&saved&&!approval&&below?<button className="crm-item-price-approve" type="button" disabled={!canApprove} title={!canApprove?'Disponível para Gestor, Coordenador, Diretor ou Administrador.':undefined} onClick={()=>void onApprove?.(saved.code)}><ShieldCheck size={14} aria-hidden="true"/>Aprovar</button>:null}
                 item={item}
                 descriptionDetails={kind==='material'&&saved&&draft?<CrmProductTerms showDelivery={false} showTaxes={false} draft={draft} item={saved} disabled={disabled} onChange={next=>onChange(items.map(row=>row===saved?next:row))}/>:undefined}
                 reference={merged.references.get(item.key)}

@@ -1,10 +1,11 @@
 "use client";
 import CrmProposalPdf from "./crm-proposal-pdf";
+import CrmProposalDelivery from "./crm-proposal-delivery";
 import CrmProposalEmail from "./crm-proposal-email";
 import OrderDetailLink from "./order-detail-link";
 import CrmEmailSettings from "./crm-email-settings";
 import {canEditProposalReview} from "@/lib/crm/review-access";
-import {FileText,Settings,Send,ClipboardList} from "lucide-react";
+import {CircleX,FileText,Settings,Send,ClipboardList,FilePenLine,ClipboardCheck,CheckCheck} from "lucide-react";
 import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -23,6 +24,7 @@ export default function CrmProposal({ id }: { id: string }) {
     [proposalType,setProposalType]=useState("");
   const [conversionType,setConversionType]=useState("");
   const [emailOpen,setEmailOpen]=useState(false);
+  const [deliveryOpen,setDeliveryOpen]=useState(false);
   const [emailSettings,setEmailSettings]=useState<any>(null),[settingsOpen,setSettingsOpen]=useState(false);
   useEffect(()=>{let active=true;crmApi('?proposalEmailSettings=1').then(value=>{if(active)setEmailSettings(value);}).catch(()=>{});return()=>{active=false;};},[]);
   const [reviewOpen,setReviewOpen]=useState(false),[reviewer,setReviewer]=useState(''),[reviewComment,setReviewComment]=useState(''),[reviewUsers,setReviewUsers]=useState<any[]>([]);
@@ -36,7 +38,7 @@ export default function CrmProposal({ id }: { id: string }) {
       crmApi("?proposal=" + id),
       crmApi("?catalogs=1"),
     ]);
-    if(p.workflow?.state==='in_review'){
+    if(['pending','converting'].includes(p.status)){
       try{
         const prices=await crmApi('',{action:'price-review',id,orderType:p.document.type||''});
         if(prices.minimumPrices)p.document={...p.document,items:p.document.items.map((item:any)=>item.kind==='material'&&prices.minimumPrices[item.code]!=null?{...item,quote:{key:`crm:${item.kind}:${item.code}`,kind:item.kind,code:item.code,name:item.name,unit:'',source:'Proposta comercial',referencePrice:'',lastPrice:'',referenceAt:'',quantity:item.quantity,price:item.price,selected:true,...item.quote,minimumPrice:String(prices.minimumPrices[item.code])}}:item)};
@@ -87,7 +89,7 @@ export default function CrmProposal({ id }: { id: string }) {
     try {
       if(!link){
         const review=await crmApi('',{action:'price-review',id,orderType:selectedType});
-        if(review.items.length&&!review.approved){setError('Existem produtos abaixo do mínimo sem aprovação. Solicite uma nova revisão da proposta e aprove os itens antes de gerar a OS.');return;}
+        if(review.items.length&&!review.approved){setError('Existem produtos abaixo do mínimo sem aprovação. Aprove os itens ou solicite a revisão da proposta antes de gerar a OS.');return;}
       }
       let result = await crmApi(
         "",
@@ -143,27 +145,67 @@ export default function CrmProposal({ id }: { id: string }) {
     ),
     locked = ['converting','won','lost','cancelled'].includes(data.status) || pending || ['sent','reviewed'].includes(data.workflow?.state) || (data.workflow?.state==='in_review' && !canEditProposalReview(data.workflow,data.currentUser,data.currentUserIsAdmin));
   const orderChoices=catalog.orderTypes.filter((t:any)=>t.active&&type?.order_types?.includes(String(t.id)));
-  const cannotConvert=busy||changed||pending||!!data.emailAttempt||!['reviewed','sent'].includes(data.workflow?.state)||data.status!=='pending'||!orderChoices.length;
+  const cannotConvert=busy||changed||pending||!!data.emailAttempt||data.workflow?.state==='in_review'||data.status!=='pending'||!orderChoices.length;
+  async function cancel() {
+    if(!window.confirm('Cancelar esta proposta?'+(dirty?' As alterações não salvas serão descartadas.':'')))return;
+    setBusy(true);setError('');
+    try{await crmApi('',{action:'cancel-proposal',id,version:data.version});setDirty(false);await load();}
+    catch(e){setError((e as Error).message);}finally{setBusy(false);}
+  }
   const headerActions=<div className="crm-actions">
-    {data.status==='converting'&&data.workflow?.state==='in_review'&&canEditProposalReview(data.workflow,data.currentUser,data.currentUserIsAdmin)&&<button type="button" className="button primary" disabled={busy} onClick={async()=>{setBusy(true);try{const result=await crmApi('',{action:'complete_review',id,version:data.version});if(result.needsPriceApprovalConfirmation)setReviewPriceWarning(result);await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Concluir revisão</button>}
+    {data.status==='pending'&&<button type="button" className="button" disabled={busy||pending} onClick={()=>void cancel()}><CircleX size={16}/>Cancelar proposta</button>}
+    {data.status==='cancelled'&&<span className="crm-status">Proposta cancelada</span>}
     {data.priceRestorations?.map((r:any)=><div role="alert" key={r.id}><p>Produto {r.product_id}: restauração do mínimo R$ {Number(r.original_price).toFixed(2)} pendente. Confira o item no M8 antes de reenviar.</p>{data.currentUserIsAdmin&&<button type="button" className="button" disabled={busy} onClick={async()=>{setBusy(true);try{if(!window.confirm('Confira que a operação no M8 já terminou. Restaurar o mínimo original sem reenviar o produto?'))return;await crmApi('',{action:'restore-minimum',restorationId:r.id});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Restaurar mínimo do produto</button>}</div>)}
     {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
     {data.emailAttempt&&<div role="alert"><p>{data.emailAttempt.can_resolve?'Envio sem confirmação. Confira a pasta Enviados do Gmail antes de continuar.':'Envio em andamento. Aguarde e atualize a proposta.'}</p>{data.emailAttempt.can_resolve&&data.emailAttempt.actor===data.currentUser&&<><button type="button" disabled={busy} onClick={async()=>{if(!window.confirm('Confirma que encontrou o e-mail enviado no Gmail?'))return;setBusy(true);try{await crmApi('',{action:'resolve-proposal-email',id,attemptId:data.emailAttempt.id,resolution:'sent',confirmed:true});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Confirmei que foi enviado</button><button type="button" disabled={busy} onClick={async()=>{if(!window.confirm('Confirma que o e-mail não foi enviado? Isso permitirá uma nova tentativa.'))return;setBusy(true);try{await crmApi('',{action:'resolve-proposal-email',id,attemptId:data.emailAttempt.id,resolution:'not_sent',confirmed:true});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Confirmei que não foi enviado</button></>}</div>}
     {emailSettings&&<button type="button" className="button" onClick={()=>setSettingsOpen(true)}><Settings size={16}/> Configurações</button>}
     {settingsOpen&&<CrmEmailSettings initial={emailSettings} onClose={()=>setSettingsOpen(false)} onSaved={setEmailSettings}/>}
     <CrmProposalPdf proposal={data} disabled={changed||busy} locked={locked} onSaved={load} onError={setError}/>
-    {data.workflow?.state==='reviewed'&&<button type="button" className="button primary" disabled={busy||changed||!!data.emailAttempt} onClick={()=>setEmailOpen(true)}><Send size={16} aria-hidden="true"/>Enviar ao cliente</button>}
+    {deliveryOpen&&<CrmProposalDelivery proposal={data} onClose={()=>setDeliveryOpen(false)} onEmail={()=>{setDeliveryOpen(false);setEmailOpen(true);}} onSent={load}/>}
     {emailOpen&&<ProposalDialog label="Enviar proposta ao cliente" onClose={()=>setEmailOpen(false)}><CrmProposalEmail proposal={data} onClose={()=>setEmailOpen(false)} onSent={load}/></ProposalDialog>}
-    {data.status==='pending'&&<button type="button" className="button primary" disabled={cannotConvert} title={changed?"Salve a proposta antes de gerar o pedido.":!['reviewed','sent'].includes(data.workflow?.state)?"Conclua a revisão antes de gerar o pedido.":undefined} onClick={()=>{
-      if(orderChoices.length===1)void convert(undefined,false,String(orderChoices[0].id));
-      else {setConversionType('');setChoosingType(true);}
-    }}><ClipboardList size={16} aria-hidden="true"/>{busy?'Processando…':'Pedido de Venda (Gerar OS)'}</button>}
     {choosingType&&<dialog ref={typeDialog} className="crm-order-type-dialog" aria-label="Selecionar tipo de ordem de serviço" onCancel={()=>setChoosingType(false)}>
       <h2>Pedido de Venda (Gerar OS)</h2>
       <label>Tipo de OS a gerar<select aria-label="Tipo de OS a gerar" value={conversionType} onChange={e=>setConversionType(e.target.value)}><option value="">Selecione o tipo de OS</option>{orderChoices.map((t:any)=><option key={t.id} value={String(t.id)}>{t.id} · {t.name}</option>)}</select></label>
       <div className="crm-actions"><button type="button" onClick={()=>setChoosingType(false)}>Cancelar</button><button type="button" className="button primary" disabled={cannotConvert||!orderChoices.some((t:any)=>String(t.id)===conversionType)} onClick={()=>{setChoosingType(false);void convert(undefined,false,conversionType);}}>Gerar OS</button></div>
     </dialog>}
   </div>;
+  const currentStage=data.status==='won'||data.status==='converting'?'order':data.workflow?.state||'creating';
+  async function goStage(stage:string){
+    setError('');
+    if(busy)return;
+    if(['won','lost','cancelled'].includes(data.status)){setError('Esta proposta está encerrada e não pode mudar de etapa.');return;}
+    if(changed){setError('Salve a proposta antes de mudar de etapa.');return;}
+    if(data.emailAttempt){setError('Aguarde a confirmação do envio de e-mail antes de mudar de etapa.');return;}
+    if(stage==='in_review'){
+      if(data.workflow?.state==='in_review'){setError('A proposta já está em revisão. Para finalizar, clique em Revisada.');return;}
+      await openReview();return;
+    }
+    if(stage==='sent'){
+      if(data.workflow?.state==='sent')return;
+      setDeliveryOpen(true);return;
+    }
+    if(stage==='order'){
+      if(data.status==='converting'){setError('A OS já está em processamento. Use Consultar / continuar envio no andamento da proposta.');return;}
+      if(data.workflow?.state==='in_review'){setError('Conclua a revisão em andamento ou volte à criação antes de gerar a OS.');return;}
+      if(!orderChoices.length){setError('Vincule um tipo de OS ativo ao tipo de proposta nas configurações.');return;}
+      if(orderChoices.length===1)await convert(undefined,false,String(orderChoices[0].id));
+      else{setConversionType('');setChoosingType(true);}return;
+    }
+    if(stage===data.workflow?.state)return;
+    if(stage==='reviewed'&&data.workflow?.state==='sent'){setError('Volte à criação para revisar novamente uma proposta enviada.');return;}
+    if(stage==='reviewed'&&!window.confirm('Concluir Revisão?'))return;
+    if(stage==='creating'&&!window.confirm('Voltar à criação para editar a proposta? A revisão atual será encerrada e os PDFs enviados serão preservados.'))return;
+    setBusy(true);
+    try{
+      const result=await crmApi('',{action:stage==='creating'?'reopen_proposal':'complete_review',id,version:data.version});
+      if(result.needsPriceApprovalConfirmation)setReviewPriceWarning(result);
+      await load();
+    }catch(e){setError((e as Error).message);}finally{setBusy(false);}
+  }
+  const stages=[{key:'creating',label:'Em criação',Icon:FilePenLine},{key:'in_review',label:'Em revisão',Icon:ClipboardCheck},{key:'reviewed',label:'Revisada',Icon:CheckCheck},{key:'sent',label:'Enviada ao cliente',Icon:Send},{key:'order',label:'Pedido de Venda',Icon:ClipboardList}];
+  const stageActions=<section className="crm-proposal-stages" aria-label="Etapas da proposta">
+    <nav aria-label="Alterar etapa da proposta">{stages.map(({key,label,Icon})=><button key={key} type="button" aria-current={currentStage===key?'step':undefined} disabled={busy||['won','lost','cancelled'].includes(data.status)} onClick={()=>void goStage(key)}><Icon size={17} aria-hidden="true"/><span>{label}</span></button>)}</nav>
+  </section>;
   const actions = changed ? <p>Salve a proposta antes de concretizar ou gerar uma OS.</p> : null;
   const revisionEntry=(r:any)=><article key={r.revision}><a className="crm-revision-pdf" href={`/api/crm/pdf?id=${encodeURIComponent(id)}&revision=${r.revision}`} target="_blank" rel="noreferrer"><span className="crm-revision-pdf-icon" aria-hidden="true"><FileText size={18}/><span>PDF</span></span>Rev.{r.revision} · Abrir PDF enviado</a><p>{crmDate(r.sent_at)} · {r.sent_by_name || r.sent_by} · {r.recipients}</p></article>;
   const progress = <>
@@ -281,13 +323,14 @@ export default function CrmProposal({ id }: { id: string }) {
           if(!selected?.order_types?.includes(orderType))setOrderType('');
         }}>{catalog.proposalTypes.filter((t:any)=>String(t.opportunity_type_id)===String(data.opportunity_type_id)&&(t.active||String(t.id)===proposalType)).map((t:any)=><option key={t.id} value={String(t.id)}>{t.code} · {t.name}</option>)}</select></label>,
         locked: locked || busy,
-        canCompleteReview:data.workflow?.state==='in_review',
-        footerActions:<>{['pending','converting'].includes(data.status)&&['creating','reviewed','sent'].includes(data.workflow?.state||'creating')&&<button type="button" className="primary" disabled={busy||changed||(pending&&data.status!=='converting')} onClick={()=>void openReview()}>{data.workflow?.state==='creating'?'Enviar para revisão':'Revisar proposta'}</button>}{reviewOpen&&<ProposalDialog label="Enviar proposta para revisão" onClose={()=>setReviewOpen(false)}><h2>Enviar para revisão</h2><label>Funcionário<select value={reviewer} onChange={e=>setReviewer(e.target.value)}><option value="">Selecione</option>{reviewUsers.map((u:any)=><option key={u.email} value={u.email}>{u.display_name||u.name||u.email}</option>)}</select></label><label>Comentário<textarea value={reviewComment} maxLength={2000} onChange={e=>setReviewComment(e.target.value)}/></label><div className="crm-actions crm-review-dialog-actions"><button type="button" onClick={()=>setReviewOpen(false)}>Cancelar</button><button type="button" className="crm-review-dialog-submit" disabled={busy||!reviewer} onClick={()=>void requestReview()}>Enviar para revisão</button></div></ProposalDialog>}</>,
+        canCompleteReview:false,
+        stageActions,
+        footerActions:<>{reviewOpen&&<ProposalDialog label="Enviar proposta para revisão" onClose={()=>setReviewOpen(false)}><h2>Enviar para revisão</h2><label>Funcionário<select value={reviewer} onChange={e=>setReviewer(e.target.value)}><option value="">Selecione</option>{reviewUsers.map((u:any)=><option key={u.email} value={u.email}>{u.display_name||u.name||u.email}</option>)}</select></label><label>Comentário<textarea value={reviewComment} maxLength={2000} onChange={e=>setReviewComment(e.target.value)}/></label><div className="crm-actions crm-review-dialog-actions"><button type="button" onClick={()=>setReviewOpen(false)}>Cancelar</button><button type="button" className="crm-review-dialog-submit" disabled={busy||!reviewer} onClick={()=>void requestReview()}>Enviar para revisão</button></div></ProposalDialog>}</>,
         tools,
-        headerActions:<>{headerActions}{reviewPriceWarning&&<ProposalDialog label="Concluir revisão com preços pendentes" onClose={()=>setReviewPriceWarning(null)}><h2>Deseja concluir a revisão?</h2><p>Possui {reviewPriceWarning.pendingCount} itens abaixo do mínimo ainda para aprovação.</p><div className="crm-actions"><button type="button" className="button" onClick={()=>{setReviewPriceWarning(null);setProductsFocus(n=>n+1);}}>Ir para produtos</button><button type="button" className="button primary" disabled={busy} onClick={async()=>{setBusy(true);try{await crmApi('',{action:'complete_review',id,version:reviewPriceWarning.version,allowUnapprovedPrices:true});setReviewPriceWarning(null);await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Concluir revisão</button><button type="button" className="button" onClick={()=>setReviewPriceWarning(null)}>Cancelar</button></div></ProposalDialog>}</>,
+        headerActions:<>{headerActions}{reviewPriceWarning&&<ProposalDialog label="Concluir revisão com preços pendentes" onClose={()=>setReviewPriceWarning(null)}><h2>{reviewPriceWarning.requiresPriceApproval?'Aprovações pendentes':'Deseja concluir a revisão?'}</h2><p>Possui {reviewPriceWarning.pendingCount} itens abaixo do mínimo ainda para aprovação.</p><div className="crm-actions"><button type="button" className="button" onClick={()=>{setReviewPriceWarning(null);setProductsFocus(n=>n+1);}}>Ir para produtos</button>{!reviewPriceWarning.requiresPriceApproval&&<button type="button" className="button primary" disabled={busy} onClick={async()=>{setBusy(true);try{await crmApi('',{action:'complete_review',id,version:reviewPriceWarning.version,allowUnapprovedPrices:true});setReviewPriceWarning(null);await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Concluir revisão</button>}<button type="button" className="button" onClick={()=>setReviewPriceWarning(null)}>Cancelar</button></div></ProposalDialog>}</>,
         productsFocus,
         itemPriceApprovals:data.itemPriceApprovals||[],
-        canApproveItemPrice:!!data.canApproveItemPrice&&data.workflow?.state==='in_review'&&!busy,
+        canApproveItemPrice:!!data.canApproveItemPrice&&['pending','converting'].includes(data.status)&&!busy,
         onApproveItem:async(draft,names,code)=>{
           setBusy(true);setError('');
           try{

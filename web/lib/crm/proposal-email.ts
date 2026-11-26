@@ -39,11 +39,8 @@ async function markAttempt(id:string,state:'failed'|'uncertain',error:string){
  const c=await database().connect();try{await c.query('BEGIN READ WRITE');await c.query('UPDATE crm_proposal_email_attempts SET state=$2,error=$3,updated_at=now() WHERE id=$1',[id,state,error]);await c.query('COMMIT');}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }
 const defaultEmailDeps={get:getProposal,render:proposalPdf,taxes:hydratePdfProductTaxes};
-async function renderProposalEmail(input:any,deps=defaultEmailDeps){
+export async function renderProposalDelivery(input:any,deps=defaultEmailDeps){
  const id=uuid(input?.id),expected=version(input?.version);
- let to:string;try{to=emailRecipients(text(input?.to,3000,true)).join(', ');}catch(e){throw new CrmError((e as Error).message);}
- const subject=text(input?.subject,300,true),body=text(input?.body,10000,true);
- const bodyHtml=typeof input?.bodyHtml==='string'?input.bodyHtml:undefined;
  const proposal=await deps.get(id);
  if(proposal.version!==expected||proposal.workflow?.state!=='reviewed')throw new CrmError('A proposta deve estar revisada e atualizada antes do envio.');
  const db=database(),draft=proposal.document;
@@ -56,8 +53,16 @@ async function renderProposalEmail(input:any,deps=defaultEmailDeps){
  const includeTaxes=input?.includeTaxes!==false;
  proposal.document=includeTaxes?await deps.taxes(draft):draft;
  const pdf=await deps.render(proposal,client.rows[0]||{},equipment.rows[0]||{},Object.fromEntries(products.rows.map((p:any)=>[p.code,p.ncm])),{includeTaxes});
+ return {id,expected,proposal,draft,pdf,revision};
+}
+async function renderProposalEmail(input:any,deps=defaultEmailDeps){
+ let to:string;try{to=emailRecipients(text(input?.to,3000,true)).join(', ');}catch(e){throw new CrmError((e as Error).message);}
+ const subject=text(input?.subject,300,true),body=text(input?.body,10000,true);
+ const bodyHtml=typeof input?.bodyHtml==='string'?input.bodyHtml:undefined;
+ const prepared=await renderProposalDelivery(input,deps);
+ const {proposal,pdf,revision}=prepared;
  const raw=Buffer.from(emailMessage({to,subject,body,bodyHtml,filename:text(input?.filename || `Proposta-${proposal.number}-Rev-${revision}.pdf`,220,true),pdf})).toString('base64url');
- return {id,expected,to,proposal,draft,pdf,raw,revision};
+ return {...prepared,to,raw};
 }
 export async function prepareProposalEmail(input:any){
  const prepared=await renderProposalEmail(input);

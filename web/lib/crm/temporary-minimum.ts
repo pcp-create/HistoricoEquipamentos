@@ -83,7 +83,7 @@ export async function withTemporaryMinimum(
     const approvedItem=approval && draftItem && price===discountedUnitCents(draftItem)/100;
     if (!approvedItem)
       throw new M8RequestError(
-        "Solicite uma nova revisão da proposta e aprove este produto abaixo do mínimo antes de continuar.",
+        "Aprove este produto abaixo do mínimo ou solicite a revisão da proposta antes de continuar.",
         false,
       );
     const record = (

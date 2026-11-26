@@ -12,7 +12,7 @@ import {isReviewAdmin} from './review-admin';
 /** Atomically assign or complete a review; callers must also enforce CRM route access. */
 export async function changeProposalReview(input:any, actor:string,checkPrices=reviewItemPrices) {
  const id=uuid(input?.id), expected=version(input?.version);
- if(!['request_review','complete_review'].includes(input?.action))throw new CrmError('Ação de revisão inválida.');
+ if(!['request_review','complete_review','reopen_proposal'].includes(input?.action))throw new CrmError('Ação de revisão inválida.');
  const c=await database().connect();
  try {
   await c.query('BEGIN READ WRITE');
@@ -30,7 +30,12 @@ export async function changeProposalReview(input:any, actor:string,checkPrices=r
    const missing=missingProposalFields(proposal.document,type?.equipment_required !== false,!!proposal.lead_id);
    if(missing.length)throw new CrmError('Preencha os campos obrigatórios: '+missing.map(key=>proposalFieldNames[key]).join(', ')+'.');
   }
-  if(input.action==='request_review'){
+  if(input.action==='reopen_proposal'){
+   if(proposal.status!=='pending'||(await c.query("SELECT 1 FROM crm_order_links WHERE proposal_id=$1 AND state NOT IN ('complete','validation_failed')",[id])).rows.length)throw new CrmError('Não é possível voltar à criação com uma OS em andamento.');
+   if(current.state==='in_review'&&!canEditProposalReview(row,actor)&&!await isReviewAdmin(c,actor))throw new CrmError('Somente o solicitante, o revisor ou um administrador pode interromper a revisão.');
+   await c.query("UPDATE crm_proposal_workflows SET state='creating',revision=$2,reviewer=NULL,review_requested_by=NULL,review_task_id=NULL,reviewed_by=NULL,reviewed_at=NULL,updated_at=now() WHERE proposal_id=$1",[id,next.revision]);
+   if(current.state==='in_review')await c.query("UPDATE web_tasks SET status='completed',source_status='Revisão interrompida: proposta voltou à criação',source_resolved=true,completed_at=now(),updated_by=$2,updated_at=now(),version=version+1 WHERE id=$1",[row.review_task_id,actor]);
+  } else if(input.action==='request_review'){
    const reviewer=text(input.reviewer,254,true).toLowerCase(), comment=text(input.comment??'',2000);
    const employee=(await c.query('SELECT * FROM web_user_access WHERE email=$1 AND enabled',[reviewer])).rows[0];
    if(!employee||!canOpenPath(userModules(employee),'/crm'))throw new CrmError('Selecione um funcionário ativo com acesso ao CRM.');
@@ -39,10 +44,10 @@ export async function changeProposalReview(input:any, actor:string,checkPrices=r
    await c.query('INSERT INTO web_task_notifications(task_id,task_version,recipient) VALUES($1,1,$2)',[task.id,reviewer]);
    await c.query("UPDATE crm_proposal_workflows SET state=$2,revision=$3,reviewer=$4,review_requested_by=$5,review_task_id=$6,reviewed_by=NULL,reviewed_at=NULL,updated_at=now() WHERE proposal_id=$1",[id,next.state,next.revision,reviewer,actor,task.id]);
   } else {
-   if(!canEditProposalReview(row,actor)&&!await isReviewAdmin(c,actor))throw new CrmError('Somente o solicitante, o revisor designado ou um administrador pode concluir esta revisão.');
+   if(current.state==='in_review'&&!canEditProposalReview(row,actor)&&!await isReviewAdmin(c,actor))throw new CrmError('Somente o solicitante, o revisor designado ou um administrador pode concluir esta revisão.');
    const prices=await checkPrices(c,id,proposal.document,proposal.lead_id||'');
    const pendingCount=prices.items.filter(i=>!i.approved).length;
-   if(pendingCount&&input.allowUnapprovedPrices!==true){await c.query('ROLLBACK');return {...current,needsPriceApprovalConfirmation:true,pendingCount,version:proposal.version};}
+   if(pendingCount&&(current.state==='creating'||input.allowUnapprovedPrices!==true)){await c.query('ROLLBACK');return {...current,needsPriceApprovalConfirmation:true,requiresPriceApproval:current.state==='creating',pendingCount,version:proposal.version};}
    await c.query("UPDATE crm_proposal_workflows SET state='reviewed',reviewed_by=$2,reviewed_at=now(),updated_at=now() WHERE proposal_id=$1",[id,actor]);
    await c.query("UPDATE web_tasks SET status='completed',source_status='Revisão concluída',source_resolved=true,completed_at=now(),updated_by=$2,updated_at=now(),version=version+1 WHERE id=$1",[row.review_task_id,actor]);
   }
@@ -50,4 +55,23 @@ export async function changeProposalReview(input:any, actor:string,checkPrices=r
   await c.query('INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,$4,$5::jsonb)',[proposal.opportunity_id,id,actor,input.action,JSON.stringify({revision:next.revision,reviewer:input.action==='request_review'?input.reviewer:actor})]);
   await c.query('COMMIT');return {...next,version:updated.version,needsPriceApprovalConfirmation:false,pendingCount:0};
  } catch(e){await c.query('ROLLBACK');throw e;} finally{c.release();}
+}
+
+export async function cancelProposal(input:any, actor:string) {
+ const id=uuid(input?.id), expected=version(input?.version);
+ const c=await database().connect();
+ try {
+  await c.query('BEGIN READ WRITE');
+  const p=(await c.query('SELECT p.* FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p,o',[id])).rows[0];
+  if(!p||p.version!==expected)throw new CrmError('A proposta foi alterada. Atualize antes de cancelar.');
+  if(p.status!=='pending')throw new CrmError('Esta proposta está encerrada ou possui uma OS em andamento.');
+  if((await c.query("SELECT 1 FROM crm_order_links WHERE proposal_id=$1 AND (order_id IS NOT NULL OR state NOT IN ('complete','validation_failed'))",[id])).rows.length)throw new CrmError('Não é possível cancelar uma proposta com pedido criado ou em andamento.');
+  if((await c.query("SELECT 1 FROM crm_proposal_email_attempts WHERE proposal_id=$1 AND state IN ('sending','uncertain')",[id])).rows.length)throw new CrmError('Há um envio de e-mail em andamento ou aguardando conferência.');
+  const wf=(await c.query('SELECT * FROM crm_proposal_workflows WHERE proposal_id=$1 FOR UPDATE',[id])).rows[0];
+  if(wf?.state==='in_review'&&!canEditProposalReview(wf,actor)&&!await isReviewAdmin(c,actor))throw new CrmError('Somente o solicitante, o revisor ou um administrador pode cancelar durante a revisão.');
+  await c.query("UPDATE web_tasks SET status='completed',source_status='Proposta cancelada',source_resolved=true,completed_at=now(),updated_by=$2,updated_at=now(),version=version+1 WHERE id=$1 AND status<>'completed'",[wf?.review_task_id||null,actor]);
+  const updated=(await c.query("UPDATE crm_proposals SET status='cancelled',version=version+1,updated_by=$2,updated_at=now() WHERE id=$1 RETURNING version",[id,actor])).rows[0];
+  await c.query("INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,'cancel_proposal','{}'::jsonb)",[p.opportunity_id,id,actor]);
+  await c.query('COMMIT');return updated;
+ }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }

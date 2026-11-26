@@ -20,6 +20,8 @@ import {
   ContactRound,
   Save,
   CircleX,
+  List,
+  Columns3,
 } from "lucide-react";
 import SiteHeader from "./site-header";
 import ContactDeleteButton from "./contact-delete-button";
@@ -60,6 +62,8 @@ export default function Crm() {
     [status, setStatus] = useState(""),
     [page, setPage] = useState(1),
     [refresh, setRefresh] = useState(0);
+  const [views, setViews] = useState<Record<string, "list" | "kanban">>({});
+  const kanban = ["opportunities", "proposals"].includes(kind) && views[kind] === "kanban";
   const [result, setResult] = useState<any>(null),
     [overview, setOverview] = useState<any>(null),
     [catalog, setCatalog] = useState<any>(null),
@@ -73,11 +77,22 @@ export default function Crm() {
     setError("");
     crmApi(
       "?" +
-        new URLSearchParams({ kind, q: search, status, page: String(page) }),
+        new URLSearchParams({ kind, q: search, status, page: String(kanban ? 1 : page) }),
       undefined,
       c.signal,
     )
-      .then(setResult)
+      .then(async (data) => {
+        if (kanban) {
+          const rows = [...data.rows];
+          for (let next = 2; rows.length < data.total; next++) {
+            const batch = await crmApi("?" + new URLSearchParams({kind, q: search, status, page: String(next)}), undefined, c.signal);
+            if (!batch.rows.length) break;
+            rows.push(...batch.rows);
+          }
+          data = {...data, rows};
+        }
+        if (!c.signal.aborted) setResult(data);
+      })
       .catch((e) => {
         if (!c.signal.aborted) setError(e.message);
       })
@@ -85,7 +100,7 @@ export default function Crm() {
         if (!c.signal.aborted) setLoading(false);
       });
     return () => c.abort();
-  }, [kind, search, status, page, refresh]);
+  }, [kind, search, status, page, refresh, kanban]);
   useEffect(() => {
     const c = new AbortController();
     Promise.all([
@@ -222,6 +237,10 @@ export default function Crm() {
                   : `${count.toLocaleString("pt-BR")} registros`}
               </span>
             </div>
+            {["opportunities", "proposals"].includes(kind) && <div className="crm-view-switch" role="group" aria-label="Visualização">
+              <button type="button" className="button" aria-pressed={!kanban} onClick={() => {setViews(v => ({...v, [kind]: "list"})); setPage(1);}}><List size={16}/> Lista</button>
+              <button type="button" className="button" aria-pressed={kanban} onClick={() => {setViews(v => ({...v, [kind]: "kanban"})); setPage(1);}}><Columns3 size={16}/> Kanban</button>
+            </div>}
             {directory && (
               <Link className="button" href="/visitas">
                 Abrir visitas e cadastros
@@ -293,6 +312,7 @@ export default function Crm() {
             <p role="status">Carregando CRM…</p>
           ) : (
             <>
+              {kanban ? <CrmKanban kind={kind} rows={result?.rows || []} open={open}/> : <>
               <div className={`table-scroll crm-records${kind === "proposals" ? " crm-proposals-list" : ""}`}>
                 <table>
                   <thead>
@@ -574,6 +594,7 @@ export default function Crm() {
                   </button>
                 </div>
               </footer>
+              </>}
             </>
           )}
         </section>
@@ -607,6 +628,38 @@ export default function Crm() {
       )}
     </>
   );
+}
+function CrmKanban({kind, rows, open}: {kind: string; rows: any[]; open: (id: string) => Promise<void>}) {
+  const proposals = kind === "proposals";
+  const columns = proposals
+    ? ["creating", "in_review", "reviewed", "sent", "converting", "won", "lost", "cancelled"].map(key => [key, crmStatus(key)])
+    : [...Object.entries(stages), ["won", "Ganha"], ["lost", "Perdida"], ["cancelled", "Cancelada"]];
+  const keyFor = (row: any) => proposals ? row.status : row.order_count > 0 ? "won" : row.status !== "open" ? row.status : row.commercial?.stage || "prospecting";
+  for (const row of rows) {
+    const key = keyFor(row);
+    if (!columns.some(([id]) => id === key)) columns.push([key, crmStatus(key)]);
+  }
+  return <div className="crm-kanban" aria-label={proposals ? "Kanban de propostas" : "Kanban de oportunidades"}>
+    {columns.map(([key, label]) => {
+      const items = rows.filter(row => keyFor(row) === key);
+      return <section className="crm-kanban-column" key={key} aria-label={label}>
+        <header><h3>{label}</h3><span>{items.length}</span></header>
+        <div className="crm-kanban-cards">
+          {items.map(row => <article className="crm-kanban-card" key={row.id}>
+            {proposals ? <Link href={"/crm/propostas/" + row.id}>PROP-{row.number} · {row.title}</Link> : <button className="crm-record-link" onClick={() => void open(row.id)}>OP-{row.number} · {row.title}</button>}
+            <p>{row.customer_name || "Cliente não informado"}</p>
+            {proposals && row.equipment_name && <small>{row.equipment_name}</small>}
+            <strong>{proposals ? crmMoney(row.total_cents) : row.commercial?.amount ? crmMoney(Math.round(Number(row.commercial.amount) * 100)) : "Valor não informado"}</strong>
+            <small>{row.type_name}</small>
+            {!proposals && <small>{row.owner_name || row.created_by} · Previsão: {day(row.commercial?.closeDate)}</small>}
+            {proposals && <button className="crm-record-link" onClick={() => void open(row.opportunity_id)}>OP-{row.opportunity_number}</button>}
+            {proposals && row.order_id && <OrderDetailLink id={String(row.order_id)} company={row.order_company_id}>OS-{row.order_id}</OrderDetailLink>}
+          </article>)}
+          {!items.length && <p className="crm-kanban-empty">Nenhum registro</p>}
+        </div>
+      </section>;
+    })}
+  </div>;
 }
 function OpportunityDialog({
   initial,
@@ -917,7 +970,7 @@ function OpportunityDialog({
           </div>
           <div className="crm-opportunity-save"><button className="button primary" type="submit">
             <Save size={16} aria-hidden="true" />{busy ? "Salvando…" : "Salvar oportunidade"}
-          </button>{data.id&&data.status==='open'&&<button className="button" type="button" disabled={busy} onClick={()=>{if(window.confirm('Marcar esta oportunidade como perdida?'))void save('lost');}}><CircleX size={16} aria-hidden="true" />Marcar como perdida</button>}</div>
+          </button>{data.id&&data.status==='open'&&<button className="button" type="button" disabled={busy} onClick={()=>{if(window.confirm('Marcar esta oportunidade como perdida?'))void save('lost');}}><CircleX size={16} aria-hidden="true" />Marcar como perdida</button>}{data.id&&data.status==='open'&&<button className="button" type="button" disabled={busy||won} onClick={()=>{if(window.confirm('Cancelar esta oportunidade?'))void save('cancelled');}}><CircleX size={16} aria-hidden="true"/>Cancelar oportunidade</button>}</div>
         </fieldset>
       </form>
       {error && (

@@ -1,3 +1,4 @@
+import {missingProposalFields,proposalFieldNames} from './proposal-required';
 import {priceReview} from './price-approval';
 import {proposalOrderDraft} from './financials';
 import {proposalFlowStatus} from './proposal-flow-status';
@@ -26,7 +27,7 @@ async function recordResult(link:any,r:any){
 export async function beginConversion(raw:any,actor:string,deps=defaults){
  const id=uuid(raw.id),proposal=uuid(raw.proposalId),expected=version(raw.version);
  const review=await (deps.prices||priceReview)(proposal,raw.orderType||'');
- if(review.items.length&&!review.approved)throw new CrmError('Existem produtos abaixo do mínimo sem aprovação. Solicite uma nova revisão da proposta e aprove os itens antes de gerar a OS.');
+ if(review.items.length&&!review.approved)throw new CrmError('Existem produtos abaixo do mínimo sem aprovação. Aprove os itens ou solicite a revisão da proposta antes de gerar a OS.');
  const link=await transaction(async c=>{
  const p=(await c.query('SELECT p.*,o.status opportunity_status,o.customer_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p,o',[proposal])).rows[0];
  if(!p)throw new CrmError('Proposta não encontrada.');
@@ -39,7 +40,7 @@ export async function beginConversion(raw:any,actor:string,deps=defaults){
  if(p.version!==review.version)throw new CrmError('A proposta foi alterada durante a conferência de preços. Atualize a tela.');
  if(p.version!==expected)throw new CrmError('A proposta foi alterada. Reabra antes de concretizar.');
  const workflow=(await c.query('SELECT state,revision FROM crm_proposal_workflows WHERE proposal_id=$1 FOR UPDATE',[proposal])).rows[0];
- if(!['reviewed','sent'].includes(workflow?.state))throw new CrmError('Conclua a revisão da proposta antes de gerar a OS.');
+ if(workflow?.state==='in_review')throw new CrmError('Conclua a revisão da proposta antes de gerar a OS.');
  if((await c.query("SELECT 1 FROM crm_proposal_email_attempts WHERE proposal_id=$1 AND state IN ('sending','uncertain')",[proposal])).rows.length)throw new CrmError('Há um envio de e-mail em andamento ou aguardando conferência.');
  if(p.opportunity_status!=='open'||!['pending','won'].includes(p.status))throw new CrmError('A proposta e a oportunidade precisam estar disponíveis para concretização.');
  if(p.status==='won')throw new CrmError('Esta proposta já foi concretizada.');
@@ -51,6 +52,8 @@ export async function beginConversion(raw:any,actor:string,deps=defaults){
  if(raw.orderType)draft.type=String(positive(raw.orderType));
  const mapping=(await c.query(`SELECT p.equipment_required FROM crm_proposal_types p JOIN crm_opportunity_types o ON o.id=p.opportunity_type_id JOIN crm_proposal_order_types m ON m.proposal_type_id=p.id JOIN m8_order_type_catalog t ON t.id=m.m8_order_type_id WHERE p.id=$1 AND m.m8_order_type_id=$2 AND p.active AND o.active AND t.active`,[p.type_id,draft.type||null])).rows[0];
  if(!mapping)throw new CrmError('Defina na proposta um tipo de OS ativo, vinculado em Configurações / Cadastros / Tipos de Proposta.');
+ const missing=missingProposalFields(draft,mapping.equipment_required !== false);
+ if(missing.length)throw new CrmError('Preencha os campos obrigatórios: '+missing.map(key=>proposalFieldNames[key]).join(', ')+'.');
  if(mapping.equipment_required !== false && !draft.equipment)throw new CrmError('Preencha o equipamento antes de gerar a OS.');
  const created=(await c.query('INSERT INTO crm_order_links(id,proposal_id,company_id,submission_id,document,actor) VALUES($1,$2,$3,$1,$4::jsonb,$5) RETURNING *',[id,proposal,draft.company,JSON.stringify(draft),actor])).rows[0];
  await c.query("UPDATE crm_proposals SET status='converting',version=version+1,updated_by=$2,updated_at=now() WHERE id=$1",[proposal,actor]);
@@ -73,9 +76,9 @@ export async function continueConversion(raw:any,actor:string,deps=defaults){
  if(!link||link.actor!==actor)throw new CrmError('Somente o usuário que iniciou o envio pode continuar esta integração.');
  if(link.state==='validation_failed')throw new CrmError('Corrija e salve a proposta antes de iniciar novamente.');
  const workflow=(await database().query('SELECT state FROM crm_proposal_workflows WHERE proposal_id=$1',[link.proposal_id])).rows[0];
- if(!['reviewed','sent'].includes(workflow?.state))throw new CrmError('Conclua a revisão da proposta antes de continuar a OS.');
+ if(workflow?.state==='in_review')throw new CrmError('Conclua a revisão da proposta antes de continuar a OS.');
  const prices=await (deps.prices||priceReview)(link.proposal_id,link.document.type);
- if(!prices.approved)throw new CrmError('Há itens abaixo do mínimo sem aprovação. Solicite uma nova revisão da proposta antes de continuar a OS.');
+ if(!prices.approved)throw new CrmError('Há itens abaixo do mínimo sem aprovação. Aprove os itens ou solicite a revisão da proposta antes de continuar a OS.');
  if(raw.action==='retry'){
  if(raw.confirmed!==true)throw new CrmError('Confira o resultado no M8 antes de reenviar.');
  return recordResult(link,await deps.retry(actor,link.submission_id,raw.updatedAt,true));

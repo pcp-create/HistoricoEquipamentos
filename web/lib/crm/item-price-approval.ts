@@ -133,10 +133,10 @@ export async function approveProposalItem(
     if (
       !["pending", "converting"].includes(p.status) ||
       p.opportunity_status !== "open" ||
-      workflow?.state !== "in_review"
+      !["creating", "in_review", "reviewed", "sent"].includes(workflow?.state || "creating")
     )
       throw new CrmError(
-        "Solicite a revisão da proposta para aprovar os itens.",
+        "Esta proposta não está disponível para aprovação de preços.",
       );
     const item = p.document.items.find(
       (i: any) => i.kind === "material" && i.code === String(input.code),

@@ -35,12 +35,12 @@ const day = (value: string) =>
       })
     : "Data não informada";
 
-function UnitPriceInput({value, onChange, belowMinimum = false}: {value:string;onChange:(value:string)=>void;belowMinimum?:boolean}) {
+function UnitPriceInput({value, onChange, belowMinimum = false, approved=false}: {value:string;onChange:(value:string)=>void;belowMinimum?:boolean;approved?:boolean}) {
   const [editing, setEditing] = useState(false);
   const [typed, setTyped] = useState("");
   const display = value !== "" && Number.isFinite(Number(value))
     ? Number(value).toLocaleString("pt-BR", {minimumFractionDigits:2,maximumFractionDigits:2,useGrouping:false}) : "";
-  return <input aria-label="Valor unitário (R$)" className={belowMinimum ? "quote-price-below-minimum" : undefined} type="text" inputMode="decimal"
+  return <input aria-label="Valor unitário (R$)" className={approved ? "quote-price-approved" : belowMinimum ? "quote-price-below-minimum" : undefined} type="text" inputMode="decimal"
     value={editing ? typed : display} placeholder="Informar"
     onFocus={() => {setEditing(true);setTyped(value ? String(Number(value)).replace(".",",") : "");}}
     onChange={event => {
@@ -67,10 +67,14 @@ export default function QuoteItemRow({
   showTaskAction = true,
   compactPricing = false,
   priceApprovalControl,
+  priceApprovalNotice,
+  priceApproved=false,
   belowMinimumOverride,
   readOnly=false,
 }: {
   priceApprovalControl?:import("react").ReactNode;
+  priceApprovalNotice?:import("react").ReactNode;
+  priceApproved?:boolean;
   belowMinimumOverride?:boolean;
   readOnly?:boolean;
   duplicate?: boolean;
@@ -293,7 +297,7 @@ export default function QuoteItemRow({
         </label>
         <div className="quote-choice-price"><label>
           Unitário (R$)
-          <UnitPriceInput value={item.price} belowMinimum={below} onChange={price => {if(!readOnly)onChange({price});}} />
+          <UnitPriceInput value={item.price} belowMinimum={below} approved={priceApproved} onChange={price => {if(!readOnly)onChange({price});}} />
         </label>{priceApprovalControl}</div>
         <div className="quote-choice-total">
           <small>Total</small>
@@ -342,7 +346,7 @@ export default function QuoteItemRow({
             Remover item
           </button>
         )}
-        {below && (
+        {below && !priceApproved && (
           <small className="quote-warning quote-below-minimum">
             Valor abaixo do mínimo M8: {money(ref.minimumPrice)}.
           </small>
@@ -447,6 +451,7 @@ export default function QuoteItemRow({
             </p>
           )}
       </details>
+      {priceApprovalNotice&&<div className="quote-price-approval-footer">{priceApprovalNotice}</div>}
     </article>
   );
 }

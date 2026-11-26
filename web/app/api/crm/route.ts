@@ -1,3 +1,4 @@
+import {prepareExternalDelivery,confirmExternalDelivery} from '@/lib/crm/proposal-external-delivery';
 import {approveProposalItem} from '@/lib/crm/item-price-approval';
 import {priceManager} from '@/lib/crm/price-manager';
 import {TaskInputError} from '@/lib/tasks/store';
@@ -17,7 +18,7 @@ import {CrmError} from '@/lib/crm/model';
 import {QuoteValidation} from '@/lib/quotes/types';
 import {OrderInputError} from '@/lib/service-orders/model';
 import {CustomerEmailError} from '@/lib/service-scheduling/customer-email';
-import {changeProposalReview} from '@/lib/crm/proposal-review-store';
+import {changeProposalReview,cancelProposal} from '@/lib/crm/proposal-review-store';
 import {sendProposalEmail,prepareProposalEmail,proposalEmailDetails,proposalEmailSettings,saveProposalEmailSettings,resolveProposalEmail} from '@/lib/crm/proposal-email';
 export const runtime='nodejs';
 export const maxDuration=120;
@@ -29,13 +30,16 @@ export async function POST(req:Request){if(!sameOrigin(req))return json({error:'
  switch(b.action){
  case 'restore-minimum':return json(await restorePendingMinimum(Number(b.restorationId),user.email));
  case 'price-review':return json(await priceReview(b.id,b.orderType));
+ case 'prepare-external-delivery':return json(await prepareExternalDelivery(b,user.email));
+ case 'confirm-external-delivery':return json(await confirmExternalDelivery(b,user.email));
  case 'approve-item-price':return json(await approveProposalItem(b,user.email));
  case 'request-price-approval':throw new CrmError('Solicite a revisão da proposta e aprove cada produto abaixo do mínimo.');
  case 'simulate-taxes':return json({draft:await hydrateProductTaxes(await applyProposalTaxType(proposalDraft(b.draft),b.typeId))});
  case 'save-opportunity':return json(await saveOpportunity(b,user.email));
  case 'create-proposal':return json(await createProposal(b,user.email));
+ case 'cancel-proposal':return json(await cancelProposal(b,user.email));
  case 'save-proposal':return json(await saveProposal(b,user.email));
- case 'request_review':case 'complete_review':return json(await changeProposalReview(b,user.email));
+ case 'reopen_proposal':case 'request_review':case 'complete_review':return json(await changeProposalReview(b,user.email));
  case 'send-proposal-email':return json(await sendProposalEmail(b,user.email));
  case 'prepare-proposal-email':return json(await prepareProposalEmail(b));
  case 'resolve-proposal-email':return json(await resolveProposalEmail(b,user.email));

@@ -81,12 +81,10 @@ test("individual approvals enforce role, saved version, review state and precise
       approveProposalItem({ ...input, version: 9 }, "manager", session),
       /alterada/,
     );
-    await query("UPDATE crm_proposal_workflows SET state='reviewed'");
-    await assert.rejects(
-      approveProposalItem(input, "manager", session),
-      /revisão/,
-    );
-    await query("UPDATE crm_proposal_workflows SET state='in_review'");
+    await query("UPDATE crm_proposals SET status='won'");
+    await assert.rejects(approveProposalItem(input,"manager",session),/disponível/);
+    await query("UPDATE crm_proposals SET status='pending'");
+    await query("UPDATE crm_proposal_workflows SET state='creating'");
     const result = await approveProposalItem(input, "manager", session);
     assert.equal(result.version, 2);
     const approvals = await itemApprovals(g.historyPool, id, draft);
@@ -102,6 +100,7 @@ test("individual approvals enforce role, saved version, review state and precise
         ["51", false],
       ],
     );
+    await query("UPDATE crm_proposal_workflows SET state='reviewed'");
     await approveProposalItem(
       { id, version: 2, code: "51" },
       "manager",
