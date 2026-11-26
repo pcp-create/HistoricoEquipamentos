@@ -73,8 +73,8 @@ export async function POST(req: Request) {
       // Reserve no máximo um aviso por execução. Uma falha de transporte não
       // retém os demais e a confirmação é individual.
       for (const claim of [
-        () => claimPasswordResetNotifications(1),
         () => claimNotifications(PUBLIC_SYSTEM_URL,false,1),
+        () => claimPasswordResetNotifications(1),
         () => claimServiceMessages(1),
         () => claimWarehouseNotifications(1),
         () => claimVisitAlerts(PUBLIC_SYSTEM_URL,1),

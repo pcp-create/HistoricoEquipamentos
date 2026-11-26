@@ -17,7 +17,10 @@ export async function claimPasswordResetNotifications(limit: 1 | 20 = 20){
  const c=await database().connect();
  try{
   await c.query('BEGIN READ WRITE');
-  await c.query('SELECT pg_advisory_xact_lock(81020,1)');
+  // A sincronização do ERP pode usar a mesma chave; não retenha as demais
+  // notificações enquanto o acesso aos funcionários estiver bloqueado.
+  const locked=(await c.query('SELECT pg_try_advisory_xact_lock(81020,1) AS acquired')).rows[0]?.acquired;
+  if(!locked){await c.query('COMMIT');return [];}
   const rows=(await c.query(`SELECT n.*,u.display_name,u.enabled,u.phone AS current_phone,u.user_id AS current_user_id FROM web_password_reset_notifications n LEFT JOIN web_user_access u ON u.email=n.email WHERE n.state='pending' AND n.attempts=0 ORDER BY n.id LIMIT $1 FOR UPDATE OF n SKIP LOCKED`,[limit])).rows;
   const notifications=[];
   for(const n of rows){
