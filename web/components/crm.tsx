@@ -777,7 +777,7 @@ function OpportunityDialog({
                 ))}
               </select>
             </label>
-            <div className="crm-account-kind"><span>Cadastro *</span><div className="crm-account-kind-switch" role="group" aria-label="Tipo de cadastro">{([['customer','Cliente'],['lead','Lead']] as const).map(([kind,label])=><button key={kind} type="button" aria-pressed={accountKind===kind} disabled={!!data.customer_locked || won || (!!data.proposals?.length && kind==='lead' && !data.lead_id)} onClick={()=>{if(accountKind===kind)return;setAccountKind(kind);setForm(f=>({...f,customerId:'',customerName:'',leadId:''}));}}>{label}</button>)}</div></div>
+            <div className="crm-account-kind"><span>Cadastro *</span><div className="crm-account-kind-switch" role="group" aria-label="Tipo de cadastro">{([['customer','Cliente'],['lead','Lead']] as const).map(([kind,label])=><button key={kind} type="button" aria-pressed={accountKind===kind} disabled={!!data.customer_locked || won} onClick={()=>{if(accountKind===kind)return;setAccountKind(kind);setForm(f=>({...f,customerId:'',customerName:'',leadId:''}));}}>{label}</button>)}</div></div>
             <label className="crm-wide">
               {accountKind==='lead' ? 'Lead *' : 'Cliente *'}
               <OrderSearchSelect

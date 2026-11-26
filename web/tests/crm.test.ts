@@ -118,11 +118,14 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await db.query("INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id) SELECT id,0,version,document,names,title,decode('00','hex'),'planner','cliente@example.com','test-change' FROM crm_proposals WHERE id=$1",[changeProposal.id]);
  const updatedAccount=await saveOpportunity({id:changeOp.id,version:changeOp.version,typeId:man.id,customerId:11,company:1,title:'Alterar cliente'},'planner');
  const changedProposal=await getProposal(changeProposal.id);assert.equal(changedProposal.document.customer,'11');assert.equal(changedProposal.names.customer,'Outro Cliente');assert.equal(changedProposal.document.notes,'Preservar observações');assert.equal(changedProposal.document.items[0].name,'Filtro');assert.equal(changedProposal.document.items[0].taxes,undefined);assert.equal(changedProposal.workflow.state,'creating');assert.equal(changedProposal.workflow.revision,1);assert.equal(changedProposal.sentRevisions.length,1);
+ const changedToLead=await saveOpportunity({id:changeOp.id,version:updatedAccount.version,typeId:man.id,leadId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',company:1,title:'Alterar cliente'},'planner');
+ assert.equal(changedToLead.customer_id,null);assert.equal(changedToLead.lead_id,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+ const leadChangedProposal=await getProposal(changeProposal.id);assert.equal(leadChangedProposal.document.customer,'');assert.equal(leadChangedProposal.names.customer,'Lead Teste');assert.equal(leadChangedProposal.document.notes,'Preservar observações');assert.equal(leadChangedProposal.document.items[0].name,'Filtro');assert.equal(leadChangedProposal.sentRevisions.length,1);
  const pendingLink=randomUUID();await db.query("INSERT INTO crm_order_links(id,proposal_id,company_id,submission_id,document,actor,state) VALUES($1,$2,1,$1,'{}','planner','preparing')",[pendingLink,changeProposal.id]);
- await assert.rejects(saveOpportunity({id:changeOp.id,version:updatedAccount.version,typeId:man.id,customerId:10,company:1,title:'Alterar cliente'},'planner'),/durante o envio do pedido/);
+ await assert.rejects(saveOpportunity({id:changeOp.id,version:changedToLead.version,typeId:man.id,customerId:10,company:1,title:'Alterar cliente'},'planner'),/durante o envio do pedido/);
  await db.query("UPDATE crm_order_links SET order_id=901,state='complete' WHERE id=$1",[pendingLink]);
  assert.equal((await getOpportunity(changeOp.id)).customer_locked,true);
- await assert.rejects(saveOpportunity({id:changeOp.id,version:updatedAccount.version,typeId:man.id,customerId:10,company:1,title:'Alterar cliente'},'planner'),/não pode ser alterado/);
+ await assert.rejects(saveOpportunity({id:changeOp.id,version:changedToLead.version,typeId:man.id,customerId:10,company:1,title:'Alterar cliente'},'planner'),/não pode ser alterado/);
 
  assert.throws(()=>proposalDraft({...emptyDraft(),items:[{kind:'material',code:'1',name:'x',quantity:'-1',price:'5'}]}));
  }finally{g.historyPool=old;await db.close();}
