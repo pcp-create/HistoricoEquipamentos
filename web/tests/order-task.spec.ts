@@ -164,10 +164,12 @@ test("order task requires reviewed reports and submits the selected attachment a
   await actionDialog.getByRole('button',{name:'Salvar ação',exact:true}).click();
   await expect(actionDialog).toHaveCount(0);
   await expect(dialog.getByLabel('Ação da tarefa',{exact:true})).toHaveValue('3');
+  await dialog.getByLabel('Tipo de tarefa').selectOption('approval');
+  await expect(dialog.getByLabel('Responsável pela aprovação')).toHaveValue('tech');
   await dialog.getByLabel('Comentário da tarefa').fill('Preparar orçamento para o cliente.');
   await dialog.getByRole('button',{name:'Criar tarefa',exact:true}).click();
   await expect(dialog.getByRole('link',{name:'#123'})).toHaveAttribute('href','/tarefas?task=123');
-  expect(sent).toMatchObject({scheduleId:'1',assignedTo:'tech',reportMode:'budget',description:'Preparar orçamento para o cliente.',actionId:'3'});
+  expect(sent).toMatchObject({scheduleId:'1',assignedTo:'tech',reportMode:'budget',description:'Preparar orçamento para o cliente.',actionId:'3',taskType:'approval'});
   expect(sent.requestId).toMatch(/^[a-f0-9-]{36}$/);
   await dialog.getByRole('button',{name:'Fechar tarefa da OS'}).click();
   const linked=page.getByRole('region',{name:'Tarefas da OS',exact:true});

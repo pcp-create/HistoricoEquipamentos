@@ -26,8 +26,8 @@ test('order task actions persist, group by Kanban origin and keep assignee, scop
  await assert.rejects(addOrderTaskAction('','planner'));await assert.rejects(addOrderTaskAction('Outra','disabled'));
  const operation=randomUUID(),other=randomUUID();
  for(const [id,position] of [[operation,1],[other,2]])await db.query("INSERT INTO web_service_operations VALUES($1,$2,1,'reviewed','{\"checklistRun\":{}}')",[id,position]);
- let pdfs=0,created=0,selection:any;
- const deps:any={pdf:async(s:any)=>{pdfs++;selection=s;return {filename:'operacao.pdf',bytes:new Uint8Array([37,80,68,70])};},create:async(b:any)=>{created++;return {task:(await db.query("INSERT INTO web_tasks(title,assigned_to,status) VALUES($1,$2,'not_started') RETURNING id",[b.title,b.assignedTo])).rows[0]};}};
+ let pdfs=0,created=0,selection:any,createdInput:any;
+ const deps:any={pdf:async(s:any)=>{pdfs++;selection=s;return {filename:'operacao.pdf',bytes:new Uint8Array([37,80,68,70])};},create:async(b:any)=>{created++;createdInput=b;return {task:(await db.query("INSERT INTO web_tasks(title,assigned_to,status) VALUES($1,$2,'not_started') RETURNING id",[b.title,b.assignedTo])).rows[0]};}};
  const input={scheduleId:'1',requestId:randomUUID(),operationId:operation,assignedTo:'responsible',description:'Preparar orçamento',reportMode:'budget',actionId:choices[1].id};
  const result=await createOrderTask(input,'planner',deps);
  const task=(await db.query<any>('SELECT * FROM web_tasks WHERE id=$1',[result.taskId])).rows[0];
@@ -38,5 +38,8 @@ test('order task actions persist, group by Kanban origin and keep assignee, scop
  await db.query('UPDATE web_order_task_actions SET active=false WHERE id=$1',[custom.action.id]);
  await assert.rejects(createOrderTask({...input,requestId:randomUUID(),actionId:custom.action.id},'planner',deps),/não está disponível/);
  assert.equal(created,1);
+ const approval=await createOrderTask({...input,operationId:undefined,requestId:randomUUID(),taskType:'approval'},'planner',deps);
+ assert.equal(createdInput.taskType,'approval');assert.equal(createdInput.orderId,'100');assert.equal(createdInput.assignedTo,'responsible');
+ assert.deepEqual(selection.operationIds,[operation,other]);assert.equal((await db.query('SELECT * FROM web_task_attachments WHERE task_id=$1',[approval.taskId])).rows.length,1);
  }finally{g.historyPool=old;await db.close();}
 });
