@@ -36,7 +36,10 @@ test('proposal review creates one task and records who completed it',async()=>{
   const tasks=(await query<any>('SELECT * FROM web_tasks')).rows;
   assert.equal(tasks.length,1);assert.equal(tasks[0].assigned_to,'revisor');assert.deepEqual(tasks[0].followers,['solicitante']);
   assert.equal((await query<any>('SELECT description FROM web_task_notes')).rows[0].description,'Confira os valores');
-  await query("UPDATE crm_proposals SET document=$2::jsonb WHERE id=$1",[id,JSON.stringify({company:'1',type:'4',customer:'10',equipment:'1',serviceType:'1',seller:'1',payment:'1',expected:'2026-11-25',delivery:'2026-11-26',situation:'1',flowStatus:'1',freight:'0',notes:'Observação'})]);
+  await query("UPDATE crm_proposals SET document=$2::jsonb WHERE id=$1",[id,JSON.stringify({company:'1',type:'4',customer:'10',equipment:'1',serviceType:'1',origin:'1',seller:'1',payment:'1',expected:'2026-11-25',delivery:'2026-11-26',situation:'1',flowStatus:'1',freight:'0',notes:'Observação'})]);
+  await query("UPDATE crm_proposals SET document=jsonb_set(document,'{origin}',to_jsonb(''::text)) WHERE id=$1",[id]);
+  await assert.rejects(()=>changeProposalReview({id,version:2,action:'complete_review'},'revisor'),/Origem Atendimento/);
+  await query("UPDATE crm_proposals SET document=jsonb_set(document,'{origin}',to_jsonb('1'::text)) WHERE id=$1",[id]);
   await assert.rejects(()=>changeProposalReview({id,version:2,action:'complete_review'},'solicitante'),/designado/);
   await query("UPDATE crm_proposals SET document=jsonb_set(document,'{expected}','\"\"') WHERE id=$1",[id]);
   await assert.rejects(()=>changeProposalReview({id,version:2,action:'complete_review'},'revisor'),/Data Entrega Prevista/);

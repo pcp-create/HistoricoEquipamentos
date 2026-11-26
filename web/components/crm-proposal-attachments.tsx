@@ -7,10 +7,10 @@ import './crm-proposal-attachments.css';
 const maxBytes=3*1024*1024;
 const address=(proposal:string,id?:string)=>'/api/crm/attachments?'+new URLSearchParams({proposal,...(id?{id}:{})});
 const isImage=(filename:string)=>/\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(filename);
-export default function CrmProposalAttachments({proposalId}:{proposalId:string}){
+export default function CrmProposalAttachments({proposalId,onCountChange}:{proposalId:string;onCountChange?:(count:number)=>void}){
  const [rows,setRows]=useState<any[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const input=useRef<HTMLInputElement>(null);
- async function refresh(signal?:AbortSignal){const response=await fetch(address(proposalId),{cache:'no-store',signal}),body=await response.json();if(!response.ok)throw Error(body.error||'Não foi possível carregar os anexos.');setRows(body.rows);}
+ async function refresh(signal?:AbortSignal){const response=await fetch(address(proposalId),{cache:'no-store',signal}),body=await response.json();if(!response.ok)throw Error(body.error||'Não foi possível carregar os anexos.');setRows(body.rows);onCountChange?.(body.rows.length);}
  useEffect(()=>{const controller=new AbortController();setLoading(true);refresh(controller.signal).catch(e=>{if(!controller.signal.aborted)setError(e.message)}).finally(()=>{if(!controller.signal.aborted)setLoading(false)});return()=>controller.abort()},[proposalId]);
  async function add(files:File[]){
   if(!files.length)return;setError('');setMessage('');

@@ -2,6 +2,7 @@ import {applyProposalTaxType} from './proposal-tax-type';
 import {taxBudgetTypes} from './product-taxes';
 import {hydrateProductTaxes} from './product-taxes';
 import {hydrateProductCosts} from './product-costs';
+import {proposalFlowStatus} from './proposal-flow-status';
 import 'server-only';
 import {database} from '../db';
 import {CrmError,uuid,text,positive,version,proposalDraft,emptyDraft,totalCents,conversionRate} from './model';
@@ -94,13 +95,13 @@ export async function createProposal(raw:any,actor:string){
  const o=(await c.query('SELECT * FROM crm_opportunities WHERE id=$1 FOR UPDATE',[opportunity])).rows[0];
  const t=(await c.query('SELECT * FROM crm_proposal_types WHERE id=$1 AND active AND opportunity_type_id=$2',[type,o?.type_id])).rows[0];
  if(!o||o.status!=='open'||!t)throw new CrmError('Selecione uma oportunidade aberta e um tipo de proposta compatível.');
- const draft={...emptyDraft(),company:String(o.company_id),customer:o.customer_id?String(o.customer_id):''};
+ const draft={...emptyDraft(),company:String(o.company_id),customer:o.customer_id?String(o.customer_id):'',flowStatus:proposalFlowStatus};
  const row=(await c.query(`INSERT INTO crm_proposals(id,opportunity_id,type_id,title,document,names,created_by,updated_by) VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7,$7) RETURNING *`,[id,opportunity,type,title,JSON.stringify(draft),JSON.stringify({customer:o.customer_name,equipment:''}),actor])).rows[0];
  await event(c,actor,'proposal_created',opportunity,id,{title,type});return row;
  });
 }
 export async function saveProposal(raw:any,actor:string){
- const id=uuid(raw.id),expected=version(raw.version);let draft=proposalDraft(raw.draft);
+ const id=uuid(raw.id),expected=version(raw.version);let draft={...proposalDraft(raw.draft),flowStatus:proposalFlowStatus};
  // Simulate before taking a row lock. Recheck the version inside the transaction.
  const source=(await database().query('SELECT p.version,p.type_id,o.company_id,o.customer_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1',[id])).rows[0];
  if(!source||source.version!==expected)throw new CrmError('A proposta foi alterada. Reabra antes de salvar.');

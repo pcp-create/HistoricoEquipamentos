@@ -1,4 +1,5 @@
 import {proposalOrderDraft} from './financials';
+import {proposalFlowStatus} from './proposal-flow-status';
 import 'server-only';
 import {database} from '../db';
 import {prepareOrder,advanceOrder,retryOrder} from '../service-orders/store';
@@ -27,7 +28,7 @@ export async function beginConversion(raw:any,actor:string,deps=defaults){
  const p=(await c.query('SELECT p.*,o.status opportunity_status,o.customer_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p,o',[proposal])).rows[0];
  if(!p)throw new CrmError('Proposta não encontrada.');
  if(!p.customer_id)throw new CrmError('Para gerar a OS, vincule primeiro a oportunidade a um cliente cadastrado no M8.');
- const old=(await c.query('SELECT * FROM crm_order_links WHERE id=$1',[id])).rows[0];
+ const old=(await c.query('SELECT l.*,NOT t.equipment_required proposal_equipment_optional FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id JOIN crm_proposal_types t ON t.id=p.type_id WHERE l.id=$1',[id])).rows[0];
  if(old){if(old.actor!==actor||old.proposal_id!==proposal)throw new CrmError('Envio pertence a outro usuário.');if(old.state==='validation_failed')throw new CrmError('Corrija e salve a proposta antes de uma nova tentativa.');return old;}
  if((await c.query('SELECT 1 FROM crm_order_links WHERE proposal_id=$1 AND order_id IS NOT NULL LIMIT 1',[proposal])).rows.length)throw new CrmError('Esta proposta já possui uma OS vinculada.');
  const pending=(await c.query("SELECT * FROM crm_order_links WHERE proposal_id=$1 AND state NOT IN('complete','validation_failed')",[proposal])).rows[0];
@@ -41,15 +42,18 @@ export async function beginConversion(raw:any,actor:string,deps=defaults){
  const sent=workflow.state==='sent'?(await c.query('SELECT document FROM crm_proposal_sent_revisions WHERE proposal_id=$1 AND revision=$2',[proposal,workflow.revision])).rows[0]:null;
  if(workflow.state==='sent'&&!sent)throw new CrmError('A versão enviada não está disponível para gerar a OS.');
  const draft=proposalDraft(sent?.document ?? p.document);
+ draft.flowStatus=proposalFlowStatus;
+ if(!draft.origin)throw new CrmError('Preencha a Origem Atendimento antes de gerar a OS.');
  if(raw.orderType)draft.type=String(positive(raw.orderType));
- const mapping=(await c.query(`SELECT 1 FROM crm_proposal_types p JOIN crm_opportunity_types o ON o.id=p.opportunity_type_id JOIN crm_proposal_order_types m ON m.proposal_type_id=p.id JOIN m8_order_type_catalog t ON t.id=m.m8_order_type_id WHERE p.id=$1 AND m.m8_order_type_id=$2 AND p.active AND o.active AND t.active`,[p.type_id,draft.type||null])).rows[0];
+ const mapping=(await c.query(`SELECT p.equipment_required FROM crm_proposal_types p JOIN crm_opportunity_types o ON o.id=p.opportunity_type_id JOIN crm_proposal_order_types m ON m.proposal_type_id=p.id JOIN m8_order_type_catalog t ON t.id=m.m8_order_type_id WHERE p.id=$1 AND m.m8_order_type_id=$2 AND p.active AND o.active AND t.active`,[p.type_id,draft.type||null])).rows[0];
  if(!mapping)throw new CrmError('Defina na proposta um tipo de OS ativo, vinculado em Configurações / Cadastros / Tipos de Proposta.');
+ if(mapping.equipment_required !== false && !draft.equipment)throw new CrmError('Preencha o equipamento antes de gerar a OS.');
  const created=(await c.query('INSERT INTO crm_order_links(id,proposal_id,company_id,submission_id,document,actor) VALUES($1,$2,$3,$1,$4::jsonb,$5) RETURNING *',[id,proposal,draft.company,JSON.stringify(draft),actor])).rows[0];
  await c.query("UPDATE crm_proposals SET status='converting',version=version+1,updated_by=$2,updated_at=now() WHERE id=$1",[proposal,actor]);
  await c.query(`INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,'conversion_requested',$4::jsonb)`,[p.opportunity_id,proposal,actor,JSON.stringify({link:id,type:draft.type})]);
- return created;
+ return {...created,proposal_equipment_optional:mapping.equipment_required === false};
  });
- try{return await recordResult(link,await deps.prepare(actor,link.submission_id,proposalOrderDraft(link.document)));}
+ try{return await recordResult(link,await deps.prepare(actor,link.submission_id,proposalOrderDraft(link.document),undefined,{proposalEquipmentOptional:link.proposal_equipment_optional}));}
  catch(e){
  if(e instanceof OrderInputError){
  await transaction(async c=>{
@@ -61,13 +65,13 @@ export async function beginConversion(raw:any,actor:string,deps=defaults){
  }
 }
 export async function continueConversion(raw:any,actor:string,deps=defaults){
- const id=uuid(raw.id),link=(await database().query('SELECT * FROM crm_order_links WHERE id=$1',[id])).rows[0];
+ const id=uuid(raw.id),link=(await database().query('SELECT l.*,t.equipment_required FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id JOIN crm_proposal_types t ON t.id=p.type_id WHERE l.id=$1',[id])).rows[0];
  if(!link||link.actor!==actor)throw new CrmError('Somente o usuário que iniciou o envio pode continuar esta integração.');
  if(link.state==='validation_failed')throw new CrmError('Corrija e salve a proposta antes de iniciar novamente.');
  if(raw.action==='retry'){
  if(raw.confirmed!==true)throw new CrmError('Confira o resultado no M8 antes de reenviar.');
  return recordResult(link,await deps.retry(actor,link.submission_id,raw.updatedAt,true));
  }
- if(link.state==='preparing')return recordResult(link,await deps.prepare(actor,link.submission_id,proposalOrderDraft(link.document)));
+ if(link.state==='preparing')return recordResult(link,await deps.prepare(actor,link.submission_id,proposalOrderDraft(link.document),undefined,{proposalEquipmentOptional:link.equipment_required === false}));
  return recordResult(link,await deps.advance(actor,link.submission_id));
 }

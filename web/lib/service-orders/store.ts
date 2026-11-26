@@ -43,7 +43,7 @@ export async function submissions(email: string, id?: string) {
   );
   return result.rows.map(publicSubmission);
 }
-export async function prepareOrder(email: string, id: unknown, input: unknown, openedAt?: unknown) {
+export async function prepareOrder(email: string, id: unknown, input: unknown, openedAt?: unknown, options?: { proposalEquipmentOptional?: boolean }) {
   const capturedAt = new Date();
   const key = validUUID(id),
     draft = parseOrder(input,false,false),
@@ -86,7 +86,7 @@ export async function prepareOrder(email: string, id: unknown, input: unknown, o
     equipment = equip.rows[0];
   if (!type || type.customer_equipment_only == null)
     throw new OrderInputError("Atualize e selecione um tipo de OS ativo.");
-  if (!customer.rows.length || (draft.equipment ? !equipment : !equipmentOptionalForOrderType(draft.type,type.equipment_required)))
+  if (!customer.rows.length || (draft.equipment ? !equipment : !options?.proposalEquipmentOptional && !equipmentOptionalForOrderType(draft.type,type.equipment_required)))
     throw new OrderInputError("Selecione cliente e equipamento válidos.");
   if (draft.technician && !technician)
     throw new OrderInputError(

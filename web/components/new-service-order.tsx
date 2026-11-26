@@ -2,6 +2,7 @@
 import ActionNotice from "./action-notice";
 import CrmProductCosts from "./crm-product-costs";
 import {validProposalDate,missingProposalFields,proposalFieldNames} from '@/lib/crm/proposal-required';
+import {proposalFlowStatusName} from '@/lib/crm/proposal-flow-status';
 import { proposalFinancials } from "@/lib/crm/financials";
 import { DEFAULT_BACKUP_TERMS } from "@/lib/crm/backup";
 import {applyAverageCosts} from "@/lib/crm/product-cost-model";
@@ -75,6 +76,7 @@ export default function NewServiceOrder({
  activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
 } } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
+  const [attachmentCount,setAttachmentCount]=useState(0);
   const [equipmentPending,setEquipmentPending]=useState(false);
   const [attachmentFiles,setAttachmentFiles]=useState<File[]>([]);
   const [attachmentBusy,setAttachmentBusy]=useState(false);
@@ -420,10 +422,10 @@ export default function NewServiceOrder({
     options: any[],
     extra?: string,
   ) => (
-    <label data-proposal-required-empty={proposal && key!=="origin" && key!=="technician" && !String(form[key] ?? "").trim() ? "true" : undefined}>
+    <label data-proposal-required-empty={proposal && key!=="technician" && !String(form[key] ?? "").trim() ? "true" : undefined}>
       <span className="os-field-title">
         {label}{" "}
-        {key !== "technician" && key !== "origin" &&
+        {key !== "technician" && (key !== "origin" || !!proposal) &&
           (!editing ||
             ["type", "customer", "payment", "seller"].includes(key)) && (
             <b>*</b>
@@ -614,8 +616,8 @@ export default function NewServiceOrder({
           return JSON.stringify(items)===JSON.stringify(current.items)?current:{...current,items};
         })}/>}
         {proposal?.activityTools}
-        {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['attachments','Anexos'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{key==='header'?<ClipboardList size={18} aria-hidden="true"/>:key==='material'?<Package size={18} aria-hidden="true"/>:key==='service'?<Wrench size={18} aria-hidden="true"/>:key==='attachments'?<Paperclip size={18} aria-hidden="true"/>:<ChartNoAxesCombined size={18} aria-hidden="true"/>}<span>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}</span></button>)}</nav>}
-        {proposal&&tab==='attachments'&&<CrmProposalAttachments proposalId={proposal.id}/>}
+        {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['attachments','Anexos'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{key==='header'?<ClipboardList size={18} aria-hidden="true"/>:key==='material'?<Package size={18} aria-hidden="true"/>:key==='service'?<Wrench size={18} aria-hidden="true"/>:key==='attachments'?<Paperclip size={18} aria-hidden="true"/>:<ChartNoAxesCombined size={18} aria-hidden="true"/>}<span>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}{key==='attachments'&&attachmentCount>0&&` (${attachmentCount})`}</span></button>)}</nav>}
+        {proposal&&<div hidden={tab!=='attachments'}><CrmProposalAttachments proposalId={proposal.id} onCountChange={setAttachmentCount}/></div>}
         {proposal&&<div hidden={tab!=='summary'}>{proposal.summaryTools}</div>}
         <form onSubmit={submit} onKeyDown={event=>{if(proposal && event.key==='Enter' && event.target instanceof HTMLInputElement && !event.nativeEvent.isComposing)event.preventDefault();}} noValidate>
           <fieldset
@@ -782,11 +784,11 @@ export default function NewServiceOrder({
                     "Situação Ordem Serviço",
                     registry("order-statuses"),
                   )}
-                  {select(
+                  {!proposal && select(
                     "flowStatus",
                     "Status Fluxo",
                     registry("flow-statuses"),
-                    proposal ? "" : "Aplicado após a criação da OS e a inclusão do equipamento, produtos e serviços.",
+                    "Aplicado após a criação da OS e a inclusão do equipamento, produtos e serviços.",
                   )}
                   {select("freight", "Frete", registry("freight"))}
                   {proposal && <section className="crm-proposal-backup" aria-label="Equipamento backup">
@@ -844,6 +846,7 @@ export default function NewServiceOrder({
                   corresponder aos cadastros do M8.
                 </p>
                 <div className="os-grid">
+                  {proposal && <label><span className="os-field-title">Status Fluxo</span><input readOnly value={proposalFlowStatusName} /><small>Aplicado automaticamente ao gerar a OS.</small></label>}
                   {proposal && <label><span className="os-field-title">Prazo Garantia</span><input readOnly value={service?.warranty_description || ""} placeholder="Definido pelo tipo de atendimento" /></label>}
                   {select(
                     "technician",

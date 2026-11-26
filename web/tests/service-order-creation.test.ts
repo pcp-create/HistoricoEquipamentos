@@ -235,6 +235,9 @@ test("creation uses customer equipment rule, persists progress, isolates users a
     await prepareOrder('custom-optional',randomUUID(),{...draft,equipment:''});
     await db.exec('UPDATE m8_order_type_catalog SET equipment_required=true WHERE id IN(1,6)');
     await assert.rejects(prepareOrder('custom-required',randomUUID(),{...draft,equipment:''}),/equipamento/);
+    const proposalWithoutEquipment=randomUUID();
+    await prepareOrder('proposal-optional',proposalWithoutEquipment,{...draft,equipment:''},undefined,{proposalEquipmentOptional:true});
+    assert.equal((await db.query<any>('SELECT items FROM service_order_submissions WHERE id=$1',[proposalWithoutEquipment])).rows[0].items.some((item:any)=>item.kind==='equipment'),false);
     await assert.rejects(prepareOrder('inspection-required',randomUUID(),{...draft,type:'6',equipment:''}),/equipamento/);
     await db.exec('UPDATE m8_order_type_catalog SET equipment_required=false WHERE id=6');
 
