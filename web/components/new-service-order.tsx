@@ -70,7 +70,7 @@ async function api(body?: unknown, query = "") {
 export default function NewServiceOrder({
   editing, returnTo, proposal,
 }: { returnTo?: string; editing?: { company: string; id: string }; proposal?: {
- title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
+ id:string;title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
  activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
 } } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
@@ -681,13 +681,14 @@ export default function NewServiceOrder({
                       label="Equipamento"
                       value={form.equipment}
                       selectedLabel={names.equipment}
-                      disabled={!form.customer || !form.type}
+                      disabled={!form.customer || (!proposal && !form.type)}
                       endpoint={
                         "/api/service-orders?" +
                         new URLSearchParams({
-                          lookup: "equipment",
+                          lookup: proposal ? "proposal-equipment" : "equipment",
                           customer: form.customer,
                           type: form.type,
+                          ...(proposal?{proposal:proposal.id}:{}),
                         })
                       }
                       placeholder={equipmentOptionalForOrderType(form.type,type?.equipment_required) ? "Equipamento opcional" : "Selecione o equipamento"}
@@ -701,9 +702,9 @@ export default function NewServiceOrder({
                     {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&form.equipment&&<button type="button" disabled={disabled} onClick={()=>{set('equipment','');setNames(names=>({...names,equipment:''}));setEquipmentPending(false);}}>Sem equipamento</button>}
                     {!proposal&&<button type="button" className="os-add-equipment" aria-label="Cadastrar equipamento" title="Cadastrar equipamento" disabled={!form.customer||!form.type} onClick={()=>setAddingEquipment(true)}><Plus size={18}/></button>}</div>
                     {equipmentOptionalForOrderType(form.type,type?.equipment_required)&&<small>{proposal ? "Equipamento opcional." : "Equipamento opcional conforme a configuração do tipo de OS."}</small>}
-                    {equipmentPending&&<small className="ws-integration-pending">Vínculo com cliente pendente de integração</small>}
+                    {equipmentPending&&<small className="ws-integration-pending">Vínculo com cliente pendente de integração. Confirme o vínculo antes de gerar a OS.</small>}
                     <small>
-                      {type?.customer_equipment_only === true
+                      {proposal && !form.type ? "Somente equipamentos do cliente" : type?.customer_equipment_only === true
                         ? "Somente equipamentos do cliente"
                         : type?.customer_equipment_only === false
                           ? "Todos os equipamentos cadastrados"

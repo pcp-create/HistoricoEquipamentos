@@ -16,7 +16,8 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await db.exec(`CREATE TABLE m8_order_type_catalog(id bigint PRIMARY KEY,name text,active boolean);
  INSERT INTO m8_order_type_catalog VALUES(4,'Preventiva',true),(2,'Corretiva',true),(43,'Orçamento',true),(42,'Oficina',true);
  CREATE TABLE m8_customer_directory(person_id bigint,company_id int,name text,payload jsonb);INSERT INTO m8_customer_directory VALUES(10,1,'Cliente Teste','{"municipioNome":"Timbó","ufSigla":"SC"}');
- CREATE TABLE web_user_access(email text,display_name text);INSERT INTO web_user_access VALUES('planner','Planejador');
+ CREATE TABLE web_user_access(email text,display_name text,enabled boolean DEFAULT true,role text DEFAULT 'user');INSERT INTO web_user_access(email,display_name) VALUES('planner','Planejador');
+ CREATE TABLE web_sales_leads(id uuid PRIMARY KEY,owner text,name text); INSERT INTO web_sales_leads VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','planner','Lead Teste'),('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','other','Lead privado');
  CREATE TABLE service_order_submissions(id uuid PRIMARY KEY,state text,m8_id bigint,message text,request jsonb,updated_at timestamptz DEFAULT now());
  CREATE TABLE m8_ordens_servico(company_id int,id_m8 bigint,numero_sequencia bigint);
  CREATE TABLE m8_product_current(company_id int,product_id bigint,available numeric,available_at timestamptz);
@@ -24,6 +25,7 @@ test('CRM persists local opportunities and proposals and safely links conversion
  CREATE TABLE m8_product_stock(company_id int,product_id bigint,average_cost numeric,stock numeric,payload jsonb DEFAULT '{}',establishment_id bigint DEFAULT 1,collected_at timestamptz DEFAULT now());INSERT INTO m8_product_stock(company_id,product_id,average_cost,stock) VALUES(1,50,5,1);`);
  await db.exec("CREATE ROLE anon; CREATE ROLE authenticated; ALTER TABLE web_user_access ADD PRIMARY KEY(email); CREATE TABLE web_tasks(id bigint PRIMARY KEY); CREATE TABLE web_service_schedule_settings(id integer,document jsonb);");
  await db.exec(readFileSync(new URL('../sql/125_crm_proposal_review_workflow.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../sql/126_crm_opportunity_leads.sql',import.meta.url),'utf8'));
  const query=(q:string,args?:any[])=>db.query(q.replace('BEGIN READ WRITE','BEGIN'),args);
  g.historyPool={query,connect:async()=>({query,release(){}})};
  const catalog=await catalogs();assert.equal(catalog.opportunityTypes.length,7);assert.equal(catalog.proposalTypes.length,13);
@@ -91,6 +93,16 @@ test('CRM persists local opportunities and proposals and safely links conversion
  const lost=await saveOpportunity({id:nextOpportunity.id,version:nextOpportunity.version,typeId:man.id,customerId:10,company:1,title:'Outra oportunidade',status:'lost'},'planner');
  assert.equal(lost.status,'lost');
  await assert.rejects(createProposal({id:randomUUID(),opportunityId:nextOpportunity.id,typeId:mpa.id,title:'Indisponível'},'planner'),/oportunidade aberta/);
+
+ const leadOpportunity=await saveOpportunity({id:randomUUID(),typeId:man.id,leadId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',company:1,title:'Oportunidade de lead'},'planner');
+ assert.equal(leadOpportunity.customer_id,null);assert.equal(leadOpportunity.customer_name,'Lead Teste');
+ assert.equal((await getOpportunity(leadOpportunity.id)).lead_id,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+ await assert.rejects(createProposal({id:randomUUID(),opportunityId:leadOpportunity.id,typeId:mpa.id,title:'Proposta'},'planner'),/cliente cadastrado/);
+ await assert.rejects(saveOpportunity({id:randomUUID(),typeId:man.id,leadId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',company:1,title:'Lead privado'},'planner'),/lead disponível/);
+ const linked=await saveOpportunity({id:leadOpportunity.id,version:leadOpportunity.version,typeId:man.id,customerId:10,company:1,title:'Oportunidade de lead'},'planner');
+ assert.equal(linked.lead_id,null);assert.equal(Number(linked.customer_id),10);
+ assert.equal(linked.origin_lead_id,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+ assert.ok((await createProposal({id:randomUUID(),opportunityId:linked.id,typeId:mpa.id,title:'Proposta'},'planner')).id);
 
  assert.throws(()=>proposalDraft({...emptyDraft(),items:[{kind:'material',code:'1',name:'x',quantity:'-1',price:'5'}]}));
  }finally{g.historyPool=old;await db.close();}

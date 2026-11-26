@@ -47,15 +47,23 @@ export async function orderLookups(p: URLSearchParams) {
         )
       ).rows,
     };
-  if (kind === "equipment") {
-    const type = positiveId(p.get("type"), "o tipo de OS"),
-      customer = positiveId(p.get("customer"), "o cliente");
-    const t = (
+  if (kind === "equipment" || kind === "proposal-equipment") {
+    const customer = positiveId(p.get("customer"), "o cliente");
+    const type = kind === "equipment" || p.get("type") ? positiveId(p.get("type"), "o tipo de OS") : null;
+    let leadKey:string|null=null;
+    if(kind==='proposal-equipment'){
+      const proposal=p.get('proposal')||'';
+      if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(proposal))throw new OrderInputError('Selecione uma proposta válida.');
+      const account=(await db.query('SELECT o.customer_id,o.origin_lead_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1',[proposal])).rows[0];
+      if(!account||String(account.customer_id)!==String(customer))throw new OrderInputError('Cliente não corresponde à proposta.');
+      if(account.origin_lead_id)leadKey='lead:'+account.origin_lead_id;
+    }
+    const t = type ? (
       await db.query(
         "SELECT customer_equipment_only FROM m8_order_type_catalog WHERE id=$1 AND active",
         [type],
       )
-    ).rows[0];
+    ).rows[0] : {customer_equipment_only:true};
     if (!t || t.customer_equipment_only == null)
       throw new OrderInputError(
         "Atualize o cadastro de tipos de OS antes de selecionar o equipamento.",
@@ -63,8 +71,8 @@ export async function orderLookups(p: URLSearchParams) {
     return {
       rows: (
         await db.query(
-          `SELECT e.equipment_id::text id,concat_ws(' · ',e.equipment_id,e.name,NULLIF(e.model,''),NULLIF(e.serial,'')) name,jsonb_build_object('integrationPending',EXISTS(SELECT 1 FROM web_effective_person_equipment pending WHERE pending.equipment_id=e.equipment_id AND pending.person_id=$3 AND pending.integration_pending)) data FROM m8_equipment_catalog e WHERE e.present AND concat_ws(' ',e.equipment_id,e.name,e.model,e.serial) ILIKE ALL($1::text[]) AND (NOT $2::boolean OR EXISTS(SELECT 1 FROM web_effective_person_equipment p WHERE p.person_id=$3 AND p.equipment_id=e.equipment_id AND p.present)) ORDER BY e.equipment_id LIMIT 31 OFFSET $4`,
-          [q, t.customer_equipment_only, customer, (page - 1) * 30],
+          `SELECT e.equipment_id::text id,concat_ws(' · ',e.equipment_id,e.name,NULLIF(e.model,''),NULLIF(e.serial,'')) name,jsonb_build_object('integrationPending',EXISTS(SELECT 1 FROM web_effective_person_equipment pending WHERE pending.equipment_id=e.equipment_id AND pending.person_id=$3 AND pending.integration_pending) OR (EXISTS(SELECT 1 FROM web_effective_person_equipment lp WHERE lp.customer_key=$5 AND lp.equipment_id=e.equipment_id AND lp.present) AND NOT EXISTS(SELECT 1 FROM web_effective_person_equipment cp WHERE cp.person_id=$3 AND cp.equipment_id=e.equipment_id AND cp.present))) data FROM m8_equipment_catalog e WHERE e.present AND concat_ws(' ',e.equipment_id,e.name,e.model,e.serial) ILIKE ALL($1::text[]) AND (NOT $2::boolean OR EXISTS(SELECT 1 FROM web_effective_person_equipment p WHERE p.equipment_id=e.equipment_id AND p.present AND (p.person_id=$3 OR p.customer_key=$5))) ORDER BY e.equipment_id LIMIT 31 OFFSET $4`,
+          [q, t.customer_equipment_only, customer, (page - 1) * 30, leadKey],
         )
       ).rows,
     };

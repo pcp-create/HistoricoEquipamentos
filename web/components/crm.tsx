@@ -626,6 +626,7 @@ function OpportunityDialog({
       title: initial.title || "",
       typeId: String(initial.type_id || ""),
       customerId: String(initial.customer_id || ""),
+      leadId: String(initial.lead_id || ""),
       customerName: initial.customer_name || "",
       company: String(initial.company_id || "1"),
       status: initial.status || "open",
@@ -640,6 +641,7 @@ function OpportunityDialog({
         ...initial.commercial,
       },
     }),
+    [accountKind, setAccountKind] = useState<'customer'|'lead'>(initial.lead_id?'lead':'customer'),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [proposalType, setProposalType] = useState(""),
@@ -653,6 +655,7 @@ function OpportunityDialog({
     setBusy(true);
     setError("");
     try {
+      if(accountKind==='lead'&&!form.leadId)throw Error('Selecione um lead cadastrado.');
       const row = await crmApi("", {
         action: "save-opportunity",
         ...form,
@@ -770,23 +773,31 @@ function OpportunityDialog({
                 ))}
               </select>
             </label>
+            <label>
+              Cadastro *
+              <select aria-label="Tipo de cadastro" disabled={!!data.proposals?.length} value={accountKind} onChange={e=>{setAccountKind(e.target.value as 'customer'|'lead');setForm(f=>({...f,customerId:'',customerName:'',leadId:''}));}}>
+                <option value="customer">Cliente</option><option value="lead">Lead</option>
+              </select>
+            </label>
             <label className="crm-wide">
-              Cliente *
+              {accountKind==='lead' ? 'Lead *' : 'Cliente *'}
               <OrderSearchSelect
-                label="Cliente da oportunidade"
+                label={accountKind==='lead' ? "Lead da oportunidade" : "Cliente da oportunidade"}
                 disabled={!!data.proposals?.length}
-                endpoint="/api/service-orders?lookup=customers"
-                customerIdentity
-                value={form.customerId}
+                endpoint={accountKind==='lead' ? "/api/crm?kind=leads" : "/api/crm?kind=customers"}
+                customerIdentity={accountKind==='customer'}
+                value={accountKind==='lead'?form.leadId:form.customerId}
                 selectedLabel={form.customerName}
                 onChange={(row) =>
                   setForm((f) => ({
                     ...f,
-                    customerId: row.id,
+                    customerId: accountKind==='lead'?'':row.id,
+                    leadId: accountKind==='lead'?row.id:'',
                     customerName: row.name,
                   }))
                 }
               />
+              {accountKind==='lead' && <small>Para criar uma proposta, vincule esta oportunidade a um cliente cadastrado.</small>}
             </label>
             <label>
               Origem da oportunidade
@@ -915,7 +926,7 @@ function OpportunityDialog({
         <>
           <section className="crm-opportunity-proposals" aria-label="Propostas vinculadas">
           <div className="crm-opportunity-proposals-heading"><div><h3>Propostas vinculadas <span>{data.proposals?.length || 0}</span></h3><p>Acompanhe as propostas desta oportunidade.</p></div>
-          {!proposalOpen && <button type="button" className="button crm-add-proposal" disabled={busy || data.status !== "open"} onClick={() => setProposalOpen(true)}><Plus size={16} /> Adicionar proposta</button>}</div>
+          {!proposalOpen && <button type="button" className="button crm-add-proposal" disabled={busy || data.status !== "open" || !!data.lead_id || accountKind==='lead' || form.customerId!==String(data.customer_id||'')} onClick={() => setProposalOpen(true)}><Plus size={16} /> Adicionar proposta</button>}</div>
           <div className="crm-links">
             {data.proposals?.map((p: any) => (
               <article key={p.id}>

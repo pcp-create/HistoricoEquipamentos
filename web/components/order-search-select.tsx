@@ -112,7 +112,7 @@ export default function OrderSearchSelect({
                 ...rows.filter((row) => !prev.some((p) => p.id === row.id)),
               ],
         );
-        setMore(d.items ? Boolean(d.truncated) : d.rows.length > 30);
+        setMore(d.items ? Boolean(d.truncated) : typeof d.total === 'number' ? page * 30 < d.total : d.rows.length > 30);
       } catch (e) {
         if (!c.signal.aborted)
           setError(
