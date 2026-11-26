@@ -73,7 +73,7 @@ export default function NewServiceOrder({
   editing, returnTo, proposal,
 }: { returnTo?: string; editing?: { company: string; id: string }; proposal?: {
  id:string;leadId?:string|null;equipmentRequired?:boolean;title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
- activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;canCompleteReview?:boolean;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string},completeReview?:boolean)=>Promise<void>;
+ productsFocus?:number;itemPriceApprovals?:any[];canApproveItemPrice?:boolean;onApproveItem?:(draft:OrderDraft,names:{customer:string;equipment:string},code:string)=>Promise<void>;activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;canCompleteReview?:boolean;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string},completeReview?:boolean)=>Promise<void>;
 } } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
   const [attachmentCount,setAttachmentCount]=useState(0);
@@ -102,6 +102,7 @@ export default function NewServiceOrder({
     active = Boolean(
       current && !["rejected", "complete"].includes(current.state),
     );
+  useEffect(()=>{if(proposal?.productsFocus)setTab("material");},[proposal?.productsFocus]);
   const disabled = busy || attachmentBusy || active || Boolean(editing && !editData);
   const set = (key: keyof OrderDraft, value: string) => {
     setError("");
@@ -925,7 +926,9 @@ export default function NewServiceOrder({
                   ))}
                 </div>
               </details>
-              {proposal&&<CrmProposalItems draft={form} active={tab==="material"||tab==="service"} kind={tab==="service"?"service":"material"} customer={form.customer} equipment={form.equipment} company={form.company} items={form.items} disabled={disabled||!!proposal.locked} onChange={items=>setForm(f=>({...f,items}))}/>}
+            </fieldset>
+              {proposal&&<CrmProposalItems leadId={proposal.leadId||''} approvals={proposal.itemPriceApprovals} canApprove={!!proposal.canApproveItemPrice&&!disabled} onApprove={async code=>{try{await proposal.onApproveItem?.(form,names,code);}catch(e){setError((e as Error).message);}}} draft={form} active={tab==="material"||tab==="service"} kind={tab==="service"?"service":"material"} customer={form.customer} equipment={form.equipment} company={form.company} items={form.items} disabled={disabled||!!proposal.locked} onChange={items=>setForm(f=>({...f,items}))}/>}
+            <fieldset disabled={!form.company || Boolean(proposal?.locked)} className="os-form-fields">
               {proposal&&tab==="summary"&&<CrmProposalSummary draft={form} disabled={disabled||!!proposal.locked} onChange={items=>setForm(current=>({...current,items}))}/>}
               {!proposal&&["material", "service"].map((kind) => (
                 <div key={kind} hidden={tab !== kind}>

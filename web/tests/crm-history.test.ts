@@ -12,11 +12,20 @@ test('CRM quotation history scopes client/equipment, supports client-only fallba
  (1,1,10,100,'Processado','2026-01-01','{}'),(2,2,10,200,'Processado','2026-02-01','{}'),(1,3,11,100,'Processado','2026-03-01','{}'),(1,4,10,100,'Pendente','2026-04-01','{}');
  INSERT INTO integracao_m8_os_sync(company_id,ordem_servico_id,inventory_seen_at,finalized,pending,last_detail_at) SELECT company_id,id_m8,now(),true,false,now() FROM m8_ordens_servico;
  INSERT INTO m8_os_produtos(company_id,id_m8,ordem_servico_id,produto_id,produto_nome,unidade_nome,quantidade,valor_total,esta_excluido,aprovado,payload) VALUES
- (1,1,1,50,'Filtro máquina 100','UN',2,40,false,'Sim','{}'),(2,2,2,60,'Peça máquina 200','UN',1,30,false,'Sim','{}'),(1,3,3,70,'Outro cliente','UN',1,50,false,'Sim','{}'),(1,4,4,80,'Não processado','UN',1,50,false,'Sim','{}'),(1,5,1,90,'Reprovado','UN',1,10,false,'Nao','{}'),(1,6,1,91,'Excluído','UN',1,10,true,'Sim','{}');
+ (1,1,1,50,'Filtro máquina 100','UN',2,40,false,'Sim','{}'),(2,2,2,60,'Peça máquina 200','UN',1,30,false,'Sim','{}'),(1,3,3,70,'Outro cliente','UN',1,50,false,'Sim','{}'),(1,4,4,80,'Não processado','UN',1,50,false,'Sim','{}'),(1,5,1,90,'Reprovado','UN',1,10,false,'Nao','{}'),(1,6,1,91,'Excluído','UN',1,10,true,'Sim','{}'),(2,7,2,50,'Filtro em outro equipamento','UN',1,99,false,'Sim','{}');
  INSERT INTO m8_os_servicos(company_id,id_m8,ordem_servico_id,servico_id,servico_nome,quantidade,valor_total,payload) VALUES(1,1,1,10,'Revisão',2,100,'{}');`);
  const exact=await quoteHistory(new URLSearchParams('clientId=10&equipmentId=100&historyScope=customer'),db as any);
- assert.deepEqual([...exact.items.values()].map(i=>i.code).sort(),['10','50']);
+ assert.deepEqual([...exact.items.values()].map(i=>i.code).sort(),['10','50','60']);
  assert.equal(exact.histories['p:1:50:UN'].rows[0].order,'1');
+ assert.equal(exact.histories['p:1:50:UN'].scope,'equipment');
+ assert.equal(exact.histories['p:1:60:UN'].scope,'customer');
+ assert.equal(Number(exact.histories['p:1:60:UN'].rows[0].unitPrice),30);
+ assert.equal(exact.histories['p:1:70:UN'],undefined);
+ const noEquipmentSales=await quoteHistory(new URLSearchParams('clientId=10&equipmentId=999&historyScope=customer'),db as any);
+ assert.equal(noEquipmentSales.histories['p:1:50:UN'].rows[0].order,'2');
+ assert.equal(noEquipmentSales.histories['p:1:50:UN'].scope,'customer');
+ const legacy=await quoteHistory(new URLSearchParams('clientId=10&equipmentId=100'),db as any);
+ assert.equal(legacy.histories['p:1:60:UN'],undefined);
  const client=await quoteHistory(new URLSearchParams('clientId=10&historyScope=customer'),db as any);
  assert.deepEqual([...client.items.values()].map(i=>i.code).sort(),['10','50','60']);
  assert.equal((await quoteHistory(new URLSearchParams('clientId=10'),db as any)).items.size,0);

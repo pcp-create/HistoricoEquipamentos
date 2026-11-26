@@ -28,6 +28,7 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await db.exec(readFileSync(new URL('../sql/126_crm_opportunity_leads.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../sql/128_crm_proposal_equipment_required.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../sql/129_crm_price_approvals.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../sql/130_crm_item_price_approvals.sql',import.meta.url),'utf8'));
  await db.exec('UPDATE crm_proposal_types SET equipment_required=false');
  const query=(q:string,args?:any[])=>db.query(q.replace('BEGIN READ WRITE','BEGIN'),args);
  g.historyPool={query,connect:async()=>({query,release(){}})};
@@ -47,7 +48,7 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await assert.rejects(saveProposal({id:p.id,version:p.version,draft:emptyDraft()},'planner'));
  await assert.rejects(saveOpportunity({id:opportunity.id,version:opportunity.version,typeId:man.id,customerId:10,company:2,title:'Trocar empresa'},'planner'));
  let writes=0,state='ready',last:any;
- const deps={prices:async(id:string)=>({items:[],users:[],draft:{},number:1,approved:true,version:(await db.query<any>('SELECT version FROM crm_proposals WHERE id=$1',[id])).rows[0].version}),prepare:async(actor:string,id:any,draft:any)=>{assert.equal(actor,'planner');assert.equal(draft.customer,'10');if(draft.items.length){assert.equal(draft.items[0].discountPercent,undefined);assert.equal(draft.items[0].price,'9.45');}last={id,company:1,state,m8Id:state==='ready'?null:900};return last;},advance:async()=>{if(state==='ready'){writes++;state='uncertain';}return {...last,state,message:'Confira no ERP'};},retry:async()=>{state='ready';return {...last,state};}};
+ const deps={prices:async(id:string)=>({items:[],approvals:[],minimumPrices:{},users:[],draft:{},number:1,approved:true,version:(await db.query<any>('SELECT version FROM crm_proposals WHERE id=$1',[id])).rows[0].version}),prepare:async(actor:string,id:any,draft:any)=>{assert.equal(actor,'planner');assert.equal(draft.customer,'10');if(draft.items.length){assert.equal(draft.items[0].discountPercent,undefined);assert.equal(draft.items[0].price,'9.45');}last={id,company:1,state,m8Id:state==='ready'?null:900};return last;},advance:async()=>{if(state==='ready'){writes++;state='uncertain';}return {...last,state,message:'Confira no ERP'};},retry:async()=>{state='ready';return {...last,state};}};
  await assert.rejects(beginConversion({id:randomUUID(),proposalId:p.id,version:saved.version},'planner',deps),/Conclua a revisão/);
  await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision,last_sent_revision,reviewed_by,reviewed_at) VALUES($1,'sent',0,0,'planner',now())",[p.id]);
  await db.query("INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id) SELECT id,0,version,document,names,title,decode('00','hex'),'planner','cliente@example.com','test-1' FROM crm_proposals WHERE id=$1",[p.id]);

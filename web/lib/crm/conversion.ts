@@ -26,7 +26,7 @@ async function recordResult(link:any,r:any){
 export async function beginConversion(raw:any,actor:string,deps=defaults){
  const id=uuid(raw.id),proposal=uuid(raw.proposalId),expected=version(raw.version);
  const review=await (deps.prices||priceReview)(proposal,raw.orderType||'');
- if(review.items.length&&!review.approved)throw new CrmError('Solicite a aprovação dos preços abaixo do mínimo antes de gerar a OS.');
+ if(review.items.length&&!review.approved)throw new CrmError('Existem produtos abaixo do mínimo sem aprovação. Solicite uma nova revisão da proposta e aprove os itens antes de gerar a OS.');
  const link=await transaction(async c=>{
  const p=(await c.query('SELECT p.*,o.status opportunity_status,o.customer_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p,o',[proposal])).rows[0];
  if(!p)throw new CrmError('Proposta não encontrada.');
@@ -72,6 +72,10 @@ export async function continueConversion(raw:any,actor:string,deps=defaults){
  const id=uuid(raw.id),link=(await database().query('SELECT l.*,t.equipment_required FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id JOIN crm_proposal_types t ON t.id=p.type_id WHERE l.id=$1',[id])).rows[0];
  if(!link||link.actor!==actor)throw new CrmError('Somente o usuário que iniciou o envio pode continuar esta integração.');
  if(link.state==='validation_failed')throw new CrmError('Corrija e salve a proposta antes de iniciar novamente.');
+ const workflow=(await database().query('SELECT state FROM crm_proposal_workflows WHERE proposal_id=$1',[link.proposal_id])).rows[0];
+ if(!['reviewed','sent'].includes(workflow?.state))throw new CrmError('Conclua a revisão da proposta antes de continuar a OS.');
+ const prices=await (deps.prices||priceReview)(link.proposal_id,link.document.type);
+ if(!prices.approved)throw new CrmError('Há itens abaixo do mínimo sem aprovação. Solicite uma nova revisão da proposta antes de continuar a OS.');
  if(raw.action==='retry'){
  if(raw.confirmed!==true)throw new CrmError('Confira o resultado no M8 antes de reenviar.');
  return recordResult(link,await deps.retry(actor,link.submission_id,raw.updatedAt,true));

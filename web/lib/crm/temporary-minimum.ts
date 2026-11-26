@@ -1,8 +1,11 @@
+import {discountedUnitCents} from './financials';
+import {itemApprovals} from './item-price-approval';
+import {itemPriceKey} from './item-price-key';
 import "server-only";
 import { database } from "../db";
 import { CrmError } from "./model";
 import { M8RequestError } from "../service-orders/m8";
-import { approvedPrices, currentMinimum } from "./price-approval";
+import { currentMinimum } from "./price-approval";
 
 // Every journal write is committed independently of the ERP call and lock transaction.
 async function persist(db: any, sql: string, values: any[]) {
@@ -74,20 +77,19 @@ export async function withTemporaryMinimum(
     const minimum = await currentMinimum(call, code),
       price = Number(item.payload.valorUnitario);
     if (price >= minimum) return await write();
-    const approval =
-      link && (await approvedPrices(lock, link.proposal_id, link.document));
-    const approvedItem = approval?.document?.items?.find(
-      (i: any) => i.code === code && i.price === price && i.minimum >= minimum,
-    );
+    const draftItem=link.document.items.find((i:any)=>i.kind==='material'&&i.code===code);
+    const approvals=await itemApprovals(lock,link.proposal_id,link.document);
+    const approval=approvals.find((a:any)=>draftItem&&a.item_key===itemPriceKey(link.document,draftItem)&&Number(a.minimum_price)>=minimum);
+    const approvedItem=approval && draftItem && price===discountedUnitCents(draftItem)/100;
     if (!approvedItem)
       throw new M8RequestError(
-        "Solicite a aprovação dos preços na proposta antes de incluir este produto abaixo do mínimo.",
+        "Solicite uma nova revisão da proposta e aprove este produto abaixo do mínimo antes de continuar.",
         false,
       );
     const record = (
       await persist(
         db,
-        "INSERT INTO crm_price_restorations(submission_id,product_id,company_id,original_price,temporary_price,item_index,approval_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id",
+        "INSERT INTO crm_price_restorations(submission_id,product_id,company_id,original_price,temporary_price,item_index,item_approval_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id",
         [
           row.id,
           code,

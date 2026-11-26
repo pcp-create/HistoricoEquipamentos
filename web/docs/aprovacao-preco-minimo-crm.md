@@ -1,14 +1,14 @@
 # Aprovação de preço mínimo na geração da OS
 
-A geração de OS a partir da proposta consulta os mínimos atuais do M8 e compara o preço unitário líquido, incluindo desconto. Sem informação válida, não inicia a conversão. Produtos abaixo do mínimo exigem uma tarefa de aprovação; serviços não utilizam o cadastro de mínimo dos produtos.
+A geração de OS a partir da proposta consulta os mínimos atuais do M8 e compara o preço unitário líquido, incluindo desconto. Sem informação válida, não inicia a conversão. Produtos abaixo do mínimo exigem aprovação individual durante a revisão; serviços não utilizam o cadastro de mínimo dos produtos.
 
 ## Fluxo
 
-1. Em **Pedido de Venda (Gerar OS)**, o sistema mostra os produtos abaixo do mínimo e solicita responsável e justificativa.
-2. Podem aprovar administradores e funcionários ativos com cargo Gestor, Coordenador ou Diretor (incluindo as formas femininas). O responsável precisa acessar Tarefas e ter WhatsApp cadastrado, conforme o fluxo existente de atribuição.
-3. A tarefa apresenta os valores, a justificativa e o acesso à proposta. Sua criação e o registro da aprovação são atômicos. A notificação é enfileirada no fluxo existente; o envio depende do consumidor da fila.
-4. Depois de aprovada, o solicitante retorna à proposta e gera ou continua a OS. O servidor verifica a aprovação novamente. Alterações em empresa, cliente, tipo de OS, itens, quantidades ou preços exigem nova aprovação. Um aumento do mínimo além do aprovado também exige nova decisão.
-5. Antes de cada produto abaixo do mínimo, salva-se um registro durável com o mínimo original, temporário, aprovação e etapa do envio. Só então o sistema reduz o mínimo, confirma a alteração, inclui o produto uma vez e restaura o valor original, confirmando-o por leitura.
+1. Durante a revisão, cada produto abaixo do mínimo mostra **Aprovar abaixo do mínimo** sob o valor unitário. Somente administradores e funcionários ativos com cargo Gestor, Coordenador ou Diretor (incluindo as formas femininas) podem aprovar.
+2. A aprovação registra usuário, nome, data/hora, empresa, cliente/lead, produto, quantidade, preço líquido e mínimo consultado no M8. A tela mostra nome e horário de Brasília. Mudanças nesses dados do item invalidam sua autorização; mudanças em outros itens não a invalidam.
+3. Ao concluir a revisão com pendências, o sistema informa a quantidade e oferece **Ir para produtos**, **Concluir revisão** e **Cancelar**. Concluir não aprova preços implicitamente.
+4. Gerar ou continuar a OS exige revisão concluída e aprovação de todos os itens abaixo do mínimo atual. Pendências exigem nova revisão da proposta. Não se abre uma tarefa separada de aprovação de preço.
+5. Antes de cada produto abaixo do mínimo, salva-se um registro durável com o mínimo original, temporário, aprovação por item e etapa do envio. Só então o sistema reduz o mínimo, confirma a alteração, inclui o produto uma vez e restaura o valor original, confirmando-o por leitura.
 
 ## Interrupções e recuperação
 
@@ -22,6 +22,6 @@ A geração de OS a partir da proposta consulta os mínimos atuais do M8 e compa
 
 ## Publicação
 
-Aplicar `web/sql/129_crm_price_approvals.sql` antes do código que utiliza as novas tabelas. A migração cria registros de aprovação e recuperação com RLS, sem alterar preços do ERP. O usuário de banco do servidor deve ter acesso a essas tabelas, seguindo o padrão das demais migrações.
+Aplicar `web/sql/129_crm_price_approvals.sql` e `web/sql/130_crm_item_price_approvals.sql` antes do código que utiliza as novas tabelas. A migração cria registros de aprovação e recuperação com RLS, sem alterar preços do ERP. O usuário de banco do servidor deve ter acesso a essas tabelas, seguindo o padrão das demais migrações.
 
 A validação automatizada utiliza banco local PGlite, navegador e respostas simuladas do M8. Não executar testes de inclusão na OS 15564: seus materiais já foram incluídos manualmente. Antes de habilitar o fluxo em produção, conferir a permissão PATCH de produto da credencial M8 em ambiente de homologação.

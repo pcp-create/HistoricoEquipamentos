@@ -5,7 +5,8 @@ import {
   restorePendingMinimum,
 } from "../lib/crm/temporary-minimum";
 import { M8RequestError } from "../lib/service-orders/m8";
-import { priceFingerprint } from "../lib/crm/price-approval";
+const priceFingerprint=(draft:any)=>itemPriceKey(draft,draft.items[0]);
+import {itemPriceKey} from "../lib/crm/item-price-key";
 import { priceManager } from "../lib/crm/price-manager";
 function fixture() {
   let minimum = 510,
@@ -39,17 +40,15 @@ function fixture() {
       };
     if (sql.includes("FROM crm_price_restorations"))
       return { rows: record && record.state !== "restored" ? [record] : [] };
-    if (sql.includes("FROM crm_price_approvals"))
+    if (sql.includes("FROM crm_item_price_approvals"))
       return {
         rows: approved
           ? [
               {
-                approval_state: "approved",
+                id:1,item_key:itemPriceKey(draft as any,draft.items[0] as any),minimum_price:510,
                 enabled: true,
                 role: "manager",
-                document: {
-                  items: [{ code: "11958", price: 465, minimum: 510 }],
-                },
+                document:draft.items[0],
               },
             ]
           : [],
@@ -127,7 +126,7 @@ test("no approval means no product or catalogue write", async () => {
   f.setApproved(false);
   await assert.rejects(
     withTemporaryMinimum(f.row, f.call, f.write, f.db),
-    /aprovação/,
+    /revisão/,
   );
   assert.equal(f.get().minimum, 510);
   assert.equal(f.get().writes, 0);
@@ -174,7 +173,7 @@ test("an external price change is not overwritten", async () => {
   assert.equal(f.get().minimum, 600);
   assert.equal(f.get().record.state, "pending");
 });
-test("approval is scoped to company, customer, type, quantities and net prices", () => {
+test("approval is scoped to company, quantities and net prices", () => {
   const f = fixture(),
     hash = priceFingerprint(f.draft);
   assert.notEqual(hash, priceFingerprint({ ...f.draft, company: "2" }));

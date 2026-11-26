@@ -50,7 +50,11 @@ test('proposal review creates one task and records who completed it',async()=>{
   await query("UPDATE crm_proposals SET document=jsonb_set(document,'{equipment}',to_jsonb(''::text)) WHERE id=$1",[id]);
   await assert.rejects(()=>changeProposalReview({id,version:2,action:'complete_review'},'revisor'),/Equipamento/);
   await query('UPDATE crm_proposal_types SET equipment_required=false WHERE id=1');
-  const completed=await changeProposalReview({id,version:2,action:'complete_review'},'solicitante');
+  const checkPrices:any=async()=>({items:[{approved:false},{approved:false}],approved:false});
+  const warning=await changeProposalReview({id,version:2,action:'complete_review'},'solicitante',checkPrices);
+  assert.equal(warning.pendingCount,2);assert.equal(warning.needsPriceApprovalConfirmation,true);
+  assert.equal((await query<any>('SELECT state FROM crm_proposal_workflows')).rows[0].state,'in_review');
+  const completed=await changeProposalReview({id,version:2,action:'complete_review',allowUnapprovedPrices:true},'solicitante',checkPrices);
   assert.equal(completed.state,'reviewed');
   const workflow=(await query<any>('SELECT * FROM crm_proposal_workflows')).rows[0];
   assert.equal(workflow.reviewed_by,'solicitante');assert.ok(workflow.reviewed_at);

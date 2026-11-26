@@ -229,6 +229,7 @@ export type QuoteSale = {
   total: string;
 };
 export type QuoteSalesHistory = {
+  scope?: "equipment" | "customer";
   count: number;
   minimum: string;
   maximum: string;

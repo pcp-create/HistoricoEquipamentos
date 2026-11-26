@@ -1,11 +1,12 @@
 "use client";
+import {itemPriceKey} from '@/lib/crm/item-price-key';
 import CrmServiceCostInput from "./crm-service-cost-input";
 import CrmProductTerms from "./crm-product-terms";
 import ActionNotice from "./action-notice";
 import { useEffect, useState } from "react";
-import { itemFinancials } from "@/lib/crm/financials";
+import { discountedUnitCents,itemFinancials } from "@/lib/crm/financials";
 import { crmMoney } from "./crm-api";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, ShieldCheck } from "lucide-react";
 import QuoteItemRow from "./quote-item-row";
 import QuoteCatalogPicker from "./quote-catalog-picker";
 import { mergeQuoteItems } from "@/lib/quotes/merge-items";
@@ -61,7 +62,9 @@ export default function CrmProposalItems({
   items,
   onChange,
   disabled,
+  approvals=[],canApprove=false,onApprove,leadId='',
 }: {
+  approvals?:any[];canApprove?:boolean;onApprove?:(code:string)=>Promise<void>;leadId?:string;
   active: boolean;
   draft?: OrderDraft;
   kind: QuoteItem["kind"];
@@ -241,11 +244,17 @@ export default function CrmProposalItems({
           const saved = items.find(
             (r) => r.kind === item.kind && r.code === item.code,
           );
+          const reference=merged.references.get(item.key)||item;
+          const below=kind==='material'&&saved&&reference.minimumPrice!==''&&discountedUnitCents(saved)/100<Number(reference.minimumPrice);
+          const approval=saved&&draft&&approvals.find(a=>a.item_key===itemPriceKey(draft,saved,leadId)&&Number(a.minimum_price)>=Number(reference.minimumPrice||0));
           return (
             <article className={`crm-quote-item${item.selected ? " is-selected" : ""}`} key={quoteItemIdentity(item)}>
               <QuoteItemRow
                 showTaskAction={false}
                 compactPricing
+                readOnly={disabled}
+                belowMinimumOverride={!!below}
+                priceApprovalControl={kind==='material'&&saved&&(approval?<small className="crm-item-price-approved"><ShieldCheck size={13} aria-hidden="true"/>Aprovado por {approval.approved_name} em {new Date(approval.approved_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</small>:below?<button className="crm-item-price-approve" type="button" disabled={!canApprove} title={!canApprove?'Disponível durante a revisão para Gestor, Coordenador, Diretor ou Administrador.':undefined} onClick={()=>void onApprove?.(saved.code)}><ShieldCheck size={14} aria-hidden="true"/>Aprovar abaixo do mínimo</button>:null)}
                 item={item}
                 descriptionDetails={kind==='material'&&saved&&draft?<CrmProductTerms showDelivery={false} showTaxes={false} draft={draft} item={saved} disabled={disabled} onChange={next=>onChange(items.map(row=>row===saved?next:row))}/>:undefined}
                 reference={merged.references.get(item.key)}

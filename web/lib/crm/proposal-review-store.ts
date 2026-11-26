@@ -1,3 +1,4 @@
+import {reviewItemPrices} from './item-price-approval';
 import 'server-only';
 import {randomUUID} from 'node:crypto';
 import {database} from '../db';
@@ -9,7 +10,7 @@ import {canEditProposalReview} from './review-access';
 import {isReviewAdmin} from './review-admin';
 
 /** Atomically assign or complete a review; callers must also enforce CRM route access. */
-export async function changeProposalReview(input:any, actor:string) {
+export async function changeProposalReview(input:any, actor:string,checkPrices=reviewItemPrices) {
  const id=uuid(input?.id), expected=version(input?.version);
  if(!['request_review','complete_review'].includes(input?.action))throw new CrmError('Ação de revisão inválida.');
  const c=await database().connect();
@@ -17,7 +18,7 @@ export async function changeProposalReview(input:any, actor:string) {
   await c.query('BEGIN READ WRITE');
   const proposal=(await c.query('SELECT p.*,o.customer_name,o.lead_id,o.status opportunity_status FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p,o',[id])).rows[0];
   if(!proposal||proposal.version!==expected)throw new CrmError('A proposta foi alterada. Atualize antes de continuar.');
-  if(['won','converting','lost','cancelled'].includes(proposal.status))throw new CrmError('Esta proposta não está disponível para revisão.');
+  if(['won','lost','cancelled'].includes(proposal.status))throw new CrmError('Esta proposta não está disponível para revisão.');
   if(proposal.opportunity_status!=='open')throw new CrmError('A oportunidade não está disponível para revisão.');
   if((await c.query("SELECT 1 FROM crm_proposal_email_attempts WHERE proposal_id=$1 AND state IN ('sending','uncertain')",[id])).rows.length)throw new CrmError('Há um envio de e-mail em andamento ou aguardando conferência.');
   await c.query('INSERT INTO crm_proposal_workflows(proposal_id) VALUES($1) ON CONFLICT DO NOTHING',[id]);
@@ -39,11 +40,14 @@ export async function changeProposalReview(input:any, actor:string) {
    await c.query("UPDATE crm_proposal_workflows SET state=$2,revision=$3,reviewer=$4,review_requested_by=$5,review_task_id=$6,reviewed_by=NULL,reviewed_at=NULL,updated_at=now() WHERE proposal_id=$1",[id,next.state,next.revision,reviewer,actor,task.id]);
   } else {
    if(!canEditProposalReview(row,actor)&&!await isReviewAdmin(c,actor))throw new CrmError('Somente o solicitante, o revisor designado ou um administrador pode concluir esta revisão.');
+   const prices=await checkPrices(c,id,proposal.document,proposal.lead_id||'');
+   const pendingCount=prices.items.filter(i=>!i.approved).length;
+   if(pendingCount&&input.allowUnapprovedPrices!==true){await c.query('ROLLBACK');return {...current,needsPriceApprovalConfirmation:true,pendingCount,version:proposal.version};}
    await c.query("UPDATE crm_proposal_workflows SET state='reviewed',reviewed_by=$2,reviewed_at=now(),updated_at=now() WHERE proposal_id=$1",[id,actor]);
    await c.query("UPDATE web_tasks SET status='completed',source_status='Revisão concluída',source_resolved=true,completed_at=now(),updated_by=$2,updated_at=now(),version=version+1 WHERE id=$1",[row.review_task_id,actor]);
   }
   const updated=(await c.query('UPDATE crm_proposals SET version=version+1,updated_by=$2,updated_at=now() WHERE id=$1 RETURNING version',[id,actor])).rows[0];
   await c.query('INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,$4,$5::jsonb)',[proposal.opportunity_id,id,actor,input.action,JSON.stringify({revision:next.revision,reviewer:input.action==='request_review'?input.reviewer:actor})]);
-  await c.query('COMMIT');return {...next,version:updated.version};
+  await c.query('COMMIT');return {...next,version:updated.version,needsPriceApprovalConfirmation:false,pendingCount:0};
  } catch(e){await c.query('ROLLBACK');throw e;} finally{c.release();}
 }

@@ -209,6 +209,7 @@ export async function quoteHistory(
         "",
       ).key;
       const history = (histories[key] ||= {
+        scope: customerOnly ? "customer" : "equipment",
         count: Number(r.sale_count),
         minimum: numeric(r.minimum),
         maximum: numeric(r.maximum),
@@ -278,6 +279,18 @@ export async function quoteHistory(
     warnings.push(
       "Para sugerir pelo histórico, selecione um cliente e um equipamento cadastrado, ou informe uma série diferente de NC.",
     );
+  // CRM: retain equipment sales and fill missing product/unit histories with this customer's sales.
+  if (p.get("historyScope") === "customer" && (serial || equipmentId) && /^\d{1,20}$/.test(clientId)) {
+    const customerParams = new URLSearchParams(p);
+    customerParams.delete("serial");
+    customerParams.delete("equipmentId");
+    const fallback = await quoteHistory(customerParams, db);
+    for (const [key, value] of fallback.items) {
+      if (value.kind !== "material") continue;
+      if (!items.has(key)) items.set(key, value);
+      if (!histories[key] && fallback.histories[key]) histories[key] = fallback.histories[key];
+    }
+  }
   return { items, histories, warnings };
 }
 export async function quoteSuggestions(p: URLSearchParams) {

@@ -66,7 +66,13 @@ export default function QuoteItemRow({
   descriptionDetails,
   showTaskAction = true,
   compactPricing = false,
+  priceApprovalControl,
+  belowMinimumOverride,
+  readOnly=false,
 }: {
+  priceApprovalControl?:import("react").ReactNode;
+  belowMinimumOverride?:boolean;
+  readOnly?:boolean;
   duplicate?: boolean;
   showTaskAction?: boolean;
   compactPricing?: boolean;
@@ -87,7 +93,7 @@ export default function QuoteItemRow({
       ? reference.products
       : item.products || [];
   const origin = quoteOrigin(reference || item, products);
-  const general = item.source.startsWith("Base geral");
+  const general = item.source.startsWith("Base geral") && !history?.rows.length;
   const ref = general ? item : reference || item;
   if (general)
     history = item.generalSale
@@ -104,11 +110,11 @@ export default function QuoteItemRow({
       ),
     ].join(" · ") || (item.key.startsWith("m:") ? item.code : "");
   const amount = lineAmount(item);
-  const below =
+  const below = belowMinimumOverride ?? (
     item.selected &&
     item.price !== "" &&
     ref.minimumPrice !== "" &&
-    Number(item.price) < Number(ref.minimumPrice);
+    Number(item.price) < Number(ref.minimumPrice));
   const manual = item.key.startsWith("manual:");
   function priceShortcut(value: string, label: string) {
     if (value === "" || !Number.isFinite(Number(value))) return "—";
@@ -240,7 +246,7 @@ export default function QuoteItemRow({
           <small>
             {general
               ? "Última venda · base geral"
-              : "Última venda · cliente/equipamento"}
+              : history?.scope === "customer" ? "Última venda · cliente" : "Última venda · cliente/equipamento"}
           </small>
           {last && (
             <small>
@@ -285,10 +291,10 @@ export default function QuoteItemRow({
             onChange={(e) => onChange({ quantity: e.target.value })}
           />
         </label>
-        <label className="quote-choice-price">
+        <div className="quote-choice-price"><label>
           Unitário (R$)
-          <UnitPriceInput value={item.price} belowMinimum={below} onChange={price => onChange({price})} />
-        </label>
+          <UnitPriceInput value={item.price} belowMinimum={below} onChange={price => {if(!readOnly)onChange({price});}} />
+        </label>{priceApprovalControl}</div>
         <div className="quote-choice-total">
           <small>Total</small>
           <strong>{amount === null ? "—" : money(String(amount / 100))}</strong>
@@ -355,7 +361,7 @@ export default function QuoteItemRow({
         <h4>
           {general
             ? "Última venda geral · todos os clientes e equipamentos"
-            : "Últimas vendas para este cliente e equipamento"}
+            : history?.scope === "customer" ? "Últimas vendas para este cliente" : "Últimas vendas para este cliente e equipamento"}
         </h4>
         {history?.rows.length ? (
           <>

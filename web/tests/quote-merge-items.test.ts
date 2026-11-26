@@ -88,3 +88,15 @@ test("latest compatible history wins across companies and keys", () => {
   });
   assert.equal(merged.histories[item.key].rows[0].unitPrice, "1000");
 });
+
+test("equipment history wins over newer customer fallback without changing the quoted price", () => {
+ const equipment={...item,key:'equipment',selected:false};
+ const customer={...item,key:'customer',selected:false};
+ const merged=mergeQuoteItems([item],[customer,equipment],{
+  equipment:{...history('2026-01-01','100'),scope:'equipment'},
+  customer:{...history('2026-06-01','200'),scope:'customer'},
+ });
+ assert.equal(merged.histories[item.key].scope,'equipment');
+ assert.equal(merged.all.get(item.key)?.lastPrice,'100');
+ assert.equal(merged.all.get(item.key)?.price,'801');
+});

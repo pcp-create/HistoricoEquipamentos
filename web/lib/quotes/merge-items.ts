@@ -28,6 +28,7 @@ export function mergeQuoteItems(
       .filter((i) => winner.kind === "service" || sameUnit(i.unit, winner.unit))
       .sort(
         (a, b) =>
+          (Number(history[a.key]?.scope === "customer") - Number(history[b.key]?.scope === "customer")) ||
           (Date.parse(history[b.key]?.rows[0]?.date || "") || 0) -
           (Date.parse(history[a.key]?.rows[0]?.date || "") || 0),
       )
