@@ -68,8 +68,10 @@ export async function POST(req: Request) {
         { headers },
       );
     }
-    if (body.action !== "sync") throw new TaskInputError("Operação inválida.");
-    const result = await syncTasks();
+    if (body.action !== "sync" && body.action !== "claim") throw new TaskInputError("Operação inválida.");
+    // A reserva dos avisos é separada da sincronização demorada para que um
+    // timeout da sincronização não deixe mensagens reservadas sem chegar ao n8n.
+    const result = body.action === "sync" ? await syncTasks() : {};
     const notifications =
       body.deliver === true
         ? [...await claimServiceMessages(), ...await claimWarehouseNotifications(), ...await claimVisitAlerts(PUBLIC_SYSTEM_URL), ...await claimPasswordResetNotifications(), ...await claimNotifications(PUBLIC_SYSTEM_URL)]

@@ -3,6 +3,7 @@ import CrmProposalPdf from "./crm-proposal-pdf";
 import CrmProposalEmail from "./crm-proposal-email";
 import OrderDetailLink from "./order-detail-link";
 import CrmEmailSettings from "./crm-email-settings";
+import {canEditProposalReview} from "@/lib/crm/review-access";
 import {FileText,Settings,Send,ClipboardList} from "lucide-react";
 import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
@@ -129,7 +130,7 @@ export default function CrmProposal({ id }: { id: string }) {
   const pending = data.links.some(
       (l: any) => !["complete", "validation_failed"].includes(l.state),
     ),
-    locked = ['converting','won','lost','cancelled'].includes(data.status) || pending || ['sent','reviewed'].includes(data.workflow?.state) || (data.workflow?.state==='in_review' && data.workflow.reviewer!==data.currentUser);
+    locked = ['converting','won','lost','cancelled'].includes(data.status) || pending || ['sent','reviewed'].includes(data.workflow?.state) || (data.workflow?.state==='in_review' && !canEditProposalReview(data.workflow,data.currentUser));
   const orderChoices=catalog.orderTypes.filter((t:any)=>t.active&&type?.order_types?.includes(String(t.id)));
   const cannotConvert=busy||changed||pending||!!data.emailAttempt||!['reviewed','sent'].includes(data.workflow?.state)||data.status!=='pending'||!orderChoices.length;
   const headerActions=<div className="crm-actions">

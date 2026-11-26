@@ -141,6 +141,15 @@ test('CRM persists local opportunities and proposals and safely links conversion
  const early=await beginConversion({id:earlyRequest,proposalId:earlyProposal.id,version:earlySaved.version},'planner',{...deps,prepare:async(_actor:string,_id:unknown,draft:any,_opened:unknown,options:any)=>{assert.equal(draft.notes,'Dados revisados');assert.equal(draft.flowStatus,'1');assert.equal(options.proposalEquipmentOptional,true);return {state:'ready',company:1};}} as any);
  assert.equal(early.state,'ready');assert.equal((await db.query<any>('SELECT document FROM crm_order_links WHERE id=$1',[earlyRequest])).rows[0].document.notes,'Dados revisados');
 
+ const accessOp=await saveOpportunity({id:randomUUID(),typeId:man.id,customerId:10,company:1,title:'Acesso à revisão'},'planner');
+ const accessProposal=await createProposal({id:randomUUID(),opportunityId:accessOp.id,typeId:mpa.id,title:'Revisão compartilhada'},'planner');
+ await db.query("INSERT INTO web_user_access(email,display_name) VALUES('reviewer','Revisor')");
+ await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision,reviewer,review_requested_by) VALUES($1,'in_review',0,'reviewer','planner')",[accessProposal.id]);
+ await assert.rejects(saveProposal({id:accessProposal.id,version:accessProposal.version,draft:emptyDraft()},'other'),/solicitante ou o revisor/);
+ const savedByRequester=await saveProposal({id:accessProposal.id,version:accessProposal.version,draft:emptyDraft()},'planner');
+ const savedByReviewer=await saveProposal({id:accessProposal.id,version:savedByRequester.version,draft:emptyDraft()},'reviewer');
+ assert.equal(savedByReviewer.updated_by,'reviewer');
+
  assert.throws(()=>proposalDraft({...emptyDraft(),items:[{kind:'material',code:'1',name:'x',quantity:'-1',price:'5'}]}));
  }finally{g.historyPool=old;await db.close();}
 });

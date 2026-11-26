@@ -61,11 +61,12 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ {action:'sync', deliver:$json.deliver} }}",
+        "jsonBody": "={{ {action:'sync', deliver:false} }}",
         "options": {
           "timeout": 60000
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "id": "Preparar avisos",
@@ -100,7 +101,8 @@
         "options": {
           "timeout": 30000
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "id": "Confirmar entrega",
@@ -140,6 +142,28 @@
         "content": "## Tarefas e avisos de atribuição\n1. Publicar aplicação e aplicar SQL 010.\n2. Configurar credenciais Header Auth Authorization: Bearer TOKEN nos nós Sincronizar e Confirmar (TASK_AUTOMATION_TOKEN ou PREVENTIVE_REPORT_TOKEN).\n3. Configurar Evolution e Header Auth apikey no envio.\n4. deliver=false sincroniza alertas sem enviar mensagens.\n5. Para ativar avisos aos funcionários atribuídos, deliver=true e publique o workflow.\nNão desabilitar o nó de envio deixando a confirmação ativa.\nExecução a cada 5 minutos, inclusive finais de semana.\nA confirmação de entrega tenta novamente até 5 vezes. Envios sem confirmação não são reenviados automaticamente: confira a execução antes de qualquer nova tentativa.",
         "height": 450,
         "width": 420
+      }
+    },
+    {
+      "id": "Obter avisos pendentes",
+      "name": "Obter avisos pendentes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Configuração').first().json.systemUrl + '/api/tasks/automation' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {action:'claim', deliver:$('Configuração').first().json.deliver} }}",
+        "options": {
+          "timeout": 60000
+        }
       }
     }
   ],
@@ -181,7 +205,7 @@
       "main": [
         [
           {
-            "node": "Preparar avisos",
+            "node": "Obter avisos pendentes",
             "type": "main",
             "index": 0
           }
@@ -204,6 +228,18 @@
         [
           {
             "node": "Confirmar entrega",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Obter avisos pendentes": {
+      "main": [
+        [
+          {
+            "node": "Preparar avisos",
             "type": "main",
             "index": 0
           }

@@ -40,7 +40,7 @@ test('proposal review creates one task and records who completed it',async()=>{
   await query("UPDATE crm_proposals SET document=jsonb_set(document,'{origin}',to_jsonb(''::text)) WHERE id=$1",[id]);
   await assert.rejects(()=>changeProposalReview({id,version:2,action:'complete_review'},'revisor'),/Origem Atendimento/);
   await query("UPDATE crm_proposals SET document=jsonb_set(document,'{origin}',to_jsonb('1'::text)) WHERE id=$1",[id]);
-  await assert.rejects(()=>changeProposalReview({id,version:2,action:'complete_review'},'solicitante'),/designado/);
+  await assert.rejects(()=>changeProposalReview({id,version:2,action:'complete_review'},'terceiro'),/designado/);
   await query("UPDATE crm_proposals SET document=jsonb_set(document,'{expected}','\"\"') WHERE id=$1",[id]);
   await assert.rejects(()=>changeProposalReview({id,version:2,action:'complete_review'},'revisor'),/Data Entrega Prevista/);
   assert.equal((await query<any>('SELECT state FROM crm_proposal_workflows WHERE proposal_id=$1',[id])).rows[0].state,'in_review');
@@ -50,10 +50,10 @@ test('proposal review creates one task and records who completed it',async()=>{
   await query("UPDATE crm_proposals SET document=jsonb_set(document,'{equipment}',to_jsonb(''::text)) WHERE id=$1",[id]);
   await assert.rejects(()=>changeProposalReview({id,version:2,action:'complete_review'},'revisor'),/Equipamento/);
   await query('UPDATE crm_proposal_types SET equipment_required=false WHERE id=1');
-  const completed=await changeProposalReview({id,version:2,action:'complete_review'},'revisor');
+  const completed=await changeProposalReview({id,version:2,action:'complete_review'},'solicitante');
   assert.equal(completed.state,'reviewed');
   const workflow=(await query<any>('SELECT * FROM crm_proposal_workflows')).rows[0];
-  assert.equal(workflow.reviewed_by,'revisor');assert.ok(workflow.reviewed_at);
+  assert.equal(workflow.reviewed_by,'solicitante');assert.ok(workflow.reviewed_at);
   assert.equal((await query<any>('SELECT status FROM web_tasks')).rows[0].status,'completed');
   const proposal:any={id,number:1,version:3,company_id:1,opportunity_id:op,title:'Proposta',names:{},workflow:{state:'reviewed',revision:0},document:{company:'1',customer:'10',equipment:'',items:[]}};
   const deps:any={get:async()=>structuredClone(proposal),render:async()=>new Uint8Array([1,2,3]),taxes:async(x:any)=>x};

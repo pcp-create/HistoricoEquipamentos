@@ -5,6 +5,7 @@ import ActionNotice from "./action-notice";
 import {operationTask,manuallyCompletableTask} from "@/lib/tasks/completion-policy";
 import TaskNoteDescription from "./task-note-description";
 import { taskOriginGroup } from "@/lib/tasks/origin-group";
+import {crmReviewProposalPath} from "@/lib/tasks/crm-review-link";
 import { matchesSearch } from "@/lib/filters";
 
 import TaskApproval from "./task-approval";
@@ -363,6 +364,7 @@ export function TaskDrawer({
               <dl>
                 <dt>Origem</dt>
                 <dd>{t.origin}</dd>
+                {crmReviewProposalPath(t.source_key)&&<><dt>Proposta vinculada</dt><dd><a href={crmReviewProposalPath(t.source_key)!}>Abrir proposta</a></dd></>}
                 {t.source_key?.startsWith("inspection:")&&<><dt>Plano de inspeção</dt><dd><a href={"/equipamentos/inspecoes?plan="+t.plan_id}>Abrir plano do cliente</a></dd></>}
                 {t.order_id && (
                   <>
@@ -539,7 +541,7 @@ export function TaskDrawer({
                     <small>
                       {
                         {
-                          pending: n.attempts > 0 ? "Envio iniciado; aguardando confirmação" : "Aguardando envio pelo n8n",
+                          pending: n.attempts > 0 ? (n.leased_until && new Date(n.leased_until).getTime() < Date.now() ? "Envio sem confirmação; verifique a execução no n8n e no WhatsApp" : "Envio iniciado; aguardando confirmação") : "Aguardando envio pelo n8n",
                           sent: "Enviado",
                           skipped:
                             "Não enviado: aviso desatualizado ou destinatário indisponível",

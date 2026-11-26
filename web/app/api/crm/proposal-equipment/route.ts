@@ -8,19 +8,20 @@ import { registerMachine } from '@/lib/visits/machine-registration';
 import { AdminInputError } from '@/lib/admin-store';
 import { TaskInputError } from '@/lib/tasks/store';
 import { M8RequestError } from '@/lib/service-orders/m8';
+import { canEditProposalReview } from '@/lib/crm/review-access';
 
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
 
 async function proposalCustomer(request: Request, actor: string) {
   const id = new URL(request.url).searchParams.get('proposal') || '';
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new EquipmentRegistrationError('Selecione uma proposta válida.');
-  const row = (await database().query(`SELECT p.status,o.customer_id,o.lead_id,w.state,w.reviewer,
+  const row = (await database().query(`SELECT p.status,o.customer_id,o.lead_id,w.state,w.reviewer,w.review_requested_by,
     EXISTS(SELECT 1 FROM crm_order_links l WHERE l.proposal_id=p.id AND l.state NOT IN ('complete','validation_failed')) pending_order,
     EXISTS(SELECT 1 FROM crm_proposal_email_attempts a WHERE a.proposal_id=p.id AND a.state IN ('sending','uncertain')) pending_email
     FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id
     LEFT JOIN crm_proposal_workflows w ON w.proposal_id=p.id WHERE p.id=$1`, [id])).rows[0];
   if (!row) throw new EquipmentRegistrationError('Proposta não encontrada.');
-  if (['won','lost','cancelled','converting'].includes(row.status) || ['sent','reviewed'].includes(row.state) || (row.state === 'in_review' && row.reviewer !== actor) || row.pending_order || row.pending_email) throw new EquipmentRegistrationError('Esta proposta não pode ser alterada neste momento.');
+  if (['won','lost','cancelled','converting'].includes(row.status) || ['sent','reviewed'].includes(row.state) || (row.state === 'in_review' && !canEditProposalReview(row,actor)) || row.pending_order || row.pending_email) throw new EquipmentRegistrationError('Esta proposta não pode ser alterada neste momento.');
   const key = row.lead_id ? `lead:${row.lead_id}` : row.customer_id ? `m8:${row.customer_id}` : '';
   if (!key) throw new EquipmentRegistrationError('Selecione um cliente ou lead para a proposta.');
   return key;

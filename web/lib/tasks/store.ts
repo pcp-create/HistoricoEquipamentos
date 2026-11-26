@@ -295,7 +295,7 @@ export async function taskDetail(id: string, user?: AuthUser) {
   ).rows;
   const notifications = (
     await db.query(
-      "SELECT n.id,COALESCE(to_jsonb(n)->>'kind','assignment') AS kind,n.recipient,u.display_name recipient_name,n.state,n.attempts,n.created_at,n.sent_at FROM web_task_notifications n LEFT JOIN web_user_access u ON u.email=n.recipient WHERE n.task_id=$1 ORDER BY n.id DESC",
+      "SELECT n.id,COALESCE(to_jsonb(n)->>'kind','assignment') AS kind,n.recipient,u.display_name recipient_name,n.state,n.attempts,n.created_at,n.sent_at,n.leased_until FROM web_task_notifications n LEFT JOIN web_user_access u ON u.email=n.recipient WHERE n.task_id=$1 ORDER BY n.id DESC",
       [id],
     )
   ).rows;

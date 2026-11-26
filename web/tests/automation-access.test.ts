@@ -40,6 +40,9 @@ test('automation credentials and read-only checks', async () => {
    assert.equal((await handler(request('Bearer '+fallback))).status,200);
    process.env.TASK_AUTOMATION_TOKEN=token;
   }
+  const claim=await taskPost(new Request('https://example.test',{method:'POST',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({action:'claim',deliver:false})}));
+  assert.equal(claim.status,200);
+  assert.deepEqual(await claim.json(),{notifications:[]});
  } finally {
   for (const [i,key] of ['TASK_AUTOMATION_TOKEN','PREVENTIVE_REPORT_TOKEN'].entries()) {
    if(saved[i]===undefined)delete process.env[key];else process.env[key]=saved[i];
