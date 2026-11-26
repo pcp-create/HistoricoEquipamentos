@@ -245,6 +245,17 @@
           }
         ]
       ]
+    },
+    "Confirmar entrega": {
+      "main": [
+        [
+          {
+            "node": "Obter avisos pendentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,

@@ -12,7 +12,7 @@ export async function queueServiceMessage(
     [randomUUID(), source, input.recipient || null, input.phone || null, text],
   );
 }
-export async function claimServiceMessages() {
+export async function claimServiceMessages(limit: 1 | 20 = 20) {
   const c = await database().connect();
   try {
     await c.query("BEGIN READ WRITE");
@@ -29,7 +29,7 @@ export async function claimServiceMessages() {
    SELECT 1 FROM web_service_operations o JOIN web_service_schedules s ON s.id=o.schedule_id
    WHERE s.id::text=split_part(n.source_key,':',2) AND s.active AND o.sent_at IS NOT NULL
      AND o.document->>'responsible'=n.recipient AND o.status NOT IN('completed','reviewed','awaiting_review')
- )) AND COALESCE(n.phone,u.phone) ~ '^[1-9][0-9]{9,14}$' ORDER BY n.created_at LIMIT 20 FOR UPDATE OF n SKIP LOCKED`)
+ )) AND COALESCE(n.phone,u.phone) ~ '^[1-9][0-9]{9,14}$' ORDER BY n.created_at LIMIT $1 FOR UPDATE OF n SKIP LOCKED`,[limit])
     ).rows;
     const result = [];
     for (const r of rows) {

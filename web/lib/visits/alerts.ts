@@ -35,13 +35,14 @@ export async function queueVisitAlert(
     [randomUUID(), visitId, email, at],
   );
 }
-export async function claimVisitAlerts(origin: string) {
+export async function claimVisitAlerts(origin: string, limit: 1 | 20 = 20) {
   const c = await database().connect();
   try {
     await c.query("BEGIN READ WRITE");
     const rows = (
       await c.query(
-        `SELECT a.*,u.phone,u.enabled,v.status,v.scheduled_at visit_at,v.description,v.outcome,v.contact,v.customer_key,COALESCE(l.name,(SELECT d.name FROM m8_customer_directory d WHERE 'm8:'||d.person_id::text=v.customer_key LIMIT 1)) customer FROM web_sales_visit_alerts a JOIN web_sales_visits v ON v.id=a.visit_id JOIN web_user_access u ON u.email=a.recipient LEFT JOIN web_sales_leads l ON 'lead:'||l.id::text=v.customer_key WHERE a.state='pending' AND a.attempts=0 AND a.scheduled_at<=now() ORDER BY a.scheduled_at LIMIT 20 FOR UPDATE OF a SKIP LOCKED`,
+        `SELECT a.*,u.phone,u.enabled,v.status,v.scheduled_at visit_at,v.description,v.outcome,v.contact,v.customer_key,COALESCE(l.name,(SELECT d.name FROM m8_customer_directory d WHERE 'm8:'||d.person_id::text=v.customer_key LIMIT 1)) customer FROM web_sales_visit_alerts a JOIN web_sales_visits v ON v.id=a.visit_id JOIN web_user_access u ON u.email=a.recipient LEFT JOIN web_sales_leads l ON 'lead:'||l.id::text=v.customer_key WHERE a.state='pending' AND a.attempts=0 AND a.scheduled_at<=now() ORDER BY a.scheduled_at LIMIT $1 FOR UPDATE OF a SKIP LOCKED`,
+        [limit],
       )
     ).rows;
     const result = [];

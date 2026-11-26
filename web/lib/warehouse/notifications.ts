@@ -22,14 +22,14 @@ async function expandWarehouseRecipients(c:any,id:string,managers:string[]){
  for(const row of rows)await c.query('INSERT INTO web_warehouse_notifications(addition_id,recipient) VALUES($1,$2) ON CONFLICT DO NOTHING',[id,row.email]);
  await c.query('UPDATE web_warehouse_notification_events SET expanded=true WHERE addition_id=$1',[id]);
 }
-export async function claimWarehouseNotifications(){
+export async function claimWarehouseNotifications(limit: 1 | 20 = 20){
  const c=await database().connect();
  try{
   await c.query('BEGIN READ WRITE');
   await c.query('SELECT pg_advisory_xact_lock(829203,0)');
   const waiting=(await c.query(`SELECT e.addition_id,COALESCE(to_jsonb(u)->'managers','[]') managers FROM web_warehouse_notification_events e JOIN web_warehouse_material_additions a ON a.id=e.addition_id AND a.state='complete' LEFT JOIN web_user_access u ON u.email=e.actor WHERE NOT e.expanded AND EXISTS(SELECT 1 FROM web_user_access manager WHERE manager.enabled AND COALESCE(to_jsonb(u)->'managers','[]'::jsonb) ? manager.email) ORDER BY e.created_at LIMIT 100 FOR UPDATE OF e SKIP LOCKED`)).rows;
   for(const event of waiting)await expandWarehouseRecipients(c,event.addition_id,Array.isArray(event.managers)?event.managers:[]);
-  const rows=(await c.query(`SELECT n.*,e.document,u.phone current_phone,u.enabled FROM web_warehouse_notifications n JOIN web_warehouse_notification_events e USING(addition_id) JOIN web_warehouse_material_additions a ON a.id=n.addition_id AND a.state='complete' LEFT JOIN web_user_access u ON u.email=n.recipient WHERE n.state='pending' AND n.attempts=0 AND u.enabled AND NULLIF(trim(u.phone),'') IS NOT NULL ORDER BY n.id LIMIT 20 FOR UPDATE OF n SKIP LOCKED`)).rows;
+  const rows=(await c.query(`SELECT n.*,e.document,u.phone current_phone,u.enabled FROM web_warehouse_notifications n JOIN web_warehouse_notification_events e USING(addition_id) JOIN web_warehouse_material_additions a ON a.id=n.addition_id AND a.state='complete' LEFT JOIN web_user_access u ON u.email=n.recipient WHERE n.state='pending' AND n.attempts=0 AND u.enabled AND NULLIF(trim(u.phone),'') IS NOT NULL ORDER BY n.id LIMIT $1 FOR UPDATE OF n SKIP LOCKED`,[limit])).rows;
   const result=[];
   for(const row of rows){
    // Missing configuration remains pending so adding a phone later can deliver the notice.

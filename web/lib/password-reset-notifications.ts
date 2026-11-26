@@ -13,12 +13,12 @@ export function resetWhatsAppPhone(value:unknown){
 export function passwordResetMessage(user:{display_name?:string;email:string}){
  return `*Assistente RJ (DSU)*\n\nOlá, ${user.display_name||user.email}! Sua senha de acesso foi resetada pelo administrador.\n\n*Acesso:* ${PUBLIC_SYSTEM_URL}/login\n*Usuário:* ${user.email}\n*Senha padrão:* ${INITIAL_PASSWORD}\n\nNo próximo acesso, você deverá criar uma nova senha diferente da padrão para continuar no sistema.`;
 }
-export async function claimPasswordResetNotifications(){
+export async function claimPasswordResetNotifications(limit: 1 | 20 = 20){
  const c=await database().connect();
  try{
   await c.query('BEGIN READ WRITE');
   await c.query('SELECT pg_advisory_xact_lock(81020,1)');
-  const rows=(await c.query(`SELECT n.*,u.display_name,u.enabled,u.phone AS current_phone,u.user_id AS current_user_id FROM web_password_reset_notifications n LEFT JOIN web_user_access u ON u.email=n.email WHERE n.state='pending' AND n.attempts=0 ORDER BY n.id LIMIT 20 FOR UPDATE OF n SKIP LOCKED`)).rows;
+  const rows=(await c.query(`SELECT n.*,u.display_name,u.enabled,u.phone AS current_phone,u.user_id AS current_user_id FROM web_password_reset_notifications n LEFT JOIN web_user_access u ON u.email=n.email WHERE n.state='pending' AND n.attempts=0 ORDER BY n.id LIMIT $1 FOR UPDATE OF n SKIP LOCKED`,[limit])).rows;
   const notifications=[];
   for(const n of rows){
    if(!n.enabled||n.user_id!==n.current_user_id||n.phone!==resetWhatsAppPhone(n.current_phone)){
