@@ -23,8 +23,8 @@ async function persist(db: any, sql: string, values: any[]) {
   }
 }
 
-/** A durable restoration record is committed before changing the ERP catalogue. */
-export async function withTemporaryMinimum(
+/** Validate item approval before sending its price directly; never lower the ERP minimum. */
+export async function withApprovedItemPrice(
   row: any,
   call: any,
   write: () => Promise<any>,
@@ -86,89 +86,7 @@ export async function withTemporaryMinimum(
         "Aprove este produto abaixo do mínimo ou solicite a revisão da proposta antes de continuar.",
         false,
       );
-    const record = (
-      await persist(
-        db,
-        "INSERT INTO crm_price_restorations(submission_id,product_id,company_id,original_price,temporary_price,item_index,item_approval_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id",
-        [
-          row.id,
-          code,
-          row.company_id,
-          minimum,
-          price,
-          row.next_item,
-          approval.id,
-        ],
-      )
-    ).rows[0];
-    let result: any,
-      writeError: any,
-      loweringConfirmed = false;
-    try {
-      await call(
-        "/v1/estoque/produto/" + code,
-        { precoVendaMinimo: price },
-        "PATCH",
-      );
-      loweringConfirmed = true;
-      if ((await currentMinimum(call, code)) !== price)
-        throw new Error("Mínimo temporário não confirmado.");
-      result = await write();
-      if (!Number.isInteger(result?.id) || result.id <= 0)
-        throw new M8RequestError(
-          "O M8 não confirmou o ID do item incluído.",
-          true,
-        );
-      await persist(
-        db,
-        "UPDATE crm_price_restorations SET item_result=$2 WHERE id=$1",
-        [record.id, JSON.stringify(result)],
-      );
-    } catch (error) {
-      writeError = error;
-    }
-    try {
-      const current = await currentMinimum(call, code);
-      if (current !== price && current !== minimum)
-        throw new Error(
-          "O preço mínimo foi alterado por outro usuário; conferir restauração.",
-        );
-      if (current !== minimum)
-        await call(
-          "/v1/estoque/produto/" + code,
-          { precoVendaMinimo: minimum },
-          "PATCH",
-        );
-      if ((await currentMinimum(call, code)) !== minimum)
-        throw new Error("Restauração não confirmada no M8.");
-      // A timed-out PATCH may still finish in the ERP after this read. Quarantine
-      // the product for an administrator to check, even if it currently looks restored.
-      if (
-        !loweringConfirmed &&
-        writeError &&
-        (!(writeError instanceof M8RequestError) || writeError.uncertain)
-      )
-        throw new Error(
-          "Alteração temporária sem confirmação; conferir processamento no M8 antes de liberar o produto.",
-        );
-      await persist(
-        db,
-        "UPDATE crm_price_restorations SET state='restored',restored_at=now(),error=$2 WHERE id=$1",
-        [record.id, writeError?.message || null],
-      );
-    } catch (error) {
-      await persist(
-        db,
-        "UPDATE crm_price_restorations SET error=$2 WHERE id=$1",
-        [record.id, (error as Error).message],
-      );
-      throw new M8RequestError(
-        "Restauração do preço mínimo pendente. O item pode já ter sido incluído. Não reenvie antes da conferência no M8.",
-        true,
-      );
-    }
-    if (writeError) throw writeError;
-    return result;
+    return await write();
   } finally {
     try {
       await lock.query("ROLLBACK");

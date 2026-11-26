@@ -8,17 +8,12 @@ A geração de OS a partir da proposta consulta os mínimos atuais do M8 e compa
 2. A aprovação registra usuário, nome, data/hora, empresa, cliente/lead, produto, quantidade, preço líquido e mínimo consultado no M8. A tela mostra nome e horário de Brasília. Mudanças nesses dados do item invalidam sua autorização; mudanças em outros itens não a invalidam.
 3. Ao concluir a revisão com pendências, o sistema informa a quantidade e oferece **Ir para produtos**, **Concluir revisão** e **Cancelar**. Concluir não aprova preços implicitamente.
 4. Gerar ou continuar a OS exige campos obrigatórios preenchidos e aprovação de todos os itens abaixo do mínimo atual. A revisão é opcional: pode-se gerar diretamente da criação. Se houver revisão em andamento, ela deve ser concluída ou a proposta deve voltar à criação. Pendências de preço podem ser aprovadas diretamente por perfis autorizados ou encaminhadas à revisão. Não se abre uma tarefa separada de aprovação de preço.
-5. Antes de cada produto abaixo do mínimo, salva-se um registro durável com o mínimo original, temporário, aprovação por item e etapa do envio. Só então o sistema reduz o mínimo, confirma a alteração, inclui o produto uma vez e restaura o valor original, confirmando-o por leitura.
+5. Antes de incluir cada produto, o sistema confere o mínimo atual e a aprovação do item. O preço aprovado é enviado diretamente ao M8 com o usuário API.RJ. Não há alteração do preço mínimo do cadastro.
 
 ## Interrupções e recuperação
 
-- O bloqueio por produto usa uma transação PostgreSQL, compatível com o pool de conexões. O diário de restauração é confirmado em transações independentes antes de modificar o M8.
-- Enquanto houver restauração pendente, novos envios desse produto pelo fluxo de criação da OS ficam bloqueados. Interrupção do processo não apaga o diário.
-- Falha na inclusão também provoca tentativa de restauração. Uma resposta ambígua não provoca repetição automática da inclusão.
-- Se houver falha na restauração, a proposta apresenta o produto pendente. Um administrador deve conferir que o processamento terminou no M8 e usar **Restaurar mínimo do produto**. Essa ação nunca inclui itens.
-- Se o ID do produto incluído foi confirmado e registrado, continuar a etapa reaproveita esse ID. Sem confirmação, é necessário verificar a OS no ERP antes de autorizar uma tentativa. O sistema não consegue deduzir com segurança se um POST sem resposta foi executado.
-- Se o mínimo atual divergir tanto do original quanto do temporário, o sistema bloqueia a restauração automática para não sobrescrever uma edição externa. É necessário reconciliar o cadastro no ERP e conferir novamente.
-- O mínimo é um dado compartilhado do M8. A API não oferece alteração condicional atômica ou exceção por OS; o bloqueio local não impede operações feitas diretamente no ERP durante essa janela. Não há garantia de restauração imediata durante indisponibilidade do ERP; nesses casos o diário e o bloqueio permanecem até recuperação administrativa.
+Respostas ambíguas do ERP não provocam repetição automática da inclusão. Pendências de restauração geradas pelo fluxo antigo continuam bloqueando o produto até conferência administrativa. A ação de restaurar mínimo atende somente esses registros antigos e nunca inclui itens. IDs de itens já confirmados nesses registros são reaproveitados para evitar duplicidade.
+
 
 ## Publicação
 
@@ -31,3 +26,7 @@ A barra acima das abas mostra o status atual e permite solicitar revisão, concl
 Ao clicar em Revisada, a confirmação Concluir Revisão? permite concluir diretamente da criação. Nessa transição, campos obrigatórios e todas as aprovações de preço são exigidos; não é possível ignorar preços pendentes.
 
 Na etapa Enviada ao cliente, o usuário escolhe e-mail, WhatsApp ou registro de envio anterior. Todas as opções exigem proposta revisada. O WhatsApp prepara o PDF sem alterar o status; o usuário compartilha o arquivo (ou baixa e anexa na conversa) e confirma o envio. O registro manual não envia mensagens. O PDF preparado é preservado junto da revisão; alterações na proposta invalidam a confirmação de um preparo anterior. Aplicar a migração 131 antes de publicar essas opções.
+
+## Permissão API.RJ validada
+
+A inclusão de itens na OS passa a enviar diretamente o preço aprovado ao M8, sem reduzir temporariamente o mínimo do cadastro. A aprovação por item no CRM continua obrigatória. Se o ERP rejeitar o preço, o envio mantém o tratamento de erro existente, sem tentativa automática de alterar o cadastro. A rotina de restauração permanece disponível para pendências anteriores.

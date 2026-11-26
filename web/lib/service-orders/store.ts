@@ -1,4 +1,4 @@
-import {withTemporaryMinimum} from '../crm/temporary-minimum';
+import {withApprovedItemPrice} from '../crm/temporary-minimum';
 import "server-only";
 import {logDataError} from "../data-error";
 import {ensureCreatedOrderProjection} from "./local-projection";
@@ -306,7 +306,7 @@ export async function advanceOrder(
     next = row.next_item;
   try {
     const item = row.items[next];
-    result = await withTemporaryMinimum(row,m8,()=>m8(
+    result = await withApprovedItemPrice(row,m8,()=>m8(
       "/v1/assistenciatecnica/ordemservico" +
         (m8Id
           ? `/${m8Id}/${

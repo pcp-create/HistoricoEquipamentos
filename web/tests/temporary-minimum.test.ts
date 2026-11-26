@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  withTemporaryMinimum,
+  withApprovedItemPrice,
   restorePendingMinimum,
 } from "../lib/crm/temporary-minimum";
 import { M8RequestError } from "../lib/service-orders/m8";
@@ -91,7 +91,7 @@ function fixture() {
     ],
   };
   const write = async () => {
-    assert.equal(minimum, 465);
+    assert.equal(minimum, 510);
     writes++;
     if (externalChange) minimum = 600;
     return { id: 123 };
@@ -102,77 +102,34 @@ function fixture() {
     row,
     write,
     draft,
+    seedLegacy: () => {minimum=465;record={id:1,state:'pending',product_id:11958,company_id:1,original_price:510,temporary_price:465,item_result:{id:123}};},
     setApproved: (v: boolean) => (approved = v),
     setRestoreFails: (v: boolean) => (restoreFails = v),
     setExternalChange: () => (externalChange = true),
     get: () => ({ minimum, record, writes }),
   };
 }
-test("approved product restores original minimum and records the confirmed item", async () => {
-  const f = fixture();
-  assert.deepEqual(await withTemporaryMinimum(f.row, f.call, f.write, f.db), {
-    id: 123,
-  });
-  assert.equal(f.get().minimum, 510);
-  assert.equal(f.get().record.state, "restored");
-  assert.deepEqual(f.get().record.item_result, { id: 123 });
-  assert.deepEqual(await withTemporaryMinimum(f.row, f.call, f.write, f.db), {
-    id: 123,
-  });
-  assert.equal(f.get().writes, 1);
+test("approved product is sent without changing the catalogue minimum", async () => {
+ const f=fixture();
+ assert.deepEqual(await withApprovedItemPrice(f.row,f.call,f.write,f.db),{id:123});
+ assert.equal(f.get().minimum,510);assert.equal(f.get().record,null);assert.equal(f.get().writes,1);
 });
-test("no approval means no product or catalogue write", async () => {
-  const f = fixture();
-  f.setApproved(false);
-  await assert.rejects(
-    withTemporaryMinimum(f.row, f.call, f.write, f.db),
-    /revisão/,
-  );
-  assert.equal(f.get().minimum, 510);
-  assert.equal(f.get().writes, 0);
-  assert.equal(f.get().record, null);
+test("unapproved product cannot reach the ERP",async()=>{
+ const f=fixture();f.setApproved(false);
+ await assert.rejects(withApprovedItemPrice(f.row,f.call,f.write,f.db),/Aprove/);
+ assert.equal(f.get().writes,0);assert.equal(f.get().record,null);
 });
-test("uncertain item response still restores minimum without retrying the item", async () => {
-  const f = fixture();
-  await assert.rejects(
-    withTemporaryMinimum(
-      f.row,
-      f.call,
-      async () => {
-        throw new M8RequestError("timeout", true);
-      },
-      f.db,
-    ),
-    /timeout/,
-  );
-  assert.equal(f.get().minimum, 510);
-  assert.equal(f.get().record.state, "restored");
+test("changed payload price invalidates approval",async()=>{
+ const f=fixture();f.row.items[0].payload.valorUnitario=460;
+ await assert.rejects(withApprovedItemPrice(f.row,f.call,f.write,f.db),/Aprove/);
+ assert.equal(f.get().writes,0);
 });
-test("restoration failure persists the journal and blocks a second item write", async () => {
-  const f = fixture();
-  f.setRestoreFails(true);
-  await assert.rejects(
-    withTemporaryMinimum(f.row, f.call, f.write, f.db),
-    /Restauração/,
-  );
-  assert.equal(f.get().record.state, "pending");
-  assert.equal(f.get().writes, 1);
-  await assert.rejects(
-    withTemporaryMinimum(f.row, f.call, f.write, f.db),
-    /pendente/,
-  );
-  assert.equal(f.get().writes, 1);
+test("increased minimum requires a new approval",async()=>{
+ const f=fixture();
+ await assert.rejects(withApprovedItemPrice(f.row,async()=>[{id:11958,precoVendaMinimo:600}],f.write,f.db),/Aprove/);
+ assert.equal(f.get().writes,0);
 });
-test("an external price change is not overwritten", async () => {
-  const f = fixture();
-  f.setExternalChange();
-  await assert.rejects(
-    withTemporaryMinimum(f.row, f.call, f.write, f.db),
-    /Restauração/,
-  );
-  assert.equal(f.get().minimum, 600);
-  assert.equal(f.get().record.state, "pending");
-});
+
 test("approval is scoped to company, quantities and net prices", () => {
   const f = fixture(),
     hash = priceFingerprint(f.draft);
@@ -202,30 +159,12 @@ test("approval is scoped to company, quantities and net prices", () => {
   );
 });
 
-test("ambiguous lowering remains quarantined even if the read still shows the original minimum", async () => {
-  const f = fixture();
-  const call = async (path: string, body?: any) => {
-    if (body) throw new M8RequestError("timeout", true);
-    return f.call(path);
-  };
-  await assert.rejects(
-    withTemporaryMinimum(f.row, call, f.write, f.db),
-    /Restauração/,
-  );
-  assert.equal(f.get().record.state, "pending");
-  assert.equal(f.get().writes, 0);
-});
-test("administrator recovers a pending restoration without resending a confirmed item", async () => {
-  const f = fixture();
-  f.setRestoreFails(true);
-  await assert.rejects(withTemporaryMinimum(f.row, f.call, f.write, f.db));
-  f.setRestoreFails(false);
-  await restorePendingMinimum(1, "admin", f.db, async () => f.call);
-  assert.equal(f.get().minimum, 510);
-  assert.equal(f.get().record.state, "restored");
-  assert.equal(f.get().writes, 1);
-  assert.deepEqual(await withTemporaryMinimum(f.row, f.call, f.write, f.db), {
-    id: 123,
-  });
-  assert.equal(f.get().writes, 1);
+
+test("legacy pending restoration can be recovered without adding an item",async()=>{
+ const f=fixture();f.seedLegacy();
+ await assert.rejects(withApprovedItemPrice(f.row,f.call,f.write,f.db),/restauração/);
+ await restorePendingMinimum(1,'admin',f.db,async()=>f.call);
+ assert.equal(f.get().minimum,510);assert.equal(f.get().record.state,'restored');
+ assert.deepEqual(await withApprovedItemPrice(f.row,f.call,f.write,f.db),{id:123});
+ assert.equal(f.get().writes,0);
 });

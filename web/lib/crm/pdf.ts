@@ -199,7 +199,6 @@ export async function proposalPdf(
       ["Telefone", (() => { const phone=commercial.sellerPhone || "", digits=phone.replace(/\D/g, ""); return (/^\d{10,11}$/.test(digits) || /^55\d{10,11}$/.test(digits)) ? formatContactPhone(phone) : phone; })()],
       ["Pagamento", commercial.paymentName || ""],
       ["Frete", (commercial.freightName || "").replace(/^\s*\d+\s*[-–—]\s*/, "")],
-      ["Entrega prevista", draft.expected || ""],
     ], M + 32 + 2 * col, y, col),
   ];
   y = Math.max(...ends) + 3;
