@@ -15,9 +15,11 @@ test('planner includes for a selected person after report submission, replicates
   for(const name of ['008_administration','009_employees','028_service_scheduling','030_service_schedule_visibility','037_field_operations','038_time_adjustment_requests','058_field_session_teams'])await db.exec(readFileSync('sql/'+name+'.sql','utf8'));
   await db.exec(readFileSync('sql/114_time_adjustments_immediate.sql','utf8'));
   await db.exec("INSERT INTO web_user_access(email,display_name,role,updated_by) VALUES('planner','Planejador','admin','test'),('tech','Técnico','user','test'),('helper','Apoio','user','test'),('disabled','Inativo','user','test');UPDATE web_user_access SET enabled=false WHERE email='disabled'");
+  await db.exec("ALTER TABLE web_user_access ADD COLUMN modules jsonb; UPDATE web_user_access SET role='user',modules='[\"assistencia-tecnica\"]' WHERE email='planner'; UPDATE web_user_access SET modules='[\"portal-tecnico\"]' WHERE email='tech';");
   const schedule=(await query("INSERT INTO web_service_schedules(company_id,order_id,created_by) VALUES(1,100,'test') RETURNING id")).rows[0].id,op=randomUUID();
   await query("INSERT INTO web_service_operations(id,schedule_id,position,status,document,updated_by) VALUES($1,$2,1,'reviewed',$3,'test')",[op,schedule,JSON.stringify({responsible:'tech',support:[],checklistRun:{submission:{at:'2026-11-09T12:00:00Z',by:'tech'}}})]);
   const body={action:'planner_adjust',requestId:randomUUID(),operationId:op,actor:'tech',kind:'work',reason:'Inclusão pelo planejamento',proposed:{started_at:'2026-11-09T11:00:00Z',finished_at:'2026-11-09T13:00:00Z',pauses:[{start:'2026-11-09T12:00:00Z',end:'2026-11-09T12:15:00Z',reason:'Intervalo'}]}};
+  await assert.rejects(changeTimeRequest({...body,requestId:randomUUID()},'tech'),(e:any)=>e.constructor.name==='Forbidden');
   await assert.rejects(changeTimeRequest({...body,actor:'disabled',requestId:randomUUID()},'planner'),/acesso ativo/);
   await changeTimeRequest(body,'planner');await changeTimeRequest(body,'planner');
   let sessions=(await query('SELECT * FROM web_field_sessions')).rows;assert.equal(sessions.length,1);const source=sessions[0];

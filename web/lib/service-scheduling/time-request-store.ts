@@ -10,6 +10,7 @@ import { database } from "../db";
 import { Forbidden } from "../auth";
 import { locationOf } from "./field-model";
 import { validateTimeAdjustment } from "./time-adjustment";
+import {canOpenPath,userModules} from '../user-modules';
 export class TimeRequestError extends Error {}
 async function assertNoTimeOverlap(c: any, actor: string, sessionId: string | null, start: string, end: string) {
   const conflict = (await c.query(
@@ -331,6 +332,7 @@ export async function changeTimeRequest(b: any, email: string) {
     if (!["request", "planner_adjust"].includes(b.action))
       throw new TimeRequestError("Ação inválida.");
     const direct = b.action === "planner_adjust";
+    if (direct && !canOpenPath(userModules(user), '/programacao')) throw new Forbidden();
 
     const key = uuid(b.requestId);
     const repeated = (

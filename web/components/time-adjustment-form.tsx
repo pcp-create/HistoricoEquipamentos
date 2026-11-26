@@ -90,7 +90,7 @@ export default function TimeAdjustmentForm({
         if (!check.ok) {const result=await check.json().catch(()=>({}));throw Error(result.error||'Não foi possível verificar os horários. Conecte-se e tente novamente.');}
       }
       const location = planner ? undefined : await gps();
-      const res = await fetch("/api/field/time-requests", {
+      const res = await fetch(planner ? "/api/service-scheduling/time-logs" : "/api/field/time-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
