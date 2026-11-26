@@ -775,7 +775,7 @@ function OpportunityDialog({
             </label>
             <label>
               Cadastro *
-              <select aria-label="Tipo de cadastro" disabled={!!data.proposals?.length} value={accountKind} onChange={e=>{setAccountKind(e.target.value as 'customer'|'lead');setForm(f=>({...f,customerId:'',customerName:'',leadId:''}));}}>
+              <select aria-label="Tipo de cadastro" disabled={!!data.proposals?.length || !!data.customer_locked || won} value={accountKind} onChange={e=>{setAccountKind(e.target.value as 'customer'|'lead');setForm(f=>({...f,customerId:'',customerName:'',leadId:''}));}}>
                 <option value="customer">Cliente</option><option value="lead">Lead</option>
               </select>
             </label>
@@ -783,7 +783,7 @@ function OpportunityDialog({
               {accountKind==='lead' ? 'Lead *' : 'Cliente *'}
               <OrderSearchSelect
                 label={accountKind==='lead' ? "Lead da oportunidade" : "Cliente da oportunidade"}
-                disabled={!!data.proposals?.length}
+                disabled={!!data.customer_locked || won}
                 endpoint={accountKind==='lead' ? "/api/crm?kind=leads" : "/api/crm?kind=customers"}
                 customerIdentity={accountKind==='customer'}
                 value={accountKind==='lead'?form.leadId:form.customerId}
@@ -798,6 +798,7 @@ function OpportunityDialog({
                 }
               />
               {accountKind==='lead' && <small>Para criar uma proposta, vincule esta oportunidade a um cliente cadastrado.</small>}
+              {!!data.proposals?.length && !data.customer_locked && !won && <small>Ao trocar o cliente, propostas revisadas ou enviadas precisarão de nova revisão. Os PDFs enviados serão mantidos.</small>}
             </label>
             <label>
               Origem da oportunidade

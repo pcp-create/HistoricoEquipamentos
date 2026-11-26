@@ -15,7 +15,7 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await db.exec(readFileSync(new URL('../sql/120_crm_proposal_tax_type.sql',import.meta.url),'utf8'));
  await db.exec(`CREATE TABLE m8_order_type_catalog(id bigint PRIMARY KEY,name text,active boolean);
  INSERT INTO m8_order_type_catalog VALUES(4,'Preventiva',true),(2,'Corretiva',true),(43,'Orçamento',true),(42,'Oficina',true);
- CREATE TABLE m8_customer_directory(person_id bigint,company_id int,name text,payload jsonb);INSERT INTO m8_customer_directory VALUES(10,1,'Cliente Teste','{"municipioNome":"Timbó","ufSigla":"SC"}');
+ CREATE TABLE m8_customer_directory(person_id bigint,company_id int,name text,payload jsonb);INSERT INTO m8_customer_directory VALUES(10,1,'Cliente Teste','{"municipioNome":"Timbó","ufSigla":"SC"}'),(11,1,'Outro Cliente','{}');
  CREATE TABLE web_user_access(email text,display_name text,enabled boolean DEFAULT true,role text DEFAULT 'user');INSERT INTO web_user_access(email,display_name) VALUES('planner','Planejador');
  CREATE TABLE web_sales_leads(id uuid PRIMARY KEY,owner text,name text); INSERT INTO web_sales_leads VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','planner','Lead Teste'),('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','other','Lead privado');
  CREATE TABLE service_order_submissions(id uuid PRIMARY KEY,state text,m8_id bigint,message text,request jsonb,updated_at timestamptz DEFAULT now());
@@ -23,7 +23,7 @@ test('CRM persists local opportunities and proposals and safely links conversion
  CREATE TABLE m8_product_current(company_id int,product_id bigint,available numeric,available_at timestamptz);
  CREATE TABLE m8_product_catalog(company_id int,product_id bigint,unit text,payload jsonb DEFAULT '{}');INSERT INTO m8_product_catalog(company_id,product_id,unit) VALUES(1,50,'UN');
  CREATE TABLE m8_product_stock(company_id int,product_id bigint,average_cost numeric,stock numeric,payload jsonb DEFAULT '{}',establishment_id bigint DEFAULT 1,collected_at timestamptz DEFAULT now());INSERT INTO m8_product_stock(company_id,product_id,average_cost,stock) VALUES(1,50,5,1);`);
- await db.exec("CREATE ROLE anon; CREATE ROLE authenticated; ALTER TABLE web_user_access ADD PRIMARY KEY(email); CREATE TABLE web_tasks(id bigint PRIMARY KEY); CREATE TABLE web_service_schedule_settings(id integer,document jsonb);");
+ await db.exec("CREATE ROLE anon; CREATE ROLE authenticated; ALTER TABLE web_user_access ADD PRIMARY KEY(email); CREATE TABLE web_tasks(id bigint PRIMARY KEY,customer text,updated_at timestamptz,version integer DEFAULT 1); CREATE TABLE web_service_schedule_settings(id integer,document jsonb);");
  await db.exec(readFileSync(new URL('../sql/125_crm_proposal_review_workflow.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../sql/126_crm_opportunity_leads.sql',import.meta.url),'utf8'));
  const query=(q:string,args?:any[])=>db.query(q.replace('BEGIN READ WRITE','BEGIN'),args);
@@ -103,6 +103,19 @@ test('CRM persists local opportunities and proposals and safely links conversion
  assert.equal(linked.lead_id,null);assert.equal(Number(linked.customer_id),10);
  assert.equal(linked.origin_lead_id,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
  assert.ok((await createProposal({id:randomUUID(),opportunityId:linked.id,typeId:mpa.id,title:'Proposta'},'planner')).id);
+
+ const changeOp=await saveOpportunity({id:randomUUID(),typeId:man.id,customerId:10,company:1,title:'Alterar cliente'},'planner');
+ const changeProposal=await createProposal({id:randomUUID(),opportunityId:changeOp.id,typeId:mpa.id,title:'Proposta enviada'},'planner');
+ await db.query("UPDATE crm_proposals SET document=document||$2::jsonb,names=names||$3::jsonb WHERE id=$1",[changeProposal.id,JSON.stringify({notes:'Preservar observações',items:[{kind:'material',code:'50',name:'Filtro',quantity:'2',price:'10',taxes:{icms:5}}]}),JSON.stringify({equipment:'Compressor'})]);
+ await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision,last_sent_revision) VALUES($1,'sent',0,0)",[changeProposal.id]);
+ await db.query("INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id) SELECT id,0,version,document,names,title,decode('00','hex'),'planner','cliente@example.com','test-change' FROM crm_proposals WHERE id=$1",[changeProposal.id]);
+ const updatedAccount=await saveOpportunity({id:changeOp.id,version:changeOp.version,typeId:man.id,customerId:11,company:1,title:'Alterar cliente'},'planner');
+ const changedProposal=await getProposal(changeProposal.id);assert.equal(changedProposal.document.customer,'11');assert.equal(changedProposal.names.customer,'Outro Cliente');assert.equal(changedProposal.document.notes,'Preservar observações');assert.equal(changedProposal.document.items[0].name,'Filtro');assert.equal(changedProposal.document.items[0].taxes,undefined);assert.equal(changedProposal.workflow.state,'creating');assert.equal(changedProposal.workflow.revision,1);assert.equal(changedProposal.sentRevisions.length,1);
+ const pendingLink=randomUUID();await db.query("INSERT INTO crm_order_links(id,proposal_id,company_id,submission_id,document,actor,state) VALUES($1,$2,1,$1,'{}','planner','preparing')",[pendingLink,changeProposal.id]);
+ await assert.rejects(saveOpportunity({id:changeOp.id,version:updatedAccount.version,typeId:man.id,customerId:10,company:1,title:'Alterar cliente'},'planner'),/durante o envio do pedido/);
+ await db.query("UPDATE crm_order_links SET order_id=901,state='complete' WHERE id=$1",[pendingLink]);
+ assert.equal((await getOpportunity(changeOp.id)).customer_locked,true);
+ await assert.rejects(saveOpportunity({id:changeOp.id,version:updatedAccount.version,typeId:man.id,customerId:10,company:1,title:'Alterar cliente'},'planner'),/não pode ser alterado/);
 
  assert.throws(()=>proposalDraft({...emptyDraft(),items:[{kind:'material',code:'1',name:'x',quantity:'-1',price:'5'}]}));
  }finally{g.historyPool=old;await db.close();}
