@@ -7,4 +7,5 @@ test('review tasks link to their proposal, including existing tasks',()=>{
  assert.equal(crmReviewProposalPath(`manual:crm-review:${proposal}:d839efa8-d8a6-43d9-9bba-7ff57641451a`),`/crm/propostas/${proposal}`);
  assert.equal(crmReviewProposalPath('manual:crm-review:../../admin:invalid'),null);
  assert.equal(crmReviewProposalPath('manual:other:123'),null);
+ assert.equal(crmReviewProposalPath(`manual:crm-price:${proposal}:45`),`/crm/propostas/${proposal}`);
 });

@@ -1,3 +1,4 @@
+import {withTemporaryMinimum} from '../crm/temporary-minimum';
 import "server-only";
 import {logDataError} from "../data-error";
 import {ensureCreatedOrderProjection} from "./local-projection";
@@ -305,7 +306,7 @@ export async function advanceOrder(
     next = row.next_item;
   try {
     const item = row.items[next];
-    result = await m8(
+    result = await withTemporaryMinimum(row,m8,()=>m8(
       "/v1/assistenciatecnica/ordemservico" +
         (m8Id
           ? `/${m8Id}/${
@@ -320,7 +321,7 @@ export async function advanceOrder(
           : ""),
       m8Id ? item.payload : row.header,
       m8Id && item.kind === "flow-status" ? "PATCH" : "POST",
-    );
+    ));
     if (
       !(m8Id && item.kind === "flow-status") &&
       (!Number.isInteger(result?.id) || result.id <= 0)

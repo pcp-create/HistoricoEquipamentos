@@ -132,6 +132,11 @@ export default function QuoteCatalogPicker({
                 <small>
                   Cód. {item.code} · {item.unit || "Unidade não informada"}
                 </small>
+                {kind === "material" && (
+                  <small>
+                    Referência: {[...new Set((item.products || []).map(product => product.reference?.trim()).filter(Boolean))].join(" · ") || "Não informada"}
+                  </small>
+                )}
                 <small>
                   Venda M8: {money(item.referencePrice)} · Mínimo M8:{" "}
                   {money(item.minimumPrice)}

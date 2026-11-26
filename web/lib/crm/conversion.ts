@@ -1,3 +1,4 @@
+import {priceReview} from './price-approval';
 import {proposalOrderDraft} from './financials';
 import {proposalFlowStatus} from './proposal-flow-status';
 import 'server-only';
@@ -5,7 +6,7 @@ import {database} from '../db';
 import {prepareOrder,advanceOrder,retryOrder} from '../service-orders/store';
 import {OrderInputError} from '../service-orders/model';
 import {CrmError,uuid,version,proposalDraft,positive} from './model';
-const defaults={prepare:prepareOrder,advance:advanceOrder,retry:retryOrder};
+const defaults={prepare:prepareOrder,advance:advanceOrder,retry:retryOrder,prices:priceReview};
 async function transaction<T>(work:(c:any)=>Promise<T>){const c=await database().connect();try{await c.query('BEGIN READ WRITE');const r=await work(c);await c.query('COMMIT');return r;}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}}
 async function recordResult(link:any,r:any){
  await transaction(async c=>{
@@ -24,6 +25,8 @@ async function recordResult(link:any,r:any){
 /** Reserve locally before any ERP write. Every retry uses the same persisted submission. */
 export async function beginConversion(raw:any,actor:string,deps=defaults){
  const id=uuid(raw.id),proposal=uuid(raw.proposalId),expected=version(raw.version);
+ const review=await (deps.prices||priceReview)(proposal,raw.orderType||'');
+ if(review.items.length&&!review.approved)throw new CrmError('Solicite a aprovação dos preços abaixo do mínimo antes de gerar a OS.');
  const link=await transaction(async c=>{
  const p=(await c.query('SELECT p.*,o.status opportunity_status,o.customer_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p,o',[proposal])).rows[0];
  if(!p)throw new CrmError('Proposta não encontrada.');
@@ -33,6 +36,7 @@ export async function beginConversion(raw:any,actor:string,deps=defaults){
  if((await c.query('SELECT 1 FROM crm_order_links WHERE proposal_id=$1 AND order_id IS NOT NULL LIMIT 1',[proposal])).rows.length)throw new CrmError('Esta proposta já possui uma OS vinculada.');
  const pending=(await c.query("SELECT * FROM crm_order_links WHERE proposal_id=$1 AND state NOT IN('complete','validation_failed')",[proposal])).rows[0];
  if(pending)throw new CrmError('Já existe um envio pendente. Abra o andamento para continuar sem duplicar a OS.');
+ if(p.version!==review.version)throw new CrmError('A proposta foi alterada durante a conferência de preços. Atualize a tela.');
  if(p.version!==expected)throw new CrmError('A proposta foi alterada. Reabra antes de concretizar.');
  const workflow=(await c.query('SELECT state,revision FROM crm_proposal_workflows WHERE proposal_id=$1 FOR UPDATE',[proposal])).rows[0];
  if(!['reviewed','sent'].includes(workflow?.state))throw new CrmError('Conclua a revisão da proposta antes de gerar a OS.');

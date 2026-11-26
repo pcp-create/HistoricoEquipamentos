@@ -1,3 +1,4 @@
+import {requestPriceApproval,approvedPrices} from '../lib/crm/price-approval';
 import {listWorkshopEvents} from "../lib/workshop/task-history";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -632,6 +633,37 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
       }
 
     }
+    // Full price approval lifecycle, using the real task/outbox and local SQL schema.
+    await db.exec(`CREATE TABLE crm_proposals(id uuid PRIMARY KEY,version integer);
+      CREATE TABLE service_order_submissions(id uuid PRIMARY KEY);`);
+    await db.exec(readFileSync(new URL('../sql/129_crm_price_approvals.sql',import.meta.url),'utf8'));
+    const proposalId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    await db.query('INSERT INTO crm_proposals VALUES($1,1)',[proposalId]);
+    const priceDraft={company:'1',customer:'2',type:'9',items:[{kind:'material',code:'11958',name:'Filtro',quantity:'1',price:'465'}]};
+    const reviewPrices=async()=>({version:1,number:4,approved:false,draft:priceDraft,items:[{code:'11958',name:'Filtro',quantity:'1',price:465,minimum:510}],users:[{email:approver.email,name:'Gestor'}]});
+    const request={id:proposalId,version:1,orderType:'9',approver:approver.email,reason:'Condição negociada com o cliente'};
+    await assert.rejects(requestPriceApproval({...request,version:2},user.email,reviewPrices),/alterada/);
+    await assert.rejects(requestPriceApproval({...request,approver:'missing'},user.email,reviewPrices),/gestor/);
+    const priceTask=await requestPriceApproval(request,user.email,reviewPrices);
+    assert.equal(String((await requestPriceApproval(request,user.email,reviewPrices)).taskId),String(priceTask.taskId));
+    const priceDetail=await taskDetail(String(priceTask.taskId),approver);
+    assert.equal(priceDetail.task.approval_state,'pending');
+    assert.ok(priceDetail.notes.some((n:any)=>n.description.includes('/crm/propostas/'+proposalId)));
+    assert.ok(priceDetail.notifications.length>0);
+    assert.equal(await approvedPrices(g.historyPool,proposalId,priceDraft),undefined);
+    const priceNotifications=await claimNotifications('https://example.com');
+    assert.ok(priceNotifications.some(n=>n.text.includes('https://example.com/crm/propostas/'+proposalId)));
+    const decision={action:'approval_decide',id:String(priceTask.taskId),version:1,decision:'approved',reason:'Condição comercial aprovada'};
+    await db.query("UPDATE web_user_access SET role='user' WHERE email=$1",[approver.email]);
+    await assert.rejects(updateTask(decision,approver));
+    await db.query("UPDATE web_user_access SET role='admin' WHERE email=$1",[approver.email]);
+    await updateTask(decision,approver);
+    assert.ok(await approvedPrices(g.historyPool,proposalId,priceDraft));
+    assert.equal(await approvedPrices(g.historyPool,proposalId,{...priceDraft,items:[{...priceDraft.items[0],price:'460'}]}),undefined);
+    await db.query("UPDATE web_user_access SET enabled=false WHERE email=$1",[approver.email]);
+    assert.equal(await approvedPrices(g.historyPool,proposalId,priceDraft),undefined);
+    await db.query("UPDATE web_user_access SET enabled=true WHERE email=$1",[approver.email]);
+
     const workshopBody={taskType:'standard',workshopVisitId:'12345678-1234-4234-8234-123456789abc',title:'Conferir',description:'Conferir',priority:'normal',assignedTo:'',dueDate:''};
     await assert.rejects(()=>createTask({...workshopBody,equipmentId:'999'},user),/Vínculo de oficina inválido/);
     await assert.rejects(()=>createTask({...workshopBody,workshopVisitId:'33345678-1234-4234-8234-123456789abc'},user),/não encontrada/);

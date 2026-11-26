@@ -1,3 +1,4 @@
+import {priceManager} from '../crm/price-manager';
 import {operationTask} from './completion-policy';
 import {releaseSchedule} from '../service-scheduling/release';
 import {recordWorkshopTaskEvent} from "../workshop/task-history";
@@ -388,6 +389,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
       if(!reason||reason.length>2000)throw new TaskInputError(`Informe a justificativa da ${body.decision==='approved'?'aprovação':'reprovação'} (até 2.000 caracteres).`);
       const requester=(await c.query('SELECT enabled FROM web_user_access WHERE email=$1 FOR SHARE',[t.created_by])).rows[0];
       if(!requester?.enabled)throw new TaskInputError('O solicitante está inativo. Regularize o cadastro antes de devolver a tarefa.');
+      if(t.source_key?.startsWith('manual:crm-price:')&&!priceManager((await c.query('SELECT * FROM web_user_access WHERE email=$1',[user.email])).rows[0]))throw new Forbidden();
       const approved=body.decision==='approved';
       await c.query("UPDATE web_tasks SET approval_state=$2,approval_reason=$3,approval_decided_by=$4,approval_decided_at=now(),assigned_to=created_by,status='in_progress',kanban_column=NULL WHERE id=$1",[id,body.decision,reason,user.email]);
       const result=approved?'Aprovada — de acordo para seguir com o processo. '+reason:'Reprovada — '+reason;

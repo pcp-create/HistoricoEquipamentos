@@ -73,7 +73,7 @@ export default function NewServiceOrder({
   editing, returnTo, proposal,
 }: { returnTo?: string; editing?: { company: string; id: string }; proposal?: {
  id:string;leadId?:string|null;equipmentRequired?:boolean;title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
- activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string})=>Promise<void>;
+ activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;canCompleteReview?:boolean;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string},completeReview?:boolean)=>Promise<void>;
 } } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
   const [attachmentCount,setAttachmentCount]=useState(0);
@@ -273,12 +273,13 @@ export default function NewServiceOrder({
     setError("");
     if(proposal){
       if(proposal.locked)return;
-      if(proposal.saveLabel==='Concluir revisão'){
+      const completeReview=(e.nativeEvent as SubmitEvent).submitter?.getAttribute('data-complete-review')==='true';
+      if(completeReview){
         const missing=missingProposalFields(form,proposal.equipmentRequired !== false,!!proposal.leadId);
         if(missing.length){setTab('header');setError('Preencha os campos obrigatórios: '+missing.map(key=>proposalFieldNames[key]).join(', ')+'.');return;}
       }
       sending.current=true;setBusy(true);
-      try{await proposal.onSave({...form,commercial:{...form.commercial,sellerName:sellers.find((r:any)=>String(r.id)===form.seller)?.name||form.commercial?.sellerName||'',paymentName:registry('payment-terms').find((r:any)=>String(r.id)===form.payment)?.name||'',freightName:registry('freight').find((r:any)=>String(r.id)===form.freight)?.name||''}},names);}catch(e){setError((e as Error).message);}finally{sending.current=false;setBusy(false);}
+      try{await proposal.onSave({...form,commercial:{...form.commercial,sellerName:sellers.find((r:any)=>String(r.id)===form.seller)?.name||form.commercial?.sellerName||'',paymentName:registry('payment-terms').find((r:any)=>String(r.id)===form.payment)?.name||'',freightName:registry('freight').find((r:any)=>String(r.id)===form.freight)?.name||''}},names,completeReview);}catch(e){setError((e as Error).message);}finally{sending.current=false;setBusy(false);}
       return;
     }
     try {
@@ -1077,6 +1078,7 @@ export default function NewServiceOrder({
                   ? "Salvar alterações"
                   : "Criar OS no M8"}
             </button>
+            {proposal?.canCompleteReview&&<button type="submit" className="primary" data-complete-review="true" disabled={disabled||Boolean(proposal.locked)||!meta||sellerBusy||!form.company||Boolean(current)}>Concluir revisão</button>}
             {proposal?.footerActions}
             </div>
           </footer>

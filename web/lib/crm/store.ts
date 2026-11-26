@@ -47,7 +47,9 @@ export async function getProposal(id:string){
  const workflow=wf.rows[0]||{state:'creating',revision:0};
  const snapshot=workflow.state==='sent'?(await db.query('SELECT document,names,title FROM crm_proposal_sent_revisions WHERE proposal_id=$1 AND revision=$2',[id,workflow.revision])).rows[0]:null;
  if(workflow.state==='sent'&&!snapshot)throw new CrmError('A versão enviada não está disponível.');
- return {...row,...(snapshot?{title:snapshot.title,names:snapshot.names}:{}),workflow,sentRevisions:revisions.rows,emailAttempt:attempt.rows[0]||null,document:snapshot?snapshot.document:await hydrateProductCosts(await applyProposalTaxType(row.document,row.type_id)),links:links.rows};
+ const priceRestorations=(await db.query("SELECT r.id::text,r.product_id::text,r.original_price,r.temporary_price,r.error FROM crm_price_restorations r JOIN crm_order_links l ON l.submission_id=r.submission_id WHERE l.proposal_id=$1 AND r.state<>'restored'",[id])).rows;
+ const priceApprovals=(await db.query("SELECT a.task_id::text,t.approval_state,t.approval_reason,t.approval_decided_at,u.display_name approver_name FROM crm_price_approvals a JOIN web_tasks t ON t.id=a.task_id LEFT JOIN web_user_access u ON u.email=t.approval_approver WHERE a.proposal_id=$1 ORDER BY a.id DESC LIMIT 10",[id])).rows;
+ return {...row,priceApprovals,priceRestorations,...(snapshot?{title:snapshot.title,names:snapshot.names}:{}),workflow,sentRevisions:revisions.rows,emailAttempt:attempt.rows[0]||null,document:snapshot?snapshot.document:await hydrateProductCosts(await applyProposalTaxType(row.document,row.type_id)),links:links.rows};
 }
 export async function saveOpportunity(raw:any,actor:string){
  const id=uuid(raw.id),title=text(raw.title,200,true),type=positive(raw.typeId),lead=raw.leadId?uuid(raw.leadId):null,customer=lead?null:positive(raw.customerId),company=positive(raw.company);

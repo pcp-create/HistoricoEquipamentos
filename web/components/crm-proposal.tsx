@@ -26,6 +26,7 @@ export default function CrmProposal({ id }: { id: string }) {
   const [emailSettings,setEmailSettings]=useState<any>(null),[settingsOpen,setSettingsOpen]=useState(false);
   useEffect(()=>{let active=true;crmApi('?proposalEmailSettings=1').then(value=>{if(active)setEmailSettings(value);}).catch(()=>{});return()=>{active=false;};},[]);
   const [reviewOpen,setReviewOpen]=useState(false),[reviewer,setReviewer]=useState(''),[reviewComment,setReviewComment]=useState(''),[reviewUsers,setReviewUsers]=useState<any[]>([]);
+  const [priceApproval,setPriceApproval]=useState<any>(null),[priceApprover,setPriceApprover]=useState(''),[priceReason,setPriceReason]=useState('');
   const [choosingType,setChoosingType]=useState(false);
   const typeDialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{if(choosingType)typeDialog.current?.showModal();},[choosingType]);
@@ -70,7 +71,7 @@ export default function CrmProposal({ id }: { id: string }) {
     if (
       retry &&
       !window.confirm(
-        "Confira a OS no M8. Confirma que a etapa pendente não foi gravada? Somente a etapa pendente e as seguintes serão reenviadas. Uma etapa já gravada poderá ser duplicada.",
+        "Confira a OS no M8. Itens com ID confirmado serão reaproveitados. Para etapas sem confirmação, confirme que não foram gravadas antes de continuar: reenviar uma etapa já gravada pode duplicá-la.",
       )
     )
       return;
@@ -78,6 +79,10 @@ export default function CrmProposal({ id }: { id: string }) {
     setBusy(true);
     setError("");
     try {
+      if(!link){
+        const review=await crmApi('',{action:'price-review',id,orderType:selectedType});
+        if(review.items.length&&!review.approved){setPriceApproval({...review,orderType:selectedType});return;}
+      }
       let result = await crmApi(
         "",
         link
@@ -134,6 +139,8 @@ export default function CrmProposal({ id }: { id: string }) {
   const orderChoices=catalog.orderTypes.filter((t:any)=>t.active&&type?.order_types?.includes(String(t.id)));
   const cannotConvert=busy||changed||pending||!!data.emailAttempt||!['reviewed','sent'].includes(data.workflow?.state)||data.status!=='pending'||!orderChoices.length;
   const headerActions=<div className="crm-actions">
+    {data.priceApprovals?.length>0&&<div><strong>Aprovações de preços</strong>{data.priceApprovals.map((a:any)=><p key={a.task_id}><a href={'/tarefas?task='+a.task_id} target="_blank" rel="noreferrer">TAR-{a.task_id}</a> · {a.approver_name} · {({pending:'Aguardando aprovação',approved:'Aprovada',rejected:'Reprovada'} as any)[a.approval_state]}{a.approval_reason?' · '+a.approval_reason:''}</p>)}</div>}
+    {data.priceRestorations?.map((r:any)=><div role="alert" key={r.id}><p>Produto {r.product_id}: restauração do mínimo R$ {Number(r.original_price).toFixed(2)} pendente. Confira o item no M8 antes de reenviar.</p>{data.currentUserIsAdmin&&<button type="button" className="button" disabled={busy} onClick={async()=>{setBusy(true);try{if(!window.confirm('Confira que a operação no M8 já terminou. Restaurar o mínimo original sem reenviar o produto?'))return;await crmApi('',{action:'restore-minimum',restorationId:r.id});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Restaurar mínimo do produto</button>}</div>)}
     {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
     {data.emailAttempt&&<div role="alert"><p>{data.emailAttempt.can_resolve?'Envio sem confirmação. Confira a pasta Enviados do Gmail antes de continuar.':'Envio em andamento. Aguarde e atualize a proposta.'}</p>{data.emailAttempt.can_resolve&&data.emailAttempt.actor===data.currentUser&&<><button type="button" disabled={busy} onClick={async()=>{if(!window.confirm('Confirma que encontrou o e-mail enviado no Gmail?'))return;setBusy(true);try{await crmApi('',{action:'resolve-proposal-email',id,attemptId:data.emailAttempt.id,resolution:'sent',confirmed:true});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Confirmei que foi enviado</button><button type="button" disabled={busy} onClick={async()=>{if(!window.confirm('Confirma que o e-mail não foi enviado? Isso permitirá uma nova tentativa.'))return;setBusy(true);try{await crmApi('',{action:'resolve-proposal-email',id,attemptId:data.emailAttempt.id,resolution:'not_sent',confirmed:true});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Confirmei que não foi enviado</button></>}</div>}
     {emailSettings&&<button type="button" className="button" onClick={()=>setSettingsOpen(true)}><Settings size={16}/> Configurações</button>}
@@ -176,6 +183,7 @@ export default function CrmProposal({ id }: { id: string }) {
                 {crmDate(l.created_at)} · {l.actor_name || l.actor}
               </p>
               {l.message && <p>{l.message}</p>}
+              {['partial','rejected','uncertain'].includes(l.state)&&<button className="button" type="button" disabled={busy||!!data.priceRestorations?.length} onClick={async()=>{setBusy(true);setError('');try{const review=await crmApi('',{action:'price-review',id,orderType:l.document?.type||orderType});if(review.items.length&&!review.approved)setPriceApproval({...review,orderType:review.draft.type});else await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Verificar aprovação dos preços</button>}
               {["preparing", "ready", "partial", "sending"].includes(
                 l.state,
               ) && (
@@ -195,7 +203,7 @@ export default function CrmProposal({ id }: { id: string }) {
                   disabled={busy}
                   onClick={() => void convert(l, true)}
                 >
-                  Conferi no M8 — tentar etapa novamente
+                  Conferi no M8 — continuar envio
                 </button>
               )}
             </article>
@@ -268,10 +276,10 @@ export default function CrmProposal({ id }: { id: string }) {
           if(!selected?.order_types?.includes(orderType))setOrderType('');
         }}>{catalog.proposalTypes.filter((t:any)=>String(t.opportunity_type_id)===String(data.opportunity_type_id)&&(t.active||String(t.id)===proposalType)).map((t:any)=><option key={t.id} value={String(t.id)}>{t.code} · {t.name}</option>)}</select></label>,
         locked: locked || busy,
-        saveLabel:data.workflow?.state==='in_review'?'Concluir revisão':undefined,
+        canCompleteReview:data.workflow?.state==='in_review',
         footerActions:<>{data.status==='pending'&&['creating','reviewed','sent'].includes(data.workflow?.state||'creating')&&<button type="button" className="primary" disabled={busy||changed||pending} onClick={()=>void openReview()}>{data.workflow?.state==='creating'?'Enviar para revisão':'Revisar proposta'}</button>}{reviewOpen&&<ProposalDialog label="Enviar proposta para revisão" onClose={()=>setReviewOpen(false)}><h2>Enviar para revisão</h2><label>Funcionário<select value={reviewer} onChange={e=>setReviewer(e.target.value)}><option value="">Selecione</option>{reviewUsers.map((u:any)=><option key={u.email} value={u.email}>{u.display_name||u.name||u.email}</option>)}</select></label><label>Comentário<textarea value={reviewComment} maxLength={2000} onChange={e=>setReviewComment(e.target.value)}/></label><div className="crm-actions crm-review-dialog-actions"><button type="button" onClick={()=>setReviewOpen(false)}>Cancelar</button><button type="button" className="crm-review-dialog-submit" disabled={busy||!reviewer} onClick={()=>void requestReview()}>Enviar para revisão</button></div></ProposalDialog>}</>,
         tools,
-        headerActions,
+        headerActions:<>{headerActions}{priceApproval&&<ProposalDialog label="Aprovação de preços" onClose={()=>setPriceApproval(null)}><h2>Aprovação de preços abaixo do mínimo</h2>{error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}{priceApproval.items.map((item:any,index:number)=><p key={index}>{item.code} · {item.name}: venda R$ {item.price.toFixed(2)} / mínimo R$ {item.minimum.toFixed(2)} · Quantidade: {item.quantity}</p>)}{!priceApproval.users.length&&<p>Nenhum gestor ativo com acesso a Tarefas foi encontrado. Confira os cargos e as permissões no cadastro de funcionários.</p>}<label>Gestor responsável<select value={priceApprover} onChange={e=>setPriceApprover(e.target.value)}><option value="">Selecione</option>{priceApproval.users.map((u:any)=><option key={u.email} value={u.email}>{u.name}</option>)}</select></label><label>Justificativa<textarea maxLength={2000} value={priceReason} onChange={e=>setPriceReason(e.target.value)}/></label><p>Após a aprovação, retorne à proposta para gerar a OS. O mínimo será restaurado após a inclusão de cada produto.</p><button type="button" className="button primary" disabled={busy||!priceApprover||!priceReason.trim()} onClick={async()=>{setBusy(true);try{await crmApi('',{action:'request-price-approval',id,version:data.version,orderType:priceApproval.orderType,approver:priceApprover,reason:priceReason});setPriceApproval(null);setPriceReason('');setPriceApprover('');await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Solicitar aprovação</button></ProposalDialog>}</>,
         activityTools: progress,
         summaryTools: actions && (
           <section
@@ -282,7 +290,7 @@ export default function CrmProposal({ id }: { id: string }) {
           </section>
         ),
         onDirty: setDirty,
-        onSave: async (draft, names) => {
+        onSave: async (draft, names, completeReview) => {
           const saved=await crmApi("", {
             action: "save-proposal",
             typeId:proposalType,
@@ -293,7 +301,7 @@ export default function CrmProposal({ id }: { id: string }) {
             draft,
             names,
           });
-          if(data.workflow?.state==='in_review')try{await crmApi('',{action:'complete_review',id,version:saved.version});}catch(e){await load();throw e;}
+          if(completeReview&&data.workflow?.state==='in_review')try{await crmApi('',{action:'complete_review',id,version:saved.version});}catch(e){await load();throw e;}
           await load();
         },
       }}

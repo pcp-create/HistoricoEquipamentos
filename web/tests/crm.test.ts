@@ -23,10 +23,11 @@ test('CRM persists local opportunities and proposals and safely links conversion
  CREATE TABLE m8_product_current(company_id int,product_id bigint,available numeric,available_at timestamptz);
  CREATE TABLE m8_product_catalog(company_id int,product_id bigint,unit text,payload jsonb DEFAULT '{}');INSERT INTO m8_product_catalog(company_id,product_id,unit) VALUES(1,50,'UN');
  CREATE TABLE m8_product_stock(company_id int,product_id bigint,average_cost numeric,stock numeric,payload jsonb DEFAULT '{}',establishment_id bigint DEFAULT 1,collected_at timestamptz DEFAULT now());INSERT INTO m8_product_stock(company_id,product_id,average_cost,stock) VALUES(1,50,5,1);`);
- await db.exec("CREATE ROLE anon; CREATE ROLE authenticated; ALTER TABLE web_user_access ADD PRIMARY KEY(email); CREATE TABLE web_tasks(id bigint PRIMARY KEY,customer text,updated_at timestamptz,version integer DEFAULT 1); CREATE TABLE web_service_schedule_settings(id integer,document jsonb);");
+ await db.exec("CREATE ROLE anon; CREATE ROLE authenticated; ALTER TABLE web_user_access ADD PRIMARY KEY(email); CREATE TABLE web_tasks(id bigint PRIMARY KEY,customer text,updated_at timestamptz,version integer DEFAULT 1,approval_state text,approval_reason text,approval_decided_at timestamptz,approval_approver text); CREATE TABLE web_service_schedule_settings(id integer,document jsonb);");
  await db.exec(readFileSync(new URL('../sql/125_crm_proposal_review_workflow.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../sql/126_crm_opportunity_leads.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../sql/128_crm_proposal_equipment_required.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../sql/129_crm_price_approvals.sql',import.meta.url),'utf8'));
  await db.exec('UPDATE crm_proposal_types SET equipment_required=false');
  const query=(q:string,args?:any[])=>db.query(q.replace('BEGIN READ WRITE','BEGIN'),args);
  g.historyPool={query,connect:async()=>({query,release(){}})};
@@ -46,7 +47,7 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await assert.rejects(saveProposal({id:p.id,version:p.version,draft:emptyDraft()},'planner'));
  await assert.rejects(saveOpportunity({id:opportunity.id,version:opportunity.version,typeId:man.id,customerId:10,company:2,title:'Trocar empresa'},'planner'));
  let writes=0,state='ready',last:any;
- const deps={prepare:async(actor:string,id:any,draft:any)=>{assert.equal(actor,'planner');assert.equal(draft.customer,'10');if(draft.items.length){assert.equal(draft.items[0].discountPercent,undefined);assert.equal(draft.items[0].price,'9.45');}last={id,company:1,state,m8Id:state==='ready'?null:900};return last;},advance:async()=>{if(state==='ready'){writes++;state='uncertain';}return {...last,state,message:'Confira no ERP'};},retry:async()=>{state='ready';return {...last,state};}};
+ const deps={prices:async(id:string)=>({items:[],users:[],draft:{},number:1,approved:true,version:(await db.query<any>('SELECT version FROM crm_proposals WHERE id=$1',[id])).rows[0].version}),prepare:async(actor:string,id:any,draft:any)=>{assert.equal(actor,'planner');assert.equal(draft.customer,'10');if(draft.items.length){assert.equal(draft.items[0].discountPercent,undefined);assert.equal(draft.items[0].price,'9.45');}last={id,company:1,state,m8Id:state==='ready'?null:900};return last;},advance:async()=>{if(state==='ready'){writes++;state='uncertain';}return {...last,state,message:'Confira no ERP'};},retry:async()=>{state='ready';return {...last,state};}};
  await assert.rejects(beginConversion({id:randomUUID(),proposalId:p.id,version:saved.version},'planner',deps),/Conclua a revisão/);
  await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,revision,last_sent_revision,reviewed_by,reviewed_at) VALUES($1,'sent',0,0,'planner',now())",[p.id]);
  await db.query("INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id) SELECT id,0,version,document,names,title,decode('00','hex'),'planner','cliente@example.com','test-1' FROM crm_proposals WHERE id=$1",[p.id]);
@@ -56,6 +57,8 @@ test('CRM persists local opportunities and proposals and safely links conversion
  assert.equal((await getProposal(p.id)).document.items[0].unitCost,'5');
  assert.equal((await getProposal(p.id)).workflow.reviewed_name,'Planejador');
  await assert.rejects(beginConversion({id:randomUUID(),proposalId:p.id,version:saved.version,orderType:'99'},'planner',deps),/Defina/);
+ await assert.rejects(beginConversion({id:randomUUID(),proposalId:p.id,version:saved.version},'planner',{...deps,prices:async(id:string)=>({...await deps.prices(id),items:[{}],approved:false})} as any),/aprovação/);
+ assert.equal((await db.query<any>('SELECT count(*) n FROM crm_order_links')).rows[0].n,0);
  const request=randomUUID();
  assert.equal((await beginConversion({id:request,proposalId:p.id,version:saved.version},'planner',deps)).state,'ready');assert.equal(writes,0);
  await assert.rejects(saveOpportunity({id:opportunity.id,version:opportunity.version,typeId:man.id,customerId:10,company:1,title:'Manutenção Cliente',status:'lost'},'planner'),/pedido criado ou em andamento/);
