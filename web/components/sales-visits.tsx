@@ -101,7 +101,7 @@ type Form = {
   description: string;
   outcome: string;
 };
-export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,initialMode="schedule",initialCustomer,initialSeller}:{scheduleOnly?:boolean;onClose?:()=>void;onScheduled?:()=>void|Promise<void>;initialMode?:"schedule"|"history";initialCustomer?:VisitCustomer;initialSeller?:string} = {}) {
+export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,initialMode="schedule",initialCustomer,initialSeller,initialLead=false}:{initialLead?:boolean;scheduleOnly?:boolean;onClose?:()=>void;onScheduled?:()=>void|Promise<void>;initialMode?:"schedule"|"history";initialCustomer?:VisitCustomer;initialSeller?:string} = {}) {
   const [nextVisit,setNextVisit]=useState<(Form & {customerName:string})|null>(null);
   const [whatsapp,setWhatsapp]=useState(false);
   const [home, setHome] = useState(true);
@@ -119,6 +119,17 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
     [listMode, setListMode] = useState("customers"),
     [selectedDay, setSelectedDay] = useState(""),
     [form, setForm] = useState<Form | null>(null);
+  const [visitStatus, setVisitStatus] = useState("");
+  useEffect(() => {
+    if (scheduleOnly) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "list" && params.get("status") === "completed") {
+      setHome(false);
+      setTab("list");
+      setListMode("visits");
+      setVisitStatus("completed");
+    }
+  }, [scheduleOnly]);
   const [allCustomers,setAllCustomers] = useState<VisitCustomer[]>([]);
   const [outsidePortfolio,setOutsidePortfolio] = useState(false);
   const [customerLoading,setCustomerLoading] = useState(false);
@@ -254,6 +265,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
   const listCustomers = filtered.filter(c=>listMode === "disqualified" ? !!c.disqualification : !c.disqualification && (listMode === "leads" ? c.lead : !c.lead));
   const customerMap = new Map(customers.map((c) => [c.key, c]));
   const visitRows = visits.filter((v) => {
+    if (visitStatus && v.status !== visitStatus) return false;
     const c = customerMap.get(v.customer_key);
     return c && matches(c) && (filter === "all" || (filter === "leads" ? c.lead : !c.lead && c.health === filter));
   });
@@ -301,7 +313,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
         id: v?.id || crypto.randomUUID(),
         version: v?.version,
         customer_key: c?.key || "",
-        lead: false,
+        lead: initialLead && !c && !v,
         leadId: crypto.randomUUID(),
         leadName: "",
         city: "",
@@ -319,7 +331,7 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
         outcome: "",
       });
     },
-    [selectedDay,scheduleOnly,initialSeller],
+    [selectedDay,scheduleOnly,initialSeller,initialLead],
   );
   useEffect(()=>{if(scheduleOnly)openForm(initialMode,initialCustomer)},[scheduleOnly,openForm,initialMode,initialCustomer]);
   const formCustomer = (initialCustomer?.key===form?.customer_key?initialCustomer:undefined) || customers.find(c=>c.key===form?.customer_key) || allCustomers.find(c=>c.key===form?.customer_key);
@@ -850,6 +862,13 @@ export default function SalesVisits({scheduleOnly=false,onClose,onScheduled,init
                   </div>
                 ) : (
                   <section className="sales-panel sales-visits-list">
+                    <label>Status da visita
+                      <select value={visitStatus} onChange={event => setVisitStatus(event.target.value)}>
+                        <option value="">Todas</option>
+                        <option value="completed">Realizadas</option>
+                        <option value="scheduled">Agendadas</option>
+                      </select>
+                    </label>
                     {visitRows.map(renderVisit)}
                   </section>
                 )}

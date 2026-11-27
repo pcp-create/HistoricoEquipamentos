@@ -12,6 +12,7 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
   b.onLoad({filter:/.*/,namespace:"mock"},a=>({resolveDir:process.cwd(),loader:"tsx",contents:
    a.path==="next/navigation"?'export const useSearchParams=()=>new URLSearchParams(window.location.search);export const useRouter=()=>({push(){}});':
    a.path==="next/link"?'import React from "react";export default function Link({children,...p}){return <a {...p}>{children}</a>}':
+   a.path==="./session-access"?'export const useSessionAccess=()=>({visitManager:false});':
    a.path==="./crm-api"?'export const crmStatus=s=>s;export const crmMoney=v=>String(v);export const crmDate=v=>String(v);export async function crmApi(q){window.queries.push(q);if(q.includes("proposalEmailSettings"))return null;if(q.includes("overview"))return {conversion:0};if(q.includes("catalogs"))return {};if(q.includes("kind=proposals"))return {rows:[{id:"proposal-test",number:8,title:"Proposta teste",status:"creating",total_cents:12000,customer_name:"Cliente teste",opportunity_number:4}],total:1};return {rows:[],total:0};}':
    'export default function Stub(){return null;}'}));
  }};

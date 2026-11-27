@@ -86,6 +86,13 @@ export default function SalesVisitsManagement() {
     [status, setStatus] = useState(""),
     [from, setFrom] = useState(""),
     [until, setUntil] = useState("");
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "visits" && params.get("status") === "completed") {
+      setTab("visits");
+      setStatus("completed");
+    }
+  }, []);
   const [month, setMonth] = useState(() => brazilDay(new Date()).slice(0, 7)),
     [day, setDay] = useState("");
   const [detail, setDetail] = useState<VisitCustomer | null>(null);

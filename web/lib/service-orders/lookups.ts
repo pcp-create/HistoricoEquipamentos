@@ -52,16 +52,18 @@ export async function orderLookups(p: URLSearchParams) {
     let customer = kind === 'equipment' ? positiveId(p.get("customer"), "o cliente") : null;
     const type = kind === "equipment" || p.get("type") ? positiveId(p.get("type"), "o tipo de OS") : null;
     let leadKey:string|null=null;
+    let proposalCustomerOnly=true;
     if(kind==='proposal-equipment'){
       const proposal=p.get('proposal')||'';
       if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(proposal))throw new OrderInputError('Selecione uma proposta válida.');
-      const account=(await db.query('SELECT o.customer_id,o.lead_id,o.origin_lead_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1',[proposal])).rows[0];
+      const account=(await db.query('SELECT o.customer_id,o.lead_id,o.origin_lead_id,t.customer_equipment_only FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id JOIN crm_proposal_types t ON t.id=p.type_id WHERE p.id=$1',[proposal])).rows[0];
       if(!account)throw new OrderInputError('Proposta não encontrada.');
+      proposalCustomerOnly=account.customer_equipment_only!==false;
       if(account.customer_id){customer=positiveId(p.get('customer'),'o cliente');if(String(account.customer_id)!==String(customer))throw new OrderInputError('Cliente não corresponde à proposta.');}
       else if(!account.lead_id||p.get('customer'))throw new OrderInputError('Cliente não corresponde à proposta.');
       if(account.lead_id||account.origin_lead_id)leadKey='lead:'+(account.lead_id||account.origin_lead_id);
     }
-    const t = customer && type ? (
+    const t = kind==='proposal-equipment' ? {customer_equipment_only:proposalCustomerOnly} : customer && type ? (
       await db.query(
         "SELECT customer_equipment_only FROM m8_order_type_catalog WHERE id=$1 AND active",
         [type],

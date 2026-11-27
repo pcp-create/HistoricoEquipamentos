@@ -1,4 +1,6 @@
 "use client";
+import { useSessionAccess } from "./session-access";
+import dynamic from "next/dynamic";
 import ModuleHeaderActions from "./module-header-actions";
 import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
@@ -46,6 +48,7 @@ const crmTabs = [
   ["proposals", "Propostas"],
   ["orders", "Pedidos (OSs)"],
 ];
+const LeadVisitForm = dynamic(() => import("./sales-visits"), { ssr: false });
 const stages: Record<string, string> = {
   prospecting: "Prospecção",
   qualification: "Qualificação",
@@ -57,6 +60,7 @@ const stages: Record<string, string> = {
 const day = (value: string) =>
   value ? new Date(value + "T12:00:00").toLocaleDateString("pt-BR") : "—";
 export default function Crm() {
+  const { visitManager } = useSessionAccess();
   const params = useSearchParams(),
     [kind, setKind] = useState(
       crmTabs.some(([key]) => key === params.get("tab"))
@@ -101,6 +105,7 @@ export default function Crm() {
     [catalog, setCatalog] = useState<any>(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
+    [creatingLead, setCreatingLead] = useState(false),
     [opportunity, setOpportunity] = useState<any>(null),
     [contact, setContact] = useState<any>(null);
   useEffect(() => {
@@ -270,7 +275,7 @@ export default function Crm() {
               <p>Da atividade comercial à venda · todos os períodos</p>
               <ol className="crm-funnel-chart" aria-label="Etapas do funil comercial">
                 {[
-                  ["Visitas realizadas", overview?.visits?.completed, "/visitas/gestao"],
+                  ["Visitas realizadas", overview?.visits?.completed, visitManager ? "/visitas/gestao?tab=visits&status=completed" : "/visitas?tab=list&status=completed"],
                   ["Leads", overview?.leads, "/crm?tab=leads"],
                   ["Oportunidades", overview?.opportunities, "/crm?tab=opportunities"],
                   ["Vendas", overview?.converted, "/crm?tab=orders"],
@@ -294,6 +299,11 @@ export default function Crm() {
               {!loading && <span>{count.toLocaleString("pt-BR")} registros</span>}
             </div>
 
+            {kind === "leads" && (
+              <button type="button" className="button primary" onClick={() => setCreatingLead(true)}>
+                <Plus size={17} aria-hidden="true" /> Novo lead
+              </button>
+            )}
             {kind === "opportunities" && (
               <button
                 className="button primary"
@@ -673,6 +683,13 @@ export default function Crm() {
           </>}
         </section>
       </main>
+      {creatingLead && <LeadVisitForm scheduleOnly initialLead onClose={() => setCreatingLead(false)} onScheduled={() => {
+        setCreatingLead(false);
+        setQ("");
+        setSearch("");
+        setPage(1);
+        setRefresh(value => value + 1);
+      }} />}
       {settingsOpen && (
         <CrmEmailSettings initial={emailSettings} onClose={() => setSettingsOpen(false)} onSaved={setEmailSettings} />
       )}
