@@ -14,7 +14,7 @@ export default function CrmProposalDelivery({
   onClose: () => void;
   onSent: () => Promise<void>;
 }) {
-  const ready = proposal.workflow?.state === "reviewed";
+  const ready = ["reviewed", "sent"].includes(proposal.workflow?.state);
   const dialog = useRef<HTMLDialogElement>(null),
     working = useRef(false);
   const [busy, setBusy] = useState(false),
@@ -156,6 +156,7 @@ RJ Compressores`);
       }}
     >
       <h2>{prepared ? "Enviar via WhatsApp" : "Enviar proposta ao cliente"}</h2>
+      {proposal.workflow?.state === "sent" && <p>O reenvio utiliza o mesmo PDF da revisão enviada, com os impostos originais.</p>}
       {!ready && (
         <p>
           Conclua a revisão na etapa Revisada antes de registrar ou enviar a
@@ -203,7 +204,7 @@ RJ Compressores`);
             className="crm-delivery-tax-switch"
             role="switch"
             aria-checked={taxes}
-            disabled={busy || !!proposal.lead_id}
+            disabled={busy || !!proposal.lead_id || proposal.workflow?.state === "sent"}
             onClick={() => setTaxes(value => !value)}
           >
             <span className="crm-delivery-tax-track" aria-hidden="true"><span /></span>

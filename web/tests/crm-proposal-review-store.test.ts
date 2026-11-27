@@ -123,6 +123,23 @@ test('proposal review creates one task and records who completed it',async()=>{
   await confirmExternalDelivery({id,deliveryId:manualCurrent.deliveryId,confirmed:true},'solicitante');
   assert.equal((await query<any>('SELECT delivery_channel FROM crm_proposal_sent_revisions WHERE proposal_id=$1 AND revision=3',[id])).rows[0].delivery_channel,'manual');
 
+  // Resend the same revision without replacing its immutable PDF or stage timestamp.
+  const beforeResend=(await query<any>('SELECT * FROM crm_proposal_workflows WHERE proposal_id=$1',[id])).rows[0];
+  const resendVersion=(await query<any>('SELECT version FROM crm_proposals WHERE id=$1',[id])).rows[0].version;
+  const resend=await prepareExternalDelivery({id,version:resendVersion,channel:'whatsapp'},'solicitante',manualRender);
+  await confirmExternalDelivery({id,deliveryId:resend.deliveryId,confirmed:true},'solicitante');
+  await confirmExternalDelivery({id,deliveryId:resend.deliveryId,confirmed:true},'solicitante');
+  assert.equal((await query<any>('SELECT count(*)::int n FROM crm_proposal_sent_revisions WHERE proposal_id=$1 AND revision=3',[id])).rows[0].n,1);
+  assert.equal((await query<any>("SELECT count(*)::int n FROM crm_events WHERE proposal_id=$1 AND action='proposal_sent' AND details->>'revision'='3'",[id])).rows[0].n,2);
+  proposal.version=resendVersion+1;proposal.workflow={state:'sent',revision:3};
+  const resendDeps={...deps,render:async()=>{throw Error('must reuse stored PDF');}};
+  await sendProposalEmail({...input,version:proposal.version},'solicitante',async()=>Response.json({id:'gmail-resend'}),resendDeps);
+  const afterResend=(await query<any>('SELECT * FROM crm_proposal_workflows WHERE proposal_id=$1',[id])).rows[0];
+  assert.equal(String(afterResend.updated_at),String(beforeResend.updated_at));
+  assert.equal(afterResend.revision,3);
+  assert.equal((await query<any>("SELECT count(*)::int n FROM crm_events WHERE proposal_id=$1 AND action='proposal_sent' AND details->>'revision'='3'",[id])).rows[0].n,3);
+  assert.equal((await query<any>('SELECT delivery_channel FROM crm_proposal_sent_revisions WHERE proposal_id=$1 AND revision=3',[id])).rows[0].delivery_channel,'manual');
+
   assert.equal((await query<any>('SELECT reviewed_by FROM crm_proposal_workflows WHERE proposal_id=$1',[id])).rows[0].reviewed_by,'solicitante');
 
   assert.equal((await query<any>("SELECT count(*)::int n FROM web_tasks WHERE source_resolved IS NOT TRUE")).rows[0].n,1);

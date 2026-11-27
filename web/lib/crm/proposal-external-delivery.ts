@@ -20,7 +20,7 @@ async function check(c: any, id: string, expected: number, revision: number) {
   if (
     !p ||
     p.version !== expected ||
-    w?.state !== "reviewed" ||
+    !["reviewed", "sent"].includes(w?.state) ||
     w.revision !== revision
   )
     throw new CrmError(
@@ -103,7 +103,7 @@ export async function confirmExternalDelivery(input: any, actor: string) {
     }
     const p = await check(c, id, delivery.proposal_version, delivery.revision);
     await c.query(
-      "INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id,delivery_channel) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL,$10)",
+      "INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id,delivery_channel) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL,$10) ON CONFLICT(proposal_id,revision) DO NOTHING",
       [
         id,
         delivery.revision,
@@ -120,7 +120,7 @@ export async function confirmExternalDelivery(input: any, actor: string) {
       ],
     );
     await c.query(
-      "UPDATE crm_proposal_workflows SET state='sent',last_sent_revision=$2,updated_at=now() WHERE proposal_id=$1",
+      "UPDATE crm_proposal_workflows SET state='sent',last_sent_revision=$2,updated_at=CASE WHEN state='sent' THEN updated_at ELSE now() END WHERE proposal_id=$1",
       [id, delivery.revision],
     );
     await c.query(

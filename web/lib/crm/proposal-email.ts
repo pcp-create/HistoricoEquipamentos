@@ -42,8 +42,14 @@ const defaultEmailDeps={get:getProposal,render:proposalPdf,taxes:hydratePdfProdu
 export async function renderProposalDelivery(input:any,deps=defaultEmailDeps){
  const id=uuid(input?.id),expected=version(input?.version);
  const proposal=await deps.get(id);
- if(proposal.version!==expected||proposal.workflow?.state!=='reviewed')throw new CrmError('A proposta deve estar revisada e atualizada antes do envio.');
+ if(proposal.version!==expected||!['reviewed','sent'].includes(proposal.workflow?.state))throw new CrmError('A proposta deve estar revisada e atualizada antes do envio.');
  const db=database(),draft=proposal.document;
+ if(proposal.workflow.state==='sent'){
+  const snapshot=(await db.query('SELECT * FROM crm_proposal_sent_revisions WHERE proposal_id=$1 AND revision=$2',[id,proposal.workflow.revision])).rows[0];
+  if(!snapshot)throw new CrmError('PDF da revisão enviada não encontrado.');
+  return {id,expected,proposal:{...proposal,names:snapshot.names,title:snapshot.title},draft:snapshot.document,pdf:snapshot.pdf,revision:Number(snapshot.revision)};
+ }
+
  const [client,equipment,products]=await Promise.all([
   proposal.lead_id?db.query("SELECT name,jsonb_build_object('municipioNome',city,'ufSigla',uf) payload FROM web_sales_leads WHERE id=$1",[proposal.lead_id]):db.query('SELECT document,payload FROM m8_customer_directory WHERE person_id=$1 AND company_id=$2 LIMIT 1',[draft.customer||null,draft.company]),
   draft.equipment?db.query('SELECT name,model,serial FROM m8_equipment_catalog WHERE equipment_id=$1',[draft.equipment]):Promise.resolve({rows:[]}),
@@ -77,7 +83,7 @@ export async function sendProposalEmail(input:any,actor:string,send:typeof fetch
   await c.query('BEGIN READ WRITE');
   const locked=(await c.query('SELECT p.version,p.status proposal_status,o.status opportunity_status FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1 FOR UPDATE OF p,o',[id])).rows[0];
   const workflow=(await c.query('SELECT * FROM crm_proposal_workflows WHERE proposal_id=$1 FOR UPDATE',[id])).rows[0];
-  if(locked?.version!==expected||workflow?.state!=='reviewed'||workflow.revision!==revision)throw new CrmError('A proposta foi alterada. Atualize antes de enviar.');
+  if(locked?.version!==expected||!['reviewed','sent'].includes(workflow?.state)||workflow.revision!==revision)throw new CrmError('A proposta foi alterada. Atualize antes de enviar.');
   if(locked.opportunity_status!=='open'&&!(locked.opportunity_status==='won'&&locked.proposal_status==='won'))throw new CrmError('A oportunidade não está disponível para envio.');
   if((await c.query("SELECT 1 FROM crm_proposal_email_attempts WHERE proposal_id=$1 AND state IN ('sending','uncertain')",[id])).rows.length)throw new CrmError('Há um envio aguardando conferência.');
   await c.query("INSERT INTO crm_proposal_email_attempts(id,proposal_id,revision,proposal_version,actor,recipients,document,names,title,pdf,state) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,'sending')",[attempt,id,revision,expected,actor,to,JSON.stringify(draft),JSON.stringify(proposal.names),proposal.title,Buffer.from(pdf)]);
@@ -96,8 +102,8 @@ export async function sendProposalEmail(input:any,actor:string,send:typeof fetch
  try{
   await finish.query('BEGIN READ WRITE');
   await finish.query('SELECT id FROM crm_proposals WHERE id=$1 FOR UPDATE',[id]);
-  await finish.query(`INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id) VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8,$9,$10)`,[id,revision,expected,JSON.stringify(draft),JSON.stringify(proposal.names),proposal.title,Buffer.from(pdf),actor,to,result.id]);
-  await finish.query("UPDATE crm_proposal_workflows SET state='sent',last_sent_revision=$2,updated_at=now() WHERE proposal_id=$1",[id,revision]);
+  await finish.query(`INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id) VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8,$9,$10) ON CONFLICT(proposal_id,revision) DO NOTHING`,[id,revision,expected,JSON.stringify(draft),JSON.stringify(proposal.names),proposal.title,Buffer.from(pdf),actor,to,result.id]);
+  await finish.query("UPDATE crm_proposal_workflows SET state='sent',last_sent_revision=$2,updated_at=CASE WHEN state='sent' THEN updated_at ELSE now() END WHERE proposal_id=$1",[id,revision]);
   await finish.query("UPDATE crm_proposal_email_attempts SET state='sent',message_id=$2,updated_at=now() WHERE id=$1",[attempt,result.id]);
   await finish.query('UPDATE crm_proposals SET version=version+1,updated_by=$2,updated_at=now() WHERE id=$1',[id,actor]);
   await finish.query("INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,'proposal_sent',$4::jsonb)",[proposal.opportunity_id,id,actor,JSON.stringify({revision,recipients:to,messageId:result.id})]);
@@ -117,14 +123,14 @@ export async function resolveProposalEmail(input:any,actor:string){
   const attempt=(await c.query("SELECT * FROM crm_proposal_email_attempts WHERE id=$1 AND proposal_id=$2 AND (state='uncertain' OR (state='sending' AND created_at<now()-interval '2 minutes')) FOR UPDATE",[attemptId,id])).rows[0];
   if(!proposal||!attempt||attempt.actor!==actor)throw new CrmError('Envio pendente indisponível para conferência.');
   const workflow=(await c.query('SELECT * FROM crm_proposal_workflows WHERE proposal_id=$1 FOR UPDATE',[id])).rows[0];
-  if(proposal.version!==attempt.proposal_version||workflow?.state!=='reviewed'||workflow.revision!==attempt.revision)throw new CrmError('A proposta foi alterada e precisa de conferência administrativa.');
+  if(proposal.version!==attempt.proposal_version||!['reviewed','sent'].includes(workflow?.state)||workflow.revision!==attempt.revision)throw new CrmError('A proposta foi alterada e precisa de conferência administrativa.');
   if(input.resolution==='sent'){
-   await c.query('INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[id,attempt.revision,attempt.proposal_version,attempt.document,attempt.names,attempt.title,attempt.pdf,actor,attempt.recipients,messageId]);
-   await c.query("UPDATE crm_proposal_workflows SET state='sent',last_sent_revision=$2,updated_at=now() WHERE proposal_id=$1",[id,attempt.revision]);
+   await c.query('INSERT INTO crm_proposal_sent_revisions(proposal_id,revision,proposal_version,document,names,title,pdf,sent_by,recipients,gmail_message_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(proposal_id,revision) DO NOTHING',[id,attempt.revision,attempt.proposal_version,attempt.document,attempt.names,attempt.title,attempt.pdf,actor,attempt.recipients,messageId]);
+   await c.query("UPDATE crm_proposal_workflows SET state='sent',last_sent_revision=$2,updated_at=CASE WHEN state='sent' THEN updated_at ELSE now() END WHERE proposal_id=$1",[id,attempt.revision]);
    await c.query("UPDATE crm_proposals SET version=version+1,updated_by=$2,updated_at=now() WHERE id=$1",[id,actor]);
   }
   await c.query('UPDATE crm_proposal_email_attempts SET state=$2,message_id=$3,updated_at=now() WHERE id=$1',[attemptId,input.resolution==='sent'?'sent':'failed',messageId||null]);
-  await c.query("INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,'proposal_email_reconciled',$4::jsonb)",[proposal.opportunity_id,id,actor,JSON.stringify({attempt:attemptId,resolution:input.resolution,messageId})]);
+  await c.query("INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,'proposal_email_reconciled',$4::jsonb)",[proposal.opportunity_id,id,actor,JSON.stringify({attempt:attemptId,revision:attempt.revision,recipients:attempt.recipients,resolution:input.resolution,messageId})]);
   await c.query('COMMIT');return {resolution:input.resolution};
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }

@@ -512,6 +512,7 @@ export default function NewServiceOrder({
                 : "Nova Ordem de Serviço"}
             </h1>{proposal?.headerActions}</div>
             {proposal?.opportunityLink}
+            {proposal?.stageActions}
             {!proposal && <p>
               {editing
                 ? "Revise os dados e salve as alterações na ordem existente."
@@ -632,7 +633,6 @@ export default function NewServiceOrder({
           return JSON.stringify(items)===JSON.stringify(current.items)?current:{...current,items};
         })}/>}
         {proposal?.activityTools}
-        {proposal?.stageActions}
         <div className={proposal ? "crm-proposal-panel" : "os-form-panel"}>
         {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['attachments','Anexos'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{key==='header'?<ClipboardList size={18} aria-hidden="true"/>:key==='material'?<Package size={18} aria-hidden="true"/>:key==='service'?<Wrench size={18} aria-hidden="true"/>:key==='attachments'?<Paperclip size={18} aria-hidden="true"/>:<ChartNoAxesCombined size={18} aria-hidden="true"/>}<span>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}{key==='attachments'&&` (${attachmentCount})`}</span></button>)}</nav>}
         {proposal&&<div hidden={tab!=='attachments'}><CrmProposalAttachments proposalId={proposal.id} onCountChange={setAttachmentCount}/></div>}

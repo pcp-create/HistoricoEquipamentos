@@ -5,7 +5,7 @@ import CrmProposalDelivery from "./crm-proposal-delivery";
 import CrmProposalEmail from "./crm-proposal-email";
 import OrderDetailLink from "./order-detail-link";
 import {canEditProposalReview} from "@/lib/crm/review-access";
-import {CircleX,FileText,Send,ClipboardList,FilePenLine,ClipboardCheck,CheckCheck} from "lucide-react";
+import {ChevronDown,ChevronUp,CircleX,FileText,Send,ClipboardList,FilePenLine,ClipboardCheck,CheckCheck} from "lucide-react";
 import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -25,6 +25,7 @@ export default function CrmProposal({ id }: { id: string }) {
   const [conversionType,setConversionType]=useState("");
   const [paymentChoices,setPaymentChoices]=useState<any[]>([]);
   const [orderConfirmation,setOrderConfirmation]=useState({approver:"",notes:"",paymentConfirmed:false,payment:""});
+  const [revisionsOpen,setRevisionsOpen]=useState(false);
   const [emailOpen,setEmailOpen]=useState(false);
   const [deliveryOpen,setDeliveryOpen]=useState(false);
   const [reviewOpen,setReviewOpen]=useState(false),[reviewer,setReviewer]=useState(''),[reviewComment,setReviewComment]=useState(''),[reviewUsers,setReviewUsers]=useState<any[]>([]);
@@ -176,7 +177,6 @@ export default function CrmProposal({ id }: { id: string }) {
       await openReview();return;
     }
     if(stage==='sent'){
-      if(data.workflow?.state==='sent')return;
       setDeliveryOpen(true);return;
     }
     if(stage==='order'){
@@ -211,10 +211,9 @@ export default function CrmProposal({ id }: { id: string }) {
     <nav aria-label="Alterar etapa da proposta">{stages.map(({key,label,Icon})=><button key={key} type="button" aria-current={currentStage===key?'step':undefined} disabled={busy||['won','lost','cancelled'].includes(data.status)} onClick={()=>void goStage(key)}><Icon size={17} aria-hidden="true"/><span>{label}</span></button>)}</nav>
   </section>;
   const actions = changed ? <p>Salve a proposta antes de concretizar ou gerar uma OS.</p> : null;
-  const revisionEntry=(r:any)=><article key={r.revision}><a className="crm-revision-pdf" href={`/api/crm/pdf?id=${encodeURIComponent(id)}&revision=${r.revision}`} target="_blank" rel="noreferrer"><span className="crm-revision-pdf-icon" aria-hidden="true"><FileText size={18}/><span>PDF</span></span>Rev.{r.revision} · Abrir PDF enviado</a><p>{crmDate(r.sent_at)} · {r.sent_by_name || r.sent_by} · {r.recipients}</p></article>;
+  const revisionEntry=(r:any)=><article key={r.revision}><a className="crm-revision-pdf" href={`/api/crm/pdf?id=${encodeURIComponent(id)}&revision=${r.revision}`} target="_blank" rel="noreferrer"><span className="crm-revision-pdf-icon" aria-hidden="true"><FileText size={18}/><span>PDF</span></span>Rev.{r.revision} · Abrir PDF enviado</a><p>{crmDate(r.sent_at)} · {r.sent_by_name || r.sent_by} · {r.recipients}</p>{r.deliveries?.length>1&&<ul className="crm-revision-deliveries">{r.deliveries.map((d:any)=><li key={d.id}>{crmDate(d.sent_at)} · {d.actor_name} · {d.channel==='whatsapp'?'WhatsApp':d.channel==='manual'?'Envio confirmado pelo usuário':'E-mail'}{d.recipients?` · ${d.recipients}`:''}</li>)}</ul>}</article>;
   const progress = <>
-      <CrmProposalTiming proposal={data}/>
-      {!!data.sentRevisions?.length&&<section className="crm-links"><h3>Revisões enviadas</h3>{revisionEntry(data.sentRevisions[0])}{data.sentRevisions.length>1&&<details className="crm-previous-revisions"><summary>Ver todas as revisões</summary><div>{data.sentRevisions.slice(1).map(revisionEntry)}</div></details>}</section>}
+      {!!data.sentRevisions?.length&&<section className="crm-links crm-sent-revisions"><h3 className="crm-sent-revisions-heading"><button type="button" aria-expanded={revisionsOpen} aria-controls="crm-sent-revisions-content" onClick={()=>setRevisionsOpen(open=>!open)}><span>Revisões Enviadas ({data.sentRevisions.length})</span>{revisionsOpen?<ChevronUp size={18} aria-hidden="true"/>:<ChevronDown size={18} aria-hidden="true"/>}</button></h3><div id="crm-sent-revisions-content" hidden={!revisionsOpen}>{data.sentRevisions.map(revisionEntry)}</div></section>}
       {data.links.some((l:any)=>l.state!=='validation_failed') && (
         <div className="crm-links">
           <h3>Ordens de serviço e envios vinculados</h3>
@@ -335,7 +334,7 @@ export default function CrmProposal({ id }: { id: string }) {
         footerActions:<>{reviewOpen&&<ProposalDialog label="Enviar proposta para revisão" onClose={()=>setReviewOpen(false)}><h2>Enviar para revisão</h2><label>Funcionário<select value={reviewer} onChange={e=>setReviewer(e.target.value)}><option value="">Selecione</option>{reviewUsers.map((u:any)=><option key={u.email} value={u.email}>{u.display_name||u.name||u.email}</option>)}</select></label><label>Comentário<textarea value={reviewComment} maxLength={2000} onChange={e=>setReviewComment(e.target.value)}/></label><div className="crm-actions crm-review-dialog-actions"><button type="button" onClick={()=>setReviewOpen(false)}>Cancelar</button><button type="button" className="crm-review-dialog-submit" disabled={busy||!reviewer} onClick={()=>void requestReview()}>Enviar para revisão</button></div></ProposalDialog>}</>,
         tools,
         overviewActions:<CrmProposalPdf proposal={data} disabled={changed||busy} locked={locked} onSaved={load} onError={setError}/>,
-        headerActions:<>{headerActions}{reviewPriceWarning&&<ProposalDialog label="Concluir revisão com preços pendentes" onClose={()=>setReviewPriceWarning(null)}><h2>{reviewPriceWarning.requiresPriceApproval?'Aprovações pendentes':'Deseja concluir a revisão?'}</h2><p>Possui {reviewPriceWarning.pendingCount} itens abaixo do mínimo ainda para aprovação.</p><div className="crm-actions"><button type="button" className="button" onClick={()=>{setReviewPriceWarning(null);setProductsFocus(n=>n+1);}}>Ir para produtos</button>{!reviewPriceWarning.requiresPriceApproval&&<button type="button" className="button primary" disabled={busy} onClick={async()=>{setBusy(true);try{await crmApi('',{action:'complete_review',id,version:reviewPriceWarning.version,allowUnapprovedPrices:true});setReviewPriceWarning(null);await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Concluir revisão</button>}<button type="button" className="button" onClick={()=>setReviewPriceWarning(null)}>Cancelar</button></div></ProposalDialog>}</>,
+        headerActions:<><div className="crm-proposal-title-meta"><CrmProposalTiming proposal={data}/>{headerActions}</div>{reviewPriceWarning&&<ProposalDialog label="Concluir revisão com preços pendentes" onClose={()=>setReviewPriceWarning(null)}><h2>{reviewPriceWarning.requiresPriceApproval?'Aprovações pendentes':'Deseja concluir a revisão?'}</h2><p>Possui {reviewPriceWarning.pendingCount} itens abaixo do mínimo ainda para aprovação.</p><div className="crm-actions"><button type="button" className="button" onClick={()=>{setReviewPriceWarning(null);setProductsFocus(n=>n+1);}}>Ir para produtos</button>{!reviewPriceWarning.requiresPriceApproval&&<button type="button" className="button primary" disabled={busy} onClick={async()=>{setBusy(true);try{await crmApi('',{action:'complete_review',id,version:reviewPriceWarning.version,allowUnapprovedPrices:true});setReviewPriceWarning(null);await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Concluir revisão</button>}<button type="button" className="button" onClick={()=>setReviewPriceWarning(null)}>Cancelar</button></div></ProposalDialog>}</>,
         productsFocus,
         itemPriceApprovals:data.itemPriceApprovals||[],
         canApproveItemPrice:!!data.canApproveItemPrice&&['pending','converting'].includes(data.status)&&!busy,

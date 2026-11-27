@@ -3,12 +3,12 @@ import { build } from "esbuild";
 import { createServer } from "node:http";
 import { chromium, expect } from "@playwright/test";
 
-test("delivery chooser keeps PDF preparation separate from WhatsApp confirmation and supports manual status", async () => {
+for (const state of ["reviewed", "sent"]) test(`delivery chooser supports WhatsApp and manual confirmation in ${state}`, async () => {
   const bundle = await build({
     stdin: {
       resolveDir: process.cwd(),
       loader: "tsx",
-      contents: `import React from 'react';import{createRoot}from'react-dom/client';import Delivery from './components/crm-proposal-delivery';createRoot(document.getElementById('root')).render(<Delivery proposal={{id:'p',number:1,version:1,workflow:{state:'reviewed'}}} onEmail={()=>window.email=true} onClose={()=>window.closedDialog=true} onSent={async()=>{window.sent=true}}/>);`,
+      contents: `import React from 'react';import{createRoot}from'react-dom/client';import Delivery from './components/crm-proposal-delivery';createRoot(document.getElementById('root')).render(<Delivery proposal={{id:'p',number:1,version:1,workflow:{state:new URLSearchParams(location.search).get('state')||'reviewed'}}} onEmail={()=>window.email=true} onClose={()=>window.closedDialog=true} onSent={async()=>{window.sent=true}}/>);`,
     },
     bundle: true,
     write: false,
@@ -41,7 +41,7 @@ test("delivery chooser keeps PDF preparation separate from WhatsApp confirmation
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
-    await page.goto("http://127.0.0.1:" + (server.address() as any).port);
+    await page.goto("http://127.0.0.1:" + (server.address() as any).port + "?state=" + state);
     await expect(
       page.getByRole("button", { name: /Enviar via e-mail/ }),
     ).toBeVisible();
