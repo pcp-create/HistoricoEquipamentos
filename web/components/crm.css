@@ -281,7 +281,7 @@
 .crm-opportunity-heading > span { color:#7189a1; font-size:10px; font-weight:700; letter-spacing:.1em; }
 .crm-opportunity-heading h2 { margin-top:3px; font-size:22px; }
 .crm-opportunity-form fieldset { min-width:0; margin:0; }
-.crm-opportunity-dialog .crm-opportunity-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px 16px; margin:16px 0 12px; }
+.crm-opportunity-dialog .crm-opportunity-grid { align-items:start; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px 16px; margin:16px 0 12px; }
 .crm-opportunity-dialog .crm-opportunity-grid label { gap:5px; color:#536b84; font-size:12px; font-weight:600; }
 .crm-account-kind {display:grid;align-content:start;gap:5px;min-width:0;color:#536b84;font-size:12px;font-weight:600}
 .crm-account-kind-switch {display:flex;min-height:38px;padding:3px;gap:3px;border:1px solid #d5e3f0;border-radius:8px;background:#edf3f9}
@@ -314,7 +314,7 @@
 .crm-opportunity-proposal-form .crm-form-grid { margin:12px 0; }
 .crm-opportunity-proposal-form fieldset > button + button { margin-left:8px; }
 .crm-opportunity-history { margin-top:14px; color:#526d88; font-size:13px; }
-@media(max-width:760px) { .crm-opportunity-dialog .crm-opportunity-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .crm-opportunity-account-hint { margin-left:0; } }
+@media(max-width:760px) { .crm-opportunity-dialog .crm-opportunity-grid { align-items:start; grid-template-columns:repeat(2,minmax(0,1fr)); } .crm-opportunity-account-hint { margin-left:0; } }
 @media(max-width:480px) { .crm-opportunity-dialog { padding:16px; } .crm-opportunity-dialog .crm-opportunity-grid { gap:12px; } .crm-opportunity-dialog .crm-opportunity-grid .crm-wide { grid-column:1/-1; } .crm-opportunity-proposals .crm-links article { grid-template-columns:auto minmax(0,1fr); } .crm-opportunity-save button { width:100%; } }
 
 /* Proposal header: compact groups aligned with the opportunity editor. */
@@ -581,6 +581,7 @@
 .crm-kanban-card { display: grid; gap: 9px; background: white; border: 1px solid #dbe6f2; border-radius: 9px; padding: 14px; overflow-wrap: anywhere; box-shadow: 0 2px 5px #15375a08; }
 .crm-kanban-card p { margin: 0; font-size: 13px; }
 .crm-kanban-card > a, .crm-kanban-card .crm-record-link { text-align: left; font-weight: 600; }
+.crm-kanban-card .crm-record-link { text-decoration:none; }
 .crm-kanban-card small { color: #6782a0; font-size: 12px; }
 .crm-kanban-empty { color: #6782a0; font-size: 13px; text-align: center; }
 
@@ -789,12 +790,12 @@ body .crm-workspace nav.app-section-tabs {
  .new-os.crm-proposal-page form.crm-items-form { margin-top:12px; padding-top:12px; }
 }
 
-.crm-kanban-card:has(.crm-kanban-proposal-link) { position:relative; }
+.crm-kanban-card:has(.crm-kanban-proposal-link, .crm-kanban-opportunity-link) { position:relative; }
 .crm-kanban-proposal-link { color:#1768ab; text-decoration:none; }
-.crm-kanban-proposal-link::after { content:""; position:absolute; inset:0; border-radius:9px; }
-.crm-kanban-card:has(.crm-kanban-proposal-link):hover { border-color:#7eadd7; background:#f7fbff; }
-.crm-kanban-proposal-link:focus-visible { outline:none; }
-.crm-kanban-proposal-link:focus-visible::after { outline:2px solid #087df0; outline-offset:2px; }
+:is(.crm-kanban-proposal-link, .crm-kanban-opportunity-link)::after { content:""; position:absolute; inset:0; border-radius:9px; }
+.crm-kanban-card:has(.crm-kanban-proposal-link, .crm-kanban-opportunity-link):hover { border-color:#7eadd7; background:#f7fbff; }
+:is(.crm-kanban-proposal-link, .crm-kanban-opportunity-link):focus-visible { outline:none; }
+:is(.crm-kanban-proposal-link, .crm-kanban-opportunity-link):focus-visible::after { outline:2px solid #087df0; outline-offset:2px; }
 .crm-kanban-secondary-link { position:relative; z-index:1; justify-self:start; }
 
 .crm-contact-actions { display:flex; align-items:center; gap:8px; }

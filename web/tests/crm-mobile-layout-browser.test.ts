@@ -14,7 +14,7 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
    a.path==="next/navigation"?'export const useSearchParams=()=>new URLSearchParams(window.location.search);export const useRouter=()=>({push(){}});':
    a.path==="next/link"?'import React from "react";export default function Link({children,...p}){return <a {...p}>{children}</a>}':
    a.path==="./session-access"?'export const useSessionAccess=()=>({visitManager:false});':
-   a.path==="./crm-api"?'export const crmStatus=s=>s;export const crmMoney=v=>String(v);export const crmDate=v=>String(v);export async function crmApi(q){window.queries.push(q);if(q.includes("proposalEmailSettings"))return null;if(q.includes("overview"))return {conversion:22.2,opportunities:9,converted:2,leads:70,visits:{completed:125},opportunity_value:120000,sales_value:30000,opportunities_without_value:1};if(q.includes("catalogs"))return {};if(q.includes("kind=proposals"))return {rows:[{id:"proposal-test",number:8,title:"Proposta teste",status:"creating",created_at:new Date(Date.now()-10*86400000).toISOString(),stage_since:new Date(Date.now()-2*86400000).toISOString(),total_cents:12000,customer_name:"Cliente teste",opportunity_number:4}],total:1};return {rows:[],total:0};}':
+   a.path==="./crm-api"?'export const crmStatus=s=>s;export const crmMoney=v=>String(v);export const crmDate=v=>String(v);export async function crmApi(q){window.queries.push(q);if(q.includes("proposalEmailSettings"))return null;if(q.includes("overview"))return {conversion:22.2,opportunities:9,converted:2,leads:70,visits:{completed:125},opportunity_value:120000,sales_value:30000,opportunities_without_value:1};if(q.includes("catalogs"))return {opportunityTypes:[],proposalTypes:[]};if(q.includes("opportunity=")){if(q.includes("slow"))await new Promise(r=>setTimeout(r,700));return {id:"op-nine",number:9,title:"Oportunidade nove",status:"open",company_id:1,effective_amount:"315600.000000000000",proposals:[{id:"p9",number:9,title:"Teste",status:"creating",total_cents:31560000}],history:[]};}if(q.includes("kind=opportunities"))return {rows:[{id:"op-nine",number:9,title:"Oportunidade nove",status:"open",customer_name:"Cliente da oportunidade",commercial:{stage:"prospecting"}}],total:1};if(q.includes("kind=proposals"))return {rows:[{id:"proposal-test",number:8,title:"Proposta teste",status:"creating",created_at:new Date(Date.now()-10*86400000).toISOString(),stage_since:new Date(Date.now()-2*86400000).toISOString(),total_cents:12000,customer_name:"Cliente teste",opportunity_number:4}],total:1};return {rows:[],total:0};}':
    'export default function Stub(){return null;}'}));
  }};
  const js=await build({stdin:{contents:'import React from "react";import {createRoot} from "react-dom/client";import Crm from "./components/crm";window.queries=[];createRoot(document.getElementById("root")).render(<Crm/>);',resolveDir:process.cwd(),loader:"tsx"},plugins:[mocks],bundle:true,write:false,jsx:"automatic",loader:{".css":"empty"}});
@@ -139,5 +139,43 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
    else assert.ok(positions.value.y>=positions.chart.bottom);
    await page.screenshot({path:`/tmp/crm-funnel-${width}.png`,fullPage:true});
   }
+  // A proposal deep link opens once and must not survive switching CRM tabs.
+  await page.goto("http://crm.test/?tab=opportunities&opportunity=op-nine");
+  await page.addStyleTag({content:readFileSync("app/globals.css","utf8")+readFileSync("components/crm.css","utf8")});
+  await page.evaluate("Object.defineProperty(window.crypto,'randomUUID',{value:()=> '00000000-0000-4000-8000-000000000001'})");
+  await page.addScriptTag({content:js.outputFiles[0].text});
+  await page.getByRole('dialog',{name:'Oportunidade OP-9'}).waitFor();
+  const opportunityDialog=page.getByRole('dialog',{name:'Oportunidade OP-9'});
+  assert.equal(await opportunityDialog.getByLabel('Valor estimado (R$)').inputValue(),'315600.00');
+  const fieldTops=await Promise.all(['Status','Fase','Data prevista de fechamento','Valor estimado (R$)'].map(async label=>(await opportunityDialog.locator('.crm-opportunity-grid > label').filter({hasText:label}).locator('input,select').first().boundingBox())!.y));
+  assert.ok(Math.max(...fieldTops)-Math.min(...fieldTops)<2,'opportunity fields align despite the value helper text');
+  await page.screenshot({path:'/tmp/crm-opportunity-aligned.png'});
+
+  assert.equal(new URL(page.url()).searchParams.has('opportunity'),false);
+  await page.getByRole('button',{name:'Fechar oportunidade',exact:true}).click();
+  for(const tab of ['Clientes','Contatos','Propostas','Oportunidades']){
+   await page.getByRole('button',{name:tab,exact:true}).click();
+   await page.getByRole('heading',{name:tab,exact:true}).waitFor();
+   assert.equal(await page.getByRole('dialog',{name:'Oportunidade OP-9'}).count(),0);
+  }
+  assert.equal(await page.evaluate('window.queries.filter(q=>q.includes("opportunity=")).length'),1);
+  // The entire opportunity card opens the dialog, with native keyboard support.
+  const opportunityCard=page.locator('.crm-kanban-card').filter({hasText:'Oportunidade nove'});
+  await opportunityCard.waitFor();
+  await opportunityCard.click({position:{x:20,y:(await opportunityCard.boundingBox())!.height-12}});
+  await opportunityDialog.waitFor();
+  await page.getByRole('button',{name:'Fechar oportunidade',exact:true}).click();
+  await opportunityCard.getByRole('button',{name:'OP-9 · Oportunidade nove'}).focus();
+  await page.keyboard.press('Enter');
+  await opportunityDialog.waitFor();
+  await page.getByRole('button',{name:'Fechar oportunidade',exact:true}).click();
+  // A slow response arriving after tab navigation must not open a stale dialog either.
+  await page.goto("http://crm.test/?tab=opportunities&opportunity=slow");
+  await page.evaluate("Object.defineProperty(window.crypto,'randomUUID',{value:()=> '00000000-0000-4000-8000-000000000001'})");
+  await page.addScriptTag({content:js.outputFiles[0].text});
+  await page.waitForFunction('window.queries.some(q=>q.includes("opportunity=slow"))');
+  await page.getByRole('button',{name:'Clientes',exact:true}).click();
+  await page.waitForTimeout(900);
+  assert.equal(await page.getByRole('dialog',{name:'Oportunidade OP-9'}).count(),0);
  } finally {await browser.close();}
 });

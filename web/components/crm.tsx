@@ -170,19 +170,38 @@ export default function Crm() {
       .catch((e) => { if (!c.signal.aborted) setError(e.message); });
     return () => c.abort();
   }, [kind, refresh]);
+  const opportunityRequest = useRef(0);
+  const linkedOpportunity = params.get("opportunity");
+  function closeOpportunity() {
+    opportunityRequest.current++;
+    setOpportunity(null);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("opportunity")) {
+      url.searchParams.delete("opportunity");
+      window.history.replaceState(null, "", url);
+    }
+  }
   async function open(id: string) {
+    const request = ++opportunityRequest.current;
     setError("");
     try {
-      setOpportunity(await crmApi("?opportunity=" + id));
+      const record = await crmApi("?opportunity=" + id);
+      if (request === opportunityRequest.current) setOpportunity(record);
     } catch (e) {
-      setError((e as Error).message);
+      if (request === opportunityRequest.current) setError((e as Error).message);
     }
   }
   useEffect(() => {
-    const id = params.get("opportunity");
-    if (id) void open(id);
-  }, [params]);
+    if (!linkedOpportunity) return;
+    const url = new URL(window.location.href);
+    // Consume the deep link once; tab changes must never reopen the same dialog.
+    if (url.searchParams.get("opportunity") !== linkedOpportunity) return;
+    url.searchParams.delete("opportunity");
+    window.history.replaceState(null, "", url);
+    void open(linkedOpportunity);
+  }, [linkedOpportunity]);
   function selectTab(key: string) {
+    closeOpportunity();
     setKind(key);
     setFiltersOpen(false);
     setPage(1);
@@ -730,7 +749,7 @@ export default function Crm() {
         <OpportunityDialog
           initial={opportunity}
           catalog={catalog}
-          close={() => setOpportunity(null)}
+          close={closeOpportunity}
           saved={(r: any) => {
             setOpportunity(r);
             setRefresh((n) => n + 1);
@@ -778,7 +797,7 @@ function CrmKanban({kind, rows, open}: {kind: string; rows: any[]; open: (id: st
         <header><h3>{label}</h3><span>{items.length}</span></header>
         <div className="crm-kanban-cards">
           {items.map(row => <article className="crm-kanban-card" key={row.id}>
-            {proposals ? <Link className="crm-kanban-proposal-link" href={"/crm/propostas/" + row.id}>PROP-{row.number} · {row.title}</Link> : <button className="crm-record-link" onClick={() => void open(row.id)}>OP-{row.number} · {row.title}</button>}
+            {proposals ? <Link className="crm-kanban-proposal-link" href={"/crm/propostas/" + row.id}>PROP-{row.number} · {row.title}</Link> : <button type="button" className="crm-record-link crm-kanban-opportunity-link" onClick={() => void open(row.id)}>OP-{row.number} · {row.title}</button>}
             <CrmProposalTiming proposal={row} label={proposals ? "Tempo da proposta" : "Tempo da oportunidade"}/>
             <p>{row.customer_name || "Cliente não informado"}</p>
             {proposals && row.equipment_name && <small>{row.equipment_name}</small>}
@@ -822,11 +841,11 @@ function OpportunityDialog({
       commercial: {
         stage: "prospecting",
         probability: 0,
-        amount: "",
         closeDate: "",
         contact: "",
         origin: "",
         ...initial.commercial,
+        amount: initial.commercial?.amount !== undefined && initial.commercial.amount !== "" ? Number(initial.commercial.amount).toFixed(2) : "",
         customerProfile: {partsType:"",currentBrands:"",partsBrands:"",offeredBrands:"",servicePartner:"",competitors:"",profileNotes:"",...initial.commercial?.customerProfile},
       },
     }),
@@ -1051,7 +1070,12 @@ function OpportunityDialog({
                 max="9999999999.99"
                 step="0.01"
                 readOnly={Boolean(data.proposals?.length)}
-                value={data.proposals?.length ? data.effective_amount ?? "" : form.commercial.amount}
+                value={data.proposals?.length ? data.effective_amount != null ? Number(data.effective_amount).toFixed(2) : "" : form.commercial.amount}
+                onBlur={() => {
+                  if (!data.proposals?.length && form.commercial.amount !== "") {
+                    setForm(f => ({...f, commercial: {...f.commercial, amount: Number(f.commercial.amount).toFixed(2)}}));
+                  }
+                }}
                 onChange={(e) =>
                   setForm((f) => ({
                     ...f,
