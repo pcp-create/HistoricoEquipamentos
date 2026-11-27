@@ -1,7 +1,8 @@
 "use client";
 import CrmServiceCostInput from "./crm-service-cost-input";
 import CrmProductTerms, { CrmDeliveryTerm } from "./crm-product-terms";
-import { Trash2 } from "lucide-react";
+import {itemPriceKey} from "@/lib/crm/item-price-key";
+import { Trash2, ShieldCheck } from "lucide-react";
 import {
   discountedUnitCents,
   itemFinancials,
@@ -18,10 +19,12 @@ export default function CrmProposalSummary({
   draft,
   onChange,
   disabled = false,
+  approvals = [], canApprove = false, onApprove, leadId = "",
 }: {
   draft: OrderDraft;
   onChange: (items: OrderDraft["items"]) => void;
   disabled?: boolean;
+  approvals?: any[]; canApprove?: boolean; onApprove?: (code:string)=>Promise<void>; leadId?: string;
 }) {
   const totals = proposalFinancials(draft.items);
   return (
@@ -90,6 +93,9 @@ export default function CrmProposalSummary({
                   .filter((i) => i.kind === kind)
                   .map((item, index) => {
                     const f = itemFinancials(item);
+                    const minimum = item.quote?.minimumPrice;
+                    const below = kind === "material" && minimum != null && minimum !== "" && Number.isFinite(Number(minimum)) && discountedUnitCents(item) < Math.ceil(Number(minimum)*100-1e-7);
+                    const approval = below && approvals.find(a=>a.item_key===itemPriceKey(draft,item,leadId)&&Number(a.minimum_price)>=Number(minimum));
                     return (
                       <tr key={`${item.code}:${index}`}>
                         <td>
@@ -171,7 +177,9 @@ export default function CrmProposalSummary({
                             }
                           />
                         </td>
-                        <td>{cash(f.sale)}</td>
+                        <td>{cash(f.sale)}
+                          {below && (approval ? <small className="crm-item-price-approved"><ShieldCheck size={13}/>Aprovado por {approval.approved_name}</small> : <div className="crm-summary-minimum-warning" role="status"><strong>Aprovação necessária</strong><small>Valor com desconto abaixo do mínimo de {cash(Math.ceil(Number(minimum)*100-1e-7))} por unidade.</small><button type="button" disabled={disabled || !canApprove} onClick={()=>void onApprove?.(item.code)}><ShieldCheck size={14}/>Aprovar desconto</button>{!canApprove&&<small>Solicite aprovação a um Gestor, Coordenador, Diretor ou Administrador.</small>}</div>)}
+                        </td>
                         <td>
                           {kind === "service" ? (
                             <CrmServiceCostInput

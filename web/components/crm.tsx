@@ -1131,7 +1131,7 @@ function OpportunityDialog({
               <div className="crm-customer-profile-grid">
                 <label>Peças utilizadas pelo cliente
                   <select value={form.commercial.customerProfile.partsType} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,customerProfile:{...f.commercial.customerProfile,partsType:e.target.value}}}))}>
-                    <option value="">Selecione</option><option value="original">Originais</option><option value="aftermarket">Paralelas</option><option value="mixed">Originais e paralelas</option><option value="unknown">Ainda não identificado</option>
+                    <option value="">Selecione</option><option value="original">Genuína (Original fabricante)</option><option value="aftermarket">Similar</option><option value="mixed">Genuína e similar</option><option value="unknown">Ainda não identificado</option>
                   </select>
                 </label>
                 {[

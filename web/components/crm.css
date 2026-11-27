@@ -1011,3 +1011,6 @@ body .crm-workspace nav.app-section-tabs {
  .crm-proposal-title-meta .crm-proposal-timing dd { font-size:11px; }
  .crm-proposal-title-meta .crm-proposal-timing svg { width:12px; height:12px; }
 }
+
+.crm-summary-minimum-warning { display:grid; gap:6px; margin-top:8px; color:#9a5700; font-size:12px; min-width:160px; }
+.crm-summary-minimum-warning button { display:inline-flex; align-items:center; gap:6px; }

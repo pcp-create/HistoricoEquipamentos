@@ -956,7 +956,7 @@ export default function NewServiceOrder({
               {proposal&&tab==='header'&&proposal.headerBottomActions&&<div className="crm-proposal-header-bottom-actions">{proposal.headerBottomActions}</div>}
               {proposal&&<CrmProposalItems leadId={proposal.leadId||''} approvals={proposal.itemPriceApprovals} canApprove={!!proposal.canApproveItemPrice&&!disabled} onApprove={async code=>{try{await proposal.onApproveItem?.(form,names,code);}catch(e){setError((e as Error).message);}}} draft={form} active={tab==="material"||tab==="service"} kind={tab==="service"?"service":"material"} customer={form.customer} equipment={form.equipment} company={form.company} items={form.items} disabled={disabled||!!proposal.locked} onChange={items=>setForm(f=>({...f,items}))}/>}
             <fieldset disabled={!form.company || Boolean(proposal?.locked)} className="os-form-fields">
-              {proposal&&tab==="summary"&&<CrmProposalSummary draft={form} disabled={disabled||!!proposal.locked} onChange={items=>setForm(current=>({...current,items}))}/>}
+              {proposal&&tab==="summary"&&<CrmProposalSummary leadId={proposal.leadId||''} approvals={proposal.itemPriceApprovals} canApprove={!!proposal.canApproveItemPrice&&!disabled} onApprove={async code=>{try{await proposal.onApproveItem?.(form,names,code);}catch(e){setError((e as Error).message);}}} draft={form} disabled={disabled||!!proposal.locked} onChange={items=>setForm(current=>({...current,items}))}/>}
               {!proposal&&["material", "service"].map((kind) => (
                 <div key={kind} hidden={tab !== kind}>
                   <div className="os-item-heading">
