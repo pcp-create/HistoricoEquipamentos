@@ -8,7 +8,7 @@ import 'server-only';
 import {database} from '../db';
 import {prepareOrder,advanceOrder,retryOrder} from '../service-orders/store';
 import {OrderInputError} from '../service-orders/model';
-import {CrmError,uuid,version,proposalDraft,positive} from './model';
+import {CrmError,uuid,version,requireServiceCosts,proposalDraft,positive} from './model';
 const defaults={prepare:prepareOrder,advance:advanceOrder,retry:retryOrder,prices:priceReview};
 async function transaction<T>(work:(c:any)=>Promise<T>){const c=await database().connect();try{await c.query('BEGIN READ WRITE');const r=await work(c);await c.query('COMMIT');return r;}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}}
 async function recordResult(link:any,r:any){
@@ -49,6 +49,7 @@ export async function beginConversion(raw:any,actor:string,deps=defaults){
  const sent=workflow.state==='sent'?(await c.query('SELECT document FROM crm_proposal_sent_revisions WHERE proposal_id=$1 AND revision=$2',[proposal,workflow.revision])).rows[0]:null;
  if(workflow.state==='sent'&&!sent)throw new CrmError('A versão enviada não está disponível para gerar a OS.');
  const draft=proposalDraft(currentProposalDocument(p.document,sent?.document));
+ requireServiceCosts(draft);
  const previousPayment=draft.payment;
  const confirmation=orderConfirmation(raw.confirmation,String(raw.confirmation?.payment||''));
  let paymentDocument:any=null;

@@ -332,7 +332,7 @@ export async function taskDetail(id: string, user?: AuthUser) {
         suffix,
     );
   }
-  return { task, notes, attachments, notifications, approvalCorrection:task.task_type==='approval'?(await database().query("SELECT id::text FROM web_tasks t WHERE to_jsonb(t)->>'approval_parent_id'=$1::text",[id])).rows[0]?.id:null, canRetryApproval:task.task_type==='approval'&&task.approval_state==='rejected'&&task.created_by===user?.email, canDecideApproval: task.task_type === "approval" && task.approval_state === "pending" && task.assigned_to === user?.email, canCloseApproval: task.task_type === "approval" && task.approval_state !== "pending" && task.created_by === user?.email && task.status !== "completed" };
+  return { task, notes, attachments, notifications, approvalCorrection:task.task_type==='approval'?(await database().query("SELECT id::text FROM web_tasks t WHERE to_jsonb(t)->>'approval_parent_id'=$1::text",[id])).rows[0]?.id:null, canRetryApproval:task.task_type==='approval'&&task.approval_state==='rejected'&&task.created_by===user?.email, canDecideApproval: task.task_type === "approval" && task.approval_state === "pending" && task.assigned_to === user?.email, canCloseApproval: !task.source_key?.startsWith("manual:crm-loss:") && task.task_type === "approval" && task.approval_state !== "pending" && task.created_by === user?.email && task.status !== "completed" };
 }
 export async function updateTask(body: any, user: AuthUser, transaction?: PoolClient) {
   const id = idValue(body?.id);
@@ -378,6 +378,7 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
         const result=await createTask({taskType:'approval',title:('Correção · '+t.title).slice(0,160),description:`Correção da TAR-${id}\nMotivo da recusa: ${t.approval_reason}\n\n${body.description.trim()}`,assignedTo:t.approval_approver,priority:t.priority,dueDate:'',...(t.order_id?{orderId:String(t.order_id),orderCompany:String(t.order_company)}:{})},user,c);
         child=result.task;
         await c.query('UPDATE web_tasks SET approval_parent_id=$2 WHERE id=$1',[child.id,id]);
+        if(t.source_key?.startsWith('manual:crm-loss:'))await c.query("UPDATE web_tasks SET source_key=$2,origin='CRM' WHERE id=$1",[child.id,t.source_key+':correction:'+child.id]);
         await recordNote(c,id,'Nova solicitação corrigida',`Nova análise: /tarefas?task=${child.id} (TAR-${child.id}). Correção: ${body.description.trim()}`,user);
         await recordNote(c,child.id,'Vinculada à solicitação reprovada',`Solicitação anterior: /tarefas?task=${id} (TAR-${id}). Reprovação preservada: ${t.approval_reason}`,user);
       }
@@ -392,10 +393,12 @@ export async function updateTask(body: any, user: AuthUser, transaction?: PoolCl
       if(t.source_key?.startsWith('manual:crm-price:')&&!priceManager((await c.query('SELECT * FROM web_user_access WHERE email=$1',[user.email])).rows[0]))throw new Forbidden();
       const approved=body.decision==='approved';
       await c.query("UPDATE web_tasks SET approval_state=$2,approval_reason=$3,approval_decided_by=$4,approval_decided_at=now(),assigned_to=created_by,status='in_progress',kanban_column=NULL WHERE id=$1",[id,body.decision,reason,user.email]);
+      if(approved&&t.source_key?.startsWith('manual:crm-loss:'))await c.query("UPDATE web_tasks SET assigned_to=$2,status='completed',completed_at=now(),source_status='Plano de ação aprovado e finalizado' WHERE id=$1",[id,user.email]);
       const result=approved?'Aprovada — de acordo para seguir com o processo. '+reason:'Reprovada — '+reason;
       await recordNote(c,id,approved?'Solicitação aprovada':'Solicitação reprovada',result,user);
       await c.query("INSERT INTO web_task_notifications(task_id,task_version,recipient,assignment_reason) VALUES($1,$2,$3,$4)",[id,t.version+1,t.created_by,result]);
     } else if (body.action === 'approval_close') {
+      if(t.source_key?.startsWith('manual:crm-loss:'))throw new TaskInputError('O plano de ação deve ser corrigido e aprovado pelo gestor para ser finalizado.');
       if(t.task_type!=='approval'||t.approval_state==='pending'||t.status==='completed')throw new TaskConflict('A solicitação ainda não foi decidida ou já está concluída.');
       if(t.created_by!==user.email)throw new Forbidden();
       await c.query("UPDATE web_tasks SET status='completed',completed_at=now() WHERE id=$1",[id]);

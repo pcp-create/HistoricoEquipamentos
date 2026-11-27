@@ -21,11 +21,12 @@ export default function CrmServiceCostInput({
   return (
     <input
       {...props}
+      required
       type="number"
       min="0"
       max="99999999.99"
       step="0.01"
-      placeholder="Não informado"
+      placeholder="Obrigatório"
       value={editing ? value : formatted}
       onFocus={() => setEditing(true)}
       onChange={(e) => onChange(e.target.value)}

@@ -581,6 +581,28 @@ test("task lifecycle: deduplication, assignment notification, manual priority, n
     await assert.rejects(()=>updateTask({action:'approval_decide',id:String(approved.task.id),version:1,decision:'approved',reason:' '},approver),/justificativa da aprovação/);
     approved=await updateTask({action:'approval_decide',id:String(approved.task.id),version:1,decision:'approved',reason:'De acordo com a proposta apresentada.'},approver);
     assert.equal(approved.task.approval_state,'approved');assert.equal(approved.task.assigned_to,user.email);assert.match(approved.task.approval_reason,/De acordo/);
+    let lossApproval=await createTask({taskType:'approval',title:'Plano de ação da perda',description:'Justificativa e plano preventivo.',assignedTo:approver.email,priority:'normal',dueDate:''},user);
+    const lossId=String(lossApproval.task.id);
+    await db.query("UPDATE web_tasks SET source_key='manual:crm-loss:test:1' WHERE id=$1",[lossId]);
+    await assert.rejects(()=>updateTask({action:'approval_decide',id:lossId,version:1,decision:'approved',reason:'De acordo'},user));
+    lossApproval=await updateTask({action:'approval_decide',id:lossId,version:1,decision:'approved',reason:'Plano preventivo aprovado.'},approver);
+    assert.equal(lossApproval.task.status,'completed');
+    assert.equal(lossApproval.task.assigned_to,approver.email);
+    assert.equal(lossApproval.task.approval_decided_by,approver.email);
+    assert.equal(lossApproval.canCloseApproval,false);
+    await db.exec('ALTER TABLE web_tasks ADD COLUMN approval_parent_id bigint REFERENCES web_tasks(id); CREATE UNIQUE INDEX test_approval_parent_unique ON web_tasks(approval_parent_id) WHERE approval_parent_id IS NOT NULL;');
+    const lossCorrection=await createTask({taskType:'approval',title:'Corrigir plano da perda',description:'Plano inicial.',assignedTo:approver.email,priority:'normal',dueDate:''},user);
+    const rejectedLossId=String(lossCorrection.task.id);
+    await db.query("UPDATE web_tasks SET source_key='manual:crm-loss:test:2' WHERE id=$1",[rejectedLossId]);
+    const rejectedLoss=await updateTask({action:'approval_decide',id:rejectedLossId,version:1,decision:'rejected',reason:'Detalhar ações preventivas.'},approver);
+    assert.equal(rejectedLoss.task.assigned_to,user.email);
+    assert.equal(rejectedLoss.canCloseApproval,false);
+    await assert.rejects(()=>updateTask({action:'approval_close',id:rejectedLossId,version:rejectedLoss.task.version},user),/aprovado pelo gestor/);
+    const retryLoss=await updateTask({action:'approval_retry',id:rejectedLossId,version:rejectedLoss.task.version,description:'Antecipar a negociação e validar estoque.'},user);
+    const correctionLoss=await taskDetail(String(retryLoss.approvalCorrection),approver);
+    assert.match(correctionLoss.task.source_key,/^manual:crm-loss:/);
+    const finalizedLoss=await updateTask({action:'approval_decide',id:String(correctionLoss.task.id),version:correctionLoss.task.version,decision:'approved',reason:'Ações suficientes.'},approver);
+    assert.equal(finalizedLoss.task.status,'completed');
     const approvalNotices=await claimNotifications('https://example.com');assert.ok(approvalNotices.some(n=>n.text.includes('Solicitação aprovada — de acordo')));
 
     await db.exec(`CREATE TABLE m8_equipment_catalog(equipment_id bigint,name text,model text,serial text);

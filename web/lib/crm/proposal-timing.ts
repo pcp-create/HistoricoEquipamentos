@@ -13,7 +13,7 @@ export function elapsedTime(start: string | undefined, end: number): string {
 }
 
 export function proposalTiming(proposal: ProposalTiming, now: number) {
-  const closed = ['won', 'lost', 'cancelled'].includes(proposal.status || '');
+  const closed = ['won', 'lost', 'cancelled', 'not_selected'].includes(proposal.status || '');
   return {
     closed,
     total: elapsedTime(proposal.created_at, closed ? Date.parse(proposal.stage_since || '') : now),

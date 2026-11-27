@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {itemFinancials,proposalFinancials,proposalOrderDraft,discountedUnitCents} from '../lib/crm/financials';
-import {proposalDraft,emptyDraft} from '../lib/crm/model';
+import {proposalDraft,emptyDraft,requireServiceCosts} from '../lib/crm/model';
 import {parseOrder} from '../lib/service-orders/model';
 const item:any={kind:'material',code:'1',name:'Filtro',quantity:'2',price:'12.00',unitCost:'5.00'};
 test('CRM margins use sale as denominator, preserve missing costs and accept explicit zero costs',()=>{
@@ -30,4 +30,14 @@ test('per-item discounts update net sales, profit and ERP unit prices without mo
  assert.equal(itemFinancials({...item,discountPercent:'100'}).sale,0);assert.equal(itemFinancials({...item,discountPercent:'100'}).margin,null);
  assert.equal(itemFinancials({...item,quantity:'1.333',price:'1.01',discountPercent:'12.34'}).sale,Math.round(1.333*89));
  for(const discountPercent of ['-1','101','0.001','abc'])assert.throws(()=>proposalDraft({...emptyDraft(),items:[{...item,discountPercent}]}));
+});
+
+test('service costs are required while material costs remain automatic',()=>{
+ for (const unitCost of [undefined, '', '   ']) {
+  assert.throws(()=>requireServiceCosts({...emptyDraft(),items:[{...item,kind:'service',unitCost}]}),/Informe o custo unitário do serviço: Filtro/);
+ }
+ for (const unitCost of ['0','12.50']) {
+  assert.doesNotThrow(()=>requireServiceCosts({...emptyDraft(),items:[{...item,kind:'service',unitCost}]}));
+ }
+ assert.doesNotThrow(()=>requireServiceCosts({...emptyDraft(),items:[{...item,unitCost:''}]}));
 });

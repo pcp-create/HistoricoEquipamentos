@@ -14,7 +14,7 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
    a.path==="next/navigation"?'export const useSearchParams=()=>new URLSearchParams(window.location.search);export const useRouter=()=>({push(){}});':
    a.path==="next/link"?'import React from "react";export default function Link({children,...p}){return <a {...p}>{children}</a>}':
    a.path==="./session-access"?'export const useSessionAccess=()=>({visitManager:false});':
-   a.path==="./crm-api"?'export const crmStatus=s=>s;export const crmMoney=v=>String(v);export const crmDate=v=>String(v);export async function crmApi(q){window.queries.push(q);if(q.includes("proposalEmailSettings"))return null;if(q.includes("overview"))return {proposals:11,cancelled_proposals:1,conversion:22.2,opportunities:9,converted:2,leads:70,visits:{completed:125},opportunity_value:120000,sales_value:30000,opportunities_without_value:1};if(q.includes("catalogs"))return {opportunityTypes:[],proposalTypes:[]};if(q.includes("opportunity=")){if(q.includes("slow"))await new Promise(r=>setTimeout(r,700));return {id:"op-nine",number:9,title:"Oportunidade nove",status:"open",company_id:1,effective_amount:"315600.000000000000",proposals:[{id:"p9",number:9,title:"Teste",status:"creating",total_cents:31560000}],history:[]};}if(q.includes("kind=opportunities"))return {rows:[{id:"op-nine",number:9,title:"Oportunidade nove",status:"open",customer_name:"Cliente da oportunidade",commercial:{stage:"prospecting"}}],total:1};if(q.includes("kind=proposals"))return {rows:[{id:"proposal-test",number:8,title:"Proposta teste",status:"creating",created_at:new Date(Date.now()-10*86400000).toISOString(),stage_since:new Date(Date.now()-2*86400000).toISOString(),total_cents:12000,customer_name:"Cliente teste",opportunity_number:4}],total:1};return {rows:[],total:0};}':
+   a.path==="./crm-api"?'export const crmStatus=s=>s;export const crmMoney=v=>String(v);export const crmDate=v=>String(v);export async function crmApi(q){window.queries.push(q);if(q.includes("proposalEmailSettings"))return null;if(q.includes("overview"))return {proposals:11,cancelled_proposals:1,conversion:22.2,opportunities:9,converted:2,leads:70,visits:{completed:125},opportunity_value:120000,sales_value:30000,opportunities_without_value:1};if(q.includes("catalogs"))return {opportunityTypes:[],proposalTypes:[]};if(q.includes("opportunity=")){if(q.includes("slow"))await new Promise(r=>setTimeout(r,700));return {id:"op-nine",number:9,title:"Oportunidade nove",status:"open",company_id:1,effective_amount:"315600.000000000000",proposals:[{id:"p9",number:9,title:"Teste",status:"creating",total_cents:31560000}],history:[]};}if(q.includes("kind=opportunities"))return {rows:[{id:"op-nine",number:9,title:"Oportunidade nove",status:"open",customer_name:"Cliente da oportunidade",commercial:{stage:"prospecting"}}],total:1};if(q.includes("kind=proposals"))return {rows:[{id:"proposal-test",number:8,title:"Proposta teste",status:"creating",created_at:new Date(Date.now()-10*86400000).toISOString(),stage_since:new Date(Date.now()-2*86400000).toISOString(),total_cents:12000,customer_name:"Cliente teste",opportunity_number:4},{id:"proposal-processing",number:10,title:"OS em processamento",status:"converting",total_cents:5000}],total:2};return {rows:[],total:0};}':
    'export default function Stub(){return null;}'}));
  }};
  const js=await build({stdin:{contents:'import React from "react";import {createRoot} from "react-dom/client";import Crm from "./components/crm";window.queries=[];createRoot(document.getElementById("root")).render(<Crm/>);',resolveDir:process.cwd(),loader:"tsx"},plugins:[mocks],bundle:true,write:false,jsx:"automatic",loader:{".css":"empty"}});
@@ -65,6 +65,8 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
   assert.equal(await page.locator(".crm-status-filter select").inputValue(),"lost");
   await page.getByRole("button",{name:"Propostas",exact:true}).click();
   await page.getByRole("button",{name:"Kanban",exact:true}).click();
+  assert.equal(await page.locator('.crm-kanban-column[aria-label="converting"]').count(),0);
+  await page.locator('.crm-kanban-column[aria-label="sent"]').getByText('PROP-10 · OS em processamento').waitFor();
   const topScroll=page.getByRole("region",{name:"Rolagem horizontal do Kanban"});
   await topScroll.waitFor();
   await topScroll.evaluate(el=>{el.scrollLeft=240;});
@@ -158,6 +160,15 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
   const fieldTops=await Promise.all(['Status','Fase','Data prevista de fechamento','Valor estimado (R$)'].map(async label=>(await opportunityDialog.locator('.crm-opportunity-grid > label').filter({hasText:label}).locator('input,select').first().boundingBox())!.y));
   assert.ok(Math.max(...fieldTops)-Math.min(...fieldTops)<2,'opportunity fields align despite the value helper text');
   await page.screenshot({path:'/tmp/crm-opportunity-aligned.png'});
+  await opportunityDialog.getByRole('button',{name:'Marcar como perdida',exact:true}).click();
+  const lossReason=opportunityDialog.getByLabel('Justificativa da perda *',{exact:true});
+  const actionPlan=opportunityDialog.getByLabel('Plano de ação para evitar novas perdas *',{exact:true});
+  await lossReason.waitFor();
+  assert.equal(await lossReason.getAttribute('required'),'');
+  assert.equal(await actionPlan.getAttribute('required'),'');
+  await lossReason.fill('Concorrente apresentou melhor prazo.');
+  await actionPlan.fill('Antecipar a confirmação de estoque na qualificação.');
+  await page.screenshot({path:'/tmp/crm-opportunity-loss.png'});
 
   assert.equal(new URL(page.url()).searchParams.has('opportunity'),false);
   await page.getByRole('button',{name:'Fechar oportunidade',exact:true}).click();

@@ -16,14 +16,14 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await db.exec(`CREATE TABLE m8_order_type_catalog(id bigint PRIMARY KEY,name text,active boolean);
  INSERT INTO m8_order_type_catalog VALUES(4,'Preventiva',true),(2,'Corretiva',true),(43,'Orçamento',true),(42,'Oficina',true);
  CREATE TABLE m8_customer_directory(person_id bigint,company_id int,name text,payload jsonb);INSERT INTO m8_customer_directory VALUES(10,1,'Cliente Teste','{"municipioNome":"Timbó","ufSigla":"SC"}'),(11,1,'Outro Cliente','{}');
- CREATE TABLE web_user_access(email text,display_name text,phone text DEFAULT '5547999999999',m8_employee_id bigint,enabled boolean DEFAULT true,role text DEFAULT 'user');INSERT INTO web_user_access(email,display_name) VALUES('planner','Planejador'),('paulo@rjcompressores.com.br','Paulo Duwe');
+ CREATE TABLE web_user_access(email text,display_name text,phone text DEFAULT '5547999999999',managers text[] DEFAULT ARRAY[]::text[],m8_employee_id bigint,enabled boolean DEFAULT true,role text DEFAULT 'user');INSERT INTO web_user_access(email,display_name) VALUES('planner','Planejador'),('paulo@rjcompressores.com.br','Paulo Duwe');
  CREATE TABLE web_sales_visits(status text); CREATE TABLE web_sales_leads(id uuid PRIMARY KEY,owner text,name text); INSERT INTO web_sales_leads VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','planner','Lead Teste'),('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','other','Lead privado');
  CREATE TABLE service_order_submissions(id uuid PRIMARY KEY,state text,m8_id bigint,message text,request jsonb,updated_at timestamptz DEFAULT now());
  CREATE TABLE m8_ordens_servico(company_id int,id_m8 bigint,numero_sequencia bigint);
  CREATE TABLE m8_product_current(company_id int,product_id bigint,available numeric,available_at timestamptz);
  CREATE TABLE m8_product_catalog(company_id int,product_id bigint,unit text,payload jsonb DEFAULT '{}');INSERT INTO m8_product_catalog(company_id,product_id,unit) VALUES(1,50,'UN');
  CREATE TABLE m8_product_stock(company_id int,product_id bigint,average_cost numeric,stock numeric,payload jsonb DEFAULT '{}',establishment_id bigint DEFAULT 1,collected_at timestamptz DEFAULT now());INSERT INTO m8_product_stock(company_id,product_id,average_cost,stock) VALUES(1,50,5,1);`);
- await db.exec("CREATE ROLE anon; CREATE ROLE authenticated; ALTER TABLE web_user_access ADD PRIMARY KEY(email); CREATE TABLE web_tasks(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,source_key text,cycle text,origin text,title text,equipment_name text,source_status text,priority text,assigned_to text,first_assigned_at timestamptz,created_by text,updated_by text,followers text[],status text DEFAULT 'not_started',kanban_column text,source_resolved boolean,completed_at timestamptz,customer text,updated_at timestamptz,version integer DEFAULT 1,approval_state text,approval_reason text,approval_decided_at timestamptz,approval_approver text); CREATE TABLE web_task_notes(task_id bigint,title text,description text,automatic boolean,created_by text,created_name text); CREATE TABLE web_task_notifications(task_id bigint,task_version int,recipient text,kind text,assignment_reason text); CREATE TABLE web_service_schedule_settings(id integer,document jsonb);");
+ await db.exec("CREATE ROLE anon; CREATE ROLE authenticated; ALTER TABLE web_user_access ADD PRIMARY KEY(email); CREATE TABLE web_tasks(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,source_key text,cycle text,origin text,title text,equipment_name text,source_status text,priority text,assigned_to text,first_assigned_at timestamptz,created_by text,updated_by text,followers text[],status text DEFAULT 'not_started',kanban_column text,source_resolved boolean,completed_at timestamptz,customer text,updated_at timestamptz,version integer DEFAULT 1,task_type text,approval_description text,approval_state text,approval_reason text,approval_decided_at timestamptz,approval_approver text); CREATE TABLE web_task_notes(task_id bigint,title text,description text,automatic boolean,created_by text,created_name text); CREATE TABLE web_task_notifications(task_id bigint,task_version int,recipient text,kind text,assignment_reason text); CREATE TABLE web_service_schedule_settings(id integer,document jsonb);");
  await db.exec(readFileSync(new URL('../sql/125_crm_proposal_review_workflow.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../sql/126_crm_opportunity_leads.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../sql/128_crm_proposal_equipment_required.sql',import.meta.url),'utf8'));
@@ -120,6 +120,13 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await assert.rejects(saveProposal({id:p.id,version:converted.version,status:'won',draft:{...saved.document,items:[{...saved.document.items[0],price:'12.00'}]}},'planner'),/concluída/);
  assert.equal((await db.query<any>('SELECT document FROM crm_order_links WHERE id=$1',[request])).rows[0].document.items[0].price,'10.50');
  assert.equal((await getOpportunity(opportunity.id)).status,'won');
+ assert.equal((await listCrm('proposals','',1,'not_selected')).rows.some((r:any)=>r.id===second.id),true);
+ assert.equal((await getOpportunity(opportunity.id)).proposals.find((r:any)=>r.id===second.id).status,'not_selected');
+ assert.equal((await listCrm('proposals','',1,'lost')).rows.some((r:any)=>r.id===second.id),false);
+ await db.query("UPDATE crm_proposals SET status='cancelled' WHERE id=$1",[second.id]);
+ assert.equal((await listCrm('proposals','',1,'not_selected')).rows.some((r:any)=>r.id===second.id),false);
+ await db.query("UPDATE crm_proposals SET status='pending' WHERE id=$1",[second.id]);
+
  const duplicateLink=randomUUID();
  await db.query("INSERT INTO crm_order_links(id,proposal_id,company_id,order_id,submission_id,document,actor,state) VALUES($1,$2,1,999,$1,'{}','planner','complete')",[duplicateLink,p.id]);
  assert.equal(Number((await crmOverview()).sales_value),18.9); // same proposal is counted only once
@@ -149,8 +156,19 @@ test('CRM persists local opportunities and proposals and safely links conversion
  const changedType=await saveProposal({id:changing.id,version:changing.version,typeId:mca.id,draft:{...emptyDraft(),type:'2',items:[]}},'planner');
  assert.equal(Number(changedType.type_id),Number(mca.id));
  await assert.rejects(()=>saveProposal({id:changing.id,version:changedType.version,typeId:catalog.proposalTypes.find(t=>t.code==='CLO').id,draft:emptyDraft()},'planner'),/compatível/);
- const lost=await saveOpportunity({id:nextOpportunity.id,version:nextOpportunity.version,typeId:man.id,customerId:10,company:1,title:'Outra oportunidade',status:'lost'},'planner');
+ await assert.rejects(saveOpportunity({id:nextOpportunity.id,version:nextOpportunity.version,typeId:man.id,customerId:10,company:1,title:'Outra oportunidade',status:'lost'},'planner'),/justificativa/);
+ await assert.rejects(saveOpportunity({id:nextOpportunity.id,version:nextOpportunity.version,typeId:man.id,customerId:10,company:1,title:'Outra oportunidade',status:'lost',commercial:{loss:{reason:'Preço',actionPlan:'Negociar antes'}}},'planner'),/gestor imediato/);
+ assert.equal((await getOpportunity(nextOpportunity.id)).status,'open');
+ await db.query("UPDATE web_user_access SET managers=ARRAY['paulo@rjcompressores.com.br'] WHERE email='planner'");
+ const lost=await saveOpportunity({id:nextOpportunity.id,version:nextOpportunity.version,typeId:man.id,customerId:10,company:1,title:'Outra oportunidade',status:'lost',commercial:{loss:{reason:'Preço do concorrente',actionPlan:'Antecipar negociação e revisar abordagem'}}},'planner');
  assert.equal(lost.status,'lost');
+ const lossTask=(await db.query<any>("SELECT * FROM web_tasks WHERE source_key LIKE 'manual:crm-loss:%'")).rows[0];
+ assert.equal(lossTask.assigned_to,'paulo@rjcompressores.com.br');assert.equal(lossTask.approval_state,'pending');
+ assert.match(lossTask.approval_description,/Antecipar negociação/);
+ assert.equal(lost.commercial.loss.taskId,String(lossTask.id));
+ await saveOpportunity({id:lost.id,version:lost.version,typeId:man.id,customerId:10,company:1,title:lost.title,status:'lost',commercial:lost.commercial},'planner');
+ assert.equal((await db.query<any>("SELECT count(*)::int n FROM web_tasks WHERE source_key LIKE 'manual:crm-loss:%'")).rows[0].n,1);
+
  await assert.rejects(createProposal({id:randomUUID(),opportunityId:nextOpportunity.id,typeId:mpa.id,title:'Indisponível'},'planner'),/oportunidade aberta/);
 
  const leadOpportunity=await saveOpportunity({id:randomUUID(),typeId:man.id,leadId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',company:1,title:'Oportunidade de lead'},'planner');

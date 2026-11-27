@@ -39,3 +39,8 @@ export function proposalDraft(raw:any):OrderDraft {
 }
 export function totalCents(d:OrderDraft){return d.items.reduce((n,i)=>n+itemFinancials(i).sale,0);}
 export const conversionRate=(opportunities:number,converted:number)=>opportunities?Math.round(converted/opportunities*1000)/10:0;
+
+export function requireServiceCosts(draft: OrderDraft) {
+ const missing = draft.items.find(item => item.kind === 'service' && !String(item.unitCost ?? '').trim());
+ if (missing) throw new CrmError('Informe o custo unitário do serviço: ' + missing.name + '.');
+}

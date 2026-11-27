@@ -1,3 +1,4 @@
+import {lossDetails,createOpportunityLossTask} from './opportunity-loss';
 import {currentProposalDocument} from './order-confirmation';
 import {customerProfile} from './customer-profile';
 import {itemApprovals} from './item-price-approval';
@@ -10,7 +11,7 @@ import {canEditProposalReview} from './review-access';
 import {isReviewAdmin} from './review-admin';
 import 'server-only';
 import {database} from '../db';
-import {CrmError,uuid,text,positive,version,proposalDraft,emptyDraft,totalCents,conversionRate} from './model';
+import {CrmError,uuid,text,positive,version,requireServiceCosts,proposalDraft,emptyDraft,totalCents,conversionRate} from './model';
 async function write<T>(work:(c:any)=>Promise<T>):Promise<T>{const c=await database().connect();try{await c.query('BEGIN READ WRITE');const result=await work(c);await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK');if((e as any)?.code==='23505')throw new CrmError('Este código já está cadastrado. Atualize a lista antes de tentar novamente.');throw e;}finally{c.release();}}
 async function event(c:any,actor:string,action:string,opportunity:string|null,proposal:string|null,details:any){await c.query('INSERT INTO crm_events(actor,action,opportunity_id,proposal_id,details) VALUES($1,$2,$3,$4,$5::jsonb)',[actor,action,opportunity,proposal,JSON.stringify(details)]);}
 export async function catalogs(){
@@ -47,14 +48,24 @@ export async function crmOverview(){
 }
 // Workflow timestamps only change with the stage, unlike proposal.updated_at on every save.
 // Audit events preserve the completion date even if account metadata is updated later.
-const proposalStageSinceSql=`CASE WHEN p.status='pending' THEN GREATEST(COALESCE(w.updated_at,p.created_at),(SELECT max(l.updated_at) FROM crm_order_links l WHERE l.proposal_id=p.id AND l.state='validation_failed'))
+// A non-selected alternative is not a lost sale. Keep persisted workflow states intact.
+const proposalDisplayStatusSql=`CASE
+ WHEN p.status='pending' AND EXISTS(SELECT 1 FROM crm_proposals winner WHERE winner.opportunity_id=p.opportunity_id AND winner.id<>p.id AND winner.status='won') THEN 'not_selected'
+ WHEN p.status='pending' AND EXISTS(SELECT 1 FROM crm_opportunities parent WHERE parent.id=p.opportunity_id AND parent.status='lost') THEN 'lost'
+ WHEN p.status='pending' THEN COALESCE(w.state,'creating') ELSE p.status END`;
+const proposalStageSinceSql=`CASE
+ WHEN p.status='pending' AND (${proposalDisplayStatusSql})='not_selected' THEN COALESCE(
+ (SELECT min(e.created_at) FROM crm_events e JOIN crm_proposals winner ON winner.id=e.proposal_id WHERE winner.opportunity_id=p.opportunity_id AND winner.status='won' AND e.action='proposal_converted'),
+ (SELECT min(winner.updated_at) FROM crm_proposals winner WHERE winner.opportunity_id=p.opportunity_id AND winner.status='won'))
+ WHEN p.status='pending' AND (${proposalDisplayStatusSql})='lost' THEN (SELECT parent.updated_at FROM crm_opportunities parent WHERE parent.id=p.opportunity_id)
+ WHEN p.status='pending' THEN GREATEST(COALESCE(w.updated_at,p.created_at),(SELECT max(l.updated_at) FROM crm_order_links l WHERE l.proposal_id=p.id AND l.state='validation_failed'))
  ELSE COALESCE((SELECT max(e.created_at) FROM crm_events e WHERE e.proposal_id=p.id AND e.action=CASE p.status
  WHEN 'converting' THEN 'conversion_requested' WHEN 'won' THEN 'proposal_converted' WHEN 'cancelled' THEN 'cancel_proposal' END),p.updated_at) END`;
 export async function listCrm(kind:string,q='',page=1,status='',mineActor=''){
  if(!['opportunities','proposals','orders'].includes(kind)||!Number.isSafeInteger(page)||page<1||page>100000)throw new CrmError('Consulta inválida.');
  const search='%'+text(q,150).replace(/[\\%_]/g,'\\$&')+'%';
  const source=kind==='opportunities'?`SELECT o.*,${opportunityStageSinceSql} stage_since,${opportunityValueSql} effective_amount,customer.payload->>'municipioNome' customer_city,customer.payload->>'ufSigla' customer_state,COALESCE(u.display_name,o.created_by) owner_name,t.name type_name,(SELECT count(*)::int FROM crm_proposals WHERE opportunity_id=o.id) proposal_count,(SELECT count(*)::int FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id WHERE p.opportunity_id=o.id AND l.order_id IS NOT NULL) order_count FROM crm_opportunities o JOIN crm_opportunity_types t ON t.id=o.type_id LEFT JOIN web_user_access u ON u.email=o.created_by LEFT JOIN LATERAL (SELECT d.payload FROM m8_customer_directory d WHERE d.person_id=o.customer_id AND d.company_id=o.company_id LIMIT 1) customer ON true`
- :kind==='proposals'?`SELECT p.id,p.number,p.title,CASE WHEN p.status='pending' THEN COALESCE(w.state,'creating') ELSE p.status END status,w.revision,p.opportunity_id,p.type_id,p.total_cents,p.version,p.created_at,p.updated_at,${proposalStageSinceSql} stage_since,p.names->>'equipment' equipment_name,o.number opportunity_number,o.customer_name,o.company_id,o.created_by owner_email,t.name type_name,linked.order_id,linked.company_id order_company_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id JOIN crm_proposal_types t ON t.id=p.type_id LEFT JOIN crm_proposal_workflows w ON w.proposal_id=p.id LEFT JOIN LATERAL (SELECT l.order_id,l.company_id FROM crm_order_links l WHERE l.proposal_id=p.id AND l.order_id IS NOT NULL ORDER BY l.created_at,l.id LIMIT 1) linked ON true`
+ :kind==='proposals'?`SELECT p.id,p.number,p.title,${proposalDisplayStatusSql} status,w.revision,p.opportunity_id,p.type_id,p.total_cents,p.version,p.created_at,p.updated_at,${proposalStageSinceSql} stage_since,p.names->>'equipment' equipment_name,o.number opportunity_number,o.customer_name,o.company_id,o.created_by owner_email,t.name type_name,linked.order_id,linked.company_id order_company_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id JOIN crm_proposal_types t ON t.id=p.type_id LEFT JOIN crm_proposal_workflows w ON w.proposal_id=p.id LEFT JOIN LATERAL (SELECT l.order_id,l.company_id FROM crm_order_links l WHERE l.proposal_id=p.id AND l.order_id IS NOT NULL ORDER BY l.created_at,l.id LIMIT 1) linked ON true`
  :`SELECT l.id,l.proposal_id,l.company_id,l.order_id,l.state,l.message,l.actor,l.created_at,l.updated_at,l.state status,p.number proposal_number,p.opportunity_id,o.number opportunity_number,o.customer_name,p.title FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE l.order_id IS NOT NULL`;
  const assignedProposal=`(lower(mp.created_by)=lower($3) OR lower(mo.created_by)=lower($3)
  OR EXISTS(SELECT 1 FROM crm_proposal_workflows mw WHERE mw.proposal_id=mp.id AND lower(mw.reviewer)=lower($3))
@@ -67,7 +78,7 @@ export async function listCrm(kind:string,q='',page=1,status='',mineActor=''){
  const db=database();const [rows,count]=await Promise.all([db.query(from+' ORDER BY created_at DESC,id DESC LIMIT 30 OFFSET $4',[...args,(page-1)*30]),db.query(`SELECT count(*)::int total FROM (${from}) r`,args)]);
  return {rows:rows.rows,total:count.rows[0].total,page};
 }
-export async function getOpportunity(id:string){uuid(id);const row=(await database().query(`SELECT o.*,${opportunityStageSinceSql} stage_since,${opportunityValueSql} effective_amount,(SELECT count(*)::int FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id WHERE p.opportunity_id=o.id AND l.order_id IS NOT NULL) order_count,EXISTS(SELECT 1 FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id WHERE p.opportunity_id=o.id AND (l.order_id IS NOT NULL OR l.state NOT IN ('complete','validation_failed'))) customer_locked FROM crm_opportunities o WHERE o.id=$1`,[id])).rows[0];if(!row)throw new CrmError('Oportunidade não encontrada.');return {...row,proposals:(await database().query("SELECT p.id,p.number,p.title,CASE WHEN p.status='pending' THEN COALESCE(w.state,'creating') ELSE p.status END status,p.total_cents,p.version,w.revision FROM crm_proposals p LEFT JOIN crm_proposal_workflows w ON w.proposal_id=p.id WHERE p.opportunity_id=$1 ORDER BY p.number",[id])).rows,history:(await database().query('SELECT e.id,e.action,e.actor,e.created_at,COALESCE(u.display_name,e.actor) author FROM crm_events e LEFT JOIN web_user_access u ON u.email=e.actor WHERE opportunity_id=$1 ORDER BY e.id DESC LIMIT 100',[id])).rows};}
+export async function getOpportunity(id:string){uuid(id);const row=(await database().query(`SELECT o.*,${opportunityStageSinceSql} stage_since,${opportunityValueSql} effective_amount,(SELECT count(*)::int FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id WHERE p.opportunity_id=o.id AND l.order_id IS NOT NULL) order_count,EXISTS(SELECT 1 FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id WHERE p.opportunity_id=o.id AND (l.order_id IS NOT NULL OR l.state NOT IN ('complete','validation_failed'))) customer_locked FROM crm_opportunities o WHERE o.id=$1`,[id])).rows[0];if(!row)throw new CrmError('Oportunidade não encontrada.');return {...row,proposals:(await database().query(`SELECT p.id,p.number,p.title,${proposalDisplayStatusSql} status,p.total_cents,p.version,w.revision FROM crm_proposals p LEFT JOIN crm_proposal_workflows w ON w.proposal_id=p.id WHERE p.opportunity_id=$1 ORDER BY p.number`,[id])).rows,history:(await database().query('SELECT e.id,e.action,e.actor,e.created_at,COALESCE(u.display_name,e.actor) author FROM crm_events e LEFT JOIN web_user_access u ON u.email=e.actor WHERE opportunity_id=$1 ORDER BY e.id DESC LIMIT 100',[id])).rows};}
 export async function getProposal(id:string){
  uuid(id);const db=database();
  const row=(await db.query(`SELECT p.*,${proposalStageSinceSql} stage_since,o.number opportunity_number,o.type_id opportunity_type_id,o.customer_name,o.company_id,o.lead_id,o.origin_lead_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id LEFT JOIN crm_proposal_workflows w ON w.proposal_id=p.id WHERE p.id=$1`,[id])).rows[0];
@@ -115,10 +126,16 @@ export async function saveOpportunity(raw:any,actor:string){
  if(!['','visit','preventive','customer_contact'].includes(origin))throw new CrmError('Selecione uma origem válida para a oportunidade.');
  if(!stages.includes(stage)||!Number.isFinite(probability)||probability<0||probability>100||(amount&&!/^\d{1,10}(\.\d{1,2})?$/.test(amount))||(closeDate&&(!/^\d{4}-\d{2}-\d{2}$/.test(closeDate)||!Number.isFinite(Date.parse(closeDate))||new Date(closeDate).toISOString().slice(0,10)!==closeDate)))throw new CrmError('Confira fase, probabilidade, valor e data de fechamento.');
  const profile=customerProfile(details.customerProfile??(accountChanged?{}:old?.commercial?.customerProfile)??{});
- const commercial={stage,probability,amount,closeDate,contact,origin,customerProfile:profile};
+ const loss=(raw.status??old?.status)==='lost'?lossDetails(details.loss??old?.commercial?.loss):old?.commercial?.loss;
+ if(old?.status==='lost'&&old.commercial?.loss?.taskId&&loss&&(loss.reason!==old.commercial.loss.reason||loss.actionPlan!==old.commercial.loss.actionPlan))throw new CrmError('Registre a correção do plano na tarefa de aprovação vinculada.');
+ const commercial={stage,probability,amount,closeDate,contact,origin,customerProfile:profile,...(loss?{loss:{...old?.commercial?.loss,...loss}}:{})};
  const originLead=lead || old?.lead_id || (accountChanged&&old?.customer_id?null:old?.origin_lead_id) || null;
  const args=[id,type,title,customer,client.name,company,raw.status??'open',text(raw.notes??'',10000),actor,JSON.stringify(commercial),lead,originLead];
  const row=(await c.query(old?`UPDATE crm_opportunities SET type_id=$2,title=$3,customer_id=$4,customer_name=$5,company_id=$6,status=$7,notes=$8,updated_by=$9,updated_at=now(),version=version+1,commercial=$10::jsonb,lead_id=$11,origin_lead_id=$12 WHERE id=$1 RETURNING *`:`INSERT INTO crm_opportunities(id,type_id,title,customer_id,customer_name,company_id,status,notes,created_by,updated_by,commercial,lead_id,origin_lead_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10::jsonb,$11,$12) RETURNING *`,args)).rows[0];
+ if(row.status==='lost'&&(old?.status!=='lost'||!old?.commercial?.loss?.taskId)){
+  row.commercial.loss=await createOpportunityLossTask(c,row,actor,loss!);
+  await c.query('UPDATE crm_opportunities SET commercial=$2::jsonb WHERE id=$1',[id,JSON.stringify(row.commercial)]);
+ }
  if(accountChanged&&proposals.length){
   await c.query(`UPDATE crm_proposals SET document=jsonb_set(jsonb_set(document,'{customer}',to_jsonb($2::text),true),'{items}',COALESCE((SELECT jsonb_agg(item-'taxes' ORDER BY ord) FROM jsonb_array_elements(COALESCE(document->'items','[]'::jsonb)) WITH ORDINALITY AS entry(item,ord)),'[]'::jsonb),true),names=jsonb_set(names,'{customer}',to_jsonb($3::text),true),version=version+1,updated_at=now(),updated_by=$4 WHERE opportunity_id=$1`,[id,customer == null ? '' : String(customer),client.name,actor]);
   await c.query("UPDATE crm_proposal_workflows w SET state='creating',revision=CASE WHEN w.state='sent' THEN w.revision+1 ELSE w.revision END,reviewed_by=NULL,reviewed_at=NULL,updated_at=now() FROM crm_proposals p WHERE p.opportunity_id=$1 AND p.id=w.proposal_id AND w.state IN ('sent','reviewed')",[id]);
@@ -141,6 +158,7 @@ export async function createProposal(raw:any,actor:string){
 }
 export async function saveProposal(raw:any,actor:string){
  const id=uuid(raw.id),expected=version(raw.version);let draft={...proposalDraft(raw.draft),flowStatus:proposalFlowStatus};
+ requireServiceCosts(draft);
  // Simulate before taking a row lock. Recheck the version inside the transaction.
  const source=(await database().query('SELECT p.version,p.type_id,o.company_id,o.customer_id FROM crm_proposals p JOIN crm_opportunities o ON o.id=p.opportunity_id WHERE p.id=$1',[id])).rows[0];
  if(!source||source.version!==expected)throw new CrmError('A proposta foi alterada. Reabra antes de salvar.');

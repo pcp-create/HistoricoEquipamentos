@@ -292,7 +292,7 @@ export default function CrmProposalItems({
                     </div>
                   ) : (
                     <label>
-                      Custo unitário (R$)
+                      Custo unitário (R$) *
                       <CrmServiceCostInput
                         aria-label={`Custo unitário: ${item.name}`}
                         disabled={disabled}

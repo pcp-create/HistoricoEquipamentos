@@ -157,7 +157,7 @@ export default function TaskApproval({
         <div className={"task-approval-result " + t.approval_state}>
           <strong>
             {t.approval_state === "approved"
-              ? "Aprovada · De acordo para seguir com o processo"
+              ? (t.source_key?.startsWith("manual:crm-loss:") ? "Plano de ação aprovado e finalizado" : "Aprovada · De acordo para seguir com o processo")
               : "Reprovada · Devolvida ao solicitante"}
           </strong>
           <p>{t.approval_reason}</p>

@@ -1014,3 +1014,18 @@ body .crm-workspace nav.app-section-tabs {
 
 .crm-summary-minimum-warning { display:grid; gap:6px; margin-top:8px; color:#9a5700; font-size:12px; min-width:160px; }
 .crm-summary-minimum-warning button { display:inline-flex; align-items:center; gap:6px; }
+
+.crm-opportunity-loss { display:grid; gap:12px; padding:16px; border:1px solid #d4e2f0; border-radius:10px; }
+.crm-opportunity-loss legend { font-weight:600; }
+
+.crm-opportunity-dialog .crm-opportunity-grid > .crm-opportunity-loss { grid-column:1/-1; }
+
+/* Match the space below navigation to the 12px gap between proposal blocks. */
+.new-os.crm-proposal-page { margin-top:12px; }
+.new-os.crm-proposal-page .crm-proposal-title-row > h1 { margin-top:0; }
+
+@media(min-width:641px) {
+ .new-os.crm-proposal-page .crm-proposal-title-row > h1 { padding-inline:16px; }
+ .new-os.crm-proposal-page a.crm-proposal-origin-link { margin-left:16px; }
+ .new-os.crm-proposal-page .crm-proposal-title-meta { margin-right:16px; }
+}

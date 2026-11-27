@@ -399,7 +399,7 @@ export default function Crm() {
                   {(kind === "opportunities"
                     ? ["open", "lost", "cancelled"]
                     : kind === "proposals"
-                      ? ["creating", "in_review", "reviewed", "sent", "converting", "won", "lost", "cancelled"]
+                      ? ["creating", "in_review", "reviewed", "sent", "converting", "won", "not_selected", "lost", "cancelled"]
                       : [
                           "complete",
                           "preparing",
@@ -788,9 +788,9 @@ function CrmKanban({kind, rows, open}: {kind: string; rows: any[]; open: (id: st
   }
   const proposals = kind === "proposals";
   const columns = proposals
-    ? ["creating", "in_review", "reviewed", "sent", "converting", "won", "lost", "cancelled"].map(key => [key, crmStatus(key)])
+    ? ["creating", "in_review", "reviewed", "sent", "won", "not_selected", "lost", "cancelled"].map(key => [key, crmStatus(key)])
     : [...Object.entries(stages), ["won", "Ganha"], ["lost", "Perdida"], ["cancelled", "Cancelada"]];
-  const keyFor = (row: any) => proposals ? row.status : row.order_count > 0 ? "won" : row.status !== "open" ? row.status : row.commercial?.stage || "prospecting";
+  const keyFor = (row: any) => proposals ? (row.status === "converting" ? "sent" : row.status) : row.order_count > 0 ? "won" : row.status !== "open" ? row.status : row.commercial?.stage || "prospecting";
   for (const row of rows) {
     const key = keyFor(row);
     if (!columns.some(([id]) => id === key)) columns.push([key, crmStatus(key)]);
@@ -853,6 +853,7 @@ function OpportunityDialog({
         origin: "",
         ...initial.commercial,
         amount: initial.commercial?.amount !== undefined && initial.commercial.amount !== "" ? Number(initial.commercial.amount).toFixed(2) : "",
+        loss: {reason:"",actionPlan:"",...initial.commercial?.loss},
         customerProfile: {partsType:"",currentBrands:"",partsBrands:"",offeredBrands:"",servicePartner:"",competitors:"",profileNotes:"",...initial.commercial?.customerProfile},
       },
     }),
@@ -1146,6 +1147,7 @@ function OpportunityDialog({
                 </label>
               </div>
             </section>
+            {form.status==='lost'&&<fieldset className="crm-wide crm-opportunity-loss"><legend>Perda da oportunidade</legend><label>Justificativa da perda *<textarea required maxLength={4000} rows={3} readOnly={!!data.commercial?.loss?.taskId&&data.status==='lost'} value={form.commercial.loss.reason} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,loss:{...f.commercial.loss,reason:e.target.value}}}))}/></label><label>Plano de ação para evitar novas perdas *<textarea required maxLength={4000} rows={3} readOnly={!!data.commercial?.loss?.taskId&&data.status==='lost'} value={form.commercial.loss.actionPlan} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,loss:{...f.commercial.loss,actionPlan:e.target.value}}}))}/></label>{data.commercial?.loss?.taskId?<a href={'/tarefas?task='+data.commercial.loss.taskId}>Acompanhar aprovação · TAR-{data.commercial.loss.taskId}</a>:<small>Ao salvar, o gestor imediato receberá uma tarefa para aprovar e finalizar o plano de ação.</small>}</fieldset>}
             <label className="crm-wide crm-opportunity-notes">
               Observações
               <textarea
@@ -1158,7 +1160,7 @@ function OpportunityDialog({
           </div>
           <div className="crm-opportunity-save"><button className="button primary" type="submit">
             <Save size={16} aria-hidden="true" />{busy ? "Salvando…" : "Salvar oportunidade"}
-          </button>{data.id&&data.status==='open'&&<button className="button" type="button" disabled={busy} onClick={()=>{if(window.confirm('Marcar esta oportunidade como perdida?'))void save('lost');}}><CircleX size={16} aria-hidden="true" />Marcar como perdida</button>}{data.id&&data.status==='open'&&<button className="button" type="button" disabled={busy||won} onClick={()=>{if(window.confirm('Cancelar esta oportunidade?'))void save('cancelled');}}><CircleX size={16} aria-hidden="true"/>Cancelar oportunidade</button>}</div>
+          </button>{data.id&&data.status==='open'&&form.status!=='lost'&&<button className="button" type="button" disabled={busy} onClick={()=>{change('status','lost');requestAnimationFrame(()=>ref.current?.querySelector<HTMLTextAreaElement>('.crm-opportunity-loss textarea')?.focus());}}><CircleX size={16} aria-hidden="true" />Marcar como perdida</button>}{data.id&&data.status==='open'&&<button className="button" type="button" disabled={busy||won} onClick={()=>{if(window.confirm('Cancelar esta oportunidade?'))void save('cancelled');}}><CircleX size={16} aria-hidden="true"/>Cancelar oportunidade</button>}</div>
         </fieldset>
       </form>
       {error && (
