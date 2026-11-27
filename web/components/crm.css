@@ -1029,3 +1029,25 @@ body .crm-workspace nav.app-section-tabs {
  .new-os.crm-proposal-page a.crm-proposal-origin-link { margin-left:16px; }
  .new-os.crm-proposal-page .crm-proposal-title-meta { margin-right:16px; }
 }
+
+.crm-stage-settings { padding:20px; }
+.crm-stage-settings fieldset { border:0; padding:0; min-width:0; }
+.crm-stage-settings form section { margin:20px 0; }
+.crm-stage-settings input { max-width:180px; }
+.crm-proposal-timing > .crm-stage-overdue { color:#b42318; }
+.crm-kanban .crm-kanban-card-overdue { border-color:#d92d20; background:#fff5f4; }
+.crm-kanban .crm-kanban-card-overdue .crm-kanban-proposal-link,
+.crm-kanban .crm-kanban-card-overdue .crm-kanban-opportunity-link { color:#b42318; }
+.crm-delay-label { font-size:11px; font-weight:600; }
+
+.crm-kanban .crm-kanban-card-overdue:has(.crm-kanban-proposal-link, .crm-kanban-opportunity-link):hover { border-color:#b42318; background:#ffebe9; }
+.crm-stage-settings > p { margin:8px 0; line-height:1.5; color:#5b7390; font-size:13px; }
+.crm-stage-settings .table-scroll table { width:100%; min-width:0; table-layout:fixed; }
+.crm-stage-settings table th:first-child { width:40%; }
+.crm-stage-settings table th,.crm-stage-settings table td { padding:12px; white-space:normal; font-size:13px; }
+.crm-stage-settings input,.crm-stage-settings select { width:100%; min-width:0; box-sizing:border-box; border:1px solid #cbdcec; border-radius:8px; padding:10px; font:inherit; color:inherit; background:#fff; }
+@media(max-width:640px) {
+ .crm-stage-settings { padding:12px; }
+ .crm-stage-settings table th,.crm-stage-settings table td { padding:8px 4px; font-size:12px; }
+ .crm-stage-settings input,.crm-stage-settings select { padding:8px 4px; }
+}

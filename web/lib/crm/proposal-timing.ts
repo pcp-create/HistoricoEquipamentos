@@ -1,4 +1,4 @@
-export type ProposalTiming = {created_at?: string; stage_since?: string; status?: string};
+export type ProposalTiming = {created_at?: string; stage_since?: string; status?: string; stage_limit_minutes?:number|null};
 
 export function elapsedTime(start: string | undefined, end: number): string {
   const time = start ? Date.parse(start) : NaN;

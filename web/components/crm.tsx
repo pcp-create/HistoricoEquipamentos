@@ -1,4 +1,5 @@
 "use client";
+import {stageOverdue} from '../lib/crm/stage-limits';
 import CrmProposalTiming from "./crm-proposal-timing";
 import { useSessionAccess } from "./session-access";
 import dynamic from "next/dynamic";
@@ -786,11 +787,13 @@ function CrmKanban({kind, rows, open}: {kind: string; rows: any[]; open: (id: st
   function syncScroll(source:HTMLDivElement,target:HTMLDivElement|null){
     if(target&&target.scrollLeft!==source.scrollLeft)target.scrollLeft=source.scrollLeft;
   }
+  const [clock,setClock]=useState(NaN);
+  useEffect(()=>{setClock(Date.now());const timer=setInterval(()=>setClock(Date.now()),60000);return()=>clearInterval(timer);},[]);
   const proposals = kind === "proposals";
   const columns = proposals
-    ? ["creating", "in_review", "reviewed", "sent", "won", "not_selected", "lost", "cancelled"].map(key => [key, crmStatus(key)])
+    ? ["creating", "in_review", "reviewed", "sent", "converting", "won", "not_selected", "lost", "cancelled"].map(key => [key, crmStatus(key)])
     : [...Object.entries(stages), ["won", "Ganha"], ["lost", "Perdida"], ["cancelled", "Cancelada"]];
-  const keyFor = (row: any) => proposals ? (row.status === "converting" ? "sent" : row.status) : row.order_count > 0 ? "won" : row.status !== "open" ? row.status : row.commercial?.stage || "prospecting";
+  const keyFor = (row: any) => proposals ? row.status : row.order_count > 0 ? "won" : row.status !== "open" ? row.status : row.commercial?.stage || "prospecting";
   for (const row of rows) {
     const key = keyFor(row);
     if (!columns.some(([id]) => id === key)) columns.push([key, crmStatus(key)]);
@@ -803,7 +806,7 @@ function CrmKanban({kind, rows, open}: {kind: string; rows: any[]; open: (id: st
       return <section className="crm-kanban-column" key={key} aria-label={label}>
         <header><h3>{label}</h3><span>{items.length}</span></header>
         <div className="crm-kanban-cards">
-          {items.map(row => <article className="crm-kanban-card" key={row.id}>
+          {items.map(row => <article className={"crm-kanban-card"+(stageOverdue(row,clock)?" crm-kanban-card-overdue":"")} key={row.id}>
             {proposals ? <Link className="crm-kanban-proposal-link" href={"/crm/propostas/" + row.id}>PROP-{row.number} · {row.title}</Link> : <button type="button" className="crm-record-link crm-kanban-opportunity-link" onClick={() => void open(row.id)}>OP-{row.number} · {row.title}</button>}
             <CrmProposalTiming proposal={row} label={proposals ? "Tempo da proposta" : "Tempo da oportunidade"}/>
             <p>{row.customer_name || "Cliente não informado"}</p>

@@ -1,3 +1,4 @@
+import {claimStageDelays,acknowledgeStageDelay} from '@/lib/crm/stage-delay-notifications';
 import {claimServiceMessages,acknowledgeServiceMessage} from '@/lib/service-scheduling/notifications';
 import {claimVisitAlerts,acknowledgeVisitAlert} from "@/lib/visits/alerts";
 import {claimPasswordResetNotifications,acknowledgePasswordReset} from "@/lib/password-reset-notifications";
@@ -24,7 +25,8 @@ export async function POST(req: Request) {
     if (raw.length > 1000) throw new TaskInputError("Dados excedem o limite.");
     const body = JSON.parse(raw);
     if (body.action === "ack") {
-      if(typeof body.id==='string'&&body.id.startsWith('service:'))await acknowledgeServiceMessage(body.id.slice(8),body.token);
+      if(typeof body.id==='string'&&body.id.startsWith('crm-delay:'))await acknowledgeStageDelay(body.id.slice(10),body.token);
+      else if(typeof body.id==='string'&&body.id.startsWith('service:'))await acknowledgeServiceMessage(body.id.slice(8),body.token);
       else if (typeof body.id === "string" && body.id.startsWith("warehouse:"))
         await acknowledgeWarehouseNotification(body.id.slice(10),body.token);
       else if (typeof body.id === "string" && body.id.startsWith("password-reset:"))
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
         {
           notifications:
             body.deliver === true
-              ? [...await claimServiceMessages(), ...await claimWarehouseNotifications(), ...await claimVisitAlerts(PUBLIC_SYSTEM_URL), ...await claimReminders(PUBLIC_SYSTEM_URL), ...await claimNotifications(PUBLIC_SYSTEM_URL,true)]
+              ? [...await claimServiceMessages(), ...await claimWarehouseNotifications(), ...await claimVisitAlerts(PUBLIC_SYSTEM_URL), ...await claimStageDelays(PUBLIC_SYSTEM_URL), ...await claimReminders(PUBLIC_SYSTEM_URL), ...await claimNotifications(PUBLIC_SYSTEM_URL,true)]
               : [],
         },
         { headers },
@@ -78,6 +80,7 @@ export async function POST(req: Request) {
         () => claimServiceMessages(1),
         () => claimWarehouseNotifications(1),
         () => claimVisitAlerts(PUBLIC_SYSTEM_URL,1),
+        () => claimStageDelays(PUBLIC_SYSTEM_URL,1),
       ]) {
         const notifications = await claim();
         if (notifications.length) return Response.json({notifications},{headers});
@@ -90,7 +93,7 @@ export async function POST(req: Request) {
     const result = await syncTasks();
     const notifications =
       body.deliver === true
-        ? [...await claimServiceMessages(), ...await claimWarehouseNotifications(), ...await claimVisitAlerts(PUBLIC_SYSTEM_URL), ...await claimPasswordResetNotifications(), ...await claimNotifications(PUBLIC_SYSTEM_URL)]
+        ? [...await claimServiceMessages(), ...await claimWarehouseNotifications(), ...await claimVisitAlerts(PUBLIC_SYSTEM_URL), ...await claimStageDelays(PUBLIC_SYSTEM_URL), ...await claimPasswordResetNotifications(), ...await claimNotifications(PUBLIC_SYSTEM_URL)]
         : [];
     return Response.json({ ...result, notifications }, { headers });
   } catch (e) {

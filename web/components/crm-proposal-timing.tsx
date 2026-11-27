@@ -1,4 +1,5 @@
 "use client";
+import {stageOverdue} from '../lib/crm/stage-limits';
 import {useEffect, useState} from 'react';
 import {Clock3, Hourglass} from 'lucide-react';
 import {proposalTiming, type ProposalTiming} from '../lib/crm/proposal-timing';
@@ -11,6 +12,7 @@ export default function CrmProposalTiming({proposal, label = 'Tempo da proposta'
     return () => clearInterval(timer);
   }, []);
   const timing = proposalTiming(proposal, now);
+  const overdue = !timing.closed && stageOverdue(proposal,now);
   const date = (value?: string) => value && Number.isFinite(Date.parse(value))
     ? new Date(value).toLocaleString('pt-BR') : 'Data não disponível';
   return <dl className="crm-proposal-timing" aria-label={label}>
@@ -18,9 +20,9 @@ export default function CrmProposalTiming({proposal, label = 'Tempo da proposta'
       <dt><Clock3 size={14} aria-hidden="true"/><span>{timing.closed ? 'Até encerrar' : 'Em aberto'}</span></dt>
       <dd>{timing.total}</dd>
     </div>
-    {!['won', 'cancelled', 'not_selected'].includes(proposal.status || '') && <div className="crm-proposal-stage-time" aria-label={`Nesta etapa: ${timing.stage}`} title={`Nesta etapa · Entrada na etapa: ${date(proposal.stage_since)}`}>
+    {!['won', 'cancelled', 'not_selected'].includes(proposal.status || '') && <div className={"crm-proposal-stage-time"+(overdue?" crm-stage-overdue":"")} aria-label={`Nesta etapa: ${timing.stage}`} title={`Nesta etapa · Entrada na etapa: ${date(proposal.stage_since)}`}>
       <dt><Hourglass size={14} aria-hidden="true"/><span>Nesta etapa</span></dt>
-      <dd>{timing.stage}</dd>
+      <dd>{timing.stage}{overdue&&<span className="crm-delay-label"> · Em atraso</span>}</dd>
     </div>}
   </dl>;
 }
