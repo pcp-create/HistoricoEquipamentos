@@ -1003,3 +1003,12 @@ body .crm-workspace nav.app-section-tabs {
  .new-os.crm-proposal-page .crm-proposal-title-row { padding-inline:12px; }
  .new-os.crm-proposal-page a.crm-proposal-origin-link { margin-inline:12px; }
 }
+@media(max-width:640px) {
+ .new-os.crm-proposal-page > header > div:first-child { display:flex; flex-direction:column; }
+ .new-os.crm-proposal-page .crm-proposal-title-row { display:contents; }
+ .new-os.crm-proposal-page .crm-proposal-title-row > h1 { order:1; padding-inline:12px; }
+ .new-os.crm-proposal-page a.crm-proposal-origin-link { order:2; align-self:flex-start; margin-top:8px; }
+ .new-os.crm-proposal-page .crm-proposal-title-meta { order:3; box-sizing:border-box; padding-inline:12px; margin-top:8px; }
+ .new-os.crm-proposal-page .crm-proposal-stages { order:4; }
+ .new-os.crm-proposal-page .crm-proposal-overview-card { order:5; }
+}
