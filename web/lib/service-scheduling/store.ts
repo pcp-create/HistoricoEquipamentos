@@ -1,3 +1,4 @@
+import {initializeChecklist} from './initialize-checklist';
 import {ensureCreatedOrderProjection} from "../service-orders/local-projection";
 import {pendingTechnicianClosures,readyForReviewAfterClosures} from './execution-locks';
 import {equipmentSelectionLocked} from "./equipment-selection";
@@ -667,6 +668,7 @@ export async function mutateSchedule(b: any, email: string) {
         }
         if(replacing)await c.query("DELETE FROM web_service_checklist_photos WHERE operation_id=$1",[operation.id]);
         document = withRescheduling(operation, {...checked.document,requireTechnicianClosure:operation.document.requireTechnicianClosure,technicianClosures:operation.document.technicianClosures,...(operation.document.checklistReturn?{checklistReturn:operation.document.checklistReturn}:{})}, b.rescheduling, email);
+        if(operation.sent_at)document=initializeChecklist(document,config.document.checklists,email);
         ends = checked.ends_at;
       } catch (e) {
         throw new ScheduleInputError((e as Error).message);

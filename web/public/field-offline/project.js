@@ -185,8 +185,9 @@ function projectField(home, detail, body) {
     if (!["report_return","report_send","report_send_partial"].includes(action)&&(!same || active.kind !== "work" || active.state !== "running"))
       throw Error("Inicie ou retome a atividade para preencher o relatório.");
     const run = op.document.checklistRun;
-    if (!run) throw Error("Baixe o checklist antes de ficar sem internet.");
-    for (const stage of body.stages || [body]) {
+    const emptyReturn = action === "report_return" && !run && (!body.stages || Array.isArray(body.stages) && body.stages.length === 0);
+    if (!run && !emptyReturn) throw Error("Baixe o checklist antes de ficar sem internet.");
+    for (const stage of emptyReturn ? [] : body.stages || [body]) {
       if (!stage.stageId) continue;
       run.stages[stage.stageId] = {
         ...run.stages[stage.stageId],

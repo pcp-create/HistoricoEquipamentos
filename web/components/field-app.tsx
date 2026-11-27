@@ -431,7 +431,7 @@ function FieldOperation({ row, active, now, refresh, open, onToggle }: any) {
     // Refresh a locked report when the planner returns it, including an open dialog.
     // Editable drafts are kept locally until the technician saves them.
     if (open && data && row.version !== undefined && row.version !== data.operation.version &&
-      (data.reportSubmission || ["awaiting_review", "reviewed", "completed"].includes(data.operation.status))) {
+      (data.reportSubmission || !data.operation.document.checklistRun || ["awaiting_review", "reviewed", "completed"].includes(data.operation.status))) {
       void load();
     }
   }, [open, row.version]);

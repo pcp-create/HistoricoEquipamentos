@@ -59,3 +59,12 @@ test('offline send accepts ORÇAR without a comment and still requires NOK photo
  const nok=make('NOK');assert.throws(()=>projectField({email:'tech',active:null},nok,body),/foto/);
  nok.operation.document.checklistRun.stages.s.details.f={photos:['1']};projectField({email:'tech',active:null},nok,body);assert.ok(nok.reportSubmission);
 });
+
+test('returning an operation without an initialized report does not require a downloaded checklist',()=>{
+ const home:any={email:'tech',active:null,rows:[]};
+ const detail:any={operation:{id:'op',version:1,status:'executing',document:{responsible:'tech',checklistId:'template'}},history:[]};
+ const body={action:'report_return',stages:[],reason:'Ajustar checklist',offline:{capturedAt:new Date().toISOString()}};
+ projectField(home,detail,body);
+ assert.equal(detail.operation.status,'planning');
+ assert.equal(detail.operation.document.checklistRun,undefined);
+});
