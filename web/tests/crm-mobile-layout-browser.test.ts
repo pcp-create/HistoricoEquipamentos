@@ -57,6 +57,12 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
   assert.equal(await status.isVisible(),true);
   assert.equal(await page.getByRole("button",{name:"Filtros (2)"}).isVisible(),true);
   await page.getByRole("button",{name:"Propostas",exact:true}).click();
+  assert.equal(await page.locator(".crm-search-field input").inputValue(),"");
+  assert.equal(await page.locator(".crm-status-filter select").inputValue(),"");
+  await page.getByRole("button",{name:"Oportunidades",exact:true}).click();
+  assert.equal(await page.locator(".crm-search-field input").inputValue(),"teste");
+  assert.equal(await page.locator(".crm-status-filter select").inputValue(),"lost");
+  await page.getByRole("button",{name:"Propostas",exact:true}).click();
   await page.getByRole("button",{name:"Kanban",exact:true}).click();
   const card=page.locator(".crm-kanban-card").first();
   await card.waitFor();
@@ -75,8 +81,30 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
    await page.getByRole("button",{name:tab,exact:true}).click();
    assert.equal(await page.getByRole("button",{name:/^Filtros/}).count(),0);
    assert.equal(await page.getByRole("textbox",{name:"Pesquisar",exact:true}).isVisible(),true);
-   assert.equal(await page.getByRole("button",{name:"Pesquisar",exact:true}).isVisible(),true);
+   assert.equal(await page.getByRole("button",{name:"Pesquisar",exact:true}).count(),0);
   }
+  // All CRM list searches apply typing and clearing without submitting the form.
+  for(const [tab,kind] of [["Leads","leads"],["Clientes","customers"],["Contatos","contacts"],["Oportunidades","opportunities"],["Propostas","proposals"],["Pedidos (OSs)","orders"]]){
+   await page.getByRole("button",{name:tab,exact:true}).click();
+   const filter=page.getByRole("button",{name:/^Filtros/});
+   if(await filter.count())await filter.click();
+   const input=page.getByRole("textbox",{name:"Pesquisar",exact:true});
+   await page.evaluate(()=>{(window as any).queries=[];});
+   await input.fill("Cliente");
+   await page.waitForFunction((kind)=>(window as any).queries.some((q:string)=>{const p=new URLSearchParams(q);return p.get('kind')===kind&&p.get('q')==='Cliente'&&p.get('page')==='1';}),kind);
+   await input.fill("");
+   await page.waitForFunction((kind)=>(window as any).queries.some((q:string)=>{const p=new URLSearchParams(q);return p.get('kind')===kind&&p.get('q')==='';}),kind);
+  }
+  await page.getByRole("button",{name:"Leads",exact:true}).click();
+  await page.getByRole("textbox",{name:"Pesquisar",exact:true}).fill("Somente leads");
+  // Switch before debounce applies: the pending lead search must not reach Customers.
+  await page.getByRole("button",{name:"Clientes",exact:true}).click();
+  assert.equal(await page.getByRole("textbox",{name:"Pesquisar",exact:true}).inputValue(),"");
+  await page.getByRole("textbox",{name:"Pesquisar",exact:true}).fill("Somente clientes");
+  await page.waitForFunction(()=>(window as any).queries.some((q:string)=>{const p=new URLSearchParams(q);return p.get('kind')==='customers'&&p.get('q')==='Somente clientes';}));
+  await page.getByRole("button",{name:"Leads",exact:true}).click();
+  assert.equal(await page.getByRole("textbox",{name:"Pesquisar",exact:true}).inputValue(),"Somente leads");
+  await page.waitForFunction(()=>(window as any).queries.some((q:string)=>{const p=new URLSearchParams(q);return p.get('kind')==='leads'&&p.get('q')==='Somente leads';}));
   await page.getByRole("button",{name:"Visão geral",exact:true}).click();
   await page.locator('.crm-funnel-sales-value strong').waitFor();
   assert.match(await page.locator('.crm-funnel-sales-value strong').innerText(),/30.000,00/);

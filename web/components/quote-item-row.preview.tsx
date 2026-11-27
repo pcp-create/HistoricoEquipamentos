@@ -241,7 +241,7 @@ export default function QuoteItemRow({
             Unidade
             <select aria-label={`Unidade: ${item.name}`} value={item.unit} onChange={(e) => onChange({unit:e.target.value})}>
               {!item.unit && <option value="">Selecione</option>}
-              {Array.from(new Set([item.unit, "UNIDADE", "PCT", "HORA", "DIÁRIA", "SERVIÇO"].filter(Boolean))).map(unit => <option key={unit} value={unit}>{unit}</option>)}
+              {Array.from(new Set([item.unit, "UNIDADE", "PCT", "HORA", "DIÁRIA", "MÊS", "SERVIÇO"].filter(Boolean))).map(unit => <option key={unit} value={unit}>{unit}</option>)}
             </select>
           </label>
         )}

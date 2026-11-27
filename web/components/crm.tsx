@@ -17,7 +17,6 @@ import {
   Plus,
   RefreshCw,
   X,
-  Search,
   Pencil,
   Target,
   UserPlus,
@@ -69,11 +68,24 @@ export default function Crm() {
         ? params.get("tab")!
         : "overview",
     ),
-    [q, setQ] = useState(""),
-    [search, setSearch] = useState(""),
-    [status, setStatus] = useState(""),
     [page, setPage] = useState(1),
     [refresh, setRefresh] = useState(0);
+  const [tabFilters, setTabFilters] = useState<Record<string,{q:string;search:string;status:string}>>({});
+  const {q,search,status} = tabFilters[kind] || {q:"",search:"",status:""};
+  function updateFilter(field:"q"|"search"|"status",value:string) {
+    setTabFilters(current=>({...current,[kind]:{...(current[kind] || {q:"",search:"",status:""}),[field]:value}}));
+  }
+  const setQ=(value:string)=>updateFilter("q",value);
+  const setSearch=(value:string)=>updateFilter("search",value);
+  const setStatus=(value:string)=>updateFilter("status",value);
+  useEffect(() => {
+    if (q === search) return;
+    const timer = window.setTimeout(() => {
+      setSearch(q);
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [kind, q, search]);
   const [emailSettings, setEmailSettings] = useState<any>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   useEffect(() => {
@@ -172,7 +184,6 @@ export default function Crm() {
   function selectTab(key: string) {
     setKind(key);
     setFiltersOpen(false);
-    setStatus("");
     setPage(1);
     setResult(null);
     const url = new URL(window.location.href);
@@ -253,8 +264,6 @@ export default function Crm() {
             <a className="stat crm-stat-link" key={label} href={`/crm?tab=${target}`} onClick={(event) => {
               if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
               event.preventDefault();
-              setQ("");
-              setSearch("");
               selectTab(target);
             }}>
               <div className="stat-top">
@@ -382,10 +391,6 @@ export default function Crm() {
                 </select>
               </label>
             )}
-            <button className="button crm-search-submit" type="submit" aria-label="Pesquisar" title="Pesquisar">
-              <Search size={16} />
-              <span>Pesquisar</span>
-            </button>
             <div className="crm-filter-actions">
             {!directSearch && <button type="button" className="button crm-filter-toggle" aria-expanded={filtersOpen} aria-controls={directory ? "crm-search-field" : "crm-search-field crm-status-filter"} onClick={() => setFiltersOpen(value => !value)}>
               <Funnel size={16}/><span>Filtros{(status || search) ? ` (${Number(Boolean(status)) + Number(Boolean(search))})` : ""}</span>
