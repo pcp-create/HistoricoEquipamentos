@@ -7,13 +7,14 @@ import {chromium} from "@playwright/test";
 test("mobile CRM keeps search and views compact and expands status on demand",async()=>{
  const mocks:Plugin={name:"crm-layout-data",setup(b){
   b.onResolve({filter:/.*/},a=>{
+   if(a.path==="./crm-proposal-timing")return;
    if(a.path==="next/navigation"||a.path==="next/link"||(a.importer.endsWith("/crm.tsx")&&a.path.startsWith("./")&&!a.path.endsWith(".css")))return {path:a.path,namespace:"mock"};
   });
   b.onLoad({filter:/.*/,namespace:"mock"},a=>({resolveDir:process.cwd(),loader:"tsx",contents:
    a.path==="next/navigation"?'export const useSearchParams=()=>new URLSearchParams(window.location.search);export const useRouter=()=>({push(){}});':
    a.path==="next/link"?'import React from "react";export default function Link({children,...p}){return <a {...p}>{children}</a>}':
    a.path==="./session-access"?'export const useSessionAccess=()=>({visitManager:false});':
-   a.path==="./crm-api"?'export const crmStatus=s=>s;export const crmMoney=v=>String(v);export const crmDate=v=>String(v);export async function crmApi(q){window.queries.push(q);if(q.includes("proposalEmailSettings"))return null;if(q.includes("overview"))return {conversion:22.2,opportunities:9,converted:2,leads:70,visits:{completed:125},opportunity_value:120000,sales_value:30000,opportunities_without_value:1};if(q.includes("catalogs"))return {};if(q.includes("kind=proposals"))return {rows:[{id:"proposal-test",number:8,title:"Proposta teste",status:"creating",total_cents:12000,customer_name:"Cliente teste",opportunity_number:4}],total:1};return {rows:[],total:0};}':
+   a.path==="./crm-api"?'export const crmStatus=s=>s;export const crmMoney=v=>String(v);export const crmDate=v=>String(v);export async function crmApi(q){window.queries.push(q);if(q.includes("proposalEmailSettings"))return null;if(q.includes("overview"))return {conversion:22.2,opportunities:9,converted:2,leads:70,visits:{completed:125},opportunity_value:120000,sales_value:30000,opportunities_without_value:1};if(q.includes("catalogs"))return {};if(q.includes("kind=proposals"))return {rows:[{id:"proposal-test",number:8,title:"Proposta teste",status:"creating",created_at:new Date(Date.now()-10*86400000).toISOString(),stage_since:new Date(Date.now()-2*86400000).toISOString(),total_cents:12000,customer_name:"Cliente teste",opportunity_number:4}],total:1};return {rows:[],total:0};}':
    'export default function Stub(){return null;}'}));
  }};
  const js=await build({stdin:{contents:'import React from "react";import {createRoot} from "react-dom/client";import Crm from "./components/crm";window.queries=[];createRoot(document.getElementById("root")).render(<Crm/>);',resolveDir:process.cwd(),loader:"tsx"},plugins:[mocks],bundle:true,write:false,jsx:"automatic",loader:{".css":"empty"}});
@@ -64,8 +65,27 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
   assert.equal(await page.locator(".crm-status-filter select").inputValue(),"lost");
   await page.getByRole("button",{name:"Propostas",exact:true}).click();
   await page.getByRole("button",{name:"Kanban",exact:true}).click();
+  const topScroll=page.getByRole("region",{name:"Rolagem horizontal do Kanban"});
+  await topScroll.waitFor();
+  await topScroll.evaluate(el=>{el.scrollLeft=240;});
+  await page.waitForFunction(()=>document.querySelector('.crm-kanban')!.scrollLeft===240);
+  await page.locator('.crm-kanban').evaluate(el=>{el.scrollLeft=120;});
+  await page.waitForFunction(()=>document.querySelector('.crm-kanban-top-scroll')!.scrollLeft===120);
+  await topScroll.evaluate(el=>{el.scrollLeft=0;});
+  await page.waitForFunction(()=>document.querySelector('.crm-kanban')!.scrollLeft===0);
   const card=page.locator(".crm-kanban-card").first();
   await card.waitFor();
+  await card.getByText('10 dias',{exact:true}).waitFor();
+  assert.equal(await card.getByText('2 dias',{exact:true}).isVisible(),true);
+  for(const width of [390,1280]){
+   await page.setViewportSize({width,height:844});
+   const timing=card.locator('.crm-proposal-timing');
+   const bounds=await timing.boundingBox();
+   const cardBounds=await card.boundingBox();
+   assert.ok(bounds&&cardBounds&&bounds.width<=cardBounds.width);
+   await page.screenshot({path:`/tmp/crm-proposal-timing-${width}.png`});
+  }
+
   assert.equal(await card.getByRole("button",{name:"OP-4"}).count(),0);
   await card.click({position:{x:20,y:85}});
   await page.waitForURL("**/crm/propostas/proposal-test");

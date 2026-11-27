@@ -76,7 +76,7 @@ export default function NewServiceOrder({
   editing, returnTo, proposal,
 }: { returnTo?: string; editing?: { company: string; id: string }; proposal?: {
  id:string;leadId?:string|null;equipmentRequired?:boolean;title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
- overviewActions?:React.ReactNode;headerBottomActions?:React.ReactNode;stageActions?:React.ReactNode;productsFocus?:number;itemPriceApprovals?:any[];canApproveItemPrice?:boolean;onApproveItem?:(draft:OrderDraft,names:{customer:string;equipment:string},code:string)=>Promise<void>;activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;canCompleteReview?:boolean;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string},completeReview?:boolean)=>Promise<void>;
+ opportunityLink?:React.ReactNode;overviewActions?:React.ReactNode;headerBottomActions?:React.ReactNode;stageActions?:React.ReactNode;productsFocus?:number;itemPriceApprovals?:any[];canApproveItemPrice?:boolean;onApproveItem?:(draft:OrderDraft,names:{customer:string;equipment:string},code:string)=>Promise<void>;activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;canCompleteReview?:boolean;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string},completeReview?:boolean)=>Promise<void>;
 } } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
   const [attachmentCount,setAttachmentCount]=useState(0);
@@ -511,6 +511,7 @@ export default function NewServiceOrder({
                 ? "Editar OS " + (editData?.number || "")
                 : "Nova Ordem de Serviço"}
             </h1>{proposal?.headerActions}</div>
+            {proposal?.opportunityLink}
             {!proposal && <p>
               {editing
                 ? "Revise os dados e salve as alterações na ordem existente."

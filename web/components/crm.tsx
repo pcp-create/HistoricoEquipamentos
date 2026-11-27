@@ -1,4 +1,5 @@
 "use client";
+import CrmProposalTiming from "./crm-proposal-timing";
 import { useSessionAccess } from "./session-access";
 import dynamic from "next/dynamic";
 import ModuleHeaderActions from "./module-header-actions";
@@ -487,6 +488,7 @@ export default function Crm() {
                                 OP-{row.number}
                               </button>
                               <strong>{row.title}</strong>
+                              <CrmProposalTiming proposal={row} label="Tempo da oportunidade"/>
                             </td>
                             <td>
                               {row.customer_name}
@@ -549,6 +551,7 @@ export default function Crm() {
                                 PROP-{row.number}
                               </Link>
                               <strong>{row.title}</strong>
+                              <CrmProposalTiming proposal={row}/>
                             </td>
                             <td>{row.customer_name}</td>
                             <td>{row.equipment_name || "Não informado"}</td>
@@ -738,6 +741,25 @@ export default function Crm() {
   );
 }
 function CrmKanban({kind, rows, open}: {kind: string; rows: any[]; open: (id: string) => Promise<void>}) {
+  const boardRef = useRef<HTMLDivElement>(null);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const [scrollSize,setScrollSize] = useState({width:0,overflow:false});
+  useEffect(()=>{
+    const board=boardRef.current;
+    if(!board)return;
+    const measure=()=>{
+      setScrollSize({width:board.scrollWidth,overflow:board.scrollWidth>board.clientWidth+1});
+      if(topScrollRef.current)topScrollRef.current.scrollLeft=board.scrollLeft;
+    };
+    const observer=new ResizeObserver(measure);
+    observer.observe(board);
+    for(const column of board.children)observer.observe(column);
+    measure();
+    return ()=>observer.disconnect();
+  },[kind,rows]);
+  function syncScroll(source:HTMLDivElement,target:HTMLDivElement|null){
+    if(target&&target.scrollLeft!==source.scrollLeft)target.scrollLeft=source.scrollLeft;
+  }
   const proposals = kind === "proposals";
   const columns = proposals
     ? ["creating", "in_review", "reviewed", "sent", "converting", "won", "lost", "cancelled"].map(key => [key, crmStatus(key)])
@@ -747,7 +769,9 @@ function CrmKanban({kind, rows, open}: {kind: string; rows: any[]; open: (id: st
     const key = keyFor(row);
     if (!columns.some(([id]) => id === key)) columns.push([key, crmStatus(key)]);
   }
-  return <div className="crm-kanban" aria-label={proposals ? "Kanban de propostas" : "Kanban de oportunidades"}>
+  return <>
+    <div ref={topScrollRef} className="crm-kanban-top-scroll" hidden={!scrollSize.overflow} tabIndex={0} role="region" aria-label="Rolagem horizontal do Kanban" onScroll={event=>syncScroll(event.currentTarget,boardRef.current)}><div style={{width:scrollSize.width,height:1}} /></div>
+    <div ref={boardRef} onScroll={event=>syncScroll(event.currentTarget,topScrollRef.current)} className="crm-kanban" aria-label={proposals ? "Kanban de propostas" : "Kanban de oportunidades"}>
     {columns.map(([key, label]) => {
       const items = rows.filter(row => keyFor(row) === key);
       return <section className="crm-kanban-column" key={key} aria-label={label}>
@@ -755,6 +779,7 @@ function CrmKanban({kind, rows, open}: {kind: string; rows: any[]; open: (id: st
         <div className="crm-kanban-cards">
           {items.map(row => <article className="crm-kanban-card" key={row.id}>
             {proposals ? <Link className="crm-kanban-proposal-link" href={"/crm/propostas/" + row.id}>PROP-{row.number} · {row.title}</Link> : <button className="crm-record-link" onClick={() => void open(row.id)}>OP-{row.number} · {row.title}</button>}
+            <CrmProposalTiming proposal={row} label={proposals ? "Tempo da proposta" : "Tempo da oportunidade"}/>
             <p>{row.customer_name || "Cliente não informado"}</p>
             {proposals && row.equipment_name && <small>{row.equipment_name}</small>}
             <strong>{proposals ? crmMoney(row.total_cents) : (row.effective_amount != null || row.commercial?.amount) ? crmMoney(Math.round(Number(row.effective_amount ?? row.commercial.amount) * 100)) : "Valor não informado"}</strong>
@@ -767,7 +792,7 @@ function CrmKanban({kind, rows, open}: {kind: string; rows: any[]; open: (id: st
         </div>
       </section>;
     })}
-  </div>;
+  </div></>;
 }
 function OpportunityDialog({
   initial,
@@ -879,7 +904,7 @@ function OpportunityDialog({
       }}
     >
       <header>
-        <div className="crm-opportunity-heading"><span>OPORTUNIDADE</span><h2>{data.id ? "OP-" + data.number : "Nova oportunidade"}</h2></div>
+        <div className="crm-opportunity-heading"><span>OPORTUNIDADE</span><h2>{data.id ? "OP-" + data.number : "Nova oportunidade"}</h2>{data.id && <CrmProposalTiming proposal={data} label="Tempo da oportunidade"/>}</div>
         <button
           className="button"
           type="button"

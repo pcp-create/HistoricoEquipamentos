@@ -6,3 +6,8 @@ export function orderConfirmation(raw:any,payment:string){
  if(!approver)throw new CrmError('Informe o nome de quem aprovou o pedido.');
  return {payment:String(payment),paymentConfirmed:true,approver,notes:text(raw.notes??'',2000)};
 }
+
+// Sent revisions/PDFs remain immutable; the current proposal reflects payment agreed at order confirmation.
+export function currentProposalDocument(current:any,snapshot?:any){
+ return snapshot?{...snapshot,payment:current.payment,commercial:{...snapshot.commercial,paymentName:current.commercial?.paymentName||''}}:current;
+}

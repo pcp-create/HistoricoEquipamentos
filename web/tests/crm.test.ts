@@ -45,6 +45,21 @@ test('CRM persists local opportunities and proposals and safely links conversion
  assert.equal((await getOpportunity(opportunity.id)).proposals.length,2);
  await assert.rejects(createProposal({id:randomUUID(),opportunityId:opportunity.id,typeId:catalog.proposalTypes.find(t=>t.code==='CLO').id,title:'Inválida'},'planner'));
  let saved=await saveProposal({id:p.id,version:p.version,draft:{...emptyDraft(),company:'2',customer:'999',type:'4',origin:'1',seller:'21',serviceType:'1',payment:'1',expected:'2026-11-25',delivery:'2026-11-26',situation:'1',freight:'0',notes:'Observação',items:[{kind:'material',code:'50',name:'Filtro',price:'10.50',quantity:'2',unitCost:'999.00',discountPercent:'10'}]},names:{equipment:''}},'planner');
+ // Ordinary edits must not restart either clock; actual workflow changes must.
+ const timingRow=async()=> (await listCrm('proposals')).rows.find((r:any)=>r.id===p.id);
+ assert.equal(new Date((await timingRow()).stage_since).getTime(),new Date(p.created_at).getTime());
+ await db.query("INSERT INTO crm_proposal_workflows(proposal_id,state,updated_at) VALUES($1,'creating','2026-01-02T12:00:00Z')",[p.id]);
+ await db.query("UPDATE crm_proposals SET updated_at=now() WHERE id=$1",[p.id]);
+ assert.equal(new Date((await timingRow()).stage_since).toISOString(),'2026-01-02T12:00:00.000Z');
+ assert.equal(new Date((await getProposal(p.id)).stage_since).toISOString(),'2026-01-02T12:00:00.000Z');
+ await db.query("UPDATE crm_proposal_workflows SET state='in_review',updated_at='2026-01-03T12:00:00Z' WHERE proposal_id=$1",[p.id]);
+ assert.equal(new Date((await timingRow()).stage_since).toISOString(),'2026-01-03T12:00:00.000Z');
+ await db.query("UPDATE crm_proposals SET status='cancelled' WHERE id=$1",[p.id]);
+ await db.query("INSERT INTO crm_events(proposal_id,actor,action,created_at) VALUES($1,'planner','cancel_proposal','2026-01-04T12:00:00Z')",[p.id]);
+ assert.equal(new Date((await timingRow()).stage_since).toISOString(),'2026-01-04T12:00:00.000Z');
+ await db.query("UPDATE crm_proposals SET status='pending' WHERE id=$1",[p.id]);
+ await db.query("DELETE FROM crm_events WHERE proposal_id=$1 AND action='cancel_proposal'",[p.id]);
+ await db.query('DELETE FROM crm_proposal_workflows WHERE proposal_id=$1',[p.id]);
  assert.equal(Number((await listCrm('opportunities')).rows[0].effective_amount),9.45); // 18.90 + zero, divided by two
  assert.equal(Number((await getOpportunity(opportunity.id)).effective_amount),9.45);
  assert.equal(Number((await crmOverview()).opportunity_value),9.45);
@@ -66,8 +81,24 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await assert.rejects(beginConversion({confirmation:{paymentConfirmed:true,payment:'1',approver:'Cliente',notes:'Entregar pela manhã'},id:randomUUID(),proposalId:p.id,version:saved.version,orderType:'99'},'planner',deps),/Defina/);
  await assert.rejects(beginConversion({confirmation:{paymentConfirmed:true,payment:'1',approver:'Cliente',notes:'Entregar pela manhã'},id:randomUUID(),proposalId:p.id,version:saved.version},'planner',{...deps,prices:async(id:string)=>({...await deps.prices(id),items:[{}],approved:false})} as any),/aprovação/);
  assert.equal((await db.query<any>('SELECT count(*) n FROM crm_order_links')).rows[0].n,0);
+ await db.exec("CREATE TABLE service_order_registries(kind text,id bigint,name text,active boolean); INSERT INTO service_order_registries VALUES('payment-terms',1,'À vista',true),('payment-terms',2,'Boleto 28 dias',true),('payment-terms',3,'Inativa',false)");
+ for(const payment of ['3','999']){
+  await assert.rejects(beginConversion({confirmation:{paymentConfirmed:true,payment,approver:'Cliente'},id:randomUUID(),proposalId:p.id,version:saved.version},'planner',deps),/pagamento ativa/);
+ }
+ assert.equal((await getProposal(p.id)).document.payment,'1');
  const request=randomUUID();
- assert.equal((await beginConversion({confirmation:{paymentConfirmed:true,payment:'1',approver:'Cliente',notes:'Entregar pela manhã'},id:request,proposalId:p.id,version:saved.version},'planner',deps)).state,'ready');assert.equal(writes,0);
+ assert.equal((await beginConversion({confirmation:{paymentConfirmed:true,payment:'2',approver:'Cliente',notes:'Entregar pela manhã'},id:request,proposalId:p.id,version:saved.version},'planner',deps)).state,'ready');assert.equal(writes,0);
+ const paymentUpdated=await getProposal(p.id);
+ assert.equal(paymentUpdated.document.payment,'2');
+ assert.equal(paymentUpdated.document.commercial.paymentName,'Boleto 28 dias');
+ assert.equal((await db.query<any>('SELECT document FROM crm_proposals WHERE id=$1',[p.id])).rows[0].document.payment,'2');
+ assert.equal((await db.query<any>('SELECT document FROM crm_proposal_sent_revisions WHERE proposal_id=$1',[p.id])).rows[0].document.payment,'1');
+ const orderDocument=(await db.query<any>('SELECT document FROM crm_order_links WHERE id=$1',[request])).rows[0].document;
+ assert.equal(orderDocument.payment,'2');
+ assert.match(orderDocument.internalNotes,/Boleto 28 dias/);
+ await beginConversion({confirmation:{paymentConfirmed:true,payment:'1',approver:'Outro'},id:request,proposalId:p.id,version:saved.version},'planner',deps);
+ assert.equal((await getProposal(p.id)).document.payment,'2');
+ assert.equal((await db.query<any>("SELECT count(*)::int n FROM crm_events WHERE proposal_id=$1 AND action='proposal_payment_changed'",[p.id])).rows[0].n,1);
  await assert.rejects(saveOpportunity({id:opportunity.id,version:opportunity.version,typeId:man.id,customerId:10,company:1,title:'Manutenção Cliente',status:'lost'},'planner'),/pedido criado ou em andamento/);
  await continueConversion({id:request,action:'advance'},'planner',deps);assert.equal(writes,1);
  await continueConversion({id:request,action:'advance'},'planner',deps);assert.equal(writes,1);
@@ -172,6 +203,25 @@ test('CRM persists local opportunities and proposals and safely links conversion
  assert.equal(savedByReviewer.updated_by,'reviewer');
  const savedByAdmin=await saveProposal({id:accessProposal.id,version:savedByReviewer.version,draft:emptyDraft()},'review-admin');
  assert.equal(savedByAdmin.updated_by,'review-admin');
+
+ // Opportunity clocks follow effective stage transitions, including closing and reopening.
+ const clockInput={id:randomUUID(),typeId:man.id,customerId:10,company:1,title:'Relógio oportunidade',commercial:{stage:'prospecting'}};
+ let clockOp=await saveOpportunity(clockInput,'planner');
+ await db.query("UPDATE crm_opportunities SET created_at='2026-01-01T00:00:00Z' WHERE id=$1",[clockOp.id]);
+ clockOp=await saveOpportunity({...clockInput,version:clockOp.version,title:'Título editado'},'planner');
+ assert.equal(new Date((await getOpportunity(clockOp.id)).stage_since).toISOString(),'2026-01-01T00:00:00.000Z');
+ clockOp=await saveOpportunity({...clockInput,version:clockOp.version,commercial:{stage:'negotiation'}},'planner');
+ await db.query("UPDATE crm_events SET created_at='2026-01-03T00:00:00Z' WHERE opportunity_id=$1 AND action='opportunity_updated'",[clockOp.id]);
+ clockOp=await saveOpportunity({...clockInput,version:clockOp.version,commercial:{stage:'negotiation',amount:'100'}},'planner');
+ assert.equal(new Date((await getOpportunity(clockOp.id)).stage_since).toISOString(),'2026-01-03T00:00:00.000Z');
+ const clockListed=(await listCrm('opportunities')).rows.find((r:any)=>r.id===clockOp.id);
+ assert.equal(new Date(clockListed.stage_since).toISOString(),'2026-01-03T00:00:00.000Z');
+ clockOp=await saveOpportunity({...clockInput,version:clockOp.version,status:'cancelled'},'planner');
+ const closedSince=(await getOpportunity(clockOp.id)).stage_since;
+ clockOp=await saveOpportunity({...clockInput,version:clockOp.version,status:'cancelled',commercial:{stage:'qualification'}},'planner');
+ assert.equal(new Date((await getOpportunity(clockOp.id)).stage_since).getTime(),new Date(closedSince).getTime());
+ clockOp=await saveOpportunity({...clockInput,version:clockOp.version,status:'open'},'planner');
+ assert.ok(new Date((await getOpportunity(clockOp.id)).stage_since).getTime()>=new Date(closedSince).getTime());
 
  assert.throws(()=>proposalDraft({...emptyDraft(),items:[{kind:'material',code:'1',name:'x',quantity:'-1',price:'5'}]}));
  }finally{g.historyPool=old;await db.close();}

@@ -1,5 +1,5 @@
 import {assignOrderSeparation,warehouseResponsible} from './process-task';
-import {orderConfirmation} from './order-confirmation';
+import {orderConfirmation,currentProposalDocument} from './order-confirmation';
 import {missingProposalFields,proposalFieldNames} from './proposal-required';
 import {priceReview} from './price-approval';
 import {proposalOrderDraft} from './financials';
@@ -48,8 +48,17 @@ export async function beginConversion(raw:any,actor:string,deps=defaults){
  if(p.status==='won')throw new CrmError('Esta proposta já foi concretizada.');
  const sent=workflow.state==='sent'?(await c.query('SELECT document FROM crm_proposal_sent_revisions WHERE proposal_id=$1 AND revision=$2',[proposal,workflow.revision])).rows[0]:null;
  if(workflow.state==='sent'&&!sent)throw new CrmError('A versão enviada não está disponível para gerar a OS.');
- const draft=proposalDraft(sent?.document ?? p.document);
- const confirmation=orderConfirmation(raw.confirmation,draft.payment);
+ const draft=proposalDraft(currentProposalDocument(p.document,sent?.document));
+ const previousPayment=draft.payment;
+ const confirmation=orderConfirmation(raw.confirmation,String(raw.confirmation?.payment||''));
+ let paymentDocument:any=null;
+ if(confirmation.payment!==previousPayment){
+  const payment=(await c.query("SELECT id::text,name FROM service_order_registries WHERE kind='payment-terms' AND id::text=$1 AND active",[confirmation.payment])).rows[0];
+  if(!payment)throw new CrmError('Selecione uma condição de pagamento ativa.');
+  draft.payment=String(payment.id);
+  draft.commercial={...draft.commercial,paymentName:payment.name};
+  paymentDocument={...p.document,payment:draft.payment,commercial:{...p.document.commercial,paymentName:payment.name}};
+ }
  const confirmationNotes=`Pedido aprovado por: ${confirmation.approver}\nCondição de pagamento confirmada: ${draft.commercial?.paymentName || draft.payment}${confirmation.notes ? '\nObservações adicionais do pedido: '+confirmation.notes : ''}`;
  draft.internalNotes=[draft.internalNotes,confirmationNotes].filter(Boolean).join('\n\n');
  if(draft.internalNotes.length>20000)throw new CrmError('As observações internas do pedido excedem 20.000 caracteres.');
@@ -62,6 +71,10 @@ export async function beginConversion(raw:any,actor:string,deps=defaults){
  if(missing.length)throw new CrmError('Preencha os campos obrigatórios: '+missing.map(key=>proposalFieldNames[key]).join(', ')+'.');
  if(mapping.equipment_required !== false && !draft.equipment)throw new CrmError('Preencha o equipamento antes de gerar a OS.');
  await warehouseResponsible(c);
+ if(paymentDocument){
+  await c.query('UPDATE crm_proposals SET document=$2::jsonb WHERE id=$1',[proposal,JSON.stringify(paymentDocument)]);
+  await c.query("INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,'proposal_payment_changed',$4::jsonb)",[p.opportunity_id,proposal,actor,JSON.stringify({before:previousPayment,after:draft.payment,paymentName:draft.commercial?.paymentName,source:'order_confirmation'})]);
+ }
  const created=(await c.query('INSERT INTO crm_order_links(id,proposal_id,company_id,submission_id,document,actor) VALUES($1,$2,$3,$1,$4::jsonb,$5) RETURNING *',[id,proposal,draft.company,JSON.stringify(draft),actor])).rows[0];
  await c.query("UPDATE crm_proposals SET status='converting',version=version+1,updated_by=$2,updated_at=now() WHERE id=$1",[proposal,actor]);
  await c.query(`INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,'conversion_requested',$4::jsonb)`,[p.opportunity_id,proposal,actor,JSON.stringify({link:id,type:draft.type,confirmation})]);
