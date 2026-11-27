@@ -1,4 +1,5 @@
 "use client";
+import ModuleHeaderActions from "./module-header-actions";
 import OrderCommentsReport from "./order-comments-report";
 import ActionNotice from "./action-notice";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -172,14 +173,14 @@ export default function SalesProjection({
             >
               <Download size={16} /> Exportar
             </button>
-            <button
+            <ModuleHeaderActions><button title="Atualizar"
               className="button primary"
               onClick={() => setRefresh((v) => v + 1)}
               disabled={loading}
             >
               <RefreshCw size={16} className={loading ? "sp-spin" : ""} />{" "}
               Atualizar
-            </button>
+            </button></ModuleHeaderActions>
           </div>
         </div>
         <CommercialPeriodFilter

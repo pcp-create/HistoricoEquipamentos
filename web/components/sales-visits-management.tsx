@@ -1,4 +1,5 @@
 "use client";
+import ModuleHeaderActions from "./module-header-actions";
 import VisitLeadSeller from "./visit-lead-seller";
 import ActionNotice from "./action-notice";
 import {visitCalendarDay} from "@/lib/visits/calendar-day";
@@ -281,7 +282,7 @@ export default function SalesVisitsManagement() {
           <div className="sales-actions">
             <button className="sales-primary sales-management-create" onClick={()=>openVisit("schedule")}><Plus size={18}/>Agendar visita</button>
             <button disabled={!online} onClick={()=>openVisit("history")}>Registrar visita realizada</button>
-            <Link href="/visitas/gestao/configuracoes" title="Configurações de Visitas" aria-label="Configurações de Visitas"><Settings size={20}/></Link>
+            <ModuleHeaderActions><Link href="/visitas/gestao/configuracoes" title="Configurações de Visitas" aria-label="Configurações de Visitas"><Settings size={20}/></Link></ModuleHeaderActions>
           </div>
         </header>
         {error && (

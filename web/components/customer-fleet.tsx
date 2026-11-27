@@ -1,4 +1,5 @@
 "use client";
+import ModuleHeaderActions from "./module-header-actions";
 import ActionNotice from "./action-notice";
 import ReportBrandFooter from "./report-brand-footer";
 import EquipmentCreateDialog from "./equipment-create-dialog";
@@ -145,14 +146,14 @@ export default function CustomerFleet() {
           </div>
           <div className="fleet-toolbar">
             <button type="button" disabled={openingEquipment} onClick={()=>void openEquipment()}><Plus size={17}/>{openingEquipment?"Consultando equipamentos…":"Cadastrar / incluir equipamento"}</button>
-            <button
+            <ModuleHeaderActions><button
               disabled={loading || !client}
               aria-label="Atualizar painel"
               title="Atualizar painel"
               onClick={() => setRefresh((x) => x + 1)}
             >
               <RefreshCw size={18} />
-            </button>
+            </button></ModuleHeaderActions>
             <button disabled={loading || !data} onClick={() => window.print()}>
               <Printer size={17} />
               Imprimir painel

@@ -19,10 +19,17 @@ export async function catalogs(){
  return {opportunityTypes:o.rows,proposalTypes:p.rows,orderTypes:m.rows};
 }
 export async function crmOverview(){
- const r=(await database().query(`SELECT (SELECT count(*)::int FROM crm_opportunities) opportunities,(SELECT count(*)::int FROM crm_proposals) proposals,
+ const r=(await database().query(`SELECT (SELECT count(*)::int FROM web_sales_leads) leads,(SELECT count(DISTINCT person_id)::int FROM m8_customer_directory) customers,(SELECT count(*)::int FROM crm_opportunities) opportunities,(SELECT count(*)::int FROM crm_proposals) proposals,
  (SELECT count(*)::int FROM crm_order_links WHERE order_id IS NOT NULL) orders,
  (SELECT count(DISTINCT p.opportunity_id)::int FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id WHERE l.order_id IS NOT NULL) converted`)).rows[0];
- return {...r,conversion:conversionRate(r.opportunities,r.converted)};
+ const [visits,funnel]=await Promise.all([
+ database().query("SELECT count(*) FILTER (WHERE status='scheduled')::int scheduled,count(*) FILTER (WHERE status='completed')::int completed FROM web_sales_visits"),
+ database().query(`SELECT stage,count(*)::int count FROM (
+ SELECT CASE WHEN EXISTS(SELECT 1 FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id WHERE p.opportunity_id=o.id AND l.order_id IS NOT NULL) THEN 'won'
+ WHEN o.status<>'open' THEN o.status ELSE COALESCE(NULLIF(o.commercial->>'stage',''),'prospecting') END stage FROM crm_opportunities o
+ ) stages GROUP BY stage`)
+ ]);
+ return {...r,visits:visits.rows[0],funnel:funnel.rows,conversion:conversionRate(r.opportunities,r.converted)};
 }
 export async function listCrm(kind:string,q='',page=1,status=''){
  if(!['opportunities','proposals','orders'].includes(kind)||!Number.isSafeInteger(page)||page<1||page>100000)throw new CrmError('Consulta inválida.');

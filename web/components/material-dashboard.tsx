@@ -1,4 +1,5 @@
 "use client";
+import ModuleHeaderActions from "./module-header-actions";
 import ActionNotice from "./action-notice";
 import { apiFetch, clearApiCache } from "@/lib/client-api-cache";
 import { companyName } from "@/lib/company-names";
@@ -219,7 +220,7 @@ export default function MaterialDashboard() {
               base no histórico das OS.
             </p>
           </div>
-          <button
+          <ModuleHeaderActions><button title="Atualizar"
             className="button refresh-button"
             disabled={loading}
             onClick={() => {
@@ -229,7 +230,7 @@ export default function MaterialDashboard() {
           >
             <RefreshCw size={16} className={loading ? "spin" : ""} />
             Atualizar análise
-          </button>
+          </button></ModuleHeaderActions>
         </div>
         <MaterialLookup />
         <form className="filter-panel analysis-filters" onSubmit={apply}>

@@ -1,4 +1,5 @@
 "use client";
+import ModuleHeaderActions from "./module-header-actions";
 import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -6,6 +7,7 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import {
   Users,
+  LoaderCircle,
   FileText,
   ClipboardList,
   TrendingUp,
@@ -22,8 +24,11 @@ import {
   CircleX,
   List,
   Columns3,
+  SlidersHorizontal,
+  Settings,
 } from "lucide-react";
 import SiteHeader from "./site-header";
+import CrmEmailSettings from "./crm-email-settings";
 import ContactDeleteButton from "./contact-delete-button";
 import ContactJobEditor from "./contact-job-editor";
 import OrderDetailLink from "./order-detail-link";
@@ -33,6 +38,7 @@ import { contactJobLabel } from "@/lib/contact-job-label";
 import { crmApi, crmStatus, crmMoney, crmDate } from "./crm-api";
 import "./crm.css";
 const crmTabs = [
+  ["overview", "Visão geral"],
   ["leads", "Leads"],
   ["customers", "Clientes"],
   ["contacts", "Contatos"],
@@ -55,14 +61,40 @@ export default function Crm() {
     [kind, setKind] = useState(
       crmTabs.some(([key]) => key === params.get("tab"))
         ? params.get("tab")!
-        : "opportunities",
+        : "overview",
     ),
     [q, setQ] = useState(""),
     [search, setSearch] = useState(""),
     [status, setStatus] = useState(""),
     [page, setPage] = useState(1),
     [refresh, setRefresh] = useState(0);
+  const [emailSettings, setEmailSettings] = useState<any>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  useEffect(() => {
+    let active = true;
+    crmApi("?proposalEmailSettings=1")
+      .then((value) => { if (active) setEmailSettings(value); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [views, setViews] = useState<Record<string, "list" | "kanban">>({});
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("crm-view-preferences") || "{}");
+      const restored: Record<string, "list" | "kanban"> = {};
+      for (const key of ["opportunities", "proposals"]) {
+        if (saved?.[key] === "list" || saved?.[key] === "kanban") restored[key] = saved[key];
+      }
+      setViews(restored);
+    } catch {}
+  }, []);
+  function selectView(view: "list" | "kanban") {
+    const next = {...views, [kind]: view};
+    setViews(next);
+    setPage(1);
+    try { localStorage.setItem("crm-view-preferences", JSON.stringify(next)); } catch {}
+  }
   const kanban = ["opportunities", "proposals"].includes(kind) && views[kind] === "kanban";
   const [result, setResult] = useState<any>(null),
     [overview, setOverview] = useState<any>(null),
@@ -72,6 +104,7 @@ export default function Crm() {
     [opportunity, setOpportunity] = useState<any>(null),
     [contact, setContact] = useState<any>(null);
   useEffect(() => {
+    if (kind === "overview") { setLoading(false); return; }
     const c = new AbortController();
     setLoading(true);
     setError("");
@@ -103,19 +136,19 @@ export default function Crm() {
   }, [kind, search, status, page, refresh, kanban]);
   useEffect(() => {
     const c = new AbortController();
-    Promise.all([
-      crmApi("?overview=1", undefined, c.signal),
-      crmApi("?catalogs=1", undefined, c.signal),
-    ])
-      .then(([o, cat]) => {
-        setOverview(o);
-        setCatalog(cat);
-      })
-      .catch((e) => {
-        if (!c.signal.aborted) setError(e.message);
-      });
+    crmApi("?catalogs=1", undefined, c.signal)
+      .then(setCatalog)
+      .catch((e) => { if (!c.signal.aborted) setError(e.message); });
     return () => c.abort();
   }, [refresh]);
+  useEffect(() => {
+    if (kind !== "overview") return;
+    const c = new AbortController();
+    crmApi("?overview=1", undefined, c.signal)
+      .then((data) => { if (!c.signal.aborted) setOverview(data); })
+      .catch((e) => { if (!c.signal.aborted) setError(e.message); });
+    return () => c.abort();
+  }, [kind, refresh]);
   async function open(id: string) {
     setError("");
     try {
@@ -128,20 +161,33 @@ export default function Crm() {
     const id = params.get("opportunity");
     if (id) void open(id);
   }, [params]);
+  function selectTab(key: string) {
+    setKind(key);
+    setFiltersOpen(false);
+    setStatus("");
+    setPage(1);
+    setResult(null);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", key);
+    window.history.replaceState(null, "", url);
+  }
   const stats = [
-    ["Oportunidades", overview?.opportunities, Target, "Registradas no CRM"],
-    ["Propostas", overview?.proposals, FileText, "Propostas comerciais locais"],
+    ["Clientes", overview?.customers, Building2, "Clientes únicos na base M8", "customers"],
+    ["Oportunidades", overview?.opportunities, Target, "Registradas no CRM", "opportunities"],
+    ["Propostas", overview?.proposals, FileText, "Propostas comerciais locais", "proposals"],
     [
       "Pedidos de Venda (OSs)",
       overview?.orders,
       ClipboardList,
       "OSs vinculadas às propostas",
+      "orders",
     ],
     [
       "Taxa de conversão",
       overview ? overview.conversion.toLocaleString("pt-BR") + "%" : undefined,
       TrendingUp,
       `${overview?.converted ?? 0} oportunidades convertidas`,
+      "opportunities",
     ],
   ] as const;
   const directory = ["leads", "customers", "contacts"].includes(kind);
@@ -150,36 +196,58 @@ export default function Crm() {
     <>
       <SiteHeader active="crm" />
       <main className="main crm-main">
-        <header className="crm-heading">
-          <div>
-            <div className="eyebrow">COMERCIAL</div>
-            <h1>CRM</h1>
-            <p>Relacionamentos, oportunidades e propostas em um só lugar.</p>
-          </div>
-          <div className="crm-actions">
-            <button
+            {emailSettings && (
+              <ModuleHeaderActions><button title="Configurações" type="button" className="button" onClick={() => setSettingsOpen(true)}>
+                <Settings size={16} />
+                Configurações
+              </button></ModuleHeaderActions>
+            )}
+            <ModuleHeaderActions><button title="Atualizar"
               className="button"
               disabled={loading}
               onClick={() => setRefresh((n) => n + 1)}
             >
               <RefreshCw size={16} />
               Atualizar
-            </button>
-            {kind === "opportunities" && (
+            </button></ModuleHeaderActions>
+
+        <section className="results-panel crm-workspace">
+          <nav
+            className="view-tabs app-section-tabs"
+            aria-label="Abas do CRM"
+          >
+            {crmTabs.map(([key, label]) => (
               <button
-                className="button primary"
-                disabled={!catalog}
-                onClick={() => setOpportunity({})}
+                type="button"
+                key={key}
+                className={kind === key ? "active" : ""}
+                aria-pressed={kind === key}
+                onClick={() => selectTab(key)}
               >
-                <Plus size={16} />
-                Nova oportunidade
+                {key === "overview" ? <TrendingUp size={17} aria-hidden="true" />
+                  : key === "leads" ? <UserPlus size={17} aria-hidden="true" />
+                  : key === "customers" ? <Building2 size={17} aria-hidden="true" />
+                  : key === "contacts" ? <ContactRound size={17} aria-hidden="true" />
+                  : key === "opportunities" ? <Target size={17} aria-hidden="true" />
+                  : key === "proposals" ? <FileText size={17} aria-hidden="true" />
+                  : <ClipboardList size={17} aria-hidden="true" />}
+                <span>{label}</span>
               </button>
-            )}
-          </div>
-        </header>
+            ))}
+          </nav>
+          {kind === "overview" ? <section className="crm-overview" aria-label="Visão geral do CRM">
+            <h2>Visão geral</h2>
+            {error && <ActionNotice type="error" onClose={() => setError("")}>{error}</ActionNotice>}
+        <div className="crm-overview-layout">
         <section className="stats" aria-label="Resumo do CRM">
-          {stats.map(([label, value, Icon, note]) => (
-            <article className="stat" key={label}>
+          {stats.map(([label, value, Icon, note, target]) => (
+            <a className="stat crm-stat-link" key={label} href={`/crm?tab=${target}`} onClick={(event) => {
+              if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+              event.preventDefault();
+              setQ("");
+              setSearch("");
+              selectTab(target);
+            }}>
               <div className="stat-top">
                 <span>{label}</span>
                 <span className="stat-icon">
@@ -194,69 +262,60 @@ export default function Crm() {
                     : value}
               </strong>
               <small>{note}</small>
-            </article>
+            </a>
           ))}
         </section>
-        <section className="results-panel crm-workspace">
-          <nav
-            className="view-tabs app-section-tabs"
-            aria-label="Listas do CRM"
-          >
-            {crmTabs.map(([key, label]) => (
-              <button
-                type="button"
-                key={key}
-                className={kind === key ? "active" : ""}
-                aria-pressed={kind === key}
-                onClick={() => {
-                  setKind(key);
-                  setStatus("");
-                  setPage(1);
-                  setResult(null);
-                  const url = new URL(window.location.href);
-                  url.searchParams.set("tab", key);
-                  window.history.replaceState(null, "", url);
-                }}
-              >
-                {key === "leads" ? <UserPlus size={17} aria-hidden="true" />
-                  : key === "customers" ? <Building2 size={17} aria-hidden="true" />
-                  : key === "contacts" ? <ContactRound size={17} aria-hidden="true" />
-                  : key === "opportunities" ? <Target size={17} aria-hidden="true" />
-                  : key === "proposals" ? <FileText size={17} aria-hidden="true" />
-                  : <ClipboardList size={17} aria-hidden="true" />}
-                <span>{label}</span>
-              </button>
-            ))}
-          </nav>
+            <section className="crm-sales-funnel" aria-label="Funil de vendas">
+              <h2>Funil de vendas</h2>
+              <p>Da atividade comercial à venda · todos os períodos</p>
+              <ol className="crm-funnel-chart" aria-label="Etapas do funil comercial">
+                {[
+                  ["Visitas realizadas", overview?.visits?.completed, "/visitas/gestao"],
+                  ["Leads", overview?.leads, "/crm?tab=leads"],
+                  ["Oportunidades", overview?.opportunities, "/crm?tab=opportunities"],
+                  ["Vendas", overview?.converted, "/crm?tab=orders"],
+                ].map(([label, count, href]) => (
+                  <li key={label}>
+                    <Link href={href}>
+                      <span>{label}</span>
+                      <strong>{count === undefined ? "—" : Number(count).toLocaleString("pt-BR")}</strong>
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+              <p className="crm-funnel-caption">Vendas = oportunidades com OS criada. Os totais são independentes; o formato ilustra as etapas e não representa uma proporção ou conversão entre visitas e leads.</p>
+            </section>
+            </div>
+            <p className="data-note">Conversão = oportunidades com ao menos uma OS criada ÷ total de oportunidades. Uma oportunidade é contada uma única vez.</p>
+          </section> : <>
           <div className="crm-list-heading">
             <div>
               <h2>{crmTabs.find(([key]) => key === kind)?.[1]}</h2>
-              <span>
-                {loading
-                  ? "Carregando…"
-                  : `${count.toLocaleString("pt-BR")} registros`}
-              </span>
+              {!loading && <span>{count.toLocaleString("pt-BR")} registros</span>}
             </div>
-            {["opportunities", "proposals"].includes(kind) && <div className="crm-view-switch" role="group" aria-label="Visualização">
-              <button type="button" className="button" aria-pressed={!kanban} onClick={() => {setViews(v => ({...v, [kind]: "list"})); setPage(1);}}><List size={16}/> Lista</button>
-              <button type="button" className="button" aria-pressed={kanban} onClick={() => {setViews(v => ({...v, [kind]: "kanban"})); setPage(1);}}><Columns3 size={16}/> Kanban</button>
-            </div>}
-            {directory && (
-              <Link className="button" href="/visitas">
-                Abrir visitas e cadastros
-              </Link>
+
+            {kind === "opportunities" && (
+              <button
+                className="button primary"
+                disabled={!catalog}
+                onClick={() => setOpportunity({})}
+              >
+                <Plus size={16} />
+                <span className="crm-create-full">Nova oportunidade</span><span className="crm-create-short">Nova</span>
+              </button>
             )}
+
           </div>
           <form
-            className="crm-filter"
+            className={`crm-filter${filtersOpen ? " crm-filter-open" : ""}`}
             onSubmit={(e) => {
               e.preventDefault();
               setSearch(q);
               setPage(1);
             }}
           >
-            <label>
-              Pesquisar
+            <label className="crm-search-field" id="crm-search-field">
+              <span>Pesquisar</span>
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
@@ -268,9 +327,10 @@ export default function Crm() {
               />
             </label>
             {!directory && (
-              <label>
+              <label className="crm-status-filter" id="crm-status-filter">
                 Status
                 <select
+                  aria-label="Status"
                   value={status}
                   onChange={(e) => {
                     setStatus(e.target.value);
@@ -300,16 +360,27 @@ export default function Crm() {
                 </select>
               </label>
             )}
-            <button className="button" type="submit">
+            <button className="button crm-search-submit" type="submit" aria-label="Pesquisar" title="Pesquisar">
               <Search size={16} />
-              Pesquisar
+              <span>Pesquisar</span>
             </button>
+            <div className="crm-filter-actions">
+            {<button type="button" className="button crm-filter-toggle" aria-expanded={filtersOpen} aria-controls={directory ? "crm-search-field" : "crm-search-field crm-status-filter"} onClick={() => setFiltersOpen(value => !value)}>
+              <SlidersHorizontal size={16}/><span>Filtros{(status || search) ? ` (${Number(Boolean(status)) + Number(Boolean(search))})` : ""}</span>
+            </button>}
+            {["opportunities", "proposals"].includes(kind) && <div className="crm-view-switch" role="group" aria-label="Visualização">
+              <button type="button" className="button" aria-pressed={!kanban} onClick={() => selectView("list")}><List size={16}/> Lista</button>
+              <button type="button" className="button" aria-pressed={kanban} onClick={() => selectView("kanban")}><Columns3 size={16}/> Kanban</button>
+            </div>}
+            </div>
           </form>
           {error && (
             <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>
           )}
           {loading ? (
-            <p role="status">Carregando CRM…</p>
+            <div className="crm-records crm-loading" role="status" aria-label="Carregando registros">
+              <LoaderCircle size={30} aria-hidden="true" />
+            </div>
           ) : (
             <>
               {kanban ? <CrmKanban kind={kind} rows={result?.rows || []} open={open}/> : <>
@@ -521,6 +592,7 @@ export default function Crm() {
                             <td>{row.phone || "—"}</td>
                             <td>{row.email || "—"}</td>
                             <td>
+                              <div className="crm-contact-actions">
                               <button
                                 className="button"
                                 aria-label={`Editar contato ${row.name}`}
@@ -529,7 +601,8 @@ export default function Crm() {
                               >
                                 <Pencil size={15} />
                               </button>
-                              <ContactDeleteButton customer={row.customer_key} contact={row} onDeleted={()=>setRefresh(n=>n+1)}/>
+                              <ContactDeleteButton iconOnly className="button crm-contact-delete" customer={row.customer_key} contact={row} onDeleted={()=>setRefresh(n=>n+1)}/>
+                              </div>
                             </td>
                           </>
                         ) : (
@@ -597,12 +670,12 @@ export default function Crm() {
               </>}
             </>
           )}
+          </>}
         </section>
-        <p className="data-note">
-          Conversão = oportunidades com ao menos uma OS criada ÷ total de
-          oportunidades. Uma oportunidade é contada uma única vez.
-        </p>
       </main>
+      {settingsOpen && (
+        <CrmEmailSettings initial={emailSettings} onClose={() => setSettingsOpen(false)} onSaved={setEmailSettings} />
+      )}
       {contact && (
         <ContactJobEditor
           customer={contact.customer_key}
@@ -646,14 +719,14 @@ function CrmKanban({kind, rows, open}: {kind: string; rows: any[]; open: (id: st
         <header><h3>{label}</h3><span>{items.length}</span></header>
         <div className="crm-kanban-cards">
           {items.map(row => <article className="crm-kanban-card" key={row.id}>
-            {proposals ? <Link href={"/crm/propostas/" + row.id}>PROP-{row.number} · {row.title}</Link> : <button className="crm-record-link" onClick={() => void open(row.id)}>OP-{row.number} · {row.title}</button>}
+            {proposals ? <Link className="crm-kanban-proposal-link" href={"/crm/propostas/" + row.id}>PROP-{row.number} · {row.title}</Link> : <button className="crm-record-link" onClick={() => void open(row.id)}>OP-{row.number} · {row.title}</button>}
             <p>{row.customer_name || "Cliente não informado"}</p>
             {proposals && row.equipment_name && <small>{row.equipment_name}</small>}
             <strong>{proposals ? crmMoney(row.total_cents) : row.commercial?.amount ? crmMoney(Math.round(Number(row.commercial.amount) * 100)) : "Valor não informado"}</strong>
             <small>{row.type_name}</small>
             {!proposals && <small>{row.owner_name || row.created_by} · Previsão: {day(row.commercial?.closeDate)}</small>}
-            {proposals && <button className="crm-record-link" onClick={() => void open(row.opportunity_id)}>OP-{row.opportunity_number}</button>}
-            {proposals && row.order_id && <OrderDetailLink id={String(row.order_id)} company={row.order_company_id}>OS-{row.order_id}</OrderDetailLink>}
+            {proposals && <small>Oportunidade OP-{row.opportunity_number}</small>}
+            {proposals && row.order_id && <span className="crm-kanban-secondary-link"><OrderDetailLink id={String(row.order_id)} company={row.order_company_id}>OS-{row.order_id}</OrderDetailLink></span>}
           </article>)}
           {!items.length && <p className="crm-kanban-empty">Nenhum registro</p>}
         </div>

@@ -1,4 +1,5 @@
 "use client";
+import ModuleHeaderActions from "./module-header-actions";
 import ActionNotice from "./action-notice";
 import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
@@ -501,13 +502,13 @@ export default function BillingEvolution() {
             </p>
           </div>
           <div className="be-actions">
-            <button
+            <ModuleHeaderActions><button title="Atualizar"
               onClick={() => setRevision((value) => value + 1)}
               disabled={loading}
             >
               <RefreshCw size={16} className={loading ? "be-spinning" : ""} />
               Atualizar
-            </button>
+            </button></ModuleHeaderActions>
             <button
               className="be-primary"
               disabled={!data || !rows.length}

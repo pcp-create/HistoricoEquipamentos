@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
-import { ChevronDown, Download, FileText, Receipt } from "lucide-react";
+import { ChevronDown, FileText, Receipt } from "lucide-react";
 
 /** Fiscal setup is resolved server-side from the proposal type catalog. */
 export default function CrmProposalPdf({
@@ -73,11 +73,12 @@ export default function CrmProposalPdf({
           if (!event.currentTarget.contains(event.relatedTarget as Node)) setOptions(false);
         }}>
         <button ref={exportButton} type="button" className="button crm-pdf-export-trigger"
+          aria-label={busy ? "Preparando PDF" : proposal.workflow?.state === 'sent' ? "PDF enviado" : "Exportar PDF"}
           disabled={disabled || busy} aria-expanded={options} aria-controls={optionsId}
           title={disabled ? "Salve a proposta para gerar o PDF atualizado." : undefined}
           onClick={() => proposal.workflow?.state === 'sent' ? void generate(true) : setOptions(value => !value)}>
-          <Download size={18} aria-hidden="true" />
-          {busy ? "Preparando PDF…" : proposal.workflow?.state === 'sent' ? "PDF enviado" : "Exportar PDF"}
+          <span className="crm-pdf-file-icon" aria-hidden="true"><FileText size={22}/><b>PDF</b></span>
+          <span className="crm-top-action-label">{busy ? "Preparando PDF…" : proposal.workflow?.state === 'sent' ? "PDF enviado" : "Exportar PDF"}</span>
           {proposal.workflow?.state !== 'sent' && <ChevronDown size={15} aria-hidden="true" />}
         </button>
         {options && <div id={optionsId} className="crm-pdf-export-options" role="group" aria-label="Opções de exportação">

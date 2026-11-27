@@ -1,4 +1,5 @@
 "use client";
+import ModuleHeaderActions from "./module-header-actions";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   CalendarDays,
@@ -295,13 +296,13 @@ export default function UnifiedCalendar({
         <button type="button" onClick={() => setDay(calendarDay())}>
           Hoje
         </button>
-        <button
+        <ModuleHeaderActions><button title="Atualizar"
           type="button"
           aria-label="Atualizar calendário"
           onClick={() => setRetry((r) => r + 1)}
         >
           <RefreshCw size={16} />
-        </button>
+        </button></ModuleHeaderActions>
         <div aria-label="Período do calendário">
           {(["month", "week", "day"] as const).map((mode) => (
             <button

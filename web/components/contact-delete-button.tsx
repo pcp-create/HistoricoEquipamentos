@@ -7,11 +7,15 @@ export default function ContactDeleteButton({
   contact,
   onDeleted,
   disabled = false,
+  iconOnly = false,
+  className,
 }: {
   customer: string;
   contact: any;
   onDeleted: () => void;
   disabled?: boolean;
+  iconOnly?: boolean;
+  className?: string;
 }) {
   const sending = useRef(false);
   const [busy, setBusy] = useState(false),
@@ -53,6 +57,9 @@ export default function ContactDeleteButton({
     <>
       <button
         type="button"
+        className={className}
+        title={busy ? "Excluindo contato…" : "Excluir contato"}
+        aria-busy={busy}
         disabled={disabled || busy}
         aria-label={"Excluir contato " + contact.name}
         onClick={(e) => {
@@ -62,7 +69,7 @@ export default function ContactDeleteButton({
         }}
       >
         <Trash2 size={15} />
-        {busy ? "Excluindo…" : "Excluir"}
+        {!iconOnly && (busy ? "Excluindo…" : "Excluir")}
       </button>
       {error && <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
     </>

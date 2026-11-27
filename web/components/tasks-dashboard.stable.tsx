@@ -1,4 +1,5 @@
 "use client";
+import ModuleHeaderActions from "./module-header-actions";
 import {useSessionAccess} from "./session-access";
 import ActionNotice from "./action-notice";
 import TaskNoteDescription from "./task-note-description";
@@ -1134,7 +1135,7 @@ export default function TasksDashboard() {
             <small>Última verificação: {date(data?.syncedAt)}</small>
           </div>
           <div className="task-heading-actions">
-            <button
+            <ModuleHeaderActions><button
               type="button"
               className="task-settings-button"
               aria-label={
@@ -1147,7 +1148,7 @@ export default function TasksDashboard() {
               onClick={() => setTab(tab === "settings" ? "tasks" : "settings")}
             >
               <Settings size={20} />
-            </button>
+            </button></ModuleHeaderActions>
             <button
               type="button"
               className="task-new-button"

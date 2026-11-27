@@ -1,4 +1,5 @@
 "use client";
+import ModuleHeaderActions from "./module-header-actions";
 import OrderCommentsReport from "./order-comments-report";
 import ActionNotice from "./action-notice";
 import {useOrderCommentOutbox} from "./use-order-comment-outbox";
@@ -399,13 +400,13 @@ export default function CommercialReport({
             <button className="button" onClick={csv} disabled={busy || !data}>
               <Download size={16} /> Exportar
             </button>
-            <button
+            <ModuleHeaderActions><button title="Atualizar"
               className="button primary"
               disabled={busy}
               onClick={() => setRefresh((x) => x + 1)}
             >
               <RefreshCw size={16} /> Atualizar
-            </button>
+            </button></ModuleHeaderActions>
           </div>
         </div>
         {data && <CommercialUpdateStatus ordersUpdatedAt={data.ordersUpdatedAt} updatedAt={data.updatedAt} />}

@@ -1,7 +1,7 @@
 "use client";
 import {useLayoutEffect,useRef,type TextareaHTMLAttributes} from 'react';
 
-export default function AutoResizeTextarea(props:TextareaHTMLAttributes<HTMLTextAreaElement>){
+export default function AutoResizeTextarea({manualResize=false,...props}:TextareaHTMLAttributes<HTMLTextAreaElement>&{manualResize?:boolean}){
  const ref=useRef<HTMLTextAreaElement>(null);
  function resize(){
   const element=ref.current;
@@ -22,5 +22,5 @@ export default function AutoResizeTextarea(props:TextareaHTMLAttributes<HTMLText
   observer.observe(element);
   return()=>observer.disconnect();
  },[]);
- return <textarea {...props} ref={ref} style={{...props.style,overflowY:'hidden',resize:'none'}} onChange={event=>{resize();props.onChange?.(event)}}/>;
+ return <textarea {...props} ref={ref} style={{...props.style,overflowY:manualResize?'auto':'hidden',resize:manualResize?'vertical':'none'}} onChange={event=>{resize();props.onChange?.(event)}}/>;
 }

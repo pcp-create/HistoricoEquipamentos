@@ -1,4 +1,5 @@
 "use client";
+import ModuleHeaderActions from "./module-header-actions";
 import ActionNotice from "./action-notice";
 import {matchesSearch} from "@/lib/filters";
 import { apiFetch } from "@/lib/client-api-cache";
@@ -258,9 +259,9 @@ export default function ManufacturerDashboard() {
             </p>
           </div>
         </div>
-        <a className="catalog-settings-link" href="/configuracoes">
+        <ModuleHeaderActions><a title="Configurações" className="catalog-settings-link" href="/configuracoes">
           <Settings size={16} aria-hidden="true" /> Configuração do catálogo
-        </a>
+        </a></ModuleHeaderActions>
         <form
           className="manual-card manual-filters"
           onSubmit={(e) => {

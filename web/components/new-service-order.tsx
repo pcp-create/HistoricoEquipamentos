@@ -1,5 +1,7 @@
 "use client";
 import {equipmentDisplayName} from "@/lib/equipment-display-name";
+import ModuleHeaderActions from "./module-header-actions";
+import AutoResizeTextarea from "./auto-resize-textarea";
 import ActionNotice from "./action-notice";
 import CrmProductCosts from "./crm-product-costs";
 import {validProposalDate,missingProposalFields,proposalFieldNames} from '@/lib/crm/proposal-required';
@@ -74,7 +76,7 @@ export default function NewServiceOrder({
   editing, returnTo, proposal,
 }: { returnTo?: string; editing?: { company: string; id: string }; proposal?: {
  id:string;leadId?:string|null;equipmentRequired?:boolean;title:string;name?:string;createdAt?:string;typeName?:string;draft:OrderDraft;names:{customer:string;equipment:string};orderTypes:string[];locked?:boolean;
- stageActions?:React.ReactNode;productsFocus?:number;itemPriceApprovals?:any[];canApproveItemPrice?:boolean;onApproveItem?:(draft:OrderDraft,names:{customer:string;equipment:string},code:string)=>Promise<void>;activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;canCompleteReview?:boolean;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string},completeReview?:boolean)=>Promise<void>;
+ overviewActions?:React.ReactNode;headerBottomActions?:React.ReactNode;stageActions?:React.ReactNode;productsFocus?:number;itemPriceApprovals?:any[];canApproveItemPrice?:boolean;onApproveItem?:(draft:OrderDraft,names:{customer:string;equipment:string},code:string)=>Promise<void>;activityTools?:React.ReactNode;headerActions?:React.ReactNode;footerActions?:React.ReactNode;saveLabel?:string;canCompleteReview?:boolean;typeControl?:React.ReactNode;orderType?:string;tools?:(validityControl:React.ReactNode)=>React.ReactNode;summaryTools?:React.ReactNode;onDirty?:(dirty:boolean)=>void;onSave:(draft:OrderDraft,names:{customer:string;equipment:string},completeReview?:boolean)=>Promise<void>;
 } } = {}) {
   const [addingEquipment,setAddingEquipment]=useState(false);
   const [attachmentCount,setAttachmentCount]=useState(0);
@@ -491,9 +493,17 @@ export default function NewServiceOrder({
     <>
       <SiteHeader active={proposal?"crm":"history"} />
       <main className={proposal?"new-os crm-proposal-page":"new-os"}>
-        <Link href={returnTo || "/historico"} className="os-back">
-          <ArrowLeft size={16} /> {proposal ? "Voltar ao CRM" : returnTo ? "Voltar às vendas" : "Ordens de Serviço"}
-        </Link>
+        {proposal ? (
+          <ModuleHeaderActions>
+            <Link href="/crm?tab=proposals" className="module-back-action" title="Voltar às propostas" aria-label="Voltar às propostas">
+              <ArrowLeft size={18} /><span>Voltar às propostas</span>
+            </Link>
+          </ModuleHeaderActions>
+        ) : (
+          <Link href={returnTo || "/historico"} className="os-back">
+            <ArrowLeft size={16} /> {returnTo ? "Voltar às vendas" : "Ordens de Serviço"}
+          </Link>
+        )}
         <header>
           <div>
             <div className={proposal?"crm-proposal-title-row":undefined}><h1>
@@ -501,19 +511,21 @@ export default function NewServiceOrder({
                 ? "Editar OS " + (editData?.number || "")
                 : "Nova Ordem de Serviço"}
             </h1>{proposal?.headerActions}</div>
-            <p>
-              {proposal ? proposal.name : editing
+            {!proposal && <p>
+              {editing
                 ? "Revise os dados e salve as alterações na ordem existente."
                 : "Cadastre a ordem no M8 com seus produtos e serviços."}
-            </p>
+            </p>}
             {proposal && (
+              <div className="crm-proposal-overview-card">
               <dl className="crm-proposal-overview" aria-label="Informações da proposta">
                 <div><dt>Cliente</dt><dd>{names.customer || proposal.names.customer || "Não informado"}</dd></div>
                 <div><dt>Equipamento</dt><dd>{equipmentDisplayName(names.equipment) || "Não informado"}</dd></div>
                 <div><dt>Tipo da proposta</dt><dd>{proposal.typeName || "Não informado"}</dd></div>
                 <div><dt>Valor da proposta</dt><dd>{(proposalFinancials(form.items).sale / 100).toLocaleString("pt-BR", {style:"currency",currency:"BRL"})}</dd></div>
-                <div><dt>Validade da proposta</dt><dd>{form.commercial?.validity ?? "15 dias úteis"}</dd></div>
+                <div className="crm-proposal-validity"><dt>Validade da proposta</dt><dd><span>{form.commercial?.validity ?? "15 dias úteis"}</span>{proposal.overviewActions && <div className="crm-proposal-overview-actions">{proposal.overviewActions}</div>}</dd></div>
               </dl>
+              </div>
             )}
           </div>
           {!proposal && <div>
@@ -620,10 +632,11 @@ export default function NewServiceOrder({
         })}/>}
         {proposal?.activityTools}
         {proposal?.stageActions}
+        <div className={proposal ? "crm-proposal-panel" : "os-form-panel"}>
         {proposal&&<nav className="os-tabs crm-proposal-tabs" aria-label="Dados da proposta">{[['header','Cabeçalho'],['material','Produtos'],['service','Serviços'],['attachments','Anexos'],['summary','Resumo geral']].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{key==='header'?<ClipboardList size={18} aria-hidden="true"/>:key==='material'?<Package size={18} aria-hidden="true"/>:key==='service'?<Wrench size={18} aria-hidden="true"/>:key==='attachments'?<Paperclip size={18} aria-hidden="true"/>:<ChartNoAxesCombined size={18} aria-hidden="true"/>}<span>{label}{['material','service'].includes(key)&&` (${form.items.filter(i=>i.kind===key).length})`}{key==='attachments'&&` (${attachmentCount})`}</span></button>)}</nav>}
         {proposal&&<div hidden={tab!=='attachments'}><CrmProposalAttachments proposalId={proposal.id} onCountChange={setAttachmentCount}/></div>}
         {proposal&&<div hidden={tab!=='summary'}>{proposal.summaryTools}</div>}
-        <form onSubmit={submit} onKeyDown={event=>{if(proposal && event.key==='Enter' && event.target instanceof HTMLInputElement && !event.nativeEvent.isComposing)event.preventDefault();}} noValidate>
+        <form className={proposal && tab === "summary" ? "crm-summary-form" : proposal && ["material", "service"].includes(tab) ? "crm-items-form" : undefined} onSubmit={submit} onKeyDown={event=>{if(proposal && event.key==='Enter' && event.target instanceof HTMLInputElement && !event.nativeEvent.isComposing)event.preventDefault();}} noValidate>
           <fieldset
             disabled={
               disabled ||
@@ -820,7 +833,8 @@ export default function NewServiceOrder({
                     <span className="os-field-title">
                       Observações {!editing && <b>*</b>}
                     </span>
-                    <textarea
+                    <AutoResizeTextarea
+                      manualResize
                       required={!editing}
                       maxLength={20000}
                       rows={4}
@@ -832,7 +846,8 @@ export default function NewServiceOrder({
                     <span className="os-field-title">
                       Observações Internas
                     </span>
-                    <textarea
+                    <AutoResizeTextarea
+                      manualResize
                       maxLength={20000}
                       rows={4}
                       value={form.internalNotes}
@@ -929,6 +944,7 @@ export default function NewServiceOrder({
                 </div>
               </details>
             </fieldset>
+              {proposal&&tab==='header'&&proposal.headerBottomActions&&<div className="crm-proposal-header-bottom-actions">{proposal.headerBottomActions}</div>}
               {proposal&&<CrmProposalItems leadId={proposal.leadId||''} approvals={proposal.itemPriceApprovals} canApprove={!!proposal.canApproveItemPrice&&!disabled} onApprove={async code=>{try{await proposal.onApproveItem?.(form,names,code);}catch(e){setError((e as Error).message);}}} draft={form} active={tab==="material"||tab==="service"} kind={tab==="service"?"service":"material"} customer={form.customer} equipment={form.equipment} company={form.company} items={form.items} disabled={disabled||!!proposal.locked} onChange={items=>setForm(f=>({...f,items}))}/>}
             <fieldset disabled={!form.company || Boolean(proposal?.locked)} className="os-form-fields">
               {proposal&&tab==="summary"&&<CrmProposalSummary draft={form} disabled={disabled||!!proposal.locked} onChange={items=>setForm(current=>({...current,items}))}/>}
@@ -1088,6 +1104,7 @@ export default function NewServiceOrder({
             </div>
           </footer>
         </form>
+        </div>
         <details className="os-recent" hidden={Boolean(editing||proposal)}>
           <summary>Meus envios recentes</summary>
           <button type="button" disabled={busy} onClick={() => void load()}>

@@ -3,9 +3,8 @@ import CrmProposalPdf from "./crm-proposal-pdf";
 import CrmProposalDelivery from "./crm-proposal-delivery";
 import CrmProposalEmail from "./crm-proposal-email";
 import OrderDetailLink from "./order-detail-link";
-import CrmEmailSettings from "./crm-email-settings";
 import {canEditProposalReview} from "@/lib/crm/review-access";
-import {CircleX,FileText,Settings,Send,ClipboardList,FilePenLine,ClipboardCheck,CheckCheck} from "lucide-react";
+import {CircleX,FileText,Send,ClipboardList,FilePenLine,ClipboardCheck,CheckCheck} from "lucide-react";
 import ActionNotice from "./action-notice";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -25,8 +24,6 @@ export default function CrmProposal({ id }: { id: string }) {
   const [conversionType,setConversionType]=useState("");
   const [emailOpen,setEmailOpen]=useState(false);
   const [deliveryOpen,setDeliveryOpen]=useState(false);
-  const [emailSettings,setEmailSettings]=useState<any>(null),[settingsOpen,setSettingsOpen]=useState(false);
-  useEffect(()=>{let active=true;crmApi('?proposalEmailSettings=1').then(value=>{if(active)setEmailSettings(value);}).catch(()=>{});return()=>{active=false;};},[]);
   const [reviewOpen,setReviewOpen]=useState(false),[reviewer,setReviewer]=useState(''),[reviewComment,setReviewComment]=useState(''),[reviewUsers,setReviewUsers]=useState<any[]>([]);
   const [reviewPriceWarning,setReviewPriceWarning]=useState<any>(null),[productsFocus,setProductsFocus]=useState(0);
   const [choosingType,setChoosingType]=useState(false);
@@ -132,7 +129,7 @@ export default function CrmProposal({ id }: { id: string }) {
   if (!data || !catalog)
     return (
       <main className="main">
-        <Link href="/crm">Voltar ao CRM</Link>
+        <Link href="/crm?tab=proposals">Voltar às propostas</Link>
         {error ? <ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice> : <p>Carregando proposta…</p>}
       </main>
     );
@@ -152,15 +149,11 @@ export default function CrmProposal({ id }: { id: string }) {
     try{await crmApi('',{action:'cancel-proposal',id,version:data.version});setDirty(false);await load();}
     catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
-  const headerActions=<div className="crm-actions">
-    {data.status==='pending'&&<button type="button" className="button" disabled={busy||pending} onClick={()=>void cancel()}><CircleX size={16}/>Cancelar proposta</button>}
+  const headerActions=<div className="crm-actions crm-proposal-top-actions">
     {data.status==='cancelled'&&<span className="crm-status">Proposta cancelada</span>}
     {data.priceRestorations?.map((r:any)=><div role="alert" key={r.id}><p>Produto {r.product_id}: restauração do mínimo R$ {Number(r.original_price).toFixed(2)} pendente. Confira o item no M8 antes de reenviar.</p>{data.currentUserIsAdmin&&<button type="button" className="button" disabled={busy} onClick={async()=>{setBusy(true);try{if(!window.confirm('Confira que a operação no M8 já terminou. Restaurar o mínimo original sem reenviar o produto?'))return;await crmApi('',{action:'restore-minimum',restorationId:r.id});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Restaurar mínimo do produto</button>}</div>)}
     {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}
     {data.emailAttempt&&<div role="alert"><p>{data.emailAttempt.can_resolve?'Envio sem confirmação. Confira a pasta Enviados do Gmail antes de continuar.':'Envio em andamento. Aguarde e atualize a proposta.'}</p>{data.emailAttempt.can_resolve&&data.emailAttempt.actor===data.currentUser&&<><button type="button" disabled={busy} onClick={async()=>{if(!window.confirm('Confirma que encontrou o e-mail enviado no Gmail?'))return;setBusy(true);try{await crmApi('',{action:'resolve-proposal-email',id,attemptId:data.emailAttempt.id,resolution:'sent',confirmed:true});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Confirmei que foi enviado</button><button type="button" disabled={busy} onClick={async()=>{if(!window.confirm('Confirma que o e-mail não foi enviado? Isso permitirá uma nova tentativa.'))return;setBusy(true);try{await crmApi('',{action:'resolve-proposal-email',id,attemptId:data.emailAttempt.id,resolution:'not_sent',confirmed:true});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Confirmei que não foi enviado</button></>}</div>}
-    {emailSettings&&<button type="button" className="button" onClick={()=>setSettingsOpen(true)}><Settings size={16}/> Configurações</button>}
-    {settingsOpen&&<CrmEmailSettings initial={emailSettings} onClose={()=>setSettingsOpen(false)} onSaved={setEmailSettings}/>}
-    <CrmProposalPdf proposal={data} disabled={changed||busy} locked={locked} onSaved={load} onError={setError}/>
     {deliveryOpen&&<CrmProposalDelivery proposal={data} onClose={()=>setDeliveryOpen(false)} onEmail={()=>{setDeliveryOpen(false);setEmailOpen(true);}} onSent={load}/>}
     {emailOpen&&<ProposalDialog label="Enviar proposta ao cliente" onClose={()=>setEmailOpen(false)}><CrmProposalEmail proposal={data} onClose={()=>setEmailOpen(false)} onSent={load}/></ProposalDialog>}
     {choosingType&&<dialog ref={typeDialog} className="crm-order-type-dialog" aria-label="Selecionar tipo de ordem de serviço" onCancel={()=>setChoosingType(false)}>
@@ -305,13 +298,14 @@ export default function CrmProposal({ id }: { id: string }) {
   return (
     <NewServiceOrder
       key={data.version}
-      returnTo="/crm"
+      returnTo="/crm?tab=proposals"
       proposal={{
         id,
         leadId: data.lead_id,
         equipmentRequired: type?.equipment_required !== false,
         title: "Proposta comercial PROP-" + data.number + (data.workflow?.state&&data.workflow.state!=='creating'?` · Rev.${data.workflow.revision}`:''),
         name: title,
+        headerBottomActions:data.status==='pending'?<button type="button" className="button" disabled={busy||pending} onClick={()=>void cancel()}><CircleX size={16}/>Cancelar proposta</button>:null,
         createdAt: data.created_at,
         typeName: type ? `${type.code} · ${type.name}` : "",
         draft: data.document,
@@ -327,6 +321,7 @@ export default function CrmProposal({ id }: { id: string }) {
         stageActions,
         footerActions:<>{reviewOpen&&<ProposalDialog label="Enviar proposta para revisão" onClose={()=>setReviewOpen(false)}><h2>Enviar para revisão</h2><label>Funcionário<select value={reviewer} onChange={e=>setReviewer(e.target.value)}><option value="">Selecione</option>{reviewUsers.map((u:any)=><option key={u.email} value={u.email}>{u.display_name||u.name||u.email}</option>)}</select></label><label>Comentário<textarea value={reviewComment} maxLength={2000} onChange={e=>setReviewComment(e.target.value)}/></label><div className="crm-actions crm-review-dialog-actions"><button type="button" onClick={()=>setReviewOpen(false)}>Cancelar</button><button type="button" className="crm-review-dialog-submit" disabled={busy||!reviewer} onClick={()=>void requestReview()}>Enviar para revisão</button></div></ProposalDialog>}</>,
         tools,
+        overviewActions:<CrmProposalPdf proposal={data} disabled={changed||busy} locked={locked} onSaved={load} onError={setError}/>,
         headerActions:<>{headerActions}{reviewPriceWarning&&<ProposalDialog label="Concluir revisão com preços pendentes" onClose={()=>setReviewPriceWarning(null)}><h2>{reviewPriceWarning.requiresPriceApproval?'Aprovações pendentes':'Deseja concluir a revisão?'}</h2><p>Possui {reviewPriceWarning.pendingCount} itens abaixo do mínimo ainda para aprovação.</p><div className="crm-actions"><button type="button" className="button" onClick={()=>{setReviewPriceWarning(null);setProductsFocus(n=>n+1);}}>Ir para produtos</button>{!reviewPriceWarning.requiresPriceApproval&&<button type="button" className="button primary" disabled={busy} onClick={async()=>{setBusy(true);try{await crmApi('',{action:'complete_review',id,version:reviewPriceWarning.version,allowUnapprovedPrices:true});setReviewPriceWarning(null);await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Concluir revisão</button>}<button type="button" className="button" onClick={()=>setReviewPriceWarning(null)}>Cancelar</button></div></ProposalDialog>}</>,
         productsFocus,
         itemPriceApprovals:data.itemPriceApprovals||[],

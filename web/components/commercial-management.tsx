@@ -1,4 +1,5 @@
 "use client";
+import ModuleHeaderActions from "./module-header-actions";
 import ActionNotice from "./action-notice";
 import ReportBrandFooter from "./report-brand-footer";
 import { useEffect, useMemo, useState } from "react";
@@ -285,13 +286,13 @@ export default function CommercialManagement({
           </div>
           <div className="sp-actions">
             {canManage && (
-              <button
+              <ModuleHeaderActions><button title="Configurações"
                 className="button"
                 onClick={() => setSettings(!settings)}
                 aria-expanded={settings}
               >
                 <Settings size={16} /> Configurar parciais
-              </button>
+              </button></ModuleHeaderActions>
             )}
             <button
               className="button"
@@ -300,13 +301,13 @@ export default function CommercialManagement({
             >
               <Printer size={16} /> Imprimir / PDF
             </button>
-            <button
+            <ModuleHeaderActions><button title="Atualizar"
               className="button"
               onClick={() => setRefresh((n) => n + 1)}
               disabled={busy || saving}
             >
               <RefreshCw size={16} /> Atualizar
-            </button>
+            </button></ModuleHeaderActions>
           </div>
         </div>
         <div className="cm-controls">

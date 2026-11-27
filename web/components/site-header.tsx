@@ -1,8 +1,4 @@
 "use client";
-// Shared operational interface for authenticated users.
-import type {ComponentProps,ComponentType} from "react";
-import * as Preview from "./site-header.preview";
-export default function SiteHeader(props:ComponentProps<typeof Preview.default>) {
- const Component=(Preview.default) as ComponentType<any>;
- return <Component {...(props as any)}/>;
-}
+
+// Keep server rendering and browser hydration on the same header component.
+export { default } from "./site-header.preview";

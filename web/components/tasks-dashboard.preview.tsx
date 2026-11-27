@@ -1,4 +1,5 @@
 "use client";
+import ModuleHeaderActions from "./module-header-actions";
 import {useSessionAccess} from "./session-access";
 import UnifiedCalendar from "./unified-calendar";
 import ActionNotice from "./action-notice";
@@ -1175,7 +1176,7 @@ export default function TasksDashboard() {
             {data && syncing && <p role="status">Atualizando tarefas…</p>}
           </div>
           <div className="task-heading-actions">
-            <button
+            <ModuleHeaderActions><button
               type="button"
               className="task-settings-button"
               aria-label={
@@ -1188,7 +1189,7 @@ export default function TasksDashboard() {
               onClick={() => setTab(tab === "settings" ? "tasks" : "settings")}
             >
               <Settings size={20} />
-            </button>
+            </button></ModuleHeaderActions>
             <button
               type="button"
               className="task-new-button"

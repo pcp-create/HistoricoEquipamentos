@@ -15,6 +15,7 @@ import {
   Pencil,
 } from "lucide-react";
 import Link from "next/link";
+import ModuleHeaderActions from "./module-header-actions";
 import SiteHeader from "./site-header";
 import type { OrderType } from "@/lib/order-type-model";
 import "./registries.css";
@@ -189,14 +190,14 @@ export default function Registries() {
                   </p>
                 </div>
                 {!manual(opened) && (
-                  <button
+                  <ModuleHeaderActions><button title="Atualizar"
                     className="registry-button primary"
                     disabled={busy}
                     onClick={() => void load(true)}
                   >
                     <RefreshCw size={16} />
                     {busy ? "Carregando…" : "Atualizar do M8"}
-                  </button>
+                  </button></ModuleHeaderActions>
                 )}
               </header>
               <div className="registry-filters">

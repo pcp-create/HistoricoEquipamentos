@@ -1,4 +1,5 @@
 "use client";
+import ModuleHeaderActions from "./module-header-actions";
 import ActionNotice from "./action-notice";
 import {operationLineChanged,operationDurationOnlyChanged,mergeOperationLine} from "@/lib/service-scheduling/operation-line-draft";
 import {readSchedulePreferences,type ScheduleViewPreferences} from "@/lib/service-scheduling/view-preferences";
@@ -413,11 +414,11 @@ export default function ServiceScheduling() {
                 Todas as OSs
               </a>
             )}
-            <button onClick={() => setConfig(!config)} aria-pressed={config}>
+            <ModuleHeaderActions><button title="Configurações" onClick={() => setConfig(!config)} aria-pressed={config}>
               <Settings size={17} />
               {config ? "Voltar" : "Configurações"}
-            </button>
-            <button
+            </button></ModuleHeaderActions>
+            <ModuleHeaderActions><button title="Atualizar"
               disabled={busy}
               onClick={() => {
                 clearApiCache();
@@ -426,7 +427,7 @@ export default function ServiceScheduling() {
               }}
             >
               <RefreshCw size={18} aria-hidden="true"/>Atualizar
-            </button>
+            </button></ModuleHeaderActions>
           </nav>
         </header>
         <ActionToast message={error || success} type={error?'error':'success'} onClose={()=>{setError('');setSuccess('');}}/>

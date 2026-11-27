@@ -1,4 +1,5 @@
 "use client";
+import ModuleHeaderActions from "./module-header-actions";
 import ActionNotice from "./action-notice";
 import {useEffect,useRef,useState} from "react";
 import {PackageCheck,Search,RefreshCw,ChevronRight,CheckCircle2,ArrowLeft,X,Plus,Columns3,List,PackageOpen} from "lucide-react";
@@ -39,7 +40,7 @@ export default function Warehouse(){
  function orderCard(o:any){return <button key={o.company_id+":"+o.id} disabled={saving} aria-pressed={selected?.id===o.id&&selected?.company_id===o.company_id} onClick={()=>{setSelected(o);setError("");setNotice("");}}><span><strong>OS-{o.number}</strong><small>{companyName(o.company_id)}</small><ChevronRight size={16}/></span><b>{o.customer||"Cliente não informado"}</b><small>{o.flow}</small>{o.equipment&&<small>{o.equipment}</small>}</button>;}
  const history=[...(detail?.history||[]).map((h:any)=>({...h,kind:h.kind||'delivery'})),...(detail?.additions||[]).map((a:any)=>({...a,kind:'addition'}))].sort((a:any,b:any)=>Date.parse(b.created_at)-Date.parse(a.created_at));
  return <><SiteHeader active="warehouse"/><main className="warehouse-page">
-  <header className="warehouse-heading"><div><span>SUPRIMENTOS · ALMOXARIFADO</span><h1>Entrega e recebimento de materiais</h1><p>Confira materiais por OS, registre entregas e valide as devoluções dos funcionários.</p></div><button className="button" disabled={saving} onClick={()=>{setError("");setRefresh(n=>n+1);}}><RefreshCw size={16}/>Atualizar</button></header>
+  <header className="warehouse-heading"><div><span>SUPRIMENTOS · ALMOXARIFADO</span><h1>Entrega e recebimento de materiais</h1><p>Confira materiais por OS, registre entregas e valide as devoluções dos funcionários.</p></div><ModuleHeaderActions><button title="Atualizar" className="button" disabled={saving} onClick={()=>{setError("");setRefresh(n=>n+1);}}><RefreshCw size={16}/>Atualizar</button></ModuleHeaderActions></header>
   {error&&<ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice>}{notice&&<ActionNotice type="success" onClose={()=>setNotice('')}>{notice}</ActionNotice>}
   <div className="warehouse-toolbar">
    <div className="warehouse-queue-tabs" role="group" aria-label="Fila de ordens">{[['delivery','Para entrega'],['delivered','Entregues'],['returns','Devoluções pendentes']].map(([key,label])=><button type="button" key={key} disabled={saving} aria-pressed={scope===key} onClick={()=>{setScope(key);setMode(key==='returns'?'receipt':'delivery');setSelected(null);setPage(1);}}>{key!=='returns'?<PackageCheck size={17} aria-hidden="true"/>:<PackageOpen size={17} aria-hidden="true"/>}{label}</button>)}</div>

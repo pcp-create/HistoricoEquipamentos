@@ -217,6 +217,7 @@ export default function SiteHeader({
         </div>
       </header>
       {(active !== "home" || currentModule) && (
+        <div className="module-navigation-bar">
         <nav
           className="topnav module-breadcrumb"
           aria-label="Navegação principal"
@@ -258,6 +259,8 @@ export default function SiteHeader({
             </>
           )}
         </nav>
+        <div id="module-header-actions" className="module-header-actions" role="group" aria-label="Ações do módulo" />
+        </div>
       )}
     </>
   );
