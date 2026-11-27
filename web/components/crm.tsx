@@ -9,6 +9,7 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import {
   Users,
+  UserRound,
   LoaderCircle,
   FileText,
   ClipboardList,
@@ -26,7 +27,7 @@ import {
   CircleX,
   List,
   Columns3,
-  SlidersHorizontal,
+  Funnel,
   Settings,
 } from "lucide-react";
 import SiteHeader from "./site-header";
@@ -61,6 +62,7 @@ const day = (value: string) =>
   value ? new Date(value + "T12:00:00").toLocaleDateString("pt-BR") : "—";
 export default function Crm() {
   const { visitManager } = useSessionAccess();
+  const [mineTabs,setMineTabs] = useState<Record<string,boolean>>({});
   const params = useSearchParams(),
     [kind, setKind] = useState(
       crmTabs.some(([key]) => key === params.get("tab"))
@@ -108,6 +110,7 @@ export default function Crm() {
     [creatingLead, setCreatingLead] = useState(false),
     [opportunity, setOpportunity] = useState<any>(null),
     [contact, setContact] = useState<any>(null);
+  const mine = Boolean(mineTabs[kind]) && ["opportunities","proposals"].includes(kind);
   useEffect(() => {
     if (kind === "overview") { setLoading(false); return; }
     const c = new AbortController();
@@ -115,7 +118,7 @@ export default function Crm() {
     setError("");
     crmApi(
       "?" +
-        new URLSearchParams({ kind, q: search, status, page: String(kanban ? 1 : page) }),
+        new URLSearchParams({ kind, q: search, status, mine: mine ? "1" : "0", page: String(kanban ? 1 : page) }),
       undefined,
       c.signal,
     )
@@ -123,7 +126,7 @@ export default function Crm() {
         if (kanban) {
           const rows = [...data.rows];
           for (let next = 2; rows.length < data.total; next++) {
-            const batch = await crmApi("?" + new URLSearchParams({kind, q: search, status, page: String(next)}), undefined, c.signal);
+            const batch = await crmApi("?" + new URLSearchParams({kind, q: search, status, mine: mine ? "1" : "0", page: String(next)}), undefined, c.signal);
             if (!batch.rows.length) break;
             rows.push(...batch.rows);
           }
@@ -138,7 +141,7 @@ export default function Crm() {
         if (!c.signal.aborted) setLoading(false);
       });
     return () => c.abort();
-  }, [kind, search, status, page, refresh, kanban]);
+  }, [kind, search, status, page, refresh, kanban, mine]);
   useEffect(() => {
     const c = new AbortController();
     crmApi("?catalogs=1", undefined, c.signal)
@@ -195,6 +198,7 @@ export default function Crm() {
       "opportunities",
     ],
   ] as const;
+  const directSearch = ["leads", "customers", "contacts"].includes(kind);
   const directory = ["leads", "customers", "contacts"].includes(kind);
   const count = result?.total ?? 0;
   return (
@@ -317,7 +321,7 @@ export default function Crm() {
 
           </div>
           <form
-            className={`crm-filter${filtersOpen ? " crm-filter-open" : ""}`}
+            className={`crm-filter${filtersOpen ? " crm-filter-open" : ""}${directSearch ? " crm-filter-direct" : ""}${kind === "orders" ? " crm-filter-orders" : ""}`}
             onSubmit={(e) => {
               e.preventDefault();
               setSearch(q);
@@ -375,9 +379,10 @@ export default function Crm() {
               <span>Pesquisar</span>
             </button>
             <div className="crm-filter-actions">
-            {<button type="button" className="button crm-filter-toggle" aria-expanded={filtersOpen} aria-controls={directory ? "crm-search-field" : "crm-search-field crm-status-filter"} onClick={() => setFiltersOpen(value => !value)}>
-              <SlidersHorizontal size={16}/><span>Filtros{(status || search) ? ` (${Number(Boolean(status)) + Number(Boolean(search))})` : ""}</span>
+            {!directSearch && <button type="button" className="button crm-filter-toggle" aria-expanded={filtersOpen} aria-controls={directory ? "crm-search-field" : "crm-search-field crm-status-filter"} onClick={() => setFiltersOpen(value => !value)}>
+              <Funnel size={16}/><span>Filtros{(status || search) ? ` (${Number(Boolean(status)) + Number(Boolean(search))})` : ""}</span>
             </button>}
+            {["opportunities", "proposals"].includes(kind) && <button type="button" className="button crm-mine-toggle" aria-label={kind === "proposals" ? "Minhas propostas" : "Minhas oportunidades"} title={kind === "proposals" ? "Minhas propostas" : "Minhas oportunidades"} aria-pressed={mine} onClick={() => {setMineTabs(value=>({...value,[kind]:!mine}));setPage(1);}}><UserRound size={16} aria-hidden="true"/><span>{kind === "proposals" ? "Minhas propostas" : "Minhas oportunidades"}</span></button>}
             {["opportunities", "proposals"].includes(kind) && <div className="crm-view-switch" role="group" aria-label="Visualização">
               <button type="button" className="button" aria-pressed={!kanban} onClick={() => selectView("list")}><List size={16}/> Lista</button>
               <button type="button" className="button" aria-pressed={kanban} onClick={() => selectView("kanban")}><Columns3 size={16}/> Kanban</button>

@@ -25,6 +25,12 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
   await page.addStyleTag({content:readFileSync("app/globals.css","utf8")+readFileSync("components/crm.css","utf8")});
   await page.addScriptTag({content:js.outputFiles[0].text});
   await page.getByRole("heading",{name:"Oportunidades"}).waitFor();
+  const mine=page.getByRole("button",{name:"Minhas oportunidades",exact:true});
+  await mine.click();
+  await page.waitForFunction(()=>(window as any).queries.some((q:string)=>q.includes("kind=opportunities")&&q.includes("mine=1")));
+  assert.equal(await mine.getAttribute("aria-pressed"),"true");
+  await mine.click();
+  assert.equal(await mine.getAttribute("aria-pressed"),"false");
   const status=page.getByLabel("Status",{exact:true});
   assert.equal(await status.isVisible(),false);
   assert.equal(await page.getByRole("textbox",{name:"Pesquisar",exact:true}).isVisible(),false);
@@ -47,8 +53,9 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
   }
   await page.screenshot({path:"/tmp/crm-mobile-compact.png"});
   await page.setViewportSize({width:1280,height:800});
+  if (!(await status.isVisible())) await page.getByRole("button",{name:/^Filtros/}).click();
   assert.equal(await status.isVisible(),true);
-  assert.equal(await page.getByRole("button",{name:"Filtros (2)"}).isVisible(),false);
+  assert.equal(await page.getByRole("button",{name:"Filtros (2)"}).isVisible(),true);
   await page.getByRole("button",{name:"Propostas",exact:true}).click();
   await page.getByRole("button",{name:"Kanban",exact:true}).click();
   const card=page.locator(".crm-kanban-card").first();
@@ -63,5 +70,12 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
   assert.equal(await page.getByRole("button",{name:"Kanban",exact:true}).getAttribute("aria-pressed"),"true");
   await page.getByRole("button",{name:"Oportunidades",exact:true}).click();
   assert.equal(await page.getByRole("button",{name:"Kanban",exact:true}).getAttribute("aria-pressed"),"true");
+  await page.setViewportSize({width:390,height:844});
+  for(const tab of ["Leads","Clientes","Contatos"]){
+   await page.getByRole("button",{name:tab,exact:true}).click();
+   assert.equal(await page.getByRole("button",{name:/^Filtros/}).count(),0);
+   assert.equal(await page.getByRole("textbox",{name:"Pesquisar",exact:true}).isVisible(),true);
+   assert.equal(await page.getByRole("button",{name:"Pesquisar",exact:true}).isVisible(),true);
+  }
  } finally {await browser.close();}
 });

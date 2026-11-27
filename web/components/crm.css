@@ -872,3 +872,44 @@ body .crm-workspace nav.app-section-tabs {
  .crm-overview .crm-overview-layout .stat { display:flex; flex-direction:column; justify-content:center; padding:12px 18px; }
  .crm-overview-layout > .crm-sales-funnel { padding:28px; }
 }
+
+.crm-mine-toggle { white-space:nowrap; }
+.crm-mine-toggle[aria-pressed="true"] { color:#1768ab; background:#edf5fd; border-color:#7eadd7; }
+@media(max-width:640px) {
+ .crm-filter-actions { flex-wrap:nowrap; gap:6px; }
+ .crm-filter-actions > .crm-mine-toggle { order:-1; flex:0 0 40px; width:40px; height:44px; min-height:44px; padding:0; justify-content:center; gap:0; }
+ .crm-filter-actions > .crm-mine-toggle > span { display:none; }
+ .crm-filter-actions .crm-view-switch { min-width:0; flex-shrink:1; order:-2; margin-left:0; margin-right:auto; }
+ .crm-filter-actions .crm-view-switch .button { padding:0 6px; gap:4px; }
+ .crm-filter-actions > .crm-filter-toggle { padding:0 7px; gap:4px; }
+}
+
+@media(max-width:640px) {
+ .crm-workspace .crm-filter.crm-filter-direct > .crm-search-field { display:block; grid-row:1; }
+ .crm-workspace .crm-filter.crm-filter-direct > .crm-search-submit { display:inline-flex; grid-row:1; }
+ .crm-filter-direct > .crm-filter-actions { display:none; }
+}
+
+@media(min-width:641px) {
+ .crm-workspace .crm-filter:not(.crm-filter-direct) { display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,260px) auto; }
+ .crm-filter:not(.crm-filter-direct) > .crm-filter-actions { grid-column:1 / -1; grid-row:1; width:100%; }
+ .crm-filter-actions > .crm-filter-toggle { display:inline-flex; }
+ .crm-filter-actions > .crm-mine-toggle { order:-1; flex:0 0 auto; width:auto; padding:0 18px; gap:8px; }
+ .crm-filter-actions > .crm-mine-toggle > span { display:inline; }
+ .crm-filter-actions .crm-view-switch { order:-2; margin-right:auto; margin-left:0; }
+ .crm-workspace .crm-filter:not(.crm-filter-direct) > .crm-search-field,
+ .crm-workspace .crm-filter:not(.crm-filter-direct) > .crm-status-filter,
+ .crm-workspace .crm-filter:not(.crm-filter-direct) > .crm-search-submit { display:none; grid-row:2; }
+ .crm-workspace .crm-filter.crm-filter-open:not(.crm-filter-direct) > .crm-search-field,
+ .crm-workspace .crm-filter.crm-filter-open:not(.crm-filter-direct) > .crm-status-filter { display:grid; }
+ .crm-workspace .crm-filter.crm-filter-open:not(.crm-filter-direct) > .crm-search-submit { display:inline-flex; }
+ .crm-filter:not(.crm-filter-direct) > .crm-filter-actions:empty { display:none; }
+ .crm-filter-direct > .crm-filter-actions { display:none; }
+}
+
+@media(min-width:641px) {
+ .crm-workspace .crm-filter.crm-filter-orders:not(.crm-filter-direct) > .crm-filter-actions { display:none; }
+ .crm-workspace .crm-filter.crm-filter-orders:not(.crm-filter-direct) > .crm-search-field,
+ .crm-workspace .crm-filter.crm-filter-orders:not(.crm-filter-direct) > .crm-status-filter { display:grid; grid-row:1; }
+ .crm-workspace .crm-filter.crm-filter-orders:not(.crm-filter-direct) > .crm-search-submit { display:inline-flex; grid-row:1; }
+}
