@@ -913,3 +913,11 @@ body .crm-workspace nav.app-section-tabs {
  .crm-workspace .crm-filter.crm-filter-orders:not(.crm-filter-direct) > .crm-status-filter { display:grid; grid-row:1; }
  .crm-workspace .crm-filter.crm-filter-orders:not(.crm-filter-direct) > .crm-search-submit { display:inline-flex; grid-row:1; }
 }
+
+.crm-customer-profile { grid-column:1 / -1; padding:16px; border:1px solid var(--line,#d1e0f0); border-radius:10px; background:#f8fbff; min-width:0; }
+.crm-customer-profile h3 { margin:0 0 5px; font-size:16px; }
+.crm-customer-profile > p { margin:0 0 16px; font-size:12px; color:#71869e; }
+.crm-customer-profile-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 18px; }
+.crm-customer-profile-grid > label { display:grid; gap:6px; min-width:0; }
+.crm-customer-profile-notes { grid-column:1 / -1; }
+@media(max-width:640px) { .crm-customer-profile { padding:12px; } .crm-customer-profile-grid { grid-template-columns:minmax(0,1fr); } }

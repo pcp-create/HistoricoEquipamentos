@@ -1,3 +1,4 @@
+import {customerProfile} from './customer-profile';
 import {itemApprovals} from './item-price-approval';
 import {applyProposalTaxType} from './proposal-tax-type';
 import {taxBudgetTypes} from './product-taxes';
@@ -95,7 +96,8 @@ export async function saveOpportunity(raw:any,actor:string){
  const origin=text(details.origin??old?.commercial?.origin??'',40);
  if(!['','visit','preventive','customer_contact'].includes(origin))throw new CrmError('Selecione uma origem válida para a oportunidade.');
  if(!stages.includes(stage)||!Number.isFinite(probability)||probability<0||probability>100||(amount&&!/^\d{1,10}(\.\d{1,2})?$/.test(amount))||(closeDate&&(!/^\d{4}-\d{2}-\d{2}$/.test(closeDate)||!Number.isFinite(Date.parse(closeDate))||new Date(closeDate).toISOString().slice(0,10)!==closeDate)))throw new CrmError('Confira fase, probabilidade, valor e data de fechamento.');
- const commercial={stage,probability,amount,closeDate,contact,origin};
+ const profile=customerProfile(details.customerProfile??(accountChanged?{}:old?.commercial?.customerProfile)??{});
+ const commercial={stage,probability,amount,closeDate,contact,origin,customerProfile:profile};
  const originLead=lead || old?.lead_id || (accountChanged&&old?.customer_id?null:old?.origin_lead_id) || null;
  const args=[id,type,title,customer,client.name,company,raw.status??'open',text(raw.notes??'',10000),actor,JSON.stringify(commercial),lead,originLead];
  const row=(await c.query(old?`UPDATE crm_opportunities SET type_id=$2,title=$3,customer_id=$4,customer_name=$5,company_id=$6,status=$7,notes=$8,updated_by=$9,updated_at=now(),version=version+1,commercial=$10::jsonb,lead_id=$11,origin_lead_id=$12 WHERE id=$1 RETURNING *`:`INSERT INTO crm_opportunities(id,type_id,title,customer_id,customer_name,company_id,status,notes,created_by,updated_by,commercial,lead_id,origin_lead_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10::jsonb,$11,$12) RETURNING *`,args)).rows[0];

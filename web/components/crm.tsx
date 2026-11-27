@@ -789,6 +789,7 @@ function OpportunityDialog({
         contact: "",
         origin: "",
         ...initial.commercial,
+        customerProfile: {partsType:"",currentBrands:"",partsBrands:"",offeredBrands:"",servicePartner:"",competitors:"",profileNotes:"",...initial.commercial?.customerProfile},
       },
     }),
     [accountKind, setAccountKind] = useState<'customer'|'lead'>(initial.lead_id?'lead':'customer'),
@@ -1053,6 +1054,27 @@ function OpportunityDialog({
                 }
               />
             </label>
+            <section className="crm-customer-profile" aria-labelledby="crm-customer-profile-title">
+              <h3 id="crm-customer-profile-title">Perfil do cliente e concorrência</h3>
+              <p>Informações opcionais para orientar a abordagem e a oferta desta oportunidade.</p>
+              <div className="crm-customer-profile-grid">
+                <label>Peças utilizadas pelo cliente
+                  <select value={form.commercial.customerProfile.partsType} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,customerProfile:{...f.commercial.customerProfile,partsType:e.target.value}}}))}>
+                    <option value="">Selecione</option><option value="original">Originais</option><option value="aftermarket">Paralelas</option><option value="mixed">Originais e paralelas</option><option value="unknown">Ainda não identificado</option>
+                  </select>
+                </label>
+                {[
+                  ["currentBrands","Marcas de compressores que utiliza","Ex.: Schulz, Atlas Copco"],
+                  ["partsBrands","Marcas das peças utilizadas","Informe uma ou mais marcas"],
+                  ["offeredBrands","Marcas que iremos oferecer","Informe uma ou mais marcas"],
+                  ["servicePartner","Parceiro atual em compressores / manutenção","Empresa que atende o cliente atualmente"],
+                  ["competitors","Com quem iremos concorrer?","Empresas ou marcas concorrentes"],
+                ].map(([key,label,placeholder])=><label key={key}>{label}<input maxLength={500} placeholder={placeholder} value={form.commercial.customerProfile[key]} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,customerProfile:{...f.commercial.customerProfile,[key]:e.target.value}}}))}/></label>)}
+                <label className="crm-customer-profile-notes">Preferências e critérios de compra
+                  <textarea rows={2} maxLength={2000} placeholder="Ex.: prioriza preço, prazo, garantia ou peças originais; aceita alternativas de marca." value={form.commercial.customerProfile.profileNotes} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,customerProfile:{...f.commercial.customerProfile,profileNotes:e.target.value}}}))}/>
+                </label>
+              </div>
+            </section>
             <label className="crm-wide crm-opportunity-notes">
               Observações
               <textarea
