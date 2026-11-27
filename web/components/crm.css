@@ -994,21 +994,19 @@ body .crm-workspace nav.app-section-tabs {
 .new-os.crm-proposal-page > .crm-links,
 .new-os.crm-proposal-page > .crm-proposal-panel { margin:12px 0 0; }
 .new-os.crm-proposal-page a.crm-proposal-origin-link { margin-bottom:0; }
-@media(max-width:640px) {
- .crm-proposal-title-meta { width:100%; }
- .new-os.crm-proposal-page .crm-proposal-title-row { gap:8px; margin-bottom:8px; }
-}
 
+.new-os.crm-proposal-page > header > div:first-child { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; }
+.new-os.crm-proposal-page .crm-proposal-title-row { display:contents; }
+.new-os.crm-proposal-page .crm-proposal-title-row > h1 { grid-column:1/-1; grid-row:1; }
+.new-os.crm-proposal-page a.crm-proposal-origin-link { grid-column:1; grid-row:2; justify-self:start; text-decoration:none; }
+.new-os.crm-proposal-page .crm-proposal-title-meta { grid-column:2; grid-row:2; justify-self:end; }
+.new-os.crm-proposal-page .crm-proposal-stages,
+.new-os.crm-proposal-page .crm-proposal-overview-card { grid-column:1/-1; }
 @media(max-width:640px) {
- .new-os.crm-proposal-page .crm-proposal-title-row { padding-inline:12px; }
- .new-os.crm-proposal-page a.crm-proposal-origin-link { margin-inline:12px; }
-}
-@media(max-width:640px) {
- .new-os.crm-proposal-page > header > div:first-child { display:flex; flex-direction:column; }
- .new-os.crm-proposal-page .crm-proposal-title-row { display:contents; }
- .new-os.crm-proposal-page .crm-proposal-title-row > h1 { order:1; padding-inline:12px; }
- .new-os.crm-proposal-page a.crm-proposal-origin-link { order:2; align-self:flex-start; margin-top:8px; }
- .new-os.crm-proposal-page .crm-proposal-title-meta { order:3; box-sizing:border-box; padding-inline:12px; margin-top:8px; }
- .new-os.crm-proposal-page .crm-proposal-stages { order:4; }
- .new-os.crm-proposal-page .crm-proposal-overview-card { order:5; }
+ .new-os.crm-proposal-page .crm-proposal-title-row > h1 { padding-inline:12px; margin-bottom:8px; }
+ .new-os.crm-proposal-page a.crm-proposal-origin-link { margin-left:12px; margin-right:6px; font-size:12px; }
+ .new-os.crm-proposal-page .crm-proposal-title-meta { margin-right:12px; min-width:0; }
+ .crm-proposal-title-meta .crm-proposal-timing { gap:8px; }
+ .crm-proposal-title-meta .crm-proposal-timing dd { font-size:11px; }
+ .crm-proposal-title-meta .crm-proposal-timing svg { width:12px; height:12px; }
 }
