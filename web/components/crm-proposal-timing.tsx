@@ -20,7 +20,7 @@ export default function CrmProposalTiming({proposal, label = 'Tempo da proposta'
       <dt><Clock3 size={14} aria-hidden="true"/><span>{timing.closed ? 'Até encerrar' : 'Em aberto'}</span></dt>
       <dd>{timing.total}</dd>
     </div>
-    {!['won', 'cancelled', 'not_selected'].includes(proposal.status || '') && <div className={"crm-proposal-stage-time"+(overdue?" crm-stage-overdue":"")} aria-label={`Nesta etapa: ${timing.stage}`} title={`Nesta etapa · Entrada na etapa: ${date(proposal.stage_since)}`}>
+    {!['won', 'cancelled', 'not_selected'].includes(proposal.status || '') && <div className={"crm-proposal-stage-time"+(overdue?" crm-stage-overdue":"")} aria-label={`Nesta etapa: ${timing.stage}`} title={`Nesta etapa · Entrada na etapa: ${date(proposal.stage_since)} · Limite contado de segunda a sexta, sem descontar feriados`}>
       <dt><Hourglass size={14} aria-hidden="true"/><span>Nesta etapa</span></dt>
       <dd>{timing.stage}{overdue&&<span className="crm-delay-label"> · Em atraso</span>}</dd>
     </div>}

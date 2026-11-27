@@ -8,7 +8,7 @@ test('stage settings list terminal stages, save units and allow disabling limits
  const browser=await chromium.launch();
  try {
   const page=await browser.newPage({viewport:{width:1280,height:900}});
-  let config:any={version:1,limits:{'proposal:creating':60}};
+  let config:any={version:1,limits:{'proposal:in_review':60}};
   await page.route('http://crm.test/**',async route=>{
    if(route.request().url().includes('/api/crm')){
     if(route.request().method()==='POST'){
@@ -22,17 +22,17 @@ test('stage settings list terminal stages, save units and allow disabling limits
   await page.goto('http://crm.test');
   await page.addStyleTag({content:readFileSync('app/globals.css','utf8')+readFileSync('components/crm.css','utf8')});
   await page.addScriptTag({content:js.outputFiles[0].text});
-  const creation=page.getByRole('spinbutton',{name:'Tempo máximo · Proposta · Em criação',exact:true});
+  const creation=page.getByRole('spinbutton',{name:'Tempo máximo · Proposta · Em revisão',exact:true});
   await creation.waitFor();assert.equal(await creation.inputValue(),'1');
   assert.equal(await page.getByText('Outra proposta ganha',{exact:true}).count(),1);
   assert.equal(await page.getByText('Encerrada — sem alertas de atraso',{exact:true}).count(),8);
   await creation.fill('2');
-  await page.getByRole('combobox',{name:'Unidade · proposal · Em criação',exact:true}).selectOption('1440');
+  await page.getByRole('combobox',{name:'Unidade · proposal · Em revisão',exact:true}).selectOption('1440');
   await page.getByRole('spinbutton',{name:'Tempo máximo · Oportunidade · Prospecção',exact:true}).fill('30');
   await page.getByRole('combobox',{name:'Unidade · opportunity · Prospecção',exact:true}).selectOption('1');
   await page.getByRole('button',{name:'Salvar tempos',exact:true}).click();
   await page.getByRole('status').waitFor();
-  assert.deepEqual(config.limits,{'proposal:creating':2880,'opportunity:prospecting':30});
+  assert.deepEqual(config.limits,{'proposal:in_review':2880,'opportunity:prospecting':30});
   await creation.fill('');
   await page.getByRole('button',{name:'Salvar tempos',exact:true}).click();
   await page.getByRole('status').waitFor();

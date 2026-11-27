@@ -30,7 +30,7 @@ export default function CrmStageLimits() {
  }
  return <section className="results-panel crm-stage-settings">
   <h2>Tempos por etapa</h2>
-  <p>Defina o tempo máximo em cada etapa. A contagem usa tempo corrido, incluindo fins de semana. Deixe o campo vazio para não monitorar.</p>
+  <p>Defina o tempo máximo em cada etapa. A contagem considera segunda a sexta, no horário de Brasília, sem descontar feriados. Cada dia útil corresponde a 24 horas; fins de semana pausam a contagem. Deixe o campo vazio para não monitorar.</p>
   <p>Ao ultrapassar o limite, o contador e o card ficam vermelhos. O responsável recebe um aviso por WhatsApp por dia, até a mudança de etapa ou encerramento. O usuário precisa estar ativo e ter WhatsApp cadastrado.</p>
   <p>Propostas: responsável da tarefa do processo, revisor ou vendedor; em criação, autor da proposta. Oportunidades: responsável da oportunidade.</p>
   {error&&<><ActionNotice type="error" onClose={()=>setError('')}>{error}</ActionNotice><button type="button" onClick={()=>void load().catch(e=>setError(e.message))}>Recarregar configuração</button></>}
@@ -41,8 +41,9 @@ export default function CrmStageLimits() {
     <h3>{kind==='proposal'?'Propostas':'Oportunidades'}</h3>
     <div className="table-scroll"><table><thead><tr><th>Etapa / status</th><th>Tempo máximo</th><th>Unidade</th></tr></thead><tbody>
     {stages.map(([stage,label,active])=>{
+     const byType=kind==='proposal'&&stage==='creating';
      const key=kind+':'+stage,field=fields[key]||{value:'',unit:'60'};
-     return <tr key={key}><th scope="row">{label}</th>{active?<><td><input aria-label={'Tempo máximo · '+(kind==='proposal'?'Proposta':'Oportunidade')+' · '+label} type="number" min="1" step="1" max={Math.floor(5256000/Number(field.unit))} placeholder="Sem limite" value={field.value} onChange={e=>change(key,{value:e.target.value})}/></td><td><select aria-label={'Unidade · '+kind+' · '+label} value={field.unit} onChange={e=>change(key,{unit:e.target.value})}><option value="1">Minutos</option><option value="60">Horas</option><option value="1440">Dias</option></select></td></>:<td colSpan={2}>Encerrada — sem alertas de atraso</td>}</tr>;
+     return <tr key={key}><th scope="row">{label}</th>{byType?<td colSpan={2}>Definido em Tipos de Proposta</td>:active?<><td><input aria-label={'Tempo máximo · '+(kind==='proposal'?'Proposta':'Oportunidade')+' · '+label} type="number" min="1" step="1" max={Math.floor(5256000/Number(field.unit))} placeholder="Sem limite" value={field.value} onChange={e=>change(key,{value:e.target.value})}/></td><td><select aria-label={'Unidade · '+kind+' · '+label} value={field.unit} onChange={e=>change(key,{unit:e.target.value})}><option value="1">Minutos</option><option value="60">Horas</option><option value="1440">Dias úteis</option></select></td></>:<td colSpan={2}>Encerrada — sem alertas de atraso</td>}</tr>;
     })}
     </tbody></table></div>
    </section>)}

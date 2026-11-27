@@ -7,7 +7,7 @@ export function validateStageLimits(raw:unknown):StageLimits {
  const result:StageLimits={};
  for(const [key,value] of Object.entries(raw)) {
   const [kind,stage]=key.split(':');
-  if(!Object.hasOwn(crmStageDefinitions,kind)||!monitoredStage(kind as StageKind,stage)||key!==kind+':'+stage)
+  if(key==='proposal:creating'||!Object.hasOwn(crmStageDefinitions,kind)||!monitoredStage(kind as StageKind,stage)||key!==kind+':'+stage)
    throw new CrmError('Etapa inválida para controle de tempo.');
   if(typeof value!=='number'||!Number.isSafeInteger(value)||value<1||value>5256000)
    throw new CrmError('Informe um limite entre 1 minuto e 3650 dias.');

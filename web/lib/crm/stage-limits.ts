@@ -1,3 +1,4 @@
+import {businessMilliseconds} from './business-time';
 export const crmStageDefinitions = {
  proposal: [
   ['creating','Em criação',true],['in_review','Em revisão',true],['reviewed','Revisada',true],
@@ -22,9 +23,10 @@ export function monitoredStage(kind:StageKind,stage:string) {
 export function stageLimit(kind:StageKind,row:any,limits:StageLimits) {
  if(kind==='proposal'&&row.opportunity_status&&row.opportunity_status!=='open')return null;
  const stage=stageKey(kind,row);
+ if(kind==='proposal'&&stage==='creating')return row.creation_limit_minutes??null;
  return monitoredStage(kind,stage) ? limits[kind+':'+stage]??null : null;
 }
 export function stageOverdue(row:{stage_since?:string;stage_limit_minutes?:number|null},now=Date.now()) {
  const since=Date.parse(row.stage_since||'');
- return Number.isFinite(since)&&Number(row.stage_limit_minutes)>0&&now-since>Number(row.stage_limit_minutes)*60000;
+ return Number.isFinite(since)&&Number(row.stage_limit_minutes)>0&&businessMilliseconds(since,now)>Number(row.stage_limit_minutes)*60000;
 }

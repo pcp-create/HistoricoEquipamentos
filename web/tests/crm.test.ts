@@ -26,6 +26,7 @@ test('CRM persists local opportunities and proposals and safely links conversion
  await db.exec("CREATE ROLE anon; CREATE ROLE authenticated; ALTER TABLE web_user_access ADD PRIMARY KEY(email); CREATE TABLE web_tasks(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,source_key text,cycle text,origin text,title text,equipment_name text,source_status text,priority text,assigned_to text,first_assigned_at timestamptz,created_by text,updated_by text,followers text[],status text DEFAULT 'not_started',kanban_column text,source_resolved boolean,completed_at timestamptz,customer text,updated_at timestamptz,version integer DEFAULT 1,task_type text,approval_description text,approval_state text,approval_reason text,approval_decided_at timestamptz,approval_approver text); CREATE TABLE web_task_notes(task_id bigint,title text,description text,automatic boolean,created_by text,created_name text); CREATE TABLE web_task_notifications(task_id bigint,task_version int,recipient text,kind text,assignment_reason text); CREATE TABLE web_service_schedule_settings(id integer,document jsonb);");
  await db.exec(readFileSync(new URL('../sql/125_crm_proposal_review_workflow.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../sql/133_crm_stage_limits.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../sql/134_crm_proposal_creation_limit.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../sql/126_crm_opportunity_leads.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../sql/128_crm_proposal_equipment_required.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../sql/129_crm_price_approvals.sql',import.meta.url),'utf8'));
@@ -148,7 +149,10 @@ test('CRM persists local opportunities and proposals and safely links conversion
  assert.equal((await getProposal(s.id)).status,'pending');
  assert.equal((await listCrm('orders')).total,1);
  assert.equal((await listCrm('proposals','Preventiva')).total,1);
- await saveCatalog({kind:'proposal',id:mpa.id,version:mpa.version,code:mpa.code,name:mpa.name,notes:'Manual',active:true,opportunityTypeId:man.id,orderTypes:['4','99']},'planner');
+ await saveCatalog({kind:'proposal',id:mpa.id,version:mpa.version,code:mpa.code,name:mpa.name,notes:'Manual',active:true,creationLimitMinutes:120,opportunityTypeId:man.id,orderTypes:['4','99']},'planner');
+ assert.equal((await catalogs()).proposalTypes.find(t=>t.id===mpa.id).creation_limit_minutes,120);
+ await assert.rejects(saveCatalog({kind:'proposal',id:mpa.id,version:mpa.version+1,code:mpa.code,name:mpa.name,active:true,creationLimitMinutes:-1,opportunityTypeId:man.id,orderTypes:['4']},'planner'),/tempo de criação/);
+
  await db.exec(readFileSync(new URL('../sql/108_crm.sql',import.meta.url),'utf8'));
  assert.deepEqual((await catalogs()).proposalTypes.find(t=>t.code==='MPA').order_types,['4','99']);
  assert.equal(conversionRate(0,0),0);assert.equal(conversionRate(3,1),33.3);
