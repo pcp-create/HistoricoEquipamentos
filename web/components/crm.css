@@ -1051,3 +1051,7 @@ body .crm-workspace nav.app-section-tabs {
  .crm-stage-settings table th,.crm-stage-settings table td { padding:8px 4px; font-size:12px; }
  .crm-stage-settings input,.crm-stage-settings select { padding:8px 4px; }
 }
+
+/* The stage bar follows the same live overdue indicator as the header clock. */
+.new-os.crm-proposal-page:has(.crm-proposal-title-meta .crm-stage-overdue) .crm-proposal-stages nav button[aria-current="step"] { background:#b42318; color:#fff; }
+.new-os.crm-proposal-page:has(.crm-proposal-title-meta .crm-stage-overdue) .crm-proposal-stages nav button[aria-current="step"]:hover:not(:disabled) { background:#912018; }
