@@ -621,9 +621,10 @@
 .new-os.crm-proposal-page .crm-proposal-overview-card .crm-proposal-overview { border:0; margin:0; }
 .crm-proposal-overview > .crm-proposal-validity {
  display:grid; grid-template-columns:minmax(0,1fr) auto;
- grid-template-rows:auto auto; column-gap:12px; row-gap:2px; align-content:center;
+ grid-template-rows:16px auto; column-gap:12px; row-gap:5px; align-content:start;
 }
-.crm-proposal-overview .crm-proposal-validity dt { grid-column:1; grid-row:1; margin:0; align-self:end; }
+.crm-proposal-overview dt { line-height:16px; }
+.crm-proposal-overview .crm-proposal-validity dt { grid-column:1; grid-row:1; margin:0; align-self:start; }
 .crm-proposal-overview .crm-proposal-validity dd { display:contents; }
 .crm-proposal-validity dd > span { grid-column:1; grid-row:2; align-self:start; }
 .crm-proposal-validity .crm-proposal-overview-actions { grid-column:2; grid-row:1 / 3; align-self:center; }
