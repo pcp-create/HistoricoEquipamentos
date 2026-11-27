@@ -277,6 +277,8 @@ export default function Crm() {
             <section className="crm-sales-funnel" aria-label="Funil de vendas">
               <h2>Funil de vendas</h2>
               <p>Da atividade comercial à venda · todos os períodos</p>
+              <div className="crm-funnel-metrics-layout">
+              <aside className="crm-funnel-metric crm-funnel-conversion"><span>Taxa de conversão</span><strong>{overview ? overview.conversion.toLocaleString("pt-BR") + "%" : "—"}</strong><small>Oportunidades que geraram vendas</small></aside>
               <ol className="crm-funnel-chart" aria-label="Etapas do funil comercial">
                 {[
                   ["Visitas realizadas", overview?.visits?.completed, visitManager ? "/visitas/gestao?tab=visits&status=completed" : "/visitas?tab=list&status=completed"],
@@ -292,6 +294,12 @@ export default function Crm() {
                   </li>
                 ))}
               </ol>
+              <svg className="crm-funnel-conversion-brace" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M65 25 H32 Q20 25 20 35 V40 Q20 50 5 50 Q20 50 20 60 V65 Q20 75 32 75 H90" /></svg>
+              <span className="crm-funnel-connector crm-funnel-opportunity-connector" aria-hidden="true" />
+              <span className="crm-funnel-connector crm-funnel-sales-connector" aria-hidden="true" />
+              <aside className="crm-funnel-metric crm-funnel-opportunity-value"><span>Valor das oportunidades</span><strong>{overview?.opportunity_value == null ? "—" : Number(overview.opportunity_value).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</strong><small>Valores das propostas ou estimativas{overview?.opportunities_without_value > 0 && ` · ${overview.opportunities_without_value} sem valor informado`}</small></aside>
+              <aside className="crm-funnel-metric crm-funnel-sales-value"><span>Valor das vendas</span><strong>{overview?.sales_value == null ? "—" : Number(overview.sales_value).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</strong><small>Total das propostas com OS criada</small></aside>
+              </div>
               <p className="crm-funnel-caption">Vendas = oportunidades com OS criada. Os totais são independentes; o formato ilustra as etapas e não representa uma proporção ou conversão entre visitas e leads.</p>
             </section>
             </div>
@@ -505,10 +513,10 @@ export default function Crm() {
                             </td>
                             <td>{day(row.commercial?.closeDate)}</td>
                             <td>
-                              {row.commercial?.amount
+                              {(row.effective_amount != null || row.commercial?.amount)
                                 ? crmMoney(
                                     Math.round(
-                                      Number(row.commercial.amount) * 100,
+                                      Number(row.effective_amount ?? row.commercial.amount) * 100,
                                     ),
                                   )
                                 : "—"}
@@ -744,7 +752,7 @@ function CrmKanban({kind, rows, open}: {kind: string; rows: any[]; open: (id: st
             {proposals ? <Link className="crm-kanban-proposal-link" href={"/crm/propostas/" + row.id}>PROP-{row.number} · {row.title}</Link> : <button className="crm-record-link" onClick={() => void open(row.id)}>OP-{row.number} · {row.title}</button>}
             <p>{row.customer_name || "Cliente não informado"}</p>
             {proposals && row.equipment_name && <small>{row.equipment_name}</small>}
-            <strong>{proposals ? crmMoney(row.total_cents) : row.commercial?.amount ? crmMoney(Math.round(Number(row.commercial.amount) * 100)) : "Valor não informado"}</strong>
+            <strong>{proposals ? crmMoney(row.total_cents) : (row.effective_amount != null || row.commercial?.amount) ? crmMoney(Math.round(Number(row.effective_amount ?? row.commercial.amount) * 100)) : "Valor não informado"}</strong>
             <small>{row.type_name}</small>
             {!proposals && <small>{row.owner_name || row.created_by} · Previsão: {day(row.commercial?.closeDate)}</small>}
             {proposals && <small>Oportunidade OP-{row.opportunity_number}</small>}
@@ -1012,7 +1020,8 @@ function OpportunityDialog({
                 min="0"
                 max="9999999999.99"
                 step="0.01"
-                value={form.commercial.amount}
+                readOnly={Boolean(data.proposals?.length)}
+                value={data.proposals?.length ? data.effective_amount ?? "" : form.commercial.amount}
                 onChange={(e) =>
                   setForm((f) => ({
                     ...f,
@@ -1020,6 +1029,7 @@ function OpportunityDialog({
                   }))
                 }
               />
+              {data.proposals?.length > 0 && <small>Calculado automaticamente: {data.proposals.length === 1 ? "valor da proposta vinculada" : "média das propostas vinculadas"}.</small>}
             </label>
             <label>
               Probabilidade (%)

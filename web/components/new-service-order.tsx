@@ -459,7 +459,7 @@ export default function NewServiceOrder({
           }))}
         onChange={(r) => {
           if(key === "type") choose("type",r.id);
-          else if(key === "seller" && proposal) setForm(f=>({...f,seller:r.id,commercial:{...f.commercial,sellerPhone:options.find(option=>String(option.id)===String(r.id))?.phone||""}}));
+          else if(key === "seller" && proposal) setForm(f=>({...f,seller:r.id,commercial:{...f.commercial,sellerEmail:f.seller===r.id?f.commercial?.sellerEmail||"":"",sellerPhone:options.find(option=>String(option.id)===String(r.id))?.phone||""}}));
           else set(key,r.id);
         }}
       />
@@ -754,6 +754,14 @@ export default function NewServiceOrder({
                           (proposal ? "" : "Preenchido pelo padrão do cliente, quando disponível. Clique para selecionar ou trocar o vendedor."),
                   )}
                   </div>
+                  {proposal&&<label>
+                    <span className="os-field-title">Vendedor responsável no portal <b>*</b></span>
+                    <select value={form.commercial?.sellerEmail||""} onChange={e=>setForm(f=>({...f,commercial:{...f.commercial,sellerEmail:e.target.value}}))}>
+                      <option value="">Selecione o usuário do vendedor</option>
+                      {(meta?.users||[]).map((u:any)=><option key={u.email} value={u.email}>{u.name}</option>)}
+                    </select>
+                    <small>Receberá a tarefa e o WhatsApp com o link da proposta após a revisão.</small>
+                  </label>}
                   {select(
                     "payment",
                     "Condição de Pagamento",

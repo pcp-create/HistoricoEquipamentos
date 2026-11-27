@@ -1,3 +1,5 @@
+import {assignOrderSeparation,warehouseResponsible} from './process-task';
+import {orderConfirmation} from './order-confirmation';
 import {missingProposalFields,proposalFieldNames} from './proposal-required';
 import {priceReview} from './price-approval';
 import {proposalOrderDraft} from './financials';
@@ -18,7 +20,7 @@ async function recordResult(link:any,r:any){
  await c.query('UPDATE crm_order_links SET state=$2,order_id=$3,message=$4,updated_at=now() WHERE id=$1',[link.id,r.state,r.m8Id||null,r.message||null]);
  if(r.state==='complete'){
   const p=(await c.query("UPDATE crm_proposals SET status='won',version=version+1,updated_at=now(),updated_by=$2 WHERE id=$1 AND status<>'won' RETURNING opportunity_id",[link.proposal_id,link.actor])).rows[0];
-  if(p){await c.query("UPDATE crm_opportunities SET status='won',version=version+1,updated_by=$2,updated_at=now() WHERE id=$1 AND status<>'won'",[p.opportunity_id,link.actor]);await c.query(`INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,'proposal_converted',$4::jsonb)`,[p.opportunity_id,link.proposal_id,link.actor,JSON.stringify({company:link.company_id,order:r.m8Id})]);}
+  if(p){await assignOrderSeparation(c,link.proposal_id,link.actor,String(r.m8Id));await c.query("UPDATE crm_opportunities SET status='won',version=version+1,updated_by=$2,updated_at=now() WHERE id=$1 AND status<>'won'",[p.opportunity_id,link.actor]);await c.query(`INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,'proposal_converted',$4::jsonb)`,[p.opportunity_id,link.proposal_id,link.actor,JSON.stringify({company:link.company_id,order:r.m8Id})]);}
  }
  });
  return {...r,linkId:link.id};
@@ -47,6 +49,10 @@ export async function beginConversion(raw:any,actor:string,deps=defaults){
  const sent=workflow.state==='sent'?(await c.query('SELECT document FROM crm_proposal_sent_revisions WHERE proposal_id=$1 AND revision=$2',[proposal,workflow.revision])).rows[0]:null;
  if(workflow.state==='sent'&&!sent)throw new CrmError('A versão enviada não está disponível para gerar a OS.');
  const draft=proposalDraft(sent?.document ?? p.document);
+ const confirmation=orderConfirmation(raw.confirmation,draft.payment);
+ const confirmationNotes=`Pedido aprovado por: ${confirmation.approver}\nCondição de pagamento confirmada: ${draft.commercial?.paymentName || draft.payment}${confirmation.notes ? '\nObservações adicionais do pedido: '+confirmation.notes : ''}`;
+ draft.internalNotes=[draft.internalNotes,confirmationNotes].filter(Boolean).join('\n\n');
+ if(draft.internalNotes.length>20000)throw new CrmError('As observações internas do pedido excedem 20.000 caracteres.');
  draft.flowStatus=proposalFlowStatus;
  if(!draft.origin)throw new CrmError('Preencha a Origem Atendimento antes de gerar a OS.');
  if(raw.orderType)draft.type=String(positive(raw.orderType));
@@ -55,9 +61,10 @@ export async function beginConversion(raw:any,actor:string,deps=defaults){
  const missing=missingProposalFields(draft,mapping.equipment_required !== false);
  if(missing.length)throw new CrmError('Preencha os campos obrigatórios: '+missing.map(key=>proposalFieldNames[key]).join(', ')+'.');
  if(mapping.equipment_required !== false && !draft.equipment)throw new CrmError('Preencha o equipamento antes de gerar a OS.');
+ await warehouseResponsible(c);
  const created=(await c.query('INSERT INTO crm_order_links(id,proposal_id,company_id,submission_id,document,actor) VALUES($1,$2,$3,$1,$4::jsonb,$5) RETURNING *',[id,proposal,draft.company,JSON.stringify(draft),actor])).rows[0];
  await c.query("UPDATE crm_proposals SET status='converting',version=version+1,updated_by=$2,updated_at=now() WHERE id=$1",[proposal,actor]);
- await c.query(`INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,'conversion_requested',$4::jsonb)`,[p.opportunity_id,proposal,actor,JSON.stringify({link:id,type:draft.type})]);
+ await c.query(`INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,'conversion_requested',$4::jsonb)`,[p.opportunity_id,proposal,actor,JSON.stringify({link:id,type:draft.type,confirmation})]);
  return {...created,proposal_equipment_optional:mapping.equipment_required === false};
  });
  try{return await recordResult(link,await deps.prepare(actor,link.submission_id,proposalOrderDraft(link.document),undefined,{proposalEquipmentOptional:link.proposal_equipment_optional}));}
@@ -79,6 +86,7 @@ export async function continueConversion(raw:any,actor:string,deps=defaults){
  if(workflow?.state==='in_review')throw new CrmError('Conclua a revisão da proposta antes de continuar a OS.');
  const prices=await (deps.prices||priceReview)(link.proposal_id,link.document.type);
  if(!prices.approved)throw new CrmError('Há itens abaixo do mínimo sem aprovação. Aprove os itens ou solicite a revisão da proposta antes de continuar a OS.');
+ await warehouseResponsible(database());
  if(raw.action==='retry'){
  if(raw.confirmed!==true)throw new CrmError('Confira o resultado no M8 antes de reenviar.');
  return recordResult(link,await deps.retry(actor,link.submission_id,raw.updatedAt,true));

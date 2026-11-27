@@ -921,3 +921,41 @@ body .crm-workspace nav.app-section-tabs {
 .crm-customer-profile-grid > label { display:grid; gap:6px; min-width:0; }
 .crm-customer-profile-notes { grid-column:1 / -1; }
 @media(max-width:640px) { .crm-customer-profile { padding:12px; } .crm-customer-profile-grid { grid-template-columns:minmax(0,1fr); } }
+
+.crm-order-type-dialog { max-height:calc(100dvh - 32px); overflow-y:auto; }
+.crm-order-confirmation-fields { display:grid; gap:16px; margin-top:18px; }
+.crm-order-confirmation-fields input:not([type=checkbox]),.crm-order-confirmation-fields textarea { width:100%; box-sizing:border-box; padding:10px; border:1px solid #cbdcec; border-radius:8px; font:inherit; }
+.crm-order-confirmation-fields textarea { resize:vertical; }
+.crm-order-confirmation-fields small { color:#71869e; }
+.crm-order-confirmation-fields .crm-order-payment-check { display:flex; align-items:flex-start; gap:8px; }
+.crm-order-payment-check input { flex-shrink:0; margin-top:4px; }
+
+.crm-sales-funnel { container-type:inline-size; }
+.crm-funnel-metrics-layout { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:24px 0; }
+.crm-sales-funnel .crm-funnel-metrics-layout .crm-funnel-chart { grid-column:1/-1; grid-row:1; margin:0 auto; }
+.crm-funnel-metric { display:flex; flex-direction:column; justify-content:center; gap:8px; padding:14px; border:0; background:transparent; min-width:0; }
+.crm-funnel-metric span { font-size:13px; font-weight:600; color:#365977; }
+.crm-funnel-metric strong { font-size:clamp(17px,2.5cqi,24px); color:#104c60; overflow-wrap:anywhere; }
+.crm-funnel-metric small { font-size:11px; line-height:1.5; color:#7289a2; }
+.crm-funnel-conversion { grid-column:1/-1; text-align:center; }
+.crm-funnel-conversion strong { font-size:30px; }
+@container(min-width:620px) {
+ .crm-funnel-metrics-layout { grid-template-columns:minmax(110px,1fr) minmax(0,3fr) minmax(150px,1.2fr); grid-template-rows:repeat(4,minmax(94px,auto)); gap:6px 12px; }
+ .crm-sales-funnel .crm-funnel-metrics-layout .crm-funnel-chart { grid-column:2; grid-row:1/5; width:100%; display:grid; grid-template-rows:subgrid; align-items:stretch; }
+ .crm-funnel-chart li { flex:1; display:flex; }
+ .crm-funnel-chart a { width:100%; }
+ .crm-funnel-conversion { grid-column:1; grid-row:3/5; align-self:center; padding:12px 8px; }
+ .crm-funnel-opportunity-value { grid-column:3; grid-row:3; }
+ .crm-funnel-sales-value { grid-column:3; grid-row:4; }
+ .crm-funnel-metric { padding:12px; }
+}
+
+.crm-funnel-connector,.crm-funnel-conversion-brace { display:none; pointer-events:none; }
+@container(min-width:620px) {
+ .crm-funnel-conversion-brace { display:block; grid-column:2; grid-row:3/5; width:30%; height:100%; min-height:0; align-self:stretch; z-index:1; overflow:visible; }
+ .crm-funnel-conversion-brace path { fill:none; stroke:#8ba9b8; stroke-width:1.5; vector-effect:non-scaling-stroke; }
+ .crm-funnel-connector { display:block; grid-column:2; align-self:center; justify-self:end; height:1px; background:#8ba9b8; width:calc(22% + 12px); margin-right:-12px; z-index:1; position:relative; }
+ .crm-funnel-connector::before { content:""; position:absolute; left:0; top:-2px; width:5px; height:5px; border-radius:50%; background:#8ba9b8; }
+ .crm-funnel-opportunity-connector { grid-row:3; }
+ .crm-funnel-sales-connector { grid-row:4; width:calc(30% + 12px); }
+}

@@ -1,3 +1,4 @@
+import {crmProcessMessage} from './crm-process-message';
 import {canViewTask} from "./privacy";
 import {crmReviewProposalPath} from './crm-review-link';
 import "server-only";
@@ -46,7 +47,7 @@ export async function claimNotifications(origin: string, reminderOnly = false, l
         token,
         number: n.phone,
         text: n.source_key?.startsWith('manual:crm-review:') && n.kind === 'assignment'
-          ? `📋 *Proposta para revisão*\n*TAR-${n.task_id} · ${n.title}*\n${(await c.query("SELECT description FROM web_task_notes WHERE task_id=$1 AND title='Solicitação de revisão' ORDER BY id LIMIT 1",[n.task_id])).rows[0]?.description || ''}\n\nTarefa: ${origin}/tarefas?task=${n.task_id}${crmReviewProposalPath(n.source_key)?`\nProposta: ${origin}${crmReviewProposalPath(n.source_key)}`:''}`
+          ? crmProcessMessage(n,origin,(await c.query("SELECT description FROM web_task_notes WHERE task_id=$1 AND title='Solicitação de revisão' ORDER BY id DESC LIMIT 1",[n.task_id])).rows[0]?.description || '')
           : n.task_type === 'approval'
           ? `📋 *${n.approval_state === 'pending' ? 'Solicitação de aprovação' : n.approval_state === 'approved' ? 'Solicitação aprovada — de acordo' : 'Solicitação reprovada'}*\n${n.approval_description}${n.approval_state !== 'pending' ? '\n\n'+n.approval_reason : ''}\n\n${n.approval_state === 'pending' ? 'Abra para aprovar ou reprovar' : 'Retornou para sua tratativa'}: ${origin}/tarefas?task=${n.task_id}${crmReviewProposalPath(n.source_key)?`\nProposta: ${origin}${crmReviewProposalPath(n.source_key)}`:''}`
           : n.kind === "reminder"

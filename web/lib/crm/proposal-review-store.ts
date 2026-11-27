@@ -1,6 +1,6 @@
 import {reviewItemPrices} from './item-price-approval';
 import 'server-only';
-import {randomUUID} from 'node:crypto';
+import {assignProposalTask,proposalSeller} from './process-task';
 import {database} from '../db';
 import {canOpenPath,userModules} from '../user-modules';
 import {CrmError,text,uuid,version} from './model';
@@ -33,15 +33,14 @@ export async function changeProposalReview(input:any, actor:string,checkPrices=r
   if(input.action==='reopen_proposal'){
    if(proposal.status!=='pending'||(await c.query("SELECT 1 FROM crm_order_links WHERE proposal_id=$1 AND state NOT IN ('complete','validation_failed')",[id])).rows.length)throw new CrmError('Não é possível voltar à criação com uma OS em andamento.');
    if(current.state==='in_review'&&!canEditProposalReview(row,actor)&&!await isReviewAdmin(c,actor))throw new CrmError('Somente o solicitante, o revisor ou um administrador pode interromper a revisão.');
-   await c.query("UPDATE crm_proposal_workflows SET state='creating',revision=$2,reviewer=NULL,review_requested_by=NULL,review_task_id=NULL,reviewed_by=NULL,reviewed_at=NULL,updated_at=now() WHERE proposal_id=$1",[id,next.revision]);
-   if(current.state==='in_review')await c.query("UPDATE web_tasks SET status='completed',source_status='Revisão interrompida: proposta voltou à criação',source_resolved=true,completed_at=now(),updated_by=$2,updated_at=now(),version=version+1 WHERE id=$1",[row.review_task_id,actor]);
+   await c.query("UPDATE crm_proposal_workflows SET state='creating',revision=$2,reviewer=NULL,review_requested_by=NULL,reviewed_by=NULL,reviewed_at=NULL,updated_at=now() WHERE proposal_id=$1",[id,next.revision]);
+   await c.query("UPDATE web_tasks SET status='completed',source_status='Revisão interrompida: proposta voltou à criação',source_resolved=true,completed_at=now(),updated_by=$2,updated_at=now(),version=version+1 WHERE id=$1",[row.review_task_id,actor]);
   } else if(input.action==='request_review'){
    const reviewer=text(input.reviewer,254,true).toLowerCase(), comment=text(input.comment??'',2000);
    const employee=(await c.query('SELECT * FROM web_user_access WHERE email=$1 AND enabled',[reviewer])).rows[0];
    if(!employee||!canOpenPath(userModules(employee),'/crm'))throw new CrmError('Selecione um funcionário ativo com acesso ao CRM.');
-   const task=(await c.query(`INSERT INTO web_tasks(source_key,cycle,origin,title,equipment_name,customer,source_status,priority,assigned_to,first_assigned_at,created_by,updated_by,followers) VALUES($1,$2,'CRM',$3,$4,$5,'Aguardando revisão','normal',$6,now(),$7,$7,$8::text[]) RETURNING id`,[`manual:crm-review:${id}:${randomUUID()}`,String(next.revision),`Revisar proposta PROP-${proposal.number} · Rev.${next.revision}`,proposal.names?.equipment||'',proposal.customer_name,reviewer,actor,reviewer===actor?[]:[actor]])).rows[0];
+   const task=await assignProposalTask(c,proposal,{...row,revision:next.revision},reviewer,actor,'Aguardando revisão',`Revisar proposta PROP-${proposal.number} · Rev.${next.revision}`,comment||'Revisão de proposta solicitada.');
    await c.query('INSERT INTO web_task_notes(task_id,title,description,automatic,created_by,created_name) VALUES($1,$2,$3,false,$4,coalesce((SELECT display_name FROM web_user_access WHERE email=$4),$4))',[task.id,'Solicitação de revisão',comment||'Revisão de proposta solicitada.',actor]);
-   await c.query('INSERT INTO web_task_notifications(task_id,task_version,recipient) VALUES($1,1,$2)',[task.id,reviewer]);
    await c.query("UPDATE crm_proposal_workflows SET state=$2,revision=$3,reviewer=$4,review_requested_by=$5,review_task_id=$6,reviewed_by=NULL,reviewed_at=NULL,updated_at=now() WHERE proposal_id=$1",[id,next.state,next.revision,reviewer,actor,task.id]);
   } else {
    if(current.state==='in_review'&&!canEditProposalReview(row,actor)&&!await isReviewAdmin(c,actor))throw new CrmError('Somente o solicitante, o revisor designado ou um administrador pode concluir esta revisão.');
@@ -49,7 +48,7 @@ export async function changeProposalReview(input:any, actor:string,checkPrices=r
    const pendingCount=prices.items.filter(i=>!i.approved).length;
    if(pendingCount&&(current.state==='creating'||input.allowUnapprovedPrices!==true)){await c.query('ROLLBACK');return {...current,needsPriceApprovalConfirmation:true,requiresPriceApproval:current.state==='creating',pendingCount,version:proposal.version};}
    await c.query("UPDATE crm_proposal_workflows SET state='reviewed',reviewed_by=$2,reviewed_at=now(),updated_at=now() WHERE proposal_id=$1",[id,actor]);
-   await c.query("UPDATE web_tasks SET status='completed',source_status='Revisão concluída',source_resolved=true,completed_at=now(),updated_by=$2,updated_at=now(),version=version+1 WHERE id=$1",[row.review_task_id,actor]);
+   await assignProposalTask(c,proposal,row,await proposalSeller(c,proposal.document),actor,'Proposta revisada',`Dar andamento à proposta PROP-${proposal.number} · Rev.${next.revision}`,'Proposta revisada. A responsabilidade pelo processo foi transferida ao vendedor para dar continuidade à venda.');
   }
   const updated=(await c.query('UPDATE crm_proposals SET version=version+1,updated_by=$2,updated_at=now() WHERE id=$1 RETURNING version',[id,actor])).rows[0];
   await c.query('INSERT INTO crm_events(opportunity_id,proposal_id,actor,action,details) VALUES($1,$2,$3,$4,$5::jsonb)',[proposal.opportunity_id,id,actor,input.action,JSON.stringify({revision:next.revision,reviewer:input.action==='request_review'?input.reviewer:actor})]);

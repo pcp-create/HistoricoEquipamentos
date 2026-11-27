@@ -1,3 +1,4 @@
+import {assignOrderSeparation,proposalSeller} from '../lib/crm/process-task';
 import {prepareExternalDelivery,confirmExternalDelivery} from '../lib/crm/proposal-external-delivery';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,8 +11,8 @@ test('proposal review creates one task and records who completed it',async()=>{
  const db=new PGlite(),g=globalThis as any,old=g.historyPool;
  try {
   await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated;
-   CREATE TABLE web_user_access(email text PRIMARY KEY,enabled boolean,role text,modules jsonb,display_name text);
-   INSERT INTO web_user_access VALUES ('solicitante',true,'user','["crm"]','Solicitante'),('revisor',true,'user','["crm"]','Revisor'),('admin',true,'admin','["crm"]','Administrador');
+   CREATE TABLE web_user_access(email text PRIMARY KEY,enabled boolean,role text,modules jsonb,display_name text,m8_employee_id bigint,phone text DEFAULT '5547999999999');
+   INSERT INTO web_user_access(email,enabled,role,modules,display_name,m8_employee_id) VALUES ('solicitante',true,'user','["crm"]','Solicitante',1),('revisor',true,'user','["crm"]','Revisor',2),('admin',true,'admin','["crm"]','Administrador',3);
    CREATE TABLE crm_opportunities(id uuid PRIMARY KEY,customer_name text,lead_id uuid,status text DEFAULT 'open',updated_at timestamptz,version integer DEFAULT 1);
    CREATE TABLE crm_proposals(id uuid PRIMARY KEY,opportunity_id uuid,number int,status text,version int,names jsonb,document jsonb,updated_by text,updated_at timestamptz,type_id bigint DEFAULT 1);
    CREATE TABLE crm_proposal_types(id bigint PRIMARY KEY); INSERT INTO crm_proposal_types VALUES(1);
@@ -22,9 +23,9 @@ test('proposal review creates one task and records who completed it',async()=>{
    CREATE TABLE m8_customer_directory(person_id bigint,company_id integer,document text,payload jsonb);
    CREATE TABLE m8_equipment_catalog(equipment_id bigint,name text,model text,serial text);
    CREATE TABLE m8_product_catalog(company_id integer,product_id bigint,payload jsonb);
-   CREATE TABLE web_tasks(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,source_key text,cycle text,origin text,title text,equipment_name text,customer text,source_status text,priority text,assigned_to text,first_assigned_at timestamptz,created_by text,updated_by text,followers text[],status text DEFAULT 'not_started',source_resolved boolean,completed_at timestamptz,updated_at timestamptz,version integer DEFAULT 1);
+   CREATE TABLE web_tasks(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,source_key text,cycle text,origin text,title text,equipment_name text,customer text,source_status text,priority text,assigned_to text,first_assigned_at timestamptz,created_by text,updated_by text,followers text[],status text DEFAULT 'not_started',kanban_column text,source_resolved boolean,completed_at timestamptz,updated_at timestamptz,version integer DEFAULT 1);
    CREATE TABLE web_task_notes(task_id bigint,title text,description text,automatic boolean,created_by text,created_name text);
-   CREATE TABLE web_task_notifications(task_id bigint,task_version int,recipient text);`);
+   CREATE TABLE web_task_notifications(task_id bigint,task_version int,recipient text,kind text,assignment_reason text);`);
   await db.exec(readFileSync(new URL('../sql/125_crm_proposal_review_workflow.sql',import.meta.url),'utf8'));
   await db.exec(readFileSync(new URL('../sql/128_crm_proposal_equipment_required.sql',import.meta.url),'utf8'));
   await db.exec(readFileSync(new URL('../sql/131_crm_proposal_external_delivery.sql',import.meta.url),'utf8'));
@@ -38,7 +39,7 @@ test('proposal review creates one task and records who completed it',async()=>{
   const tasks=(await query<any>('SELECT * FROM web_tasks')).rows;
   assert.equal(tasks.length,1);assert.equal(tasks[0].assigned_to,'revisor');assert.deepEqual(tasks[0].followers,['solicitante']);
   assert.equal((await query<any>('SELECT description FROM web_task_notes')).rows[0].description,'Confira os valores');
-  await query("UPDATE crm_proposals SET document=$2::jsonb WHERE id=$1",[id,JSON.stringify({company:'1',type:'4',customer:'10',equipment:'1',serviceType:'1',origin:'1',seller:'1',payment:'1',expected:'2026-11-25',delivery:'2026-11-26',situation:'1',flowStatus:'1',freight:'0',notes:'Observação'})]);
+  await query("UPDATE crm_proposals SET document=$2::jsonb WHERE id=$1",[id,JSON.stringify({company:'1',type:'4',customer:'10',equipment:'1',serviceType:'1',origin:'1',seller:'1',commercial:{sellerEmail:'solicitante'},payment:'1',expected:'2026-11-25',delivery:'2026-11-26',situation:'1',flowStatus:'1',freight:'0',notes:'Observação'})]);
   await query("UPDATE crm_proposals SET document=jsonb_set(document,'{origin}',to_jsonb(''::text)) WHERE id=$1",[id]);
   await assert.rejects(()=>changeProposalReview({id,version:2,action:'complete_review'},'revisor'),/Origem Atendimento/);
   await query("UPDATE crm_proposals SET document=jsonb_set(document,'{origin}',to_jsonb('1'::text)) WHERE id=$1",[id]);
@@ -60,7 +61,9 @@ test('proposal review creates one task and records who completed it',async()=>{
   assert.equal(completed.state,'reviewed');
   const workflow=(await query<any>('SELECT * FROM crm_proposal_workflows')).rows[0];
   assert.equal(workflow.reviewed_by,'solicitante');assert.ok(workflow.reviewed_at);
-  assert.equal((await query<any>('SELECT status FROM web_tasks')).rows[0].status,'completed');
+  assert.equal((await query<any>('SELECT status FROM web_tasks')).rows[0].status,'not_started');
+  assert.equal((await query<any>('SELECT assigned_to FROM web_tasks')).rows[0].assigned_to,'solicitante');
+  assert.equal((await query<any>('SELECT count(*)::int n FROM web_tasks')).rows[0].n,1);
   const proposal:any={id,number:1,version:3,company_id:1,opportunity_id:op,title:'Proposta',names:{},workflow:{state:'reviewed',revision:0},document:{company:'1',customer:'10',equipment:'',items:[]}};
   const deps:any={get:async()=>structuredClone(proposal),render:async()=>new Uint8Array([1,2,3]),taxes:async(x:any)=>x};
   const input={id,version:3,accessToken:'token',to:'cliente@example.com',subject:'Proposta',body:'Segue a proposta.'};
@@ -122,8 +125,18 @@ test('proposal review creates one task and records who completed it',async()=>{
 
   assert.equal((await query<any>('SELECT reviewed_by FROM crm_proposal_workflows WHERE proposal_id=$1',[id])).rows[0].reviewed_by,'solicitante');
 
-  assert.equal((await query<any>("SELECT count(*)::int n FROM web_tasks WHERE source_resolved IS NOT TRUE")).rows[0].n,0);
+  assert.equal((await query<any>("SELECT count(*)::int n FROM web_tasks WHERE source_resolved IS NOT TRUE")).rows[0].n,1);
 
+  await assert.rejects(proposalSeller({query} as any,{}),/vendedor responsável/);
+  await query("INSERT INTO web_user_access(email,enabled,display_name) VALUES('paulo@rjcompressores.com.br',true,'Paulo Duwe')");
+  await assignOrderSeparation({query} as any,id,'solicitante','123');
+  const handedOff=(await query<any>('SELECT * FROM web_tasks')).rows;
+  assert.equal(handedOff.length,1);
+  assert.equal(handedOff[0].id,tasks[0].id);
+  assert.equal(handedOff[0].assigned_to,'paulo@rjcompressores.com.br');
+  assert.equal(handedOff[0].status,'not_started');
+  assert.equal(handedOff[0].source_status,'Aguardando separação de peças');
+  assert.equal((await query<any>('SELECT recipient FROM web_task_notifications ORDER BY task_version DESC LIMIT 1')).rows[0].recipient,'paulo@rjcompressores.com.br');
   const cancelVersion=(await query<any>('SELECT version FROM crm_proposals WHERE id=$1',[id])).rows[0].version;
   await assert.rejects(cancelProposal({id,version:cancelVersion-1},'solicitante'),/alterada/);
   await query("INSERT INTO crm_order_links(proposal_id,order_id,state) VALUES($1,123,'complete')",[id]);

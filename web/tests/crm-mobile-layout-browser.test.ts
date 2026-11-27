@@ -13,7 +13,7 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
    a.path==="next/navigation"?'export const useSearchParams=()=>new URLSearchParams(window.location.search);export const useRouter=()=>({push(){}});':
    a.path==="next/link"?'import React from "react";export default function Link({children,...p}){return <a {...p}>{children}</a>}':
    a.path==="./session-access"?'export const useSessionAccess=()=>({visitManager:false});':
-   a.path==="./crm-api"?'export const crmStatus=s=>s;export const crmMoney=v=>String(v);export const crmDate=v=>String(v);export async function crmApi(q){window.queries.push(q);if(q.includes("proposalEmailSettings"))return null;if(q.includes("overview"))return {conversion:0};if(q.includes("catalogs"))return {};if(q.includes("kind=proposals"))return {rows:[{id:"proposal-test",number:8,title:"Proposta teste",status:"creating",total_cents:12000,customer_name:"Cliente teste",opportunity_number:4}],total:1};return {rows:[],total:0};}':
+   a.path==="./crm-api"?'export const crmStatus=s=>s;export const crmMoney=v=>String(v);export const crmDate=v=>String(v);export async function crmApi(q){window.queries.push(q);if(q.includes("proposalEmailSettings"))return null;if(q.includes("overview"))return {conversion:22.2,opportunities:9,converted:2,leads:70,visits:{completed:125},opportunity_value:120000,sales_value:30000,opportunities_without_value:1};if(q.includes("catalogs"))return {};if(q.includes("kind=proposals"))return {rows:[{id:"proposal-test",number:8,title:"Proposta teste",status:"creating",total_cents:12000,customer_name:"Cliente teste",opportunity_number:4}],total:1};return {rows:[],total:0};}':
    'export default function Stub(){return null;}'}));
  }};
  const js=await build({stdin:{contents:'import React from "react";import {createRoot} from "react-dom/client";import Crm from "./components/crm";window.queries=[];createRoot(document.getElementById("root")).render(<Crm/>);',resolveDir:process.cwd(),loader:"tsx"},plugins:[mocks],bundle:true,write:false,jsx:"automatic",loader:{".css":"empty"}});
@@ -76,6 +76,20 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
    assert.equal(await page.getByRole("button",{name:/^Filtros/}).count(),0);
    assert.equal(await page.getByRole("textbox",{name:"Pesquisar",exact:true}).isVisible(),true);
    assert.equal(await page.getByRole("button",{name:"Pesquisar",exact:true}).isVisible(),true);
+  }
+  await page.getByRole("button",{name:"Visão geral",exact:true}).click();
+  await page.locator('.crm-funnel-sales-value strong').waitFor();
+  assert.match(await page.locator('.crm-funnel-sales-value strong').innerText(),/30.000,00/);
+  for(const width of [390,1440]){
+   await page.setViewportSize({width,height:1000});
+   const positions:any=await page.evaluate(`(()=>{
+    const box=(selector)=>{const r=document.querySelector(selector).getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom};};
+    return {chart:box('.crm-funnel-chart'),conversion:box('.crm-funnel-conversion'),value:box('.crm-funnel-opportunity-value'),scroll:document.documentElement.scrollWidth};
+   })()`);
+   assert.ok(positions.scroll<=width,'no horizontal page overflow');
+   if(width===1440){assert.ok(positions.value.x>=positions.chart.right);assert.ok(positions.conversion.right<=positions.chart.x);}
+   else assert.ok(positions.value.y>=positions.chart.bottom);
+   await page.screenshot({path:`/tmp/crm-funnel-${width}.png`,fullPage:true});
   }
  } finally {await browser.close();}
 });
