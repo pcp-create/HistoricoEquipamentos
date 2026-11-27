@@ -30,7 +30,7 @@ const opportunityStageSinceSql=`COALESCE(
  (SELECT max(e.created_at) FROM crm_events e WHERE e.opportunity_id=o.id AND e.action='opportunity_updated'
  AND (${opportunityAuditStage('before')}) IS DISTINCT FROM (${opportunityAuditStage('after')})),o.created_at)`;
 export async function crmOverview(){
- const r=(await database().query(`SELECT (SELECT count(*)::int FROM web_sales_leads) leads,(SELECT count(DISTINCT person_id)::int FROM m8_customer_directory) customers,(SELECT count(*)::int FROM crm_opportunities) opportunities,(SELECT count(*)::int FROM crm_proposals) proposals,
+ const r=(await database().query(`SELECT (SELECT count(*)::int FROM web_sales_leads) leads,(SELECT count(DISTINCT person_id)::int FROM m8_customer_directory) customers,(SELECT count(*)::int FROM crm_opportunities) opportunities,(SELECT count(*)::int FROM crm_proposals WHERE status<>'cancelled') proposals,(SELECT count(*)::int FROM crm_proposals WHERE status='cancelled') cancelled_proposals,
  (SELECT count(*)::int FROM crm_order_links WHERE order_id IS NOT NULL) orders,
  (SELECT count(DISTINCT p.opportunity_id)::int FROM crm_order_links l JOIN crm_proposals p ON p.id=l.proposal_id WHERE l.order_id IS NOT NULL) converted,
  (SELECT coalesce(sum(${opportunityValueSql}),0) FROM crm_opportunities o) opportunity_value,

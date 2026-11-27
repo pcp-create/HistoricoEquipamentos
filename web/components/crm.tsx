@@ -213,7 +213,7 @@ export default function Crm() {
   const stats = [
     ["Clientes", overview?.customers, Building2, "Clientes únicos na base M8", "customers"],
     ["Oportunidades", overview?.opportunities, Target, "Registradas no CRM", "opportunities"],
-    ["Propostas", overview?.proposals, FileText, "Propostas comerciais locais", "proposals"],
+    ["Propostas", overview?.proposals, FileText, overview ? `${overview.proposals.toLocaleString("pt-BR")} ${overview.proposals === 1 ? "proposta" : "propostas"}${overview.cancelled_proposals ? ` + ${overview.cancelled_proposals.toLocaleString("pt-BR")} ${overview.cancelled_proposals === 1 ? "cancelada" : "canceladas"}` : ""}` : "Propostas comerciais locais", "proposals"],
     [
       "Pedidos de Venda (OSs)",
       overview?.orders,
@@ -316,7 +316,14 @@ export default function Crm() {
                   ["Vendas", overview?.converted, "/crm?tab=orders"],
                 ].map(([label, count, href]) => (
                   <li key={label}>
-                    <Link href={href}>
+                    <Link href={href} onClick={event => {
+                      if (!href.startsWith("/crm?") || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                      const target = new URLSearchParams(href.split("?")[1]).get("tab");
+                      if (target) {
+                        event.preventDefault();
+                        selectTab(target);
+                      }
+                    }}>
                       <span>{label}</span>
                       <strong>{count === undefined ? "—" : Number(count).toLocaleString("pt-BR")}</strong>
                     </Link>

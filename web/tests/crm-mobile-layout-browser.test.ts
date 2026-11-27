@@ -14,7 +14,7 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
    a.path==="next/navigation"?'export const useSearchParams=()=>new URLSearchParams(window.location.search);export const useRouter=()=>({push(){}});':
    a.path==="next/link"?'import React from "react";export default function Link({children,...p}){return <a {...p}>{children}</a>}':
    a.path==="./session-access"?'export const useSessionAccess=()=>({visitManager:false});':
-   a.path==="./crm-api"?'export const crmStatus=s=>s;export const crmMoney=v=>String(v);export const crmDate=v=>String(v);export async function crmApi(q){window.queries.push(q);if(q.includes("proposalEmailSettings"))return null;if(q.includes("overview"))return {conversion:22.2,opportunities:9,converted:2,leads:70,visits:{completed:125},opportunity_value:120000,sales_value:30000,opportunities_without_value:1};if(q.includes("catalogs"))return {opportunityTypes:[],proposalTypes:[]};if(q.includes("opportunity=")){if(q.includes("slow"))await new Promise(r=>setTimeout(r,700));return {id:"op-nine",number:9,title:"Oportunidade nove",status:"open",company_id:1,effective_amount:"315600.000000000000",proposals:[{id:"p9",number:9,title:"Teste",status:"creating",total_cents:31560000}],history:[]};}if(q.includes("kind=opportunities"))return {rows:[{id:"op-nine",number:9,title:"Oportunidade nove",status:"open",customer_name:"Cliente da oportunidade",commercial:{stage:"prospecting"}}],total:1};if(q.includes("kind=proposals"))return {rows:[{id:"proposal-test",number:8,title:"Proposta teste",status:"creating",created_at:new Date(Date.now()-10*86400000).toISOString(),stage_since:new Date(Date.now()-2*86400000).toISOString(),total_cents:12000,customer_name:"Cliente teste",opportunity_number:4}],total:1};return {rows:[],total:0};}':
+   a.path==="./crm-api"?'export const crmStatus=s=>s;export const crmMoney=v=>String(v);export const crmDate=v=>String(v);export async function crmApi(q){window.queries.push(q);if(q.includes("proposalEmailSettings"))return null;if(q.includes("overview"))return {proposals:11,cancelled_proposals:1,conversion:22.2,opportunities:9,converted:2,leads:70,visits:{completed:125},opportunity_value:120000,sales_value:30000,opportunities_without_value:1};if(q.includes("catalogs"))return {opportunityTypes:[],proposalTypes:[]};if(q.includes("opportunity=")){if(q.includes("slow"))await new Promise(r=>setTimeout(r,700));return {id:"op-nine",number:9,title:"Oportunidade nove",status:"open",company_id:1,effective_amount:"315600.000000000000",proposals:[{id:"p9",number:9,title:"Teste",status:"creating",total_cents:31560000}],history:[]};}if(q.includes("kind=opportunities"))return {rows:[{id:"op-nine",number:9,title:"Oportunidade nove",status:"open",customer_name:"Cliente da oportunidade",commercial:{stage:"prospecting"}}],total:1};if(q.includes("kind=proposals"))return {rows:[{id:"proposal-test",number:8,title:"Proposta teste",status:"creating",created_at:new Date(Date.now()-10*86400000).toISOString(),stage_since:new Date(Date.now()-2*86400000).toISOString(),total_cents:12000,customer_name:"Cliente teste",opportunity_number:4}],total:1};return {rows:[],total:0};}':
    'export default function Stub(){return null;}'}));
  }};
  const js=await build({stdin:{contents:'import React from "react";import {createRoot} from "react-dom/client";import Crm from "./components/crm";window.queries=[];createRoot(document.getElementById("root")).render(<Crm/>);',resolveDir:process.cwd(),loader:"tsx"},plugins:[mocks],bundle:true,write:false,jsx:"automatic",loader:{".css":"empty"}});
@@ -127,6 +127,7 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
   await page.waitForFunction(()=>(window as any).queries.some((q:string)=>{const p=new URLSearchParams(q);return p.get('kind')==='leads'&&p.get('q')==='Somente leads';}));
   await page.getByRole("button",{name:"Visão geral",exact:true}).click();
   await page.locator('.crm-funnel-sales-value strong').waitFor();
+  await page.getByText('11 propostas + 1 cancelada',{exact:true}).waitFor();
   assert.match(await page.locator('.crm-funnel-sales-value strong').innerText(),/30.000,00/);
   for(const width of [390,1440]){
    await page.setViewportSize({width,height:1000});
@@ -138,6 +139,13 @@ test("mobile CRM keeps search and views compact and expands status on demand",as
    if(width===1440){assert.ok(positions.value.x>=positions.chart.right);assert.ok(positions.conversion.right<=positions.chart.x);}
    else assert.ok(positions.value.y>=positions.chart.bottom);
    await page.screenshot({path:`/tmp/crm-funnel-${width}.png`,fullPage:true});
+  }
+  // Funnel links must change local CRM tabs without requiring a page reload.
+  for (const [label, heading] of [['Oportunidades','Oportunidades'],['Vendas','Pedidos (OSs)'],['Leads','Leads']]) {
+   await page.locator('.crm-funnel-chart').getByRole('link',{name:new RegExp(label)}).click();
+   await page.getByRole('heading',{name:heading,exact:true}).waitFor();
+   assert.equal(await page.locator('.crm-funnel-chart').count(),0);
+   await page.getByRole('button',{name:'Visão geral',exact:true}).click();
   }
   // A proposal deep link opens once and must not survive switching CRM tabs.
   await page.goto("http://crm.test/?tab=opportunities&opportunity=op-nine");

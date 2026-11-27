@@ -125,6 +125,12 @@ test('CRM persists local opportunities and proposals and safely links conversion
  assert.equal(Number((await crmOverview()).sales_value),18.9); // same proposal is counted only once
  await db.query('DELETE FROM crm_order_links WHERE id=$1',[duplicateLink]);
  let overview=await crmOverview();assert.equal(overview.opportunities,1);assert.equal(overview.proposals,2);assert.equal(overview.orders,1);assert.equal(overview.conversion,100);
+ assert.equal(overview.cancelled_proposals,0);
+ const previousStatus=(await db.query<any>('SELECT status FROM crm_proposals WHERE id=$1',[p.id])).rows[0].status;
+ await db.query("UPDATE crm_proposals SET status='cancelled' WHERE id=$1",[p.id]);
+ const withCancelled=await crmOverview();
+ assert.equal(withCancelled.proposals,1);assert.equal(withCancelled.cancelled_proposals,1);
+ await db.query('UPDATE crm_proposals SET status=$2 WHERE id=$1',[p.id,previousStatus]);
  const nextOpportunity=await saveOpportunity({id:randomUUID(),typeId:man.id,customerId:10,company:1,title:'Outra oportunidade'},'planner');
  const nextProposal=await createProposal({id:randomUUID(),opportunityId:nextOpportunity.id,typeId:mca.id,title:'Corretiva'},'planner');
  const s=await saveProposal({id:nextProposal.id,version:nextProposal.version,draft:{...emptyDraft(),company:'1',customer:'10',type:'2',origin:'1',seller:'21',equipment:'1',serviceType:'1',payment:'1',expected:'2026-11-25',delivery:'2026-11-26',situation:'1',freight:'0',notes:'Observação',}},'planner');
